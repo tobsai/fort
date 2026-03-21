@@ -1,0 +1,27 @@
+{
+  "id": "cli/tasks",
+  "title": "fort tasks",
+  "description": "Inspect the task graph. Every operation in Fort creates a task, making this the primary audit trail.",
+  "source": "@site/docs/cli/tasks.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/tasks",
+  "permalink": "/cli/tasks",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "sidebar_position": 5,
+    "title": "fort tasks"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort agents",
+    "permalink": "/cli/agents"
+  },
+  "next": {
+    "title": "fort threads",
+    "permalink": "/cli/threads"
+  }
+}

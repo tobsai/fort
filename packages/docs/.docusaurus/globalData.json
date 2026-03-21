@@ -1,0 +1,243 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/",
+          "mainDocId": "intro",
+          "docs": [
+            {
+              "id": "architecture/ipc",
+              "path": "/architecture/ipc",
+              "sidebar": "docs"
+            },
+            {
+              "id": "architecture/module-bus",
+              "path": "/architecture/module-bus",
+              "sidebar": "docs"
+            },
+            {
+              "id": "architecture/overview",
+              "path": "/architecture/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "architecture/task-graph",
+              "path": "/architecture/task-graph",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/agents",
+              "path": "/cli/agents",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/behaviors",
+              "path": "/cli/behaviors",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/doctor",
+              "path": "/cli/doctor",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/flags",
+              "path": "/cli/flags",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/harness",
+              "path": "/cli/harness",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/index",
+              "path": "/cli",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/introspect",
+              "path": "/cli/introspect",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/llm",
+              "path": "/cli/llm",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/memory",
+              "path": "/cli/memory",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/plugins",
+              "path": "/cli/plugins",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/rewind",
+              "path": "/cli/rewind",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/routines",
+              "path": "/cli/routines",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/schedule",
+              "path": "/cli/schedule",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/status",
+              "path": "/cli/status",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/tasks",
+              "path": "/cli/tasks",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/threads",
+              "path": "/cli/threads",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/tokens",
+              "path": "/cli/tokens",
+              "sidebar": "docs"
+            },
+            {
+              "id": "cli/tools",
+              "path": "/cli/tools",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/authentication",
+              "path": "/getting-started/authentication",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/first-steps",
+              "path": "/getting-started/first-steps",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/installation",
+              "path": "/getting-started/installation",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/agents",
+              "path": "/guides/agents",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/behaviors",
+              "path": "/guides/behaviors",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/feature-flags",
+              "path": "/guides/feature-flags",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/flows",
+              "path": "/guides/flows",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/integrations",
+              "path": "/guides/integrations",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/introspection",
+              "path": "/guides/introspection",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/llm",
+              "path": "/guides/llm",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/macos-native",
+              "path": "/guides/macos-native",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/memory",
+              "path": "/guides/memory",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/permissions",
+              "path": "/guides/permissions",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/plugins",
+              "path": "/guides/plugins",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/rewind",
+              "path": "/guides/rewind",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/routines",
+              "path": "/guides/routines",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/self-coding",
+              "path": "/guides/self-coding",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/threads",
+              "path": "/guides/threads",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/tokens-and-budgets",
+              "path": "/guides/tokens-and-budgets",
+              "sidebar": "docs"
+            },
+            {
+              "id": "guides/tools",
+              "path": "/guides/tools",
+              "sidebar": "docs"
+            },
+            {
+              "id": "intro",
+              "path": "/",
+              "sidebar": "docs"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "docs": {
+              "link": {
+                "path": "/",
+                "label": "intro"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

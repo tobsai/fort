@@ -1,0 +1,28 @@
+{
+  "id": "guides/integrations",
+  "title": "Integrations",
+  "description": "Gmail, Calendar, iMessage, Brave Search, and Browser integrations",
+  "source": "@site/docs/guides/integrations.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/integrations",
+  "permalink": "/guides/integrations",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 16,
+  "frontMatter": {
+    "sidebar_position": 16,
+    "title": "Integrations",
+    "description": "Gmail, Calendar, iMessage, Brave Search, and Browser integrations"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Introspection",
+    "permalink": "/guides/introspection"
+  },
+  "next": {
+    "title": "macOS Native",
+    "permalink": "/guides/macos-native"
+  }
+}

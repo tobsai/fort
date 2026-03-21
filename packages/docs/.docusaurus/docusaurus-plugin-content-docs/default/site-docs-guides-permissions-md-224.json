@@ -1,0 +1,28 @@
+{
+  "id": "guides/permissions",
+  "title": "Permissions",
+  "description": "Tiered action model for controlling what Fort can do autonomously",
+  "source": "@site/docs/guides/permissions.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/permissions",
+  "permalink": "/guides/permissions",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "sidebar_position": 10,
+    "title": "Permissions",
+    "description": "Tiered action model for controlling what Fort can do autonomously"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Tools",
+    "permalink": "/guides/tools"
+  },
+  "next": {
+    "title": "Feature Flags",
+    "permalink": "/guides/feature-flags"
+  }
+}

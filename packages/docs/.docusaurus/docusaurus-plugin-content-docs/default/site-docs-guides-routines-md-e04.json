@@ -1,0 +1,27 @@
+{
+  "id": "guides/routines",
+  "title": "Routines",
+  "description": "Routines are scheduled tasks that run automatically on a cron schedule. They are the backbone of Fort's proactive behavior — morning summaries, inbox triage, end-of-day reviews, and periodic maintenance all run as routines.",
+  "source": "@site/docs/guides/routines.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/routines",
+  "permalink": "/guides/routines",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 6,
+  "frontMatter": {
+    "sidebar_position": 6,
+    "title": "Routines"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Behaviors",
+    "permalink": "/guides/behaviors"
+  },
+  "next": {
+    "title": "Flows",
+    "permalink": "/guides/flows"
+  }
+}

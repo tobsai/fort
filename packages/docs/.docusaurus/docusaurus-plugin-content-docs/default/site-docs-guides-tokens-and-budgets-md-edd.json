@@ -1,0 +1,27 @@
+{
+  "id": "guides/tokens-and-budgets",
+  "title": "Tokens & Budgets",
+  "description": "Fort tracks every token consumed across all LLM calls and provides budget controls to prevent runaway costs. Token data is stored in SQLite alongside the rest of Fort's operational data.",
+  "source": "@site/docs/guides/tokens-and-budgets.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/tokens-and-budgets",
+  "permalink": "/guides/tokens-and-budgets",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 8,
+  "frontMatter": {
+    "sidebar_position": 8,
+    "title": "Tokens & Budgets"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Flows",
+    "permalink": "/guides/flows"
+  },
+  "next": {
+    "title": "Tools",
+    "permalink": "/guides/tools"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "guides/behaviors",
+  "title": "Behaviors",
+  "description": "Behaviors are rules injected into LLM prompts to shape how Fort's agents respond. They act as persistent instructions — once set, a behavior applies automatically whenever its context matches.",
+  "source": "@site/docs/guides/behaviors.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/behaviors",
+  "permalink": "/guides/behaviors",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "sidebar_position": 5,
+    "title": "Behaviors"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Threads",
+    "permalink": "/guides/threads"
+  },
+  "next": {
+    "title": "Routines",
+    "permalink": "/guides/routines"
+  }
+}

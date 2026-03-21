@@ -1,0 +1,27 @@
+{
+  "id": "cli/schedule",
+  "title": "fort schedule",
+  "description": "View all scheduled routines and event triggers in one place.",
+  "source": "@site/docs/cli/schedule.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/schedule",
+  "permalink": "/cli/schedule",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 12,
+  "frontMatter": {
+    "sidebar_position": 12,
+    "title": "fort schedule"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort routines",
+    "permalink": "/cli/routines"
+  },
+  "next": {
+    "title": "fort flags",
+    "permalink": "/cli/flags"
+  }
+}

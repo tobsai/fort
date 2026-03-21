@@ -1,0 +1,27 @@
+{
+  "id": "cli/tokens",
+  "title": "fort tokens",
+  "description": "Monitor token usage across agents and models, and configure spending budgets.",
+  "source": "@site/docs/cli/tokens.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/tokens",
+  "permalink": "/cli/tokens",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 9,
+  "frontMatter": {
+    "sidebar_position": 9,
+    "title": "fort tokens"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort tools",
+    "permalink": "/cli/tools"
+  },
+  "next": {
+    "title": "fort behaviors",
+    "permalink": "/cli/behaviors"
+  }
+}

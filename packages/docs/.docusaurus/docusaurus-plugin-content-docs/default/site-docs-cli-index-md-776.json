@@ -1,0 +1,28 @@
+{
+  "id": "cli/index",
+  "title": "CLI Reference",
+  "description": "The Fort CLI is the primary interface for managing your Fort agent platform.",
+  "source": "@site/docs/cli/index.md",
+  "sourceDirName": "cli",
+  "slug": "/cli",
+  "permalink": "/cli",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 0,
+  "frontMatter": {
+    "sidebar_position": 0,
+    "slug": "/cli",
+    "title": "CLI Reference"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "macOS Native",
+    "permalink": "/guides/macos-native"
+  },
+  "next": {
+    "title": "fort doctor",
+    "permalink": "/cli/doctor"
+  }
+}

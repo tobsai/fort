@@ -1,0 +1,28 @@
+{
+  "id": "guides/rewind",
+  "title": "Rewind",
+  "description": "Snapshot-based backup and restore for Fort state",
+  "source": "@site/docs/guides/rewind.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/rewind",
+  "permalink": "/guides/rewind",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 14,
+  "frontMatter": {
+    "sidebar_position": 14,
+    "title": "Rewind",
+    "description": "Snapshot-based backup and restore for Fort state"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Self-Coding",
+    "permalink": "/guides/self-coding"
+  },
+  "next": {
+    "title": "Introspection",
+    "permalink": "/guides/introspection"
+  }
+}

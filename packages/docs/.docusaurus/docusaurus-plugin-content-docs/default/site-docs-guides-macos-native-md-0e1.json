@@ -1,0 +1,28 @@
+{
+  "id": "guides/macos-native",
+  "title": "macOS Native",
+  "description": "Swift menu bar app, native notifications, and macOS system integration",
+  "source": "@site/docs/guides/macos-native.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/macos-native",
+  "permalink": "/guides/macos-native",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 17,
+  "frontMatter": {
+    "sidebar_position": 17,
+    "title": "macOS Native",
+    "description": "Swift menu bar app, native notifications, and macOS system integration"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Integrations",
+    "permalink": "/guides/integrations"
+  },
+  "next": {
+    "title": "CLI Reference",
+    "permalink": "/cli"
+  }
+}

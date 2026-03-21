@@ -1,0 +1,27 @@
+{
+  "id": "architecture/task-graph",
+  "title": "TaskGraph",
+  "description": "The core invariant of Fort: every conversation creates a task. Tasks are the atomic unit of transparency. If Fort is doing work, there is a task tracking it. If there is no task, no work is happening.",
+  "source": "@site/docs/architecture/task-graph.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/task-graph",
+  "permalink": "/architecture/task-graph",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "title": "TaskGraph"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "ModuleBus",
+    "permalink": "/architecture/module-bus"
+  },
+  "next": {
+    "title": "WebSocket IPC",
+    "permalink": "/architecture/ipc"
+  }
+}

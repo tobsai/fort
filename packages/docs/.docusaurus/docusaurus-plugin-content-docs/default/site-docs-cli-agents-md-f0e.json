@@ -1,0 +1,27 @@
+{
+  "id": "cli/agents",
+  "title": "fort agents",
+  "description": "Manage core and specialist agents in the agent registry.",
+  "source": "@site/docs/cli/agents.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/agents",
+  "permalink": "/cli/agents",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "title": "fort agents"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort llm",
+    "permalink": "/cli/llm"
+  },
+  "next": {
+    "title": "fort tasks",
+    "permalink": "/cli/tasks"
+  }
+}

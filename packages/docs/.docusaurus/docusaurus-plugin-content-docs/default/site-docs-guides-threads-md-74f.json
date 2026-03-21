@@ -1,0 +1,27 @@
+{
+  "id": "guides/threads",
+  "title": "Threads",
+  "description": "Threads are Fort's conversation primitive. Every interaction — whether a quick question or a multi-day project — lives in a thread. Threads are backed by the TaskGraph, giving full traceability from conversation to execution.",
+  "source": "@site/docs/guides/threads.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/threads",
+  "permalink": "/guides/threads",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "title": "Threads"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Memory",
+    "permalink": "/guides/memory"
+  },
+  "next": {
+    "title": "Behaviors",
+    "permalink": "/guides/behaviors"
+  }
+}

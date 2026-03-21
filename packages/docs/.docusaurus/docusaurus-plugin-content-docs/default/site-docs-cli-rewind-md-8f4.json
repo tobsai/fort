@@ -1,0 +1,27 @@
+{
+  "id": "cli/rewind",
+  "title": "fort rewind",
+  "description": "Snapshot and restore system state. Rewind captures configuration, memory, and module state so you can safely experiment and roll back.",
+  "source": "@site/docs/cli/rewind.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/rewind",
+  "permalink": "/cli/rewind",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 16,
+  "frontMatter": {
+    "sidebar_position": 16,
+    "title": "fort rewind"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort harness",
+    "permalink": "/cli/harness"
+  },
+  "next": {
+    "title": "fort introspect",
+    "permalink": "/cli/introspect"
+  }
+}

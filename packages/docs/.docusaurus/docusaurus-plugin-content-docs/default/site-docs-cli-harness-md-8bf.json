@@ -1,0 +1,27 @@
+{
+  "id": "cli/harness",
+  "title": "fort harness",
+  "description": "Run goal-driven self-improvement cycles. The harness proposes changes, runs them through approval, and manages rollback if needed.",
+  "source": "@site/docs/cli/harness.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/harness",
+  "permalink": "/cli/harness",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 15,
+  "frontMatter": {
+    "sidebar_position": 15,
+    "title": "fort harness"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort plugins",
+    "permalink": "/cli/plugins"
+  },
+  "next": {
+    "title": "fort rewind",
+    "permalink": "/cli/rewind"
+  }
+}

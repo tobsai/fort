@@ -1,0 +1,27 @@
+{
+  "id": "guides/tools",
+  "title": "Tools",
+  "description": "The Tool Registry is Fort's mechanism for enforcing reuse-before-build. Every capability — sending email, running tests, searching code — is a registered tool. Before building anything new, agents and developers must search the registry to check if an existing tool handles the need.",
+  "source": "@site/docs/guides/tools.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/tools",
+  "permalink": "/guides/tools",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 9,
+  "frontMatter": {
+    "sidebar_position": 9,
+    "title": "Tools"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Tokens & Budgets",
+    "permalink": "/guides/tokens-and-budgets"
+  },
+  "next": {
+    "title": "Permissions",
+    "permalink": "/guides/permissions"
+  }
+}

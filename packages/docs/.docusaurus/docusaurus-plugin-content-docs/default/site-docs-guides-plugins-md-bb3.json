@@ -1,0 +1,28 @@
+{
+  "id": "guides/plugins",
+  "title": "Plugins",
+  "description": "Plugin system with security scanning and sandboxed execution",
+  "source": "@site/docs/guides/plugins.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/plugins",
+  "permalink": "/guides/plugins",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 12,
+  "frontMatter": {
+    "sidebar_position": 12,
+    "title": "Plugins",
+    "description": "Plugin system with security scanning and sandboxed execution"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Feature Flags",
+    "permalink": "/guides/feature-flags"
+  },
+  "next": {
+    "title": "Self-Coding",
+    "permalink": "/guides/self-coding"
+  }
+}

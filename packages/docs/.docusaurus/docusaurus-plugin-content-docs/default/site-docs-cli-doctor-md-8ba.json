@@ -1,0 +1,27 @@
+{
+  "id": "cli/doctor",
+  "title": "fort doctor",
+  "description": "Run health checks across all Fort modules and report their status.",
+  "source": "@site/docs/cli/doctor.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/doctor",
+  "permalink": "/cli/doctor",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "fort doctor"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "CLI Reference",
+    "permalink": "/cli"
+  },
+  "next": {
+    "title": "fort status",
+    "permalink": "/cli/status"
+  }
+}

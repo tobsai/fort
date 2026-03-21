@@ -1,0 +1,28 @@
+{
+  "id": "guides/introspection",
+  "title": "Introspection",
+  "description": "Machine-readable system documentation and diagnostics",
+  "source": "@site/docs/guides/introspection.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/introspection",
+  "permalink": "/guides/introspection",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 15,
+  "frontMatter": {
+    "sidebar_position": 15,
+    "title": "Introspection",
+    "description": "Machine-readable system documentation and diagnostics"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Rewind",
+    "permalink": "/guides/rewind"
+  },
+  "next": {
+    "title": "Integrations",
+    "permalink": "/guides/integrations"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "cli/introspect",
+  "title": "fort introspect",
+  "description": "Inspect Fort's internal module graph, capabilities, and event system. Useful for debugging and understanding system structure.",
+  "source": "@site/docs/cli/introspect.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/introspect",
+  "permalink": "/cli/introspect",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 17,
+  "frontMatter": {
+    "sidebar_position": 17,
+    "title": "fort introspect"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort rewind",
+    "permalink": "/cli/rewind"
+  },
+  "next": {
+    "title": "Architecture Overview",
+    "permalink": "/architecture/overview"
+  }
+}

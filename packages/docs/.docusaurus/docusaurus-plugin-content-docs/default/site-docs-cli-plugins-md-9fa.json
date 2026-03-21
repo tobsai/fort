@@ -1,0 +1,27 @@
+{
+  "id": "cli/plugins",
+  "title": "fort plugins",
+  "description": "Load, unload, and manage plugins that extend Fort's capabilities.",
+  "source": "@site/docs/cli/plugins.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/plugins",
+  "permalink": "/cli/plugins",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 14,
+  "frontMatter": {
+    "sidebar_position": 14,
+    "title": "fort plugins"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort flags",
+    "permalink": "/cli/flags"
+  },
+  "next": {
+    "title": "fort harness",
+    "permalink": "/cli/harness"
+  }
+}

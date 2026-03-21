@@ -1,0 +1,27 @@
+{
+  "id": "cli/flags",
+  "title": "fort flags",
+  "description": "Manage feature flags for safe, incremental rollouts. Flags support bake periods, spec linkage, and promotion/rollback workflows.",
+  "source": "@site/docs/cli/flags.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/flags",
+  "permalink": "/cli/flags",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 13,
+  "frontMatter": {
+    "sidebar_position": 13,
+    "title": "fort flags"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort schedule",
+    "permalink": "/cli/schedule"
+  },
+  "next": {
+    "title": "fort plugins",
+    "permalink": "/cli/plugins"
+  }
+}

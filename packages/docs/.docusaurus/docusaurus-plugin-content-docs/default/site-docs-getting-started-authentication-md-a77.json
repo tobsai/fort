@@ -1,0 +1,27 @@
+{
+  "id": "getting-started/authentication",
+  "title": "Authentication",
+  "description": "Fort uses Claude as its LLM backend. There are several ways to authenticate.",
+  "source": "@site/docs/getting-started/authentication.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/authentication",
+  "permalink": "/getting-started/authentication",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2,
+    "title": "Authentication"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Installation",
+    "permalink": "/getting-started/installation"
+  },
+  "next": {
+    "title": "First Steps",
+    "permalink": "/getting-started/first-steps"
+  }
+}

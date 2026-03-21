@@ -1,0 +1,27 @@
+{
+  "id": "cli/behaviors",
+  "title": "fort behaviors",
+  "description": "Manage behavior rules that shape how agents respond. Behaviors are context-scoped rules injected into agent prompts at runtime.",
+  "source": "@site/docs/cli/behaviors.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/behaviors",
+  "permalink": "/cli/behaviors",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "sidebar_position": 10,
+    "title": "fort behaviors"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort tokens",
+    "permalink": "/cli/tokens"
+  },
+  "next": {
+    "title": "fort routines",
+    "permalink": "/cli/routines"
+  }
+}

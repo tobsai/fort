@@ -1,0 +1,27 @@
+{
+  "id": "guides/flows",
+  "title": "Flows",
+  "description": "Flows are deterministic workflows defined in YAML. Unlike free-form LLM conversations, flows execute a fixed sequence of steps with predictable behavior, branching logic, and error handling. Use flows when you need repeatable, auditable processes.",
+  "source": "@site/docs/guides/flows.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/flows",
+  "permalink": "/guides/flows",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 7,
+  "frontMatter": {
+    "sidebar_position": 7,
+    "title": "Flows"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Routines",
+    "permalink": "/guides/routines"
+  },
+  "next": {
+    "title": "Tokens & Budgets",
+    "permalink": "/guides/tokens-and-budgets"
+  }
+}

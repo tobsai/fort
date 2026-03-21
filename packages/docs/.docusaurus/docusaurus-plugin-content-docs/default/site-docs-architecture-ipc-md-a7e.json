@@ -1,0 +1,23 @@
+{
+  "id": "architecture/ipc",
+  "title": "WebSocket IPC",
+  "description": "The IPC server bridges the TypeScript core to native clients -- the Swift menu bar app and the Tauri dashboard. It runs on ws4001/shell and provides real-time state broadcasting plus a request/response action protocol.",
+  "source": "@site/docs/architecture/ipc.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/ipc",
+  "permalink": "/architecture/ipc",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "title": "WebSocket IPC"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "TaskGraph",
+    "permalink": "/architecture/task-graph"
+  }
+}

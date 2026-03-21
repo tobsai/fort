@@ -1,0 +1,230 @@
+{
+  "/__docusaurus/debug-5ff": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/config-5ba": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/content-a2b": {
+    "__comp": "__comp---theme-debug-contentba-8-ce7",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    },
+    "__props": "__props---docusaurus-debug-content-3-c-0-be2"
+  },
+  "/__docusaurus/debug/globalData-c3c": {
+    "__comp": "__comp---theme-debug-global-dataede-0fa",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/metadata-156": {
+    "__comp": "__comp---theme-debug-site-metadata-68-e-3d4",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/registry-88c": {
+    "__comp": "__comp---theme-debug-registry-679-501",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/routes-000": {
+    "__comp": "__comp---theme-debug-routes-946-699",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/-563": {
+    "__comp": "__comp---theme-docs-root-5-e-9-0b6",
+    "__context": {
+      "plugin": "plugin---aba-d70"
+    }
+  },
+  "/-d70": {
+    "__comp": "__comp---theme-doc-version-roota-7-b-5de",
+    "__props": "__props---22-d-307"
+  },
+  "/-4e6": {
+    "__comp": "__comp---theme-doc-roota-94-67a"
+  },
+  "/architecture/ipc-393": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---architecture-ipca-7-e-34a"
+  },
+  "/architecture/module-bus-8b0": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---architecture-module-busd-2-b-79d"
+  },
+  "/architecture/overview-f3c": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---architecture-overview-0-b-1-d38"
+  },
+  "/architecture/task-graph-f14": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---architecture-task-graph-0-c-9-36c"
+  },
+  "/cli-053": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-776-cc9"
+  },
+  "/cli/agents-de8": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-agentsf-0-e-743"
+  },
+  "/cli/behaviors-af6": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-behaviorsba-5-40d"
+  },
+  "/cli/doctor-afe": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-doctor-8-ba-c66"
+  },
+  "/cli/flags-dce": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-flagsff-0-715"
+  },
+  "/cli/harness-e83": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-harness-8-bf-92e"
+  },
+  "/cli/introspect-33a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-introspect-4-c-2-1f5"
+  },
+  "/cli/llm-8f3": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-llmf-7-e-9b5"
+  },
+  "/cli/memory-db8": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-memorye-01-3f6"
+  },
+  "/cli/plugins-def": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-plugins-9-fa-71a"
+  },
+  "/cli/rewind-aaa": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-rewind-8-f-4-9df"
+  },
+  "/cli/routines-80d": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-routines-0-d-3-a84"
+  },
+  "/cli/schedule-0ee": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-schedulee-3-b-931"
+  },
+  "/cli/status-0be": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-status-20-b-9d1"
+  },
+  "/cli/tasks-85d": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-tasks-57-c-44b"
+  },
+  "/cli/threads-c8c": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-threads-289-1bd"
+  },
+  "/cli/tokens-090": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-tokens-3-b-9-6cf"
+  },
+  "/cli/tools-18e": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---cli-toolscb-0-f59"
+  },
+  "/getting-started/authentication-fd3": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---getting-started-authenticationa-77-943"
+  },
+  "/getting-started/first-steps-7cf": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---getting-started-first-stepsa-39-73f"
+  },
+  "/getting-started/installation-e0c": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---getting-started-installation-54-f-988"
+  },
+  "/guides/agents-816": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-agentsfd-3-b67"
+  },
+  "/guides/behaviors-684": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-behaviors-69-c-ea7"
+  },
+  "/guides/feature-flags-b72": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-feature-flagsb-8-a-351"
+  },
+  "/guides/flows-cf0": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-flows-29-e-896"
+  },
+  "/guides/integrations-ac7": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-integrationscba-6fd"
+  },
+  "/guides/introspection-66e": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-introspection-257-ebe"
+  },
+  "/guides/llm-158": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-llmcb-3-659"
+  },
+  "/guides/macos-native-f7f": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-macos-native-0-e-1-bc0"
+  },
+  "/guides/memory-a6b": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-memorye-52-5cc"
+  },
+  "/guides/permissions-755": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-permissions-224-8c2"
+  },
+  "/guides/plugins-704": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-pluginsbb-3-397"
+  },
+  "/guides/rewind-244": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-rewinddc-0-14d"
+  },
+  "/guides/routines-9bc": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-routinese-04-075"
+  },
+  "/guides/self-coding-990": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-self-coding-4-af-c27"
+  },
+  "/guides/threads-c8e": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-threads-74-f-1e0"
+  },
+  "/guides/tokens-and-budgets-cf3": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-tokens-and-budgetsedd-237"
+  },
+  "/guides/tools-d81": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---guides-tools-2-d-8-d92"
+  },
+  "/-7da": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---0-e-3-279"
+  }
+}

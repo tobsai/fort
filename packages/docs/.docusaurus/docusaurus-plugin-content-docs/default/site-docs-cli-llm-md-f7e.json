@@ -1,0 +1,27 @@
+{
+  "id": "cli/llm",
+  "title": "fort llm",
+  "description": "Configure LLM providers and send prompts with optional memory context.",
+  "source": "@site/docs/cli/llm.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/llm",
+  "permalink": "/cli/llm",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "title": "fort llm"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort status",
+    "permalink": "/cli/status"
+  },
+  "next": {
+    "title": "fort agents",
+    "permalink": "/cli/agents"
+  }
+}

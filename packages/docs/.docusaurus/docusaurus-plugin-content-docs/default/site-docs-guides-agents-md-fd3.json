@@ -1,0 +1,27 @@
+{
+  "id": "guides/agents",
+  "title": "Agents",
+  "description": "Fort runs on a registry of core agents and specialist agents. Core agents handle orchestration, memory, scheduling, and reflection. Specialist agents are purpose-built for specific domains and hatched on demand.",
+  "source": "@site/docs/guides/agents.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/agents",
+  "permalink": "/guides/agents",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Agents"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "First Steps",
+    "permalink": "/getting-started/first-steps"
+  },
+  "next": {
+    "title": "LLM Integration",
+    "permalink": "/guides/llm"
+  }
+}

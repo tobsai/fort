@@ -1,0 +1,27 @@
+{
+  "id": "architecture/overview",
+  "title": "Architecture Overview",
+  "description": "Fort is a polyglot AI agent platform built as a monorepo with four packages:",
+  "source": "@site/docs/architecture/overview.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/overview",
+  "permalink": "/architecture/overview",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Architecture Overview"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort introspect",
+    "permalink": "/cli/introspect"
+  },
+  "next": {
+    "title": "ModuleBus",
+    "permalink": "/architecture/module-bus"
+  }
+}

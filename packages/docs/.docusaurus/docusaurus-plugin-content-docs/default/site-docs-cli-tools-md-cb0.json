@@ -1,0 +1,27 @@
+{
+  "id": "cli/tools",
+  "title": "fort tools",
+  "description": "Browse and search the tool registry. The tool registry enforces the reuse-before-build principle -- always check here before creating new capabilities.",
+  "source": "@site/docs/cli/tools.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/tools",
+  "permalink": "/cli/tools",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 8,
+  "frontMatter": {
+    "sidebar_position": 8,
+    "title": "fort tools"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort memory",
+    "permalink": "/cli/memory"
+  },
+  "next": {
+    "title": "fort tokens",
+    "permalink": "/cli/tokens"
+  }
+}

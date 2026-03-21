@@ -1,0 +1,27 @@
+{
+  "id": "guides/memory",
+  "title": "Memory",
+  "description": "Fort stores knowledge in a graph-based memory system backed by SQLite. The graph consists of typed nodes connected by edges, enabling rich relational queries across everything Fort learns.",
+  "source": "@site/docs/guides/memory.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/memory",
+  "permalink": "/guides/memory",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "title": "Memory"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "LLM Integration",
+    "permalink": "/guides/llm"
+  },
+  "next": {
+    "title": "Threads",
+    "permalink": "/guides/threads"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "cli/routines",
+  "title": "fort routines",
+  "description": "Create and manage scheduled routines. Routines are repeatable multi-step workflows that run on a cron schedule or on demand.",
+  "source": "@site/docs/cli/routines.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/routines",
+  "permalink": "/cli/routines",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 11,
+  "frontMatter": {
+    "sidebar_position": 11,
+    "title": "fort routines"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort behaviors",
+    "permalink": "/cli/behaviors"
+  },
+  "next": {
+    "title": "fort schedule",
+    "permalink": "/cli/schedule"
+  }
+}

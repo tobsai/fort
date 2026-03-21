@@ -1,0 +1,27 @@
+{
+  "id": "guides/llm",
+  "title": "LLM Integration",
+  "description": "Fort routes every LLM call through a three-tier model system with automatic complexity-based routing, context enrichment, and streaming support.",
+  "source": "@site/docs/guides/llm.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/llm",
+  "permalink": "/guides/llm",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2,
+    "title": "LLM Integration"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Agents",
+    "permalink": "/guides/agents"
+  },
+  "next": {
+    "title": "Memory",
+    "permalink": "/guides/memory"
+  }
+}

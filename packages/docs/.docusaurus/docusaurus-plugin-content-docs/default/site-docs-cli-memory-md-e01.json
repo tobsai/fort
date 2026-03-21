@@ -1,0 +1,27 @@
+{
+  "id": "cli/memory",
+  "title": "fort memory",
+  "description": "Query, search, and export the memory graph. Fort stores knowledge as nodes and edges in a SQLite-backed graph with optional MemU sidecar integration.",
+  "source": "@site/docs/cli/memory.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/memory",
+  "permalink": "/cli/memory",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 7,
+  "frontMatter": {
+    "sidebar_position": 7,
+    "title": "fort memory"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "fort threads",
+    "permalink": "/cli/threads"
+  },
+  "next": {
+    "title": "fort tools",
+    "permalink": "/cli/tools"
+  }
+}
