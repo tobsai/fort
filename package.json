@@ -1,0 +1,19 @@
+{
+  "name": "fort",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A self-improving personal AI agent platform",
+  "workspaces": [
+    "packages/core",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "eslint packages/*/src --ext .ts",
+    "fort": "node packages/cli/dist/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

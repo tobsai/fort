@@ -1,0 +1,434 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.FortShell-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/sources",
+      "importPath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/App.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FinderExtension.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FocusModeMonitor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/GlobalHotkey.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/MenuBarManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/NotificationManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/ShortcutsProvider.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/SpotlightIndexer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/VoiceManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/WebSocketClient.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "FortShell",
+      "moduleOutputPath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/Modules/FortShell.swiftmodule",
+      "objects" : [
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/App.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FinderExtension.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FocusModeMonitor.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/GlobalHotkey.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/MenuBarManager.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/NotificationManager.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/ShortcutsProvider.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/SpotlightIndexer.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/VoiceManager.swift.o",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/WebSocketClient.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "FortShell_main",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_shell"
+      ],
+      "outputFileMapPath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/App.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FinderExtension.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FocusModeMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/GlobalHotkey.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/MenuBarManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/NotificationManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/ShortcutsProvider.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/SpotlightIndexer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/VoiceManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/WebSocketClient.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/Modules/FortShell.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/App.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FinderExtension.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FocusModeMonitor.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/GlobalHotkey.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/MenuBarManager.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/NotificationManager.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/ShortcutsProvider.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/SpotlightIndexer.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/VoiceManager.swift",
+        "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/WebSocketClient.swift"
+      ],
+      "tempsPath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "FortShell" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "FortShell",
+      "-package-name",
+      "swift_shell",
+      "-c",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/App.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FinderExtension.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FocusModeMonitor.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/GlobalHotkey.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/MenuBarManager.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/NotificationManager.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/ShortcutsProvider.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/SpotlightIndexer.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/VoiceManager.swift",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/WebSocketClient.swift",
+      "-I",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "FortShell_main",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_shell",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "FortShell" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell-entitlement.plist"
+    },
+    "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/App.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FinderExtension.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/FocusModeMonitor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/GlobalHotkey.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/MenuBarManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/NotificationManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/ShortcutsProvider.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/SpotlightIndexer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/VoiceManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/Sources/FortShell/WebSocketClient.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/sources"
+    },
+    "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/App.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FinderExtension.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/FocusModeMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/GlobalHotkey.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/MenuBarManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/NotificationManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/ShortcutsProvider.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/SpotlightIndexer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/VoiceManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.build/WebSocketClient.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/FortShell.product/Objects.LinkFileList"
+    },
+    "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/tobiasgunn/Documents/source/fort/packages/swift-shell/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

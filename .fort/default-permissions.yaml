@@ -1,0 +1,25 @@
+# Fort Permission Configuration
+# Tiered action model with deterministic controls
+
+defaults:
+  command_line: deny
+
+folders:
+  - path: ~/projects/fort
+    command_line: allow
+    allowed_commands:
+      - "git *"
+      - "npm *"
+      - "node *"
+      - "python *"
+    denied_commands:
+      - "rm -rf *"
+      - "sudo *"
+  - path: ~/Documents
+    command_line: read_only
+
+system:
+  command_line: deny
+  exceptions:
+    - "open *"
+    - "pbcopy"
