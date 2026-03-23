@@ -10,7 +10,9 @@
  * This client is only invoked for steps that genuinely require reasoning.
  */
 
-import { execSync } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ModuleBus } from '../module-bus/index.js';
 import type { TokenTracker } from '../tokens/index.js';
@@ -45,6 +47,7 @@ export interface LLMRequest {
   context?: string[];
   injectBehaviors?: boolean;
   injectMemory?: string;
+  soul?: string;
   stream?: boolean;
 }
 
@@ -79,19 +82,19 @@ export interface LLMClientConfig {
 const DEFAULT_MODELS: Record<ModelTier, ModelConfig> = {
   fast: {
     tier: 'fast',
-    model: 'claude-haiku-4-5-20250315',
+    model: 'claude-haiku-4-5-20251001',
     maxTokens: 2048,
     description: 'Fast and cheap — simple tasks, classification, extraction',
   },
   standard: {
     tier: 'standard',
-    model: 'claude-sonnet-4-6-20250311',
+    model: 'claude-sonnet-4-5-20250929',
     maxTokens: 4096,
     description: 'Balanced — most tasks, coding, analysis',
   },
   powerful: {
     tier: 'powerful',
-    model: 'claude-opus-4-6-20250311',
+    model: 'claude-opus-4-6',
     maxTokens: 8192,
     description: 'Maximum reasoning — complex planning, architecture, nuanced decisions',
   },
@@ -102,9 +105,9 @@ const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform. You a
 // ─── Pricing (per 1M tokens) ────────────────────────────────────────
 
 const PRICING: Record<string, { input: number; output: number }> = {
-  'claude-haiku-4-5-20250315': { input: 0.80, output: 4.00 },
-  'claude-sonnet-4-6-20250311': { input: 3.00, output: 15.00 },
-  'claude-opus-4-6-20250311': { input: 15.00, output: 75.00 },
+  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
+  'claude-sonnet-4-5-20250929': { input: 3.00, output: 15.00 },
+  'claude-opus-4-6': { input: 15.00, output: 75.00 },
 };
 
 // ─── LLM Client ─────────────────────────────────────────────────────
@@ -154,47 +157,110 @@ export class LLMClient {
     }
 
     // Initialize Anthropic client
-    // Priority: explicit config > Claude Code env token > keychain token > ANTHROPIC_API_KEY
-    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY;
+    // Priority: explicit config > ~/.fort/.env > ANTHROPIC_API_KEY env
+    // Keychain is never read at runtime — `fort init` extracts to .env
+    const envFileToken = LLMClient.readEnvFile();
+    const apiKey = process.env.ANTHROPIC_API_KEY;
 
-    if (config.apiKey) {
-      this.client = new Anthropic({ apiKey: config.apiKey });
-      this._authMethod = 'api_key_config';
-    } else if (oauthToken) {
-      this.client = new Anthropic({ apiKey: oauthToken });
-      this._authMethod = 'claude_code_oauth';
-    } else if (apiKey) {
-      this.client = new Anthropic({ apiKey });
-      this._authMethod = 'api_key_env';
-    } else {
-      // Try reading from macOS Keychain (set by `claude setup-token`)
-      const keychainToken = LLMClient.readKeychainToken();
-      if (keychainToken) {
-        this.client = new Anthropic({ apiKey: keychainToken });
-        this._authMethod = 'claude_code_keychain';
+    const resolvedToken = config.apiKey || envFileToken || apiKey;
+    if (resolvedToken) {
+      // OAuth tokens (sk-ant-oat*) need authToken + beta header; API keys use apiKey
+      this._isOAuthToken = resolvedToken.startsWith('sk-ant-oat');
+      if (this._isOAuthToken) {
+        this.client = new Anthropic({
+          authToken: resolvedToken,
+          defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
+        });
+      } else {
+        this.client = new Anthropic({ apiKey: resolvedToken });
       }
+      this._authMethod = config.apiKey ? 'api_key_config'
+        : envFileToken ? 'dotenv'
+        : 'api_key_env';
     }
     // If nothing found, client stays null — requests will return helpful errors
   }
 
-  private _authMethod: 'api_key_config' | 'claude_code_oauth' | 'claude_code_keychain' | 'api_key_env' | null = null;
+  private _authMethod: 'api_key_config' | 'dotenv' | 'api_key_env' | null = null;
+  private _isOAuthToken = false;
 
   /**
-   * Try to read the Claude Code token from the macOS Keychain.
-   * Returns null on non-macOS or if no token is stored.
+   * Read the API key from ~/.fort/.env
+   * The file is a simple KEY=VALUE format, one per line.
+   */
+  static readEnvFile(): string | null {
+    const envPath = join(homedir(), '.fort', '.env');
+    if (!existsSync(envPath)) return null;
+    try {
+      const content = readFileSync(envPath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#') || !trimmed) continue;
+        const match = trimmed.match(/^ANTHROPIC_API_KEY\s*=\s*["']?(.+?)["']?\s*$/);
+        if (match) return match[1];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Read the OAuth token from the macOS keychain (set by `claude setup-token`).
+   * Returns null on non-macOS or if no credential exists.
    */
   static readKeychainToken(): string | null {
     if (process.platform !== 'darwin') return null;
     try {
-      const token = execSync(
+      const { execSync } = require('node:child_process');
+      const raw = execSync(
         'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
         { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
       ).trim();
-      return token.length > 0 ? token : null;
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed?.claudeAiOauth?.accessToken ?? null;
+      } catch {
+        // Might be a raw token string
+        return raw.startsWith('sk-ant-') ? raw : null;
+      }
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Write an API key to ~/.fort/.env
+   */
+  static writeEnvFile(apiKey: string): void {
+    const fortDir = join(homedir(), '.fort');
+    const envPath = join(fortDir, '.env');
+    const { mkdirSync, writeFileSync: writeFile } = require('node:fs');
+    if (!existsSync(fortDir)) mkdirSync(fortDir, { recursive: true });
+
+    // Read existing content, replace or append
+    let content = '';
+    if (existsSync(envPath)) {
+      content = readFileSync(envPath, 'utf-8');
+      // Replace existing key
+      if (content.match(/^ANTHROPIC_API_KEY\s*=/m)) {
+        content = content.replace(/^ANTHROPIC_API_KEY\s*=.*$/m, `ANTHROPIC_API_KEY=${apiKey}`);
+      } else {
+        content = content.trimEnd() + `\nANTHROPIC_API_KEY=${apiKey}\n`;
+      }
+    } else {
+      content = `# Fort API Configuration\n# Generated by \`fort llm setup\`\n\nANTHROPIC_API_KEY=${apiKey}\n`;
+    }
+
+    writeFile(envPath, content, 'utf-8');
+  }
+
+  /**
+   * Get the path to the .env file.
+   */
+  static get envFilePath(): string {
+    return join(homedir(), '.fort', '.env');
   }
 
   /**
@@ -209,6 +275,52 @@ export class LLMClient {
    */
   get isConfigured(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * Validate that the configured API key actually works.
+   * Makes a minimal API call to verify authentication.
+   * Returns null on success, or an error message string on failure.
+   */
+  async validateAuth(): Promise<string | null> {
+    if (!this.client) {
+      return 'LLM client not configured. Run `fort llm setup` or set ANTHROPIC_API_KEY.';
+    }
+    // Test with the default tier model to catch subscription-level access issues
+    const testModel = this.models[this.defaultTier]?.model ?? this.models.fast.model;
+    try {
+      await this.client.messages.create({
+        model: testModel,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      return null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('401') || msg.includes('authentication') || msg.includes('Invalid bearer')) {
+        return 'API key is invalid or expired. Run `fort llm setup` to re-authenticate.';
+      }
+      // 400 errors with OAuth often mean the model isn't available on this subscription tier
+      if (msg.includes('400') && this._isOAuthToken) {
+        // Fall back to haiku if the default model isn't available
+        if (testModel !== this.models.fast.model) {
+          try {
+            await this.client.messages.create({
+              model: this.models.fast.model,
+              max_tokens: 1,
+              messages: [{ role: 'user', content: 'hi' }],
+            });
+            // Haiku works but the default model doesn't — switch default to fast
+            this.defaultTier = 'fast';
+            return null;
+          } catch {
+            // Even haiku failed
+          }
+        }
+        return `Model "${testModel}" is not available on your subscription. Try switching to the Fast (Haiku) model tier.`;
+      }
+      return `API connection error: ${msg}`;
+    }
   }
 
   /**
@@ -311,6 +423,21 @@ export class LLMClient {
           });
         }
       }
+    }
+
+    // If using OAuth and a non-fast model got a 400, fall back to fast tier
+    const errMsg = lastError?.message ?? '';
+    if (
+      this._isOAuthToken &&
+      errMsg.includes('400') &&
+      modelConfig.model !== this.models.fast.model
+    ) {
+      this.bus.publish('llm.retry', 'llm-client', {
+        attempt: 'fallback',
+        error: `Model "${modelConfig.model}" unavailable, falling back to ${this.models.fast.model}`,
+        model: this.models.fast.model,
+      });
+      return this.complete({ ...request, model: 'fast' });
     }
 
     this.bus.publish('llm.error', 'llm-client', {
@@ -486,10 +613,10 @@ export class LLMClient {
         name: 'Authentication',
         passed: this.isConfigured,
         message: this.isConfigured
-          ? this._authMethod === 'claude_code_oauth'
-            ? 'Authenticated via Claude Code session token'
-            : this._authMethod === 'claude_code_keychain'
-              ? 'Authenticated via Claude Code subscription (keychain)'
+          ? this._authMethod === 'dotenv'
+            ? `Authenticated via ${LLMClient.envFilePath}`
+            : this._isOAuthToken
+              ? 'Authenticated via Claude Code session token'
               : this._authMethod === 'api_key_config'
                 ? 'Authenticated via config file API key'
                 : 'Authenticated via ANTHROPIC_API_KEY environment variable'
@@ -554,6 +681,11 @@ export class LLMClient {
 
   private async buildSystemPrompt(request: LLMRequest): Promise<string> {
     const parts: string[] = [request.system ?? this.systemPrompt];
+
+    // Inject agent soul (SOUL.md) — defines WHO the agent is
+    if (request.soul) {
+      parts.push('\n\n## Agent Identity\n' + request.soul);
+    }
 
     // Inject relevant behaviors
     if (request.injectBehaviors !== false && this.behaviors) {

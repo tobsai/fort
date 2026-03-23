@@ -15,14 +15,17 @@ export { ModuleBus } from './module-bus/index.js';
 // Task Graph
 export { TaskGraph } from './task-graph/index.js';
 
-// Agents
+// Agents (specialist only — core services are not agents)
 export { BaseAgent, AgentRegistry } from './agents/index.js';
-export { OrchestratorAgent } from './agents/orchestrator.js';
-export { MemoryAgent } from './agents/memory-agent.js';
-export { SchedulerAgent } from './agents/scheduler-agent.js';
-export { ReflectionAgent } from './agents/reflection-agent.js';
 export { SpecialistAgent } from './agents/specialist.js';
-export { AgentHatchery } from './agents/hatchery.js';
+export { AgentFactory } from './agents/hatchery.js';
+export { BUILT_IN_AVATARS, getAvatarById } from './agents/avatars.js';
+export type { Avatar } from './agents/avatars.js';
+
+// Services (deterministic, not agents)
+export { OrchestratorService } from './services/orchestrator.js';
+export { ReflectionService } from './services/reflection.js';
+export type { ReflectionResult } from './services/reflection.js';
 
 // Memory
 export { MemoryManager } from './memory/index.js';

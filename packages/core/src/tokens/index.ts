@@ -20,9 +20,9 @@ interface ModelPricing {
 }
 
 const DEFAULT_PRICING: Record<string, ModelPricing> = {
-  'claude-sonnet-4-6-20250311': { inputPerToken: 3 / 1_000_000, outputPerToken: 15 / 1_000_000 },
-  'claude-opus-4-6-20250311': { inputPerToken: 15 / 1_000_000, outputPerToken: 75 / 1_000_000 },
-  'claude-haiku-4-5-20250315': { inputPerToken: 0.80 / 1_000_000, outputPerToken: 4 / 1_000_000 },
+  'claude-sonnet-4-5-20250929': { inputPerToken: 3 / 1_000_000, outputPerToken: 15 / 1_000_000 },
+  'claude-opus-4-6': { inputPerToken: 15 / 1_000_000, outputPerToken: 75 / 1_000_000 },
+  'claude-haiku-4-5-20251001': { inputPerToken: 0.80 / 1_000_000, outputPerToken: 4 / 1_000_000 },
 };
 
 const DEFAULT_BUDGET: TokenBudget = {

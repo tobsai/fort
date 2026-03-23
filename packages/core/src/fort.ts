@@ -2,7 +2,8 @@
  * Fort — Main Application Class
  *
  * Wires together all modules and provides the top-level API.
- * This is the entry point for both the CLI and the Swift shell.
+ * Deterministic by default — core services (orchestrator, reflection)
+ * are infrastructure, not agents. Only user-created specialists are agents.
  */
 
 import { join } from 'node:path';
@@ -10,11 +11,9 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { ModuleBus } from './module-bus/index.js';
 import { TaskGraph } from './task-graph/index.js';
 import { AgentRegistry } from './agents/index.js';
-import { OrchestratorAgent } from './agents/orchestrator.js';
-import { MemoryAgent } from './agents/memory-agent.js';
-import { SchedulerAgent } from './agents/scheduler-agent.js';
-import { ReflectionAgent } from './agents/reflection-agent.js';
-import { AgentHatchery } from './agents/hatchery.js';
+import { AgentFactory } from './agents/hatchery.js';
+import { OrchestratorService } from './services/orchestrator.js';
+import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
 import { ToolRegistry } from './tools/index.js';
@@ -35,7 +34,7 @@ import { IPCServer } from './ipc/index.js';
 import { OSIntegrationManager } from './os-integration/index.js';
 import { LLMClient } from './llm/index.js';
 import type { LLMClientConfig } from './llm/index.js';
-import type { DiagnosticResult } from './types.js';
+import type { DiagnosticResult, Task } from './types.js';
 
 export interface FortConfig {
   dataDir: string;
@@ -43,13 +42,24 @@ export interface FortConfig {
   repoRoot?: string;
   memuUrl?: string;
   permissionsPath?: string;
+  agentsDir?: string;
   llm?: LLMClientConfig;
 }
 
 export class Fort {
+  // Core infrastructure
   readonly bus: ModuleBus;
   readonly taskGraph: TaskGraph;
+
+  // Agent registry (specialist agents only — no core agents)
   readonly agents: AgentRegistry;
+  readonly agentFactory: AgentFactory;
+
+  // Deterministic services (not agents)
+  readonly orchestrator: OrchestratorService;
+  readonly reflection: ReflectionService;
+
+  // Modules
   readonly memory: MemoryManager;
   readonly permissions: PermissionManager;
   readonly tools: ToolRegistry;
@@ -64,43 +74,35 @@ export class Fort {
   readonly gc: GarbageCollector;
   readonly rewind: RewindManager;
   readonly threads: ThreadManager;
-  readonly introspect: Introspector;
   readonly llm: LLMClient;
+  readonly introspect: Introspector;
   readonly osIntegration: OSIntegrationManager;
   readonly ipc: IPCServer;
   readonly doctor: FortDoctor;
-  readonly hatchery: AgentHatchery;
 
-  private orchestrator: OrchestratorAgent;
-  private memoryAgent: MemoryAgent;
-  private schedulerAgent: SchedulerAgent;
-  private reflectionAgent: ReflectionAgent;
   private config: FortConfig;
 
   constructor(config: FortConfig) {
     this.config = config;
 
-    // Ensure data directory exists
     if (!existsSync(config.dataDir)) {
       mkdirSync(config.dataDir, { recursive: true });
     }
 
-    // Initialize core infrastructure
+    // Core infrastructure
     this.bus = new ModuleBus();
     this.taskGraph = new TaskGraph(this.bus);
     this.agents = new AgentRegistry(this.bus);
 
-    // Initialize modules
+    // Modules
     this.memory = new MemoryManager(
       join(config.dataDir, 'memory.db'),
       this.bus,
       config.memuUrl
     );
-
     this.permissions = new PermissionManager(
       config.permissionsPath ?? join(config.dataDir, 'permissions.yaml')
     );
-
     this.tools = new ToolRegistry(join(config.dataDir, 'tools.db'));
     this.tokens = new TokenTracker(join(config.dataDir, 'tokens.db'), this.bus);
     this.scheduler = new Scheduler(this.bus, this.taskGraph);
@@ -149,6 +151,22 @@ export class Fort {
       this.behaviors,
       this.memory,
     );
+
+    // Deterministic services
+    this.orchestrator = new OrchestratorService(this.taskGraph, this.agents, this.bus);
+    this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);
+
+    // Agent factory (specialist agents only)
+    this.agentFactory = new AgentFactory(
+      config.agentsDir ?? join(config.dataDir, 'agents'),
+      this.bus,
+      this.taskGraph,
+      this.memory,
+      this.agents,
+    );
+    this.agentFactory.setLLM(this.llm);
+
+    // Diagnostics and introspection
     this.doctor = new FortDoctor();
     this.introspect = new Introspector({
       bus: this.bus,
@@ -158,28 +176,6 @@ export class Fort {
     });
     this.osIntegration = new OSIntegrationManager(this);
     this.ipc = new IPCServer(this);
-
-    // Create core agents
-    this.orchestrator = new OrchestratorAgent(this.bus, this.taskGraph);
-    this.memoryAgent = new MemoryAgent(this.bus, this.taskGraph, this.memory);
-    this.schedulerAgent = new SchedulerAgent(this.bus, this.taskGraph, this.scheduler);
-    this.reflectionAgent = new ReflectionAgent(this.bus, this.taskGraph, this.memory);
-
-    // Register agents
-    this.agents.register(this.orchestrator);
-    this.agents.register(this.memoryAgent);
-    this.agents.register(this.schedulerAgent);
-    this.agents.register(this.reflectionAgent);
-    this.orchestrator.setRegistry(this.agents);
-
-    // Hatchery for specialist agents
-    this.hatchery = new AgentHatchery(
-      join(config.dataDir, 'agents'),
-      this.bus,
-      this.taskGraph,
-      this.memory,
-      this.agents,
-    );
 
     // Register diagnostic providers
     this.doctor.register('memory', this.memory);
@@ -195,6 +191,7 @@ export class Fort {
     this.doctor.register('routines', this.routines);
     this.doctor.register('scheduler', this.scheduler);
     this.doctor.register('llm', this.llm);
+    this.doctor.register('reflection', this.reflection);
     this.doctor.register('os-integration', this.osIntegration);
     this.doctor.register('ipc', this.ipc);
     this.doctor.register('introspect', this.introspect);
@@ -208,13 +205,12 @@ export class Fort {
 
   async start(): Promise<void> {
     await this.memory.initialize();
-    await this.hatchery.loadAll();
+    await this.agentFactory.loadAll();
     await this.agents.startAll();
-    // IPC is best-effort — don't block startup if port is unavailable
     try {
       await this.ipc.start();
     } catch {
-      // Port may be in use (e.g. another Fort instance or test runner)
+      // Port may be in use
     }
 
     this.bus.publish('fort.started', 'fort', {
@@ -239,12 +235,24 @@ export class Fort {
     this.bus.clear();
   }
 
-  async chat(message: string, source: string = 'user_chat'): Promise<string> {
-    return this.orchestrator.handleUserInput(message, source);
+  /**
+   * Send a chat message to an agent. Creates a task and routes it.
+   * Returns the task (which will contain the result when complete).
+   */
+  async chat(message: string, source: string = 'user_chat', agentId?: string, modelTier?: string): Promise<Task> {
+    return this.orchestrator.routeChat(message, source as any, agentId, modelTier);
   }
 
   async runDoctor(): Promise<DiagnosticResult[]> {
     return this.doctor.runAll();
+  }
+
+  /**
+   * Check if initial setup is complete (at least one default agent exists).
+   */
+  isSetupComplete(): boolean {
+    const identities = this.agentFactory.listIdentities();
+    return identities.some((i) => i.isDefault && i.status === 'active');
   }
 
   private agentDiagnostics(): DiagnosticResult {
@@ -254,7 +262,7 @@ export class Fort {
 
     const checks = [
       {
-        name: 'Agent count',
+        name: 'Specialist agents',
         passed: true,
         message: `${agents.length} agents registered (${running.length} running)`,
       },
@@ -290,29 +298,17 @@ export class Fort {
     const stale = this.taskGraph.getStaleTasks();
 
     const checks = [
-      {
-        name: 'Task count',
-        passed: true,
-        message: `${allTasks.length} total tasks`,
-      },
-      {
-        name: 'Active tasks',
-        passed: true,
-        message: `${active.length} in progress`,
-      },
+      { name: 'Task count', passed: true, message: `${allTasks.length} total tasks` },
+      { name: 'Active tasks', passed: true, message: `${active.length} in progress` },
       {
         name: 'Blocked tasks',
         passed: blocked.length === 0,
-        message: blocked.length > 0
-          ? `${blocked.length} tasks blocked`
-          : 'No blocked tasks',
+        message: blocked.length > 0 ? `${blocked.length} tasks blocked` : 'No blocked tasks',
       },
       {
         name: 'Stale tasks',
         passed: stale.length === 0,
-        message: stale.length > 0
-          ? `${stale.length} stale tasks need attention`
-          : 'No stale tasks',
+        message: stale.length > 0 ? `${stale.length} stale tasks need attention` : 'No stale tasks',
       },
     ];
 

@@ -65,7 +65,7 @@ The IPC server subscribes to ModuleBus events and broadcasts state updates to al
 
 **Agent events** (`agent.started`, `agent.stopped`, `agent.paused`, `agent.error`) trigger a `status` broadcast with the health indicator.
 
-**Notification events** -- task completion, task failure, agent hatching, and flow completion publish `notification` messages that native clients can surface as macOS notifications:
+**Notification events** -- task completion, task failure, agent creation, and flow completion publish `notification` messages that native clients can surface as macOS notifications:
 
 ```json
 {

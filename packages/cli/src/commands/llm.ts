@@ -1,7 +1,9 @@
 import { Command } from 'commander';
 import { execSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { withFort } from '../utils/fort-instance.js';
 import { bold, dim, green, yellow, cyan } from '../utils/format.js';
+import { LLMClient } from '@fort/core';
 
 export function createLLMCommand(): Command {
   const cmd = new Command('llm')
@@ -15,32 +17,29 @@ export function createLLMCommand(): Command {
       await withFort(async (fort) => {
         if (fort.llm.isConfigured) {
           const authLabel =
-            fort.llm.authMethod === 'claude_code_oauth' ? 'Claude Code session token' :
-            fort.llm.authMethod === 'claude_code_keychain' ? 'Claude Code subscription (keychain)' :
+            fort.llm.authMethod === 'dotenv' ? `~/.fort/.env` :
             fort.llm.authMethod === 'api_key_config' ? 'config file API key' :
             'ANTHROPIC_API_KEY environment variable';
           console.log(bold('\n  LLM Already Configured\n'));
           console.log(`  ${green('✓')} Authenticated via ${authLabel}.`);
+          console.log(dim(`  Token stored at: ${LLMClient.envFilePath}`));
           console.log(dim('  Run `fort llm status` to see model details and usage.\n'));
           return;
         }
 
         if (opts.apiKey) {
-          // API key flow
+          // Direct API key flow — show instructions
           console.log(bold('\n  API Key Setup\n'));
           console.log('  Create an API key at:\n');
           console.log(`    ${cyan('https://console.anthropic.com/settings/keys')}\n`);
           console.log('  ' + yellow('Note:') + ' API usage is billed separately from any Claude subscription.');
           console.log('  Set up billing at: ' + cyan('https://console.anthropic.com/settings/billing') + '\n');
-          console.log('  Then add to your shell profile ' + dim('(~/.zshrc, ~/.bashrc)') + ':\n');
-          console.log(`    ${cyan('export ANTHROPIC_API_KEY="sk-ant-your-key-here"')}\n`);
-          console.log('  Or set it in ' + dim('.fort/config.yaml') + ':\n');
-          console.log(`    ${dim('llm:')}`);
-          console.log(`    ${dim('  apiKey: "sk-ant-your-key-here"')}\n`);
+          console.log('  Then run:\n');
+          console.log(`    ${cyan('fort llm setup')} and paste your key when prompted.\n`);
           return;
         }
 
-        // Check if Claude CLI is available
+        // Check if Claude CLI is available for OAuth flow
         let hasClaude = false;
         try {
           execSync('which claude', { stdio: 'ignore' });
@@ -51,14 +50,14 @@ export function createLLMCommand(): Command {
 
         if (!hasClaude) {
           console.log(bold('\n  Claude CLI not found\n'));
-          console.log('  Fort authenticates through the Claude CLI. Install it first:\n');
+          console.log('  Fort can authenticate through the Claude CLI. Install it:\n');
           console.log(`    ${cyan('npm install -g @anthropic-ai/claude-code')}\n`);
           console.log('  Then run ' + cyan('fort llm setup') + ' again.\n');
-          console.log(dim('  Alternatively, use an API key: ' + cyan('fort llm setup --api-key')) + '\n');
+          console.log(dim('  Or use an API key: ' + cyan('fort llm setup --api-key')) + '\n');
           return;
         }
 
-        // Run claude setup-token, inheriting stdio so the user can interact
+        // Run claude setup-token to get OAuth token
         console.log(bold('\n  Authenticating with Claude...\n'));
         console.log('  This will open your browser to sign in with your Anthropic account.');
         console.log('  Your Claude Pro/Team/Max subscription covers Fort usage.\n');
@@ -74,25 +73,39 @@ export function createLLMCommand(): Command {
           return;
         }
 
-        // Verify the token landed in the keychain by reading it back
-        let tokenFound = false;
+        // After Claude CLI auth, read the token from keychain and save to .env
+        let token: string | null = null;
         try {
-          const keychainResult = execSync(
+          const raw = execSync(
             'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
             { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
           ).trim();
-          tokenFound = keychainResult.length > 0;
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.claudeAiOauth?.accessToken) {
+                token = parsed.claudeAiOauth.accessToken;
+              }
+            } catch {
+              if (raw.startsWith('sk-ant-')) token = raw;
+            }
+          }
         } catch {
-          // Keychain read failed — might need different service name
+          // Keychain read failed
         }
 
-        if (tokenFound) {
+        if (token) {
+          // Write to .env file for persistent, inspectable storage
+          LLMClient.writeEnvFile(token);
           console.log(`\n  ${green('✓')} Authentication successful!\n`);
-          console.log('  Fort will automatically use your Claude subscription token.');
+          console.log(`  Token saved to: ${cyan(LLMClient.envFilePath)}`);
+          console.log(dim('  You can inspect or edit this file anytime.'));
           console.log(`  Verify with: ${cyan('fort llm status')}\n`);
         } else {
-          console.log(`\n  ${green('✓')} Setup complete.`);
-          console.log(`  Run ${cyan('fort llm status')} to verify authentication.\n`);
+          console.log(`\n  ${yellow('⚠')} Could not extract token from keychain.`);
+          console.log('  You can manually add your API key:\n');
+          console.log(`    Edit ${cyan(LLMClient.envFilePath)} and add:`);
+          console.log(`    ${dim('ANTHROPIC_API_KEY=sk-ant-your-key-here')}\n`);
         }
       });
     });
@@ -116,8 +129,7 @@ export function createLLMCommand(): Command {
         console.log(`  Status:         ${statusStr}`);
         if (stats.authMethod) {
           const authLabel =
-            stats.authMethod === 'claude_code_oauth' ? 'Claude Code session token' :
-            stats.authMethod === 'claude_code_keychain' ? 'Claude Code subscription (keychain)' :
+            stats.authMethod === 'dotenv' ? `~/.fort/.env` :
             stats.authMethod === 'api_key_config' ? 'Config file API key' :
             'ANTHROPIC_API_KEY environment variable';
           console.log(`  Auth:           ${authLabel}`);
@@ -141,7 +153,8 @@ export function createLLMCommand(): Command {
         console.log();
 
         if (!stats.configured) {
-          console.log(`  ${yellow('Not authenticated.')} Run ${cyan('claude setup-token')} or see ${cyan('fort llm setup')} for options.\n`);
+          console.log(`  ${yellow('Not authenticated.')} Run ${cyan('fort llm setup')} to authenticate.\n`);
+          console.log(dim(`  Or add your key directly to: ${LLMClient.envFilePath}\n`));
         }
       });
     });
@@ -178,7 +191,7 @@ export function createLLMCommand(): Command {
         const prompt = promptParts.join(' ');
 
         if (!fort.llm.isConfigured) {
-          console.error(`\n  ${yellow('LLM not configured.')} Run ${cyan('claude setup-token')} or see ${cyan('fort llm setup')} for options.\n`);
+          console.error(`\n  ${yellow('LLM not configured.')} Run ${cyan('fort llm setup')} or add your key to ${cyan(LLMClient.envFilePath)}.\n`);
           return;
         }
 

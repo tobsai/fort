@@ -18,6 +18,7 @@ export function getFort(): Fort {
     instance = new Fort({
       dataDir: join(dataDir, 'data'),
       specsDir: join(process.cwd(), 'specs'),
+      agentsDir: join(dataDir, 'agents'),
       permissionsPath: join(dataDir, 'permissions.yaml'),
     });
   }

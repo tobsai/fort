@@ -13,6 +13,7 @@ export class TaskGraph {
   private tasks: Map<string, Task> = new Map();
   private threads: Map<string, Thread> = new Map();
   private bus: ModuleBus;
+  private taskCounter = 0;
 
   constructor(bus: ModuleBus) {
     this.bus = bus;
@@ -27,8 +28,10 @@ export class TaskGraph {
     threadId?: string;
     metadata?: Record<string, unknown>;
   }): Task {
+    this.taskCounter++;
     const task: Task = {
       id: uuid(),
+      shortId: `FORT-${String(this.taskCounter).padStart(3, '0')}`,
       parentId: params.parentId ?? null,
       title: params.title,
       description: params.description ?? '',
@@ -38,6 +41,8 @@ export class TaskGraph {
       createdAt: new Date(),
       updatedAt: new Date(),
       completedAt: null,
+      result: null,
+      assignedTo: params.assignedAgent ? 'agent' : null,
       metadata: params.metadata ?? {},
       subtaskIds: [],
       threadId: params.threadId ?? null,
@@ -58,7 +63,7 @@ export class TaskGraph {
     return task;
   }
 
-  updateStatus(taskId: string, status: TaskStatus, reason?: string): Task {
+  updateStatus(taskId: string, status: TaskStatus, reason?: string, result?: string): Task {
     const task = this.getTask(taskId);
     const previousStatus = task.status;
     task.status = status;
@@ -70,6 +75,10 @@ export class TaskGraph {
 
     if (reason) {
       task.metadata.statusReason = reason;
+    }
+
+    if (result !== undefined) {
+      task.result = result;
     }
 
     this.bus.publish('task.status_changed', 'task-graph', {
@@ -93,6 +102,13 @@ export class TaskGraph {
     task.updatedAt = new Date();
     this.bus.publish('task.assigned', 'task-graph', { task, agentId });
     return task;
+  }
+
+  /**
+   * Convenience: complete a task with a result string.
+   */
+  completeTask(taskId: string, result: string): Task {
+    return this.updateStatus(taskId, 'completed', undefined, result);
   }
 
   decompose(parentId: string, subtasks: Array<{

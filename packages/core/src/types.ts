@@ -26,6 +26,7 @@ export type TaskSource =
 
 export interface Task {
   id: string;
+  shortId: string;
   parentId: string | null;
   title: string;
   description: string;
@@ -35,6 +36,8 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
+  result: string | null;
+  assignedTo: 'agent' | 'user' | null;
   metadata: Record<string, unknown>;
   subtaskIds: string[];
   threadId: string | null;
@@ -89,7 +92,7 @@ export interface EventSubscription {
 
 // ─── Agent Types ────────────────────────────────────────────────────
 
-export type AgentType = 'core' | 'specialist';
+export type AgentType = 'specialist';
 export type AgentStatus = 'running' | 'paused' | 'stopped' | 'error';
 
 export interface AgentConfig {
@@ -113,6 +116,11 @@ export interface SpecialistIdentity {
   createdBy: string;
   parentId?: string;
   status: 'active' | 'retired';
+  soulPath?: string;
+  isDefault?: boolean;
+  emoji?: string;
+  avatar?: string;
+  defaultModelTier?: 'fast' | 'standard' | 'powerful';
 }
 
 export interface AgentInfo {

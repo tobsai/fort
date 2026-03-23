@@ -117,7 +117,8 @@ export class OSIntegrationManager {
       switch (intent) {
         case 'ask_fort': {
           const message = (params.message as string) ?? '';
-          result = await this.fort.chat(message, 'shortcut');
+          const task = await this.fort.chat(message, 'shortcut');
+          result = { taskId: task.id, result: task.result };
           break;
         }
         case 'get_status': {
@@ -207,9 +208,9 @@ export class OSIntegrationManager {
       transcript,
     });
 
-    const response = await this.fort.chat(transcript, 'voice');
+    const chatTask = await this.fort.chat(transcript, 'voice');
 
-    return { taskId: task.id, response };
+    return { taskId: chatTask.id, response: chatTask.result ?? '' };
   }
 
   /**

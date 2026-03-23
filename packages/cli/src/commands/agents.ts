@@ -74,14 +74,11 @@ export function createAgentsCommand(): Command {
     });
 
   cmd
-    .command('hatch')
-    .description('Hatch a new specialist agent')
+    .command('create')
+    .description('Create a new specialist agent')
     .requiredOption('--name <name>', 'Agent name')
-    .requiredOption('--description <desc>', 'What this agent does')
-    .option('--capabilities <caps>', 'Comma-separated capabilities', '')
-    .option('--behaviors <rules>', 'Comma-separated behavioral rules', '')
-    .option('--events <events>', 'Comma-separated event subscriptions', '')
-    .option('--from <file>', 'Hatch from a YAML identity file')
+    .option('--description <desc>', 'What this agent does')
+    .option('--from <file>', 'Create from a YAML identity file')
     .action(async (opts) => {
       await withFort(async (fort) => {
         try {
@@ -92,34 +89,30 @@ export function createAgentsCommand(): Command {
               console.error(`  File not found: ${opts.from}`);
               return;
             }
-            agent = fort.hatchery.hatchFromFile(opts.from);
+            agent = fort.agentFactory.createFromFile(opts.from);
           } else {
-            agent = fort.hatchery.hatch({
+            agent = fort.agentFactory.create({
               name: opts.name,
               description: opts.description,
-              capabilities: opts.capabilities ? opts.capabilities.split(',').map((s: string) => s.trim()) : [],
-              behaviors: opts.behaviors ? opts.behaviors.split(',').map((s: string) => s.trim()) : [],
-              eventSubscriptions: opts.events ? opts.events.split(',').map((s: string) => s.trim()) : [],
             });
           }
 
           await agent.start();
 
-          console.log(bold('\n  Agent Hatched!\n'));
+          console.log(bold('\n  Agent Created!\n'));
           console.log(`  ${green('✓')} ${bold(agent.config.name)} ${dim(`(${agent.config.id})`)}`);
-          console.log(`    ${agent.config.description}`);
-          if (agent.identity.capabilities.length > 0) {
-            console.log(`    ${dim(`Capabilities: ${agent.identity.capabilities.join(', ')}`)}`);
-          }
-          if (agent.identity.behaviors.length > 0) {
-            console.log(`    ${dim('Behaviors:')}`);
-            for (const b of agent.identity.behaviors) {
-              console.log(`      ${dim(`- ${b}`)}`);
-            }
-          }
+          console.log();
+          console.log('  Your agent\'s files are at:');
+          console.log(`    ${agent.agentDir}/`);
+          console.log(`    \u251c\u2500\u2500 identity.yaml   ${dim('\u2014 Agent configuration')}`);
+          console.log(`    \u2514\u2500\u2500 SOUL.md         ${dim('\u2014 Personality and rules (edit this!)')}`);
+          console.log();
+          console.log(dim('  Next steps:'));
+          console.log(dim('    Edit SOUL.md to define your agent\'s personality'));
+          console.log(dim(`    fort agents inspect ${agent.config.id}`));
           console.log();
         } catch (err) {
-          console.error(`  Hatch failed: ${err instanceof Error ? err.message : err}`);
+          console.error(`  Create failed: ${err instanceof Error ? err.message : err}`);
         }
       });
     });
@@ -131,7 +124,7 @@ export function createAgentsCommand(): Command {
     .action(async (agentId, opts) => {
       await withFort(async (fort) => {
         try {
-          fort.hatchery.retire(agentId, opts.reason);
+          fort.agentFactory.retire(agentId, opts.reason);
           console.log(`\n  ${yellow('⚠')} Agent ${bold(agentId)} retired.`);
           console.log(dim('  Memory and history preserved.\n'));
         } catch (err) {
@@ -148,7 +141,7 @@ export function createAgentsCommand(): Command {
     .action(async (sourceAgentId, opts) => {
       await withFort(async (fort) => {
         try {
-          const agent = fort.hatchery.fork(sourceAgentId, {
+          const agent = fort.agentFactory.fork(sourceAgentId, {
             name: opts.name,
             description: opts.description,
           });
@@ -166,7 +159,7 @@ export function createAgentsCommand(): Command {
     .action(async (agentId) => {
       await withFort(async (fort) => {
         try {
-          const agent = fort.hatchery.revive(agentId);
+          const agent = fort.agentFactory.revive(agentId);
           await agent.start();
           console.log(`\n  ${green('✓')} Agent ${bold(agent.config.name)} revived and running.\n`);
         } catch (err) {
@@ -181,7 +174,7 @@ export function createAgentsCommand(): Command {
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       await withFort(async (fort) => {
-        const identities = fort.hatchery.listIdentities();
+        const identities = fort.agentFactory.listIdentities();
 
         if (opts.json) {
           console.log(JSON.stringify(identities, null, 2));
@@ -191,13 +184,15 @@ export function createAgentsCommand(): Command {
         console.log(bold('\n  Specialist Identities\n'));
 
         if (identities.length === 0) {
-          console.log(dim('  No specialists hatched yet. Use `fort agents hatch` to create one.\n'));
+          console.log(dim('  No specialists created yet. Use `fort agents create` to create one.\n'));
           return;
         }
 
         for (const id of identities) {
           const statusStr = id.status === 'active' ? green('active') : dim('retired');
-          console.log(`  ${id.status === 'active' ? green('●') : dim('○')} ${bold(id.name)} ${dim(`(${id.id})`)} — ${statusStr}`);
+          const emojiPrefix = id.emoji ? `${id.emoji} ` : '';
+          const defaultTag = id.isDefault ? dim(' [default]') : '';
+          console.log(`  ${id.status === 'active' ? green('●') : dim('○')} ${emojiPrefix}${bold(id.name)}${defaultTag} ${dim(`(${id.id})`)} — ${statusStr}`);
           console.log(`    ${id.description}`);
           if (id.behaviors.length > 0) {
             console.log(`    ${dim(`Behaviors: ${id.behaviors.join(' | ')}`)}`);

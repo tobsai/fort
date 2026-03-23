@@ -33,7 +33,8 @@ describe('LLMClient', () => {
     savedApiKey = process.env.ANTHROPIC_API_KEY;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.ANTHROPIC_API_KEY;
-    // Suppress keychain reads so tests run in a clean auth state
+    // Suppress .env and keychain reads so tests run in a clean auth state
+    vi.spyOn(LLMClient, 'readEnvFile').mockReturnValue(null);
     vi.spyOn(LLMClient, 'readKeychainToken').mockReturnValue(null);
   });
 
@@ -83,7 +84,23 @@ describe('LLMClient', () => {
       const models = client.getModels();
       expect(models.fast.model).toBe('custom-fast-model');
       // Other tiers should have defaults
-      expect(models.standard.model).toBe('claude-sonnet-4-6-20250311');
+      expect(models.standard.model).toBe('claude-sonnet-4-5-20250929');
+    });
+  });
+
+  describe('Auth validation', () => {
+    it('should return error message when not configured', async () => {
+      const client = setup();
+      const error = await client.validateAuth();
+      expect(error).toContain('not configured');
+    });
+
+    it('should detect OAuth tokens as invalid', async () => {
+      const client = setup({ apiKey: 'sk-ant-oat01-fake-token' });
+      expect(client.isConfigured).toBe(true);
+      const error = await client.validateAuth();
+      // Will get auth error since the key is fake — but the important thing is it doesn't crash
+      expect(error).toBeTruthy();
     });
   });
 
@@ -123,9 +140,9 @@ describe('LLMClient', () => {
     it('should have correct model names', () => {
       const client = setup();
       const models = client.getModels();
-      expect(models.fast.model).toBe('claude-haiku-4-5-20250315');
-      expect(models.standard.model).toBe('claude-sonnet-4-6-20250311');
-      expect(models.powerful.model).toBe('claude-opus-4-6-20250311');
+      expect(models.fast.model).toBe('claude-haiku-4-5-20251001');
+      expect(models.standard.model).toBe('claude-sonnet-4-5-20250929');
+      expect(models.powerful.model).toBe('claude-opus-4-6');
     });
 
     it('should have increasing max tokens per tier', () => {

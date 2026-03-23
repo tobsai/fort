@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    proxy: {
+      "/api": "http://localhost:4077",
+      "/health": "http://localhost:4077",
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

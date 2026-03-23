@@ -27,7 +27,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -37,7 +37,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 2000,
       outputTokens: 1000,
       totalTokens: 3000,
@@ -60,7 +60,7 @@ describe('TokenTracker', () => {
 
     const usage = await tracker.record({
       timestamp: new Date(),
-      model: 'claude-opus-4-6-20250311',
+      model: 'claude-opus-4-6',
       inputTokens: 10000,
       outputTokens: 5000,
       totalTokens: 15000,
@@ -77,7 +77,7 @@ describe('TokenTracker', () => {
 
     const usage = await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -93,7 +93,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -103,7 +103,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-haiku-4-5-20250315',
+      model: 'claude-haiku-4-5-20251001',
       inputTokens: 2000,
       outputTokens: 1000,
       totalTokens: 3000,
@@ -112,10 +112,10 @@ describe('TokenTracker', () => {
     });
 
     const stats = tracker.getStats();
-    expect(stats.byModel['claude-sonnet-4-6-20250311'].calls).toBe(1);
-    expect(stats.byModel['claude-sonnet-4-6-20250311'].tokens).toBe(1500);
-    expect(stats.byModel['claude-haiku-4-5-20250315'].calls).toBe(1);
-    expect(stats.byModel['claude-haiku-4-5-20250315'].tokens).toBe(3000);
+    expect(stats.byModel['claude-sonnet-4-5-20250929'].calls).toBe(1);
+    expect(stats.byModel['claude-sonnet-4-5-20250929'].tokens).toBe(1500);
+    expect(stats.byModel['claude-haiku-4-5-20251001'].calls).toBe(1);
+    expect(stats.byModel['claude-haiku-4-5-20251001'].tokens).toBe(3000);
   });
 
   it('should track usage by agent', async () => {
@@ -123,7 +123,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -134,7 +134,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 3000,
       outputTokens: 1500,
       totalTokens: 4500,
@@ -157,7 +157,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 500,
       outputTokens: 200,
       totalTokens: 700,
@@ -168,7 +168,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 800,
       outputTokens: 300,
       totalTokens: 1100,
@@ -187,7 +187,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 5000,
       outputTokens: 2000,
       totalTokens: 7000,
@@ -206,7 +206,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 4500,
       outputTokens: 4500,
       totalTokens: 9000,
@@ -225,7 +225,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 3000,
       outputTokens: 3000,
       totalTokens: 6000,
@@ -248,7 +248,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 4500,
       outputTokens: 4500,
       totalTokens: 9000,
@@ -269,7 +269,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 3000,
       outputTokens: 3000,
       totalTokens: 6000,
@@ -285,7 +285,7 @@ describe('TokenTracker', () => {
 
     await bus.publish('llm.usage', 'orchestrator', {
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -303,7 +303,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -325,7 +325,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -352,7 +352,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 1000,
       outputTokens: 500,
       totalTokens: 1500,
@@ -376,7 +376,7 @@ describe('TokenTracker', () => {
 
     await tracker.record({
       timestamp: new Date(),
-      model: 'claude-sonnet-4-6-20250311',
+      model: 'claude-sonnet-4-5-20250929',
       inputTokens: 2000,
       outputTokens: 1000,
       totalTokens: 3000,

@@ -128,10 +128,10 @@ Because behaviors live in the memory graph, the Reflection agent can analyze the
 
 ## Attaching Behaviors to Agents
 
-When you hatch a specialist agent, its `--behaviors` flag creates behavior nodes scoped to that agent's partition:
+When you create a specialist agent, its `--behaviors` flag creates behavior nodes scoped to that agent's partition:
 
 ```bash
-fort agents hatch \
+fort agents create \
   --name "PR Reviewer" \
   --description "Reviews pull requests" \
   --capabilities "git_diff,code_search" \

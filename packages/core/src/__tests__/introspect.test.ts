@@ -71,9 +71,9 @@ describe('Introspector', () => {
     expect(toolCap).toBeDefined();
     expect(toolCap!.provider).toBe('test-tool');
 
-    // Agent capabilities should be present
+    // No agent capabilities by default (core agents are now services)
     const agentCaps = capabilities.filter((c) => c.providerType === 'agent');
-    expect(agentCaps.length).toBeGreaterThan(0);
+    expect(agentCaps.length).toBe(0);
 
     // Module capabilities should be present
     const moduleCaps = capabilities.filter((c) => c.providerType === 'module');
@@ -118,7 +118,7 @@ describe('Introspector', () => {
     expect(profile.version).toBe('0.1.0');
     expect(profile.uptime).toBeGreaterThanOrEqual(0);
     expect(profile.moduleCount).toBeGreaterThan(0);
-    expect(profile.agentCount).toBe(4); // 4 core agents
+    expect(profile.agentCount).toBe(0); // no agents by default (core agents are now services)
     expect(profile.toolCount).toBe(1);
     expect(profile.generatedAt).toBeTruthy();
 

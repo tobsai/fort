@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "echo 'No tests yet'",
     "preview": "vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.0"
+  },
+  "optionalDependencies": {
+    "@tauri-apps/api": "^2.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

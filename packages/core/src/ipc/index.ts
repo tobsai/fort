@@ -366,11 +366,11 @@ export class IPCServer {
     );
 
     this.unsubscribers.push(
-      this.fort.bus.subscribe('agent.hatched', (event: FortEvent) => {
+      this.fort.bus.subscribe('agent.created', (event: FortEvent) => {
         this.broadcast({
           type: 'notification',
           data: {
-            title: 'Agent Hatched',
+            title: 'Agent Created',
             body: String((event.payload as Record<string, unknown>)?.name ?? 'A new agent has been created'),
             category: 'agent',
           },

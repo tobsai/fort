@@ -5,11 +5,11 @@ title: Authentication
 
 # Authentication
 
-Fort uses Claude as its LLM backend. There are several ways to authenticate.
+Fort uses Claude as its LLM backend. Your API key is stored in a plain `.env` file you can inspect and edit anytime.
 
 ## Recommended: Claude OAuth via `fort llm setup`
 
-The simplest method uses your existing Claude subscription -- no separate API billing needed.
+The simplest method uses your existing Claude subscription — no separate API billing needed.
 
 ```bash
 fort llm setup
@@ -18,41 +18,43 @@ fort llm setup
 This runs `claude setup-token` under the hood, which:
 
 1. Opens your browser for OAuth authentication
-2. Stores the token in **macOS Keychain**
-3. Fort reads it automatically on every request
+2. Saves the token to **`~/.fort/.env`**
 
-No API key management, no extra billing.
+No extra billing, and the token is always inspectable:
 
-## Alternative: API Key via Environment Variable
+```bash
+cat ~/.fort/.env
+```
 
-If you prefer pay-per-token billing through the Anthropic API:
+## Alternative: Edit `.env` Directly
+
+You can add or change your API key manually:
+
+```bash
+# Create or edit the file
+nano ~/.fort/.env
+```
+
+```env
+# Fort API Configuration
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+## Alternative: Environment Variable
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-This is billed separately from a Claude subscription.
-
-## Alternative: API Key in Config
-
-You can also set the key in `.fort/config.yaml`:
-
-```yaml
-llm:
-  apiKey: sk-ant-...
-```
-
-:::info
-Storing keys in config files is convenient for local development but less secure than Keychain or environment variables.
-:::
+This works but doesn't persist across terminal sessions unless added to your shell profile.
 
 ## Auth Priority Order
 
 Fort checks credentials in this order (first match wins):
 
-1. `apiKey` in `.fort/config.yaml`
-2. `CLAUDE_CODE_OAUTH_TOKEN` environment variable
-3. macOS Keychain (set by `fort llm setup`)
+1. `apiKey` in Fort config (programmatic)
+2. `~/.fort/.env` file (recommended)
+3. `CLAUDE_CODE_OAUTH_TOKEN` environment variable (Claude Code sessions)
 4. `ANTHROPIC_API_KEY` environment variable
 
 ## Verify Authentication
@@ -61,4 +63,4 @@ Fort checks credentials in this order (first match wins):
 fort llm status
 ```
 
-This shows which auth method is active and confirms connectivity to the Claude API.
+This shows which auth method is active, the file path, and confirms connectivity.

@@ -104,6 +104,10 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1b\[\d+m/g, '');
 }
 
+export function magenta(text: string): string {
+  return `\x1b[35m${text}\x1b[0m`;
+}
+
 export function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return `${seconds}s ago`;

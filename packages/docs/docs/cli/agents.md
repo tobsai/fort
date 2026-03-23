@@ -5,7 +5,7 @@ title: fort agents
 
 # fort agents
 
-Manage core and specialist agents in the agent registry.
+Manage specialist agents. Services (Orchestrator, Memory, Scheduler, Reflection) are not managed through this command -- they are deterministic infrastructure.
 
 ## Usage
 
@@ -17,7 +17,7 @@ fort agents <subcommand> [options]
 
 ### list
 
-List all registered agents.
+List all specialist agents.
 
 ```
 fort agents list [--json]
@@ -25,43 +25,42 @@ fort agents list [--json]
 
 ### inspect
 
-Show detailed information about a specific agent.
+Show detailed information about a specialist agent, including SOUL.md contents, task history, and memory stats.
 
 ```
 fort agents inspect <id> [--json]
 ```
 
-### hatch
+### create
 
-Create a new specialist agent.
+Create a new specialist agent. This generates an agent directory with `identity.yaml`, `SOUL.md`, and `tools/`.
+
+The recommended way to create agents is through the portal wizard at `http://localhost:4077`, which collects name, goals, and emoji interactively.
 
 ```
-fort agents hatch --name <n> --description <d> [options]
+fort agents create --name <n> --goals <g> [options]
 ```
 
 | Option | Description |
 |--------|-------------|
 | `--name <n>` | Agent name (required) |
-| `--description <d>` | Agent description (required) |
-| `--capabilities <c>` | Comma-separated capability list |
-| `--behaviors <b>` | Comma-separated behavior rules |
-| `--events <e>` | Comma-separated events to subscribe to |
-| `--from <file>` | Load agent definition from a JSON or YAML file |
-
-### retire
-
-Deactivate an agent. Retired agents keep their history but stop receiving events.
-
-```
-fort agents retire <id> [--reason <r>]
-```
+| `--goals <g>` | What the agent should accomplish (required) |
+| `--emoji <e>` | Visual identifier for the portal |
 
 ### fork
 
-Clone an existing agent with a new name.
+Clone an existing agent with a new name. The forked agent gets its own directory and a copy of the parent's SOUL.md.
 
 ```
-fort agents fork <id> --name <n> [--description <d>]
+fort agents fork <id> --name <n>
+```
+
+### retire
+
+Deactivate an agent. Retired agents keep their data but stop receiving tasks.
+
+```
+fort agents retire <id> [--reason <r>]
 ```
 
 ### revive
@@ -72,24 +71,24 @@ Reactivate a previously retired agent.
 fort agents revive <id>
 ```
 
-### identities
-
-List all agent identities and their roles.
-
-```
-fort agents identities [--json]
-```
-
 ## Examples
 
 ```bash
-# List all agents
+# List all specialist agents
 fort agents list
 
-# Create a code-review specialist
-fort agents hatch --name "reviewer" --description "Reviews pull requests" \
-  --capabilities "code-analysis,git" --events "task.created"
+# Create a specialist via CLI
+fort agents create --name "Research Agent" --goals "Deep research and source synthesis"
 
-# Fork an agent to experiment with new behaviors
-fort agents fork orchestrator-01 --name "orchestrator-v2"
+# Fork an agent to create a variant
+fort agents fork research-agent --name "Academic Researcher"
+
+# Retire an agent
+fort agents retire research-agent --reason "Replaced by Academic Researcher"
+
+# Revive a retired agent
+fort agents revive research-agent
+
+# Inspect an agent
+fort agents inspect research-agent
 ```

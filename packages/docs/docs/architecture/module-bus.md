@@ -74,7 +74,7 @@ bus.clear();                         // reset handlers and history
 | Namespace   | Events |
 |-------------|--------|
 | `task.*`    | `task.created`, `task.status_changed`, `task.assigned`, `task.completed`, `task.failed` |
-| `agent.*`   | `agent.started`, `agent.stopped`, `agent.paused`, `agent.error`, `agent.hatched` |
+| `agent.*`   | `agent.started`, `agent.stopped`, `agent.paused`, `agent.error`, `agent.created` |
 | `thread.*`  | `thread.created`, `thread.status_changed` |
 | `flow.*`    | `flow.started`, `flow.completed`, `flow.step_completed` |
 | `llm.*`     | `llm.request`, `llm.response`, `llm.error` |
