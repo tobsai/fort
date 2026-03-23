@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/fort-logo.png" alt="Fort" width="800" />
+</p>
+
 # Fort
 
 Fort is a task-centric personal AI agent platform. It is not a chat wrapper. Every interaction creates a task with clear ownership and status. Deterministic services handle orchestration, memory, scheduling, and reflection. Users create long-lived specialist agents through a web portal, each defined by a SOUL.md that shapes its personality and goals.
