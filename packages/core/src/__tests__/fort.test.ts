@@ -9,13 +9,23 @@ import { LLMClient } from '../llm/index.js';
 describe('Fort Integration', () => {
   let tmpDir: string;
   let fort: Fort;
+  let savedApiKey: string | undefined;
 
   beforeEach(() => {
+    // Prevent real LLM calls by clearing the API key from the environment.
+    // Without this, real Anthropic network calls fire during tests and may
+    // complete after fort.stop() closes the SQLite connection, causing
+    // "database connection is not open" unhandled rejections.
+    savedApiKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
     vi.spyOn(LLMClient, 'readKeychainToken').mockReturnValue(null);
     vi.spyOn(LLMClient, 'readEnvFile').mockReturnValue(null);
   });
 
   afterEach(() => {
+    if (savedApiKey !== undefined) {
+      process.env.ANTHROPIC_API_KEY = savedApiKey;
+    }
     vi.restoreAllMocks();
   });
 
