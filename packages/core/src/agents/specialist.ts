@@ -16,12 +16,14 @@ import type { ModuleBus } from '../module-bus/index.js';
 import type { TaskGraph } from '../task-graph/index.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
+import type { ToolRegistry } from '../tools/index.js';
 
 export class SpecialistAgent extends BaseAgent {
   readonly identity: SpecialistIdentity;
   readonly agentDir: string;
   private memory: MemoryManager;
   private llm: LLMClient | null = null;
+  private toolRegistry: ToolRegistry | null = null;
   private unsubscribers: Array<() => void> = [];
   private _soulCache: string | null = null;
 
@@ -92,6 +94,13 @@ export class SpecialistAgent extends BaseAgent {
     this.llm = llm;
   }
 
+  /**
+   * Attach the tool registry so this agent can check available tools.
+   */
+  setToolRegistry(tools: ToolRegistry): void {
+    this.toolRegistry = tools;
+  }
+
   protected async onTask(taskId: string): Promise<void> {
     const task = this.taskGraph.getTask(taskId);
     const isChatTask = task.metadata.type === 'chat';
@@ -111,6 +120,32 @@ export class SpecialistAgent extends BaseAgent {
       });
     }
 
+    // ── Tool search ─────────────────────────────────────────────
+    // Check available tools before responding so the LLM knows what it can use.
+    // Skip for "Build tool:" subtasks to prevent infinite loops.
+    const isToolBuildTask = task.title.startsWith('Build tool:');
+    let toolContext: string | undefined;
+
+    if (this.toolRegistry && isChatTask && !isToolBuildTask) {
+      const toolResults = this.toolRegistry.search(task.description);
+      if (toolResults.length > 0) {
+        toolContext = '## Available Tools\nYou have access to these tools:\n' +
+          toolResults.slice(0, 5).map(t =>
+            `- **${t.name}** (${t.module}): ${t.description}\n  Capabilities: ${t.capabilities.join(', ')}`
+          ).join('\n');
+      } else {
+        toolContext = `## Available Tools
+No existing tools match this task. If this task requires an external integration, API access, or capability you don't have, you MUST respond with a JSON block proposing a tool to build:
+
+\`\`\`json
+{"needsTool": true, "toolName": "name-of-tool", "toolDescription": "what it does", "architecture": "implementation steps"}
+\`\`\`
+
+Include the JSON block in your response along with your explanation to the user. Do NOT say you cannot do something without proposing a tool to fix it.`;
+      }
+    }
+
+    // ── Generate response ────────────────────────────────────────
     let responseText: string;
 
     if (this.llm && this.llm.isConfigured && isChatTask) {
@@ -126,6 +161,7 @@ export class SpecialistAgent extends BaseAgent {
           model: modelTier,
           injectBehaviors: true,
           injectMemory: task.description,
+          context: toolContext ? [toolContext] : undefined,
         });
         responseText = response.content;
       } catch (err) {
@@ -140,6 +176,51 @@ export class SpecialistAgent extends BaseAgent {
       responseText = this.generateBasicResponse(task.description);
     } else {
       responseText = `Task completed by ${this.identity.name}.`;
+    }
+
+    // ── Check for tool-building proposals ────────────────────────
+    if (isChatTask && !isToolBuildTask) {
+      const toolProposal = this.extractToolProposal(responseText);
+      if (toolProposal) {
+        // Decompose: create a subtask for building the tool
+        const subtasks = this.taskGraph.decompose(taskId, [
+          {
+            title: `Build tool: ${toolProposal.toolName}`,
+            description: `## Tool Proposal\n\n**Name:** ${toolProposal.toolName}\n**Description:** ${toolProposal.toolDescription}\n\n## Architecture\n${toolProposal.architecture}\n\n## Original Task\n${task.title}: ${task.description}`,
+            assignedAgent: this.config.id,
+          },
+        ]);
+
+        // Store proposal in memory
+        this.memory.createNode({
+          type: 'decision',
+          label: `Tool needed: ${toolProposal.toolName}`,
+          properties: {
+            taskId: task.id,
+            subtaskId: subtasks[0].id,
+            toolName: toolProposal.toolName,
+            toolDescription: toolProposal.toolDescription,
+            partition: this.identity.memoryPartition,
+          },
+          source: `agent:${this.identity.id}`,
+        });
+
+        // Publish event so portal/UI can show the proposal
+        this.bus.publish('agent.tool_proposed', this.config.id, {
+          taskId: task.id,
+          subtaskId: subtasks[0].id,
+          toolName: toolProposal.toolName,
+          toolDescription: toolProposal.toolDescription,
+          architecture: toolProposal.architecture,
+          agentId: this.config.id,
+          agentName: this.identity.name,
+        });
+
+        // Parent stays in_progress (decompose already set this).
+        // Store the response text on the task but do NOT call reviewCompletion.
+        this.taskGraph.updateStatus(taskId, 'in_progress', 'Waiting for tool to be built', responseText);
+        return;
+      }
     }
 
     // Store interaction in memory
@@ -234,6 +315,33 @@ export class SpecialistAgent extends BaseAgent {
       text: `agent:${this.identity.id}`,
       limit,
     });
+  }
+
+  /**
+   * Extract a tool-building proposal from an LLM response.
+   * Looks for a JSON block with `needsTool: true`.
+   */
+  private extractToolProposal(response: string): {
+    toolName: string;
+    toolDescription: string;
+    architecture: string;
+  } | null {
+    const jsonMatch = response.match(/\{[\s\S]*?"needsTool"\s*:\s*true[\s\S]*?\}/);
+    if (!jsonMatch) return null;
+
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.needsTool && parsed.toolName) {
+        return {
+          toolName: parsed.toolName,
+          toolDescription: parsed.toolDescription ?? '',
+          architecture: parsed.architecture ?? '',
+        };
+      }
+    } catch {
+      // JSON parsing failed
+    }
+    return null;
   }
 
   async handleMessage(fromAgentId: string, message: unknown): Promise<void> {

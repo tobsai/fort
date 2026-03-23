@@ -16,6 +16,7 @@ export default function ChatPage() {
   const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
+  const [historyFetched, setHistoryFetched] = useState(false);
   const shownTaskIds = useRef(new Set<string>());
 
   const selectedAgent = agentId || null;
@@ -72,21 +73,26 @@ export default function ChatPage() {
           }
         }
         setChatMessages(msgs);
+        setHistoryFetched(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        setHistoryFetched(true);
+      });
   }, []);
 
-  // Auto-greet (only if LLM is valid)
+  // Auto-greet: only on first-ever conversation with an agent (no history at all)
   useEffect(() => {
     if (!selectedAgent || hasGreeted) return;
+    // Wait until history fetch has actually completed
+    if (!historyFetched) return;
     const msgs = chatMessages[selectedAgent];
+    // If the agent already has ANY chat history, skip greeting entirely
     if (msgs && msgs.length > 0) {
       setHasGreeted(true);
       return;
     }
-    if (!historyLoadedRef.current) return;
     setHasGreeted(true);
-    // Validate LLM before auto-greeting
+    // Only greet if this is a brand-new agent with zero history
     fetchLLMStatus()
       .then((status) => {
         if (status?.valid) {
@@ -94,7 +100,7 @@ export default function ChatPage() {
         }
       })
       .catch(() => {});
-  }, [selectedAgent, chatMessages, hasGreeted, send]);
+  }, [selectedAgent, chatMessages, hasGreeted, historyFetched, send]);
 
   // Handle incoming messages
   const addMessage = useCallback(

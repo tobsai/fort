@@ -248,4 +248,72 @@ describe('TaskGraph', () => {
     expect((events[0] as any).approved).toBe(true);
     expect((events[0] as any).reason).toBe('Looks good');
   });
+
+  it('should skip inability detection when response contains a valid tool proposal', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Check X feed', description: 'Check my X.com feed', source: 'user_chat' });
+    const result = `I don't have direct access to X.com yet, but I can build a tool for this.\n\`\`\`json\n{"needsTool": true, "toolName": "x-feed-reader", "toolDescription": "Read X.com feeds via API", "architecture": "Use X API v2"}\n\`\`\``;
+    await graph.reviewCompletion(task.id, result);
+
+    // Valid tool proposal bypasses inability detection; no LLM → completeTask
+    expect(graph.getTask(task.id).status).toBe('completed');
+  });
+
+  it('should NOT skip inability detection for malformed tool proposals', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Check X feed', description: 'Check my X.com feed', source: 'user_chat' });
+    // Has needsTool text but no toolName — invalid proposal
+    const result = `I don't have direct access to X.com. {"needsTool": true} but I can suggest alternatives.`;
+    await graph.reviewCompletion(task.id, result);
+
+    // Malformed proposal should NOT bypass inability detection
+    expect(graph.getTask(task.id).status).toBe('needs_review');
+  });
+
+  it('should reject when agent says capabilities are limited', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Check feed', description: 'Check my feed', source: 'user_chat' });
+    const result = `My capabilities are limited to text processing. I cannot browse websites.`;
+    await graph.reviewCompletion(task.id, result);
+
+    expect(graph.getTask(task.id).status).toBe('needs_review');
+  });
+
+  it('should reject the exact X.com response from the agent', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Can you check my x.com feed?', description: 'Can you check my x.com feed?', source: 'user_chat' });
+    const result = `I must be transparent: I don\u2019t have direct access to browse X.com or retrieve your live feed in real-time. My capabilities are limited to information I can access through available integrations or APIs.`;
+    await graph.reviewCompletion(task.id, result);
+
+    expect(graph.getTask(task.id).status).toBe('needs_review');
+  });
+
+  it('should reject "don\'t currently have the ability" phrasing', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Check my x.com feed', description: 'Check my x.com feed', source: 'user_chat' });
+    const result = `Acknowledged. I\u2019m afraid I must be direct with you here\u2014I don\u2019t currently have the ability to access X.com or pull your social media feed.`;
+    await graph.reviewCompletion(task.id, result);
+
+    expect(graph.getTask(task.id).status).toBe('needs_review');
+  });
+
+  it('should reject "I can\'t access" phrasing', async () => {
+    const { graph } = setup();
+    const task = graph.createTask({ title: 'Check my x.com feed', description: 'Check my x.com feed', source: 'user_chat' });
+    const result = `I can't access external websites or social media platforms including X.com.`;
+    await graph.reviewCompletion(task.id, result);
+
+    expect(graph.getTask(task.id).status).toBe('needs_review');
+  });
+
+  it('should NOT false-positive on "can\'t believe" in successful responses', async () => {
+    const { graph } = setup();
+    graph.setLLM(mockLLM(JSON.stringify({ approved: true, reason: 'Task completed' })));
+    const task = graph.createTask({ title: 'Process data', description: 'Process data', source: 'user_chat' });
+    const result = `Done! I can't believe how fast that was. Your report is ready.`;
+    await graph.reviewCompletion(task.id, result);
+
+    // "can't believe" should NOT trigger inability detection
+    expect(graph.getTask(task.id).status).toBe('completed');
+  });
 });

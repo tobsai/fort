@@ -18,6 +18,7 @@ import type { ModuleBus } from '../module-bus/index.js';
 import type { TaskGraph } from '../task-graph/index.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
+import type { ToolRegistry } from '../tools/index.js';
 import type { AgentRegistry } from './index.js';
 import { SpecialistAgent } from './specialist.js';
 
@@ -28,6 +29,7 @@ export class AgentFactory {
   private memory: MemoryManager;
   private registry: AgentRegistry;
   private llm: LLMClient | null = null;
+  private toolRegistry: ToolRegistry | null = null;
 
   constructor(
     agentsDir: string,
@@ -52,6 +54,13 @@ export class AgentFactory {
    */
   setLLM(llm: LLMClient): void {
     this.llm = llm;
+  }
+
+  /**
+   * Attach a tool registry. Agents created after this call can check available tools.
+   */
+  setToolRegistry(tools: ToolRegistry): void {
+    this.toolRegistry = tools;
   }
 
   /**
@@ -108,6 +117,7 @@ export class AgentFactory {
     // Create and register the agent
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
+    if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     this.registry.register(agent);
 
     // Store create event in memory
@@ -167,6 +177,7 @@ export class AgentFactory {
 
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
+    if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     this.registry.register(agent);
 
     this.bus.publish('agent.created', 'agent-factory', { identity });
@@ -253,6 +264,7 @@ export class AgentFactory {
     const agentDir = this.getAgentDir(agentId);
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
+    if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     this.registry.register(agent);
 
     this.bus.publish('agent.revived', 'agent-factory', { identity });
@@ -292,6 +304,8 @@ export class AgentFactory {
       if (this.registry.get(identity.id)) continue;
 
       const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
+      if (this.llm) agent.setLLM(this.llm);
+      if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
       this.registry.register(agent);
       agents.push(agent);
     }

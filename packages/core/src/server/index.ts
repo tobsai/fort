@@ -246,14 +246,19 @@ export class FortServer {
           ? { text: msg.payload, agentId: undefined, hidden: false, modelTier: undefined }
           : (msg.payload as { text: string; agentId?: string; hidden?: boolean; modelTier?: string });
         const isGreeting = chatPayload.text === '__greeting__';
+        const now = new Date();
+        const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const hour = now.getHours();
+        const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
         const chatText = isGreeting
-          ? 'Please greet me warmly and ask what I would like to accomplish today. Be yourself — use your personality from your SOUL.md.'
+          ? `Today is ${dateFull}. It is currently ${timeOfDay} (${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}). Please greet me warmly for this ${dayName} ${timeOfDay} and ask what I would like to accomplish today. Be yourself — use your personality from your SOUL.md.`
           : chatPayload.text;
         const task = await this.fort.chat(
           chatText,
           isGreeting ? 'background' : 'user_chat',
           chatPayload.agentId,
-          chatPayload.modelTier,
+          isGreeting ? 'fast' : chatPayload.modelTier,
         );
         return {
           id: msg.id,

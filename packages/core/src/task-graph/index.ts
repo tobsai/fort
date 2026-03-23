@@ -193,29 +193,40 @@ Respond with JSON only: {"approved": true, "reason": "brief explanation"} or {"a
    * fulfill the request, or null if no clear inability signal is found.
    */
   private detectInability(result: string): string | null {
-    const lower = result.toLowerCase();
+    // If the response contains a valid, parseable tool-building proposal, it's proactive — not inability
+    const toolJsonMatch = result.match(/\{[\s\S]*?"needsTool"\s*:\s*true[\s\S]*?\}/);
+    if (toolJsonMatch) {
+      try {
+        const parsed = JSON.parse(toolJsonMatch[0]);
+        if (parsed.needsTool && parsed.toolName) {
+          return null; // Valid tool proposal — skip inability detection
+        }
+      } catch {
+        // Malformed JSON — don't skip, continue with inability detection
+      }
+    }
+
+    // Normalize smart quotes/apostrophes to ASCII before matching
+    const lower = result.toLowerCase().replace(/[\u2018\u2019\u2032]/g, "'");
 
     // Phrases that clearly indicate the agent could not perform the task
     const inabilityPatterns = [
       /i('m| am) (unable|not able) to/,
-      /i (can'?t|cannot|don'?t have the (ability|capability|capacity))/,
-      /i (don'?t|do not) have (direct )?(access|integration|capability)/,
-      /i (lack|currently lack) (direct )?(access|integration|capability)/,
+      /i (can'?t|cannot) (access|browse|check|connect|fetch|open|pull|read|reach|retrieve|search|send|view|visit)/,
+      /i (don'?t|do not) (currently )?have (the )?(direct )?(access|ability|capability|capacity|integration)/,
+      /i (lack|currently lack) (direct )?(access|integration|capability|ability)/,
       /beyond my (current )?(capabilities|abilities)/,
       /outside (of )?my (current )?(capabilities|abilities|scope)/,
       /i('m| am) not (currently )?(able|capable|equipped)/,
       /unfortunately,? i (can'?t|cannot|am unable)/,
       /i must (inform|let) you that i (can'?t|cannot|don'?t|currently lack)/,
+      /my capabilities are limited to/,
+      /i('m| am) afraid i (can'?t|cannot|don'?t|must)/,
+      /i don'?t have direct access/,
     ];
 
     for (const pattern of inabilityPatterns) {
       if (pattern.test(lower)) {
-        // Also check that the response offers alternatives — a strong signal
-        // that the agent is declining rather than completing
-        const hasAlternatives = /what i (\*?can\*?|could) do instead|instead,? i (can|could)|alternative/i.test(result);
-        if (hasAlternatives) {
-          return 'Agent indicated inability and offered alternatives instead of completing the task';
-        }
         return 'Agent indicated it cannot perform the requested action';
       }
     }

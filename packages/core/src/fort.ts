@@ -168,6 +168,7 @@ export class Fort {
       this.agents,
     );
     this.agentFactory.setLLM(this.llm);
+    this.agentFactory.setToolRegistry(this.tools);
 
     // Diagnostics and introspection
     this.doctor = new FortDoctor();
