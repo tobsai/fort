@@ -8,15 +8,21 @@
 import { v4 as uuid } from 'uuid';
 import type { Task, TaskStatus, TaskSource, Thread, FortEvent } from '../types.js';
 import type { ModuleBus } from '../module-bus/index.js';
+import type { LLMClient } from '../llm/index.js';
 
 export class TaskGraph {
   private tasks: Map<string, Task> = new Map();
   private threads: Map<string, Thread> = new Map();
   private bus: ModuleBus;
+  private llm: LLMClient | null = null;
   private taskCounter = 0;
 
   constructor(bus: ModuleBus) {
     this.bus = bus;
+  }
+
+  setLLM(llm: LLMClient): void {
+    this.llm = llm;
   }
 
   createTask(params: {
@@ -106,9 +112,115 @@ export class TaskGraph {
 
   /**
    * Convenience: complete a task with a result string.
+   * Use this for system/internal completions that don't need review.
    */
   completeTask(taskId: string, result: string): Task {
     return this.updateStatus(taskId, 'completed', undefined, result);
+  }
+
+  /**
+   * LLM-reviewed completion — asks a fast-tier model whether the agent
+   * actually addressed the task before marking it complete.
+   * Falls through to completeTask() if no LLM is configured or on error.
+   */
+  async reviewCompletion(taskId: string, result: string): Promise<Task> {
+    const task = this.getTask(taskId);
+
+    // ── Deterministic pre-check ──────────────────────────────────────
+    // If the response clearly states inability, reject without burning an LLM call.
+    const inabilityReason = this.detectInability(result);
+    if (inabilityReason) {
+      this.bus.publish('task.review_completed', 'task-graph', {
+        task,
+        approved: false,
+        reason: inabilityReason,
+      });
+      return this.updateStatus(taskId, 'needs_review', inabilityReason, result);
+    }
+
+    // ── LLM review gate ──────────────────────────────────────────────
+    if (!this.llm || !this.llm.isConfigured) {
+      return this.completeTask(taskId, result);
+    }
+
+    try {
+      const response = await this.llm.ask(
+        `You are reviewing whether an agent has completed a task.
+
+Task: "${task.title}"
+Description: "${task.description}"
+Agent's result: "${result}"
+
+Has the agent ACTUALLY completed what was requested? Consider:
+- Did the agent perform the requested action or deliver the requested outcome?
+- If the agent said it CANNOT do something, that is NOT completion — reject it.
+- If the agent only offered alternatives instead of doing what was asked, reject it.
+- Explaining limitations, apologizing, or suggesting workarounds is NOT completion.
+- Only approve if the user's original request was fulfilled.
+
+Respond with JSON only: {"approved": true, "reason": "brief explanation"} or {"approved": false, "reason": "brief explanation"}`,
+        {
+          model: 'fast',
+          taskId: task.id,
+          system: 'You are a strict task completion reviewer. Respond with JSON only. A task is only complete if the requested action was actually performed. Declining, explaining inability, or offering alternatives is NOT completion.',
+        },
+      );
+
+      const decision = JSON.parse(response);
+
+      this.bus.publish('task.review_completed', 'task-graph', {
+        task,
+        approved: decision.approved,
+        reason: decision.reason,
+      });
+
+      if (decision.approved) {
+        return this.completeTask(taskId, result);
+      } else {
+        return this.updateStatus(taskId, 'needs_review', decision.reason, result);
+      }
+    } catch {
+      // LLM review failed — complete only if the response passes the deterministic check.
+      // The deterministic check already ran above so if we're here, the response has no
+      // obvious inability signals. Safe to complete.
+      return this.completeTask(taskId, result);
+    }
+  }
+
+  /**
+   * Deterministic check for inability signals in agent responses.
+   * Returns a reason string if the response indicates the agent couldn't
+   * fulfill the request, or null if no clear inability signal is found.
+   */
+  private detectInability(result: string): string | null {
+    const lower = result.toLowerCase();
+
+    // Phrases that clearly indicate the agent could not perform the task
+    const inabilityPatterns = [
+      /i('m| am) (unable|not able) to/,
+      /i (can'?t|cannot|don'?t have the (ability|capability|capacity))/,
+      /i (don'?t|do not) have (direct )?(access|integration|capability)/,
+      /i (lack|currently lack) (direct )?(access|integration|capability)/,
+      /beyond my (current )?(capabilities|abilities)/,
+      /outside (of )?my (current )?(capabilities|abilities|scope)/,
+      /i('m| am) not (currently )?(able|capable|equipped)/,
+      /unfortunately,? i (can'?t|cannot|am unable)/,
+      /i must (inform|let) you that i (can'?t|cannot|don'?t|currently lack)/,
+    ];
+
+    for (const pattern of inabilityPatterns) {
+      if (pattern.test(lower)) {
+        // Also check that the response offers alternatives — a strong signal
+        // that the agent is declining rather than completing
+        const hasAlternatives = /what i (\*?can\*?|could) do instead|instead,? i (can|could)|alternative/i.test(result);
+        if (hasAlternatives) {
+          return 'Agent indicated inability and offered alternatives instead of completing the task';
+        }
+        return 'Agent indicated it cannot perform the requested action';
+      }
+    }
+
+    return null;
   }
 
   decompose(parentId: string, subtasks: Array<{

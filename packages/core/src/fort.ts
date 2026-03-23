@@ -152,6 +152,9 @@ export class Fort {
       this.memory,
     );
 
+    // Wire LLM into task graph for completion review
+    this.taskGraph.setLLM(this.llm);
+
     // Deterministic services
     this.orchestrator = new OrchestratorService(this.taskGraph, this.agents, this.bus);
     this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);

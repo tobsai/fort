@@ -155,8 +155,8 @@ export class SpecialistAgent extends BaseAgent {
       source: `agent:${this.identity.id}`,
     });
 
-    // Complete the task WITH the response — task only completes after responding
-    this.taskGraph.completeTask(taskId, responseText);
+    // Review completion with LLM before marking done
+    await this.taskGraph.reviewCompletion(taskId, responseText);
   }
 
   /**

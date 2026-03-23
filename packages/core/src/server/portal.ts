@@ -1176,6 +1176,7 @@ export function getPortalHTML(): string {
   var agentsList = [];
   var tasksList = [];
   var chatMessages = {};  // keyed by agentId
+  var shownTaskIds = {};  // track which task IDs have been displayed
   var selectedChatAgent = null;
   var reconnectTimer = null;
   var wizardStep = 0;
@@ -1500,6 +1501,10 @@ export function getPortalHTML(): string {
         renderKanban();
         break;
       case 'chat.response':
+        // Track the task ID to prevent duplicates from task.status_changed
+        if (msg.payload && msg.payload.task && msg.payload.task.id) {
+          shownTaskIds[msg.payload.task.id] = true;
+        }
         // For greeting messages, show the agent's response directly from the completed task
         if (msg.payload && msg.payload.hidden && msg.payload.task && msg.payload.task.result) {
           var greetTask = msg.payload.task;
@@ -1530,16 +1535,20 @@ export function getPortalHTML(): string {
       case 'task.status_changed':
         var t = msg.payload;
         if (t && t.result && (t.source === 'user_chat' || t.source === 'background')) {
+          if (t.status !== 'completed' && t.status !== 'failed' && t.status !== 'needs_review') break;
           var agentId = t.assignedAgent || t.agentId || t.agent;
+          var taskId = t.id;
           var isGreetingTask = t.source === 'background' && (t.title || '').indexOf('Please greet me') !== -1;
+          // Skip greetings — already handled by chat.response
+          // Skip tasks already shown — prevents duplicates
+          if (isGreetingTask || (taskId && shownTaskIds[taskId])) break;
+          if (taskId) shownTaskIds[taskId] = true;
           if (agentId) {
-            // Greeting tasks show response without a task card
-            var taskCard = isGreetingTask ? null : {
+            addChatMessage(agentId, 'agent', t.result, {
               shortId: t.shortId || t.id,
               title: t.title || 'Task',
               status: t.status || 'completed',
-            };
-            addChatMessage(agentId, 'agent', t.result, taskCard);
+            });
           }
         }
         wsSend('tasks');

@@ -716,6 +716,12 @@ export class LLMClient {
       }
     }
 
+    // Inject current time so the agent is aware of time of day
+    const now = new Date();
+    parts.push(
+      `\n\n## Current Time\n${now.toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+    );
+
     // Inject additional context
     if (request.context && request.context.length > 0) {
       parts.push('\n\n## Additional Context\n' + request.context.join('\n'));
