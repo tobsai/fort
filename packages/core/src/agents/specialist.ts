@@ -52,8 +52,11 @@ export class SpecialistAgent extends BaseAgent {
     // Load soul on start
     this.refreshSoul();
 
-    // Subscribe to configured events
-    for (const eventType of this.identity.eventSubscriptions) {
+    // Subscribe to configured events (skip task.created to prevent infinite loops)
+    const safeEvents = this.identity.eventSubscriptions.filter(
+      (e: string) => e !== 'task.created' && e !== 'task.status_changed',
+    );
+    for (const eventType of safeEvents) {
       const unsub = this.bus.subscribe(eventType, async (event) => {
         const task = this.taskGraph.createTask({
           title: `[${this.identity.name}] Handle ${eventType}`,
