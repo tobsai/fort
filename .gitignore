@@ -7,3 +7,6 @@ dist/
 .fort/data/
 *.sqlite
 *.sqlite-journal
+
+# Local agent identities (personal data — never commit)
+agents/
