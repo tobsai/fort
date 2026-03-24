@@ -16,7 +16,7 @@ export function createScheduleCommand(): Command {
         const triggers = fort.scheduler.listTriggers();
 
         if (opts.json) {
-          console.log(JSON.stringify({ routines: routines.map(({ handler: _h, ...r }) => r), triggers }, null, 2));
+          console.log(JSON.stringify({ routines: routines.map(({ handler: _h, ...r }: any) => r), triggers }, null, 2));
           return;
         }
 

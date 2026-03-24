@@ -59,7 +59,7 @@ export function createTasksCommand(): Command {
         let tasks = fort.taskGraph.queryTasks(filter);
 
         if (!opts.all) {
-          tasks = tasks.filter((t) => t.status !== 'completed' && t.status !== 'failed');
+          tasks = tasks.filter((t: any) => t.status !== 'completed' && t.status !== 'failed');
         }
 
         if (opts.json) {

@@ -10,3 +10,4 @@ dist/
 
 # Local agent identities (personal data — never commit)
 /agents/
+*.tsbuildinfo

@@ -18,7 +18,7 @@ export function createStatusCommand(): Command {
 
         if (opts.json) {
           console.log(JSON.stringify({
-            agents: agents.map((a) => ({ ...a.config, status: a.status })),
+            agents: agents.map((a: any) => ({ ...a.config, status: a.status })),
             tasks: { total: totalTasks, active: activeTasks.length, blocked: blockedTasks.length },
             memory: memStats,
             tools: toolStats,
@@ -57,7 +57,7 @@ export function createStatusCommand(): Command {
 
         // Scheduler
         console.log(bold('  Scheduler:'));
-        console.log(`    Routines: ${routines.length} (${routines.filter((r) => r.enabled).length} enabled)`);
+        console.log(`    Routines: ${routines.length} (${routines.filter((r: any) => r.enabled).length} enabled)`);
         console.log();
       });
     });

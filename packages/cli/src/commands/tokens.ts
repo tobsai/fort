@@ -47,7 +47,7 @@ export function createTokensCommand(): Command {
           const modelRows = [
             [dim('Model'), dim('Tokens'), dim('Cost'), dim('Calls')],
           ];
-          for (const [model, data] of Object.entries(stats.byModel)) {
+          for (const [model, data] of Object.entries(stats.byModel as Record<string, any>)) {
             modelRows.push([cyan(model), formatTokens(data.tokens), formatCost(data.cost), String(data.calls)]);
           }
           if (modelRows.length === 1) {
@@ -63,7 +63,7 @@ export function createTokensCommand(): Command {
           const agentRows = [
             [dim('Agent'), dim('Tokens'), dim('Cost'), dim('Calls')],
           ];
-          for (const [agent, data] of Object.entries(stats.byAgent)) {
+          for (const [agent, data] of Object.entries(stats.byAgent as Record<string, any>)) {
             agentRows.push([cyan(agent), formatTokens(data.tokens), formatCost(data.cost), String(data.calls)]);
           }
           if (agentRows.length === 1) {
