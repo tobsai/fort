@@ -3,24 +3,20 @@ FROM node:20-bookworm AS builder
 
 WORKDIR /app
 
-# Copy source (node_modules and dist excluded via .dockerignore)
+# Copy source (node_modules, dist, tsbuildinfo excluded via .dockerignore)
 COPY . .
 
-# Install dependencies
+# Install dependencies (creates workspace symlinks in node_modules/@fort/*)
 RUN npm ci
 
-# Remove any stale incremental build state (tsbuildinfo files can prevent emit)
-RUN find . -name "*.tsbuildinfo" -not -path "*/node_modules/*" -delete
+# Build all packages via project references (core → cli in correct order)
+RUN ./node_modules/.bin/tsc --build tsconfig.json
 
-# Build step 1: core package
-RUN ./node_modules/.bin/tsc -p packages/core/tsconfig.json
-RUN test -f packages/core/dist/index.d.ts || (echo "ERROR: core dist/index.d.ts missing" && exit 1)
+# Fail fast if build artifacts are missing
+RUN test -f packages/core/dist/index.d.ts || (echo "ERROR: core declarations missing" && exit 1)
+RUN test -f packages/cli/dist/index.js || (echo "ERROR: cli not built" && exit 1)
 
-# Build step 2: cli package
-RUN ./node_modules/.bin/tsc -p packages/cli/tsconfig.json
-RUN test -f packages/cli/dist/index.js || (echo "ERROR: cli dist/index.js missing" && exit 1)
-
-# Build step 3: dashboard (vite)
+# Build dashboard (vite)
 RUN npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime
@@ -29,12 +25,14 @@ FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Copy package files and install prod deps only
 COPY package*.json ./
 COPY packages/core/package*.json ./packages/core/
 COPY packages/cli/package*.json ./packages/cli/
 COPY packages/dashboard/package*.json ./packages/dashboard/
 RUN npm ci --omit=dev
 
+# Copy built artifacts from builder
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
 COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
