@@ -3,19 +3,23 @@ FROM node:20-bookworm AS builder
 
 WORKDIR /app
 
-# Copy everything (respecting .dockerignore)
+# Copy source (node_modules, dist, .git excluded via .dockerignore)
 COPY . .
 
-# Install dependencies (creates workspace symlinks)
+# Install all dependencies (creates node_modules + workspace symlinks)
 RUN npm ci
 
-# Build via project references — builds core first, then cli
-RUN npx tsc --build tsconfig.json
+# Verify workspace symlink was created
+RUN test -L node_modules/@fort/core || (echo "ERROR: @fort/core symlink missing" && exit 1)
 
-# Verify declarations were emitted (fast fail if something went wrong)
+# Build using the installed tsc binary (not npx which may resolve differently)
+RUN ./node_modules/.bin/tsc --build tsconfig.json
+
+# Fail fast if declarations weren't emitted
 RUN test -f packages/core/dist/index.d.ts || (echo "ERROR: core declarations not emitted" && exit 1)
+RUN test -f packages/cli/dist/index.js || (echo "ERROR: cli not built" && exit 1)
 
-# Build dashboard (vite, separate from tsc project references)
+# Build dashboard (vite, separate from tsc)
 RUN npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime
@@ -31,7 +35,7 @@ COPY packages/cli/package*.json ./packages/cli/
 COPY packages/dashboard/package*.json ./packages/dashboard/
 RUN npm ci --omit=dev
 
-# Copy built artifacts
+# Copy built artifacts from builder
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
 COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
