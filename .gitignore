@@ -9,4 +9,4 @@ dist/
 *.sqlite-journal
 
 # Local agent identities (personal data — never commit)
-agents/
+/agents/

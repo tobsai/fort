@@ -1,0 +1,10 @@
+node_modules
+.git
+.fort
+agents/
+packages/*/node_modules
+packages/dashboard/node_modules
+*.log
+.env
+.env.*
+dist
