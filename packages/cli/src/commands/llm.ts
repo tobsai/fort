@@ -139,8 +139,8 @@ export function createLLMCommand(): Command {
 
         console.log(bold('  Models:'));
         for (const [tier, model] of Object.entries(stats.models)) {
-          console.log(`    ${cyan(tier.padEnd(10))} ${model.model}`);
-          console.log(`    ${' '.repeat(10)} ${dim(model.description)}`);
+          console.log(`    ${cyan(tier.padEnd(10))} ${(model as any).model}`);
+          console.log(`    ${" ".repeat(10)} ${dim((model as any).description)}`);
         }
         console.log();
 

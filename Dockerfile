@@ -6,13 +6,17 @@ WORKDIR /app
 # Copy everything (respecting .dockerignore)
 COPY . .
 
-# Install dependencies
+# Install dependencies (creates workspace symlinks)
 RUN npm ci
 
-# Build in order: core first (produces d.ts), then cli, then dashboard
-RUN npm run build --workspace=packages/core && \
-    npm run build --workspace=packages/cli && \
-    npm run build --workspace=packages/dashboard
+# Build via project references — builds core first, then cli
+RUN npx tsc --build tsconfig.json
+
+# Verify declarations were emitted (fast fail if something went wrong)
+RUN test -f packages/core/dist/index.d.ts || (echo "ERROR: core declarations not emitted" && exit 1)
+
+# Build dashboard (vite, separate from tsc project references)
+RUN npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime
 FROM node:20-bookworm-slim AS runtime
