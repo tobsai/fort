@@ -15,8 +15,10 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build all packages
-RUN npm run build
+# Build packages in dependency order (core → cli → dashboard)
+RUN npm run build --workspace=packages/core && \
+    npm run build --workspace=packages/cli && \
+    npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime
 FROM node:20-bookworm-slim AS runtime
