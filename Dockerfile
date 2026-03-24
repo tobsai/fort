@@ -6,17 +6,19 @@ WORKDIR /app
 # Copy source (node_modules and dist excluded via .dockerignore)
 COPY . .
 
-# Install dependencies (creates workspace symlinks in node_modules/@fort/*)
+# Install dependencies
 RUN npm ci
 
-# Build step 1: core package (produces dist/ with index.d.ts)
-RUN ./node_modules/.bin/tsc -p packages/core/tsconfig.json
+# Remove any stale incremental build state (tsbuildinfo files can prevent emit)
+RUN find . -name "*.tsbuildinfo" -not -path "*/node_modules/*" -delete
 
-# Verify core declarations emitted
+# Build step 1: core package
+RUN ./node_modules/.bin/tsc -p packages/core/tsconfig.json
 RUN test -f packages/core/dist/index.d.ts || (echo "ERROR: core dist/index.d.ts missing" && exit 1)
 
-# Build step 2: cli package (resolves @fort/core via paths mapping -> ../core/src)
+# Build step 2: cli package
 RUN ./node_modules/.bin/tsc -p packages/cli/tsconfig.json
+RUN test -f packages/cli/dist/index.js || (echo "ERROR: cli dist/index.js missing" && exit 1)
 
 # Build step 3: dashboard (vite)
 RUN npm run build --workspace=packages/dashboard

@@ -8,3 +8,4 @@ packages/dashboard/node_modules
 .env
 .env.*
 dist
+*.tsbuildinfo
