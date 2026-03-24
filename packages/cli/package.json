@@ -7,7 +7,7 @@
     "fort": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "fort": "node dist/index.js"

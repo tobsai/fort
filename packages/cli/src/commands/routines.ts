@@ -86,7 +86,7 @@ export function createRoutinesCommand(): Command {
     .action(async (id) => {
       await withFort(async (fort) => {
         const allRoutines = fort.routines.listRoutines();
-        const match = allRoutines.find((r) => r.id === id || r.id.startsWith(id));
+        const match = allRoutines.find((r: any) => r.id === id || r.id.startsWith(id));
 
         if (!match) {
           console.log(red(`\n  Routine not found: ${id}\n`));
@@ -113,7 +113,7 @@ export function createRoutinesCommand(): Command {
     .action(async (id, opts) => {
       await withFort(async (fort) => {
         const allRoutines = fort.routines.listRoutines();
-        const match = allRoutines.find((r) => r.id === id || r.id.startsWith(id));
+        const match = allRoutines.find((r: any) => r.id === id || r.id.startsWith(id));
 
         if (!match) {
           console.log(red(`\n  Routine not found: ${id}\n`));
@@ -149,7 +149,7 @@ export function createRoutinesCommand(): Command {
     .action(async (id) => {
       await withFort(async (fort) => {
         const allRoutines = fort.routines.listRoutines();
-        const match = allRoutines.find((r) => r.id === id || r.id.startsWith(id));
+        const match = allRoutines.find((r: any) => r.id === id || r.id.startsWith(id));
 
         if (!match) {
           console.log(red(`\n  Routine not found: ${id}\n`));
@@ -168,7 +168,7 @@ export function createRoutinesCommand(): Command {
     .action(async (id) => {
       await withFort(async (fort) => {
         const allRoutines = fort.routines.listRoutines();
-        const match = allRoutines.find((r) => r.id === id || r.id.startsWith(id));
+        const match = allRoutines.find((r: any) => r.id === id || r.id.startsWith(id));
 
         if (!match) {
           console.log(red(`\n  Routine not found: ${id}\n`));

@@ -168,7 +168,7 @@ export function createLLMCommand(): Command {
 
         console.log(bold('\n  Model Routing Configuration\n'));
 
-        for (const [tier, config] of Object.entries(models)) {
+        for (const [tier, config] of Object.entries(models as Record<string, any>)) {
           console.log(`  ${bold(tier.toUpperCase().padEnd(12))} ${cyan(config.model)}`);
           console.log(`  ${''.padEnd(12)} Max tokens: ${config.maxTokens}`);
           console.log(`  ${''.padEnd(12)} ${dim(config.description)}`);

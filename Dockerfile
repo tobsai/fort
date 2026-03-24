@@ -15,9 +15,8 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build packages in dependency order (core → cli → dashboard)
-RUN npm run build --workspace=packages/core && \
-    npm run build --workspace=packages/cli && \
+# Build core + cli via project references, then dashboard via vite
+RUN npx tsc --build tsconfig.json && \
     npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime

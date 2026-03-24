@@ -36,7 +36,7 @@ export function createPluginsCommand(): Command {
           if (plugin.manifest.author) {
             console.log(`    ${dim(`Author: ${plugin.manifest.author}`)}`);
           }
-          console.log(`    ${dim(`Capabilities: ${plugin.manifest.capabilities.map((c) => c.name).join(', ') || 'none'}`)}`);
+          console.log(`    ${dim(`Capabilities: ${plugin.manifest.capabilities.map((c: any) => c.name).join(', ') || 'none'}`)}`);
           if (plugin.error) {
             console.log(`    ${red(`Error: ${plugin.error}`)}`);
           }
@@ -87,7 +87,7 @@ export function createPluginsCommand(): Command {
           if (loaded.status === 'blocked') {
             console.log(red(`\n  Plugin '${loaded.manifest.name}' blocked by security scan.\n`));
             if (loaded.securityReport) {
-              const failed = loaded.securityReport.checks.filter((c) => !c.passed);
+              const failed = loaded.securityReport.checks.filter((c: any) => !c.passed);
               for (const check of failed) {
                 console.log(`    ${red('FAIL')} [${check.severity}] ${check.name}: ${check.message}`);
               }
