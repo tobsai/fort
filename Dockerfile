@@ -3,39 +3,33 @@ FROM node:20-bookworm AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/core/package*.json ./packages/core/
-COPY packages/cli/package*.json ./packages/cli/
-COPY packages/dashboard/package*.json ./packages/dashboard/
-
-# Install all dependencies (including devDeps for build, native modules compiled here)
-RUN npm ci
-
-# Copy source
+# Copy everything (respecting .dockerignore)
 COPY . .
 
-# Build core + cli via project references, then dashboard via vite
-RUN npx tsc --build tsconfig.json && \
+# Install dependencies
+RUN npm ci
+
+# Build in order: core first (produces d.ts), then cli, then dashboard
+RUN npm run build --workspace=packages/core && \
+    npm run build --workspace=packages/cli && \
     npm run build --workspace=packages/dashboard
 
 # Stage 2: Runtime
 FROM node:20-bookworm-slim AS runtime
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-# Copy built artifacts and node_modules from builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/core/package*.json ./packages/core/
+# Copy package files and install prod deps only
+COPY package*.json ./
+COPY packages/core/package*.json ./packages/core/
+COPY packages/cli/package*.json ./packages/cli/
+COPY packages/dashboard/package*.json ./packages/dashboard/
+RUN npm ci --omit=dev
+
+# Copy built artifacts
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
-COPY --from=builder /app/packages/core/node_modules ./packages/core/node_modules
-COPY --from=builder /app/packages/cli/package*.json ./packages/cli/
 COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
-COPY --from=builder /app/packages/cli/node_modules ./packages/cli/node_modules
-COPY --from=builder /app/packages/dashboard/package*.json ./packages/dashboard/
 COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
 
 EXPOSE ${PORT:-4077}

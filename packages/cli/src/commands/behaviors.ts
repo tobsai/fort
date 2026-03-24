@@ -71,7 +71,7 @@ export function createBehaviorsCommand(): Command {
       await withFort(async (fort) => {
         // Support prefix matching
         const allBehaviors = fort.behaviors.listBehaviors();
-        const match = allBehaviors.find((b) => b.id === id || b.id.startsWith(id));
+        const match = allBehaviors.find((b: any) => b.id === id || b.id.startsWith(id));
 
         if (!match) {
           console.log(red(`\n  Behavior not found: ${id}\n`));
