@@ -19,6 +19,7 @@ import type { TaskGraph } from '../task-graph/index.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
 import type { ToolRegistry } from '../tools/index.js';
+import type { ToolExecutor } from '../tools/executor.js';
 import type { AgentRegistry } from './index.js';
 import { SpecialistAgent } from './specialist.js';
 
@@ -30,6 +31,7 @@ export class AgentFactory {
   private registry: AgentRegistry;
   private llm: LLMClient | null = null;
   private toolRegistry: ToolRegistry | null = null;
+  private toolExecutor: ToolExecutor | null = null;
 
   constructor(
     agentsDir: string,
@@ -61,6 +63,13 @@ export class AgentFactory {
    */
   setToolRegistry(tools: ToolRegistry): void {
     this.toolRegistry = tools;
+  }
+
+  /**
+   * Attach a tool executor. Agents created after this call can execute tools during LLM loops.
+   */
+  setToolExecutor(executor: ToolExecutor): void {
+    this.toolExecutor = executor;
   }
 
   /**
@@ -118,6 +127,7 @@ export class AgentFactory {
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
+    if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
     this.registry.register(agent);
 
     // Store create event in memory
@@ -178,6 +188,7 @@ export class AgentFactory {
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
+    if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
     this.registry.register(agent);
 
     this.bus.publish('agent.created', 'agent-factory', { identity });
@@ -265,6 +276,7 @@ export class AgentFactory {
     const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
+    if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
     this.registry.register(agent);
 
     this.bus.publish('agent.revived', 'agent-factory', { identity });

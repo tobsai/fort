@@ -237,6 +237,19 @@ export class FortServer {
     this.fort.bus.subscribe('reflection.insight', (event) => {
       this.broadcast({ id: event.id, type: 'reflection.insight', payload: event.payload });
     });
+
+    // Broadcast tool execution events so the dashboard can show tool calls live
+    this.fort.bus.subscribe('tool.executed', (event) => {
+      this.broadcast({ id: event.id, type: 'tool.executed', payload: event.payload });
+    });
+
+    this.fort.bus.subscribe('tool.denied', (event) => {
+      this.broadcast({ id: event.id, type: 'tool.denied', payload: event.payload });
+    });
+
+    this.fort.bus.subscribe('tool.error', (event) => {
+      this.broadcast({ id: event.id, type: 'tool.error', payload: event.payload });
+    });
   }
 
   private async handleMessage(msg: WSMessage): Promise<WSResponse> {
