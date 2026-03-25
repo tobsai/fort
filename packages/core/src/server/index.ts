@@ -11,6 +11,16 @@ import { join, extname } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Fort } from '../fort.js';
+import {
+  loadAuthConfig,
+  buildGoogleAuthUrl,
+  exchangeCodeForEmail,
+  getSessionEmail,
+  isEmailAllowed,
+  buildSessionCookieHeader,
+  buildClearCookieHeader,
+  type GoogleAuthConfig,
+} from './auth.js';
 
 // Resolve dashboard dist directory relative to this file's compiled location
 // At runtime: packages/core/dist/server/index.js
@@ -51,15 +61,45 @@ export class FortServer {
   private fort: Fort;
   private clients: Set<WebSocket> = new Set();
   private port: number;
+  private authConfig: GoogleAuthConfig;
 
   constructor(fort: Fort, port: number = 4077) {
     this.fort = fort;
     this.port = port;
+    this.authConfig = loadAuthConfig();
 
     this.httpServer = createServer((req, res) => {
+      // Always allow health check without auth
       if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', agents: this.fort.agents.listInfo().length }));
+        return;
+      }
+
+      // Auth routes (always public)
+      if (req.url === '/auth/google') {
+        this.handleAuthGoogle(req, res);
+        return;
+      }
+      if (req.url?.startsWith('/auth/google/callback')) {
+        this.handleAuthCallback(req, res);
+        return;
+      }
+      if (req.url === '/auth/logout') {
+        this.handleAuthLogout(req, res);
+        return;
+      }
+
+      // Enforce auth for all other routes when enabled
+      if (this.authConfig.authEnabled && !this.isAuthenticated(req)) {
+        // API requests get 401; browser requests get redirected
+        if (req.url?.startsWith('/api/') || req.headers['upgrade'] === 'websocket') {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+        } else {
+          res.writeHead(302, { Location: '/auth/google' });
+          res.end();
+        }
         return;
       }
       if (req.url === '/api/setup-status' && req.method === 'GET') {
@@ -172,9 +212,86 @@ export class FortServer {
       this.serveStatic(req, res);
     });
 
-    this.wss = new WebSocketServer({ server: this.httpServer });
+    this.wss = new WebSocketServer({
+      server: this.httpServer,
+      verifyClient: ({ req }: { req: IncomingMessage }) => {
+        if (!this.authConfig.authEnabled) return true;
+        return this.isAuthenticated(req);
+      },
+    });
     this.setupWebSocket();
     this.setupEventBroadcast();
+  }
+
+  private isAuthenticated(req: IncomingMessage): boolean {
+    const email = getSessionEmail(req.headers.cookie, this.authConfig.sessionSecret);
+    if (!email) return false;
+    return isEmailAllowed(email, this.authConfig.allowedEmails);
+  }
+
+  private handleAuthGoogle(_req: IncomingMessage, res: ServerResponse): void {
+    if (!this.authConfig.clientId) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('GOOGLE_CLIENT_ID not configured');
+      return;
+    }
+    const url = buildGoogleAuthUrl(this.authConfig.clientId, this.authConfig.callbackUrl);
+    res.writeHead(302, { Location: url });
+    res.end();
+  }
+
+  private handleAuthCallback(req: IncomingMessage, res: ServerResponse): void {
+    const urlStr = `http://localhost${req.url}`;
+    let code: string | null = null;
+    try {
+      const parsed = new URL(urlStr);
+      code = parsed.searchParams.get('code');
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad request');
+      return;
+    }
+
+    if (!code) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Missing code parameter');
+      return;
+    }
+
+    exchangeCodeForEmail(
+      code,
+      this.authConfig.clientId,
+      this.authConfig.clientSecret,
+      this.authConfig.callbackUrl,
+    ).then((email) => {
+      if (!isEmailAllowed(email, this.authConfig.allowedEmails)) {
+        res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(
+          `<h1>Access Denied</h1><p>${email} is not authorized to access Fort.</p>`,
+        );
+        return;
+      }
+
+      const isSecure = !req.headers.host?.startsWith('localhost');
+      const cookie = buildSessionCookieHeader(
+        email,
+        this.authConfig.sessionSecret,
+        isSecure,
+      );
+      res.writeHead(302, { Location: '/', 'Set-Cookie': cookie });
+      res.end();
+    }).catch((err) => {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Auth error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
+
+  private handleAuthLogout(_req: IncomingMessage, res: ServerResponse): void {
+    res.writeHead(302, {
+      Location: '/auth/google',
+      'Set-Cookie': buildClearCookieHeader(),
+    });
+    res.end();
   }
 
   private setupWebSocket(): void {
