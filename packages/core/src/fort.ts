@@ -16,7 +16,7 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
-import { ToolRegistry } from './tools/index.js';
+import { ToolRegistry, ToolExecutor } from './tools/index.js';
 import { Scheduler } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
@@ -63,6 +63,7 @@ export class Fort {
   readonly memory: MemoryManager;
   readonly permissions: PermissionManager;
   readonly tools: ToolRegistry;
+  readonly toolExecutor: ToolExecutor;
   readonly scheduler: Scheduler;
   readonly specs: SpecManager;
   readonly tokens: TokenTracker;
@@ -105,6 +106,7 @@ export class Fort {
     );
     this.tools = new ToolRegistry(join(config.dataDir, 'tools.db'));
     this.tokens = new TokenTracker(join(config.dataDir, 'tokens.db'), this.bus);
+    this.toolExecutor = new ToolExecutor(this.permissions, this.bus, this.tokens);
     this.scheduler = new Scheduler(this.bus, this.taskGraph);
     this.specs = new SpecManager(config.specsDir);
     this.behaviors = new BehaviorManager(this.memory, this.bus);
@@ -169,6 +171,7 @@ export class Fort {
     );
     this.agentFactory.setLLM(this.llm);
     this.agentFactory.setToolRegistry(this.tools);
+    this.agentFactory.setToolExecutor(this.toolExecutor);
 
     // Diagnostics and introspection
     this.doctor = new FortDoctor();
