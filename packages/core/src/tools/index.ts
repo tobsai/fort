@@ -11,9 +11,14 @@ import { v4 as uuid } from 'uuid';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { ToolDefinition, DiagnosticResult } from '../types.js';
+import type { FortTool } from './types.js';
+
+export type { FortTool, ToolResult, ToolCallLog } from './types.js';
+export { ToolExecutor } from './executor.js';
 
 export class ToolRegistry {
   private db: Database.Database;
+  private liveTools: Map<string, FortTool> = new Map();
 
   constructor(dbPath: string) {
     const dir = dirname(dbPath);
@@ -44,6 +49,46 @@ export class ToolRegistry {
       CREATE INDEX IF NOT EXISTS idx_tools_name ON tools(name);
       CREATE INDEX IF NOT EXISTS idx_tools_module ON tools(module);
     `);
+  }
+
+  /**
+   * Register a live FortTool (executable) alongside metadata in the registry.
+   * The tool's metadata is persisted to SQLite; the callable implementation is
+   * stored in memory for the lifetime of this ToolRegistry instance.
+   */
+  registerTool(tool: FortTool): ToolDefinition {
+    // Persist metadata to database
+    const definition = this.register({
+      name: tool.name,
+      description: tool.description,
+      capabilities: [],
+      inputTypes: [],
+      outputTypes: [],
+      tags: [],
+      module: 'runtime',
+      version: '1.0.0',
+    });
+
+    // Store the live callable
+    this.liveTools.set(tool.name, tool);
+
+    return definition;
+  }
+
+  /**
+   * Retrieve a registered live FortTool by name.
+   * Returns null if the tool was registered as metadata-only (via register())
+   * or has not been registered at all.
+   */
+  getLiveTool(name: string): FortTool | null {
+    return this.liveTools.get(name) ?? null;
+  }
+
+  /**
+   * List all live FortTool instances registered via registerTool().
+   */
+  listLiveTools(): FortTool[] {
+    return Array.from(this.liveTools.values());
   }
 
   register(tool: Omit<ToolDefinition, 'id' | 'usageCount' | 'lastUsedAt'>): ToolDefinition {
