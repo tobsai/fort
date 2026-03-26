@@ -4,6 +4,7 @@ import SetupWizard from "./components/SetupWizard";
 import ChatPage from "./pages/ChatPage";
 import DashboardPage from "./pages/DashboardPage";
 import AgentsPage from "./pages/AgentsPage";
+import TasksPage from "./pages/TasksPage";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/chat/:agentId" element={<ChatPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/tasks" element={<TasksPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>
       </main>
