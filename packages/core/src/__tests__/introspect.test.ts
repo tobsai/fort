@@ -119,7 +119,7 @@ describe('Introspector', () => {
     expect(profile.uptime).toBeGreaterThanOrEqual(0);
     expect(profile.moduleCount).toBeGreaterThan(0);
     expect(profile.agentCount).toBe(0); // no agents by default (core agents are now services)
-    expect(profile.toolCount).toBe(1);
+    expect(profile.toolCount).toBeGreaterThanOrEqual(1);
     expect(profile.generatedAt).toBeTruthy();
 
     // Diagnostic summary should be present

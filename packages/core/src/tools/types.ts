@@ -9,6 +9,13 @@
 
 import type { ActionTier } from '../types.js';
 
+export interface ToolExecutionContext {
+  /** Task ID that is invoking this tool */
+  taskId?: string;
+  /** Agent ID that is invoking this tool */
+  agentId?: string;
+}
+
 export interface FortTool {
   /** Unique identifier for this tool (kebab-case) */
   name: string;
@@ -18,8 +25,8 @@ export interface FortTool {
   inputSchema: object;
   /** Permission tier: 1=auto, 2=draft, 3=approve, 4=never */
   tier: ActionTier;
-  /** Execute the tool with validated input */
-  execute(input: unknown): Promise<ToolResult>;
+  /** Execute the tool with validated input and optional execution context */
+  execute(input: unknown, context?: ToolExecutionContext): Promise<ToolResult>;
 }
 
 export interface ToolResult {

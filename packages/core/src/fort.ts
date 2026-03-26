@@ -18,7 +18,7 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
-import { ToolRegistry, ToolExecutor, ApprovalStore } from './tools/index.js';
+import { ToolRegistry, ToolExecutor, ApprovalStore, createDelegateTool } from './tools/index.js';
 import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
@@ -226,6 +226,9 @@ export class Fort {
     this.agentFactory.setLLM(this.llm);
     this.agentFactory.setToolRegistry(this.tools);
     this.agentFactory.setToolExecutor(this.toolExecutor);
+
+    // Register the delegate-to-agent built-in tool (needs taskGraph, bus, agents)
+    this.tools.registerTool(createDelegateTool(this.taskGraph, this.bus, this.agents));
 
     // Diagnostics and introspection
     this.doctor = new FortDoctor();
