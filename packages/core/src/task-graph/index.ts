@@ -36,6 +36,7 @@ export class TaskGraph {
     source: TaskSource;
     parentId?: string;
     assignedAgent?: string;
+    sourceAgentId?: string;
     threadId?: string;
     metadata?: Record<string, unknown>;
   }): Task {
@@ -49,6 +50,7 @@ export class TaskGraph {
       status: 'created',
       source: params.source,
       assignedAgent: params.assignedAgent ?? null,
+      sourceAgentId: params.sourceAgentId ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
       completedAt: null,
@@ -382,6 +384,14 @@ Respond with JSON only: {"approved": true, "reason": "brief explanation"} or {"a
   queryTasksFromStore(query: TaskQuery): Task[] {
     if (!this.store) return [];
     return this.store.queryTasks(query);
+  }
+
+  /**
+   * Get direct children of a task from DB.
+   */
+  getSubtasksFromStore(parentId: string): Task[] {
+    if (!this.store) return [];
+    return this.store.getSubtasks(parentId);
   }
 
   getActiveTasks(): Task[] {

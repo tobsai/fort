@@ -13,8 +13,9 @@ import { dirname } from 'node:path';
 import type { ToolDefinition, DiagnosticResult } from '../types.js';
 import type { FortTool } from './types.js';
 
-export type { FortTool, ToolResult, ToolCallLog } from './types.js';
+export type { FortTool, ToolResult, ToolCallLog, ToolExecutionContext } from './types.js';
 export { ToolExecutor, ToolRejectedError } from './executor.js';
+export { createDelegateTool } from './delegate-tool.js';
 export { ApprovalStore } from './approval-store.js';
 export type { ApprovalRequest, ApprovalStatus, CreateApprovalInput } from './approval-store.js';
 

@@ -9,16 +9,53 @@ import type { Task, TaskSource } from '../types.js';
 import type { TaskGraph } from '../task-graph/index.js';
 import type { AgentRegistry } from '../agents/index.js';
 import type { ModuleBus } from '../module-bus/index.js';
+import type { AgentMemoryStore } from '../memory/agent-memory-store.js';
 
 export class OrchestratorService {
   private taskGraph: TaskGraph;
   private agents: AgentRegistry;
   private bus: ModuleBus;
+  private agentMemoryStore: AgentMemoryStore | null = null;
 
   constructor(taskGraph: TaskGraph, agents: AgentRegistry, bus: ModuleBus) {
     this.taskGraph = taskGraph;
     this.agents = agents;
     this.bus = bus;
+  }
+
+  setAgentMemoryStore(store: AgentMemoryStore): void {
+    this.agentMemoryStore = store;
+  }
+
+  /**
+   * Route a delegated task to its assigned agent.
+   * Validates that the target agent exists and is running, then dispatches.
+   * Used for programmatic delegation outside of the delegate-to-agent tool.
+   */
+  async routeTask(taskId: string): Promise<void> {
+    const task = this.taskGraph.getTask(taskId);
+    if (!task.assignedAgent) {
+      throw new Error(`Task ${taskId} has no assigned agent`);
+    }
+
+    const agent = this.agents.get(task.assignedAgent);
+    if (!agent) {
+      this.taskGraph.updateStatus(taskId, 'failed', `Target agent "${task.assignedAgent}" not found`);
+      throw new Error(`Agent not found: ${task.assignedAgent}`);
+    }
+    if (agent.status === 'stopped' || agent.status === 'error') {
+      this.taskGraph.updateStatus(taskId, 'failed', `Target agent "${task.assignedAgent}" is ${agent.status}`);
+      throw new Error(`Agent "${task.assignedAgent}" is ${agent.status}`);
+    }
+
+    try {
+      await agent.handleTask(taskId);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.taskGraph.updateStatus(taskId, 'failed', errMsg);
+      this.bus.publish('task.failed', 'orchestrator', { taskId, error: errMsg, agentId: task.assignedAgent });
+      throw err;
+    }
   }
 
   /**
@@ -54,6 +91,15 @@ export class OrchestratorService {
       assignedAgent: targetId,
       metadata,
     });
+
+    // Auto-inject relevant memory context into task metadata
+    if (this.agentMemoryStore) {
+      const memories = this.agentMemoryStore.recall(targetId, task.title, { limit: 5 });
+      if (memories.length > 0) {
+        const lines = memories.map((m) => `- [${m.category}] ${m.content} (${m.createdAt.slice(0, 10)})`);
+        task.metadata.memoryContext = `[Memory] Relevant context from your memory:\n${lines.join('\n')}`;
+      }
+    }
 
     this.bus.publish('task.received', 'orchestrator', {
       taskId: task.id,

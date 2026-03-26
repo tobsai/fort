@@ -18,7 +18,7 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
-import { ToolRegistry, ToolExecutor, ApprovalStore } from './tools/index.js';
+import { ToolRegistry, ToolExecutor, ApprovalStore, createDelegateTool } from './tools/index.js';
 import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
@@ -30,6 +30,7 @@ import { Harness } from './harness/index.js';
 import { GarbageCollector } from './harness/garbage-collector.js';
 import { RewindManager } from './rewind/index.js';
 import { ThreadManager } from './threads/index.js';
+import { AgentMemoryStore } from './memory/agent-memory-store.js';
 import { NotificationStore } from './notifications/store.js';
 import { NotificationService } from './notifications/service.js';
 import { FortDoctor } from './diagnostics/index.js';
@@ -86,6 +87,7 @@ export class Fort {
   readonly gc: GarbageCollector;
   readonly rewind: RewindManager;
   readonly threads: ThreadManager;
+  readonly agentMemory: AgentMemoryStore;
   readonly notifications: NotificationService;
   readonly llm: LLMClient;
   readonly usageStore: UsageStore;
@@ -188,6 +190,10 @@ export class Fort {
     const notificationStore = new NotificationStore(this.taskDb as InstanceType<typeof Database>);
     notificationStore.initSchema();
     this.notifications = new NotificationService(notificationStore, this.bus);
+
+    // Agent memory — shared task DB
+    this.agentMemory = new AgentMemoryStore(this.taskDb as InstanceType<typeof Database>);
+    this.agentMemory.initSchema();
     // LLM provider store — encryption key derived from SESSION_SECRET env var
     const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
     this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
@@ -212,6 +218,7 @@ export class Fort {
 
     // Deterministic services
     this.orchestrator = new OrchestratorService(this.taskGraph, this.agents, this.bus);
+    this.orchestrator.setAgentMemoryStore(this.agentMemory);
     this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);
 
     // Agent store (SQLite persistence for agent metadata)
@@ -231,6 +238,9 @@ export class Fort {
     this.agentFactory.setLLM(this.llm);
     this.agentFactory.setToolRegistry(this.tools);
     this.agentFactory.setToolExecutor(this.toolExecutor);
+
+    // Register the delegate-to-agent built-in tool (needs taskGraph, bus, agents)
+    this.tools.registerTool(createDelegateTool(this.taskGraph, this.bus, this.agents));
 
     // Diagnostics and introspection
     this.doctor = new FortDoctor();

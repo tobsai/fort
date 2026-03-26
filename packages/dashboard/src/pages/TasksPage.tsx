@@ -128,6 +128,7 @@ export default function TasksPage() {
             {tasks.map((task) => {
               const dur = durationMs(task);
               const isExpanded = expanded === task.id;
+              const hasSubtasks = task.subtasks && task.subtasks.length > 0;
               return [
                 <tr
                   key={task.id}
@@ -142,6 +143,9 @@ export default function TasksPage() {
                     {task.shortId || task.id.slice(0, 8)}
                   </td>
                   <td style={{ padding: "0.5rem 0.75rem", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {hasSubtasks && (
+                      <span style={{ marginRight: "0.4rem", fontSize: 10, color: "#888" }}>▶</span>
+                    )}
                     {task.title}
                   </td>
                   <td style={{ padding: "0.5rem 0.75rem", color: "#aaa", fontFamily: "monospace", fontSize: 11 }}>
@@ -174,6 +178,12 @@ export default function TasksPage() {
                           <strong style={{ color: "#888" }}>Description: </strong>{task.description}
                         </div>
                       )}
+                      {task.sourceAgentId && (
+                        <div style={{ marginBottom: "0.5rem", color: "#aaa", fontSize: 12 }}>
+                          <strong style={{ color: "#888" }}>Delegated by: </strong>
+                          <span style={{ fontFamily: "monospace" }}>{task.sourceAgentId}</span>
+                        </div>
+                      )}
                       {task.result && (
                         <div style={{ marginBottom: "0.5rem" }}>
                           <strong style={{ color: "#888" }}>Result: </strong>
@@ -183,6 +193,49 @@ export default function TasksPage() {
                       {task.metadata?.statusReason && (
                         <div style={{ color: "#ffc107", fontSize: 12 }}>
                           <strong>Reason: </strong>{String(task.metadata.statusReason)}
+                        </div>
+                      )}
+                      {hasSubtasks && (
+                        <div style={{ marginTop: "0.75rem" }}>
+                          <strong style={{ color: "#888", fontSize: 12 }}>Subtasks:</strong>
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.4rem", fontSize: 12 }}>
+                            <tbody>
+                              {task.subtasks!.map((sub) => {
+                                const subDur = durationMs(sub);
+                                return (
+                                  <tr key={sub.id} style={{ borderBottom: "1px solid #2a2a38" }}>
+                                    <td style={{ padding: "0.3rem 0.5rem", color: "#666", fontFamily: "monospace" }}>
+                                      └─
+                                    </td>
+                                    <td style={{ padding: "0.3rem 0.5rem", color: "#888", fontFamily: "monospace", fontSize: 11 }}>
+                                      {sub.shortId || sub.id.slice(0, 8)}
+                                    </td>
+                                    <td style={{ padding: "0.3rem 0.5rem", color: "#ccc", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {sub.title}
+                                    </td>
+                                    <td style={{ padding: "0.3rem 0.5rem", color: "#aaa", fontFamily: "monospace", fontSize: 11 }}>
+                                      {sub.assignedAgent ? sub.assignedAgent.slice(0, 12) : "—"}
+                                    </td>
+                                    <td style={{ padding: "0.3rem 0.5rem" }}>
+                                      <span style={{
+                                        padding: "1px 6px",
+                                        borderRadius: 10,
+                                        background: STATUS_COLORS[sub.status] + "33",
+                                        color: STATUS_COLORS[sub.status],
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                      }}>
+                                        {sub.status}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: "0.3rem 0.5rem", color: "#666" }}>
+                                      {subDur !== null ? fmtDuration(subDur) : "—"}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </td>
