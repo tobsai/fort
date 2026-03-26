@@ -21,6 +21,7 @@ import type { MemoryManager } from '../memory/index.js';
 import type { DiagnosticResult } from '../types.js';
 import type { FortTool, ToolCallLog } from '../tools/types.js';
 import type { ToolExecutor } from '../tools/executor.js';
+import type { LLMProviderStore, LLMProviderRuntime } from './provider-store.js';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export interface LLMClientConfig {
   models?: Partial<Record<ModelTier, ModelConfig>>;
   maxRetries?: number;
   systemPrompt?: string;
+  providerStore?: LLMProviderStore;
 }
 
 // ─── Default Model Routing ──────────────────────────────────────────
@@ -133,6 +135,7 @@ export class LLMClient {
   private tokenTracker: TokenTracker | null;
   private behaviors: BehaviorManager | null;
   private memory: MemoryManager | null;
+  private providerStore: LLMProviderStore | null;
 
   // Stats
   private requestCount = 0;
@@ -153,6 +156,7 @@ export class LLMClient {
     this.tokenTracker = tokenTracker ?? null;
     this.behaviors = behaviors ?? null;
     this.memory = memory ?? null;
+    this.providerStore = config.providerStore ?? null;
     this.defaultTier = config.defaultModel ?? 'standard';
     this.maxRetries = config.maxRetries ?? 2;
     this.systemPrompt = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
@@ -285,7 +289,7 @@ export class LLMClient {
    * Check if the LLM client is configured and ready.
    */
   get isConfigured(): boolean {
-    return this.client !== null;
+    return this.client !== null || this.getActiveProvider() !== null;
   }
 
   /**
@@ -338,7 +342,8 @@ export class LLMClient {
    * Send a completion request to Claude.
    */
   async complete(request: LLMRequest): Promise<LLMResponse> {
-    if (!this.client) {
+    const client = this.resolveClient(request.agentId);
+    if (!client) {
       throw new Error(
         'LLM client not configured. Set ANTHROPIC_API_KEY environment variable or pass apiKey in config.',
       );
@@ -362,7 +367,7 @@ export class LLMClient {
               }))
             : undefined;
 
-        const response = await this.client.messages.create({
+        const response = await client.messages.create({
           model: modelConfig.model,
           max_tokens: maxTokens,
           system,
@@ -486,7 +491,8 @@ export class LLMClient {
     executor: ToolExecutor,
     opts: { maxIterations?: number } = {},
   ): Promise<LLMToolsResponse> {
-    if (!this.client) {
+    const client = this.resolveClient(request.agentId);
+    if (!client) {
       throw new Error(
         'LLM client not configured. Set ANTHROPIC_API_KEY environment variable or pass apiKey in config.',
       );
@@ -536,7 +542,7 @@ export class LLMClient {
       while (iteration < MAX_ITERATIONS) {
         iteration++;
 
-        const response = await this.client.messages.create({
+        const response = await client.messages.create({
           model: modelConfig.model,
           max_tokens: maxTokens,
           system,
@@ -685,7 +691,8 @@ export class LLMClient {
    * Returns an async generator of stream events.
    */
   async *stream(request: LLMRequest): AsyncGenerator<LLMStreamEvent> {
-    if (!this.client) {
+    const client = this.resolveClient(request.agentId);
+    if (!client) {
       yield {
         type: 'error',
         error: 'LLM client not configured. Set ANTHROPIC_API_KEY.',
@@ -699,7 +706,7 @@ export class LLMClient {
     const start = Date.now();
 
     try {
-      const stream = this.client.messages.stream({
+      const stream = client.messages.stream({
         model: modelConfig.model,
         max_tokens: maxTokens,
         system,
@@ -838,6 +845,62 @@ export class LLMClient {
     return { ...this.models };
   }
 
+  /**
+   * Get the active provider for a given agent (or the global default).
+   * Resolution order: agent DB preference → global DB default → env var fallback (null).
+   */
+  getActiveProvider(_agentId?: string): LLMProviderRuntime | null {
+    if (!this.providerStore) return null;
+    return this.providerStore.getDefaultProviderRuntime();
+  }
+
+  /**
+   * Test connectivity to a configured provider.
+   * Sends a minimal prompt and returns null on success or an error string on failure.
+   */
+  async testConnection(providerId: string): Promise<string | null> {
+    if (!this.providerStore) return 'Provider store not configured';
+    const runtime = this.providerStore.getProviderRuntime(providerId);
+    if (!runtime) return `Provider not found: ${providerId}`;
+
+    try {
+      if (providerId === 'anthropic') {
+        const key = runtime.apiKey;
+        if (!key) return 'No API key configured for Anthropic';
+        const isOAuth = key.startsWith('sk-ant-oat');
+        const testClient = isOAuth
+          ? new Anthropic({ authToken: key, defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' } })
+          : new Anthropic({ apiKey: key });
+        await testClient.messages.create({
+          model: runtime.defaultModel || 'claude-haiku-4-5-20251001',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'hi' }],
+        });
+        return null;
+      }
+
+      if (providerId === 'ollama') {
+        const baseUrl = runtime.baseUrl ?? 'http://localhost:11434';
+        const res = await fetch(`${baseUrl}/api/tags`);
+        if (!res.ok) return `Ollama connection failed: HTTP ${res.status}`;
+        return null;
+      }
+
+      // OpenAI-compatible providers (openai, groq)
+      const baseUrl = runtime.baseUrl;
+      const key = runtime.apiKey;
+      if (!key) return `No API key configured for ${runtime.name}`;
+      if (!baseUrl) return `No base URL configured for ${runtime.name}`;
+      const res = await fetch(`${baseUrl}/models`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!res.ok) return `Connection failed: HTTP ${res.status}`;
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
   diagnose(): DiagnosticResult {
     const checks = [
       {
@@ -890,6 +953,28 @@ export class LLMClient {
   }
 
   // ─── Private Methods ──────────────────────────────────────────────
+
+  /**
+   * Resolve the Anthropic client to use for a request.
+   * Priority: DB default provider key → constructor-configured client.
+   * Returns null only when neither is available.
+   */
+  private resolveClient(agentId?: string): Anthropic | null {
+    if (this.providerStore) {
+      const provider = this.getActiveProvider(agentId);
+      if (provider && provider.id === 'anthropic' && provider.apiKey) {
+        const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
+        if (isOAuth) {
+          return new Anthropic({
+            authToken: provider.apiKey,
+            defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
+          });
+        }
+        return new Anthropic({ apiKey: provider.apiKey });
+      }
+    }
+    return this.client;
+  }
 
   private resolveModel(modelSpec?: ModelTier | string): ModelConfig {
     if (!modelSpec) {
