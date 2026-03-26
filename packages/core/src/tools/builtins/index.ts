@@ -10,6 +10,8 @@ export { writeFileTool } from './write-file.js';
 export { listFilesTool } from './list-files.js';
 export { webSearchTool } from './web-search.js';
 export { shellCommandTool } from './shell-command.js';
+export { createRememberTool } from './remember.js';
+export { createRecallTool } from './recall.js';
 
 import { readFileTool } from './read-file.js';
 import { writeFileTool } from './write-file.js';
