@@ -1009,6 +1009,81 @@ export class FortServer {
         }
       }
 
+      // ─── Diagnostics (SPEC-013) ─────────────────────────────────────────
+
+      case 'diagnostics.health': {
+        const results = await this.fort.doctor.runAll();
+        const { FortDoctor } = await import('../diagnostics/index.js');
+        const summary = FortDoctor.summarize(results);
+        const checks: Record<string, unknown> = {};
+        for (const r of results) {
+          const detail: Record<string, unknown> = { status: r.status };
+          detail['message'] = r.checks.map((c) => c.message).join('; ');
+          const allDetails: Record<string, unknown> = {};
+          for (const c of r.checks) {
+            if (c.details) { Object.assign(allDetails, c.details); }
+          }
+          if (Object.keys(allDetails).length > 0) { detail['details'] = allDetails; }
+          checks[r.module] = detail;
+        }
+        return {
+          id: msg.id,
+          type: 'diagnostics.health.response',
+          payload: {
+            status: summary.overall,
+            timestamp: new Date().toISOString(),
+            uptime: Math.round(process.uptime()),
+            checks,
+          },
+        };
+      }
+
+      case 'diagnostics.errors': {
+        const errLimit = ((msg.payload ?? {}) as { limit?: number }).limit ?? 50;
+        return {
+          id: msg.id,
+          type: 'diagnostics.errors.response',
+          payload: this.fort.errorLog.getRecent(errLimit),
+        };
+      }
+
+      case 'diagnostics.metrics': {
+        const { heapUsed } = process.memoryUsage();
+        const heapMb = Math.round(heapUsed / 1024 / 1024 * 10) / 10;
+
+        // Task counts: today's completed + failed + total active
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTasks = this.fort.taskGraph.queryTasksFromStore({
+          since: today,
+          limit: 1000,
+        });
+        const activeTasks = this.fort.taskGraph.getActiveTasks().length;
+
+        // DB size
+        let dbSizeMb = 0;
+        try {
+          const { statSync } = await import('node:fs');
+          const stat = statSync((this.fort as any).taskDbPath as string);
+          dbSizeMb = Math.round(stat.size / 1024 / 1024 * 100) / 100;
+        } catch { /* non-fatal */ }
+
+        return {
+          id: msg.id,
+          type: 'diagnostics.metrics.response',
+          payload: {
+            uptime: Math.round(process.uptime()),
+            heapMb,
+            dbSizeMb,
+            tasksToday: todayTasks.length,
+            activeTasks,
+            errorsToday: this.fort.errorLog.getRecent(1000).filter(
+              (e) => e.createdAt >= today
+            ).length,
+          },
+        };
+      }
+
       default:
         return { id: msg.id, type: 'error', payload: null, error: `Unknown message type: ${msg.type}` };
     }
