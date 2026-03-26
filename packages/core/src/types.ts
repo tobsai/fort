@@ -33,6 +33,7 @@ export interface Task {
   status: TaskStatus;
   source: TaskSource;
   assignedAgent: string | null;
+  sourceAgentId: string | null;
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
@@ -197,7 +198,7 @@ export interface ActionGate {
 
 // ─── Tool Registry Types ────────────────────────────────────────────
 
-export type { FortTool, ToolResult, ToolCallLog } from './tools/types.js';
+export type { FortTool, ToolResult, ToolCallLog, ToolExecutionContext } from './tools/types.js';
 
 export interface ToolDefinition {
   id: string;
