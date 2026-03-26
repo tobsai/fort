@@ -29,6 +29,7 @@ All development follows: spec → approve → implement → verify → merge/rol
 ## Development Rules
 1. **Spec-driven**: Before building any module, write a spec in `specs/`. Spec includes: goal, approach, affected files, test criteria, rollback plan. **Specs require approval before implementation begins.**
 2. **Test-first**: Every module needs tests. Use Vitest for TypeScript, pytest for Python
+3. **TypeScript strict return types**: `bus.subscribe()` callbacks must return `void`. Use `() => { array.push(x); }` not `() => array.push(x)` (the latter returns `number`, causing TS2322 in Docker builds)
 3. **Tool Registry is sacred**: Before building anything new, search Fort's own tools first. Only build new if nothing fits. New tools wrap industry tools with deterministic constraints.
 4. **Machine-readable everything**: Config has JSON Schema validation. Specs follow templates. Memory graph has defined schema
 5. **Git discipline**: Feature branches for non-trivial changes. Every meaningful change committed

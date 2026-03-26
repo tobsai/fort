@@ -191,7 +191,7 @@ describe('agent response persistence (task.status_changed flow)', () => {
     const thread = threads.createThread({ name: 'Chat', assignedAgent: agentId });
 
     const events: string[] = [];
-    bus.subscribe('thread.message', () => events.push('message'));
+    bus.subscribe('thread.message', () => { events.push('message'); });
 
     threads.addMessage(thread.id, { role: 'user', content: 'Hello' });
     threads.addMessage(thread.id, { role: 'agent', content: 'Hi!', agentId });
