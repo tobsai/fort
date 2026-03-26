@@ -65,7 +65,7 @@ export default function UsagePage() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [byAgent, setByAgent] = useState<AgentUsage[]>([]);
   const [totals, setTotals] = useState<UsageTotals | null>(null);
-  const [recent, setRecent] = useState<UsageRecord[]>([]);
+  const [recent] = useState<UsageRecord[]>([]);
 
   const fetchAll = useCallback(() => {
     send("usage.summary", { period });

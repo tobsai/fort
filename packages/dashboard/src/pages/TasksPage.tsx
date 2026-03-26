@@ -187,7 +187,7 @@ export default function TasksPage() {
                       {task.result && (
                         <div style={{ marginBottom: "0.5rem" }}>
                           <strong style={{ color: "#888" }}>Result: </strong>
-                          <span style={{ color: "#ccc" }}>{task.result}</span>
+                          <span style={{ color: "#ccc" }}>{String(task.result)}</span>
                         </div>
                       )}
                       {task.metadata?.statusReason && (
