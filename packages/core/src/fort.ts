@@ -30,6 +30,7 @@ import { Harness } from './harness/index.js';
 import { GarbageCollector } from './harness/garbage-collector.js';
 import { RewindManager } from './rewind/index.js';
 import { ThreadManager } from './threads/index.js';
+import { AgentMemoryStore } from './memory/agent-memory-store.js';
 import { NotificationStore } from './notifications/store.js';
 import { NotificationService } from './notifications/service.js';
 import { FortDoctor } from './diagnostics/index.js';
@@ -83,6 +84,7 @@ export class Fort {
   readonly gc: GarbageCollector;
   readonly rewind: RewindManager;
   readonly threads: ThreadManager;
+  readonly agentMemory: AgentMemoryStore;
   readonly notifications: NotificationService;
   readonly llm: LLMClient;
   readonly usageStore: UsageStore;
@@ -177,6 +179,10 @@ export class Fort {
     const notificationStore = new NotificationStore(this.taskDb as InstanceType<typeof Database>);
     notificationStore.initSchema();
     this.notifications = new NotificationService(notificationStore, this.bus);
+
+    // Agent memory — shared task DB
+    this.agentMemory = new AgentMemoryStore(this.taskDb as InstanceType<typeof Database>);
+    this.agentMemory.initSchema();
     // LLM provider store — encryption key derived from SESSION_SECRET env var
     const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
     this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
@@ -201,6 +207,7 @@ export class Fort {
 
     // Deterministic services
     this.orchestrator = new OrchestratorService(this.taskGraph, this.agents, this.bus);
+    this.orchestrator.setAgentMemoryStore(this.agentMemory);
     this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);
 
     // Agent store (SQLite persistence for agent metadata)
