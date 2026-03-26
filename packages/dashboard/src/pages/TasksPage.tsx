@@ -190,7 +190,7 @@ export default function TasksPage() {
                           <span style={{ color: "#ccc" }}>{String(task.result)}</span>
                         </div>
                       )}
-                      {task.metadata?.statusReason && (
+                      {task.metadata?.statusReason != null && (
                         <div style={{ color: "#ffc107", fontSize: 12 }}>
                           <strong>Reason: </strong>{String(task.metadata.statusReason)}
                         </div>
