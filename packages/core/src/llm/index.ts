@@ -19,6 +19,8 @@ import type { TokenTracker } from '../tokens/index.js';
 import type { BehaviorManager } from '../behaviors/index.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { DiagnosticResult } from '../types.js';
+import type { FortTool, ToolCallLog } from '../tools/types.js';
+import type { ToolExecutor } from '../tools/executor.js';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -49,6 +51,8 @@ export interface LLMRequest {
   injectMemory?: string;
   soul?: string;
   stream?: boolean;
+  /** Optional tools to expose to the LLM for this request */
+  tools?: FortTool[];
 }
 
 export interface LLMResponse {
@@ -67,6 +71,13 @@ export interface LLMStreamEvent {
   text?: string;
   response?: LLMResponse;
   error?: string;
+}
+
+export interface LLMToolsResponse extends LLMResponse {
+  /** Log of every tool call made during the multi-turn loop */
+  toolCallLog: ToolCallLog[];
+  /** Number of LLM turns used (1 = no tools called) */
+  iterations: number;
 }
 
 export interface LLMClientConfig {
@@ -342,6 +353,15 @@ export class LLMClient {
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
+        const claudeTools: Anthropic.Tool[] | undefined =
+          request.tools && request.tools.length > 0
+            ? request.tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+                input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
+              }))
+            : undefined;
+
         const response = await this.client.messages.create({
           model: modelConfig.model,
           max_tokens: maxTokens,
@@ -351,6 +371,7 @@ export class LLMClient {
             content: m.content,
           })),
           temperature: request.temperature,
+          ...(claudeTools ? { tools: claudeTools } : {}),
         });
 
         const durationMs = Date.now() - start;
@@ -447,6 +468,216 @@ export class LLMClient {
     });
 
     throw lastError;
+  }
+
+  /**
+   * Complete a request with tool use support.
+   *
+   * Handles the multi-turn loop:
+   *   1. Send message with tools
+   *   2. If response has tool_use → execute via ToolExecutor → append tool_result → re-send
+   *   3. Repeat until pure text response (or max iterations hit)
+   *   4. Return final text + tool call log
+   *
+   * Max iterations defaults to 10 to prevent runaway loops.
+   */
+  async completeWithTools(
+    request: LLMRequest & { tools: FortTool[] },
+    executor: ToolExecutor,
+    opts: { maxIterations?: number } = {},
+  ): Promise<LLMToolsResponse> {
+    if (!this.client) {
+      throw new Error(
+        'LLM client not configured. Set ANTHROPIC_API_KEY environment variable or pass apiKey in config.',
+      );
+    }
+
+    const MAX_ITERATIONS = opts.maxIterations ?? 10;
+    const toolCallLog: ToolCallLog[] = [];
+
+    // Collect tool call log entries from bus events published by ToolExecutor
+    const unsubExecuted = this.bus.subscribe('tool.executed', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+    const unsubDenied = this.bus.subscribe('tool.denied', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+    const unsubError = this.bus.subscribe('tool.error', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+
+    try {
+      const modelConfig = this.resolveModel(request.model);
+      const system = await this.buildSystemPrompt(request);
+      const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+
+      // Convert FortTool[] to Claude's tools format
+      const claudeTools: Anthropic.Tool[] = request.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
+      }));
+
+      // Build name → FortTool lookup for fast resolution during the loop
+      const toolMap = new Map<string, FortTool>(request.tools.map((t) => [t.name, t]));
+
+      // Maintain multi-turn message history with proper Anthropic types
+      const messages: Anthropic.MessageParam[] = request.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      let iteration = 0;
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCostUsd = 0;
+      const start = Date.now();
+
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+
+        const response = await this.client.messages.create({
+          model: modelConfig.model,
+          max_tokens: maxTokens,
+          system,
+          messages,
+          tools: claudeTools,
+          temperature: request.temperature,
+        });
+
+        const inputTokens = response.usage.input_tokens;
+        const outputTokens = response.usage.output_tokens;
+        const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+        totalInputTokens += inputTokens;
+        totalOutputTokens += outputTokens;
+        totalCostUsd += costUsd;
+
+        // Update aggregate stats
+        this.requestCount++;
+        this.totalInputTokens += inputTokens;
+        this.totalOutputTokens += outputTokens;
+        this.totalCostUsd += costUsd;
+
+        if (this.tokenTracker) {
+          this.tokenTracker.record({
+            timestamp: new Date(),
+            model: modelConfig.model,
+            inputTokens,
+            outputTokens,
+            totalTokens: inputTokens + outputTokens,
+            costUsd,
+            taskId: request.taskId,
+            agentId: request.agentId,
+            source: 'llm_client_tools',
+          });
+        }
+
+        // Pure text response — loop is done
+        if (response.stop_reason !== 'tool_use') {
+          const durationMs = Date.now() - start;
+          const textBlock = response.content.find(
+            (b): b is Anthropic.TextBlock => b.type === 'text',
+          );
+
+          this.bus.publish('llm.completed', 'llm-client', {
+            model: modelConfig.model,
+            tier: modelConfig.tier,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            costUsd: totalCostUsd,
+            durationMs,
+            taskId: request.taskId,
+            agentId: request.agentId,
+            toolCalls: toolCallLog.length,
+          });
+
+          return {
+            content: textBlock?.text ?? '',
+            model: modelConfig.model,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            totalTokens: totalInputTokens + totalOutputTokens,
+            costUsd: totalCostUsd,
+            stopReason: response.stop_reason,
+            durationMs,
+            toolCallLog,
+            iterations: iteration,
+          };
+        }
+
+        // Tool use — collect tool_use blocks
+        const toolUseBlocks = response.content.filter(
+          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+        );
+
+        // Append assistant turn (includes tool_use blocks) to history
+        messages.push({ role: 'assistant', content: response.content });
+
+        // Execute each tool and build tool_result blocks
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+        for (const block of toolUseBlocks) {
+          const tool = toolMap.get(block.name);
+          if (!tool) {
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: `Error: Tool "${block.name}" not found in registry`,
+              is_error: true,
+            });
+            continue;
+          }
+
+          const toolResult = await executor.execute(tool, block.input, {
+            taskId: request.taskId,
+            agentId: request.agentId,
+          });
+
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: toolResult.output || toolResult.error || '',
+            is_error: !toolResult.success,
+          });
+        }
+
+        // Append tool results as the next user turn
+        messages.push({ role: 'user', content: toolResults });
+      }
+
+      // Max iterations reached
+      const durationMs = Date.now() - start;
+
+      this.bus.publish('llm.completed', 'llm-client', {
+        model: modelConfig.model,
+        tier: modelConfig.tier,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        costUsd: totalCostUsd,
+        durationMs,
+        taskId: request.taskId,
+        agentId: request.agentId,
+        toolCalls: toolCallLog.length,
+        maxIterationsReached: true,
+      });
+
+      return {
+        content: '',
+        model: modelConfig.model,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        totalTokens: totalInputTokens + totalOutputTokens,
+        costUsd: totalCostUsd,
+        stopReason: 'max_iterations',
+        durationMs,
+        toolCallLog,
+        iterations: MAX_ITERATIONS,
+      };
+    } finally {
+      unsubExecuted();
+      unsubDenied();
+      unsubError();
+    }
   }
 
   /**

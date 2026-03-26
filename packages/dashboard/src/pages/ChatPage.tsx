@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFortSocket } from "../contexts/FortSocketContext";
 import { fetchChatHistory, fetchLLMStatus } from "../utils/api";
-import type { AgentInfo, ChatMessage, WSMessage } from "../types";
+import ToolCallBlock from "../components/ToolCallBlock";
+import type { AgentInfo, ChatMessage, ToolCallEvent, WSMessage } from "../types";
 
 export default function ChatPage() {
   const { agentId } = useParams<{ agentId?: string }>();
@@ -113,6 +114,29 @@ export default function ChatPage() {
     [],
   );
 
+  const addToolMessage = useCallback(
+    (
+      agentId: string,
+      event: ToolCallEvent,
+      eventType: "tool.executed" | "tool.denied" | "tool.error",
+    ) => {
+      setChatMessages((prev) => ({
+        ...prev,
+        [agentId]: [
+          ...(prev[agentId] || []),
+          {
+            role: "tool" as const,
+            text: event.toolName,
+            ts: event.calledAt ? new Date(event.calledAt).getTime() : Date.now(),
+            toolCall: event,
+            toolEventType: eventType,
+          },
+        ],
+      }));
+    },
+    [],
+  );
+
   useEffect(() => {
     const unsubs = [
       subscribe("agent.acknowledged", (msg: WSMessage) => {
@@ -120,6 +144,21 @@ export default function ChatPage() {
         if (p?.agentId) {
           setThinkingAgents((prev) => new Set(prev).add(p.agentId!));
         }
+      }),
+      subscribe("tool.executed", (msg: WSMessage) => {
+        const event = msg.payload as ToolCallEvent;
+        const aid = event.agentId || selectedAgent;
+        if (aid) addToolMessage(aid, event, "tool.executed");
+      }),
+      subscribe("tool.denied", (msg: WSMessage) => {
+        const event = msg.payload as ToolCallEvent;
+        const aid = event.agentId || selectedAgent;
+        if (aid) addToolMessage(aid, event, "tool.denied");
+      }),
+      subscribe("tool.error", (msg: WSMessage) => {
+        const event = msg.payload as ToolCallEvent;
+        const aid = event.agentId || selectedAgent;
+        if (aid) addToolMessage(aid, event, "tool.error");
       }),
       subscribe("chat.response", (msg: WSMessage) => {
         const p = msg.payload as {
@@ -178,7 +217,7 @@ export default function ChatPage() {
       }),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [subscribe, addMessage, selectedAgent]);
+  }, [subscribe, addMessage, addToolMessage, selectedAgent]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -246,36 +285,45 @@ export default function ChatPage() {
           </span>
         </div>
         <div className="chat-messages">
-          {messages.map((m, i) => (
-            <div key={i} className={`chat-msg ${m.role}`}>
-              <div className="chat-msg-avatar">
-                {m.role === "user" ? "You" : getEmoji(selectedAgent!)}
-              </div>
-              <div className="chat-msg-body">
-                <div className="chat-msg-content">
-                  {m.text}
-                  <button
-                    className="copy-btn"
-                    title="Copy"
-                    onClick={() => navigator.clipboard.writeText(m.text)}
-                  >
-                    Copy
-                  </button>
+          {messages.map((m, i) => {
+            if (m.role === "tool" && m.toolCall && m.toolEventType) {
+              return (
+                <div key={i} className="chat-tool-row">
+                  <ToolCallBlock event={m.toolCall} eventType={m.toolEventType} />
                 </div>
-                <div className="chat-msg-meta">
-                  <span className="chat-msg-time">{formatTime(m.ts)}</span>
-                  {m.task && (
-                    <>
-                      <span className="task-id">{m.task.shortId}</span>
-                      <span className={`task-status-badge ${m.task.status}`}>
-                        {m.task.status}
-                      </span>
-                    </>
-                  )}
+              );
+            }
+            return (
+              <div key={i} className={`chat-msg ${m.role}`}>
+                <div className="chat-msg-avatar">
+                  {m.role === "user" ? "You" : getEmoji(selectedAgent!)}
+                </div>
+                <div className="chat-msg-body">
+                  <div className="chat-msg-content">
+                    {m.text}
+                    <button
+                      className="copy-btn"
+                      title="Copy"
+                      onClick={() => navigator.clipboard.writeText(m.text)}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="chat-msg-meta">
+                    <span className="chat-msg-time">{formatTime(m.ts)}</span>
+                    {m.task && (
+                      <>
+                        <span className="task-id">{m.task.shortId}</span>
+                        <span className={`task-status-badge ${m.task.status}`}>
+                          {m.task.status}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {selectedAgent && thinkingAgents.has(selectedAgent) && (
             <div className="chat-msg agent">
               <div className="chat-msg-avatar">{getEmoji(selectedAgent)}</div>

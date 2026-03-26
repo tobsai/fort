@@ -197,6 +197,8 @@ export interface ActionGate {
 
 // ─── Tool Registry Types ────────────────────────────────────────────
 
+export type { FortTool, ToolResult, ToolCallLog } from './tools/types.js';
+
 export interface ToolDefinition {
   id: string;
   name: string;

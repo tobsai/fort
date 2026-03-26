@@ -17,6 +17,7 @@ import type { TaskGraph } from '../task-graph/index.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
 import type { ToolRegistry } from '../tools/index.js';
+import type { ToolExecutor } from '../tools/executor.js';
 
 export class SpecialistAgent extends BaseAgent {
   readonly identity: SpecialistIdentity;
@@ -24,6 +25,7 @@ export class SpecialistAgent extends BaseAgent {
   private memory: MemoryManager;
   private llm: LLMClient | null = null;
   private toolRegistry: ToolRegistry | null = null;
+  private toolExecutor: ToolExecutor | null = null;
   private unsubscribers: Array<() => void> = [];
   private _soulCache: string | null = null;
 
@@ -104,6 +106,13 @@ export class SpecialistAgent extends BaseAgent {
     this.toolRegistry = tools;
   }
 
+  /**
+   * Attach the tool executor so this agent can run tools during LLM loops.
+   */
+  setToolExecutor(executor: ToolExecutor): void {
+    this.toolExecutor = executor;
+  }
+
   protected async onTask(taskId: string): Promise<void> {
     const task = this.taskGraph.getTask(taskId);
     const isChatTask = task.metadata.type === 'chat';
@@ -156,17 +165,44 @@ Include the JSON block in your response along with your explanation to the user.
       try {
         const soul = this.getSoul();
         const modelTier = (task.metadata.modelTier as string) || this.identity.defaultModelTier;
-        const response = await this.llm.complete({
-          messages: [{ role: 'user', content: task.description }],
-          soul: soul ?? undefined,
-          taskId: task.id,
-          agentId: this.identity.id,
-          model: modelTier,
-          injectBehaviors: true,
-          injectMemory: task.description,
-          context: toolContext ? [toolContext] : undefined,
-        });
-        responseText = response.content;
+        const liveTools = this.toolRegistry ? this.toolRegistry.listLiveTools() : [];
+
+        if (this.toolExecutor && liveTools.length > 0) {
+          // Use the tool loop — LLM can invoke tools mid-conversation
+          const response = await this.llm.completeWithTools(
+            {
+              messages: [{ role: 'user', content: task.description }],
+              soul: soul ?? undefined,
+              taskId: task.id,
+              agentId: this.identity.id,
+              model: modelTier,
+              injectBehaviors: true,
+              injectMemory: task.description,
+              context: toolContext ? [toolContext] : undefined,
+              tools: liveTools,
+            },
+            this.toolExecutor,
+          );
+          responseText = response.content;
+          // Store tool call log in task metadata for transparency
+          if (response.toolCallLog.length > 0) {
+            task.metadata.toolCallLog = response.toolCallLog;
+            task.metadata.toolIterations = response.iterations;
+          }
+        } else {
+          // Plain completion — no live tools registered
+          const response = await this.llm.complete({
+            messages: [{ role: 'user', content: task.description }],
+            soul: soul ?? undefined,
+            taskId: task.id,
+            agentId: this.identity.id,
+            model: modelTier,
+            injectBehaviors: true,
+            injectMemory: task.description,
+            context: toolContext ? [toolContext] : undefined,
+          });
+          responseText = response.content;
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('401') || msg.includes('authentication_error') || msg.includes('Invalid bearer')) {

@@ -43,8 +43,25 @@ export interface Task {
   completedAt?: string;
 }
 
+export interface ToolCallEvent {
+  id: string;
+  toolName: string;
+  input?: unknown;
+  result?: {
+    success: boolean;
+    output: string;
+    error?: string;
+  };
+  denied: boolean;
+  denialReason?: string;
+  durationMs?: number;
+  taskId?: string;
+  agentId?: string;
+  calledAt?: string;
+}
+
 export interface ChatMessage {
-  role: "user" | "agent";
+  role: "user" | "agent" | "tool";
   text: string;
   ts: number;
   task?: {
@@ -52,6 +69,8 @@ export interface ChatMessage {
     title: string;
     status: string;
   } | null;
+  toolCall?: ToolCallEvent;
+  toolEventType?: "tool.executed" | "tool.denied" | "tool.error";
 }
 
 export interface FortState {
