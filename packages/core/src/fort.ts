@@ -18,7 +18,11 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
+<<<<<<< HEAD
 import { ToolRegistry, ToolExecutor, createDelegateTool } from './tools/index.js';
+=======
+import { ToolRegistry, ToolExecutor, ApprovalStore } from './tools/index.js';
+>>>>>>> origin/main
 import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
@@ -72,6 +76,7 @@ export class Fort {
   readonly permissions: PermissionManager;
   readonly tools: ToolRegistry;
   readonly toolExecutor: ToolExecutor;
+  readonly approvalStore: ApprovalStore;
   readonly scheduler: Scheduler;
   readonly specs: SpecManager;
   readonly tokens: TokenTracker;
@@ -133,6 +138,11 @@ export class Fort {
     this.tools = new ToolRegistry(join(config.dataDir, 'tools.db'));
     this.tokens = new TokenTracker(join(config.dataDir, 'tokens.db'), this.bus);
     this.toolExecutor = new ToolExecutor(this.permissions, this.bus, this.tokens);
+
+    // ApprovalStore — shares the tasks DB (separate table)
+    this.approvalStore = new ApprovalStore(this.taskDb as InstanceType<typeof Database>);
+    this.approvalStore.initSchema();
+    this.toolExecutor.setApprovalStore(this.approvalStore);
     this.scheduler = new Scheduler(this.bus, this.taskGraph, schedulerStore);
     this.specs = new SpecManager(config.specsDir);
     this.behaviors = new BehaviorManager(this.memory, this.bus);
