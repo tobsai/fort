@@ -481,15 +481,216 @@ export class FortServer {
         };
 
       case 'agents':
+      case 'agents.list':
         return {
           id: msg.id,
           type: 'agents.response',
-          payload: this.fort.agents.listInfo().map((a) => ({
-            ...a,
-            soul: this.fort.agentFactory.getSoul(a.config.id) ?? undefined,
-            emoji: this.getAgentEmoji(a.config.id),
-          })),
+          payload: this.buildAgentList(),
         };
+
+      case 'agent.get': {
+        const getPayload = (msg.payload ?? {}) as { id: string };
+        if (!getPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.get requires id' };
+        }
+        const record = this.fort.agentStore.get(getPayload.id);
+        if (!record) {
+          return { id: msg.id, type: 'error', payload: null, error: `Agent not found: ${getPayload.id}` };
+        }
+        const registryAgent = this.fort.agents.get(getPayload.id);
+        return {
+          id: msg.id,
+          type: 'agent.get.response',
+          payload: {
+            ...record,
+            runtimeStatus: registryAgent?.status ?? 'stopped',
+            taskCount: registryAgent?.info.taskCount ?? 0,
+            soul: record.soul ?? this.fort.agentFactory.getSoul(getPayload.id) ?? null,
+          },
+        };
+      }
+
+      case 'agent.create': {
+        const createPayload = (msg.payload ?? {}) as {
+          name: string;
+          description?: string;
+          emoji?: string;
+          soul?: string;
+          modelPreference?: string;
+          capabilities?: string[];
+          eventSubscriptions?: string[];
+        };
+        if (!createPayload.name?.trim()) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.create requires name' };
+        }
+        try {
+          const agent = this.fort.agentFactory.create({
+            name: createPayload.name.trim(),
+            description: createPayload.description,
+            capabilities: createPayload.capabilities,
+            eventSubscriptions: createPayload.eventSubscriptions,
+            emoji: createPayload.emoji,
+          });
+          // Write soul if provided
+          if (createPayload.soul) {
+            const { writeFileSync } = await import('node:fs');
+            const { join: pathJoin } = await import('node:path');
+            const agentDir = this.fort.agentFactory.getAgentDir(agent.identity.id);
+            writeFileSync(pathJoin(agentDir, 'SOUL.md'), createPayload.soul, 'utf-8');
+            agent.refreshSoul();
+          }
+          await agent.start();
+          // Persist to AgentStore
+          this.fort.agentStore.create({
+            id: agent.identity.id,
+            name: agent.identity.name,
+            description: agent.identity.description ?? '',
+            capabilities: agent.identity.capabilities ?? [],
+            eventSubscriptions: agent.identity.eventSubscriptions ?? [],
+            memoryPartition: agent.identity.memoryPartition ?? agent.identity.id,
+            emoji: createPayload.emoji,
+            soul: createPayload.soul ?? this.fort.agentFactory.getSoul(agent.identity.id) ?? undefined,
+            modelPreference: createPayload.modelPreference,
+          });
+          this.broadcast({
+            id: 'agent.created',
+            type: 'agents.updated',
+            payload: this.buildAgentList(),
+          });
+          return {
+            id: msg.id,
+            type: 'agent.create.response',
+            payload: { id: agent.identity.id, name: agent.identity.name, emoji: agent.identity.emoji },
+          };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+
+      case 'agent.update': {
+        const updatePayload = (msg.payload ?? {}) as {
+          id: string;
+          name?: string;
+          description?: string;
+          emoji?: string;
+          soul?: string;
+          modelPreference?: string;
+        };
+        if (!updatePayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.update requires id' };
+        }
+        try {
+          const record = this.fort.agentStore.update(updatePayload.id, {
+            name: updatePayload.name,
+            description: updatePayload.description,
+            emoji: updatePayload.emoji,
+            soul: updatePayload.soul,
+            modelPreference: updatePayload.modelPreference,
+          });
+          this.broadcast({
+            id: 'agent.updated',
+            type: 'agents.updated',
+            payload: this.buildAgentList(),
+          });
+          return { id: msg.id, type: 'agent.update.response', payload: record };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+
+      case 'agent.start': {
+        const startPayload = (msg.payload ?? {}) as { id: string };
+        if (!startPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.start requires id' };
+        }
+        try {
+          let agent = this.fort.agents.get(startPayload.id);
+          if (!agent) {
+            // Agent not in registry — try to revive
+            agent = this.fort.agentFactory.revive(startPayload.id);
+          }
+          if (agent.status !== 'running') {
+            await agent.start();
+          }
+          this.broadcast({
+            id: 'agent.started.broadcast',
+            type: 'agents.updated',
+            payload: this.buildAgentList(),
+          });
+          return { id: msg.id, type: 'agent.start.response', payload: { id: startPayload.id, status: 'running' } };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+
+      case 'agent.stop': {
+        const stopPayload = (msg.payload ?? {}) as { id: string };
+        if (!stopPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.stop requires id' };
+        }
+        try {
+          const agent = this.fort.agents.get(stopPayload.id);
+          if (!agent) {
+            return { id: msg.id, type: 'error', payload: null, error: `Agent not in registry: ${stopPayload.id}` };
+          }
+          if (agent.status === 'running') {
+            await agent.stop();
+          }
+          this.broadcast({
+            id: 'agent.stopped.broadcast',
+            type: 'agents.updated',
+            payload: this.buildAgentList(),
+          });
+          return { id: msg.id, type: 'agent.stop.response', payload: { id: stopPayload.id, status: 'stopped' } };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+
+      case 'agent.delete': {
+        const deletePayload = (msg.payload ?? {}) as { id: string };
+        if (!deletePayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.delete requires id' };
+        }
+        try {
+          // Soft-delete: retire in YAML + mark deleted in store
+          this.fort.agentFactory.retire(deletePayload.id, 'Deleted via UI');
+          this.fort.agentStore.softDelete(deletePayload.id);
+          this.broadcast({
+            id: 'agent.deleted.broadcast',
+            type: 'agents.updated',
+            payload: this.buildAgentList(),
+          });
+          return { id: msg.id, type: 'agent.delete.response', payload: { id: deletePayload.id } };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
 
       case 'memory.search':
         return {
@@ -749,6 +950,23 @@ ${personalityText}
       assignedAgent: agentId,
     });
     return thread.id;
+  }
+
+  /**
+   * Build the canonical agent list by combining AgentStore records with runtime
+   * status from AgentRegistry and soul content from AgentFactory.
+   */
+  private buildAgentList(): unknown[] {
+    // Start from the live registry — these are agents currently running/stopped
+    const registryInfos = this.fort.agents.listInfo();
+    const result: unknown[] = registryInfos.map((info) => ({
+      ...info,
+      soul: this.fort.agentStore.get(info.config.id)?.soul
+        ?? this.fort.agentFactory.getSoul(info.config.id)
+        ?? undefined,
+      emoji: this.getAgentEmoji(info.config.id),
+    }));
+    return result;
   }
 
   private getAgentEmoji(agentId: string): string | undefined {
