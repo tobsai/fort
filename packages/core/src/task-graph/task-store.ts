@@ -48,15 +48,22 @@ export class TaskStore {
       CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at);
       CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
     `);
+
+    // Add source_agent_id column if it doesn't exist (migration for existing DBs)
+    try {
+      this.db.exec('ALTER TABLE tasks ADD COLUMN source_agent_id TEXT');
+    } catch {
+      // Column already exists — ignore
+    }
   }
 
   upsertTask(task: Task): void {
     (this.db.prepare(`
       INSERT OR REPLACE INTO tasks (
         id, short_id, title, description, status, source,
-        assigned_agent, assigned_to, parent_id, result, inability_reason,
+        assigned_agent, assigned_to, parent_id, source_agent_id, result, inability_reason,
         subtask_ids, thread_id, created_at, updated_at, completed_at, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `) as any).run(
       task.id,
       task.shortId,
@@ -67,6 +74,7 @@ export class TaskStore {
       task.assignedAgent ?? null,
       task.assignedTo ?? null,
       task.parentId ?? null,
+      task.sourceAgentId ?? null,
       task.result ?? null,
       (task.metadata?.statusReason as string) ?? null,
       JSON.stringify(task.subtaskIds ?? []),
@@ -125,6 +133,11 @@ export class TaskStore {
     return rows.map((row) => this.rowToTask(row));
   }
 
+  getSubtasks(parentId: string): Task[] {
+    const rows = (this.db.prepare('SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at ASC') as any).all(parentId) as Record<string, unknown>[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
   private rowToTask(row: Record<string, unknown>): Task {
     const metadata = this.parseJson(row['metadata'] as string, {});
     return {
@@ -137,6 +150,7 @@ export class TaskStore {
       assignedAgent: (row['assigned_agent'] as string | null) ?? null,
       assignedTo: (row['assigned_to'] as 'agent' | 'user' | null) ?? null,
       parentId: (row['parent_id'] as string | null) ?? null,
+      sourceAgentId: (row['source_agent_id'] as string | null) ?? null,
       result: (row['result'] as string | null) ?? null,
       subtaskIds: this.parseJson(row['subtask_ids'] as string, []),
       threadId: (row['thread_id'] as string | null) ?? null,
