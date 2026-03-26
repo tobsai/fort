@@ -8,6 +8,7 @@
 // ─── Task Graph Types ───────────────────────────────────────────────
 
 export type TaskStatus =
+  | 'pending'
   | 'created'
   | 'in_progress'
   | 'blocked'
