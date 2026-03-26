@@ -54,6 +54,9 @@ export default function TopBar() {
         <NavLink to="/schedules" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
           Schedules
         </NavLink>
+        <NavLink to="/diagnostics" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
+          Diagnostics
+        </NavLink>
       </nav>
       <div className="topbar-right">
         <NavLink

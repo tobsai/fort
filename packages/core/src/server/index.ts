@@ -77,8 +77,7 @@ export class FortServer {
     this.httpServer = createServer((req, res) => {
       // Always allow health check without auth
       if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', agents: this.fort.agents.listInfo().length }));
+        this.handleHealthCheck(res);
         return;
       }
 
@@ -1047,6 +1046,81 @@ export class FortServer {
         }
       }
 
+      // ─── Diagnostics (SPEC-013) ─────────────────────────────────────────
+
+      case 'diagnostics.health': {
+        const results = await this.fort.doctor.runAll();
+        const { FortDoctor } = await import('../diagnostics/index.js');
+        const summary = FortDoctor.summarize(results);
+        const checks: Record<string, unknown> = {};
+        for (const r of results) {
+          const detail: Record<string, unknown> = { status: r.status };
+          detail['message'] = r.checks.map((c) => c.message).join('; ');
+          const allDetails: Record<string, unknown> = {};
+          for (const c of r.checks) {
+            if (c.details) { Object.assign(allDetails, c.details); }
+          }
+          if (Object.keys(allDetails).length > 0) { detail['details'] = allDetails; }
+          checks[r.module] = detail;
+        }
+        return {
+          id: msg.id,
+          type: 'diagnostics.health.response',
+          payload: {
+            status: summary.overall,
+            timestamp: new Date().toISOString(),
+            uptime: Math.round(process.uptime()),
+            checks,
+          },
+        };
+      }
+
+      case 'diagnostics.errors': {
+        const errLimit = ((msg.payload ?? {}) as { limit?: number }).limit ?? 50;
+        return {
+          id: msg.id,
+          type: 'diagnostics.errors.response',
+          payload: this.fort.errorLog.getRecent(errLimit),
+        };
+      }
+
+      case 'diagnostics.metrics': {
+        const { heapUsed } = process.memoryUsage();
+        const heapMb = Math.round(heapUsed / 1024 / 1024 * 10) / 10;
+
+        // Task counts: today's completed + failed + total active
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTasks = this.fort.taskGraph.queryTasksFromStore({
+          since: today,
+          limit: 1000,
+        });
+        const activeTasks = this.fort.taskGraph.getActiveTasks().length;
+
+        // DB size
+        let dbSizeMb = 0;
+        try {
+          const { statSync } = await import('node:fs');
+          const stat = statSync((this.fort as any).taskDbPath as string);
+          dbSizeMb = Math.round(stat.size / 1024 / 1024 * 100) / 100;
+        } catch { /* non-fatal */ }
+
+        return {
+          id: msg.id,
+          type: 'diagnostics.metrics.response',
+          payload: {
+            uptime: Math.round(process.uptime()),
+            heapMb,
+            dbSizeMb,
+            tasksToday: todayTasks.length,
+            activeTasks,
+            errorsToday: this.fort.errorLog.getRecent(1000).filter(
+              (e) => e.createdAt >= today
+            ).length,
+          },
+        };
+      }
+
       default:
         return { id: msg.id, type: 'error', payload: null, error: `Unknown message type: ${msg.type}` };
     }
@@ -1059,6 +1133,44 @@ export class FortServer {
       totalTasks: this.fort.taskGraph.getTaskCount(),
       memoryStats: this.fort.memory.stats(),
     };
+  }
+
+  private handleHealthCheck(res: ServerResponse): void {
+    const startedAt = (this.fort as any)._startedAt as number | undefined;
+    const uptime = startedAt ? Math.round((Date.now() - startedAt) / 1000) : process.uptime();
+
+    this.fort.doctor.runAll().then((results) => {
+      const summary = (this.fort.doctor.constructor as typeof import('../diagnostics/index.js').FortDoctor).summarize(results);
+
+      // Build per-check map keyed by module name
+      const checks: Record<string, unknown> = {};
+      for (const r of results) {
+        const detail: Record<string, unknown> = { status: r.status };
+        if (r.checks.length > 0) {
+          detail['message'] = r.checks.map((c) => c.message).join('; ');
+          const allDetails: Record<string, unknown> = {};
+          for (const c of r.checks) {
+            if (c.details) Object.assign(allDetails, c.details);
+          }
+          if (Object.keys(allDetails).length > 0) detail['details'] = allDetails;
+        }
+        checks[r.module] = detail;
+      }
+
+      const body = JSON.stringify({
+        status: summary.overall,
+        timestamp: new Date().toISOString(),
+        uptime,
+        checks,
+      });
+
+      const statusCode = summary.overall === 'unhealthy' ? 503 : 200;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(body);
+    }).catch((err) => {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'unhealthy', error: String(err) }));
+    });
   }
 
   private broadcast(msg: WSResponse): void {

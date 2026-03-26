@@ -7,6 +7,7 @@ import AgentsPage from "./pages/AgentsPage";
 import TasksPage from "./pages/TasksPage";
 import SchedulesPage from "./pages/SchedulesPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
+import DiagnosticsPage from "./pages/DiagnosticsPage";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/schedules" element={<SchedulesPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route path="/diagnostics" element={<DiagnosticsPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>
       </main>
