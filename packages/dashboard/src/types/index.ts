@@ -106,3 +106,21 @@ export interface ThreadMessage {
   agentId: string | null;
   createdAt: string;
 }
+
+export type NotificationType =
+  | 'task.completed'
+  | 'task.failed'
+  | 'approval.required'
+  | 'agent.started'
+  | 'agent.stopped';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  read: boolean;
+  createdAt: string;
+}

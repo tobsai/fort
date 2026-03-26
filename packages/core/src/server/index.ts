@@ -227,6 +227,11 @@ export class FortServer {
     });
     this.setupWebSocket();
     this.setupEventBroadcast();
+
+    // Wire notification push → broadcast 'notification.new' to all WS clients
+    this.fort.notifications.onNotification((n) => {
+      this.broadcast({ id: 'notification.new', type: 'notification.new', payload: n });
+    });
   }
 
   private isAuthenticated(req: IncomingMessage): boolean {
@@ -782,6 +787,38 @@ export class FortServer {
           description: createPayload.description,
         });
         return { id: msg.id, type: 'thread.create.response', payload: { thread: newThread } };
+
+      case 'notifications.list': {
+        const nlPayload = (msg.payload ?? {}) as { unreadOnly?: boolean; limit?: number };
+        return {
+          id: msg.id,
+          type: 'notifications.list.response',
+          payload: this.fort.notifications.notificationStore.list({
+            unreadOnly: nlPayload.unreadOnly,
+            limit: nlPayload.limit ?? 50,
+          }),
+        };
+      }
+
+      case 'notifications.unread_count':
+        return {
+          id: msg.id,
+          type: 'notifications.unread_count.response',
+          payload: this.fort.notifications.notificationStore.getUnreadCount(),
+        };
+
+      case 'notification.mark_read': {
+        const mrPayload = (msg.payload ?? {}) as { id: string };
+        if (!mrPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'notification.mark_read requires id' };
+        }
+        this.fort.notifications.notificationStore.markRead(mrPayload.id);
+        return { id: msg.id, type: 'notification.mark_read.response', payload: { id: mrPayload.id } };
+      }
+
+      case 'notifications.mark_all_read':
+        this.fort.notifications.notificationStore.markAllRead();
+        return { id: msg.id, type: 'notifications.mark_all_read.response', payload: null };
 
       case 'doctor':
         const results = await this.fort.runDoctor();

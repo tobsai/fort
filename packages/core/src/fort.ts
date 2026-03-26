@@ -30,6 +30,8 @@ import { Harness } from './harness/index.js';
 import { GarbageCollector } from './harness/garbage-collector.js';
 import { RewindManager } from './rewind/index.js';
 import { ThreadManager } from './threads/index.js';
+import { NotificationStore } from './notifications/store.js';
+import { NotificationService } from './notifications/service.js';
 import { FortDoctor } from './diagnostics/index.js';
 import { Introspector } from './introspect/index.js';
 import { IPCServer } from './ipc/index.js';
@@ -81,6 +83,7 @@ export class Fort {
   readonly gc: GarbageCollector;
   readonly rewind: RewindManager;
   readonly threads: ThreadManager;
+  readonly notifications: NotificationService;
   readonly llm: LLMClient;
   readonly usageStore: UsageStore;
   readonly usageTracker: UsageTracker;
@@ -170,6 +173,10 @@ export class Fort {
       this.taskGraph,
     );
 
+    // Notifications — shared task DB
+    const notificationStore = new NotificationStore(this.taskDb as InstanceType<typeof Database>);
+    notificationStore.initSchema();
+    this.notifications = new NotificationService(notificationStore, this.bus);
     // LLM provider store — encryption key derived from SESSION_SECRET env var
     const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
     this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
@@ -257,6 +264,7 @@ export class Fort {
     await this.memory.initialize();
     await this.agentFactory.loadAll();
     await this.agents.startAll();
+    this.notifications.start();
     if (process.env['FORT_SCHEDULER_ENABLED'] !== 'false') {
       this.scheduler.start();
     }
@@ -274,6 +282,7 @@ export class Fort {
 
   async stop(): Promise<void> {
     await this.ipc.stop();
+    this.notifications.stop();
     await this.plugins.shutdownAll();
     this.scheduler.shutdown();
     await this.agents.stopAll();
