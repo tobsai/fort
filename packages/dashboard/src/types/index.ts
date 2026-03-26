@@ -36,11 +36,14 @@ export interface Task {
   status: TaskStatus;
   source: string;
   assignedAgent?: string;
+  sourceAgentId?: string;
+  parentId?: string;
   result?: string;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+  subtasks?: Task[];
 }
 
 export interface ToolCallEvent {
