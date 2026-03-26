@@ -20,6 +20,9 @@ export default function TopBar() {
         <NavLink to="/tasks" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
           Tasks
         </NavLink>
+        <NavLink to="/usage" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
+          Usage
+        </NavLink>
       </nav>
       <div className="topbar-right">
         <span className={`ws-dot${connected ? " connected" : ""}`} />
