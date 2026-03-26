@@ -59,37 +59,6 @@ export class OrchestratorService {
   }
 
   /**
-   * Route a delegated task to its assigned agent.
-   * Validates that the target agent exists and is running, then dispatches.
-   * Used for programmatic delegation outside of the delegate-to-agent tool.
-   */
-  async routeTask(taskId: string): Promise<void> {
-    const task = this.taskGraph.getTask(taskId);
-    if (!task.assignedAgent) {
-      throw new Error(`Task ${taskId} has no assigned agent`);
-    }
-
-    const agent = this.agents.get(task.assignedAgent);
-    if (!agent) {
-      this.taskGraph.updateStatus(taskId, 'failed', `Target agent "${task.assignedAgent}" not found`);
-      throw new Error(`Agent not found: ${task.assignedAgent}`);
-    }
-    if (agent.status === 'stopped' || agent.status === 'error') {
-      this.taskGraph.updateStatus(taskId, 'failed', `Target agent "${task.assignedAgent}" is ${agent.status}`);
-      throw new Error(`Agent "${task.assignedAgent}" is ${agent.status}`);
-    }
-
-    try {
-      await agent.handleTask(taskId);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      this.taskGraph.updateStatus(taskId, 'failed', errMsg);
-      this.bus.publish('task.failed', 'orchestrator', { taskId, error: errMsg, agentId: task.assignedAgent });
-      throw err;
-    }
-  }
-
-  /**
    * Route a chat message to an agent. Creates a task and dispatches it.
    * If no agentId provided, routes to the default agent.
    */
