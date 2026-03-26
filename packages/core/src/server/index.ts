@@ -783,152 +783,140 @@ export class FortServer {
         });
         return { id: msg.id, type: 'thread.create.response', payload: { thread: newThread } };
 
-      case 'usage.summary': {
-        const summaryPayload = (msg.payload ?? {}) as { period?: 'day' | 'week' | 'month'; agentId?: string };
-        const period = summaryPayload.period ?? 'week';
-        const summary = this.fort.usageStore.getSummary(period, summaryPayload.agentId);
-        return { id: msg.id, type: 'usage.summary.response', payload: summary };
-      }
-
-      case 'usage.by_agent': {
-        const byAgentPayload = (msg.payload ?? {}) as { period?: 'day' | 'week' | 'month' };
-        const byAgentPeriod = byAgentPayload.period ?? 'week';
-        const byAgent = this.fort.usageStore.getByAgent(byAgentPeriod);
-        return { id: msg.id, type: 'usage.by_agent.response', payload: byAgent };
-      }
-
-      case 'usage.totals': {
-        const totals = this.fort.usageStore.getTotals();
-        return { id: msg.id, type: 'usage.totals.response', payload: totals };
-      }
-
-      case 'usage.by_task': {
-        const byTaskPayload = (msg.payload ?? {}) as { taskId: string };
-        if (!byTaskPayload.taskId) {
-          return { id: msg.id, type: 'error', payload: null, error: 'usage.by_task requires taskId' };
-        }
-        const records = this.fort.usageStore.queryUsage({ taskId: byTaskPayload.taskId });
-        return { id: msg.id, type: 'usage.by_task.response', payload: records };
-      }
-
       case 'doctor':
         const results = await this.fort.runDoctor();
         return { id: msg.id, type: 'doctor.response', payload: results };
 
-      // ─── LLM Provider Handlers ─────────────────────────────────────
+      // ─── Scheduler (SPEC-008) ──────────────────────────────────────────
 
-      case 'llm.providers.list': {
-        const providers = this.fort.llmProviders.listProviders().map((p) => ({
-          ...p,
-          apiKeyEncrypted: undefined,          // strip encrypted blob
-          hasApiKey: p.apiKeyEncrypted !== null,
-        }));
-        return { id: msg.id, type: 'llm.providers.list.response', payload: { providers } };
-      }
-
-      case 'llm.provider.add': {
-        const addPayload = (msg.payload ?? {}) as {
-          id: string;
-          name?: string;
-          apiKey?: string;
-          baseUrl?: string;
-          defaultModel?: string;
-          isDefault?: boolean;
-        };
-        if (!addPayload.id) {
-          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.add requires id' };
-        }
-        try {
-          const { LLMProviderStore } = await import('../llm/provider-store.js');
-          const defaults = LLMProviderStore.getDefaultConfig(addPayload.id as any);
-          // Save first so testConnection can read the key from the store
-          const provider = this.fort.llmProviders.addProvider({
-            id: addPayload.id,
-            name: addPayload.name ?? defaults?.name ?? addPayload.id,
-            apiKey: addPayload.apiKey,
-            baseUrl: addPayload.baseUrl ?? defaults?.baseUrl,
-            defaultModel: addPayload.defaultModel ?? defaults?.defaultModel ?? '',
-            isDefault: addPayload.isDefault ?? false,
-          });
-          // Test connection — rollback on failure
-          const testError = await this.fort.llm.testConnection(addPayload.id);
-          if (testError) {
-            this.fort.llmProviders.deleteProvider(addPayload.id);
-            return { id: msg.id, type: 'error', payload: null, error: `Connection test failed: ${testError}` };
-          }
-          return {
-            id: msg.id,
-            type: 'llm.provider.add.response',
-            payload: { provider: { ...provider, apiKeyEncrypted: undefined, hasApiKey: provider.apiKeyEncrypted !== null } },
-          };
-        } catch (err) {
-          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
-        }
-      }
-
-      case 'llm.provider.update': {
-        const updatePayload = (msg.payload ?? {}) as {
-          id: string;
-          name?: string;
-          apiKey?: string;
-          baseUrl?: string;
-          defaultModel?: string;
-          isDefault?: boolean;
-          enabled?: boolean;
-        };
-        if (!updatePayload.id) {
-          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.update requires id' };
-        }
-        try {
-          const updated = this.fort.llmProviders.updateProvider(updatePayload.id, {
-            name: updatePayload.name,
-            apiKey: updatePayload.apiKey,
-            baseUrl: updatePayload.baseUrl,
-            defaultModel: updatePayload.defaultModel,
-            isDefault: updatePayload.isDefault,
-            enabled: updatePayload.enabled,
-          });
-          return {
-            id: msg.id,
-            type: 'llm.provider.update.response',
-            payload: { provider: { ...updated, apiKeyEncrypted: undefined, hasApiKey: updated.apiKeyEncrypted !== null } },
-          };
-        } catch (err) {
-          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
-        }
-      }
-
-      case 'llm.provider.delete': {
-        const deletePayload = (msg.payload ?? {}) as { id: string };
-        if (!deletePayload.id) {
-          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.delete requires id' };
-        }
-        try {
-          this.fort.llmProviders.deleteProvider(deletePayload.id);
-          return { id: msg.id, type: 'llm.provider.delete.response', payload: { id: deletePayload.id } };
-        } catch (err) {
-          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
-        }
-      }
-
-      case 'llm.provider.test': {
-        const testPayload = (msg.payload ?? {}) as { id: string };
-        if (!testPayload.id) {
-          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.test requires id' };
-        }
-        const testError = await this.fort.llm.testConnection(testPayload.id);
+      case 'schedules.list':
         return {
           id: msg.id,
-          type: 'llm.provider.test.response',
-          payload: { id: testPayload.id, success: !testError, error: testError ?? undefined },
+          type: 'schedules.list.response',
+          payload: this.fort.scheduler.listSchedules(),
         };
+
+      case 'schedule.create': {
+        const createSched = (msg.payload ?? {}) as {
+          name?: string;
+          description?: string;
+          agentId?: string;
+          scheduleType?: 'cron' | 'interval';
+          scheduleValue?: string;
+          taskTitle?: string;
+          taskDescription?: string;
+        };
+        if (!createSched.name?.trim()) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires name' };
+        }
+        if (!createSched.agentId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires agentId' };
+        }
+        if (!createSched.scheduleType) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires scheduleType' };
+        }
+        if (!createSched.scheduleValue) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires scheduleValue' };
+        }
+        if (!createSched.taskTitle?.trim()) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires taskTitle' };
+        }
+        try {
+          const schedule = this.fort.scheduler.createSchedule({
+            name: createSched.name.trim(),
+            description: createSched.description,
+            agentId: createSched.agentId,
+            scheduleType: createSched.scheduleType,
+            scheduleValue: createSched.scheduleValue,
+            taskTitle: createSched.taskTitle.trim(),
+            taskDescription: createSched.taskDescription,
+          });
+          return { id: msg.id, type: 'schedule.create.response', payload: schedule };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
       }
 
-      case 'llm.models.list': {
-        const modelsPayload = (msg.payload ?? {}) as { id: string };
-        const { LLMProviderStore } = await import('../llm/provider-store.js');
-        const models = LLMProviderStore.getModelsForProvider(modelsPayload.id ?? '');
-        return { id: msg.id, type: 'llm.models.list.response', payload: { id: modelsPayload.id, models } };
+      case 'schedule.update': {
+        const updateSched = (msg.payload ?? {}) as {
+          id?: string;
+          name?: string;
+          description?: string;
+          agentId?: string;
+          scheduleType?: 'cron' | 'interval';
+          scheduleValue?: string;
+          taskTitle?: string;
+          taskDescription?: string;
+        };
+        if (!updateSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.update requires id' };
+        }
+        try {
+          const updated = this.fort.scheduler.updateSchedule(updateSched.id, {
+            name: updateSched.name,
+            description: updateSched.description,
+            agentId: updateSched.agentId,
+            scheduleType: updateSched.scheduleType,
+            scheduleValue: updateSched.scheduleValue,
+            taskTitle: updateSched.taskTitle,
+            taskDescription: updateSched.taskDescription,
+          });
+          return { id: msg.id, type: 'schedule.update.response', payload: updated };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.delete': {
+        const deleteSched = (msg.payload ?? {}) as { id?: string };
+        if (!deleteSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.delete requires id' };
+        }
+        try {
+          this.fort.scheduler.deleteSchedule(deleteSched.id);
+          return { id: msg.id, type: 'schedule.delete.response', payload: { id: deleteSched.id } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.pause': {
+        const pauseSched = (msg.payload ?? {}) as { id?: string };
+        if (!pauseSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.pause requires id' };
+        }
+        try {
+          this.fort.scheduler.pauseSchedule(pauseSched.id);
+          return { id: msg.id, type: 'schedule.pause.response', payload: { id: pauseSched.id, enabled: false } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.resume': {
+        const resumeSched = (msg.payload ?? {}) as { id?: string };
+        if (!resumeSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.resume requires id' };
+        }
+        try {
+          this.fort.scheduler.resumeSchedule(resumeSched.id);
+          return { id: msg.id, type: 'schedule.resume.response', payload: { id: resumeSched.id, enabled: true } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.run_now': {
+        const runNowSched = (msg.payload ?? {}) as { id?: string };
+        if (!runNowSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.run_now requires id' };
+        }
+        try {
+          this.fort.scheduler.runNow(runNowSched.id);
+          return { id: msg.id, type: 'schedule.run_now.response', payload: { id: runNowSched.id } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
       }
 
       default:
