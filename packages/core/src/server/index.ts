@@ -232,6 +232,11 @@ export class FortServer {
     this.fort.notifications.onNotification((n) => {
       this.broadcast({ id: 'notification.new', type: 'notification.new', payload: n });
     });
+
+    // Wire approval.required bus event → broadcast 'approval.new' to all WS clients
+    this.fort.bus.subscribe('approval.required', (event) => {
+      this.broadcast({ id: event.id, type: 'approval.new', payload: event.payload });
+    });
   }
 
   private isAuthenticated(req: IncomingMessage): boolean {
@@ -953,6 +958,55 @@ export class FortServer {
           return { id: msg.id, type: 'schedule.run_now.response', payload: { id: runNowSched.id } };
         } catch (err) {
           return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'approvals.list': {
+        const pending = this.fort.approvalStore.getPending();
+        return { id: msg.id, type: 'approvals.list.response', payload: { pending } };
+      }
+
+      case 'approvals.for_task': {
+        const forTaskPayload = (msg.payload ?? {}) as { taskId?: string };
+        if (!forTaskPayload.taskId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'approvals.for_task requires taskId' };
+        }
+        const approvals = this.fort.approvalStore.getForTask(forTaskPayload.taskId);
+        return { id: msg.id, type: 'approvals.for_task.response', payload: { approvals } };
+      }
+
+      case 'approval.respond': {
+        const respondPayload = (msg.payload ?? {}) as {
+          id?: string;
+          approved?: boolean;
+          rejectionReason?: string;
+        };
+        if (!respondPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'approval.respond requires id' };
+        }
+        if (typeof respondPayload.approved !== 'boolean') {
+          return { id: msg.id, type: 'error', payload: null, error: 'approval.respond requires approved (boolean)' };
+        }
+        try {
+          const updated = this.fort.approvalStore.resolve(
+            respondPayload.id,
+            respondPayload.approved,
+            respondPayload.rejectionReason,
+          );
+          // Unblock the waiting ToolExecutor
+          this.fort.toolExecutor.resolveApproval(
+            respondPayload.id,
+            respondPayload.approved,
+            respondPayload.rejectionReason,
+          );
+          return { id: msg.id, type: 'approval.respond.response', payload: updated };
+        } catch (err) {
+          return {
+            id: msg.id,
+            type: 'error',
+            payload: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
         }
       }
 
