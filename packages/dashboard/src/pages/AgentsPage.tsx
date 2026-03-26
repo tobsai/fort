@@ -3,6 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { useFortSocket } from "../contexts/FortSocketContext";
 import type { AgentInfo, WSMessage } from "../types";
 
+interface AgentMemory {
+  id: string;
+  agentId: string;
+  category: "fact" | "decision" | "preference" | "observation";
+  content: string;
+  tags: string[];
+  taskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  fact: "#4a9eff",
+  decision: "#a855f7",
+  preference: "#f59e0b",
+  observation: "#10b981",
+};
+
 interface CreateAgentForm {
   name: string;
   description: string;
@@ -31,10 +49,21 @@ export default function AgentsPage() {
   const [creating, setCreating] = useState(false);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"overview" | "memory">("overview");
+  const [memories, setMemories] = useState<AgentMemory[]>([]);
+  const [confirmClearMemory, setConfirmClearMemory] = useState(false);
 
   const refreshAgents = useCallback(() => {
     send("agents.list");
   }, [send]);
+
+  const loadMemories = useCallback((agentId: string) => {
+    send("agent.memories", { agentId });
+    const unsub = subscribe("agent.memories.response", (msg: WSMessage) => {
+      unsub();
+      setMemories((msg.payload as AgentMemory[]) || []);
+    });
+  }, [send, subscribe]);
 
   useEffect(() => {
     const unsub1 = subscribe("agents.response", (msg: WSMessage) => {
@@ -149,7 +178,7 @@ export default function AgentsPage() {
             <div
               key={cfg.id}
               className="agent-card"
-              onClick={() => setSelected(a)}
+              onClick={() => { setSelected(a); setDetailTab("overview"); setMemories([]); }}
             >
               <div className="agent-card-emoji">{(a as any).emoji || "🤖"}</div>
               <div className="agent-card-info">
@@ -245,39 +274,131 @@ export default function AgentsPage() {
               </button>
               <button className="modal-close" onClick={() => setSelected(null)}>&times;</button>
             </div>
+            {/* Tab bar */}
+            <div className="modal-tabs">
+              <button
+                className={`modal-tab${detailTab === "overview" ? " active" : ""}`}
+                onClick={() => setDetailTab("overview")}
+              >
+                Overview
+              </button>
+              <button
+                className={`modal-tab${detailTab === "memory" ? " active" : ""}`}
+                onClick={() => { setDetailTab("memory"); loadMemories(selected.config.id); }}
+              >
+                Memory
+              </button>
+            </div>
             <div className="modal-body">
-              <div className="agent-detail-grid">
-                <div className="agent-detail-section">
-                  <div className="detail-label">Status</div>
-                  <span className={`agent-status-badge ${selected.status}`}>{selected.status}</span>
-                </div>
-                <div className="agent-detail-section">
-                  <div className="detail-label">Tasks Completed</div>
-                  <div className="detail-value">{selected.taskCount}</div>
-                </div>
-                {selected.config.capabilities.length > 0 && (
-                  <div className="agent-detail-section full-width">
-                    <div className="detail-label">Capabilities</div>
-                    <div className="detail-chips">
-                      {selected.config.capabilities.map((c) => (
-                        <span key={c} className="chip">{c}</span>
+              {detailTab === "overview" && (
+                <>
+                  <div className="agent-detail-grid">
+                    <div className="agent-detail-section">
+                      <div className="detail-label">Status</div>
+                      <span className={`agent-status-badge ${selected.status}`}>{selected.status}</span>
+                    </div>
+                    <div className="agent-detail-section">
+                      <div className="detail-label">Tasks Completed</div>
+                      <div className="detail-value">{selected.taskCount}</div>
+                    </div>
+                    {selected.config.capabilities.length > 0 && (
+                      <div className="agent-detail-section full-width">
+                        <div className="detail-label">Capabilities</div>
+                        <div className="detail-chips">
+                          {selected.config.capabilities.map((c) => (
+                            <span key={c} className="chip">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selected.config.description && (
+                      <div className="agent-detail-section full-width">
+                        <div className="detail-label">Description</div>
+                        <div className="detail-value">{selected.config.description}</div>
+                      </div>
+                    )}
+                  </div>
+                  {(selected as any).soul && (
+                    <div style={{ marginTop: 16 }}>
+                      <div className="detail-label" style={{ marginBottom: 8 }}>SOUL.md</div>
+                      <div className="soul-content">
+                        {(selected as any).soul}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {detailTab === "memory" && (
+                <div className="memory-tab">
+                  <div className="memory-tab-header">
+                    <span className="memory-count">{memories.length} entr{memories.length === 1 ? "y" : "ies"}</span>
+                    {memories.length > 0 && (
+                      <button
+                        className="btn-danger btn-sm"
+                        onClick={() => setConfirmClearMemory(true)}
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  {confirmClearMemory && (
+                    <div className="memory-clear-confirm">
+                      <span>Clear all memories for this agent?</span>
+                      <button className="btn-secondary btn-sm" onClick={() => setConfirmClearMemory(false)}>Cancel</button>
+                      <button
+                        className="btn-danger btn-sm"
+                        onClick={() => {
+                          send("agent.memory.clear", { agentId: selected.config.id });
+                          setMemories([]);
+                          setConfirmClearMemory(false);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+
+                  {memories.length === 0 ? (
+                    <div className="empty-state" style={{ marginTop: 24 }}>
+                      No memories yet. This agent will accumulate memories as it works.
+                    </div>
+                  ) : (
+                    <div className="memory-list">
+                      {memories.map((m) => (
+                        <div key={m.id} className="memory-entry">
+                          <div className="memory-entry-header">
+                            <span
+                              className="memory-category-badge"
+                              style={{ background: CATEGORY_COLORS[m.category] || "#888" }}
+                            >
+                              {m.category}
+                            </span>
+                            <span className="memory-date">{m.createdAt.slice(0, 10)}</span>
+                            <button
+                              className="memory-delete-btn"
+                              title="Delete memory"
+                              onClick={() => {
+                                send("agent.memory.delete", { id: m.id });
+                                setMemories((prev) => prev.filter((x) => x.id !== m.id));
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="memory-content">{m.content}</div>
+                          {m.tags.length > 0 && (
+                            <div className="memory-tags">
+                              {m.tags.map((t) => (
+                                <span key={t} className="chip chip-sm">{t}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                {selected.config.description && (
-                  <div className="agent-detail-section full-width">
-                    <div className="detail-label">Description</div>
-                    <div className="detail-value">{selected.config.description}</div>
-                  </div>
-                )}
-              </div>
-              {(selected as any).soul && (
-                <div style={{ marginTop: 16 }}>
-                  <div className="detail-label" style={{ marginBottom: 8 }}>SOUL.md</div>
-                  <div className="soul-content">
-                    {(selected as any).soul}
-                  </div>
+                  )}
                 </div>
               )}
             </div>
