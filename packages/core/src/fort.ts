@@ -36,6 +36,7 @@ import { IPCServer } from './ipc/index.js';
 import { OSIntegrationManager } from './os-integration/index.js';
 import { LLMClient } from './llm/index.js';
 import type { LLMClientConfig } from './llm/index.js';
+import { UsageStore, UsageTracker } from './usage/index.js';
 import type { DiagnosticResult, Task } from './types.js';
 
 export interface FortConfig {
@@ -79,6 +80,8 @@ export class Fort {
   readonly rewind: RewindManager;
   readonly threads: ThreadManager;
   readonly llm: LLMClient;
+  readonly usageStore: UsageStore;
+  readonly usageTracker: UsageTracker;
   readonly introspect: Introspector;
   readonly osIntegration: OSIntegrationManager;
   readonly ipc: IPCServer;
@@ -166,6 +169,13 @@ export class Fort {
       this.memory,
     );
 
+    // Usage tracking
+    this.usageStore = new UsageStore(this.taskDb);
+    this.usageStore.initSchema();
+    this.usageStore.seedDefaultPricing();
+    this.usageTracker = new UsageTracker(this.usageStore, this.bus);
+    this.usageTracker.start();
+
     // Wire LLM into task graph for completion review
     this.taskGraph.setLLM(this.llm);
 
@@ -216,6 +226,7 @@ export class Fort {
     this.doctor.register('routines', this.routines);
     this.doctor.register('scheduler', this.scheduler);
     this.doctor.register('llm', this.llm);
+    this.doctor.register('usage-tracker', this.usageTracker);
     this.doctor.register('reflection', this.reflection);
     this.doctor.register('os-integration', this.osIntegration);
     this.doctor.register('ipc', this.ipc);
@@ -254,6 +265,7 @@ export class Fort {
     this.tools.close();
     this.tokens.close();
     this.flags.close();
+    this.usageTracker.stop();
     this.rewind.close();
     this.threads.close();
     this.agentStore.close();

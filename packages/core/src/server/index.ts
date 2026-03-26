@@ -783,6 +783,34 @@ export class FortServer {
         });
         return { id: msg.id, type: 'thread.create.response', payload: { thread: newThread } };
 
+      case 'usage.summary': {
+        const summaryPayload = (msg.payload ?? {}) as { period?: 'day' | 'week' | 'month'; agentId?: string };
+        const period = summaryPayload.period ?? 'week';
+        const summary = this.fort.usageStore.getSummary(period, summaryPayload.agentId);
+        return { id: msg.id, type: 'usage.summary.response', payload: summary };
+      }
+
+      case 'usage.by_agent': {
+        const byAgentPayload = (msg.payload ?? {}) as { period?: 'day' | 'week' | 'month' };
+        const byAgentPeriod = byAgentPayload.period ?? 'week';
+        const byAgent = this.fort.usageStore.getByAgent(byAgentPeriod);
+        return { id: msg.id, type: 'usage.by_agent.response', payload: byAgent };
+      }
+
+      case 'usage.totals': {
+        const totals = this.fort.usageStore.getTotals();
+        return { id: msg.id, type: 'usage.totals.response', payload: totals };
+      }
+
+      case 'usage.by_task': {
+        const byTaskPayload = (msg.payload ?? {}) as { taskId: string };
+        if (!byTaskPayload.taskId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'usage.by_task requires taskId' };
+        }
+        const records = this.fort.usageStore.queryUsage({ taskId: byTaskPayload.taskId });
+        return { id: msg.id, type: 'usage.by_task.response', payload: records };
+      }
+
       case 'doctor':
         const results = await this.fort.runDoctor();
         return { id: msg.id, type: 'doctor.response', payload: results };
