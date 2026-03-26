@@ -500,7 +500,12 @@ export class FortServer {
           limit: queryPayload.limit ?? 50,
           offset: queryPayload.offset ?? 0,
         });
-        return { id: msg.id, type: 'tasks.query.response', payload: tasks };
+        // Enrich each task with its direct subtasks
+        const tasksWithSubtasks = tasks.map((task) => ({
+          ...task,
+          subtasks: this.fort.taskGraph.getSubtasksFromStore(task.id),
+        }));
+        return { id: msg.id, type: 'tasks.query.response', payload: tasksWithSubtasks };
       }
 
       case 'agents':
