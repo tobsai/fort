@@ -7,6 +7,10 @@ import {
   getSessionEmail,
   buildGoogleAuthUrl,
   loadAuthConfig,
+  generateOAuthState,
+  buildStateCookieHeader,
+  buildClearStateCookieHeader,
+  getOAuthState,
 } from '../server/auth.js';
 
 describe('signCookie / verifyCookie', () => {
@@ -129,7 +133,7 @@ describe('getSessionEmail', () => {
 
 describe('buildGoogleAuthUrl', () => {
   it('includes required OAuth2 params', () => {
-    const url = buildGoogleAuthUrl('my-client-id', 'http://localhost:4077/auth/google/callback');
+    const url = buildGoogleAuthUrl('my-client-id', 'http://localhost:4077/auth/google/callback', 'test-state-123');
     const parsed = new URL(url);
     expect(parsed.hostname).toBe('accounts.google.com');
     expect(parsed.searchParams.get('client_id')).toBe('my-client-id');
@@ -138,6 +142,12 @@ describe('buildGoogleAuthUrl', () => {
     expect(parsed.searchParams.get('redirect_uri')).toBe(
       'http://localhost:4077/auth/google/callback',
     );
+  });
+
+  it('includes state parameter for CSRF protection', () => {
+    const url = buildGoogleAuthUrl('my-client-id', 'http://localhost:4077/auth/google/callback', 'csrf-state-xyz');
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('state')).toBe('csrf-state-xyz');
   });
 });
 
@@ -162,16 +172,32 @@ describe('loadAuthConfig', () => {
     }
   });
 
-  it('uses defaults when env vars are absent', () => {
+  it('uses defaults when env vars are absent (auth disabled)', () => {
+    delete process.env.FORT_ALLOWED_EMAILS;
+    process.env.FORT_AUTH_ENABLED = 'false';
+    const config = loadAuthConfig();
+    expect(config.allowedEmails).toContain('tobiasgunn@gmail.com');
+    expect(config.authEnabled).toBe(false);
+  });
+
+  it('uses defaults with SESSION_SECRET set', () => {
     delete process.env.FORT_ALLOWED_EMAILS;
     delete process.env.FORT_AUTH_ENABLED;
+    process.env.SESSION_SECRET = 'test-secret';
     const config = loadAuthConfig();
     expect(config.allowedEmails).toContain('tobiasgunn@gmail.com');
     expect(config.authEnabled).toBe(true);
   });
 
+  it('throws when auth enabled but SESSION_SECRET is empty', () => {
+    delete process.env.SESSION_SECRET;
+    delete process.env.FORT_AUTH_ENABLED;
+    expect(() => loadAuthConfig()).toThrow('SESSION_SECRET is empty');
+  });
+
   it('parses comma-separated FORT_ALLOWED_EMAILS', () => {
     process.env.FORT_ALLOWED_EMAILS = 'alice@example.com, bob@example.com';
+    process.env.SESSION_SECRET = 'test-secret';
     const config = loadAuthConfig();
     expect(config.allowedEmails).toContain('alice@example.com');
     expect(config.allowedEmails).toContain('bob@example.com');
@@ -181,5 +207,46 @@ describe('loadAuthConfig', () => {
     process.env.FORT_AUTH_ENABLED = 'false';
     const config = loadAuthConfig();
     expect(config.authEnabled).toBe(false);
+  });
+});
+
+describe('OAuth state (CSRF protection)', () => {
+  it('generateOAuthState returns a 64-char hex string', () => {
+    const state = generateOAuthState();
+    expect(state).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('generates unique states', () => {
+    const s1 = generateOAuthState();
+    const s2 = generateOAuthState();
+    expect(s1).not.toBe(s2);
+  });
+
+  it('buildStateCookieHeader includes HttpOnly and SameSite', () => {
+    const header = buildStateCookieHeader('test-state', false);
+    expect(header).toContain('fort_oauth_state=test-state');
+    expect(header).toContain('HttpOnly');
+    expect(header).toContain('SameSite=Lax');
+    expect(header).not.toContain('Secure');
+  });
+
+  it('buildStateCookieHeader adds Secure flag when isSecure', () => {
+    const header = buildStateCookieHeader('test-state', true);
+    expect(header).toContain('Secure');
+  });
+
+  it('buildClearStateCookieHeader clears the cookie', () => {
+    const header = buildClearStateCookieHeader();
+    expect(header).toContain('Max-Age=0');
+  });
+
+  it('getOAuthState extracts state from cookies', () => {
+    const state = getOAuthState('fort_oauth_state=abc123; other=value');
+    expect(state).toBe('abc123');
+  });
+
+  it('getOAuthState returns null when no state cookie', () => {
+    const state = getOAuthState('other=value');
+    expect(state).toBeNull();
   });
 });

@@ -5,7 +5,7 @@
  * Uses raw node:https — no external OAuth libraries required.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { request as httpsRequest } from 'node:https';
 
 // Session cookie name and version prefix
@@ -31,6 +31,15 @@ export function loadAuthConfig(): GoogleAuthConfig {
   const callbackUrl =
     process.env.GOOGLE_CALLBACK_URL ?? 'http://localhost:4077/auth/google/callback';
   const authEnabled = process.env.FORT_AUTH_ENABLED !== 'false';
+
+  // SECURITY: Fail fast if auth is enabled but SESSION_SECRET is empty
+  if (authEnabled && !sessionSecret) {
+    throw new Error(
+      'FATAL: SESSION_SECRET is empty but auth is enabled. ' +
+      'Set SESSION_SECRET env var or set FORT_AUTH_ENABLED=false to disable auth.',
+    );
+  }
+
   return { clientId, clientSecret, sessionSecret, allowedEmails, callbackUrl, authEnabled };
 }
 
@@ -160,13 +169,58 @@ export function buildClearCookieHeader(): string {
 // Google OAuth2 URL builder
 // ---------------------------------------------------------------------------
 
-export function buildGoogleAuthUrl(clientId: string, callbackUrl: string): string {
+// ---------------------------------------------------------------------------
+// OAuth2 state (CSRF) token management
+// ---------------------------------------------------------------------------
+
+const STATE_COOKIE_NAME = 'fort_oauth_state';
+const STATE_MAX_AGE_SECONDS = 300; // 5 minutes
+
+/**
+ * Generate a cryptographically random state token for OAuth CSRF protection.
+ */
+export function generateOAuthState(): string {
+  return randomBytes(32).toString('hex');
+}
+
+/**
+ * Build a Set-Cookie header for the OAuth state token.
+ */
+export function buildStateCookieHeader(state: string, isSecure: boolean): string {
+  const parts = [
+    `${STATE_COOKIE_NAME}=${state}`,
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${STATE_MAX_AGE_SECONDS}`,
+    'Path=/auth',
+  ];
+  if (isSecure) parts.push('Secure');
+  return parts.join('; ');
+}
+
+/**
+ * Build a Set-Cookie header to clear the OAuth state cookie.
+ */
+export function buildClearStateCookieHeader(): string {
+  return `${STATE_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/auth`;
+}
+
+/**
+ * Get the OAuth state from the request cookies.
+ */
+export function getOAuthState(cookieHeader: string | undefined): string | null {
+  const cookies = parseCookies(cookieHeader);
+  return cookies[STATE_COOKIE_NAME] ?? null;
+}
+
+export function buildGoogleAuthUrl(clientId: string, callbackUrl: string, state: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: callbackUrl,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'online',
+    state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }

@@ -62,8 +62,18 @@ export class OrchestratorService {
       source,
     });
 
-    // Dispatch to agent
-    await agent.handleTask(task.id);
+    // Dispatch to agent with failure handling
+    try {
+      await agent.handleTask(task.id);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.taskGraph.updateStatus(task.id, 'failed', errMsg);
+      this.bus.publish('task.failed', 'orchestrator', {
+        taskId: task.id,
+        error: errMsg,
+        agentId: targetId,
+      });
+    }
 
     return task;
   }

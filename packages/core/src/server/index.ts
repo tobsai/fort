@@ -19,6 +19,10 @@ import {
   isEmailAllowed,
   buildSessionCookieHeader,
   buildClearCookieHeader,
+  generateOAuthState,
+  buildStateCookieHeader,
+  buildClearStateCookieHeader,
+  getOAuthState,
   type GoogleAuthConfig,
 } from './auth.js';
 
@@ -229,23 +233,28 @@ export class FortServer {
     return isEmailAllowed(email, this.authConfig.allowedEmails);
   }
 
-  private handleAuthGoogle(_req: IncomingMessage, res: ServerResponse): void {
+  private handleAuthGoogle(req: IncomingMessage, res: ServerResponse): void {
     if (!this.authConfig.clientId) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('GOOGLE_CLIENT_ID not configured');
       return;
     }
-    const url = buildGoogleAuthUrl(this.authConfig.clientId, this.authConfig.callbackUrl);
-    res.writeHead(302, { Location: url });
+    const state = generateOAuthState();
+    const isSecure = !req.headers.host?.startsWith('localhost');
+    const stateCookie = buildStateCookieHeader(state, isSecure);
+    const url = buildGoogleAuthUrl(this.authConfig.clientId, this.authConfig.callbackUrl, state);
+    res.writeHead(302, { Location: url, 'Set-Cookie': stateCookie });
     res.end();
   }
 
   private handleAuthCallback(req: IncomingMessage, res: ServerResponse): void {
     const urlStr = `http://localhost${req.url}`;
     let code: string | null = null;
+    let callbackState: string | null = null;
     try {
       const parsed = new URL(urlStr);
       code = parsed.searchParams.get('code');
+      callbackState = parsed.searchParams.get('state');
     } catch {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.end('Bad request');
@@ -258,6 +267,14 @@ export class FortServer {
       return;
     }
 
+    // CSRF: Verify state parameter matches the cookie we set
+    const cookieState = getOAuthState(req.headers.cookie);
+    if (!callbackState || !cookieState || callbackState !== cookieState) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Invalid OAuth state — possible CSRF attack. Try logging in again.');
+      return;
+    }
+
     exchangeCodeForEmail(
       code,
       this.authConfig.clientId,
@@ -265,24 +282,26 @@ export class FortServer {
       this.authConfig.callbackUrl,
     ).then((email) => {
       if (!isEmailAllowed(email, this.authConfig.allowedEmails)) {
-        res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(
-          `<h1>Access Denied</h1><p>${email} is not authorized to access Fort.</p>`,
-        );
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access_denied', email }));
         return;
       }
 
       const isSecure = !req.headers.host?.startsWith('localhost');
-      const cookie = buildSessionCookieHeader(
+      const sessionCookie = buildSessionCookieHeader(
         email,
         this.authConfig.sessionSecret,
         isSecure,
       );
-      res.writeHead(302, { Location: '/', 'Set-Cookie': cookie });
+      const clearStateCookie = buildClearStateCookieHeader();
+      res.writeHead(302, {
+        Location: '/',
+        'Set-Cookie': [sessionCookie, clearStateCookie],
+      });
       res.end();
     }).catch((err) => {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end(`Auth error: ${err instanceof Error ? err.message : String(err)}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
     });
   }
 
