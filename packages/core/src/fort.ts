@@ -12,6 +12,7 @@ import { ModuleBus } from './module-bus/index.js';
 import { TaskGraph } from './task-graph/index.js';
 import { AgentRegistry } from './agents/index.js';
 import { AgentFactory } from './agents/hatchery.js';
+import { AgentStore } from './agents/store.js';
 import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
@@ -54,6 +55,7 @@ export class Fort {
   // Agent registry (specialist agents only — no core agents)
   readonly agents: AgentRegistry;
   readonly agentFactory: AgentFactory;
+  readonly agentStore: AgentStore;
 
   // Deterministic services (not agents)
   readonly orchestrator: OrchestratorService;
@@ -161,6 +163,12 @@ export class Fort {
     this.orchestrator = new OrchestratorService(this.taskGraph, this.agents, this.bus);
     this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);
 
+    // Agent store (SQLite persistence for agent metadata)
+    this.agentStore = new AgentStore(
+      join(config.dataDir, 'agents-store.db'),
+      config.agentsDir ?? join(config.dataDir, 'agents'),
+    );
+
     // Agent factory (specialist agents only)
     this.agentFactory = new AgentFactory(
       config.agentsDir ?? join(config.dataDir, 'agents'),
@@ -237,6 +245,7 @@ export class Fort {
     this.flags.close();
     this.rewind.close();
     this.threads.close();
+    this.agentStore.close();
 
     this.bus.publish('fort.stopped', 'fort', { timestamp: new Date() });
     this.bus.clear();
