@@ -28,6 +28,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assignedAgent: null,
     assignedTo: null,
     parentId: null,
+    sourceAgentId: null,
     result: null,
     subtaskIds: [],
     threadId: null,
