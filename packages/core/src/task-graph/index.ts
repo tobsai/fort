@@ -9,6 +9,9 @@ import { v4 as uuid } from 'uuid';
 import type { Task, TaskStatus, TaskSource, Thread, FortEvent } from '../types.js';
 import type { ModuleBus } from '../module-bus/index.js';
 import type { LLMClient } from '../llm/index.js';
+import { TaskStore, type TaskQuery } from './task-store.js';
+
+export { TaskStore, type TaskQuery } from './task-store.js';
 
 export class TaskGraph {
   private tasks: Map<string, Task> = new Map();
@@ -16,9 +19,11 @@ export class TaskGraph {
   private bus: ModuleBus;
   private llm: LLMClient | null = null;
   private taskCounter = 0;
+  private store: TaskStore | null = null;
 
-  constructor(bus: ModuleBus) {
+  constructor(bus: ModuleBus, store?: TaskStore) {
     this.bus = bus;
+    this.store = store ?? null;
   }
 
   setLLM(llm: LLMClient): void {
@@ -62,8 +67,11 @@ export class TaskGraph {
       if (parent) {
         parent.subtaskIds.push(task.id);
         parent.updatedAt = new Date();
+        if (this.store) { this.store.upsertTask(parent); }
       }
     }
+
+    if (this.store) { this.store.upsertTask(task); }
 
     this.bus.publish('task.created', 'task-graph', { task });
     return task;
@@ -86,6 +94,8 @@ export class TaskGraph {
     if (result !== undefined) {
       task.result = result;
     }
+
+    if (this.store) { this.store.upsertTask(task); }
 
     this.bus.publish('task.status_changed', 'task-graph', {
       task,
@@ -342,6 +352,36 @@ Respond with JSON only: {"approved": true, "reason": "brief explanation"} or {"a
     }
 
     return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // ─── Persistence ────────────────────────────────────────────────
+
+  /**
+   * Hydrate in-memory Map from DB on startup.
+   * Tasks that were in_progress at shutdown are reset to pending by the store.
+   */
+  loadFromStore(): void {
+    if (!this.store) return;
+    const tasks = this.store.loadAll();
+    for (const task of tasks) {
+      this.tasks.set(task.id, task);
+    }
+    // Rebuild taskCounter to avoid shortId collisions
+    for (const task of tasks) {
+      const num = parseInt(task.shortId.replace('FORT-', ''), 10);
+      if (!isNaN(num) && num > this.taskCounter) {
+        this.taskCounter = num;
+      }
+    }
+  }
+
+  /**
+   * Query task history directly from DB (bypasses in-memory cache).
+   * Useful for paginated dashboard views with date/status filters.
+   */
+  queryTasksFromStore(query: TaskQuery): Task[] {
+    if (!this.store) return [];
+    return this.store.queryTasks(query);
   }
 
   getActiveTasks(): Task[] {

@@ -480,6 +480,24 @@ export class FortServer {
           payload: this.fort.taskGraph.getActiveTasks(),
         };
 
+      case 'tasks.query': {
+        const queryPayload = (msg.payload ?? {}) as {
+          status?: string | string[];
+          assignedAgent?: string;
+          since?: string;
+          limit?: number;
+          offset?: number;
+        };
+        const tasks = this.fort.taskGraph.queryTasksFromStore({
+          status: queryPayload.status as any,
+          assignedAgent: queryPayload.assignedAgent,
+          since: queryPayload.since ? new Date(queryPayload.since) : undefined,
+          limit: queryPayload.limit ?? 50,
+          offset: queryPayload.offset ?? 0,
+        });
+        return { id: msg.id, type: 'tasks.query.response', payload: tasks };
+      }
+
       case 'agents':
       case 'agents.list':
         return {
