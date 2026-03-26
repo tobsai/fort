@@ -18,11 +18,7 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
-<<<<<<< HEAD
-import { ToolRegistry, ToolExecutor, createDelegateTool } from './tools/index.js';
-=======
-import { ToolRegistry, ToolExecutor, ApprovalStore } from './tools/index.js';
->>>>>>> origin/main
+import { ToolRegistry, ToolExecutor, ApprovalStore, createDelegateTool } from './tools/index.js';
 import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
