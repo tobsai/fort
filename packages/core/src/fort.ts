@@ -8,8 +8,9 @@
 
 import { join } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
+import Database from 'better-sqlite3';
 import { ModuleBus } from './module-bus/index.js';
-import { TaskGraph } from './task-graph/index.js';
+import { TaskGraph, TaskStore } from './task-graph/index.js';
 import { AgentRegistry } from './agents/index.js';
 import { AgentFactory } from './agents/hatchery.js';
 import { AgentStore } from './agents/store.js';
@@ -84,6 +85,7 @@ export class Fort {
   readonly doctor: FortDoctor;
 
   private config: FortConfig;
+  private taskDb: InstanceType<typeof Database> | null = null;
 
   constructor(config: FortConfig) {
     this.config = config;
@@ -94,7 +96,15 @@ export class Fort {
 
     // Core infrastructure
     this.bus = new ModuleBus();
-    this.taskGraph = new TaskGraph(this.bus);
+
+    // Task persistence (shared SQLite DB for tasks)
+    const taskDbPath = join(config.dataDir, 'tasks.db');
+    this.taskDb = new (Database as any)(taskDbPath) as InstanceType<typeof Database>;
+    (this.taskDb as any).pragma('journal_mode = WAL');
+    const taskStore = new TaskStore(this.taskDb);
+    taskStore.initSchema();
+
+    this.taskGraph = new TaskGraph(this.bus, taskStore);
     this.agents = new AgentRegistry(this.bus);
 
     // Modules
@@ -219,6 +229,7 @@ export class Fort {
   }
 
   async start(): Promise<void> {
+    this.taskGraph.loadFromStore();
     await this.memory.initialize();
     await this.agentFactory.loadAll();
     await this.agents.startAll();
@@ -246,6 +257,7 @@ export class Fort {
     this.rewind.close();
     this.threads.close();
     this.agentStore.close();
+    this.taskDb?.close();
 
     this.bus.publish('fort.stopped', 'fort', { timestamp: new Date() });
     this.bus.clear();
