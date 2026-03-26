@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFortSocket } from "../contexts/FortSocketContext";
-import { fetchChatHistory, fetchLLMStatus } from "../utils/api";
+import { fetchLLMStatus } from "../utils/api";
 import ToolCallBlock from "../components/ToolCallBlock";
-import type { AgentInfo, ChatMessage, ToolCallEvent, WSMessage } from "../types";
+import type { AgentInfo, ChatMessage, ToolCallEvent, WSMessage, ThreadMessage } from "../types";
 
 export default function ChatPage() {
   const { agentId } = useParams<{ agentId?: string }>();
   const navigate = useNavigate();
-  const { send, subscribe } = useFortSocket();
+  const { send, subscribe, connected } = useFortSocket();
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
   const [input, setInput] = useState("");
@@ -16,7 +16,17 @@ export default function ChatPage() {
   const [hasGreeted, setHasGreeted] = useState(false);
   const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const historyLoadedRef = useRef(false);
+  // threadIdByAgent: persists the thread ID per agent so refreshes restore context
+  const threadIdByAgent = useRef<Record<string, string>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem("fort.threadIdByAgent") ?? "{}") as Record<string, string>;
+      } catch {
+        return {};
+      }
+    })(),
+  );
+  const historyRequestedRef = useRef<Record<string, boolean>>({});
   const [historyFetched, setHistoryFetched] = useState(false);
   const shownTaskIds = useRef(new Set<string>());
 
@@ -41,45 +51,48 @@ export default function ChatPage() {
     }
   }, [agentId, agents, navigate]);
 
-  // Load chat history
+  // Load thread history when agent is selected or connection is restored
   useEffect(() => {
-    if (historyLoadedRef.current) return;
-    historyLoadedRef.current = true;
-    fetchChatHistory()
-      .then((tasks) => {
-        const msgs: Record<string, ChatMessage[]> = {};
-        for (const t of tasks) {
-          const aid = t.assignedAgent;
-          if (!aid) continue;
-          if (!msgs[aid]) msgs[aid] = [];
-          const isGreeting =
-            t.source === "background" &&
-            (t.description || "").includes("Please greet me");
-          if (!isGreeting) {
-            msgs[aid].push({
-              role: "user",
-              text: t.description,
-              ts: new Date(t.createdAt).getTime(),
-            });
-          }
-          if (t.result) {
-            msgs[aid].push({
-              role: "agent",
-              text: t.result,
-              ts: new Date(t.createdAt).getTime() + 1,
-              task: isGreeting
-                ? null
-                : { shortId: t.shortId, title: t.title, status: t.status },
-            });
-          }
+    if (!selectedAgent || !connected) return;
+    if (historyRequestedRef.current[selectedAgent]) return;
+    historyRequestedRef.current[selectedAgent] = true;
+    send("thread.history", { agentId: selectedAgent });
+  }, [selectedAgent, connected, send]);
+
+  // Handle thread.history.response — convert ThreadMessages to ChatMessages
+  useEffect(() => {
+    const unsub = subscribe("thread.history.response", (msg: WSMessage) => {
+      const p = msg.payload as {
+        agentId?: string;
+        threadId?: string | null;
+        messages: ThreadMessage[];
+      };
+      const aid = p?.agentId;
+      if (!aid) return;
+
+      // Persist threadId for future fork support
+      if (p.threadId) {
+        threadIdByAgent.current[aid] = p.threadId;
+        try {
+          localStorage.setItem("fort.threadIdByAgent", JSON.stringify(threadIdByAgent.current));
+        } catch {
+          /* localStorage may be unavailable */
         }
-        setChatMessages(msgs);
-        setHistoryFetched(true);
-      })
-      .catch(() => {
-        setHistoryFetched(true);
-      });
-  }, []);
+      }
+
+      const converted: ChatMessage[] = (p.messages ?? [])
+        .filter((m) => m.role === "user" || m.role === "agent")
+        .map((m) => ({
+          role: m.role as "user" | "agent",
+          text: m.content,
+          ts: new Date(m.createdAt).getTime(),
+        }));
+
+      setChatMessages((prev) => ({ ...prev, [aid]: converted }));
+      setHistoryFetched(true);
+    });
+    return unsub;
+  }, [subscribe]);
 
   // Auto-greet: only on first-ever conversation with an agent (no history at all)
   useEffect(() => {

@@ -66,6 +66,8 @@ export class FortServer {
   private clients: Set<WebSocket> = new Set();
   private port: number;
   private authConfig: GoogleAuthConfig;
+  // Maps in-flight task IDs → thread IDs so agent responses can be persisted
+  private taskToThread = new Map<string, string>();
 
   constructor(fort: Fort, port: number = 4077) {
     this.fort = fort;
@@ -354,8 +356,28 @@ export class FortServer {
       // The payload includes { task, previousStatus, newStatus, reason }
       // Broadcast the full task object so the portal can show shortId, result, etc.
       const payload = event.payload as Record<string, unknown>;
-      const task = payload?.task ?? payload;
+      const task = (payload?.task ?? payload) as Record<string, unknown>;
       this.broadcast({ id: event.id, type: 'task.status_changed', payload: task });
+
+      // Persist agent response to thread when task completes
+      const taskId = task?.id as string | undefined;
+      if (taskId && this.taskToThread.has(taskId)) {
+        const result = task?.result as string | undefined;
+        const agentId = task?.assignedAgent as string | undefined;
+        if (result) {
+          const threadId = this.taskToThread.get(taskId)!;
+          this.taskToThread.delete(taskId);
+          try {
+            this.fort.threads.addMessage(threadId, {
+              role: 'agent',
+              content: result,
+              agentId: agentId ?? undefined,
+            });
+          } catch {
+            // Non-fatal — thread may have been deleted
+          }
+        }
+      }
     });
 
     this.fort.bus.subscribe('agent.acknowledged', (event) => {
@@ -403,12 +425,34 @@ export class FortServer {
         const chatText = isGreeting
           ? `Today is ${dateFull}. It is currently ${timeOfDay} (${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}). Please greet me warmly for this ${dayName} ${timeOfDay} and ask what I would like to accomplish today. Be yourself — use your personality from your SOUL.md.`
           : chatPayload.text;
+
+        // Persist user message to thread (skip internal greeting messages)
+        let chatThreadId: string | undefined;
+        const chatAgentId = chatPayload.agentId ?? this.fort.orchestrator.findDefaultAgentId();
+        if (!isGreeting && chatAgentId) {
+          try {
+            chatThreadId = this.getOrCreateAgentThread(chatAgentId);
+            this.fort.threads.addMessage(chatThreadId, {
+              role: 'user',
+              content: chatPayload.text,
+            });
+          } catch {
+            // Non-fatal — chat still proceeds without persistence
+          }
+        }
+
         const task = await this.fort.chat(
           chatText,
           isGreeting ? 'background' : 'user_chat',
           chatPayload.agentId,
           isGreeting ? 'fast' : chatPayload.modelTier,
         );
+
+        // Track task → thread so agent response can be persisted on task.status_changed
+        if (!isGreeting && chatThreadId) {
+          this.taskToThread.set(task.id, chatThreadId);
+        }
+
         return {
           id: msg.id,
           type: 'chat.response',
@@ -460,6 +504,65 @@ export class FortServer {
           type: 'memory.stats.response',
           payload: this.fort.memory.stats(),
         };
+
+      case 'threads.list':
+        const listPayload = (msg.payload ?? {}) as { agentId?: string };
+        return {
+          id: msg.id,
+          type: 'threads.list.response',
+          payload: {
+            threads: this.fort.threads.listThreads(
+              listPayload.agentId ? { agentId: listPayload.agentId } : undefined,
+            ),
+          },
+        };
+
+      case 'thread.history':
+        const histPayload = (msg.payload ?? {}) as { agentId?: string; threadId?: string; limit?: number };
+        if (histPayload.threadId) {
+          const histMsgs = this.fort.threads.getMessages(
+            histPayload.threadId,
+            histPayload.limit ? { limit: histPayload.limit } : undefined,
+          );
+          return {
+            id: msg.id,
+            type: 'thread.history.response',
+            payload: { threadId: histPayload.threadId, messages: histMsgs },
+          };
+        }
+        if (histPayload.agentId) {
+          const agentThreads = this.fort.threads.listThreads({ agentId: histPayload.agentId, status: 'active' });
+          if (agentThreads.length > 0) {
+            const tid = agentThreads[0].id;
+            const histMsgs = this.fort.threads.getMessages(
+              tid,
+              histPayload.limit ? { limit: histPayload.limit } : { limit: 200 },
+            );
+            return {
+              id: msg.id,
+              type: 'thread.history.response',
+              payload: { threadId: tid, agentId: histPayload.agentId, messages: histMsgs },
+            };
+          }
+          return {
+            id: msg.id,
+            type: 'thread.history.response',
+            payload: { threadId: null, agentId: histPayload.agentId, messages: [] },
+          };
+        }
+        return { id: msg.id, type: 'error', payload: null, error: 'thread.history requires agentId or threadId' };
+
+      case 'thread.create':
+        const createPayload = msg.payload as { name: string; agentId?: string; description?: string };
+        if (!createPayload?.name) {
+          return { id: msg.id, type: 'error', payload: null, error: 'thread.create requires name' };
+        }
+        const newThread = this.fort.threads.createThread({
+          name: createPayload.name,
+          assignedAgent: createPayload.agentId,
+          description: createPayload.description,
+        });
+        return { id: msg.id, type: 'thread.create.response', payload: { thread: newThread } };
 
       case 'doctor':
         const results = await this.fort.runDoctor();
@@ -632,6 +735,20 @@ ${personalityText}
     // Dashboard not built yet
     res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end('<h1>Dashboard not built</h1><p>Run <code>npm run build</code> in packages/dashboard first.</p>');
+  }
+
+  /**
+   * Find the active thread for an agent, or create one if none exists.
+   */
+  private getOrCreateAgentThread(agentId: string): string {
+    const existing = this.fort.threads.listThreads({ agentId, status: 'active' });
+    if (existing.length > 0) return existing[0].id;
+
+    const thread = this.fort.threads.createThread({
+      name: 'Chat',
+      assignedAgent: agentId,
+    });
+    return thread.id;
   }
 
   private getAgentEmoji(agentId: string): string | undefined {

@@ -86,3 +86,23 @@ export interface WSMessage {
   payload?: unknown;
   error?: string;
 }
+
+export interface Thread {
+  id: string;
+  name: string;
+  description: string;
+  taskId: string;
+  assignedAgent: string | null;
+  status: 'active' | 'paused' | 'resolved';
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+export interface ThreadMessage {
+  id: string;
+  threadId: string;
+  role: 'user' | 'agent' | 'system';
+  content: string;
+  agentId: string | null;
+  createdAt: string;
+}
