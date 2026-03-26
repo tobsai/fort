@@ -815,6 +815,122 @@ export class FortServer {
         const results = await this.fort.runDoctor();
         return { id: msg.id, type: 'doctor.response', payload: results };
 
+      // ─── LLM Provider Handlers ─────────────────────────────────────
+
+      case 'llm.providers.list': {
+        const providers = this.fort.llmProviders.listProviders().map((p) => ({
+          ...p,
+          apiKeyEncrypted: undefined,          // strip encrypted blob
+          hasApiKey: p.apiKeyEncrypted !== null,
+        }));
+        return { id: msg.id, type: 'llm.providers.list.response', payload: { providers } };
+      }
+
+      case 'llm.provider.add': {
+        const addPayload = (msg.payload ?? {}) as {
+          id: string;
+          name?: string;
+          apiKey?: string;
+          baseUrl?: string;
+          defaultModel?: string;
+          isDefault?: boolean;
+        };
+        if (!addPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.add requires id' };
+        }
+        try {
+          const { LLMProviderStore } = await import('../llm/provider-store.js');
+          const defaults = LLMProviderStore.getDefaultConfig(addPayload.id as any);
+          // Save first so testConnection can read the key from the store
+          const provider = this.fort.llmProviders.addProvider({
+            id: addPayload.id,
+            name: addPayload.name ?? defaults?.name ?? addPayload.id,
+            apiKey: addPayload.apiKey,
+            baseUrl: addPayload.baseUrl ?? defaults?.baseUrl,
+            defaultModel: addPayload.defaultModel ?? defaults?.defaultModel ?? '',
+            isDefault: addPayload.isDefault ?? false,
+          });
+          // Test connection — rollback on failure
+          const testError = await this.fort.llm.testConnection(addPayload.id);
+          if (testError) {
+            this.fort.llmProviders.deleteProvider(addPayload.id);
+            return { id: msg.id, type: 'error', payload: null, error: `Connection test failed: ${testError}` };
+          }
+          return {
+            id: msg.id,
+            type: 'llm.provider.add.response',
+            payload: { provider: { ...provider, apiKeyEncrypted: undefined, hasApiKey: provider.apiKeyEncrypted !== null } },
+          };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'llm.provider.update': {
+        const updatePayload = (msg.payload ?? {}) as {
+          id: string;
+          name?: string;
+          apiKey?: string;
+          baseUrl?: string;
+          defaultModel?: string;
+          isDefault?: boolean;
+          enabled?: boolean;
+        };
+        if (!updatePayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.update requires id' };
+        }
+        try {
+          const updated = this.fort.llmProviders.updateProvider(updatePayload.id, {
+            name: updatePayload.name,
+            apiKey: updatePayload.apiKey,
+            baseUrl: updatePayload.baseUrl,
+            defaultModel: updatePayload.defaultModel,
+            isDefault: updatePayload.isDefault,
+            enabled: updatePayload.enabled,
+          });
+          return {
+            id: msg.id,
+            type: 'llm.provider.update.response',
+            payload: { provider: { ...updated, apiKeyEncrypted: undefined, hasApiKey: updated.apiKeyEncrypted !== null } },
+          };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'llm.provider.delete': {
+        const deletePayload = (msg.payload ?? {}) as { id: string };
+        if (!deletePayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.delete requires id' };
+        }
+        try {
+          this.fort.llmProviders.deleteProvider(deletePayload.id);
+          return { id: msg.id, type: 'llm.provider.delete.response', payload: { id: deletePayload.id } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'llm.provider.test': {
+        const testPayload = (msg.payload ?? {}) as { id: string };
+        if (!testPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'llm.provider.test requires id' };
+        }
+        const testError = await this.fort.llm.testConnection(testPayload.id);
+        return {
+          id: msg.id,
+          type: 'llm.provider.test.response',
+          payload: { id: testPayload.id, success: !testError, error: testError ?? undefined },
+        };
+      }
+
+      case 'llm.models.list': {
+        const modelsPayload = (msg.payload ?? {}) as { id: string };
+        const { LLMProviderStore } = await import('../llm/provider-store.js');
+        const models = LLMProviderStore.getModelsForProvider(modelsPayload.id ?? '');
+        return { id: msg.id, type: 'llm.models.list.response', payload: { id: modelsPayload.id, models } };
+      }
+
       default:
         return { id: msg.id, type: 'error', payload: null, error: `Unknown message type: ${msg.type}` };
     }

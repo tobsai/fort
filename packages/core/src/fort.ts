@@ -37,6 +37,8 @@ import { OSIntegrationManager } from './os-integration/index.js';
 import { LLMClient } from './llm/index.js';
 import type { LLMClientConfig } from './llm/index.js';
 import { UsageStore, UsageTracker } from './usage/index.js';
+import { LLMProviderStore } from './llm/provider-store.js';
+
 import type { DiagnosticResult, Task } from './types.js';
 
 export interface FortConfig {
@@ -82,6 +84,8 @@ export class Fort {
   readonly llm: LLMClient;
   readonly usageStore: UsageStore;
   readonly usageTracker: UsageTracker;
+  readonly llmProviders: LLMProviderStore;
+
   readonly introspect: Introspector;
   readonly osIntegration: OSIntegrationManager;
   readonly ipc: IPCServer;
@@ -161,8 +165,13 @@ export class Fort {
       this.bus,
       this.taskGraph,
     );
+
+    // LLM provider store — encryption key derived from SESSION_SECRET env var
+    const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
+    this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
+
     this.llm = new LLMClient(
-      config.llm ?? {},
+      { ...(config.llm ?? {}), providerStore: this.llmProviders },
       this.bus,
       this.tokens,
       this.behaviors,
@@ -269,7 +278,11 @@ export class Fort {
     this.rewind.close();
     this.threads.close();
     this.agentStore.close();
+
     this.taskDb?.close();
+
+    this.llmProviders.close();
+
 
     this.bus.publish('fort.stopped', 'fort', { timestamp: new Date() });
     this.bus.clear();
