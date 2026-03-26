@@ -19,7 +19,7 @@ import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
 import { ToolRegistry, ToolExecutor } from './tools/index.js';
-import { Scheduler } from './scheduler/index.js';
+import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
 import { BehaviorManager } from './behaviors/index.js';
@@ -114,6 +114,10 @@ export class Fort {
     this.taskGraph = new TaskGraph(this.bus, taskStore);
     this.agents = new AgentRegistry(this.bus);
 
+    // Scheduler DB (shares the tasks.db — separate table)
+    const schedulerStore = new SchedulerStore(this.taskDb);
+    schedulerStore.initSchema();
+
     // Modules
     this.memory = new MemoryManager(
       join(config.dataDir, 'memory.db'),
@@ -126,7 +130,7 @@ export class Fort {
     this.tools = new ToolRegistry(join(config.dataDir, 'tools.db'));
     this.tokens = new TokenTracker(join(config.dataDir, 'tokens.db'), this.bus);
     this.toolExecutor = new ToolExecutor(this.permissions, this.bus, this.tokens);
-    this.scheduler = new Scheduler(this.bus, this.taskGraph);
+    this.scheduler = new Scheduler(this.bus, this.taskGraph, schedulerStore);
     this.specs = new SpecManager(config.specsDir);
     this.behaviors = new BehaviorManager(this.memory, this.bus);
     this.routines = new RoutineManager(this.memory, this.bus, this.scheduler, this.taskGraph);
@@ -253,6 +257,9 @@ export class Fort {
     await this.memory.initialize();
     await this.agentFactory.loadAll();
     await this.agents.startAll();
+    if (process.env['FORT_SCHEDULER_ENABLED'] !== 'false') {
+      this.scheduler.start();
+    }
     try {
       await this.ipc.start();
     } catch {
