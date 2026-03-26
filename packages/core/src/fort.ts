@@ -33,6 +33,8 @@ import { ThreadManager } from './threads/index.js';
 import { NotificationStore } from './notifications/store.js';
 import { NotificationService } from './notifications/service.js';
 import { FortDoctor } from './diagnostics/index.js';
+import { ErrorLog } from './diagnostics/error-log.js';
+import { DBHealthCheck, StallDetector, SchedulerHealthCheck, MemoryHealthCheck } from './diagnostics/checks.js';
 import { Introspector } from './introspect/index.js';
 import { IPCServer } from './ipc/index.js';
 import { OSIntegrationManager } from './os-integration/index.js';
@@ -94,9 +96,11 @@ export class Fort {
   readonly osIntegration: OSIntegrationManager;
   readonly ipc: IPCServer;
   readonly doctor: FortDoctor;
+  readonly errorLog: ErrorLog;
 
   private config: FortConfig;
   private taskDb: InstanceType<typeof Database> | null = null;
+  private taskDbPath: string = '';
 
   constructor(config: FortConfig) {
     this.config = config;
@@ -110,6 +114,7 @@ export class Fort {
 
     // Task persistence (shared SQLite DB for tasks)
     const taskDbPath = join(config.dataDir, 'tasks.db');
+    this.taskDbPath = taskDbPath;
     this.taskDb = new (Database as any)(taskDbPath) as InstanceType<typeof Database>;
     (this.taskDb as any).pragma('journal_mode = WAL');
     const taskStore = new TaskStore(this.taskDb);
@@ -229,6 +234,7 @@ export class Fort {
 
     // Diagnostics and introspection
     this.doctor = new FortDoctor();
+    this.errorLog = new ErrorLog(this.taskDb as InstanceType<typeof Database>);
     this.introspect = new Introspector({
       bus: this.bus,
       agents: this.agents,
@@ -263,10 +269,20 @@ export class Fort {
     this.doctor.register('tasks', {
       diagnose: () => this.taskDiagnostics(),
     });
+
+    // New checks from SPEC-013
+    this.doctor.register('database', new DBHealthCheck(
+      this.taskDb as InstanceType<typeof Database>,
+      this.taskDbPath,
+    ));
+    this.doctor.register('stall_detector', new StallDetector(this.taskGraph));
+    this.doctor.register('scheduler_health', new SchedulerHealthCheck(schedulerStore));
+    this.doctor.register('memory_health', new MemoryHealthCheck());
   }
 
   async start(): Promise<void> {
     this.taskGraph.loadFromStore();
+    this.errorLog.loadFromDb();
     await this.memory.initialize();
     await this.agentFactory.loadAll();
     await this.agents.startAll();
