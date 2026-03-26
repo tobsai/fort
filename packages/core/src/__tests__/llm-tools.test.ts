@@ -442,7 +442,7 @@ describe('LLMClient — tool_use wiring', () => {
 
     it('publishes llm.completed bus event on success', async () => {
       const completedEvents: unknown[] = [];
-      bus.subscribe('llm.completed', (e) => completedEvents.push(e));
+      bus.subscribe('llm.completed', (e) => { completedEvents.push(e); });
 
       mockCreate.mockResolvedValue(makeTextResponse('ok'));
       const tool = makeTool({ tier: 1, name: 'unused' });
