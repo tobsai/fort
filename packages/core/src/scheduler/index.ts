@@ -4,13 +4,21 @@
  * Replaces OpenClaw's conflicting heartbeat/cron system with a
  * unified, transparent scheduler. Single execution queue with
  * deduplication, priority ordering, and conflict detection.
+ *
+ * SPEC-008: Adds DB-backed ScheduledTask API with cron/interval support.
  */
 
 import * as cron from 'node-cron';
+import { Cron } from 'croner';
 import { v4 as uuid } from 'uuid';
 import type { ModuleBus } from '../module-bus/index.js';
 import type { TaskGraph } from '../task-graph/index.js';
 import type { DiagnosticResult } from '../types.js';
+import { SchedulerStore, type ScheduleConfig, type ScheduledTask } from './store.js';
+
+export { SchedulerStore, type ScheduleConfig, type ScheduledTask } from './store.js';
+
+// ─── Existing in-process routine API (used by RoutineManager) ──────────────
 
 export interface ScheduledRoutine {
   id: string;
@@ -35,19 +43,198 @@ export interface EventTrigger {
   enabled: boolean;
 }
 
+// ─── Scheduler ─────────────────────────────────────────────────────────────
+
 export class Scheduler {
+  // In-process routines (addRoutine / RoutineManager)
   private routines: Map<string, ScheduledRoutine> = new Map();
   private cronJobs: Map<string, cron.ScheduledTask> = new Map();
   private triggers: Map<string, EventTrigger> = new Map();
-  private executionQueue: string[] = [];
   private executing: Set<string> = new Set();
+
+  // DB-backed scheduled tasks (SPEC-008)
+  private store: SchedulerStore | null = null;
+  private intervalHandle: ReturnType<typeof setInterval> | null = null;
+
   private bus: ModuleBus;
   private taskGraph: TaskGraph;
 
-  constructor(bus: ModuleBus, taskGraph: TaskGraph) {
+  constructor(bus: ModuleBus, taskGraph: TaskGraph, store?: SchedulerStore) {
     this.bus = bus;
     this.taskGraph = taskGraph;
+    this.store = store ?? null;
   }
+
+  // ─── SPEC-008: Lifecycle ────────────────────────────────────────────────
+
+  /**
+   * Start the check-every-minute loop for DB-backed scheduled tasks.
+   * Also initialises nextRunAt for any schedule that doesn't have one yet.
+   */
+  start(): void {
+    if (!this.store) return;
+    if (this.intervalHandle) return; // already running
+
+    // Initialise nextRunAt for schedules that lack one
+    const schedules = this.store.listSchedules();
+    for (const s of schedules) {
+      if (s.enabled && !s.nextRunAt) {
+        const next = this.calculateNextRun(s);
+        this.store.setNextRunAt(s.id, next);
+      }
+    }
+
+    this.intervalHandle = setInterval(() => {
+      this.checkAndRunDue();
+    }, 60_000);
+
+    // Run an immediate check in case something was due during downtime
+    this.checkAndRunDue();
+  }
+
+  /**
+   * Stop the check loop (does not stop in-process cron jobs).
+   */
+  stop(): void {
+    if (this.intervalHandle) {
+      clearInterval(this.intervalHandle);
+      this.intervalHandle = null;
+    }
+  }
+
+  // ─── SPEC-008: CRUD API ─────────────────────────────────────────────────
+
+  createSchedule(config: ScheduleConfig): ScheduledTask {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    const schedule = this.store.createSchedule(config);
+    const next = this.calculateNextRun(schedule);
+    this.store.setNextRunAt(schedule.id, next);
+    const updated = this.store.getSchedule(schedule.id)!;
+    this.bus.publish('scheduler.schedule_created', 'scheduler', { schedule: updated });
+    return updated;
+  }
+
+  updateSchedule(id: string, updates: Partial<ScheduleConfig>): ScheduledTask {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    const updated = this.store.updateSchedule(id, updates);
+    // Recalculate next run if schedule expression changed
+    if (updates.scheduleType !== undefined || updates.scheduleValue !== undefined) {
+      const next = this.calculateNextRun(updated);
+      this.store.setNextRunAt(id, next);
+    }
+    return this.store.getSchedule(id)!;
+  }
+
+  deleteSchedule(id: string): void {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    this.store.deleteSchedule(id);
+    this.bus.publish('scheduler.schedule_deleted', 'scheduler', { id });
+  }
+
+  pauseSchedule(id: string): void {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    this.store.setEnabled(id, false);
+    this.bus.publish('scheduler.schedule_paused', 'scheduler', { id });
+  }
+
+  resumeSchedule(id: string): void {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    this.store.setEnabled(id, true);
+    const schedule = this.store.getSchedule(id);
+    if (schedule) {
+      const next = this.calculateNextRun(schedule);
+      this.store.setNextRunAt(id, next);
+    }
+    this.bus.publish('scheduler.schedule_resumed', 'scheduler', { id });
+  }
+
+  listSchedules(): ScheduledTask[] {
+    if (!this.store) return [];
+    return this.store.listSchedules();
+  }
+
+  getSchedule(id: string): ScheduledTask | null {
+    if (!this.store) return null;
+    return this.store.getSchedule(id);
+  }
+
+  // ─── SPEC-008: Internal check + run ────────────────────────────────────
+
+  /** Called every 60s — runs all schedules whose nextRunAt is in the past. */
+  checkAndRunDue(): void {
+    if (!this.store) return;
+    const now = new Date();
+    const schedules = this.store.listSchedules();
+    for (const s of schedules) {
+      if (!s.enabled) continue;
+      if (!s.nextRunAt) continue;
+      if (s.nextRunAt <= now) {
+        this.runSchedule(s);
+      }
+    }
+  }
+
+  /** Trigger a schedule immediately (for testing / run-now). */
+  runNow(id: string): void {
+    if (!this.store) throw new Error('SchedulerStore not configured');
+    const schedule = this.store.getSchedule(id);
+    if (!schedule) throw new Error(`Schedule not found: ${id}`);
+    this.runSchedule(schedule);
+  }
+
+  private runSchedule(schedule: ScheduledTask): void {
+    const task = this.taskGraph.createTask({
+      title: schedule.taskTitle,
+      description: schedule.taskDescription,
+      source: 'scheduled_routine',
+      assignedAgent: schedule.agentId,
+      metadata: { scheduleId: schedule.id, scheduleName: schedule.name },
+    });
+
+    const next = this.calculateNextRun(schedule);
+    this.store!.updateRunInfo(schedule.id, new Date(), next);
+
+    this.bus.publish('scheduler.schedule_fired', 'scheduler', {
+      scheduleId: schedule.id,
+      scheduleName: schedule.name,
+      taskId: task.id,
+      nextRunAt: next,
+    });
+  }
+
+  /** Calculate the next Date a schedule should run. */
+  calculateNextRun(schedule: ScheduledTask): Date {
+    if (schedule.scheduleType === 'interval') {
+      return this.calculateIntervalNext(schedule.scheduleValue);
+    }
+    return this.calculateCronNext(schedule.scheduleValue);
+  }
+
+  private calculateIntervalNext(value: string): Date {
+    const now = Date.now();
+    const match = value.match(/^(\d+)(m|h|d)$/);
+    if (!match) throw new Error(`Invalid interval value: ${value}`);
+    const n = parseInt(match[1], 10);
+    const unit = match[2];
+    let ms: number;
+    if (unit === 'm') {
+      ms = n * 60_000;
+    } else if (unit === 'h') {
+      ms = n * 3_600_000;
+    } else {
+      ms = n * 86_400_000;
+    }
+    return new Date(now + ms);
+  }
+
+  private calculateCronNext(expr: string): Date {
+    const job = new Cron(expr);
+    const next = job.nextRun();
+    if (!next) throw new Error(`Could not calculate next run for cron: ${expr}`);
+    return next;
+  }
+
+  // ─── Existing in-process routine API ───────────────────────────────────
 
   addRoutine(params: {
     name: string;
@@ -203,10 +390,13 @@ export class Scheduler {
     const enabledCount = routines.filter((r) => r.enabled).length;
     const failedRecently = routines.filter((r) => r.lastResult === 'failure');
 
+    const dbSchedules = this.store ? this.store.listSchedules() : [];
+    const activeDbSchedules = dbSchedules.filter((s) => s.enabled).length;
+
     checks.push({
       name: 'Scheduler status',
       passed: true,
-      message: `${routines.length} routines (${enabledCount} enabled)`,
+      message: `${routines.length} routines (${enabledCount} enabled), ${dbSchedules.length} DB schedules (${activeDbSchedules} active)`,
     });
 
     if (failedRecently.length > 0) {
@@ -230,7 +420,9 @@ export class Scheduler {
     };
   }
 
+  /** Stops all cron jobs and the DB check loop. */
   shutdown(): void {
+    this.stop();
     for (const job of this.cronJobs.values()) {
       job.stop();
     }

@@ -824,6 +824,138 @@ export class FortServer {
         const results = await this.fort.runDoctor();
         return { id: msg.id, type: 'doctor.response', payload: results };
 
+      // ─── Scheduler (SPEC-008) ──────────────────────────────────────────
+
+      case 'schedules.list':
+        return {
+          id: msg.id,
+          type: 'schedules.list.response',
+          payload: this.fort.scheduler.listSchedules(),
+        };
+
+      case 'schedule.create': {
+        const createSched = (msg.payload ?? {}) as {
+          name?: string;
+          description?: string;
+          agentId?: string;
+          scheduleType?: 'cron' | 'interval';
+          scheduleValue?: string;
+          taskTitle?: string;
+          taskDescription?: string;
+        };
+        if (!createSched.name?.trim()) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires name' };
+        }
+        if (!createSched.agentId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires agentId' };
+        }
+        if (!createSched.scheduleType) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires scheduleType' };
+        }
+        if (!createSched.scheduleValue) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires scheduleValue' };
+        }
+        if (!createSched.taskTitle?.trim()) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.create requires taskTitle' };
+        }
+        try {
+          const schedule = this.fort.scheduler.createSchedule({
+            name: createSched.name.trim(),
+            description: createSched.description,
+            agentId: createSched.agentId,
+            scheduleType: createSched.scheduleType,
+            scheduleValue: createSched.scheduleValue,
+            taskTitle: createSched.taskTitle.trim(),
+            taskDescription: createSched.taskDescription,
+          });
+          return { id: msg.id, type: 'schedule.create.response', payload: schedule };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.update': {
+        const updateSched = (msg.payload ?? {}) as {
+          id?: string;
+          name?: string;
+          description?: string;
+          agentId?: string;
+          scheduleType?: 'cron' | 'interval';
+          scheduleValue?: string;
+          taskTitle?: string;
+          taskDescription?: string;
+        };
+        if (!updateSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.update requires id' };
+        }
+        try {
+          const updated = this.fort.scheduler.updateSchedule(updateSched.id, {
+            name: updateSched.name,
+            description: updateSched.description,
+            agentId: updateSched.agentId,
+            scheduleType: updateSched.scheduleType,
+            scheduleValue: updateSched.scheduleValue,
+            taskTitle: updateSched.taskTitle,
+            taskDescription: updateSched.taskDescription,
+          });
+          return { id: msg.id, type: 'schedule.update.response', payload: updated };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.delete': {
+        const deleteSched = (msg.payload ?? {}) as { id?: string };
+        if (!deleteSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.delete requires id' };
+        }
+        try {
+          this.fort.scheduler.deleteSchedule(deleteSched.id);
+          return { id: msg.id, type: 'schedule.delete.response', payload: { id: deleteSched.id } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.pause': {
+        const pauseSched = (msg.payload ?? {}) as { id?: string };
+        if (!pauseSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.pause requires id' };
+        }
+        try {
+          this.fort.scheduler.pauseSchedule(pauseSched.id);
+          return { id: msg.id, type: 'schedule.pause.response', payload: { id: pauseSched.id, enabled: false } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.resume': {
+        const resumeSched = (msg.payload ?? {}) as { id?: string };
+        if (!resumeSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.resume requires id' };
+        }
+        try {
+          this.fort.scheduler.resumeSchedule(resumeSched.id);
+          return { id: msg.id, type: 'schedule.resume.response', payload: { id: resumeSched.id, enabled: true } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
+      case 'schedule.run_now': {
+        const runNowSched = (msg.payload ?? {}) as { id?: string };
+        if (!runNowSched.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'schedule.run_now requires id' };
+        }
+        try {
+          this.fort.scheduler.runNow(runNowSched.id);
+          return { id: msg.id, type: 'schedule.run_now.response', payload: { id: runNowSched.id } };
+        } catch (err) {
+          return { id: msg.id, type: 'error', payload: null, error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+
       default:
         return { id: msg.id, type: 'error', payload: null, error: `Unknown message type: ${msg.type}` };
     }

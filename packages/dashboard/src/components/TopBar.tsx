@@ -17,8 +17,14 @@ export default function TopBar() {
         <NavLink to="/agents" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
           Agents
         </NavLink>
-        <NavLink to="/tasks" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
-          Tasks
+        <NavLink to="/settings" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
+          Settings
+        </NavLink>
+        <NavLink to="/usage" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
+          Usage
+        </NavLink>
+        <NavLink to="/schedules" className={({ isActive }) => `nav-tab${isActive ? " active" : ""}`}>
+          Schedules
         </NavLink>
       </nav>
       <div className="topbar-right">

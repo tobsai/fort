@@ -19,7 +19,7 @@ import { ReflectionService } from './services/reflection.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
 import { ToolRegistry, ToolExecutor } from './tools/index.js';
-import { Scheduler } from './scheduler/index.js';
+import { Scheduler, SchedulerStore } from './scheduler/index.js';
 import { SpecManager } from './specs/index.js';
 import { TokenTracker } from './tokens/index.js';
 import { BehaviorManager } from './behaviors/index.js';
@@ -38,6 +38,9 @@ import { IPCServer } from './ipc/index.js';
 import { OSIntegrationManager } from './os-integration/index.js';
 import { LLMClient } from './llm/index.js';
 import type { LLMClientConfig } from './llm/index.js';
+import { UsageStore, UsageTracker } from './usage/index.js';
+import { LLMProviderStore } from './llm/provider-store.js';
+
 import type { DiagnosticResult, Task } from './types.js';
 
 export interface FortConfig {
@@ -82,6 +85,10 @@ export class Fort {
   readonly threads: ThreadManager;
   readonly notifications: NotificationService;
   readonly llm: LLMClient;
+  readonly usageStore: UsageStore;
+  readonly usageTracker: UsageTracker;
+  readonly llmProviders: LLMProviderStore;
+
   readonly introspect: Introspector;
   readonly osIntegration: OSIntegrationManager;
   readonly ipc: IPCServer;
@@ -110,6 +117,10 @@ export class Fort {
     this.taskGraph = new TaskGraph(this.bus, taskStore);
     this.agents = new AgentRegistry(this.bus);
 
+    // Scheduler DB (shares the tasks.db — separate table)
+    const schedulerStore = new SchedulerStore(this.taskDb);
+    schedulerStore.initSchema();
+
     // Modules
     this.memory = new MemoryManager(
       join(config.dataDir, 'memory.db'),
@@ -122,7 +133,7 @@ export class Fort {
     this.tools = new ToolRegistry(join(config.dataDir, 'tools.db'));
     this.tokens = new TokenTracker(join(config.dataDir, 'tokens.db'), this.bus);
     this.toolExecutor = new ToolExecutor(this.permissions, this.bus, this.tokens);
-    this.scheduler = new Scheduler(this.bus, this.taskGraph);
+    this.scheduler = new Scheduler(this.bus, this.taskGraph, schedulerStore);
     this.specs = new SpecManager(config.specsDir);
     this.behaviors = new BehaviorManager(this.memory, this.bus);
     this.routines = new RoutineManager(this.memory, this.bus, this.scheduler, this.taskGraph);
@@ -166,14 +177,24 @@ export class Fort {
     const notificationStore = new NotificationStore(this.taskDb as InstanceType<typeof Database>);
     notificationStore.initSchema();
     this.notifications = new NotificationService(notificationStore, this.bus);
+    // LLM provider store — encryption key derived from SESSION_SECRET env var
+    const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
+    this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
 
     this.llm = new LLMClient(
-      config.llm ?? {},
+      { ...(config.llm ?? {}), providerStore: this.llmProviders },
       this.bus,
       this.tokens,
       this.behaviors,
       this.memory,
     );
+
+    // Usage tracking
+    this.usageStore = new UsageStore(this.taskDb);
+    this.usageStore.initSchema();
+    this.usageStore.seedDefaultPricing();
+    this.usageTracker = new UsageTracker(this.usageStore, this.bus);
+    this.usageTracker.start();
 
     // Wire LLM into task graph for completion review
     this.taskGraph.setLLM(this.llm);
@@ -225,6 +246,7 @@ export class Fort {
     this.doctor.register('routines', this.routines);
     this.doctor.register('scheduler', this.scheduler);
     this.doctor.register('llm', this.llm);
+    this.doctor.register('usage-tracker', this.usageTracker);
     this.doctor.register('reflection', this.reflection);
     this.doctor.register('os-integration', this.osIntegration);
     this.doctor.register('ipc', this.ipc);
@@ -243,6 +265,9 @@ export class Fort {
     await this.agentFactory.loadAll();
     await this.agents.startAll();
     this.notifications.start();
+    if (process.env['FORT_SCHEDULER_ENABLED'] !== 'false') {
+      this.scheduler.start();
+    }
     try {
       await this.ipc.start();
     } catch {
@@ -265,10 +290,15 @@ export class Fort {
     this.tools.close();
     this.tokens.close();
     this.flags.close();
+    this.usageTracker.stop();
     this.rewind.close();
     this.threads.close();
     this.agentStore.close();
+
     this.taskDb?.close();
+
+    this.llmProviders.close();
+
 
     this.bus.publish('fort.stopped', 'fort', { timestamp: new Date() });
     this.bus.clear();
