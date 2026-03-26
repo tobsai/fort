@@ -956,6 +956,37 @@ export class FortServer {
         }
       }
 
+      // ─── Agent Memory (SPEC-012) ──────────────────────────────────────
+
+      case 'agent.memories': {
+        const memPayload = (msg.payload ?? {}) as { agentId?: string; category?: string };
+        if (!memPayload.agentId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.memories requires agentId' };
+        }
+        const memories = this.fort.agentMemory.list(memPayload.agentId, {
+          category: memPayload.category as any,
+        });
+        return { id: msg.id, type: 'agent.memories.response', payload: memories };
+      }
+
+      case 'agent.memory.delete': {
+        const delMemPayload = (msg.payload ?? {}) as { id?: string };
+        if (!delMemPayload.id) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.memory.delete requires id' };
+        }
+        this.fort.agentMemory.delete(delMemPayload.id);
+        return { id: msg.id, type: 'agent.memory.delete.response', payload: { id: delMemPayload.id } };
+      }
+
+      case 'agent.memory.clear': {
+        const clearMemPayload = (msg.payload ?? {}) as { agentId?: string };
+        if (!clearMemPayload.agentId) {
+          return { id: msg.id, type: 'error', payload: null, error: 'agent.memory.clear requires agentId' };
+        }
+        this.fort.agentMemory.clear(clearMemPayload.agentId);
+        return { id: msg.id, type: 'agent.memory.clear.response', payload: { agentId: clearMemPayload.agentId } };
+      }
+
       default:
         return { id: msg.id, type: 'error', payload: null, error: `Unknown message type: ${msg.type}` };
     }
