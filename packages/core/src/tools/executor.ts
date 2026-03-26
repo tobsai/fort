@@ -108,7 +108,7 @@ export class ToolExecutor {
     // ── Execute ──────────────────────────────────────────────────────
     let result: ToolResult;
     try {
-      result = await tool.execute(input);
+      result = await tool.execute(input, { taskId: options.taskId, agentId: options.agentId });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       result = {

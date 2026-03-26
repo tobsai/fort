@@ -13,8 +13,9 @@ import { dirname } from 'node:path';
 import type { ToolDefinition, DiagnosticResult } from '../types.js';
 import type { FortTool } from './types.js';
 
-export type { FortTool, ToolResult, ToolCallLog } from './types.js';
+export type { FortTool, ToolResult, ToolCallLog, ToolExecutionContext } from './types.js';
 export { ToolExecutor } from './executor.js';
+export { createDelegateTool } from './delegate-tool.js';
 
 export class ToolRegistry {
   private db: Database.Database;
