@@ -77,8 +77,7 @@ export class FortServer {
     this.httpServer = createServer((req, res) => {
       // Always allow health check without auth
       if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', agents: this.fort.agents.listInfo().length }));
+        this.handleHealthCheck(res);
         return;
       }
 
@@ -1022,6 +1021,44 @@ export class FortServer {
       totalTasks: this.fort.taskGraph.getTaskCount(),
       memoryStats: this.fort.memory.stats(),
     };
+  }
+
+  private handleHealthCheck(res: ServerResponse): void {
+    const startedAt = (this.fort as any)._startedAt as number | undefined;
+    const uptime = startedAt ? Math.round((Date.now() - startedAt) / 1000) : process.uptime();
+
+    this.fort.doctor.runAll().then((results) => {
+      const summary = (this.fort.doctor.constructor as typeof import('../diagnostics/index.js').FortDoctor).summarize(results);
+
+      // Build per-check map keyed by module name
+      const checks: Record<string, unknown> = {};
+      for (const r of results) {
+        const detail: Record<string, unknown> = { status: r.status };
+        if (r.checks.length > 0) {
+          detail['message'] = r.checks.map((c) => c.message).join('; ');
+          const allDetails: Record<string, unknown> = {};
+          for (const c of r.checks) {
+            if (c.details) Object.assign(allDetails, c.details);
+          }
+          if (Object.keys(allDetails).length > 0) detail['details'] = allDetails;
+        }
+        checks[r.module] = detail;
+      }
+
+      const body = JSON.stringify({
+        status: summary.overall,
+        timestamp: new Date().toISOString(),
+        uptime,
+        checks,
+      });
+
+      const statusCode = summary.overall === 'unhealthy' ? 503 : 200;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(body);
+    }).catch((err) => {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'unhealthy', error: String(err) }));
+    });
   }
 
   private broadcast(msg: WSResponse): void {
