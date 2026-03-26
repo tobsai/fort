@@ -427,6 +427,19 @@ export class LLMClient {
           agentId: request.agentId,
         });
 
+        // Publish cost-tracking event
+        if (request.taskId && request.agentId) {
+          this.bus.publish('usage.recorded', request.agentId, {
+            taskId: request.taskId,
+            agentId: request.agentId,
+            model: modelConfig.model,
+            inputTokens,
+            outputTokens,
+            cacheReadTokens: (response.usage as any).cache_read_input_tokens ?? 0,
+            cacheWriteTokens: (response.usage as any).cache_creation_input_tokens ?? 0,
+          });
+        }
+
         return result;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
@@ -591,6 +604,19 @@ export class LLMClient {
             toolCalls: toolCallLog.length,
           });
 
+          // Publish cost-tracking event (aggregate for all tool-loop turns)
+          if (request.taskId && request.agentId) {
+            this.bus.publish('usage.recorded', request.agentId, {
+              taskId: request.taskId,
+              agentId: request.agentId,
+              model: modelConfig.model,
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+            });
+          }
+
           return {
             content: textBlock?.text ?? '',
             model: modelConfig.model,
@@ -660,6 +686,19 @@ export class LLMClient {
         toolCalls: toolCallLog.length,
         maxIterationsReached: true,
       });
+
+      // Publish cost-tracking event (max iterations path)
+      if (request.taskId && request.agentId) {
+        this.bus.publish('usage.recorded', request.agentId, {
+          taskId: request.taskId,
+          agentId: request.agentId,
+          model: modelConfig.model,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        });
+      }
 
       return {
         content: '',
@@ -744,6 +783,19 @@ export class LLMClient {
           taskId: request.taskId,
           agentId: request.agentId,
           source: 'llm_client_stream',
+        });
+      }
+
+      // Publish cost-tracking event
+      if (request.taskId && request.agentId) {
+        this.bus.publish('usage.recorded', request.agentId, {
+          taskId: request.taskId,
+          agentId: request.agentId,
+          model: modelConfig.model,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens: (finalMessage.usage as any).cache_read_input_tokens ?? 0,
+          cacheWriteTokens: (finalMessage.usage as any).cache_creation_input_tokens ?? 0,
         });
       }
 
