@@ -211,6 +211,192 @@ describe('LLMClient', () => {
     });
   });
 
+  describe('Rate limit handling', () => {
+    // Helper to create a mock Anthropic response
+    function mockResponse(overrides?: Partial<any>) {
+      return {
+        id: 'msg_test',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hello!' }],
+        model: 'claude-sonnet-4-5-20250929',
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 10, output_tokens: 5 },
+        ...overrides,
+      };
+    }
+
+    it('should set cooldown on rate limit and fall back to lower tier', async () => {
+      const client = setup({ apiKey: 'test-key' });
+      const mockCreate = vi.fn();
+
+      // First call: 429 on standard model
+      const rateLimitErr = new (await import('@anthropic-ai/sdk')).RateLimitError(
+        429, undefined, 'rate limited', undefined as any,
+      );
+      mockCreate.mockRejectedValueOnce(rateLimitErr);
+      // Second call (fallback to fast): succeeds
+      mockCreate.mockResolvedValueOnce(mockResponse({
+        model: 'claude-haiku-4-5-20251001',
+      }));
+
+      (client as any).client.messages = { create: mockCreate };
+
+      const result = await client.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+        model: 'standard',
+      });
+
+      // Should have fallen back to fast tier
+      expect(result.model).toBeDefined();
+      expect(client.getStats().rateLimitCount).toBe(1);
+    });
+
+    it('should respect Retry-After header for cooldown duration', async () => {
+      // Use standard tier so on first 429 it falls back to fast (no sleep)
+      const client = setup({ apiKey: 'test-key' });
+      const mockCreate = vi.fn();
+
+      // Create a RateLimitError with retry-after header
+      const rateLimitErr = new (await import('@anthropic-ai/sdk')).RateLimitError(
+        429, undefined, 'rate limited', undefined as any,
+      );
+      (rateLimitErr as any).headers = { 'retry-after': '45' };
+
+      // First call (standard): 429 → sets cooldown → falls back to fast
+      mockCreate.mockRejectedValueOnce(rateLimitErr);
+      // Second call (fast fallback): succeeds
+      mockCreate.mockResolvedValueOnce(mockResponse({
+        model: 'claude-haiku-4-5-20251001',
+      }));
+
+      (client as any).client.messages = { create: mockCreate };
+
+      await client.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+        model: 'standard',
+      });
+
+      const stats = client.getStats();
+      const cooldowns = stats.cooldowns;
+      const standardModel = client.getModels().standard.model;
+      expect(cooldowns[standardModel]).toBeDefined();
+      expect(cooldowns[standardModel].reason).toBe('rate_limit');
+    });
+
+    it('should publish llm.rate_limited event on 429', async () => {
+      const client = setup({ apiKey: 'test-key' });
+      const mockCreate = vi.fn();
+
+      const rateLimitErr = new (await import('@anthropic-ai/sdk')).RateLimitError(
+        429, undefined, 'rate limited', undefined as any,
+      );
+      mockCreate.mockRejectedValueOnce(rateLimitErr);
+      mockCreate.mockResolvedValueOnce(mockResponse({
+        model: 'claude-haiku-4-5-20251001',
+      }));
+
+      (client as any).client.messages = { create: mockCreate };
+
+      const events: any[] = [];
+      bus.subscribe('llm.rate_limited', (e) => { events.push(e); });
+
+      await client.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+        model: 'standard',
+      });
+
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0].payload.tier).toBe('standard');
+    });
+
+    it('should publish llm.cooldown event when model enters cooldown', async () => {
+      const client = setup({ apiKey: 'test-key' });
+      const mockCreate = vi.fn();
+
+      const rateLimitErr = new (await import('@anthropic-ai/sdk')).RateLimitError(
+        429, undefined, 'rate limited', undefined as any,
+      );
+      mockCreate.mockRejectedValueOnce(rateLimitErr);
+      mockCreate.mockResolvedValueOnce(mockResponse({
+        model: 'claude-haiku-4-5-20251001',
+      }));
+
+      (client as any).client.messages = { create: mockCreate };
+
+      const events: any[] = [];
+      bus.subscribe('llm.cooldown', (e) => { events.push(e); });
+
+      await client.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+        model: 'standard',
+      });
+
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0].payload.reason).toBe('rate_limit');
+      expect(events[0].payload.durationMs).toBeGreaterThan(0);
+    });
+
+    it('should throw when all models are in cooldown', async () => {
+      const client = setup({ apiKey: 'test-key' });
+
+      // Manually set cooldowns on all model tiers
+      const models = client.getModels();
+      const cooldowns = (client as any).cooldowns as Map<string, any>;
+      cooldowns.set(models.fast.model, { until: Date.now() + 60000, reason: 'rate_limit' });
+      cooldowns.set(models.standard.model, { until: Date.now() + 60000, reason: 'rate_limit' });
+      cooldowns.set(models.powerful.model, { until: Date.now() + 60000, reason: 'rate_limit' });
+
+      // Request should throw immediately (no API call needed)
+      await expect(
+        client.complete({
+          messages: [{ role: 'user', content: 'hello' }],
+          model: 'standard',
+        }),
+      ).rejects.toThrow(/cooldown|rate-limited/i);
+    });
+
+    it('should use short backoff for 500 errors, not rate limit backoff', async () => {
+      const client = setup({ apiKey: 'test-key' });
+      const mockCreate = vi.fn();
+
+      const serverErr = new (await import('@anthropic-ai/sdk')).APIError(
+        500, undefined, 'server error', undefined as any,
+      );
+      mockCreate.mockRejectedValueOnce(serverErr);
+      mockCreate.mockResolvedValueOnce(mockResponse());
+
+      (client as any).client.messages = { create: mockCreate };
+
+      const start = Date.now();
+      await client.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+      });
+      const elapsed = Date.now() - start;
+
+      // Short backoff should be < 5s, not the 30s rate limit backoff
+      expect(elapsed).toBeLessThan(5000);
+      // Rate limit count should not have been incremented
+      expect(client.getStats().rateLimitCount).toBe(0);
+    });
+
+    it('should include rate limit info in stats', () => {
+      const client = setup({ apiKey: 'test-key' });
+      const stats = client.getStats();
+      expect(stats.rateLimitCount).toBe(0);
+      expect(stats.cooldowns).toEqual({});
+    });
+
+    it('should include rate limiting check in diagnostics', () => {
+      const client = setup({ apiKey: 'test-key' });
+      const diag = client.diagnose();
+      const rlCheck = diag.checks.find((c) => c.name === 'Rate limiting');
+      expect(rlCheck).toBeDefined();
+      expect(rlCheck!.passed).toBe(true);
+      expect(rlCheck!.message).toBe('No rate limits encountered');
+    });
+  });
+
   describe('Fort integration', () => {
     it('should be accessible from Fort instance', async () => {
       const Fort = (await import('../fort.js')).Fort;

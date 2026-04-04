@@ -14,6 +14,13 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import Anthropic from '@anthropic-ai/sdk';
+import {
+  RateLimitError,
+  AuthenticationError,
+  BadRequestError,
+  APIError,
+  APIConnectionError,
+} from '@anthropic-ai/sdk';
 import type { ModuleBus } from '../module-bus/index.js';
 import type { TokenTracker } from '../tokens/index.js';
 import type { BehaviorManager } from '../behaviors/index.js';
@@ -90,6 +97,26 @@ export interface LLMClientConfig {
   providerStore?: LLMProviderStore;
 }
 
+// ─── Rate Limit & Cooldown Types ────────────────────────────────────
+
+export interface ModelCooldown {
+  until: number;
+  reason: string;
+}
+
+type ErrorClassification = {
+  type: 'rate_limit' | 'auth' | 'bad_request' | 'overloaded' | 'connection' | 'unknown';
+  retryAfterMs: number | null;
+  retryable: boolean;
+};
+
+// Graduated backoff for 429s (inspired by OpenClaw's circuit breaker)
+const RATE_LIMIT_BACKOFFS_MS = [30_000, 60_000, 300_000]; // 30s, 1min, 5min
+const RATE_LIMIT_MAX_RETRIES = 3;
+const TIER_FALLBACK: ModelTier[] = ['powerful', 'standard', 'fast'];
+const TOKEN_REFRESH_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_FALLBACK_DEPTH = 3;
+
 // ─── Default Model Routing ──────────────────────────────────────────
 
 const DEFAULT_MODELS: Record<ModelTier, ModelConfig> = {
@@ -143,7 +170,13 @@ export class LLMClient {
   private totalOutputTokens = 0;
   private totalCostUsd = 0;
   private errorCount = 0;
+  private rateLimitCount = 0;
   private startedAt = new Date();
+
+  // Rate limit & cooldown state
+  private cooldowns = new Map<string, ModelCooldown>();
+  private lastTokenRefresh = 0;
+  private cachedToken: string | null = null;
 
   constructor(
     config: LLMClientConfig,
@@ -181,19 +214,29 @@ export class LLMClient {
     if (resolvedToken) {
       // OAuth tokens (sk-ant-oat*) need authToken + beta header; API keys use apiKey
       this._isOAuthToken = resolvedToken.startsWith('sk-ant-oat');
-      if (this._isOAuthToken) {
-        this.client = new Anthropic({
-          authToken: resolvedToken,
-          defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
-        });
-      } else {
-        this.client = new Anthropic({ apiKey: resolvedToken });
-      }
+      this.client = LLMClient.createAnthropicClient(resolvedToken, this._isOAuthToken);
+      this.cachedToken = resolvedToken;
       this._authMethod = config.apiKey ? 'api_key_config'
         : envFileToken ? 'dotenv'
         : 'api_key_env';
     }
     // If nothing found, client stays null — requests will return helpful errors
+  }
+
+  /**
+   * Create an Anthropic client with maxRetries: 0 (Fort manages retries).
+   * Without this, the SDK's built-in retry (default: 2) layers on top of
+   * Fort's retry loop, creating up to 9 HTTP attempts with unpredictable timing.
+   */
+  private static createAnthropicClient(token: string, isOAuth: boolean): Anthropic {
+    if (isOAuth) {
+      return new Anthropic({
+        authToken: token,
+        defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
+        maxRetries: 0,
+      });
+    }
+    return new Anthropic({ apiKey: token, maxRetries: 0 });
   }
 
   private _authMethod: 'api_key_config' | 'dotenv' | 'api_key_env' | null = null;
@@ -340,8 +383,10 @@ export class LLMClient {
 
   /**
    * Send a completion request to Claude.
+   * Uses callApi() for retry-aware error handling with rate limit cooldowns
+   * and automatic tier fallback.
    */
-  async complete(request: LLMRequest): Promise<LLMResponse> {
+  async complete(request: LLMRequest, _fallbackDepth = 0): Promise<LLMResponse> {
     const client = this.resolveClient(request.agentId);
     if (!client) {
       throw new Error(
@@ -354,138 +399,113 @@ export class LLMClient {
     const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
 
     const start = Date.now();
-    let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      try {
-        const claudeTools: Anthropic.Tool[] | undefined =
-          request.tools && request.tools.length > 0
-            ? request.tools.map((t) => ({
-                name: t.name,
-                description: t.description,
-                input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
-              }))
-            : undefined;
+    const claudeTools: Anthropic.Tool[] | undefined =
+      request.tools && request.tools.length > 0
+        ? request.tools.map((t) => ({
+            name: t.name,
+            description: t.description,
+            input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
+          }))
+        : undefined;
 
-        const response = await client.messages.create({
-          model: modelConfig.model,
-          max_tokens: maxTokens,
-          system,
-          messages: request.messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          temperature: request.temperature,
-          ...(claudeTools ? { tools: claudeTools } : {}),
-        });
-
-        const durationMs = Date.now() - start;
-        const inputTokens = response.usage.input_tokens;
-        const outputTokens = response.usage.output_tokens;
-        const totalTokens = inputTokens + outputTokens;
-        const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
-
-        const content =
-          response.content[0]?.type === 'text' ? response.content[0].text : '';
-
-        const result: LLMResponse = {
-          content,
-          model: modelConfig.model,
-          inputTokens,
-          outputTokens,
-          totalTokens,
-          costUsd,
-          stopReason: response.stop_reason,
-          durationMs,
-        };
-
-        // Track usage
-        this.requestCount++;
-        this.totalInputTokens += inputTokens;
-        this.totalOutputTokens += outputTokens;
-        this.totalCostUsd += costUsd;
-
-        // Record in token tracker
-        if (this.tokenTracker) {
-          this.tokenTracker.record({
-            timestamp: new Date(),
-            model: modelConfig.model,
-            inputTokens,
-            outputTokens,
-            totalTokens,
-            costUsd,
-            taskId: request.taskId,
-            agentId: request.agentId,
-            source: 'llm_client',
-          });
-        }
-
-        // Publish usage event
-        this.bus.publish('llm.completed', 'llm-client', {
-          model: modelConfig.model,
-          tier: modelConfig.tier,
-          inputTokens,
-          outputTokens,
-          costUsd,
-          durationMs,
-          taskId: request.taskId,
-          agentId: request.agentId,
-        });
-
-        // Publish cost-tracking event
-        if (request.taskId && request.agentId) {
-          this.bus.publish('usage.recorded', request.agentId, {
-            taskId: request.taskId,
-            agentId: request.agentId,
-            model: modelConfig.model,
-            inputTokens,
-            outputTokens,
-            cacheReadTokens: (response.usage as any).cache_read_input_tokens ?? 0,
-            cacheWriteTokens: (response.usage as any).cache_creation_input_tokens ?? 0,
-          });
-        }
-
-        return result;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        this.errorCount++;
-
-        if (attempt < this.maxRetries) {
-          // Exponential backoff
-          const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-
-          this.bus.publish('llm.retry', 'llm-client', {
-            attempt: attempt + 1,
-            error: lastError.message,
-            model: modelConfig.model,
-          });
-        }
-      }
-    }
-
-    // If using OAuth and a non-fast model got a 400, fall back to fast tier
-    const errMsg = lastError?.message ?? '';
-    if (
-      this._isOAuthToken &&
-      errMsg.includes('400') &&
-      modelConfig.model !== this.models.fast.model
-    ) {
-      this.bus.publish('llm.retry', 'llm-client', {
-        attempt: 'fallback',
-        error: `Model "${modelConfig.model}" unavailable, falling back to ${this.models.fast.model}`,
-        model: this.models.fast.model,
-      });
-      return this.complete({ ...request, model: 'fast' });
-    }
-
-    this.bus.publish('llm.error', 'llm-client', {
-      error: lastError?.message,
+    const params: Anthropic.MessageCreateParams = {
       model: modelConfig.model,
+      max_tokens: maxTokens,
+      system,
+      messages: request.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      temperature: request.temperature,
+      ...(claudeTools ? { tools: claudeTools } : {}),
+    };
+
+    let response: Anthropic.Message;
+    try {
+      response = await this.callApi(client, params, {
+        modelConfig,
+        request,
+        fallbackDepth: _fallbackDepth,
+      });
+    } catch (err: any) {
+      // Handle tier fallback signal from callApi
+      if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        return this.complete(
+          { ...request, model: err._fallbackTier },
+          (err._fallbackDepth ?? 0) + 1,
+        );
+      }
+      throw err;
+    }
+
+    const durationMs = Date.now() - start;
+    const inputTokens = response.usage.input_tokens;
+    const outputTokens = response.usage.output_tokens;
+    const totalTokens = inputTokens + outputTokens;
+    const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+
+    const content =
+      response.content[0]?.type === 'text' ? response.content[0].text : '';
+
+    const result: LLMResponse = {
+      content,
+      model: modelConfig.model,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      costUsd,
+      stopReason: response.stop_reason,
+      durationMs,
+    };
+
+    // Track usage
+    this.requestCount++;
+    this.totalInputTokens += inputTokens;
+    this.totalOutputTokens += outputTokens;
+    this.totalCostUsd += costUsd;
+
+    // Record in token tracker
+    if (this.tokenTracker) {
+      this.tokenTracker.record({
+        timestamp: new Date(),
+        model: modelConfig.model,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        costUsd,
+        taskId: request.taskId,
+        agentId: request.agentId,
+        source: 'llm_client',
+      });
+    }
+
+    // Publish usage event
+    this.bus.publish('llm.completed', 'llm-client', {
+      model: modelConfig.model,
+      tier: modelConfig.tier,
+      inputTokens,
+      outputTokens,
+      costUsd,
+      durationMs,
       taskId: request.taskId,
+      agentId: request.agentId,
     });
 
-    throw lastError;
+    // Publish cost-tracking event
+    if (request.taskId && request.agentId) {
+      this.bus.publish('usage.recorded', request.agentId, {
+        taskId: request.taskId,
+        agentId: request.agentId,
+        model: modelConfig.model,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens: (response.usage as any).cache_read_input_tokens ?? 0,
+        cacheWriteTokens: (response.usage as any).cache_creation_input_tokens ?? 0,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -555,14 +575,27 @@ export class LLMClient {
       while (iteration < MAX_ITERATIONS) {
         iteration++;
 
-        const response = await client.messages.create({
-          model: modelConfig.model,
-          max_tokens: maxTokens,
-          system,
-          messages,
-          tools: claudeTools,
-          temperature: request.temperature,
-        });
+        let response: Anthropic.Message;
+        try {
+          response = await this.callApi(client, {
+            model: modelConfig.model,
+            max_tokens: maxTokens,
+            system,
+            messages,
+            tools: claudeTools,
+            temperature: request.temperature,
+          }, { modelConfig, request });
+        } catch (err: any) {
+          // Tier fallback inside tool loop is complex — surface the error
+          // rather than silently switching models mid-conversation
+          if (err?.message === '__TIER_FALLBACK__') {
+            throw new Error(
+              `Rate limited on "${modelConfig.model}" during tool loop. ` +
+              `Fallback tier "${err._fallbackTier}" available — retry with a different model.`,
+            );
+          }
+          throw err;
+        }
 
         const inputTokens = response.usage.input_tokens;
         const outputTokens = response.usage.output_tokens;
@@ -880,6 +913,8 @@ export class LLMClient {
       totalOutputTokens: this.totalOutputTokens,
       totalCostUsd: this.totalCostUsd,
       errorCount: this.errorCount,
+      rateLimitCount: this.rateLimitCount,
+      cooldowns: this.getActiveCooldowns(),
       uptime: Date.now() - this.startedAt.getTime(),
       models: Object.fromEntries(
         Object.entries(this.models).map(([tier, config]) => [
@@ -920,9 +955,7 @@ export class LLMClient {
         const key = runtime.apiKey;
         if (!key) return 'No API key configured for Anthropic';
         const isOAuth = key.startsWith('sk-ant-oat');
-        const testClient = isOAuth
-          ? new Anthropic({ authToken: key, defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' } })
-          : new Anthropic({ apiKey: key });
+        const testClient = LLMClient.createAnthropicClient(key, isOAuth);
         await testClient.messages.create({
           model: runtime.defaultModel || 'claude-haiku-4-5-20251001',
           max_tokens: 1,
@@ -991,6 +1024,13 @@ export class LLMClient {
         passed: true,
         message: `${this.defaultTier} → ${this.models[this.defaultTier].model}`,
       },
+      {
+        name: 'Rate limiting',
+        passed: this.rateLimitCount === 0 || Object.keys(this.getActiveCooldowns()).length === 0,
+        message: this.rateLimitCount === 0
+          ? 'No rate limits encountered'
+          : `${this.rateLimitCount} rate limit(s), ${Object.keys(this.getActiveCooldowns()).length} model(s) in cooldown`,
+      },
     ];
 
     return {
@@ -1006,6 +1046,310 @@ export class LLMClient {
 
   // ─── Private Methods ──────────────────────────────────────────────
 
+  // ── Error Classification ──────────────────────────────────────────
+
+  /**
+   * Classify an API error to determine retry strategy.
+   * Parses Retry-After headers for rate limits, distinguishes auth errors
+   * (potentially fixable via token refresh) from permanent failures.
+   */
+  private classifyError(err: unknown): ErrorClassification {
+    if (err instanceof RateLimitError) {
+      let retryAfterMs: number | null = null;
+      try {
+        // SDK exposes headers on the error object
+        const headers = (err as any).headers;
+        if (headers) {
+          // Prefer retry-after-ms (milliseconds), then retry-after (seconds)
+          // Headers may be a plain object or a Headers-like class with .get()
+          const getHeader = (name: string): string | null | undefined => {
+            if (typeof headers.get === 'function') return headers.get(name);
+            return headers[name];
+          };
+          const msHeader = getHeader('retry-after-ms');
+          const secHeader = getHeader('retry-after');
+          if (msHeader) {
+            retryAfterMs = parseInt(String(msHeader), 10);
+          } else if (secHeader) {
+            const secs = parseFloat(String(secHeader));
+            if (!isNaN(secs)) retryAfterMs = secs * 1000;
+          }
+        }
+      } catch {
+        // Header parsing failed — use default backoff
+      }
+      return { type: 'rate_limit', retryAfterMs, retryable: true };
+    }
+
+    if (err instanceof AuthenticationError) {
+      // OAuth tokens can be refreshed; API keys cannot
+      return { type: 'auth', retryAfterMs: null, retryable: this._isOAuthToken };
+    }
+
+    if (err instanceof BadRequestError) {
+      return { type: 'bad_request', retryAfterMs: null, retryable: false };
+    }
+
+    if (err instanceof APIConnectionError) {
+      return { type: 'connection', retryAfterMs: null, retryable: true };
+    }
+
+    if (err instanceof APIError && (err as any).status >= 500) {
+      return { type: 'overloaded', retryAfterMs: null, retryable: true };
+    }
+
+    return { type: 'unknown', retryAfterMs: null, retryable: false };
+  }
+
+  // ── Model Cooldown Management ─────────────────────────────────────
+
+  /**
+   * Put a model into cooldown. Publishes llm.cooldown event.
+   */
+  private setCooldown(model: string, durationMs: number, reason: string): void {
+    const until = Date.now() + durationMs;
+    this.cooldowns.set(model, { until, reason });
+    this.bus.publish('llm.cooldown', 'llm-client', {
+      model,
+      durationMs,
+      reason,
+      until,
+    });
+  }
+
+  /**
+   * Check if a model is currently in cooldown. Cleans up expired entries.
+   */
+  private isInCooldown(model: string): boolean {
+    const entry = this.cooldowns.get(model);
+    if (!entry) return false;
+    if (Date.now() >= entry.until) {
+      this.cooldowns.delete(model);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Walk the tier fallback chain downward from the given tier.
+   * Returns the first available tier whose model is NOT in cooldown, or null.
+   */
+  private getNextAvailableTier(currentTier: ModelTier): ModelTier | null {
+    const idx = TIER_FALLBACK.indexOf(currentTier);
+    if (idx < 0) return null;
+    // Only fall DOWN (never up to more expensive models)
+    for (let i = idx + 1; i < TIER_FALLBACK.length; i++) {
+      const tier = TIER_FALLBACK[i];
+      if (!this.isInCooldown(this.models[tier].model)) {
+        return tier;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get active cooldowns (for stats/diagnostics).
+   */
+  private getActiveCooldowns(): Record<string, ModelCooldown> {
+    const now = Date.now();
+    const active: Record<string, ModelCooldown> = {};
+    for (const [model, cd] of this.cooldowns) {
+      if (cd.until > now) {
+        active[model] = cd;
+      } else {
+        this.cooldowns.delete(model);
+      }
+    }
+    return active;
+  }
+
+  // ── Token Refresh ─────────────────────────────────────────────────
+
+  /**
+   * Re-read token from disk if TTL expired. Reinitializes client if token changed.
+   * Returns true if the token was refreshed.
+   */
+  private maybeRefreshToken(): boolean {
+    if (Date.now() - this.lastTokenRefresh < TOKEN_REFRESH_TTL_MS) {
+      return false;
+    }
+    this.lastTokenRefresh = Date.now();
+
+    const freshToken = LLMClient.readEnvFile() || LLMClient.readKeychainToken();
+    if (!freshToken || freshToken === this.cachedToken) {
+      return false;
+    }
+
+    this.cachedToken = freshToken;
+    this._isOAuthToken = freshToken.startsWith('sk-ant-oat');
+    this.client = LLMClient.createAnthropicClient(freshToken, this._isOAuthToken);
+    return true;
+  }
+
+  // ── Retry-Aware API Call ──────────────────────────────────────────
+
+  /**
+   * Make an API call with error-type-aware retry logic.
+   * - 429 (rate limit): graduated backoff (30s/1min/5min) + model cooldown + tier fallback
+   * - 401 (auth): token refresh for OAuth, then retry
+   * - 400 (bad request) with OAuth: fall back to fast tier
+   * - 5xx (overloaded): short backoff (1s/2s/10s)
+   * - Other: throw immediately
+   *
+   * Used by both complete() and completeWithTools() for consistent retry behavior.
+   */
+  private async callApi(
+    client: Anthropic,
+    params: Anthropic.MessageCreateParams,
+    context: { modelConfig: ModelConfig; request: LLMRequest; fallbackDepth?: number },
+  ): Promise<Anthropic.Message> {
+    const { modelConfig, request } = context;
+    const fallbackDepth = context.fallbackDepth ?? 0;
+
+    // Check cooldown before attempting the call
+    if (this.isInCooldown(modelConfig.model)) {
+      const fallbackTier = this.getNextAvailableTier(modelConfig.tier);
+      if (fallbackTier && fallbackDepth < MAX_FALLBACK_DEPTH) {
+        this.bus.publish('llm.retry', 'llm-client', {
+          attempt: 'cooldown-fallback',
+          error: `Model "${modelConfig.model}" in cooldown, falling back to ${fallbackTier}`,
+          model: this.models[fallbackTier].model,
+        });
+        // Use complete() for fallback so it gets full response processing
+        throw Object.assign(new Error('__TIER_FALLBACK__'), {
+          _fallbackTier: fallbackTier,
+          _fallbackDepth: fallbackDepth,
+        });
+      }
+      const cd = this.cooldowns.get(modelConfig.model);
+      const waitSec = cd ? Math.ceil((cd.until - Date.now()) / 1000) : '?';
+      throw new Error(
+        `All models are rate-limited. "${modelConfig.model}" in cooldown for ~${waitSec}s. Try again later.`,
+      );
+    }
+
+    let rateLimitAttempts = 0;
+    let generalAttempts = 0;
+
+    for (;;) {
+      try {
+        return await client.messages.create(params) as Anthropic.Message;
+      } catch (err) {
+        const classified = this.classifyError(err);
+        this.errorCount++;
+
+        // ── Rate limit (429) ──
+        if (classified.type === 'rate_limit') {
+          rateLimitAttempts++;
+          this.rateLimitCount++;
+
+          const backoffMs = classified.retryAfterMs
+            ?? RATE_LIMIT_BACKOFFS_MS[Math.min(rateLimitAttempts - 1, RATE_LIMIT_BACKOFFS_MS.length - 1)];
+
+          this.setCooldown(modelConfig.model, backoffMs, 'rate_limit');
+
+          this.bus.publish('llm.rate_limited', 'llm-client', {
+            model: modelConfig.model,
+            tier: modelConfig.tier,
+            backoffMs,
+            retryAfterMs: classified.retryAfterMs,
+            attempt: rateLimitAttempts,
+          });
+
+          // Try tier fallback immediately (no sleep needed)
+          const fallbackTier = this.getNextAvailableTier(modelConfig.tier);
+          if (fallbackTier && fallbackDepth < MAX_FALLBACK_DEPTH) {
+            this.bus.publish('llm.retry', 'llm-client', {
+              attempt: 'rate-limit-fallback',
+              error: `Rate limited on "${modelConfig.model}", falling back to ${fallbackTier}`,
+              model: this.models[fallbackTier].model,
+            });
+            throw Object.assign(new Error('__TIER_FALLBACK__'), {
+              _fallbackTier: fallbackTier,
+              _fallbackDepth: fallbackDepth,
+            });
+          }
+
+          // No fallback available — sleep and retry if attempts remain
+          if (rateLimitAttempts < RATE_LIMIT_MAX_RETRIES) {
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            this.bus.publish('llm.retry', 'llm-client', {
+              attempt: rateLimitAttempts,
+              error: `Rate limited, retrying after ${backoffMs}ms`,
+              model: modelConfig.model,
+            });
+            continue;
+          }
+
+          // Exhausted rate limit retries
+          this.bus.publish('llm.error', 'llm-client', {
+            error: `Rate limited after ${rateLimitAttempts} retries`,
+            model: modelConfig.model,
+            taskId: request.taskId,
+          });
+          throw err;
+        }
+
+        // ── Auth error (401) with OAuth — try token refresh ──
+        if (classified.type === 'auth' && classified.retryable) {
+          if (this.maybeRefreshToken()) {
+            // Token was refreshed — resolve a fresh client and retry once
+            const freshClient = this.resolveClient(request.agentId);
+            if (freshClient) {
+              this.bus.publish('llm.retry', 'llm-client', {
+                attempt: 'token-refresh',
+                error: 'Auth failed, retrying with refreshed token',
+                model: modelConfig.model,
+              });
+              client = freshClient;
+              continue;
+            }
+          }
+          // Token didn't change or refresh failed — throw
+          throw err;
+        }
+
+        // ── Bad request (400) with OAuth — model tier fallback ──
+        if (classified.type === 'bad_request' && this._isOAuthToken) {
+          if (modelConfig.model !== this.models.fast.model && fallbackDepth < MAX_FALLBACK_DEPTH) {
+            this.bus.publish('llm.retry', 'llm-client', {
+              attempt: 'oauth-model-fallback',
+              error: `Model "${modelConfig.model}" unavailable on subscription, falling back to fast`,
+              model: this.models.fast.model,
+            });
+            throw Object.assign(new Error('__TIER_FALLBACK__'), {
+              _fallbackTier: 'fast' as ModelTier,
+              _fallbackDepth: fallbackDepth,
+            });
+          }
+          throw err;
+        }
+
+        // ── Overloaded / connection — short backoff ──
+        if (classified.retryable && generalAttempts < this.maxRetries) {
+          generalAttempts++;
+          const delay = Math.min(1000 * Math.pow(2, generalAttempts - 1), 10000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+
+          this.bus.publish('llm.retry', 'llm-client', {
+            attempt: generalAttempts,
+            error: err instanceof Error ? err.message : String(err),
+            model: modelConfig.model,
+          });
+          continue;
+        }
+
+        // ── Non-retryable or retries exhausted ──
+        this.bus.publish('llm.error', 'llm-client', {
+          error: err instanceof Error ? err.message : String(err),
+          model: modelConfig.model,
+          taskId: request.taskId,
+        });
+        throw err;
+      }
+    }
+  }
+
   /**
    * Resolve the Anthropic client to use for a request.
    * Priority: DB default provider key → constructor-configured client.
@@ -1016,13 +1360,7 @@ export class LLMClient {
       const provider = this.getActiveProvider(agentId);
       if (provider && provider.id === 'anthropic' && provider.apiKey) {
         const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
-        if (isOAuth) {
-          return new Anthropic({
-            authToken: provider.apiKey,
-            defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
-          });
-        }
-        return new Anthropic({ apiKey: provider.apiKey });
+        return LLMClient.createAnthropicClient(provider.apiKey, isOAuth);
       }
     }
     return this.client;
