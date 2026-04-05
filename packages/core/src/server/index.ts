@@ -151,6 +151,14 @@ export class FortServer {
         res.end(svg);
         return;
       }
+      if (req.url === '/api/import/openclaw/preview' && req.method === 'GET') {
+        this.handleOpenClawPreview(res);
+        return;
+      }
+      if (req.url === '/api/import/openclaw' && req.method === 'POST') {
+        this.handleOpenClawImport(res);
+        return;
+      }
       if (req.url === '/api/agents/create' && req.method === 'POST') {
         this.handleCreateAgent(req, res);
         return;
@@ -1180,6 +1188,28 @@ export class FortServer {
         client.send(data);
       }
     }
+  }
+
+  private handleOpenClawPreview(res: ServerResponse): void {
+    import('../import/openclaw.js').then(({ scanOpenClaw }) => {
+      const preview = scanOpenClaw(this.fort);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(preview));
+    }).catch((err) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    });
+  }
+
+  private handleOpenClawImport(res: ServerResponse): void {
+    import('../import/openclaw.js').then(async ({ importOpenClaw }) => {
+      const result = await importOpenClaw(this.fort);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch((err) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    });
   }
 
   private handleCreateAgent(req: IncomingMessage, res: ServerResponse): void {

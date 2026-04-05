@@ -235,6 +235,200 @@ function ProviderCard({ provider, onSetDefault, onDelete, onTest, testResult }: 
   );
 }
 
+// ─── OpenClaw Import ──────────────────────────────────────────────────────────
+
+interface AgentPreview {
+  id: string;
+  name: string;
+  emoji?: string;
+  hasSoul: boolean;
+  hasMemory: boolean;
+  alreadyExists: boolean;
+}
+
+interface ProviderPreview {
+  id: string;
+  hasApiKey: boolean;
+  alreadyExists: boolean;
+}
+
+interface OpenClawPreview {
+  found: boolean;
+  configPath?: string;
+  agents: AgentPreview[];
+  providers: ProviderPreview[];
+  warnings: string[];
+}
+
+interface ImportResult {
+  agentsCreated: string[];
+  agentsSkipped: string[];
+  providersAdded: string[];
+  providersSkipped: string[];
+  errors: string[];
+}
+
+function OpenClawImportSection({ onImported }: { onImported: () => void }) {
+  const [scanning, setScanning] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState<OpenClawPreview | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function handleDetect() {
+    setScanning(true);
+    setError(null);
+    setPreview(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/import/openclaw/preview");
+      const data = await res.json() as OpenClawPreview;
+      setPreview(data);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/import/openclaw", { method: "POST" });
+      const data = await res.json() as ImportResult;
+      setResult(data);
+      onImported();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const newAgents = preview?.agents.filter((a) => !a.alreadyExists) ?? [];
+  const newProviders = preview?.providers.filter((p) => !p.alreadyExists && p.hasApiKey) ?? [];
+  const hasAnythingToImport = newAgents.length > 0 || newProviders.length > 0;
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h2>Import from OpenClaw</h2>
+      </div>
+
+      {!result && (
+        <>
+          <p className="settings-description">
+            Migrate agents and LLM providers from an existing OpenClaw installation
+            at <code>~/.openclaw</code>.
+          </p>
+
+          <div className="import-actions">
+            <button className="btn-secondary" onClick={handleDetect} disabled={scanning}>
+              {scanning ? "Scanning…" : "Detect OpenClaw"}
+            </button>
+          </div>
+
+          {error && <div className="error-banner">{error}</div>}
+
+          {preview && !preview.found && (
+            <div className="empty-state">
+              <p>No OpenClaw installation found at <code>~/.openclaw</code>.</p>
+            </div>
+          )}
+
+          {preview?.found && (
+            <div className="import-preview">
+              <p className="import-config-path">Found: <code>{preview.configPath}</code></p>
+
+              {preview.warnings.length > 0 && (
+                <div className="import-warnings">
+                  {preview.warnings.map((w, i) => (
+                    <div key={i} className="warning-item">{w}</div>
+                  ))}
+                </div>
+              )}
+
+              <div className="import-preview-grid">
+                <div className="import-preview-col">
+                  <h4>Agents ({preview.agents.length})</h4>
+                  {preview.agents.length === 0 ? (
+                    <p className="import-none">None found</p>
+                  ) : (
+                    <ul className="import-list">
+                      {preview.agents.map((a) => (
+                        <li key={a.id} className={a.alreadyExists ? "import-item--skip" : "import-item"}>
+                          <span>{a.emoji} {a.name}</span>
+                          <span className="import-badge">
+                            {a.alreadyExists ? "already exists" : "will import"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="import-preview-col">
+                  <h4>LLM Providers ({preview.providers.length})</h4>
+                  <ul className="import-list">
+                    {preview.providers.map((p) => (
+                      <li key={p.id} className={p.alreadyExists || !p.hasApiKey ? "import-item--skip" : "import-item"}>
+                        <span>{p.id}</span>
+                        <span className="import-badge">
+                          {p.alreadyExists ? "already exists" : p.hasApiKey ? "will import" : "no key found"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {hasAnythingToImport ? (
+                <div className="import-actions">
+                  <button className="btn-primary" onClick={handleImport} disabled={importing}>
+                    {importing ? "Importing…" : `Import ${newAgents.length} agent${newAgents.length !== 1 ? "s" : ""}${newProviders.length > 0 ? ` + ${newProviders.length} provider${newProviders.length !== 1 ? "s" : ""}` : ""}`}
+                  </button>
+                </div>
+              ) : (
+                <p className="import-none">Nothing new to import — everything is already in Fort.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {result && (
+        <div className="import-result">
+          {result.errors.length > 0 && (
+            <div className="error-banner">
+              {result.errors.map((e, i) => <div key={i}>{e}</div>)}
+            </div>
+          )}
+          <div className="import-result-grid">
+            {result.agentsCreated.length > 0 && (
+              <div>
+                <strong>Agents imported:</strong>{" "}
+                {result.agentsCreated.join(", ")}
+              </div>
+            )}
+            {result.providersAdded.length > 0 && (
+              <div>
+                <strong>Providers added:</strong>{" "}
+                {result.providersAdded.join(", ")}
+              </div>
+            )}
+            {result.agentsCreated.length === 0 && result.providersAdded.length === 0 && result.errors.length === 0 && (
+              <div>Nothing new was imported.</div>
+            )}
+          </div>
+          <button className="btn-secondary" onClick={() => { setResult(null); setPreview(null); }}>
+            Done
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -322,6 +516,8 @@ export default function SettingsPage() {
           onAdded={loadProviders}
         />
       )}
+
+      <OpenClawImportSection onImported={loadProviders} />
     </div>
   );
 }
