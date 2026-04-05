@@ -5,7 +5,7 @@
     "rootDir": "./src",
     "composite": true,
     "paths": {
-      "@fort/core": ["../core/src/index.ts"]
+      "@fort-ai/core": ["../core/src/index.ts"]
     }
   },
   "references": [

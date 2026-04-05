@@ -4,7 +4,7 @@
 
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { Fort } from '@fort/core';
+import { Fort } from '@fort-ai/core';
 
 let instance: Fort | null = null;
 

@@ -80,7 +80,7 @@ export function createUninstallCommand(): Command {
       // 3. Unlink CLI
       if (fortBin) {
         try {
-          execSync('npm unlink -g @fort/cli 2>/dev/null', { stdio: 'ignore' });
+          execSync('npm unlink -g @fort-ai/cli 2>/dev/null', { stdio: 'ignore' });
           console.log(`  ${green('✓')} Unlinked fort CLI`);
         } catch {
           // npm unlink may fail if it was linked differently; try removing the symlink directly

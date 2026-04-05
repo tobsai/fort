@@ -1,5 +1,5 @@
 /**
- * @fort/core — Public API
+ * @fort-ai/core — Public API
  */
 
 // Main

@@ -14,7 +14,7 @@ export function createPortalCommand(): Command {
 
       await fort.start();
 
-      const { FortServer } = await import('@fort/core');
+      const { FortServer } = await import('@fort-ai/core');
       const server = new FortServer(fort, port);
       await server.start();
 

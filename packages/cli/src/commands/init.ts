@@ -128,7 +128,7 @@ export function createInitCommand(): Command {
       // Step 2: LLM setup
       console.log(bold('  Step 2: Connect to Claude\n'));
 
-      const { LLMClient } = await import('@fort/core');
+      const { LLMClient } = await import('@fort-ai/core');
       const testClient = new LLMClient(
         {},
         { publish: () => {}, subscribe: () => () => {}, clear: () => {} } as any,

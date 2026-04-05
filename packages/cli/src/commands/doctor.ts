@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { FortDoctor } from '@fort/core';
+import { FortDoctor } from '@fort-ai/core';
 import { withFort } from '../utils/fort-instance.js';
 import { bold, statusIcon, statusColor, table, green, red, yellow } from '../utils/format.js';
 

@@ -3,7 +3,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { withFort } from '../utils/fort-instance.js';
 import { bold, dim, green, yellow, cyan } from '../utils/format.js';
-import { LLMClient } from '@fort/core';
+import { LLMClient } from '@fort-ai/core';
 
 export function createLLMCommand(): Command {
   const cmd = new Command('llm')

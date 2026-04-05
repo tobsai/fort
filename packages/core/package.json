@@ -1,9 +1,22 @@
 {
-  "name": "@fort/core",
+  "name": "@fort-ai/core",
   "version": "0.1.0",
-  "private": true,
+  "description": "Core engine for Fort — a self-improving personal AI agent platform",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fort-ai/fort",
+    "directory": "packages/core"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/__tests__"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",

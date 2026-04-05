@@ -11,6 +11,33 @@ Fort is a task-centric personal AI agent platform. It is not a chat wrapper. Eve
 ## Quick Start
 
 ```bash
+# Install globally from npm
+npm install -g @fort-ai/cli
+
+# Initialize Fort and open the portal wizard
+fort init
+
+# The portal opens at http://localhost:4077
+# Walk through the setup wizard to create your first agent
+```
+
+### Use as a library
+
+```bash
+npm install @fort-ai/core
+```
+
+```typescript
+import { Fort } from '@fort-ai/core';
+```
+
+### Development
+
+```bash
+# Clone the repo
+git clone https://github.com/fort-ai/fort.git
+cd fort
+
 # Install dependencies
 npm install
 
@@ -19,12 +46,6 @@ npm run build
 
 # Link the CLI globally
 npm link --workspace=packages/cli
-
-# Initialize Fort and open the portal wizard
-fort init
-
-# The portal opens at http://localhost:4077
-# Walk through the setup wizard to create your first agent
 ```
 
 ## Architecture
