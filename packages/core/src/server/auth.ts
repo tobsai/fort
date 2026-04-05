@@ -30,7 +30,20 @@ export function loadAuthConfig(): GoogleAuthConfig {
   const allowedEmails = raw.split(',').map((e) => e.trim()).filter(Boolean);
   const callbackUrl =
     process.env.GOOGLE_CALLBACK_URL ?? 'http://localhost:4077/auth/google/callback';
-  const authEnabled = process.env.FORT_AUTH_ENABLED !== 'false';
+
+  // Auto-detect auth mode: if Google OAuth credentials aren't configured,
+  // disable auth automatically for local single-user mode
+  const hasOAuthCredentials = !!(clientId && clientSecret);
+  const authExplicitlyEnabled = process.env.FORT_AUTH_ENABLED === 'true';
+  const authExplicitlyDisabled = process.env.FORT_AUTH_ENABLED === 'false';
+
+  let authEnabled: boolean;
+  if (authExplicitlyEnabled || authExplicitlyDisabled) {
+    authEnabled = authExplicitlyEnabled;
+  } else {
+    // Default: enable auth only if Google OAuth is configured
+    authEnabled = hasOAuthCredentials;
+  }
 
   // SECURITY: Fail fast if auth is enabled but SESSION_SECRET is empty
   if (authEnabled && !sessionSecret) {
