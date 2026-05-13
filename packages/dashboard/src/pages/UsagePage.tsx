@@ -60,7 +60,7 @@ function fmtCost(usd: number): string {
 }
 
 export default function UsagePage() {
-  const { send, subscribe } = useFortSocket();
+  const { send, subscribe, subscriptionQuota } = useFortSocket();
   const [period, setPeriod] = useState<"day" | "week" | "month">("week");
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [byAgent, setByAgent] = useState<AgentUsage[]>([]);
@@ -116,6 +116,45 @@ export default function UsagePage() {
           ))}
         </div>
       </div>
+
+      {/* Subscription quota — only visible when we have a fresh snapshot from an active subscription */}
+      {subscriptionQuota && (subscriptionQuota.remaining !== null || subscriptionQuota.limit !== null) && (
+        <div style={{
+          background: "rgba(108,92,231,0.08)",
+          border: "1px solid rgba(108,92,231,0.3)",
+          borderRadius: 8,
+          padding: "1rem 1.25rem",
+          marginBottom: "1.5rem",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+            <strong style={{ fontSize: "0.95rem" }}>OpenAI Subscription Quota</strong>
+            <span style={{ fontSize: "0.8rem", color: "#aaa" }}>
+              {subscriptionQuota.windowLabel ? `${subscriptionQuota.windowLabel} window` : ""}
+            </span>
+          </div>
+          {subscriptionQuota.remaining !== null && subscriptionQuota.limit !== null && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#ccc", marginBottom: "0.3rem" }}>
+                <span>{subscriptionQuota.remaining.toLocaleString()} of {subscriptionQuota.limit.toLocaleString()} remaining</span>
+                <span>{Math.round(((subscriptionQuota.limit - subscriptionQuota.remaining) / Math.max(1, subscriptionQuota.limit)) * 100)}% used</span>
+              </div>
+              <div style={{ height: 8, borderRadius: 4, background: "#2a2a2a", overflow: "hidden" }}>
+                <div style={{
+                  height: "100%",
+                  width: `${Math.min(100, ((subscriptionQuota.limit - subscriptionQuota.remaining) / Math.max(1, subscriptionQuota.limit)) * 100)}%`,
+                  background: "#6c5ce7",
+                  transition: "width 0.3s ease",
+                }} />
+              </div>
+            </>
+          )}
+          {subscriptionQuota.resetAt && (
+            <div style={{ fontSize: "0.8rem", color: "#888", marginTop: "0.5rem" }}>
+              Resets {new Date(subscriptionQuota.resetAt).toLocaleString()}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>

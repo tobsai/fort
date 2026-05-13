@@ -11,11 +11,23 @@ import type { FortState, WSMessage } from "../types";
 
 type Handler = (msg: WSMessage) => void;
 
+export interface SubscriptionQuota {
+  providerId: string;
+  remaining: number | null;
+  used: number | null;
+  limit: number | null;
+  windowLabel: string | null;
+  resetAt: string | null;
+  rawHeaders: Record<string, string>;
+  updatedAt: string;
+}
+
 interface FortSocketContextValue {
   connected: boolean;
-  send: (type: string, payload?: unknown) => void;
+  send: (type: string, payload?: unknown) => string | null;
   subscribe: (type: string, handler: Handler) => () => void;
   state: FortState | null;
+  subscriptionQuota: SubscriptionQuota | null;
 }
 
 const FortSocketContext = createContext<FortSocketContextValue | null>(null);
@@ -28,6 +40,7 @@ function nextId(): string {
 export function FortSocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState<FortState | null>(null);
+  const [subscriptionQuota, setSubscriptionQuota] = useState<SubscriptionQuota | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const subscribersRef = useRef(new Map<string, Set<Handler>>());
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>();
@@ -36,6 +49,11 @@ export function FortSocketProvider({ children }: { children: ReactNode }) {
     // Update cached state
     if (msg.type === "state" || msg.type === "status.response") {
       setState(msg.payload as FortState);
+    }
+    // Live subscription quota updates published from the LLM client
+    if (msg.type === "llm.subscription_quota" || msg.type === "subscription.quota.get.response") {
+      const payload = msg.payload as SubscriptionQuota | null;
+      if (payload) setSubscriptionQuota(payload);
     }
     // Notify subscribers
     const handlers = subscribersRef.current.get(msg.type);
@@ -63,6 +81,7 @@ export function FortSocketProvider({ children }: { children: ReactNode }) {
       ws.send(JSON.stringify({ id: nextId(), type: "status" }));
       ws.send(JSON.stringify({ id: nextId(), type: "agents" }));
       ws.send(JSON.stringify({ id: nextId(), type: "tasks" }));
+      ws.send(JSON.stringify({ id: nextId(), type: "subscription.quota.get", payload: { providerId: "openai" } }));
     };
 
     ws.onmessage = (e) => {
@@ -94,8 +113,11 @@ export function FortSocketProvider({ children }: { children: ReactNode }) {
   const send = useCallback((type: string, payload?: unknown) => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ id: nextId(), type, payload }));
+      const id = nextId();
+      ws.send(JSON.stringify({ id, type, payload }));
+      return id;
     }
+    return null;
   }, []);
 
   const subscribe = useCallback((type: string, handler: Handler) => {
@@ -108,7 +130,7 @@ export function FortSocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <FortSocketContext.Provider value={{ connected, send, subscribe, state }}>
+    <FortSocketContext.Provider value={{ connected, send, subscribe, state, subscriptionQuota }}>
       {children}
     </FortSocketContext.Provider>
   );

@@ -1,5 +1,5 @@
 /**
- * LLM Client — Anthropic Claude API with Model Routing
+ * LLM Client — LLM API with Model Routing
  *
  * Provides a unified interface for all LLM interactions in Fort.
  * Supports model routing (cheap models for simple tasks, powerful models
@@ -13,6 +13,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   RateLimitError,
@@ -29,6 +30,7 @@ import type { DiagnosticResult } from '../types.js';
 import type { FortTool, ToolCallLog } from '../tools/types.js';
 import type { ToolExecutor } from '../tools/executor.js';
 import type { LLMProviderStore, LLMProviderRuntime } from './provider-store.js';
+import type { SubscriptionQuotaStore, QuotaSnapshot } from './quota-store.js';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ export interface LLMClientConfig {
   maxRetries?: number;
   systemPrompt?: string;
   providerStore?: LLMProviderStore;
+  quotaStore?: SubscriptionQuotaStore;
 }
 
 // ─── Rate Limit & Cooldown Types ────────────────────────────────────
@@ -109,6 +112,42 @@ type ErrorClassification = {
   retryAfterMs: number | null;
   retryable: boolean;
 };
+
+type RuntimeProvider =
+  | { id: 'anthropic'; client: Anthropic; authMethod: string; isOAuth: boolean }
+  | { id: 'openai' | 'groq'; token: string; baseUrl: string; authMethod: string; accountId?: string }
+  | { id: 'ollama'; baseUrl: string; authMethod: string };
+
+type OpenAIResponse = {
+  id?: string;
+  output_text?: string;
+  output?: Array<Record<string, any>>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+  error?: { message?: string };
+};
+
+/** Typed HTTP error thrown by callOpenAIResponses so the retry layer can classify it. */
+class OpenAIHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly headers: Headers,
+    public readonly body: OpenAIResponse | undefined,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'OpenAIHttpError';
+  }
+}
+
+/** Result of a single OpenAI HTTP call — body plus the raw headers (used for quota tracking). */
+interface OpenAICallResult {
+  body: OpenAIResponse;
+  headers: Headers;
+}
 
 // Graduated backoff for 429s (inspired by OpenClaw's circuit breaker)
 const RATE_LIMIT_BACKOFFS_MS = [30_000, 60_000, 300_000]; // 30s, 1min, 5min
@@ -140,6 +179,27 @@ const DEFAULT_MODELS: Record<ModelTier, ModelConfig> = {
   },
 };
 
+const DEFAULT_OPENAI_MODELS: Record<ModelTier, ModelConfig> = {
+  fast: {
+    tier: 'fast',
+    model: 'gpt-5.1-mini',
+    maxTokens: 2048,
+    description: 'Fast OpenAI model for simple tasks, classification, extraction',
+  },
+  standard: {
+    tier: 'standard',
+    model: 'gpt-5.1',
+    maxTokens: 4096,
+    description: 'Balanced OpenAI model for most tasks, coding, and analysis',
+  },
+  powerful: {
+    tier: 'powerful',
+    model: 'gpt-5.1-codex-max',
+    maxTokens: 8192,
+    description: 'Maximum OpenAI reasoning for complex planning and coding',
+  },
+};
+
 const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform. You are helpful, concise, and action-oriented. You prefer to take action rather than ask unnecessary clarifying questions. When given a task, you execute it and report results.`;
 
 // ─── Pricing (per 1M tokens) ────────────────────────────────────────
@@ -148,6 +208,11 @@ const PRICING: Record<string, { input: number; output: number }> = {
   'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
   'claude-sonnet-4-5-20250929': { input: 3.00, output: 15.00 },
   'claude-opus-4-6': { input: 15.00, output: 75.00 },
+  // ChatGPT/Codex subscription — usage is covered by the plan, so $cost is 0.
+  // Quota burn-down is tracked separately via SubscriptionQuotaStore.
+  'gpt-5.1-mini': { input: 0, output: 0 },
+  'gpt-5.1': { input: 0, output: 0 },
+  'gpt-5.1-codex-max': { input: 0, output: 0 },
 };
 
 // ─── LLM Client ─────────────────────────────────────────────────────
@@ -163,6 +228,7 @@ export class LLMClient {
   private behaviors: BehaviorManager | null;
   private memory: MemoryManager | null;
   private providerStore: LLMProviderStore | null;
+  private quotaStore: SubscriptionQuotaStore | null;
 
   // Stats
   private requestCount = 0;
@@ -190,6 +256,7 @@ export class LLMClient {
     this.behaviors = behaviors ?? null;
     this.memory = memory ?? null;
     this.providerStore = config.providerStore ?? null;
+    this.quotaStore = config.quotaStore ?? null;
     this.defaultTier = config.defaultModel ?? 'standard';
     this.maxRetries = config.maxRetries ?? 2;
     this.systemPrompt = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
@@ -247,6 +314,14 @@ export class LLMClient {
    * The file is a simple KEY=VALUE format, one per line.
    */
   static readEnvFile(): string | null {
+    return LLMClient.readEnvFileValue('ANTHROPIC_API_KEY');
+  }
+
+  static readOpenAIEnvFile(): string | null {
+    return LLMClient.readEnvFileValue('OPENAI_API_KEY');
+  }
+
+  private static readEnvFileValue(key: string): string | null {
     const envPath = join(homedir(), '.fort', '.env');
     if (!existsSync(envPath)) return null;
     try {
@@ -254,10 +329,32 @@ export class LLMClient {
       for (const line of content.split('\n')) {
         const trimmed = line.trim();
         if (trimmed.startsWith('#') || !trimmed) continue;
-        const match = trimmed.match(/^ANTHROPIC_API_KEY\s*=\s*["']?(.+?)["']?\s*$/);
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = trimmed.match(new RegExp(`^${escapedKey}\\s*=\\s*["']?(.+?)["']?\\s*$`));
         if (match) return match[1];
       }
       return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Read an OpenAI access token from Codex auth. This enables Fort to reuse an
+   * active ChatGPT/Codex subscription without requiring a separate API key.
+   */
+  static readCodexOpenAIToken(): { accessToken: string; accountId?: string } | null {
+    const authPath = join(homedir(), '.codex', 'auth.json');
+    if (!existsSync(authPath)) return null;
+    try {
+      const parsed = JSON.parse(readFileSync(authPath, 'utf-8'));
+      const accessToken = parsed?.tokens?.access_token;
+      if (typeof accessToken !== 'string' || accessToken.length === 0) return null;
+      const accountId = parsed?.tokens?.account_id;
+      return {
+        accessToken,
+        accountId: typeof accountId === 'string' ? accountId : undefined,
+      };
     } catch {
       return null;
     }
@@ -325,14 +422,14 @@ export class LLMClient {
    * How the client authenticated. Null if not configured.
    */
   get authMethod(): string | null {
-    return this._authMethod;
+    return this._authMethod ?? LLMClient.resolveOpenAIToken()?.authMethod ?? null;
   }
 
   /**
    * Check if the LLM client is configured and ready.
    */
   get isConfigured(): boolean {
-    return this.client !== null || this.getActiveProvider() !== null;
+    return this.client !== null || this.getActiveProvider() !== null || LLMClient.resolveOpenAIToken() !== null;
   }
 
   /**
@@ -341,6 +438,20 @@ export class LLMClient {
    * Returns null on success, or an error message string on failure.
    */
   async validateAuth(): Promise<string | null> {
+    const active = this.resolveRuntimeProvider();
+    if (active?.id === 'openai' || active?.id === 'groq') {
+      try {
+        await this.callOpenAIResponses(active, {
+          model: this.resolveModelForProvider(active, this.defaultTier).model,
+          input: 'hi',
+          max_output_tokens: 1,
+        });
+        return null;
+      } catch (err) {
+        return `API connection error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+
     if (!this.client) {
       return 'LLM client not configured. Run `fort llm setup` or set ANTHROPIC_API_KEY.';
     }
@@ -387,14 +498,23 @@ export class LLMClient {
    * and automatic tier fallback.
    */
   async complete(request: LLMRequest, _fallbackDepth = 0): Promise<LLMResponse> {
-    const client = this.resolveClient(request.agentId);
-    if (!client) {
+    const runtime = this.resolveRuntimeProvider(request.agentId);
+    if (!runtime) {
       throw new Error(
-        'LLM client not configured. Set ANTHROPIC_API_KEY environment variable or pass apiKey in config.',
+        'LLM client not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, add a provider, or sign in with Codex.',
       );
     }
 
-    const modelConfig = this.resolveModel(request.model);
+    if (runtime.id === 'openai' || runtime.id === 'groq') {
+      return this.completeOpenAI(runtime, request);
+    }
+
+    if (runtime.id !== 'anthropic') {
+      throw new Error(`${runtime.id} generation is not implemented yet.`);
+    }
+
+    const client = runtime.client;
+    const modelConfig = this.resolveModelForProvider(runtime, request.model);
     const system = await this.buildSystemPrompt(request);
     const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
 
@@ -524,12 +644,22 @@ export class LLMClient {
     executor: ToolExecutor,
     opts: { maxIterations?: number } = {},
   ): Promise<LLMToolsResponse> {
-    const client = this.resolveClient(request.agentId);
-    if (!client) {
+    const runtime = this.resolveRuntimeProvider(request.agentId);
+    if (!runtime) {
       throw new Error(
-        'LLM client not configured. Set ANTHROPIC_API_KEY environment variable or pass apiKey in config.',
+        'LLM client not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, add a provider, or sign in with Codex.',
       );
     }
+
+    if (runtime.id === 'openai' || runtime.id === 'groq') {
+      return this.completeOpenAIWithTools(runtime, request, executor, opts);
+    }
+
+    if (runtime.id !== 'anthropic') {
+      throw new Error(`${runtime.id} generation with tools is not implemented yet.`);
+    }
+
+    const client = runtime.client;
 
     const MAX_ITERATIONS = opts.maxIterations ?? 10;
     const toolCallLog: ToolCallLog[] = [];
@@ -546,7 +676,7 @@ export class LLMClient {
     });
 
     try {
-      const modelConfig = this.resolveModel(request.model);
+      const modelConfig = this.resolveModelForProvider(runtime, request.model);
       const system = await this.buildSystemPrompt(request);
       const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
 
@@ -763,16 +893,35 @@ export class LLMClient {
    * Returns an async generator of stream events.
    */
   async *stream(request: LLMRequest): AsyncGenerator<LLMStreamEvent> {
-    const client = this.resolveClient(request.agentId);
-    if (!client) {
+    const runtime = this.resolveRuntimeProvider(request.agentId);
+    if (!runtime) {
       yield {
         type: 'error',
-        error: 'LLM client not configured. Set ANTHROPIC_API_KEY.',
+        error: 'LLM client not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, add a provider, or sign in with Codex.',
       };
       return;
     }
 
-    const modelConfig = this.resolveModel(request.model);
+    if (runtime.id === 'openai' || runtime.id === 'groq') {
+      try {
+        const response = await this.completeOpenAI(runtime, request);
+        yield { type: 'text', text: response.content };
+        yield { type: 'done', response };
+      } catch (err) {
+        this.errorCount++;
+        yield { type: 'error', error: err instanceof Error ? err.message : String(err) };
+      }
+      return;
+    }
+
+    if (runtime.id !== 'anthropic') {
+      yield { type: 'error', error: `${runtime.id} streaming is not implemented yet.` };
+      return;
+    }
+
+    const client = runtime.client;
+
+    const modelConfig = this.resolveModelForProvider(runtime, request.model);
     const system = await this.buildSystemPrompt(request);
     const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
     const start = Date.now();
@@ -904,9 +1053,10 @@ export class LLMClient {
    * Get current LLM client stats.
    */
   getStats() {
+    const active = this.resolveRuntimeProvider();
     return {
       configured: this.isConfigured,
-      authMethod: this._authMethod,
+      authMethod: this.authMethod,
       defaultTier: this.defaultTier,
       requestCount: this.requestCount,
       totalInputTokens: this.totalInputTokens,
@@ -916,13 +1066,27 @@ export class LLMClient {
       rateLimitCount: this.rateLimitCount,
       cooldowns: this.getActiveCooldowns(),
       uptime: Date.now() - this.startedAt.getTime(),
+      activeProvider: active?.id ?? null,
       models: Object.fromEntries(
-        Object.entries(this.models).map(([tier, config]) => [
+        Object.entries(this.getActiveModels()).map(([tier, config]) => [
           tier,
           { model: config.model, description: config.description },
         ]),
       ),
+      subscriptionQuota: this.quotaStore?.get('openai') ?? null,
     };
+  }
+
+  /**
+   * Get the model tier mapping for the currently active provider. Falls back
+   * to the Anthropic defaults when no provider is resolved.
+   */
+  getActiveModels(): Record<ModelTier, ModelConfig> {
+    const active = this.resolveRuntimeProvider();
+    if (active && (active.id === 'openai' || active.id === 'groq')) {
+      return { ...DEFAULT_OPENAI_MODELS };
+    }
+    return { ...this.models };
   }
 
   /**
@@ -973,10 +1137,25 @@ export class LLMClient {
 
       // OpenAI-compatible providers (openai, groq)
       const baseUrl = runtime.baseUrl;
-      const key = runtime.apiKey;
-      if (!key) return `No API key configured for ${runtime.name}`;
+      const key = runtime.apiKey ?? (providerId === 'openai' ? LLMClient.resolveOpenAIToken()?.token : null);
+      if (!key) return `No API key or Codex OpenAI subscription token configured for ${runtime.name}`;
       if (!baseUrl) return `No base URL configured for ${runtime.name}`;
-      const res = await fetch(`${baseUrl}/models`, {
+      if (providerId === 'openai') {
+        const codex = !runtime.apiKey ? LLMClient.resolveOpenAIToken() : null;
+        await this.callOpenAIResponses({
+          id: 'openai',
+          token: key,
+          baseUrl,
+          authMethod: runtime.apiKey ? 'provider_store' : (codex?.authMethod ?? 'openai'),
+          accountId: codex?.accountId,
+        }, {
+          model: runtime.defaultModel || 'gpt-5.1-mini',
+          input: 'hi',
+          max_output_tokens: 1,
+        });
+        return null;
+      }
+      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/models`, {
         headers: { Authorization: `Bearer ${key}` },
       });
       if (!res.ok) return `Connection failed: HTTP ${res.status}`;
@@ -998,7 +1177,13 @@ export class LLMClient {
               ? 'Authenticated via Claude Code session token'
               : this._authMethod === 'api_key_config'
                 ? 'Authenticated via config file API key'
-                : 'Authenticated via ANTHROPIC_API_KEY environment variable'
+                : this.authMethod === 'openai_dotenv'
+                  ? `Authenticated via OPENAI_API_KEY in ${LLMClient.envFilePath}`
+                  : this.authMethod === 'openai_api_key_env'
+                    ? 'Authenticated via OPENAI_API_KEY environment variable'
+                    : this.authMethod === 'codex_subscription'
+                      ? 'Authenticated via active Codex/OpenAI subscription'
+                      : 'Authenticated via ANTHROPIC_API_KEY environment variable'
           : 'Not configured — run `fort llm setup` for instructions',
       },
       {
@@ -1189,20 +1374,28 @@ export class LLMClient {
   // ── Retry-Aware API Call ──────────────────────────────────────────
 
   /**
-   * Make an API call with error-type-aware retry logic.
+   * Provider-agnostic retry wrapper.
    * - 429 (rate limit): graduated backoff (30s/1min/5min) + model cooldown + tier fallback
-   * - 401 (auth): token refresh for OAuth, then retry
-   * - 400 (bad request) with OAuth: fall back to fast tier
+   * - 401 (auth): caller-provided refresh, then retry
+   * - 400 (bad request) with Anthropic OAuth: fall back to fast tier
    * - 5xx (overloaded): short backoff (1s/2s/10s)
    * - Other: throw immediately
    *
-   * Used by both complete() and completeWithTools() for consistent retry behavior.
+   * `doCall` is the actual API request. `classify` maps thrown errors to
+   * an ErrorClassification. `onAuthRefresh` is called on retryable 401s
+   * and should return true if it refreshed credentials (caller's closure
+   * is responsible for picking them up on the next doCall).
    */
-  private async callApi(
-    client: Anthropic,
-    params: Anthropic.MessageCreateParams,
-    context: { modelConfig: ModelConfig; request: LLMRequest; fallbackDepth?: number },
-  ): Promise<Anthropic.Message> {
+  private async callWithRetry<T>(
+    doCall: () => Promise<T>,
+    classify: (err: unknown) => ErrorClassification,
+    context: {
+      modelConfig: ModelConfig;
+      request: LLMRequest;
+      fallbackDepth?: number;
+      onAuthRefresh?: () => boolean;
+    },
+  ): Promise<T> {
     const { modelConfig, request } = context;
     const fallbackDepth = context.fallbackDepth ?? 0;
 
@@ -1215,7 +1408,6 @@ export class LLMClient {
           error: `Model "${modelConfig.model}" in cooldown, falling back to ${fallbackTier}`,
           model: this.models[fallbackTier].model,
         });
-        // Use complete() for fallback so it gets full response processing
         throw Object.assign(new Error('__TIER_FALLBACK__'), {
           _fallbackTier: fallbackTier,
           _fallbackDepth: fallbackDepth,
@@ -1230,12 +1422,13 @@ export class LLMClient {
 
     let rateLimitAttempts = 0;
     let generalAttempts = 0;
+    let authRefreshAttempted = false;
 
     for (;;) {
       try {
-        return await client.messages.create(params) as Anthropic.Message;
+        return await doCall();
       } catch (err) {
-        const classified = this.classifyError(err);
+        const classified = classify(err);
         this.errorCount++;
 
         // ── Rate limit (429) ──
@@ -1270,7 +1463,6 @@ export class LLMClient {
             });
           }
 
-          // No fallback available — sleep and retry if attempts remain
           if (rateLimitAttempts < RATE_LIMIT_MAX_RETRIES) {
             await new Promise((resolve) => setTimeout(resolve, backoffMs));
             this.bus.publish('llm.retry', 'llm-client', {
@@ -1281,7 +1473,6 @@ export class LLMClient {
             continue;
           }
 
-          // Exhausted rate limit retries
           this.bus.publish('llm.error', 'llm-client', {
             error: `Rate limited after ${rateLimitAttempts} retries`,
             model: modelConfig.model,
@@ -1290,26 +1481,21 @@ export class LLMClient {
           throw err;
         }
 
-        // ── Auth error (401) with OAuth — try token refresh ──
-        if (classified.type === 'auth' && classified.retryable) {
-          if (this.maybeRefreshToken()) {
-            // Token was refreshed — resolve a fresh client and retry once
-            const freshClient = this.resolveClient(request.agentId);
-            if (freshClient) {
-              this.bus.publish('llm.retry', 'llm-client', {
-                attempt: 'token-refresh',
-                error: 'Auth failed, retrying with refreshed token',
-                model: modelConfig.model,
-              });
-              client = freshClient;
-              continue;
-            }
+        // ── Auth error (401) — caller may attempt a refresh ──
+        if (classified.type === 'auth' && classified.retryable && !authRefreshAttempted) {
+          authRefreshAttempted = true;
+          if (context.onAuthRefresh?.()) {
+            this.bus.publish('llm.retry', 'llm-client', {
+              attempt: 'token-refresh',
+              error: 'Auth failed, retrying with refreshed token',
+              model: modelConfig.model,
+            });
+            continue;
           }
-          // Token didn't change or refresh failed — throw
           throw err;
         }
 
-        // ── Bad request (400) with OAuth — model tier fallback ──
+        // ── Bad request (400) with OAuth — Anthropic-specific tier fallback ──
         if (classified.type === 'bad_request' && this._isOAuthToken) {
           if (modelConfig.model !== this.models.fast.model && fallbackDepth < MAX_FALLBACK_DEPTH) {
             this.bus.publish('llm.retry', 'llm-client', {
@@ -1351,19 +1537,171 @@ export class LLMClient {
   }
 
   /**
+   * Anthropic-specific wrapper around callWithRetry. Maintains a mutable
+   * `currentClient` reference so a 401 refresh swaps in the fresh client
+   * for the next attempt without leaving callWithRetry.
+   */
+  private async callApi(
+    client: Anthropic,
+    params: Anthropic.MessageCreateParams,
+    context: { modelConfig: ModelConfig; request: LLMRequest; fallbackDepth?: number },
+  ): Promise<Anthropic.Message> {
+    let currentClient = client;
+    return this.callWithRetry<Anthropic.Message>(
+      () => currentClient.messages.create(params) as Promise<Anthropic.Message>,
+      (err) => this.classifyError(err),
+      {
+        ...context,
+        onAuthRefresh: () => {
+          if (this.maybeRefreshToken()) {
+            const fresh = this.resolveClient(context.request.agentId);
+            if (fresh) {
+              currentClient = fresh;
+              return true;
+            }
+          }
+          return false;
+        },
+      },
+    );
+  }
+
+  /**
+   * Classify an OpenAI HTTP error (from OpenAIHttpError) for the retry layer.
+   * Mirrors classifyError() but operates on raw HTTP status + headers, since the
+   * OpenAI path uses fetch() rather than an SDK with typed exceptions.
+   */
+  private classifyOpenAIError(err: unknown, currentAuthMethod?: string): ErrorClassification {
+    if (!(err instanceof OpenAIHttpError)) {
+      // Network failures (fetch threw) — treat as retryable connection error
+      return { type: 'connection', retryAfterMs: null, retryable: true };
+    }
+
+    if (err.status === 429) {
+      let retryAfterMs: number | null = null;
+      const msHeader = err.headers.get('retry-after-ms');
+      const secHeader = err.headers.get('retry-after');
+      if (msHeader) {
+        const ms = parseInt(msHeader, 10);
+        if (!isNaN(ms)) retryAfterMs = ms;
+      } else if (secHeader) {
+        const secs = parseFloat(secHeader);
+        if (!isNaN(secs)) retryAfterMs = secs * 1000;
+      }
+      return { type: 'rate_limit', retryAfterMs, retryable: true };
+    }
+
+    if (err.status === 401) {
+      // Only Codex subscription tokens can be refreshed; raw API keys cannot.
+      return { type: 'auth', retryAfterMs: null, retryable: currentAuthMethod === 'codex_subscription' };
+    }
+
+    if (err.status >= 500) {
+      return { type: 'overloaded', retryAfterMs: null, retryable: true };
+    }
+
+    if (err.status >= 400) {
+      return { type: 'bad_request', retryAfterMs: null, retryable: false };
+    }
+
+    return { type: 'unknown', retryAfterMs: null, retryable: false };
+  }
+
+  /**
    * Resolve the Anthropic client to use for a request.
    * Priority: DB default provider key → constructor-configured client.
    * Returns null only when neither is available.
    */
   private resolveClient(agentId?: string): Anthropic | null {
+    const runtime = this.resolveRuntimeProvider(agentId);
+    return runtime?.id === 'anthropic' ? runtime.client : null;
+  }
+
+  private resolveRuntimeProvider(agentId?: string): RuntimeProvider | null {
     if (this.providerStore) {
       const provider = this.getActiveProvider(agentId);
-      if (provider && provider.id === 'anthropic' && provider.apiKey) {
-        const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
-        return LLMClient.createAnthropicClient(provider.apiKey, isOAuth);
+      if (provider) {
+        if (provider.id === 'anthropic' && provider.apiKey) {
+          const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
+          return {
+            id: 'anthropic',
+            client: LLMClient.createAnthropicClient(provider.apiKey, isOAuth),
+            authMethod: 'provider_store',
+            isOAuth,
+          };
+        }
+
+        if (provider.id === 'openai' || provider.id === 'groq') {
+          const resolved: { token: string; authMethod: string; accountId?: string } | null = provider.apiKey
+            ? { token: provider.apiKey, authMethod: 'provider_store' }
+            : provider.id === 'openai'
+              ? LLMClient.resolveOpenAIToken()
+              : null;
+          if (resolved) {
+            return {
+              id: provider.id,
+              token: resolved.token,
+              baseUrl: provider.baseUrl ?? (provider.id === 'openai' ? 'https://api.openai.com/v1' : 'https://api.groq.com/openai/v1'),
+              authMethod: resolved.authMethod,
+              accountId: resolved.accountId,
+            };
+          }
+        }
+
+        if (provider.id === 'ollama') {
+          return {
+            id: 'ollama',
+            baseUrl: provider.baseUrl ?? 'http://localhost:11434',
+            authMethod: 'provider_store',
+          };
+        }
       }
     }
-    return this.client;
+
+    const openai = LLMClient.resolveOpenAIToken();
+    if (openai) {
+      return {
+        id: 'openai',
+        token: openai.token,
+        baseUrl: 'https://api.openai.com/v1',
+        authMethod: openai.authMethod,
+        accountId: openai.accountId,
+      };
+    }
+
+    if (this.client) {
+      return {
+        id: 'anthropic',
+        client: this.client,
+        authMethod: this._authMethod ?? 'unknown',
+        isOAuth: this._isOAuthToken,
+      };
+    }
+
+    return null;
+  }
+
+  private static resolveOpenAIToken(): { token: string; authMethod: string; accountId?: string } | null {
+    if (process.env.OPENAI_API_KEY) {
+      return { token: process.env.OPENAI_API_KEY, authMethod: 'openai_api_key_env' };
+    }
+    const envFileToken = LLMClient.readOpenAIEnvFile();
+    if (envFileToken) {
+      return { token: envFileToken, authMethod: 'openai_dotenv' };
+    }
+    const codex = LLMClient.readCodexOpenAIToken();
+    if (codex) {
+      return { token: codex.accessToken, authMethod: 'codex_subscription', accountId: codex.accountId };
+    }
+    return null;
+  }
+
+  private resolveModelForProvider(provider: RuntimeProvider, modelSpec?: ModelTier | string): ModelConfig {
+    if ((provider.id === 'openai' || provider.id === 'groq') && (!modelSpec || modelSpec in DEFAULT_OPENAI_MODELS)) {
+      const tier = (modelSpec ?? this.defaultTier) as ModelTier;
+      return DEFAULT_OPENAI_MODELS[tier];
+    }
+    return this.resolveModel(modelSpec);
   }
 
   private resolveModel(modelSpec?: ModelTier | string): ModelConfig {
@@ -1485,5 +1823,481 @@ export class LLMClient {
     const pricing = PRICING[model];
     if (!pricing) return 0;
     return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+  }
+
+  /**
+   * Parse subscription rate-limit headers into a QuotaSnapshot. Header names
+   * differ between OpenAI API tiers and the ChatGPT/Codex backend, so we look
+   * for several variants. Returns null if no quota signal is present.
+   */
+  private static parseSubscriptionQuota(headers: Headers, providerId: string): QuotaSnapshot | null {
+    const get = (name: string): string | null => headers.get(name);
+    const firstNumber = (...names: string[]): number | null => {
+      for (const n of names) {
+        const v = get(n);
+        if (v === null || v === undefined) continue;
+        const num = parseInt(v, 10);
+        if (!isNaN(num)) return num;
+      }
+      return null;
+    };
+
+    const remaining = firstNumber(
+      'x-codex-remaining-queries',
+      'x-ratelimit-remaining-requests',
+      'x-ratelimit-remaining',
+    );
+    const limit = firstNumber(
+      'x-codex-limit-queries',
+      'x-ratelimit-limit-requests',
+      'x-ratelimit-limit',
+    );
+    const used = firstNumber(
+      'x-codex-used-queries',
+      'x-ratelimit-used-requests',
+    );
+
+    // Reset can be an epoch (seconds) or an ISO datetime or a duration like "30s".
+    const resetRaw =
+      get('x-codex-reset') ??
+      get('x-ratelimit-reset-requests') ??
+      get('x-ratelimit-reset');
+    let resetAt: string | null = null;
+    if (resetRaw) {
+      const asNumber = parseFloat(resetRaw);
+      if (!isNaN(asNumber)) {
+        // Epoch seconds for very large numbers, otherwise seconds-from-now
+        const ms = asNumber > 1_000_000_000 ? asNumber * 1000 : Date.now() + asNumber * 1000;
+        resetAt = new Date(ms).toISOString();
+      } else {
+        try { resetAt = new Date(resetRaw).toISOString(); } catch { resetAt = null; }
+      }
+    }
+
+    const windowLabel = get('x-codex-window') ?? get('x-ratelimit-window');
+
+    // Capture every x-* header for debugging — header names vary by backend.
+    const rawHeaders: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      const k = key.toLowerCase();
+      if (k.startsWith('x-ratelimit-') || k.startsWith('x-codex-') || k === 'retry-after') {
+        rawHeaders[k] = value;
+      }
+    });
+
+    if (remaining === null && limit === null && used === null && resetAt === null) {
+      return null;
+    }
+
+    return {
+      providerId,
+      remaining,
+      used,
+      limit,
+      windowLabel,
+      resetAt,
+      rawHeaders,
+      updatedAt: '', // set by store
+    };
+  }
+
+  /**
+   * Capture subscription quota from a successful OpenAI response and publish
+   * `llm.subscription_quota` for any dashboard subscribers. Skipped when no
+   * quota store is configured (tests, headless usage).
+   */
+  private observeOpenAIHeaders(
+    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    headers: Headers,
+  ): void {
+    if (!this.quotaStore) return;
+    const snapshot = LLMClient.parseSubscriptionQuota(headers, provider.id);
+    if (!snapshot) return;
+    const stored = this.quotaStore.set(snapshot);
+    this.bus.publish('llm.subscription_quota', 'llm-client', stored);
+  }
+
+  /**
+   * Refresh a Codex CLI access token (when the subscription token has expired).
+   * Best-effort: asks the codex CLI to refresh, then re-reads ~/.codex/auth.json.
+   * Returns true when the cached token actually changed.
+   */
+  private maybeRefreshCodexToken(): boolean {
+    if (Date.now() - this.lastTokenRefresh < TOKEN_REFRESH_TTL_MS) return false;
+    this.lastTokenRefresh = Date.now();
+
+    // Ask Codex CLI to refresh — uses separate args, no shell interpolation.
+    try {
+      spawnSync('codex', ['auth', 'refresh'], { stdio: 'pipe', timeout: 10_000 });
+    } catch {
+      // Codex CLI may auto-refresh in the background; re-reading the file is enough.
+    }
+
+    const fresh = LLMClient.readCodexOpenAIToken();
+    if (!fresh) return false;
+    if (fresh.accessToken === this.cachedToken) return false;
+    this.cachedToken = fresh.accessToken;
+    return true;
+  }
+
+  private async completeOpenAI(
+    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    request: LLMRequest,
+    fallbackDepth = 0,
+  ): Promise<LLMResponse> {
+    const modelConfig = this.resolveModelForProvider(provider, request.model);
+    const system = await this.buildSystemPrompt(request);
+    const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+    const start = Date.now();
+
+    let currentProvider = provider;
+    let result: OpenAICallResult;
+    try {
+      result = await this.callWithRetry<OpenAICallResult>(
+        () => this.callOpenAIResponses(currentProvider, {
+          model: modelConfig.model,
+          instructions: system,
+          input: request.messages.map((m) => ({ role: m.role, content: m.content })),
+          max_output_tokens: maxTokens,
+          temperature: request.temperature,
+        }),
+        (err) => this.classifyOpenAIError(err, currentProvider.authMethod),
+        {
+          modelConfig,
+          request,
+          fallbackDepth,
+          onAuthRefresh: () => {
+            if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
+              const fresh = this.resolveRuntimeProvider(request.agentId);
+              if (fresh && (fresh.id === 'openai' || fresh.id === 'groq')) {
+                currentProvider = fresh;
+                return true;
+              }
+            }
+            return false;
+          },
+        },
+      );
+    } catch (err: any) {
+      if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        return this.completeOpenAI(
+          provider,
+          { ...request, model: err._fallbackTier },
+          (err._fallbackDepth ?? 0) + 1,
+        );
+      }
+      throw err;
+    }
+
+    this.observeOpenAIHeaders(provider, result.headers);
+    return this.recordOpenAIResult(result.body, modelConfig, request, Date.now() - start, 'llm_client');
+  }
+
+  private async completeOpenAIWithTools(
+    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    request: LLMRequest & { tools: FortTool[] },
+    executor: ToolExecutor,
+    opts: { maxIterations?: number } = {},
+  ): Promise<LLMToolsResponse> {
+    const MAX_ITERATIONS = opts.maxIterations ?? 10;
+    const toolCallLog: ToolCallLog[] = [];
+    const unsubExecuted = this.bus.subscribe('tool.executed', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+    const unsubDenied = this.bus.subscribe('tool.denied', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+    const unsubError = this.bus.subscribe('tool.error', (event) => {
+      toolCallLog.push(event.payload as ToolCallLog);
+    });
+
+    try {
+      const modelConfig = this.resolveModelForProvider(provider, request.model);
+      const system = await this.buildSystemPrompt(request);
+      const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+      const toolMap = new Map<string, FortTool>(request.tools.map((t) => [t.name, t]));
+      const input: any[] = request.messages.map((m) => ({ role: m.role, content: m.content }));
+      const openaiTools = request.tools.map((t) => ({
+        type: 'function',
+        name: t.name,
+        description: t.description,
+        parameters: t.inputSchema,
+      }));
+
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCostUsd = 0;
+      const start = Date.now();
+
+      let currentProvider = provider;
+      for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+        const iterCall = await this.callWithRetry<OpenAICallResult>(
+          () => this.callOpenAIResponses(currentProvider, {
+            model: modelConfig.model,
+            instructions: system,
+            input,
+            tools: openaiTools,
+            max_output_tokens: maxTokens,
+            temperature: request.temperature,
+          }),
+          (err) => this.classifyOpenAIError(err, currentProvider.authMethod),
+          {
+            modelConfig,
+            request,
+            onAuthRefresh: () => {
+              if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
+                const fresh = this.resolveRuntimeProvider(request.agentId);
+                if (fresh && (fresh.id === 'openai' || fresh.id === 'groq')) {
+                  currentProvider = fresh;
+                  return true;
+                }
+              }
+              return false;
+            },
+          },
+        ).catch((err: any) => {
+          // Mid-loop tier fallback is unsafe (changes assistant identity mid-conversation);
+          // surface the error like the Anthropic tool loop at line ~692.
+          if (err?.message === '__TIER_FALLBACK__') {
+            throw new Error(
+              `Rate limited on "${modelConfig.model}" during tool loop. ` +
+              `Fallback tier "${err._fallbackTier}" available — retry with a different model.`,
+            );
+          }
+          throw err;
+        });
+        this.observeOpenAIHeaders(currentProvider, iterCall.headers);
+        const response = iterCall.body;
+
+        const inputTokens = response.usage?.input_tokens ?? 0;
+        const outputTokens = response.usage?.output_tokens ?? 0;
+        totalInputTokens += inputTokens;
+        totalOutputTokens += outputTokens;
+        totalCostUsd += this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+
+        this.requestCount++;
+        this.totalInputTokens += inputTokens;
+        this.totalOutputTokens += outputTokens;
+        this.totalCostUsd += this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+
+        const functionCalls = (response.output ?? []).filter((item) => item.type === 'function_call');
+        if (functionCalls.length === 0) {
+          const durationMs = Date.now() - start;
+          this.bus.publish('llm.completed', 'llm-client', {
+            model: modelConfig.model,
+            tier: modelConfig.tier,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            costUsd: totalCostUsd,
+            durationMs,
+            taskId: request.taskId,
+            agentId: request.agentId,
+            toolCalls: toolCallLog.length,
+          });
+
+          if (request.taskId && request.agentId) {
+            this.bus.publish('usage.recorded', request.agentId, {
+              taskId: request.taskId,
+              agentId: request.agentId,
+              model: modelConfig.model,
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+            });
+          }
+
+          return {
+            content: this.extractOpenAIText(response),
+            model: modelConfig.model,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            totalTokens: totalInputTokens + totalOutputTokens,
+            costUsd: totalCostUsd,
+            stopReason: 'end_turn',
+            durationMs,
+            toolCallLog,
+            iterations: iteration,
+          };
+        }
+
+        input.push(...(response.output ?? []));
+        for (const call of functionCalls) {
+          const tool = toolMap.get(String(call.name));
+          if (!tool) {
+            input.push({
+              type: 'function_call_output',
+              call_id: call.call_id,
+              output: `Error: Tool "${call.name}" not found in registry`,
+            });
+            continue;
+          }
+          let args: unknown = {};
+          try {
+            args = call.arguments ? JSON.parse(String(call.arguments)) : {};
+          } catch {
+            args = {};
+          }
+          const toolResult = await executor.execute(tool, args, {
+            taskId: request.taskId,
+            agentId: request.agentId,
+          });
+          input.push({
+            type: 'function_call_output',
+            call_id: call.call_id,
+            output: toolResult.output || toolResult.error || '',
+          });
+        }
+      }
+
+      if (request.taskId && request.agentId) {
+        this.bus.publish('usage.recorded', request.agentId, {
+          taskId: request.taskId,
+          agentId: request.agentId,
+          model: modelConfig.model,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        });
+      }
+
+      return {
+        content: '',
+        model: modelConfig.model,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        totalTokens: totalInputTokens + totalOutputTokens,
+        costUsd: totalCostUsd,
+        stopReason: 'max_iterations',
+        durationMs: Date.now() - start,
+        toolCallLog,
+        iterations: MAX_ITERATIONS,
+      };
+    } finally {
+      unsubExecuted();
+      unsubDenied();
+      unsubError();
+    }
+  }
+
+  /**
+   * Make a raw OpenAI Responses-API call. For ChatGPT/Codex subscription tokens,
+   * targets `https://chatgpt.com/backend-api/codex/responses` with the
+   * `chatgpt-account-id` and `OpenAI-Beta` headers. For API keys, hits the
+   * provider's configured base URL (api.openai.com by default).
+   *
+   * On HTTP error throws OpenAIHttpError so the retry layer can classify by status.
+   * On success returns the parsed body AND the raw Headers (used by the quota tracker).
+   */
+  private async callOpenAIResponses(
+    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    body: Record<string, unknown>,
+  ): Promise<OpenAICallResult> {
+    const isCodexSub = provider.authMethod === 'codex_subscription';
+    const url = isCodexSub
+      ? 'https://chatgpt.com/backend-api/codex/responses'
+      : `${provider.baseUrl.replace(/\/$/, '')}/responses`;
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${provider.token}`,
+      'Content-Type': 'application/json',
+    };
+    if (isCodexSub) {
+      headers['OpenAI-Beta'] = 'responses=experimental';
+      if (provider.accountId) headers['chatgpt-account-id'] = provider.accountId;
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json().catch(() => ({})) as OpenAIResponse;
+    if (!res.ok) {
+      const message = json.error?.message ?? `OpenAI request failed: HTTP ${res.status}`;
+      throw new OpenAIHttpError(res.status, res.headers, json, message);
+    }
+    return { body: json, headers: res.headers };
+  }
+
+  private recordOpenAIResult(
+    response: OpenAIResponse,
+    modelConfig: ModelConfig,
+    request: LLMRequest,
+    durationMs: number,
+    source: string,
+  ): LLMResponse {
+    const inputTokens = response.usage?.input_tokens ?? 0;
+    const outputTokens = response.usage?.output_tokens ?? 0;
+    const totalTokens = response.usage?.total_tokens ?? inputTokens + outputTokens;
+    const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+    const content = this.extractOpenAIText(response);
+
+    this.requestCount++;
+    this.totalInputTokens += inputTokens;
+    this.totalOutputTokens += outputTokens;
+    this.totalCostUsd += costUsd;
+
+    if (this.tokenTracker) {
+      this.tokenTracker.record({
+        timestamp: new Date(),
+        model: modelConfig.model,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        costUsd,
+        taskId: request.taskId,
+        agentId: request.agentId,
+        source,
+      });
+    }
+
+    this.bus.publish('llm.completed', 'llm-client', {
+      model: modelConfig.model,
+      tier: modelConfig.tier,
+      inputTokens,
+      outputTokens,
+      costUsd,
+      durationMs,
+      taskId: request.taskId,
+      agentId: request.agentId,
+    });
+
+    if (request.taskId && request.agentId) {
+      this.bus.publish('usage.recorded', request.agentId, {
+        taskId: request.taskId,
+        agentId: request.agentId,
+        model: modelConfig.model,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      });
+    }
+
+    return {
+      content,
+      model: modelConfig.model,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      costUsd,
+      stopReason: 'end_turn',
+      durationMs,
+    };
+  }
+
+  private extractOpenAIText(response: OpenAIResponse): string {
+    if (response.output_text) return response.output_text;
+    const parts: string[] = [];
+    for (const item of response.output ?? []) {
+      if (item.type !== 'message' || !Array.isArray(item.content)) continue;
+      for (const content of item.content) {
+        if (typeof content.text === 'string') parts.push(content.text);
+      }
+    }
+    return parts.join('');
   }
 }

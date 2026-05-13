@@ -45,14 +45,14 @@ export interface LLMProviderRuntime extends LLMProvider {
 
 export const PROVIDER_MODELS: Record<ProviderType, string[]> = {
   anthropic: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+  openai: ['gpt-5.1', 'gpt-5.1-mini', 'gpt-5.1-codex-max'],
   groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
   ollama: [],
 };
 
 export const PROVIDER_DEFAULTS: Record<ProviderType, { name: string; defaultModel: string; baseUrl?: string }> = {
   anthropic: { name: 'Anthropic', defaultModel: 'claude-sonnet-4-5-20250929' },
-  openai:    { name: 'OpenAI',    defaultModel: 'gpt-4o',                    baseUrl: 'https://api.openai.com/v1' },
+  openai:    { name: 'OpenAI',    defaultModel: 'gpt-5.1',                   baseUrl: 'https://api.openai.com/v1' },
   groq:      { name: 'Groq',      defaultModel: 'llama-3.3-70b-versatile',   baseUrl: 'https://api.groq.com/openai/v1' },
   ollama:    { name: 'Ollama',    defaultModel: 'llama3',                    baseUrl: 'http://localhost:11434' },
 };

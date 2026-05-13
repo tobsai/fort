@@ -11,14 +11,22 @@ export function createLLMCommand(): Command {
 
   cmd
     .command('setup')
-    .description('Authenticate Fort with your Claude subscription')
-    .option('--api-key', 'Set up with an API key instead of Claude subscription')
+    .description('Authenticate Fort with a Claude or OpenAI subscription')
+    .option('--api-key', 'Set up with an Anthropic API key instead of Claude subscription')
+    .option('--openai', 'Authenticate with OpenAI via the Codex CLI subscription')
     .action(async (opts) => {
       await withFort(async (fort) => {
+        if (opts.openai) {
+          await setupOpenAI(fort);
+          return;
+        }
         if (fort.llm.isConfigured) {
           const authLabel =
             fort.llm.authMethod === 'dotenv' ? `~/.fort/.env` :
             fort.llm.authMethod === 'api_key_config' ? 'config file API key' :
+            fort.llm.authMethod === 'openai_dotenv' ? `OPENAI_API_KEY in ~/.fort/.env` :
+            fort.llm.authMethod === 'openai_api_key_env' ? 'OPENAI_API_KEY environment variable' :
+            fort.llm.authMethod === 'codex_subscription' ? 'Codex/OpenAI subscription' :
             'ANTHROPIC_API_KEY environment variable';
           console.log(bold('\n  LLM Already Configured\n'));
           console.log(`  ${green('✓')} Authenticated via ${authLabel}.`);
@@ -53,7 +61,8 @@ export function createLLMCommand(): Command {
           console.log('  Fort can authenticate through the Claude CLI. Install it:\n');
           console.log(`    ${cyan('npm install -g @anthropic-ai/claude-code')}\n`);
           console.log('  Then run ' + cyan('fort llm setup') + ' again.\n');
-          console.log(dim('  Or use an API key: ' + cyan('fort llm setup --api-key')) + '\n');
+          console.log(dim('  Or use an API key: ' + cyan('fort llm setup --api-key')));
+          console.log(dim('  Or set up OpenAI:  ' + cyan('fort llm setup --openai')) + '\n');
           return;
         }
 
@@ -127,10 +136,22 @@ export function createLLMCommand(): Command {
 
         const statusStr = stats.configured ? green('● Configured') : yellow('○ Not Configured');
         console.log(`  Status:         ${statusStr}`);
+        if (stats.activeProvider) {
+          const providerLabel =
+            stats.activeProvider === 'anthropic' ? 'Anthropic' :
+            stats.activeProvider === 'openai' ? 'OpenAI' :
+            stats.activeProvider === 'groq' ? 'Groq' :
+            stats.activeProvider === 'ollama' ? 'Ollama' :
+            stats.activeProvider;
+          console.log(`  Provider:       ${providerLabel}`);
+        }
         if (stats.authMethod) {
           const authLabel =
             stats.authMethod === 'dotenv' ? `~/.fort/.env` :
             stats.authMethod === 'api_key_config' ? 'Config file API key' :
+            stats.authMethod === 'openai_dotenv' ? 'OPENAI_API_KEY in ~/.fort/.env' :
+            stats.authMethod === 'openai_api_key_env' ? 'OPENAI_API_KEY environment variable' :
+            stats.authMethod === 'codex_subscription' ? 'Codex/OpenAI subscription' :
             'ANTHROPIC_API_KEY environment variable';
           console.log(`  Auth:           ${authLabel}`);
         }
@@ -143,6 +164,29 @@ export function createLLMCommand(): Command {
           console.log(`    ${" ".repeat(10)} ${dim((model as any).description)}`);
         }
         console.log();
+
+        if (stats.subscriptionQuota) {
+          const q = stats.subscriptionQuota as any;
+          console.log(bold('  Subscription:'));
+          if (q.remaining !== null && q.limit !== null) {
+            const used = q.limit - q.remaining;
+            const pct = q.limit > 0 ? Math.round((used / q.limit) * 100) : 0;
+            console.log(`    Remaining:     ${q.remaining.toLocaleString()} / ${q.limit.toLocaleString()} (${pct}% used)`);
+          } else if (q.remaining !== null) {
+            console.log(`    Remaining:     ${q.remaining.toLocaleString()}`);
+          }
+          if (q.resetAt) {
+            const resetDate = new Date(q.resetAt);
+            const deltaMs = resetDate.getTime() - Date.now();
+            if (deltaMs > 0) {
+              const mins = Math.round(deltaMs / 60_000);
+              const human = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+              console.log(`    Resets in:     ${human} (${resetDate.toLocaleString()})`);
+            }
+          }
+          if (q.windowLabel) console.log(`    Window:        ${q.windowLabel}`);
+          console.log();
+        }
 
         console.log(bold('  Usage:'));
         console.log(`    Requests:      ${stats.requestCount}`);
@@ -161,12 +205,16 @@ export function createLLMCommand(): Command {
 
   cmd
     .command('models')
-    .description('List available model configurations')
+    .description('List available model configurations for the active provider')
     .action(async () => {
       await withFort(async (fort) => {
-        const models = fort.llm.getModels();
+        const models = fort.llm.getActiveModels();
+        const stats = fort.llm.getStats();
 
         console.log(bold('\n  Model Routing Configuration\n'));
+        if (stats.activeProvider) {
+          console.log(dim(`  Active provider: ${stats.activeProvider}\n`));
+        }
 
         for (const [tier, config] of Object.entries(models as Record<string, any>)) {
           console.log(`  ${bold(tier.toUpperCase().padEnd(12))} ${cyan(config.model)}`);
@@ -236,5 +284,155 @@ export function createLLMCommand(): Command {
       });
     });
 
+  const providersCmd = new Command('providers').description('Manage configured LLM providers');
+
+  providersCmd
+    .command('list', { isDefault: true })
+    .description('List configured LLM providers')
+    .action(async () => {
+      await withFort(async (fort) => {
+        const providers = fort.llmProviders.listProviders();
+        if (providers.length === 0) {
+          console.log(dim('\n  No providers configured.'));
+          console.log(dim('  Run `fort llm setup` (Claude) or `fort llm setup --openai` (OpenAI) to get started.\n'));
+          return;
+        }
+        console.log(bold('\n  LLM Providers\n'));
+        for (const p of providers) {
+          const flag = p.isDefault ? green('●') : ' ';
+          const status = p.enabled ? '' : dim(' (disabled)');
+          console.log(`  ${flag} ${bold(p.name.padEnd(12))} ${cyan(p.id)}${status}`);
+          console.log(`    ${dim('Model:')} ${p.defaultModel}`);
+          console.log(`    ${dim('Key:  ')} ${p.apiKeyEncrypted ? 'configured' : (p.id === 'openai' ? 'using Codex subscription' : 'none')}`);
+          console.log();
+        }
+      });
+    });
+
+  providersCmd
+    .command('set-default <id>')
+    .description('Set the default LLM provider')
+    .action(async (id: string) => {
+      await withFort(async (fort) => {
+        try {
+          fort.llmProviders.setDefault(id);
+          console.log(`  ${green('✓')} Default provider set to ${cyan(id)}.\n`);
+        } catch (err) {
+          console.error(`  ${yellow('⚠')} ${err instanceof Error ? err.message : err}\n`);
+        }
+      });
+    });
+
+  providersCmd
+    .command('remove <id>')
+    .description('Remove an LLM provider from the store')
+    .action(async (id: string) => {
+      await withFort(async (fort) => {
+        fort.llmProviders.deleteProvider(id);
+        console.log(`  ${green('✓')} Removed provider ${cyan(id)}.\n`);
+      });
+    });
+
+  providersCmd
+    .command('test <id>')
+    .description('Test connectivity to a configured provider')
+    .action(async (id: string) => {
+      await withFort(async (fort) => {
+        const err = await fort.llm.testConnection(id);
+        if (err) {
+          console.log(`  ${yellow('✗')} ${id}: ${err}\n`);
+        } else {
+          console.log(`  ${green('✓')} ${id}: connection OK\n`);
+        }
+      });
+    });
+
+  cmd.addCommand(providersCmd);
+
   return cmd;
+}
+
+/**
+ * Authenticate Fort with an OpenAI/ChatGPT subscription via the Codex CLI.
+ * Mirrors the Claude OAuth flow: probe for the codex binary, run `codex login`,
+ * then read ~/.codex/auth.json to confirm.
+ */
+async function setupOpenAI(fort: any): Promise<void> {
+  const tokenInfo = LLMClient.readCodexOpenAIToken();
+  if (tokenInfo) {
+    console.log(bold('\n  Codex Subscription Detected\n'));
+    console.log(`  ${green('✓')} Authenticated via active Codex/OpenAI subscription.`);
+    if (tokenInfo.accountId) {
+      console.log(`  Account ID: ${dim(tokenInfo.accountId)}`);
+    }
+    console.log(dim('  Token file: ~/.codex/auth.json (managed by Codex CLI)\n'));
+    registerOpenAIProvider(fort, tokenInfo);
+    return;
+  }
+
+  let hasCodex = false;
+  const probe = spawnSync('which', ['codex'], { stdio: 'pipe' });
+  if (probe.status === 0) hasCodex = true;
+
+  if (!hasCodex) {
+    console.log(bold('\n  Codex CLI not found\n'));
+    console.log('  Fort authenticates with OpenAI through the Codex CLI. Install it:\n');
+    console.log(`    ${cyan('npm install -g @openai/codex')}\n`);
+    console.log(dim('  Install docs: https://github.com/openai/codex\n'));
+    console.log('  Then run ' + cyan('fort llm setup --openai') + ' again.\n');
+    return;
+  }
+
+  console.log(bold('\n  Authenticating with OpenAI...\n'));
+  console.log('  This will open your browser to sign in with your OpenAI/ChatGPT account.');
+  console.log('  Your ChatGPT Plus/Pro/Team subscription covers Fort usage.\n');
+
+  const result = spawnSync('codex', ['login'], {
+    stdio: 'inherit',
+    env: { ...process.env },
+  });
+
+  if (result.status !== 0) {
+    console.log(`\n  ${yellow('⚠')} Authentication did not complete.`);
+    console.log('  Try running ' + cyan('codex login') + ' directly to debug.\n');
+    return;
+  }
+
+  const fresh = LLMClient.readCodexOpenAIToken();
+  if (!fresh) {
+    console.log(`\n  ${yellow('⚠')} Could not read credentials from ~/.codex/auth.json.`);
+    console.log('  The login flow exited, but Fort cannot find the access token.\n');
+    return;
+  }
+
+  console.log(`\n  ${green('✓')} Authentication successful!\n`);
+  if (fresh.accountId) {
+    console.log(`  Account ID: ${dim(fresh.accountId)}`);
+  }
+  console.log(dim('  Token file: ~/.codex/auth.json (managed by Codex CLI)'));
+  console.log(`  Verify with: ${cyan('fort llm status')}\n`);
+  registerOpenAIProvider(fort, fresh);
+}
+
+/**
+ * Register the OpenAI provider in Fort's provider store so it shows up in the
+ * dashboard Settings page. Idempotent — does nothing if already registered.
+ */
+function registerOpenAIProvider(fort: any, _tokenInfo: { accountId?: string }): void {
+  try {
+    const existing = fort.llmProviders.getProvider('openai');
+    if (existing) return;
+    fort.llmProviders.addProvider({
+      id: 'openai',
+      name: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      defaultModel: 'gpt-5.1',
+      enabled: true,
+      isDefault: false,
+    });
+    console.log(dim('  Registered OpenAI provider in Fort.'));
+    console.log(dim('  Make it the default with: ' + cyan('fort llm providers set-default openai') + '\n'));
+  } catch (err) {
+    console.log(dim('  Could not register provider in store: ' + (err instanceof Error ? err.message : String(err))));
+  }
 }

@@ -1,5 +1,61 @@
 import { useState, useEffect, useCallback } from "react";
-import { useFortSocket } from "../contexts/FortSocketContext";
+import { useFortSocket, type SubscriptionQuota } from "../contexts/FortSocketContext";
+
+// ─── Subscription Quota Panel ────────────────────────────────────────────────
+
+function SubscriptionQuotaPanel({ quota }: { quota: SubscriptionQuota }) {
+  const used = quota.remaining !== null && quota.limit !== null ? quota.limit - quota.remaining : null;
+  const pct = used !== null && quota.limit && quota.limit > 0 ? Math.min(100, Math.round((used / quota.limit) * 100)) : null;
+  const resetIn = quota.resetAt ? formatResetIn(quota.resetAt) : null;
+
+  return (
+    <div className="subscription-quota">
+      {quota.remaining !== null && (
+        <div className="subscription-quota-line">
+          <span>Remaining</span>
+          <strong>
+            {quota.remaining.toLocaleString()}
+            {quota.limit !== null && ` / ${quota.limit.toLocaleString()}`}
+            {pct !== null && ` (${pct}% used)`}
+          </strong>
+        </div>
+      )}
+      {pct !== null && (
+        <div className="subscription-quota-bar">
+          <div
+            className="subscription-quota-bar-fill"
+            style={{
+              width: `${pct}%`,
+              background: pct >= 90 ? "#e74c3c" : pct >= 70 ? "#f39c12" : "#2ecc71",
+            }}
+          />
+        </div>
+      )}
+      {resetIn && (
+        <div className="subscription-quota-line">
+          <span>Resets in</span>
+          <strong>{resetIn}</strong>
+        </div>
+      )}
+      {quota.windowLabel && (
+        <div className="subscription-quota-line">
+          <span>Window</span>
+          <strong>{quota.windowLabel}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatResetIn(resetAt: string): string | null {
+  const deltaMs = new Date(resetAt).getTime() - Date.now();
+  if (deltaMs <= 0) return null;
+  const mins = Math.round(deltaMs / 60_000);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hours}h ${remMins}m`;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,23 +73,30 @@ interface LLMProvider {
 
 type ProviderType = "anthropic" | "openai" | "groq" | "ollama";
 
-const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string; needsKey: boolean }> = {
+const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string; needsKey: boolean; keyLabel?: string; keyPlaceholder?: string; keyHint?: string }> = {
   anthropic: { label: "Anthropic", icon: "🟣", needsKey: true },
-  openai:    { label: "OpenAI",    icon: "🟢", needsKey: true },
+  openai:    {
+    label: "OpenAI",
+    icon: "🟢",
+    needsKey: false,
+    keyLabel: "API Key (optional)",
+    keyPlaceholder: "Leave blank to use Codex/OpenAI subscription",
+    keyHint: "If no key is provided, Fort uses your active Codex/OpenAI login from ~/.codex/auth.json.",
+  },
   groq:      { label: "Groq",      icon: "⚡",  needsKey: true },
   ollama:    { label: "Ollama",    icon: "🦙", needsKey: false },
 };
 
 const PROVIDER_MODELS: Record<ProviderType, string[]> = {
   anthropic: ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
-  openai:    ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+  openai:    ["gpt-5.1", "gpt-5.1-mini", "gpt-5.1-codex-max"],
   groq:      ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
   ollama:    ["llama3", "mistral", "codellama"],
 };
 
 const PROVIDER_DEFAULTS: Record<ProviderType, { defaultModel: string; baseUrl?: string }> = {
   anthropic: { defaultModel: "claude-sonnet-4-5-20250929" },
-  openai:    { defaultModel: "gpt-4o",                   baseUrl: "https://api.openai.com/v1" },
+  openai:    { defaultModel: "gpt-5.1",                  baseUrl: "https://api.openai.com/v1" },
   groq:      { defaultModel: "llama-3.3-70b-versatile",  baseUrl: "https://api.groq.com/openai/v1" },
   ollama:    { defaultModel: "llama3",                   baseUrl: "http://localhost:11434" },
 };
@@ -69,11 +132,12 @@ function AddProviderModal({ onClose, onAdded }: AddProviderModalProps) {
   function handleAdd() {
     setLoading(true);
     setError(null);
-    const msgId = `add-provider-${Date.now()}`;
+    let msgId: string | null = null;
 
     const unsub = subscribe("llm.provider.add.response", (msg) => {
       if (msg.id !== msgId) return;
       unsub();
+      unsubErr();
       setLoading(false);
       onAdded();
       onClose();
@@ -86,17 +150,20 @@ function AddProviderModal({ onClose, onAdded }: AddProviderModalProps) {
       setError((msg.payload as any)?.error ?? msg.error ?? "Unknown error");
     });
 
-    send("llm.provider.add", {
+    msgId = send("llm.provider.add", {
       id: type,
-      apiKey: info.needsKey ? apiKey : undefined,
+      apiKey: apiKey.trim() ? apiKey : undefined,
       baseUrl: baseUrl || undefined,
       defaultModel,
       isDefault,
     });
 
-    // Patch: the send() doesn't return the id, so we send raw
-    // Actually useFortSocket.send() sends with auto-generated id — for response matching
-    // we need to use a workaround. Use subscribe("*") instead:
+    if (!msgId) {
+      unsub();
+      unsubErr();
+      setLoading(false);
+      setError("Not connected to Fort.");
+    }
   }
 
   return (
@@ -119,15 +186,16 @@ function AddProviderModal({ onClose, onAdded }: AddProviderModalProps) {
             </select>
           </div>
 
-          {info.needsKey && (
+          {(info.needsKey || type === "openai") && (
             <div className="field">
-              <label>API Key</label>
+              <label>{info.keyLabel ?? "API Key"}</label>
               <input
                 type="password"
-                placeholder="sk-ant-..."
+                placeholder={info.keyPlaceholder ?? "sk-ant-..."}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
+              {info.keyHint && <p className="field-hint">{info.keyHint}</p>}
             </div>
           )}
 
@@ -192,6 +260,9 @@ interface ProviderCardProps {
 
 function ProviderCard({ provider, onSetDefault, onDelete, onTest, testResult }: ProviderCardProps) {
   const info = PROVIDER_INFO[provider.id as ProviderType] ?? { label: provider.name, icon: "🔌" };
+  const { subscriptionQuota } = useFortSocket();
+  const isCodexSub = provider.id === "openai" && !provider.hasApiKey;
+  const quota = isCodexSub ? subscriptionQuota : null;
 
   return (
     <div className={`provider-card${provider.isDefault ? " provider-card--default" : ""}`}>
@@ -203,9 +274,13 @@ function ProviderCard({ provider, onSetDefault, onDelete, onTest, testResult }: 
         </div>
         <div className="provider-badges">
           {provider.isDefault && <span className="badge badge--default">Default</span>}
-          <span className={`badge ${provider.hasApiKey || provider.id === "ollama" ? "badge--ok" : "badge--warn"}`}>
-            {provider.hasApiKey || provider.id === "ollama" ? "Configured" : "No key"}
-          </span>
+          {isCodexSub ? (
+            <span className="badge badge--ok">Codex subscription</span>
+          ) : (
+            <span className={`badge ${provider.hasApiKey || provider.id === "ollama" ? "badge--ok" : "badge--warn"}`}>
+              {provider.hasApiKey || provider.id === "ollama" ? "Configured" : "No key"}
+            </span>
+          )}
           {testResult !== null && (
             <span className={`badge ${testResult.success ? "badge--ok" : "badge--error"}`}>
               {testResult.success ? "Connected" : "Error"}
@@ -216,6 +291,10 @@ function ProviderCard({ provider, onSetDefault, onDelete, onTest, testResult }: 
 
       {testResult && !testResult.success && testResult.error && (
         <div className="provider-error">{testResult.error}</div>
+      )}
+
+      {quota && (quota.remaining !== null || quota.limit !== null || quota.resetAt) && (
+        <SubscriptionQuotaPanel quota={quota} />
       )}
 
       <div className="provider-actions">

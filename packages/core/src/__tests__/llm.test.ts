@@ -35,6 +35,8 @@ describe('LLMClient', () => {
     delete process.env.ANTHROPIC_API_KEY;
     // Suppress .env and keychain reads so tests run in a clean auth state
     vi.spyOn(LLMClient, 'readEnvFile').mockReturnValue(null);
+    vi.spyOn(LLMClient, 'readOpenAIEnvFile').mockReturnValue(null);
+    vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue(null);
     vi.spyOn(LLMClient, 'readKeychainToken').mockReturnValue(null);
   });
 
@@ -451,6 +453,197 @@ describe('LLMClient', () => {
       expect(llmResult!.module).toBe('llm');
 
       await fort.stop();
+    });
+  });
+
+  // ── OpenAI / ChatGPT-subscription path ─────────────────────────────────
+  describe('OpenAI provider', () => {
+    let savedFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+      savedFetch = globalThis.fetch;
+    });
+
+    afterEach(() => {
+      globalThis.fetch = savedFetch;
+    });
+
+    function mockOpenAIResponse(body: any, headers: Record<string, string> = {}, status = 200) {
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json', ...headers },
+      });
+    }
+
+    it('routes Codex subscription auth to chatgpt.com backend with correct headers', async () => {
+      vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue({
+        accessToken: 'codex-token-abc',
+        accountId: 'acct-123',
+      });
+
+      const calls: Array<{ url: string; init: RequestInit }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return mockOpenAIResponse({
+          output_text: 'hi',
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+      }) as any;
+
+      const client = setup();
+      await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+
+      expect(calls.length).toBe(1);
+      expect(calls[0].url).toBe('https://chatgpt.com/backend-api/codex/responses');
+      const headers = calls[0].init.headers as Record<string, string>;
+      expect(headers['Authorization']).toBe('Bearer codex-token-abc');
+      expect(headers['chatgpt-account-id']).toBe('acct-123');
+      expect(headers['OpenAI-Beta']).toBe('responses=experimental');
+    });
+
+    it('routes plain OPENAI_API_KEY to api.openai.com without ChatGPT headers', async () => {
+      process.env.OPENAI_API_KEY = 'sk-test-key';
+
+      const calls: Array<{ url: string; init: RequestInit }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return mockOpenAIResponse({
+          output_text: 'hi',
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+      }) as any;
+
+      const client = setup();
+      try {
+        await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+        expect(calls[0].url).toBe('https://api.openai.com/v1/responses');
+        const headers = calls[0].init.headers as Record<string, string>;
+        expect(headers['Authorization']).toBe('Bearer sk-test-key');
+        expect(headers['chatgpt-account-id']).toBeUndefined();
+      } finally {
+        delete process.env.OPENAI_API_KEY;
+      }
+    });
+
+    it('retries on 429 and publishes llm.rate_limited', async () => {
+      vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue({
+        accessToken: 'codex-token',
+        accountId: 'acct-1',
+      });
+
+      let callCount = 0;
+      globalThis.fetch = vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return mockOpenAIResponse({ error: { message: 'rate limited' } }, { 'retry-after': '0' }, 429);
+        }
+        return mockOpenAIResponse({
+          output_text: 'ok',
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+      }) as any;
+
+      const client = setup();
+      const events: any[] = [];
+      bus.subscribe('llm.rate_limited', (e) => { events.push(e); });
+
+      // Fast tier so tier fallback doesn't pre-empt our retry path
+      await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+
+      expect(callCount).toBeGreaterThanOrEqual(2);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('falls back to a lower tier when powerful model is rate-limited', async () => {
+      vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue({
+        accessToken: 'codex-token',
+        accountId: 'acct-1',
+      });
+
+      const calls: Array<{ url: string; body: string }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        const body = String((init as any)?.body ?? '');
+        calls.push({ url: String(url), body });
+        // First call (powerful tier) → 429; subsequent → success
+        const parsed = JSON.parse(body);
+        if (parsed.model === 'gpt-5.1-codex-max') {
+          return mockOpenAIResponse({ error: { message: 'rate limited' } }, {}, 429);
+        }
+        return mockOpenAIResponse({
+          output_text: 'fallback-ok',
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+      }) as any;
+
+      const client = setup();
+      const result = await client.complete({
+        messages: [{ role: 'user', content: 'hi' }],
+        model: 'powerful',
+      });
+
+      expect(result.content).toBe('fallback-ok');
+      // First call powerful, then fallback to a non-powerful tier
+      expect(calls.length).toBeGreaterThanOrEqual(2);
+      const firstModel = JSON.parse(calls[0].body).model;
+      const lastModel = JSON.parse(calls[calls.length - 1].body).model;
+      expect(firstModel).toBe('gpt-5.1-codex-max');
+      expect(lastModel).not.toBe('gpt-5.1-codex-max');
+    });
+
+    it('parseSubscriptionQuota extracts remaining/limit/reset from x-ratelimit headers', () => {
+      const headers = new Headers({
+        'x-ratelimit-remaining-requests': '120',
+        'x-ratelimit-limit-requests': '200',
+        'x-ratelimit-reset-requests': '120',
+      });
+      const snapshot = (LLMClient as any).parseSubscriptionQuota(headers, 'openai');
+      expect(snapshot).not.toBeNull();
+      expect(snapshot.remaining).toBe(120);
+      expect(snapshot.limit).toBe(200);
+      expect(snapshot.resetAt).toBeTruthy();
+    });
+
+    it('parseSubscriptionQuota returns null when no relevant headers are present', () => {
+      const headers = new Headers({ 'content-type': 'application/json' });
+      const snapshot = (LLMClient as any).parseSubscriptionQuota(headers, 'openai');
+      expect(snapshot).toBeNull();
+    });
+
+    it('attempts Codex token refresh on 401 and retries with the fresh token', async () => {
+      let tokenVersion = 1;
+      vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockImplementation(() => ({
+        accessToken: tokenVersion === 1 ? 'old-token' : 'new-token',
+        accountId: 'acct-1',
+      }));
+
+      const calls: Array<{ token: string | undefined }> = [];
+      globalThis.fetch = vi.fn(async (_url: any, init?: any) => {
+        const auth = (init?.headers as Record<string, string>)?.Authorization;
+        calls.push({ token: auth });
+        if (calls.length === 1) {
+          return mockOpenAIResponse({ error: { message: 'expired' } }, {}, 401);
+        }
+        return mockOpenAIResponse({
+          output_text: 'ok',
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+      }) as any;
+
+      const client = setup();
+      // Force refresh path to run (TTL gate is 5min)
+      (client as any).lastTokenRefresh = 0;
+      // Simulate token rotation between call 1 and call 2
+      const origRefresh = (client as any).maybeRefreshCodexToken.bind(client);
+      (client as any).maybeRefreshCodexToken = () => {
+        tokenVersion = 2;
+        return origRefresh();
+      };
+
+      await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+
+      expect(calls.length).toBe(2);
+      expect(calls[0].token).toBe('Bearer old-token');
+      expect(calls[1].token).toBe('Bearer new-token');
     });
   });
 });

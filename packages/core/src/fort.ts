@@ -43,6 +43,7 @@ import { LLMClient } from './llm/index.js';
 import type { LLMClientConfig } from './llm/index.js';
 import { UsageStore, UsageTracker } from './usage/index.js';
 import { LLMProviderStore } from './llm/provider-store.js';
+import { SubscriptionQuotaStore } from './llm/quota-store.js';
 
 import type { DiagnosticResult, Task } from './types.js';
 
@@ -93,6 +94,7 @@ export class Fort {
   readonly usageStore: UsageStore;
   readonly usageTracker: UsageTracker;
   readonly llmProviders: LLMProviderStore;
+  readonly llmQuota: SubscriptionQuotaStore;
 
   readonly introspect: Introspector;
   readonly osIntegration: OSIntegrationManager;
@@ -197,9 +199,10 @@ export class Fort {
     // LLM provider store — encryption key derived from SESSION_SECRET env var
     const encryptionKey = process.env.SESSION_SECRET ?? 'fort-default-llm-encryption-key';
     this.llmProviders = new LLMProviderStore(join(config.dataDir, 'llm-providers.db'), encryptionKey);
+    this.llmQuota = new SubscriptionQuotaStore(join(config.dataDir, 'llm-quota.db'));
 
     this.llm = new LLMClient(
-      { ...(config.llm ?? {}), providerStore: this.llmProviders },
+      { ...(config.llm ?? {}), providerStore: this.llmProviders, quotaStore: this.llmQuota },
       this.bus,
       this.tokens,
       this.behaviors,
@@ -330,6 +333,7 @@ export class Fort {
     this.taskDb?.close();
 
     this.llmProviders.close();
+    this.llmQuota.close();
 
 
     this.bus.publish('fort.stopped', 'fort', { timestamp: new Date() });

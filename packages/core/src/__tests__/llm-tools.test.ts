@@ -80,12 +80,16 @@ describe('LLMClient — tool_use wiring', () => {
   let savedOAuthToken: string | undefined;
   let savedApiKey: string | undefined;
 
+  let savedOpenAIKey: string | undefined;
+
   beforeEach(() => {
     // Isolate from ambient auth (same pattern as llm.test.ts)
     savedOAuthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
     savedApiKey = process.env.ANTHROPIC_API_KEY;
+    savedOpenAIKey = process.env.OPENAI_API_KEY;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
 
     tmpDir = mkdtempSync(join(tmpdir(), 'fort-llm-tools-'));
     bus = new ModuleBus();
@@ -94,6 +98,8 @@ describe('LLMClient — tool_use wiring', () => {
     executor = new ToolExecutor(permissions, bus, tokens);
 
     vi.spyOn(LLMClient, 'readEnvFile').mockReturnValue(null);
+    vi.spyOn(LLMClient, 'readOpenAIEnvFile').mockReturnValue(null);
+    vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue(null);
     vi.spyOn(LLMClient, 'readKeychainToken').mockReturnValue(null);
 
     llm = new LLMClient({ apiKey: 'test-key' }, bus, tokens);
@@ -109,6 +115,8 @@ describe('LLMClient — tool_use wiring', () => {
     else delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     if (savedApiKey !== undefined) process.env.ANTHROPIC_API_KEY = savedApiKey;
     else delete process.env.ANTHROPIC_API_KEY;
+    if (savedOpenAIKey !== undefined) process.env.OPENAI_API_KEY = savedOpenAIKey;
+    else delete process.env.OPENAI_API_KEY;
     tokens.close();
     rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -199,6 +207,8 @@ describe('LLMClient — tool_use wiring', () => {
   describe('completeWithTools()', () => {
     it('throws when client is not configured', async () => {
       vi.spyOn(LLMClient, 'readEnvFile').mockReturnValue(null);
+      vi.spyOn(LLMClient, 'readOpenAIEnvFile').mockReturnValue(null);
+      vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue(null);
       const unconfigured = new LLMClient({}, bus, tokens);
       const tool = makeTool({ tier: 1 });
 
