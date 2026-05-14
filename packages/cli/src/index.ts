@@ -5,6 +5,8 @@
  */
 
 import { Command } from 'commander';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createStatusCommand } from './commands/status.js';
 import { createTasksCommand } from './commands/tasks.js';
@@ -36,10 +38,19 @@ if (isFirstRun() && process.argv.length === 2) {
 } else {
   const program = new Command();
 
+  // __dirname is available because tsc compiles this to CommonJS
+  const pkgJsonPath = join(__dirname, '..', 'package.json');
+  let pkgVersion = '0.0.0';
+  try {
+    pkgVersion = JSON.parse(readFileSync(pkgJsonPath, 'utf-8')).version ?? '0.0.0';
+  } catch {
+    // fall back to default
+  }
+
   program
     .name('fort')
     .description('Fort — A self-improving personal AI agent platform')
-    .version('0.1.0');
+    .version(pkgVersion);
 
   program.addCommand(createInitCommand());
   program.addCommand(createDoctorCommand());
