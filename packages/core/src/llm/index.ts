@@ -2191,13 +2191,16 @@ export class LLMClient {
   }
 
   /**
-   * Make a raw OpenAI Responses-API call. For ChatGPT/Codex subscription tokens,
+   * Make an OpenAI Responses-API call. For ChatGPT/Codex subscription tokens,
    * targets `https://chatgpt.com/backend-api/codex/responses` with the
-   * `chatgpt-account-id` and `OpenAI-Beta` headers. For API keys, hits the
-   * provider's configured base URL (api.openai.com by default).
+   * `chatgpt-account-id` and `OpenAI-Beta` headers, and consumes the mandated
+   * SSE response stream (the subscription endpoint rejects non-streaming).
+   * For API keys, hits the provider's configured base URL (api.openai.com by
+   * default) and parses a single JSON body.
    *
-   * On HTTP error throws OpenAIHttpError so the retry layer can classify by status.
-   * On success returns the parsed body AND the raw Headers (used by the quota tracker).
+   * On HTTP error throws OpenAIHttpError so the retry layer can classify by
+   * status. On success returns a normalised body AND the raw Headers (used by
+   * the quota tracker).
    */
   private async callOpenAIResponses(
     provider: RuntimeProvider & { id: 'openai' | 'groq' },
@@ -2212,23 +2215,118 @@ export class LLMClient {
       Authorization: `Bearer ${provider.token}`,
       'Content-Type': 'application/json',
     };
+    const reqBody: Record<string, unknown> = { ...body };
     if (isCodexSub) {
       headers['OpenAI-Beta'] = 'responses=experimental';
+      headers['Accept'] = 'text/event-stream';
       if (provider.accountId) headers['chatgpt-account-id'] = provider.accountId;
+      // ChatGPT subscription endpoint mandates streaming + store=false and
+      // rejects max_output_tokens.
+      reqBody.store = false;
+      reqBody.stream = true;
+      delete reqBody.max_output_tokens;
     }
 
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(reqBody),
     });
 
-    const json = await res.json().catch(() => ({})) as OpenAIResponse;
     if (!res.ok) {
-      const message = json.error?.message ?? `OpenAI request failed: HTTP ${res.status}`;
-      throw new OpenAIHttpError(res.status, res.headers, json, message);
+      const errJson = await res.json().catch(() => ({})) as any;
+      // ChatGPT backend uses {detail: "..."}; OpenAI API uses {error: {message: "..."}}.
+      const message = errJson.error?.message ?? errJson.detail ?? `OpenAI request failed: HTTP ${res.status}`;
+      throw new OpenAIHttpError(res.status, res.headers, errJson, message);
     }
+
+    if (isCodexSub) {
+      return this.consumeOpenAISSE(res);
+    }
+
+    const json = await res.json().catch(() => ({})) as OpenAIResponse;
     return { body: json, headers: res.headers };
+  }
+
+  /**
+   * Consume a Server-Sent Events response from the ChatGPT subscription
+   * `/responses` endpoint and reassemble it into the same shape as the
+   * non-streaming JSON response, so the rest of LLMClient doesn't need to
+   * care which transport was used.
+   *
+   * Relevant events:
+   *   - response.output_text.delta — incremental text chunks
+   *   - response.output_item.done  — completed item (message or function_call)
+   *   - response.completed         — terminal event with usage + final response
+   */
+  private async consumeOpenAISSE(res: Response): Promise<OpenAICallResult> {
+    if (!res.body) {
+      throw new OpenAIHttpError(res.status, res.headers, undefined, 'SSE response missing body');
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    let outputText = '';
+    const outputItems: Record<string, any>[] = [];
+    let usage: OpenAIResponse['usage'] | undefined;
+    let responseId: string | undefined;
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line.
+        let sepIdx: number;
+        while ((sepIdx = buffer.indexOf('\n\n')) >= 0) {
+          const rawEvent = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          let dataLine = '';
+          for (const line of rawEvent.split('\n')) {
+            if (line.startsWith('data: ')) dataLine += line.slice(6);
+            else if (line.startsWith('data:')) dataLine += line.slice(5);
+          }
+          if (!dataLine || dataLine === '[DONE]') continue;
+          let evt: any;
+          try { evt = JSON.parse(dataLine); } catch { continue; }
+
+          switch (evt.type) {
+            case 'response.output_text.delta':
+              if (typeof evt.delta === 'string') outputText += evt.delta;
+              break;
+            case 'response.output_item.done':
+              if (evt.item) outputItems.push(evt.item);
+              break;
+            case 'response.completed':
+              responseId = evt.response?.id;
+              usage = evt.response?.usage;
+              break;
+            case 'response.error':
+            case 'error':
+              throw new OpenAIHttpError(
+                res.status,
+                res.headers,
+                evt,
+                evt.error?.message ?? evt.message ?? 'SSE stream error',
+              );
+          }
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch { /* noop */ }
+    }
+
+    return {
+      body: {
+        id: responseId,
+        output_text: outputText,
+        output: outputItems,
+        usage,
+      },
+      headers: res.headers,
+    };
   }
 
   private recordOpenAIResult(

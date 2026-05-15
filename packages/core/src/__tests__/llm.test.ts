@@ -475,6 +475,21 @@ describe('LLMClient', () => {
       });
     }
 
+    /**
+     * Mock the ChatGPT-subscription SSE response shape: a delta event with the
+     * text, followed by a response.completed event carrying usage. Mirrors what
+     * the live `chatgpt.com/backend-api/codex/responses` endpoint returns.
+     */
+    function mockOpenAISSE(text: string, usage = { input_tokens: 1, output_tokens: 1, total_tokens: 2 }, headers: Record<string, string> = {}) {
+      const sse =
+        `event: response.output_text.delta\ndata: ${JSON.stringify({ type: 'response.output_text.delta', delta: text })}\n\n` +
+        `event: response.completed\ndata: ${JSON.stringify({ type: 'response.completed', response: { id: 'resp_test', usage } })}\n\n`;
+      return new Response(sse, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', ...headers },
+      });
+    }
+
     it('routes Codex subscription auth to chatgpt.com backend with correct headers', async () => {
       vi.spyOn(LLMClient, 'readCodexOpenAIToken').mockReturnValue({
         accessToken: 'codex-token-abc',
@@ -484,14 +499,11 @@ describe('LLMClient', () => {
       const calls: Array<{ url: string; init: RequestInit }> = [];
       globalThis.fetch = vi.fn(async (url: any, init?: any) => {
         calls.push({ url: String(url), init: init ?? {} });
-        return mockOpenAIResponse({
-          output_text: 'hi',
-          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-        });
+        return mockOpenAISSE('hi');
       }) as any;
 
       const client = setup();
-      await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+      const result = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
 
       expect(calls.length).toBe(1);
       expect(calls[0].url).toBe('https://chatgpt.com/backend-api/codex/responses');
@@ -499,6 +511,12 @@ describe('LLMClient', () => {
       expect(headers['Authorization']).toBe('Bearer codex-token-abc');
       expect(headers['chatgpt-account-id']).toBe('acct-123');
       expect(headers['OpenAI-Beta']).toBe('responses=experimental');
+      // Codex subscription requires store=false + stream=true; max_output_tokens stripped
+      const body = JSON.parse(String(calls[0].init.body));
+      expect(body.store).toBe(false);
+      expect(body.stream).toBe(true);
+      expect(body.max_output_tokens).toBeUndefined();
+      expect(result.content).toBe('hi');
     });
 
     it('routes plain OPENAI_API_KEY to api.openai.com without ChatGPT headers', async () => {
@@ -537,10 +555,7 @@ describe('LLMClient', () => {
         if (callCount === 1) {
           return mockOpenAIResponse({ error: { message: 'rate limited' } }, { 'retry-after': '0' }, 429);
         }
-        return mockOpenAIResponse({
-          output_text: 'ok',
-          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-        });
+        return mockOpenAISSE('ok');
       }) as any;
 
       const client = setup();
@@ -564,15 +579,13 @@ describe('LLMClient', () => {
       globalThis.fetch = vi.fn(async (url: any, init?: any) => {
         const body = String((init as any)?.body ?? '');
         calls.push({ url: String(url), body });
-        // First call (powerful tier) → 429; subsequent → success
+        // First call (powerful tier) → 429; subsequent → success.
+        // Codex sub responses are SSE.
         const parsed = JSON.parse(body);
         if (parsed.model === 'gpt-5.5') {
           return mockOpenAIResponse({ error: { message: 'rate limited' } }, {}, 429);
         }
-        return mockOpenAIResponse({
-          output_text: 'fallback-ok',
-          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-        });
+        return mockOpenAISSE('fallback-ok');
       }) as any;
 
       const client = setup();
@@ -623,10 +636,7 @@ describe('LLMClient', () => {
         if (calls.length === 1) {
           return mockOpenAIResponse({ error: { message: 'expired' } }, {}, 401);
         }
-        return mockOpenAIResponse({
-          output_text: 'ok',
-          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-        });
+        return mockOpenAISSE('ok');
       }) as any;
 
       const client = setup();
