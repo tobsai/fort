@@ -147,12 +147,14 @@ export function createLLMCommand(): Command {
         }
         if (stats.authMethod) {
           const authLabel =
-            stats.authMethod === 'dotenv' ? `~/.fort/.env` :
-            stats.authMethod === 'api_key_config' ? 'Config file API key' :
+            stats.authMethod === 'codex_subscription' ? 'Codex/OpenAI subscription' :
             stats.authMethod === 'openai_dotenv' ? 'OPENAI_API_KEY in ~/.fort/.env' :
             stats.authMethod === 'openai_api_key_env' ? 'OPENAI_API_KEY environment variable' :
-            stats.authMethod === 'codex_subscription' ? 'Codex/OpenAI subscription' :
-            'ANTHROPIC_API_KEY environment variable';
+            stats.authMethod === 'provider_store' ? 'Stored provider key' :
+            stats.authMethod === 'dotenv' ? '~/.fort/.env' :
+            stats.authMethod === 'api_key_config' ? 'Config file API key' :
+            stats.authMethod === 'api_key_env' ? 'ANTHROPIC_API_KEY environment variable' :
+            stats.authMethod;
           console.log(`  Auth:           ${authLabel}`);
         }
         console.log(`  Default Model:  ${stats.defaultTier}`);
@@ -426,7 +428,7 @@ function registerOpenAIProvider(fort: any, _tokenInfo: { accountId?: string }): 
       id: 'openai',
       name: 'OpenAI',
       baseUrl: 'https://api.openai.com/v1',
-      defaultModel: 'gpt-5.1',
+      defaultModel: 'gpt-5.4',
       enabled: true,
       isDefault: false,
     });

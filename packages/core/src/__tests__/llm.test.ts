@@ -566,7 +566,7 @@ describe('LLMClient', () => {
         calls.push({ url: String(url), body });
         // First call (powerful tier) → 429; subsequent → success
         const parsed = JSON.parse(body);
-        if (parsed.model === 'gpt-5.1-codex-max') {
+        if (parsed.model === 'gpt-5.5') {
           return mockOpenAIResponse({ error: { message: 'rate limited' } }, {}, 429);
         }
         return mockOpenAIResponse({
@@ -586,8 +586,8 @@ describe('LLMClient', () => {
       expect(calls.length).toBeGreaterThanOrEqual(2);
       const firstModel = JSON.parse(calls[0].body).model;
       const lastModel = JSON.parse(calls[calls.length - 1].body).model;
-      expect(firstModel).toBe('gpt-5.1-codex-max');
-      expect(lastModel).not.toBe('gpt-5.1-codex-max');
+      expect(firstModel).toBe('gpt-5.5');
+      expect(lastModel).not.toBe('gpt-5.5');
     });
 
     it('parseSubscriptionQuota extracts remaining/limit/reset from x-ratelimit headers', () => {

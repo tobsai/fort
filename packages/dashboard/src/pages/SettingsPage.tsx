@@ -89,14 +89,14 @@ const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string; needsKe
 
 const PROVIDER_MODELS: Record<ProviderType, string[]> = {
   anthropic: ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
-  openai:    ["gpt-5.1", "gpt-5.1-mini", "gpt-5.1-codex-max"],
+  openai:    ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"],
   groq:      ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
   ollama:    ["llama3", "mistral", "codellama"],
 };
 
 const PROVIDER_DEFAULTS: Record<ProviderType, { defaultModel: string; baseUrl?: string }> = {
   anthropic: { defaultModel: "claude-sonnet-4-5-20250929" },
-  openai:    { defaultModel: "gpt-5.1",                  baseUrl: "https://api.openai.com/v1" },
+  openai:    { defaultModel: "gpt-5.4",                  baseUrl: "https://api.openai.com/v1" },
   groq:      { defaultModel: "llama-3.3-70b-versatile",  baseUrl: "https://api.groq.com/openai/v1" },
   ollama:    { defaultModel: "llama3",                   baseUrl: "http://localhost:11434" },
 };

@@ -182,21 +182,21 @@ const DEFAULT_MODELS: Record<ModelTier, ModelConfig> = {
 const DEFAULT_OPENAI_MODELS: Record<ModelTier, ModelConfig> = {
   fast: {
     tier: 'fast',
-    model: 'gpt-5.1-mini',
+    model: 'gpt-5.4-mini',
     maxTokens: 2048,
     description: 'Fast OpenAI model for simple tasks, classification, extraction',
   },
   standard: {
     tier: 'standard',
-    model: 'gpt-5.1',
+    model: 'gpt-5.4',
     maxTokens: 4096,
     description: 'Balanced OpenAI model for most tasks, coding, and analysis',
   },
   powerful: {
     tier: 'powerful',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.5',
     maxTokens: 8192,
-    description: 'Maximum OpenAI reasoning for complex planning and coding',
+    description: 'Frontier OpenAI model for complex reasoning and planning',
   },
 };
 
@@ -210,9 +210,11 @@ const PRICING: Record<string, { input: number; output: number }> = {
   'claude-opus-4-6': { input: 15.00, output: 75.00 },
   // ChatGPT/Codex subscription — usage is covered by the plan, so $cost is 0.
   // Quota burn-down is tracked separately via SubscriptionQuotaStore.
-  'gpt-5.1-mini': { input: 0, output: 0 },
-  'gpt-5.1': { input: 0, output: 0 },
-  'gpt-5.1-codex-max': { input: 0, output: 0 },
+  'gpt-5.5': { input: 0, output: 0 },
+  'gpt-5.4': { input: 0, output: 0 },
+  'gpt-5.4-mini': { input: 0, output: 0 },
+  'gpt-5.3-codex': { input: 0, output: 0 },
+  'gpt-5.2': { input: 0, output: 0 },
 };
 
 // ─── LLM Client ─────────────────────────────────────────────────────
@@ -422,6 +424,11 @@ export class LLMClient {
    * How the client authenticated. Null if not configured.
    */
   get authMethod(): string | null {
+    // Report the auth method actually being used at runtime, not the one set
+    // during constructor. resolveRuntimeProvider() picks the active provider
+    // and its authMethod is the source of truth for `fort llm status`.
+    const active = this.resolveRuntimeProvider();
+    if (active) return active.authMethod;
     return this._authMethod ?? LLMClient.resolveOpenAIToken()?.authMethod ?? null;
   }
 
@@ -1149,7 +1156,7 @@ export class LLMClient {
           authMethod: runtime.apiKey ? 'provider_store' : (codex?.authMethod ?? 'openai'),
           accountId: codex?.accountId,
         }, {
-          model: runtime.defaultModel || 'gpt-5.1-mini',
+          model: runtime.defaultModel || 'gpt-5.4-mini',
           input: 'hi',
           max_output_tokens: 1,
         });
@@ -1171,19 +1178,21 @@ export class LLMClient {
         name: 'Authentication',
         passed: this.isConfigured,
         message: this.isConfigured
-          ? this._authMethod === 'dotenv'
-            ? `Authenticated via ${LLMClient.envFilePath}`
-            : this._isOAuthToken
-              ? 'Authenticated via Claude Code session token'
-              : this._authMethod === 'api_key_config'
-                ? 'Authenticated via config file API key'
-                : this.authMethod === 'openai_dotenv'
-                  ? `Authenticated via OPENAI_API_KEY in ${LLMClient.envFilePath}`
-                  : this.authMethod === 'openai_api_key_env'
-                    ? 'Authenticated via OPENAI_API_KEY environment variable'
-                    : this.authMethod === 'codex_subscription'
-                      ? 'Authenticated via active Codex/OpenAI subscription'
-                      : 'Authenticated via ANTHROPIC_API_KEY environment variable'
+          ? this.authMethod === 'codex_subscription'
+            ? 'Authenticated via active Codex/OpenAI subscription'
+            : this.authMethod === 'openai_dotenv'
+              ? `Authenticated via OPENAI_API_KEY in ${LLMClient.envFilePath}`
+              : this.authMethod === 'openai_api_key_env'
+                ? 'Authenticated via OPENAI_API_KEY environment variable'
+                : this.authMethod === 'provider_store'
+                  ? 'Authenticated via stored provider key'
+                  : this.authMethod === 'dotenv'
+                    ? `Authenticated via ${LLMClient.envFilePath}`
+                    : this._isOAuthToken
+                      ? 'Authenticated via Claude Code session token'
+                      : this.authMethod === 'api_key_config'
+                        ? 'Authenticated via config file API key'
+                        : 'Authenticated via ANTHROPIC_API_KEY environment variable'
           : 'Not configured — run `fort llm setup` for instructions',
       },
       {
@@ -1207,7 +1216,7 @@ export class LLMClient {
       {
         name: 'Default model',
         passed: true,
-        message: `${this.defaultTier} → ${this.models[this.defaultTier].model}`,
+        message: `${this.defaultTier} → ${this.getActiveModels()[this.defaultTier].model}`,
       },
       {
         name: 'Rate limiting',

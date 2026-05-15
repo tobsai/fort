@@ -220,7 +220,7 @@ describe('LLMProviderStore', () => {
   it('getDefaultConfig returns config for known providers', () => {
     const cfg = LLMProviderStore.getDefaultConfig('openai');
     expect(cfg.name).toBe('OpenAI');
-    expect(cfg.defaultModel).toBe('gpt-5.1');
+    expect(cfg.defaultModel).toBe('gpt-5.4');
     expect(cfg.baseUrl).toBeDefined();
   });
 });
