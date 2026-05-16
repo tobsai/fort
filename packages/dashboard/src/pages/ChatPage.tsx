@@ -164,12 +164,46 @@ export default function ChatPage() {
         if (p?.agentId) setPlanningStatus((prev) => ({ ...prev, [p.agentId!]: "Reading…" }));
       }),
       subscribe("agent.classified", (msg: WSMessage) => {
-        const p = msg.payload as { agentId?: string; isTask?: boolean };
-        if (!p?.agentId) return;
-        // If it's not a task, clear the status — normal reply path takes over.
+        const p = msg.payload as {
+          agentId?: string;
+          taskId?: string;
+          isTask?: boolean;
+          confidence?: number;
+          summary?: string;
+        };
+        if (!p?.agentId || !p.taskId) return;
+
+        // Drop the "Reading…" pill once classified. If classifier said it's a
+        // task, the decomposer is about to fire and will set its own status.
+        // If it's a question, leave thinkingAgents on so the user sees the
+        // agent is still composing a reply.
         if (!p.isTask) {
           setPlanningStatus((prev) => { const n = { ...prev }; delete n[p.agentId!]; return n; });
+          setThinkingAgents((prev) => new Set(prev).add(p.agentId!));
         }
+
+        // Push an inline classification card with yes/no training buttons.
+        // The card sits in the chat stream right before the agent's reply,
+        // so users see the classifier's reasoning and can correct it without
+        // leaving the conversation.
+        setChatMessages((prev) => ({
+          ...prev,
+          [p.agentId!]: [
+            ...(prev[p.agentId!] || []),
+            {
+              role: "classification" as const,
+              text: "",
+              ts: Date.now(),
+              classification: {
+                taskId: p.taskId!,
+                classifiedAs: p.isTask ? "task" : "question",
+                confidence: typeof p.confidence === "number" ? p.confidence : 0,
+                summary: typeof p.summary === "string" ? p.summary : "",
+                feedback: "pending",
+              },
+            },
+          ],
+        }));
       }),
       subscribe("agent.decomposing", (msg: WSMessage) => {
         const p = msg.payload as { agentId?: string };
@@ -405,6 +439,67 @@ export default function ChatPage() {
                       );
                     })}
                   </ol>
+                </div>
+              );
+            }
+            if (m.role === "classification" && m.classification) {
+              const c = m.classification;
+              const pct = Math.round(c.confidence * 100);
+              const handleFeedback = (correctedTo: "task" | "question" | null) => {
+                if (correctedTo) {
+                  send("triager.reclassify", { taskId: c.taskId, corrected: correctedTo });
+                }
+                setChatMessages((prev) => {
+                  const aid = selectedAgent!;
+                  const msgs = prev[aid] || [];
+                  const newMsgs = msgs.map((mm, idx) =>
+                    idx === i && mm.role === "classification" && mm.classification
+                      ? { ...mm, classification: { ...mm.classification, feedback: correctedTo ? "corrected" as const : "confirmed" as const } }
+                      : mm,
+                  );
+                  return { ...prev, [aid]: newMsgs };
+                });
+              };
+              return (
+                <div key={i} className="chat-classification-card">
+                  <div className="chat-classification-icon">🧭</div>
+                  <div className="chat-classification-body">
+                    <div className="chat-classification-line">
+                      <span className="chat-classification-label">Triager</span>
+                      <span className="chat-classification-verdict">
+                        classified this as <strong>{c.classifiedAs === "task" ? "a task" : "a question"}</strong>
+                      </span>
+                      <span className="chat-classification-confidence">{pct}%</span>
+                    </div>
+                    {c.summary && (
+                      <div className="chat-classification-summary">"{c.summary}"</div>
+                    )}
+                    {c.feedback === "pending" && (
+                      <div className="chat-classification-feedback">
+                        <span className="chat-classification-prompt">Right call?</span>
+                        <button
+                          className="chat-classification-btn yes"
+                          onClick={() => handleFeedback(null)}
+                          title="Confirm — store as a positive example"
+                        >👍 Yes</button>
+                        <button
+                          className="chat-classification-btn no"
+                          onClick={() => handleFeedback(c.classifiedAs === "task" ? "question" : "task")}
+                          title={`Move to ${c.classifiedAs === "task" ? "Questions" : "Tasks"} board and remember this correction`}
+                        >👎 No — should be a {c.classifiedAs === "task" ? "question" : "task"}</button>
+                      </div>
+                    )}
+                    {c.feedback === "confirmed" && (
+                      <div className="chat-classification-feedback chat-classification-feedback--done">
+                        ✓ Thanks — added as a positive example.
+                      </div>
+                    )}
+                    {c.feedback === "corrected" && (
+                      <div className="chat-classification-feedback chat-classification-feedback--done">
+                        ✓ Moved to {c.classifiedAs === "task" ? "Questions" : "Tasks"} board. Triager will learn from this.
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             }

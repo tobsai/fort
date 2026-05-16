@@ -369,8 +369,19 @@ Include the JSON block in your response along with your explanation to the user.
       source: `agent:${this.identity.id}`,
     });
 
-    // Review completion with LLM before marking done
-    await this.taskGraph.reviewCompletion(taskId, responseText);
+    // For task-classified chats and explicit tasks, run the strict reviewer
+    // (it asks "did the agent actually do what was requested?"). For
+    // question-classified chats the reviewer doesn't apply — the agent's
+    // job was to answer, not to execute an action — so we just mark
+    // completed directly.
+    const isAnsweredQuestion =
+      isChatTask &&
+      (task.metadata as Record<string, unknown>)?.classification === 'question';
+    if (isAnsweredQuestion) {
+      this.taskGraph.updateStatus(taskId, 'completed', undefined, responseText);
+    } else {
+      await this.taskGraph.reviewCompletion(taskId, responseText);
+    }
   }
 
   /**

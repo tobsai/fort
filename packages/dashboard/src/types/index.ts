@@ -71,7 +71,7 @@ export interface PlanSubtask {
 }
 
 export interface ChatMessage {
-  role: "user" | "agent" | "tool" | "plan";
+  role: "user" | "agent" | "tool" | "plan" | "classification";
   text: string;
   ts: number;
   task?: {
@@ -86,6 +86,15 @@ export interface ChatMessage {
     parentTaskId: string;
     summary?: string;
     subtasks: PlanSubtask[];
+  };
+  /** Present on role:"classification" messages — Triager verdict + yes/no training affordance. */
+  classification?: {
+    taskId: string;
+    classifiedAs: "task" | "question";
+    confidence: number;
+    summary: string;
+    /** "pending" → buttons visible; "confirmed" → user said yes; "corrected" → user flipped it */
+    feedback: "pending" | "confirmed" | "corrected";
   };
 }
 

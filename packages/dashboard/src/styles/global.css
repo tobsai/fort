@@ -627,6 +627,70 @@ a.nav-tab.active { color: var(--accent); background: var(--bg-tertiary); }
   font-style: italic;
 }
 
+/* ─── Triager classification card (inline yes/no training) ─── */
+.chat-classification-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 6px 0 6px 56px;
+  max-width: 640px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.chat-classification-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+.chat-classification-body { flex: 1; min-width: 0; }
+.chat-classification-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.chat-classification-label { color: var(--accent); font-weight: 600; }
+.chat-classification-verdict strong { color: var(--text-primary); }
+.chat-classification-confidence {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(108,92,231,0.12);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+.chat-classification-summary {
+  margin-top: 4px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.chat-classification-feedback {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.chat-classification-feedback--done {
+  color: var(--success);
+  font-style: italic;
+}
+.chat-classification-prompt { color: var(--text-secondary); }
+.chat-classification-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.chat-classification-btn.yes:hover { border-color: var(--success); color: var(--success); }
+.chat-classification-btn.no:hover { border-color: var(--warning); color: var(--warning); }
+
 /* ─── Plan card (rendered when agent.decomposed arrives) ─── */
 .chat-plan-card {
   margin: 8px 0 12px 56px; /* align with chat-msg body */
