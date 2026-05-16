@@ -11,3 +11,6 @@ dist/
 # Local agent identities (personal data — never commit)
 /agents/
 *.tsbuildinfo
+
+# Local Claude Code agent worktrees + session state
+.claude/

@@ -170,7 +170,14 @@ export function createLLMCommand(): Command {
         if (stats.subscriptionQuota) {
           const q = stats.subscriptionQuota as any;
           console.log(bold('  Subscription:'));
-          if (q.remaining !== null && q.limit !== null) {
+          if (q.planType) {
+            console.log(`    Plan:          ChatGPT ${q.planType[0].toUpperCase() + q.planType.slice(1)}`);
+          }
+          // Percent-based (ChatGPT backend): limit=100, used=percent. Render as "%".
+          const isPercent = q.limit === 100 && q.used !== null;
+          if (isPercent) {
+            console.log(`    Used:          ${q.used}% (${q.remaining}% remaining)`);
+          } else if (q.remaining !== null && q.limit !== null) {
             const used = q.limit - q.remaining;
             const pct = q.limit > 0 ? Math.round((used / q.limit) * 100) : 0;
             console.log(`    Remaining:     ${q.remaining.toLocaleString()} / ${q.limit.toLocaleString()} (${pct}% used)`);

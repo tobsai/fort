@@ -616,6 +616,24 @@ describe('LLMClient', () => {
       expect(snapshot.resetAt).toBeTruthy();
     });
 
+    it('parseSubscriptionQuota handles ChatGPT/Codex percent-based headers', () => {
+      const headers = new Headers({
+        'x-codex-plan-type': 'plus',
+        'x-codex-primary-used-percent': '7',
+        'x-codex-primary-window-minutes': '300',
+        'x-codex-primary-reset-at': '1778879266',
+      });
+      const snapshot = (LLMClient as any).parseSubscriptionQuota(headers, 'openai');
+      expect(snapshot).not.toBeNull();
+      expect(snapshot.planType).toBe('plus');
+      expect(snapshot.used).toBe(7);
+      expect(snapshot.limit).toBe(100);
+      expect(snapshot.remaining).toBe(93);
+      expect(snapshot.windowLabel).toBe('5h');
+      expect(snapshot.resetAt).toBeTruthy();
+      expect(snapshot.rawHeaders['x-codex-primary-used-percent']).toBe('7');
+    });
+
     it('parseSubscriptionQuota returns null when no relevant headers are present', () => {
       const headers = new Headers({ 'content-type': 'application/json' });
       const snapshot = (LLMClient as any).parseSubscriptionQuota(headers, 'openai');

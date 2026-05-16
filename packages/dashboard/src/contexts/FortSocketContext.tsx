@@ -13,6 +13,7 @@ type Handler = (msg: WSMessage) => void;
 
 export interface SubscriptionQuota {
   providerId: string;
+  planType: string | null;
   remaining: number | null;
   used: number | null;
   limit: number | null;

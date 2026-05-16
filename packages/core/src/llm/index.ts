@@ -1835,9 +1835,14 @@ export class LLMClient {
   }
 
   /**
-   * Parse subscription rate-limit headers into a QuotaSnapshot. Header names
-   * differ between OpenAI API tiers and the ChatGPT/Codex backend, so we look
-   * for several variants. Returns null if no quota signal is present.
+   * Parse subscription rate-limit headers into a QuotaSnapshot.
+   *
+   * ChatGPT's Codex backend reports quota as percent-used in two windows
+   * (primary ~5h, secondary ~1 week). We surface the primary window as the
+   * standard remaining/limit/used fields (limit=100, used=percent).
+   *
+   * Falls back to OpenAI API-style `x-ratelimit-*` headers for non-Codex
+   * paths. Returns null if no recognised quota header is present.
    */
   private static parseSubscriptionQuota(headers: Headers, providerId: string): QuotaSnapshot | null {
     const get = (name: string): string | null => headers.get(name);
@@ -1845,47 +1850,65 @@ export class LLMClient {
       for (const n of names) {
         const v = get(n);
         if (v === null || v === undefined) continue;
-        const num = parseInt(v, 10);
+        const num = parseFloat(v);
         if (!isNaN(num)) return num;
       }
       return null;
     };
-
-    const remaining = firstNumber(
-      'x-codex-remaining-queries',
-      'x-ratelimit-remaining-requests',
-      'x-ratelimit-remaining',
-    );
-    const limit = firstNumber(
-      'x-codex-limit-queries',
-      'x-ratelimit-limit-requests',
-      'x-ratelimit-limit',
-    );
-    const used = firstNumber(
-      'x-codex-used-queries',
-      'x-ratelimit-used-requests',
-    );
-
-    // Reset can be an epoch (seconds) or an ISO datetime or a duration like "30s".
-    const resetRaw =
-      get('x-codex-reset') ??
-      get('x-ratelimit-reset-requests') ??
-      get('x-ratelimit-reset');
-    let resetAt: string | null = null;
-    if (resetRaw) {
-      const asNumber = parseFloat(resetRaw);
+    const parseReset = (raw: string | null): string | null => {
+      if (!raw) return null;
+      const asNumber = parseFloat(raw);
       if (!isNaN(asNumber)) {
-        // Epoch seconds for very large numbers, otherwise seconds-from-now
         const ms = asNumber > 1_000_000_000 ? asNumber * 1000 : Date.now() + asNumber * 1000;
-        resetAt = new Date(ms).toISOString();
-      } else {
-        try { resetAt = new Date(resetRaw).toISOString(); } catch { resetAt = null; }
+        return new Date(ms).toISOString();
       }
+      try { return new Date(raw).toISOString(); } catch { return null; }
+    };
+
+    let planType: string | null = get('x-codex-plan-type') ?? get('x-codex-active-limit');
+    let remaining: number | null = null;
+    let used: number | null = null;
+    let limit: number | null = null;
+    let windowLabel: string | null = null;
+    let resetAt: string | null = null;
+
+    // ChatGPT/Codex backend: percent-based primary window.
+    const primaryUsedPct = firstNumber('x-codex-primary-used-percent');
+    if (primaryUsedPct !== null) {
+      used = primaryUsedPct;
+      limit = 100;
+      remaining = Math.max(0, 100 - primaryUsedPct);
+      resetAt =
+        parseReset(get('x-codex-primary-reset-at')) ??
+        parseReset(get('x-codex-primary-reset-after-seconds'));
+      const windowMins = firstNumber('x-codex-primary-window-minutes');
+      if (windowMins !== null) {
+        windowLabel = windowMins >= 60 && windowMins % 60 === 0
+          ? `${windowMins / 60}h`
+          : `${windowMins}m`;
+      }
+    } else {
+      // OpenAI API style: count-based with separate remaining/limit.
+      remaining = firstNumber(
+        'x-codex-remaining-queries',
+        'x-ratelimit-remaining-requests',
+        'x-ratelimit-remaining',
+      );
+      limit = firstNumber(
+        'x-codex-limit-queries',
+        'x-ratelimit-limit-requests',
+        'x-ratelimit-limit',
+      );
+      used = firstNumber('x-codex-used-queries', 'x-ratelimit-used-requests');
+      resetAt = parseReset(
+        get('x-codex-reset') ??
+          get('x-ratelimit-reset-requests') ??
+          get('x-ratelimit-reset'),
+      );
+      windowLabel = get('x-codex-window') ?? get('x-ratelimit-window');
     }
 
-    const windowLabel = get('x-codex-window') ?? get('x-ratelimit-window');
-
-    // Capture every x-* header for debugging — header names vary by backend.
+    // Capture every x-codex-* / x-ratelimit-* header for debugging.
     const rawHeaders: Record<string, string> = {};
     headers.forEach((value, key) => {
       const k = key.toLowerCase();
@@ -1894,19 +1917,23 @@ export class LLMClient {
       }
     });
 
-    if (remaining === null && limit === null && used === null && resetAt === null) {
+    if (
+      remaining === null && limit === null && used === null &&
+      resetAt === null && planType === null
+    ) {
       return null;
     }
 
     return {
       providerId,
+      planType,
       remaining,
       used,
       limit,
       windowLabel,
       resetAt,
       rawHeaders,
-      updatedAt: '', // set by store
+      updatedAt: '',
     };
   }
 

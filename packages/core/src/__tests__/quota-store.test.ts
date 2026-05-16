@@ -25,6 +25,7 @@ describe('SubscriptionQuotaStore', () => {
   it('upserts a snapshot and reads it back', () => {
     const written = store.set({
       providerId: 'openai',
+      planType: 'plus',
       remaining: 142,
       used: 58,
       limit: 200,
@@ -38,6 +39,7 @@ describe('SubscriptionQuotaStore', () => {
 
     const read = store.get('openai');
     expect(read).not.toBeNull();
+    expect(read!.planType).toBe('plus');
     expect(read!.remaining).toBe(142);
     expect(read!.limit).toBe(200);
     expect(read!.windowLabel).toBe('3h');
@@ -47,7 +49,7 @@ describe('SubscriptionQuotaStore', () => {
 
   it('overwrites the existing snapshot on second set', () => {
     store.set({
-      providerId: 'openai',
+      providerId: 'openai', planType: null,
       remaining: 142,
       used: 58,
       limit: 200,
@@ -56,7 +58,7 @@ describe('SubscriptionQuotaStore', () => {
       rawHeaders: {},
     });
     store.set({
-      providerId: 'openai',
+      providerId: 'openai', planType: null,
       remaining: 100,
       used: 100,
       limit: 200,
@@ -72,7 +74,7 @@ describe('SubscriptionQuotaStore', () => {
 
   it('lists multiple providers in descending update order', () => {
     store.set({
-      providerId: 'openai',
+      providerId: 'openai', planType: null,
       remaining: 50,
       used: 50,
       limit: 100,
@@ -88,7 +90,7 @@ describe('SubscriptionQuotaStore', () => {
 
   it('persists snapshots across reopens', () => {
     store.set({
-      providerId: 'openai',
+      providerId: 'openai', planType: null,
       remaining: 42,
       used: 8,
       limit: 50,

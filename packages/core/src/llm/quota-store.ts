@@ -12,13 +12,20 @@ import Database from 'better-sqlite3';
 
 export interface QuotaSnapshot {
   providerId: string;
+  /** Plan tier (e.g. "plus", "pro", "team") if the backend reports one. */
+  planType: string | null;
+  /** Units remaining in the primary rate-limit window. */
   remaining: number | null;
+  /** Units consumed in the primary window. */
   used: number | null;
+  /** Total units in the primary window. */
   limit: number | null;
+  /** Human-readable label for the primary window (e.g. "5h"). */
   windowLabel: string | null;
-  resetAt: string | null;  // ISO datetime
+  /** ISO datetime when the primary window resets. */
+  resetAt: string | null;
   rawHeaders: Record<string, string>;
-  updatedAt: string;       // ISO datetime
+  updatedAt: string;
 }
 
 export class SubscriptionQuotaStore {
@@ -34,6 +41,7 @@ export class SubscriptionQuotaStore {
     const schema = `
       CREATE TABLE IF NOT EXISTS subscription_quota (
         provider_id   TEXT PRIMARY KEY,
+        plan_type     TEXT,
         remaining     INTEGER,
         used          INTEGER,
         limit_total   INTEGER,
@@ -44,15 +52,22 @@ export class SubscriptionQuotaStore {
       )
     `;
     (this.db as any)['exec'](schema);
+    // Add plan_type column to pre-existing tables (idempotent).
+    try {
+      (this.db as any)['exec']("ALTER TABLE subscription_quota ADD COLUMN plan_type TEXT");
+    } catch {
+      // Column already exists — fine.
+    }
   }
 
   set(snapshot: Omit<QuotaSnapshot, 'updatedAt'>): QuotaSnapshot {
     const now = new Date().toISOString();
     (this.db.prepare(`
       INSERT INTO subscription_quota
-        (provider_id, remaining, used, limit_total, window_label, reset_at, raw_headers, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (provider_id, plan_type, remaining, used, limit_total, window_label, reset_at, raw_headers, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(provider_id) DO UPDATE SET
+        plan_type    = excluded.plan_type,
         remaining    = excluded.remaining,
         used         = excluded.used,
         limit_total  = excluded.limit_total,
@@ -62,6 +77,7 @@ export class SubscriptionQuotaStore {
         updated_at   = excluded.updated_at
     `) as any).run(
       snapshot.providerId,
+      snapshot.planType,
       snapshot.remaining,
       snapshot.used,
       snapshot.limit,
@@ -101,6 +117,7 @@ export class SubscriptionQuotaStore {
     }
     return {
       providerId:  row['provider_id']  as string,
+      planType:    (row['plan_type']   as string | null) ?? null,
       remaining:   (row['remaining']   as number | null) ?? null,
       used:        (row['used']        as number | null) ?? null,
       limit:       (row['limit_total'] as number | null) ?? null,
