@@ -5,6 +5,8 @@ import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { spawnSync, execSync, spawn } from 'node:child_process';
 import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
+import { withFort } from '../utils/fort-instance.js';
+import { runAgentWizard } from './wizard.js';
 
 const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'fort-logo.png');
 
@@ -295,7 +297,7 @@ export function createInitCommand(): Command {
       }
       console.log();
 
-      // Step 3: Open portal for agent creation
+      // Step 3: Create the first agent interactively
       console.log(bold('  Step 3: Create your first agent\n'));
 
       const agentEntries = existsSync(agentsDir)
@@ -303,9 +305,16 @@ export function createInitCommand(): Command {
         : [];
 
       if (agentEntries.length > 0) {
-        console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} found`);
+        console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} already configured.`);
       } else {
-        console.log(`    ${dim('Create your first agent in the Fort portal.')}`);
+        try {
+          await withFort(async (fort) => {
+            await runAgentWizard(fort);
+          });
+        } catch (err) {
+          console.log(`    ${yellow('⚠')} Skipped agent setup: ${err instanceof Error ? err.message : err}`);
+          console.log(`    ${dim('Run')} ${cyan('fort agents create')} ${dim('later to create your first agent.')}`);
+        }
       }
       console.log();
 

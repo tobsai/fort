@@ -164,6 +164,16 @@ export class FortServer {
         this.handleCreateAgent(req, res);
         return;
       }
+      if (req.url === '/api/providers/available' && req.method === 'GET') {
+        this.fort.llm.getAvailableProviders().then((providers) => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ providers }));
+        }).catch((err) => {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        });
+        return;
+      }
       if (req.url === '/api/agents') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         const agents = this.fort.agents.listInfo().map((a) => ({
@@ -1038,6 +1048,11 @@ export class FortServer {
         return { id: msg.id, type: 'subscription.quota.get.response', payload: snapshot };
       }
 
+      case 'providers.available': {
+        const providers = await this.fort.llm.getAvailableProviders();
+        return { id: msg.id, type: 'providers.available.response', payload: { providers } };
+      }
+
       // ─── LLM Providers (SPEC-006) ─────────────────────────────────────
 
       case 'llm.providers.list': {
@@ -1348,13 +1363,14 @@ export class FortServer {
     req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
-        const { name, goals, emoji, personality, avatarDataUrl, modelTier } = JSON.parse(body) as {
+        const { name, goals, emoji, personality, avatarDataUrl, modelTier, provider } = JSON.parse(body) as {
           name: string;
           goals?: string;
           emoji?: string;
           personality?: string;
           avatarDataUrl?: string | null;
           modelTier?: 'fast' | 'standard' | 'powerful';
+          provider?: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
         };
 
         if (!name || !name.trim()) {
@@ -1370,10 +1386,25 @@ export class FortServer {
           emoji: emoji || undefined,
         });
 
-        // Set isDefault and modelTier on the identity and re-save
+        // Set isDefault, modelTier, and provider on the identity and re-save
         const identity = agent.identity;
         (identity as any).isDefault = true;
         if (modelTier) (identity as any).defaultModelTier = modelTier;
+        if (provider) (identity as any).provider = provider;
+
+        // If a provider was chosen and a row exists in the store, also mark it
+        // as the global default so future calls without an explicit agent use it.
+        if (provider) {
+          try {
+            const existing = this.fort.llmProviders.getProvider(provider);
+            if (existing) {
+              this.fort.llmProviders.setDefault(provider);
+            }
+          } catch {
+            // setDefault throws if provider row doesn't exist — that's fine,
+            // the agent's per-identity preference still applies.
+          }
+        }
         // Re-save identity with isDefault flag
         const agentDir = join(
           (this.fort.agentFactory as any).agentsDir,

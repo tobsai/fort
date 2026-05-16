@@ -12,7 +12,14 @@ import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from 'node:
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-export type ProviderType = 'anthropic' | 'openai' | 'groq' | 'ollama';
+export type ProviderType =
+  | 'anthropic'
+  | 'openai'
+  | 'grok'        // xAI's chat models (api.x.ai)
+  | 'groq'        // Groq Inc — Llama/Mixtral inference (api.groq.com)
+  | 'google'      // Google Gemini (generativelanguage.googleapis.com)
+  | 'ollama'      // Local Ollama server
+  | 'openrouter'; // OpenRouter aggregator
 
 export interface ProviderConfig {
   id: string;
@@ -44,17 +51,23 @@ export interface LLMProviderRuntime extends LLMProvider {
 // ─── Static Provider Metadata ────────────────────────────────────────
 
 export const PROVIDER_MODELS: Record<ProviderType, string[]> = {
-  anthropic: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
-  openai: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.2'],
-  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
-  ollama: [],
+  anthropic:  ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
+  openai:     ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.2'],
+  grok:       ['grok-4-heavy', 'grok-4', 'grok-3', 'grok-3-mini', 'grok-code-fast'],
+  groq:       ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+  google:     ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+  ollama:     [],  // populated dynamically from server's /api/tags
+  openrouter: ['openai/gpt-5.5', 'anthropic/claude-opus-4-6', 'anthropic/claude-sonnet-4-5', 'openai/gpt-5.4-mini', 'google/gemini-2.5-pro', 'x-ai/grok-4', 'meta-llama/llama-3.3-70b-instruct'],
 };
 
 export const PROVIDER_DEFAULTS: Record<ProviderType, { name: string; defaultModel: string; baseUrl?: string }> = {
-  anthropic: { name: 'Anthropic', defaultModel: 'claude-sonnet-4-5-20250929' },
-  openai:    { name: 'OpenAI',    defaultModel: 'gpt-5.4',                   baseUrl: 'https://api.openai.com/v1' },
-  groq:      { name: 'Groq',      defaultModel: 'llama-3.3-70b-versatile',   baseUrl: 'https://api.groq.com/openai/v1' },
-  ollama:    { name: 'Ollama',    defaultModel: 'llama3',                    baseUrl: 'http://localhost:11434' },
+  anthropic:  { name: 'Anthropic',   defaultModel: 'claude-sonnet-4-5-20250929' },
+  openai:     { name: 'OpenAI',      defaultModel: 'gpt-5.4',                       baseUrl: 'https://api.openai.com/v1' },
+  grok:       { name: 'Grok (xAI)',  defaultModel: 'grok-4',                        baseUrl: 'https://api.x.ai/v1' },
+  groq:       { name: 'Groq',        defaultModel: 'llama-3.3-70b-versatile',       baseUrl: 'https://api.groq.com/openai/v1' },
+  google:     { name: 'Google',      defaultModel: 'gemini-2.5-pro',                baseUrl: 'https://generativelanguage.googleapis.com' },
+  ollama:     { name: 'Ollama',      defaultModel: 'llama3.2',                      baseUrl: 'http://localhost:11434' },
+  openrouter: { name: 'OpenRouter',  defaultModel: 'anthropic/claude-sonnet-4-5',   baseUrl: 'https://openrouter.ai/api/v1' },
 };
 
 // ─── Store ───────────────────────────────────────────────────────────

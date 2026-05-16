@@ -115,8 +115,11 @@ type ErrorClassification = {
 
 type RuntimeProvider =
   | { id: 'anthropic'; client: Anthropic; authMethod: string; isOAuth: boolean }
-  | { id: 'openai' | 'groq'; token: string; baseUrl: string; authMethod: string; accountId?: string }
-  | { id: 'ollama'; baseUrl: string; authMethod: string };
+  | { id: 'openai'; token: string; baseUrl: string; authMethod: string; accountId?: string }
+  // OpenAI-compatible chat-completions providers (grok / groq / openrouter / ollama)
+  | { id: 'grok' | 'groq' | 'openrouter' | 'ollama'; token: string; baseUrl: string; authMethod: string }
+  // Gemini-native (uses generateContent endpoint, different request/response shape)
+  | { id: 'google'; token: string; baseUrl: string; authMethod: string };
 
 type OpenAIResponse = {
   id?: string;
@@ -129,6 +132,18 @@ type OpenAIResponse = {
   };
   error?: { message?: string };
 };
+
+/** Public base URLs for OpenAI-compatible providers (also exposed for testing). */
+function defaultBaseUrlFor(id: 'openai' | 'grok' | 'groq' | 'openrouter' | 'ollama' | 'google'): string {
+  switch (id) {
+    case 'openai':     return 'https://api.openai.com/v1';
+    case 'grok':       return 'https://api.x.ai/v1';
+    case 'groq':       return 'https://api.groq.com/openai/v1';
+    case 'openrouter': return 'https://openrouter.ai/api/v1';
+    case 'ollama':     return 'http://localhost:11434';
+    case 'google':     return 'https://generativelanguage.googleapis.com';
+  }
+}
 
 /** Typed HTTP error thrown by callOpenAIResponses so the retry layer can classify it. */
 class OpenAIHttpError extends Error {
@@ -180,24 +195,39 @@ const DEFAULT_MODELS: Record<ModelTier, ModelConfig> = {
 };
 
 const DEFAULT_OPENAI_MODELS: Record<ModelTier, ModelConfig> = {
-  fast: {
-    tier: 'fast',
-    model: 'gpt-5.4-mini',
-    maxTokens: 2048,
-    description: 'Fast OpenAI model for simple tasks, classification, extraction',
-  },
-  standard: {
-    tier: 'standard',
-    model: 'gpt-5.4',
-    maxTokens: 4096,
-    description: 'Balanced OpenAI model for most tasks, coding, and analysis',
-  },
-  powerful: {
-    tier: 'powerful',
-    model: 'gpt-5.5',
-    maxTokens: 8192,
-    description: 'Frontier OpenAI model for complex reasoning and planning',
-  },
+  fast:     { tier: 'fast',     model: 'gpt-5.4-mini',     maxTokens: 2048, description: 'Fast OpenAI model for simple tasks' },
+  standard: { tier: 'standard', model: 'gpt-5.4',          maxTokens: 4096, description: 'Balanced OpenAI model' },
+  powerful: { tier: 'powerful', model: 'gpt-5.5',          maxTokens: 8192, description: 'Frontier OpenAI model' },
+};
+
+const DEFAULT_GROK_MODELS: Record<ModelTier, ModelConfig> = {
+  fast:     { tier: 'fast',     model: 'grok-3-mini',      maxTokens: 2048, description: 'Fast xAI Grok model' },
+  standard: { tier: 'standard', model: 'grok-4',           maxTokens: 4096, description: 'Standard xAI Grok model' },
+  powerful: { tier: 'powerful', model: 'grok-4-heavy',     maxTokens: 8192, description: 'Frontier xAI Grok model' },
+};
+
+const DEFAULT_GROQ_MODELS: Record<ModelTier, ModelConfig> = {
+  fast:     { tier: 'fast',     model: 'llama-3.1-8b-instant',     maxTokens: 2048, description: 'Fast Llama via Groq inference' },
+  standard: { tier: 'standard', model: 'llama-3.3-70b-versatile',  maxTokens: 4096, description: 'Standard Llama via Groq inference' },
+  powerful: { tier: 'powerful', model: 'llama-3.3-70b-versatile',  maxTokens: 8192, description: 'Powerful Llama via Groq inference' },
+};
+
+const DEFAULT_GOOGLE_MODELS: Record<ModelTier, ModelConfig> = {
+  fast:     { tier: 'fast',     model: 'gemini-2.5-flash',  maxTokens: 2048, description: 'Fast Gemini model' },
+  standard: { tier: 'standard', model: 'gemini-2.5-pro',    maxTokens: 4096, description: 'Standard Gemini model' },
+  powerful: { tier: 'powerful', model: 'gemini-2.5-pro',    maxTokens: 8192, description: 'Frontier Gemini model' },
+};
+
+const DEFAULT_OLLAMA_MODELS: Record<ModelTier, ModelConfig> = {
+  fast:     { tier: 'fast',     model: 'llama3.2:1b',       maxTokens: 2048, description: 'Fast local model via Ollama' },
+  standard: { tier: 'standard', model: 'llama3.2',          maxTokens: 4096, description: 'Standard local model via Ollama' },
+  powerful: { tier: 'powerful', model: 'qwen2.5-coder',     maxTokens: 8192, description: 'Coding-tuned local model via Ollama' },
+};
+
+const DEFAULT_OPENROUTER_MODELS: Record<ModelTier, ModelConfig> = {
+  fast:     { tier: 'fast',     model: 'openai/gpt-5.4-mini',           maxTokens: 2048, description: 'Fast via OpenRouter' },
+  standard: { tier: 'standard', model: 'anthropic/claude-sonnet-4-5',   maxTokens: 4096, description: 'Standard via OpenRouter' },
+  powerful: { tier: 'powerful', model: 'anthropic/claude-opus-4-6',     maxTokens: 8192, description: 'Powerful via OpenRouter' },
 };
 
 const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform. You are helpful, concise, and action-oriented. You prefer to take action rather than ask unnecessary clarifying questions. When given a task, you execute it and report results.`;
@@ -205,16 +235,42 @@ const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform. You a
 // ─── Pricing (per 1M tokens) ────────────────────────────────────────
 
 const PRICING: Record<string, { input: number; output: number }> = {
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
-  'claude-sonnet-4-5-20250929': { input: 3.00, output: 15.00 },
-  'claude-opus-4-6': { input: 15.00, output: 75.00 },
-  // ChatGPT/Codex subscription — usage is covered by the plan, so $cost is 0.
-  // Quota burn-down is tracked separately via SubscriptionQuotaStore.
-  'gpt-5.5': { input: 0, output: 0 },
-  'gpt-5.4': { input: 0, output: 0 },
-  'gpt-5.4-mini': { input: 0, output: 0 },
-  'gpt-5.3-codex': { input: 0, output: 0 },
-  'gpt-5.2': { input: 0, output: 0 },
+  // Anthropic — public pricing (per 1M tokens)
+  'claude-haiku-4-5-20251001':   { input: 0.80,  output: 4.00 },
+  'claude-sonnet-4-5-20250929':  { input: 3.00,  output: 15.00 },
+  'claude-opus-4-6':             { input: 15.00, output: 75.00 },
+  // OpenAI ChatGPT/Codex subscription — flat-rate, tracked via quota.
+  'gpt-5.5':         { input: 0, output: 0 },
+  'gpt-5.4':         { input: 0, output: 0 },
+  'gpt-5.4-mini':    { input: 0, output: 0 },
+  'gpt-5.3-codex':   { input: 0, output: 0 },
+  'gpt-5.2':         { input: 0, output: 0 },
+  // xAI Grok — public pricing approximations
+  'grok-4-heavy':       { input: 5.00, output: 25.00 },
+  'grok-4':             { input: 3.00, output: 15.00 },
+  'grok-3':             { input: 1.00, output: 5.00 },
+  'grok-3-mini':        { input: 0.30, output: 1.50 },
+  'grok-code-fast':     { input: 0.20, output: 1.00 },
+  // Groq (Llama inference) — very cheap
+  'llama-3.3-70b-versatile':  { input: 0.59, output: 0.79 },
+  'llama-3.1-8b-instant':     { input: 0.05, output: 0.08 },
+  'mixtral-8x7b-32768':       { input: 0.24, output: 0.24 },
+  // Google Gemini — public pricing
+  'gemini-2.5-pro':     { input: 1.25, output: 10.00 },
+  'gemini-2.5-flash':   { input: 0.10, output: 0.40 },
+  'gemini-2.0-flash':   { input: 0.10, output: 0.40 },
+  // Ollama — local, free
+  'llama3.2':           { input: 0, output: 0 },
+  'llama3.2:1b':        { input: 0, output: 0 },
+  'qwen2.5-coder':      { input: 0, output: 0 },
+  // OpenRouter — proxy pricing varies by routed model; approximations
+  'openai/gpt-5.4-mini':            { input: 0.25, output: 2.00 },
+  'openai/gpt-5.5':                 { input: 2.50, output: 10.00 },
+  'anthropic/claude-sonnet-4-5':    { input: 3.00, output: 15.00 },
+  'anthropic/claude-opus-4-6':      { input: 15.00, output: 75.00 },
+  'google/gemini-2.5-pro':          { input: 1.25, output: 10.00 },
+  'x-ai/grok-4':                    { input: 3.00, output: 15.00 },
+  'meta-llama/llama-3.3-70b-instruct': { input: 0.50, output: 0.75 },
 };
 
 // ─── LLM Client ─────────────────────────────────────────────────────
@@ -323,7 +379,11 @@ export class LLMClient {
     return LLMClient.readEnvFileValue('OPENAI_API_KEY');
   }
 
-  private static readEnvFileValue(key: string): string | null {
+  /**
+   * Read any KEY=VALUE entry from ~/.fort/.env. Public so provider-specific
+   * resolvers (grok/groq/google/openrouter) can share the same parser.
+   */
+  static readEnvFileValue(key: string): string | null {
     const envPath = join(homedir(), '.fort', '.env');
     if (!existsSync(envPath)) return null;
     try {
@@ -388,26 +448,36 @@ export class LLMClient {
   }
 
   /**
-   * Write an API key to ~/.fort/.env
+   * Write an Anthropic API key to ~/.fort/.env (backwards-compatible wrapper).
    */
   static writeEnvFile(apiKey: string): void {
+    LLMClient.writeEnvFileValue('ANTHROPIC_API_KEY', apiKey);
+  }
+
+  /**
+   * Upsert any KEY=VALUE entry in ~/.fort/.env. Creates the file with the
+   * standard header if missing; replaces the line in-place if the key already
+   * exists; otherwise appends. Used by `fort llm setup --<provider>` flows.
+   */
+  static writeEnvFileValue(key: string, value: string): void {
     const fortDir = join(homedir(), '.fort');
     const envPath = join(fortDir, '.env');
     const { mkdirSync, writeFileSync: writeFile } = require('node:fs');
     if (!existsSync(fortDir)) mkdirSync(fortDir, { recursive: true });
 
-    // Read existing content, replace or append
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matcher = new RegExp(`^${escapedKey}\\s*=.*$`, 'm');
+
     let content = '';
     if (existsSync(envPath)) {
       content = readFileSync(envPath, 'utf-8');
-      // Replace existing key
-      if (content.match(/^ANTHROPIC_API_KEY\s*=/m)) {
-        content = content.replace(/^ANTHROPIC_API_KEY\s*=.*$/m, `ANTHROPIC_API_KEY=${apiKey}`);
+      if (matcher.test(content)) {
+        content = content.replace(matcher, `${key}=${value}`);
       } else {
-        content = content.trimEnd() + `\nANTHROPIC_API_KEY=${apiKey}\n`;
+        content = content.trimEnd() + `\n${key}=${value}\n`;
       }
     } else {
-      content = `# Fort API Configuration\n# Generated by \`fort llm setup\`\n\nANTHROPIC_API_KEY=${apiKey}\n`;
+      content = `# Fort API Configuration\n# Generated by \`fort llm setup\`\n\n${key}=${value}\n`;
     }
 
     writeFile(envPath, content, 'utf-8');
@@ -446,16 +516,41 @@ export class LLMClient {
    */
   async validateAuth(): Promise<string | null> {
     const active = this.resolveRuntimeProvider();
-    if (active?.id === 'openai' || active?.id === 'groq') {
+    if (active?.id === 'openai') {
       try {
         await this.callOpenAIResponses(active, {
           model: this.resolveModelForProvider(active, this.defaultTier).model,
+          instructions: 'You are a connectivity check. Reply with one word.',
           input: 'hi',
           max_output_tokens: 1,
         });
         return null;
       } catch (err) {
         return `API connection error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+    if (active && (active.id === 'grok' || active.id === 'groq' || active.id === 'openrouter' || active.id === 'ollama')) {
+      try {
+        await this.callOpenAICompatibleChat(active, {
+          model: this.resolveModelForProvider(active, this.defaultTier).model,
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1,
+        });
+        return null;
+      } catch (err) {
+        return `${active.id} connection error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+    if (active?.id === 'google') {
+      try {
+        await this.callGoogleGemini(active, {
+          model: this.resolveModelForProvider(active, this.defaultTier).model,
+          contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+          generationConfig: { maxOutputTokens: 1 },
+        });
+        return null;
+      } catch (err) {
+        return `Google connection error: ${err instanceof Error ? err.message : String(err)}`;
       }
     }
 
@@ -512,12 +607,18 @@ export class LLMClient {
       );
     }
 
-    if (runtime.id === 'openai' || runtime.id === 'groq') {
+    if (runtime.id === 'openai') {
       return this.completeOpenAI(runtime, request);
+    }
+    if (runtime.id === 'grok' || runtime.id === 'groq' || runtime.id === 'openrouter' || runtime.id === 'ollama') {
+      return this.completeOpenAICompatible(runtime, request);
+    }
+    if (runtime.id === 'google') {
+      return this.completeGoogle(runtime, request);
     }
 
     if (runtime.id !== 'anthropic') {
-      throw new Error(`${runtime.id} generation is not implemented yet.`);
+      throw new Error(`${(runtime as RuntimeProvider).id} generation is not implemented yet.`);
     }
 
     const client = runtime.client;
@@ -658,12 +759,13 @@ export class LLMClient {
       );
     }
 
-    if (runtime.id === 'openai' || runtime.id === 'groq') {
+    if (runtime.id === 'openai') {
       return this.completeOpenAIWithTools(runtime, request, executor, opts);
     }
-
+    // Tool-calling for grok/groq/google/openrouter/ollama is not yet wired.
+    // Surface a clear error rather than silently falling through.
     if (runtime.id !== 'anthropic') {
-      throw new Error(`${runtime.id} generation with tools is not implemented yet.`);
+      throw new Error(`Tool calling via ${(runtime as RuntimeProvider).id} is not implemented yet — use Anthropic or OpenAI for tools.`);
     }
 
     const client = runtime.client;
@@ -909,9 +1011,13 @@ export class LLMClient {
       return;
     }
 
-    if (runtime.id === 'openai' || runtime.id === 'groq') {
+    if (runtime.id === 'openai' || runtime.id === 'grok' || runtime.id === 'groq' || runtime.id === 'openrouter' || runtime.id === 'ollama' || runtime.id === 'google') {
       try {
-        const response = await this.completeOpenAI(runtime, request);
+        const response = runtime.id === 'openai'
+          ? await this.completeOpenAI(runtime, request)
+          : runtime.id === 'google'
+            ? await this.completeGoogle(runtime, request)
+            : await this.completeOpenAICompatible(runtime, request);
         yield { type: 'text', text: response.content };
         yield { type: 'done', response };
       } catch (err) {
@@ -1085,13 +1191,126 @@ export class LLMClient {
   }
 
   /**
+   * Enumerate every supported provider with its current usability state.
+   * Used by the dashboard SetupWizard and `fort agents create` to render
+   * the Provider step.
+   *
+   * `usable: true` means the provider has a credential source resolvable
+   * right now (env var, ~/.fort/.env, provider-store row with apiKey,
+   * Codex subscription, Claude keychain, or reachable Ollama server).
+   */
+  async getAvailableProviders(): Promise<Array<{
+    id: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
+    name: string;
+    usable: boolean;
+    authMethod: string | null;
+    models: { fast: string; standard: string; powerful: string };
+    hint?: string;
+  }>> {
+    const tierMap = (id: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter') => {
+      const m = id === 'anthropic' ? this.models : LLMClient.tierMapFor(id);
+      return {
+        fast: m!.fast.model,
+        standard: m!.standard.model,
+        powerful: m!.powerful.model,
+      };
+    };
+
+    // Anthropic — usable if constructor wired a client OR provider-store
+    // has an anthropic row with apiKey.
+    const anthropicStoreRow = this.providerStore?.getProviderRuntime('anthropic') ?? null;
+    const anthropicUsable = this.client !== null || !!(anthropicStoreRow && anthropicStoreRow.apiKey);
+    const anthropicAuth = this.client
+      ? (this._isOAuthToken ? 'claude_subscription' : this._authMethod ?? 'unknown')
+      : anthropicStoreRow?.apiKey ? 'provider_store' : null;
+
+    const openai = LLMClient.resolveOpenAIToken();
+    const grok = LLMClient.resolveGrokToken();
+    const groq = LLMClient.resolveGroqToken();
+    const google = LLMClient.resolveGoogleToken();
+    const openrouter = LLMClient.resolveOpenRouterToken();
+
+    // Ollama — usable if local server responds (short timeout)
+    let ollamaUsable = false;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 500);
+      const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+      clearTimeout(timer);
+      ollamaUsable = res.ok;
+    } catch {
+      ollamaUsable = false;
+    }
+
+    return [
+      {
+        id: 'anthropic',
+        name: 'Anthropic',
+        usable: anthropicUsable,
+        authMethod: anthropicAuth,
+        models: tierMap('anthropic'),
+        ...(anthropicUsable ? {} : { hint: 'Run `fort llm setup` to authenticate with Claude.' }),
+      },
+      {
+        id: 'openai',
+        name: 'OpenAI',
+        usable: openai !== null,
+        authMethod: openai?.authMethod ?? null,
+        models: tierMap('openai'),
+        ...(openai ? {} : { hint: 'Run `fort llm setup --openai` to sign in with Codex.' }),
+      },
+      {
+        id: 'grok',
+        name: 'Grok (xAI)',
+        usable: grok !== null,
+        authMethod: grok?.authMethod ?? null,
+        models: tierMap('grok'),
+        ...(grok ? {} : { hint: 'Run `fort llm setup --grok` or set XAI_API_KEY in ~/.fort/.env.' }),
+      },
+      {
+        id: 'groq',
+        name: 'Groq',
+        usable: groq !== null,
+        authMethod: groq?.authMethod ?? null,
+        models: tierMap('groq'),
+        ...(groq ? {} : { hint: 'Run `fort llm setup --groq` or set GROQ_API_KEY in ~/.fort/.env.' }),
+      },
+      {
+        id: 'google',
+        name: 'Google',
+        usable: google !== null,
+        authMethod: google?.authMethod ?? null,
+        models: tierMap('google'),
+        ...(google ? {} : { hint: 'Run `fort llm setup --google` or set GEMINI_API_KEY in ~/.fort/.env.' }),
+      },
+      {
+        id: 'ollama',
+        name: 'Ollama',
+        usable: ollamaUsable,
+        authMethod: ollamaUsable ? 'ollama_local' : null,
+        models: tierMap('ollama'),
+        ...(ollamaUsable ? {} : { hint: 'Start the Ollama server: `ollama serve` (default localhost:11434).' }),
+      },
+      {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        usable: openrouter !== null,
+        authMethod: openrouter?.authMethod ?? null,
+        models: tierMap('openrouter'),
+        ...(openrouter ? {} : { hint: 'Run `fort llm setup --openrouter` or set OPENROUTER_API_KEY in ~/.fort/.env.' }),
+      },
+    ];
+  }
+
+  /**
    * Get the model tier mapping for the currently active provider. Falls back
    * to the Anthropic defaults when no provider is resolved.
    */
   getActiveModels(): Record<ModelTier, ModelConfig> {
     const active = this.resolveRuntimeProvider();
-    if (active && (active.id === 'openai' || active.id === 'groq')) {
-      return { ...DEFAULT_OPENAI_MODELS };
+    if (active) {
+      const tierMap = LLMClient.tierMapFor(active.id);
+      if (tierMap) return { ...tierMap };
     }
     return { ...this.models };
   }
@@ -1106,6 +1325,12 @@ export class LLMClient {
   /**
    * Get the active provider for a given agent (or the global default).
    * Resolution order: agent DB preference → global DB default → env var fallback (null).
+   *
+   * Per-agent override is stored on `SpecialistIdentity.provider` (set during
+   * agent creation in the wizard) but reading it requires AgentRegistry
+   * coupling we don't have here yet. For now, returns the global default —
+   * which is set to the wizard's chosen provider via `LLMProviderStore.setDefault`
+   * during agent creation, so wizard-picked providers do take effect.
    */
   getActiveProvider(_agentId?: string): LLMProviderRuntime | null {
     if (!this.providerStore) return null;
@@ -1630,43 +1855,13 @@ export class LLMClient {
     if (this.providerStore) {
       const provider = this.getActiveProvider(agentId);
       if (provider) {
-        if (provider.id === 'anthropic' && provider.apiKey) {
-          const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
-          return {
-            id: 'anthropic',
-            client: LLMClient.createAnthropicClient(provider.apiKey, isOAuth),
-            authMethod: 'provider_store',
-            isOAuth,
-          };
-        }
-
-        if (provider.id === 'openai' || provider.id === 'groq') {
-          const resolved: { token: string; authMethod: string; accountId?: string } | null = provider.apiKey
-            ? { token: provider.apiKey, authMethod: 'provider_store' }
-            : provider.id === 'openai'
-              ? LLMClient.resolveOpenAIToken()
-              : null;
-          if (resolved) {
-            return {
-              id: provider.id,
-              token: resolved.token,
-              baseUrl: provider.baseUrl ?? (provider.id === 'openai' ? 'https://api.openai.com/v1' : 'https://api.groq.com/openai/v1'),
-              authMethod: resolved.authMethod,
-              accountId: resolved.accountId,
-            };
-          }
-        }
-
-        if (provider.id === 'ollama') {
-          return {
-            id: 'ollama',
-            baseUrl: provider.baseUrl ?? 'http://localhost:11434',
-            authMethod: 'provider_store',
-          };
-        }
+        const fromStore = this.buildRuntimeProviderFromStore(provider);
+        if (fromStore) return fromStore;
       }
     }
 
+    // Fallback to ambient credentials: prefer OpenAI Codex subscription /
+    // OPENAI_API_KEY first (the most common Fort default), then Anthropic.
     const openai = LLMClient.resolveOpenAIToken();
     if (openai) {
       return {
@@ -1690,6 +1885,81 @@ export class LLMClient {
     return null;
   }
 
+  /**
+   * Map an LLMProviderRuntime row to a RuntimeProvider. The row's apiKey takes
+   * precedence; if absent, falls back to per-provider ambient credentials
+   * (Codex subscription for OpenAI, env / .env for the OpenAI-compatible
+   * providers and Google).
+   */
+  private buildRuntimeProviderFromStore(provider: LLMProviderRuntime): RuntimeProvider | null {
+    if (provider.id === 'anthropic') {
+      if (!provider.apiKey) return null;
+      const isOAuth = provider.apiKey.startsWith('sk-ant-oat');
+      return {
+        id: 'anthropic',
+        client: LLMClient.createAnthropicClient(provider.apiKey, isOAuth),
+        authMethod: 'provider_store',
+        isOAuth,
+      };
+    }
+
+    if (provider.id === 'openai') {
+      const resolved = provider.apiKey
+        ? { token: provider.apiKey, authMethod: 'provider_store', accountId: undefined as string | undefined }
+        : LLMClient.resolveOpenAIToken();
+      if (!resolved) return null;
+      return {
+        id: 'openai',
+        token: resolved.token,
+        baseUrl: provider.baseUrl ?? 'https://api.openai.com/v1',
+        authMethod: resolved.authMethod,
+        accountId: resolved.accountId,
+      };
+    }
+
+    // OpenAI-compatible chat-completions providers
+    if (provider.id === 'grok' || provider.id === 'groq' || provider.id === 'openrouter') {
+      const ambient = provider.id === 'grok'       ? LLMClient.resolveGrokToken()
+                    : provider.id === 'groq'       ? LLMClient.resolveGroqToken()
+                    :                                 LLMClient.resolveOpenRouterToken();
+      const resolved = provider.apiKey
+        ? { token: provider.apiKey, authMethod: 'provider_store' }
+        : ambient;
+      if (!resolved) return null;
+      return {
+        id: provider.id,
+        token: resolved.token,
+        baseUrl: provider.baseUrl ?? defaultBaseUrlFor(provider.id),
+        authMethod: resolved.authMethod,
+      };
+    }
+
+    if (provider.id === 'google') {
+      const ambient = LLMClient.resolveGoogleToken();
+      const resolved = provider.apiKey
+        ? { token: provider.apiKey, authMethod: 'provider_store' }
+        : ambient;
+      if (!resolved) return null;
+      return {
+        id: 'google',
+        token: resolved.token,
+        baseUrl: provider.baseUrl ?? 'https://generativelanguage.googleapis.com',
+        authMethod: resolved.authMethod,
+      };
+    }
+
+    if (provider.id === 'ollama') {
+      return {
+        id: 'ollama',
+        token: '', // Ollama has no auth — placeholder for the union shape
+        baseUrl: provider.baseUrl ?? 'http://localhost:11434',
+        authMethod: 'ollama_local',
+      };
+    }
+
+    return null;
+  }
+
   private static resolveOpenAIToken(): { token: string; authMethod: string; accountId?: string } | null {
     if (process.env.OPENAI_API_KEY) {
       return { token: process.env.OPENAI_API_KEY, authMethod: 'openai_api_key_env' };
@@ -1705,10 +1975,52 @@ export class LLMClient {
     return null;
   }
 
+  /**
+   * Generic credential resolver for OpenAI-compatible providers. Walks
+   * process.env[envVar] → ~/.fort/.env → null. Used by Grok, Groq, Google,
+   * and OpenRouter.
+   */
+  static resolveSimpleProviderToken(
+    envVar: string,
+    authMethodLabel: string,
+  ): { token: string; authMethod: string } | null {
+    const fromEnv = process.env[envVar];
+    if (fromEnv) return { token: fromEnv, authMethod: `${authMethodLabel}_env` };
+    const fromFile = LLMClient.readEnvFileValue(envVar);
+    if (fromFile) return { token: fromFile, authMethod: `${authMethodLabel}_dotenv` };
+    return null;
+  }
+
+  static resolveGrokToken()       { return LLMClient.resolveSimpleProviderToken('XAI_API_KEY', 'grok'); }
+  static resolveGroqToken()       { return LLMClient.resolveSimpleProviderToken('GROQ_API_KEY', 'groq'); }
+  static resolveOpenRouterToken() { return LLMClient.resolveSimpleProviderToken('OPENROUTER_API_KEY', 'openrouter'); }
+  /** Google accepts GEMINI_API_KEY or GOOGLE_API_KEY. Checks both env vars. */
+  static resolveGoogleToken(): { token: string; authMethod: string } | null {
+    if (process.env.GEMINI_API_KEY) return { token: process.env.GEMINI_API_KEY, authMethod: 'google_env' };
+    if (process.env.GOOGLE_API_KEY) return { token: process.env.GOOGLE_API_KEY, authMethod: 'google_env' };
+    const fromFile = LLMClient.readEnvFileValue('GEMINI_API_KEY') ?? LLMClient.readEnvFileValue('GOOGLE_API_KEY');
+    if (fromFile) return { token: fromFile, authMethod: 'google_dotenv' };
+    return null;
+  }
+
+  /** Tier-model map for a given provider id. */
+  private static tierMapFor(id: RuntimeProvider['id']): Record<ModelTier, ModelConfig> | null {
+    switch (id) {
+      case 'openai':     return DEFAULT_OPENAI_MODELS;
+      case 'grok':       return DEFAULT_GROK_MODELS;
+      case 'groq':       return DEFAULT_GROQ_MODELS;
+      case 'google':     return DEFAULT_GOOGLE_MODELS;
+      case 'ollama':     return DEFAULT_OLLAMA_MODELS;
+      case 'openrouter': return DEFAULT_OPENROUTER_MODELS;
+      default:           return null; // anthropic uses this.models
+    }
+  }
+
   private resolveModelForProvider(provider: RuntimeProvider, modelSpec?: ModelTier | string): ModelConfig {
-    if ((provider.id === 'openai' || provider.id === 'groq') && (!modelSpec || modelSpec in DEFAULT_OPENAI_MODELS)) {
+    const tierMap = LLMClient.tierMapFor(provider.id);
+    if (tierMap && (!modelSpec || modelSpec in tierMap)) {
       const tier = (modelSpec ?? this.defaultTier) as ModelTier;
-      return DEFAULT_OPENAI_MODELS[tier];
+      return tierMap[tier];
     }
     return this.resolveModel(modelSpec);
   }
@@ -1943,7 +2255,7 @@ export class LLMClient {
    * quota store is configured (tests, headless usage).
    */
   private observeOpenAIHeaders(
-    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    provider: RuntimeProvider & { id: 'openai' },
     headers: Headers,
   ): void {
     if (!this.quotaStore) return;
@@ -1977,7 +2289,7 @@ export class LLMClient {
   }
 
   private async completeOpenAI(
-    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    provider: RuntimeProvider & { id: 'openai' },
     request: LLMRequest,
     fallbackDepth = 0,
   ): Promise<LLMResponse> {
@@ -2005,7 +2317,7 @@ export class LLMClient {
           onAuthRefresh: () => {
             if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
               const fresh = this.resolveRuntimeProvider(request.agentId);
-              if (fresh && (fresh.id === 'openai' || fresh.id === 'groq')) {
+              if (fresh && (fresh.id === 'openai')) {
                 currentProvider = fresh;
                 return true;
               }
@@ -2030,7 +2342,7 @@ export class LLMClient {
   }
 
   private async completeOpenAIWithTools(
-    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    provider: RuntimeProvider & { id: 'openai' },
     request: LLMRequest & { tools: FortTool[] },
     executor: ToolExecutor,
     opts: { maxIterations?: number } = {},
@@ -2083,7 +2395,7 @@ export class LLMClient {
             onAuthRefresh: () => {
               if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
                 const fresh = this.resolveRuntimeProvider(request.agentId);
-                if (fresh && (fresh.id === 'openai' || fresh.id === 'groq')) {
+                if (fresh && (fresh.id === 'openai')) {
                   currentProvider = fresh;
                   return true;
                 }
@@ -2230,7 +2542,7 @@ export class LLMClient {
    * the quota tracker).
    */
   private async callOpenAIResponses(
-    provider: RuntimeProvider & { id: 'openai' | 'groq' },
+    provider: RuntimeProvider & { id: 'openai' },
     body: Record<string, unknown>,
   ): Promise<OpenAICallResult> {
     const isCodexSub = provider.authMethod === 'codex_subscription';
@@ -2434,4 +2746,249 @@ export class LLMClient {
     }
     return parts.join('');
   }
+
+  // ─── OpenAI-Compatible Chat Completions ───────────────────────────────
+  // Handles Grok (xAI), Groq, OpenRouter, and Ollama — all of which speak
+  // the standard /chat/completions wire protocol.
+
+  private async completeOpenAICompatible(
+    provider: RuntimeProvider & { id: 'grok' | 'groq' | 'openrouter' | 'ollama' },
+    request: LLMRequest,
+    fallbackDepth = 0,
+  ): Promise<LLMResponse> {
+    const modelConfig = this.resolveModelForProvider(provider, request.model);
+    const system = await this.buildSystemPrompt(request);
+    const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+    const start = Date.now();
+
+    // Build standard ChatCompletion messages with the system prompt as the
+    // first system-role message (works for all four backends).
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+    if (system) messages.push({ role: 'system', content: system });
+    for (const m of request.messages) messages.push({ role: m.role, content: m.content });
+
+    let body: OpenAIChatBody;
+    try {
+      body = await this.callWithRetry<OpenAIChatBody>(
+        () => this.callOpenAICompatibleChat(provider, {
+          model: modelConfig.model,
+          messages,
+          max_tokens: maxTokens,
+          temperature: request.temperature,
+        }),
+        (err) => this.classifyOpenAIError(err, provider.authMethod),
+        { modelConfig, request, fallbackDepth },
+      );
+    } catch (err: any) {
+      if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        return this.completeOpenAICompatible(
+          provider,
+          { ...request, model: err._fallbackTier },
+          (err._fallbackDepth ?? 0) + 1,
+        );
+      }
+      throw err;
+    }
+
+    const inputTokens = body.usage?.prompt_tokens ?? 0;
+    const outputTokens = body.usage?.completion_tokens ?? 0;
+    const totalTokens = body.usage?.total_tokens ?? inputTokens + outputTokens;
+    const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+    const content = body.choices?.[0]?.message?.content ?? '';
+    const stopReason = body.choices?.[0]?.finish_reason ?? null;
+
+    this.requestCount++;
+    this.totalInputTokens += inputTokens;
+    this.totalOutputTokens += outputTokens;
+    this.totalCostUsd += costUsd;
+
+    if (this.tokenTracker) {
+      this.tokenTracker.record({
+        timestamp: new Date(),
+        model: modelConfig.model,
+        inputTokens, outputTokens, totalTokens, costUsd,
+        taskId: request.taskId, agentId: request.agentId,
+        source: `llm_client_${provider.id}`,
+      });
+    }
+
+    const durationMs = Date.now() - start;
+    this.bus.publish('llm.completed', 'llm-client', {
+      model: modelConfig.model, tier: modelConfig.tier,
+      inputTokens, outputTokens, costUsd, durationMs,
+      taskId: request.taskId, agentId: request.agentId,
+    });
+    if (request.taskId && request.agentId) {
+      this.bus.publish('usage.recorded', request.agentId, {
+        taskId: request.taskId, agentId: request.agentId,
+        model: modelConfig.model, inputTokens, outputTokens,
+        cacheReadTokens: 0, cacheWriteTokens: 0,
+      });
+    }
+
+    return { content, model: modelConfig.model, inputTokens, outputTokens, totalTokens, costUsd, stopReason, durationMs };
+  }
+
+  /**
+   * Raw POST to `${baseUrl}/chat/completions`. Throws OpenAIHttpError on
+   * non-2xx so the retry layer can classify by status. Used by Grok / Groq /
+   * OpenRouter / Ollama.
+   */
+  private async callOpenAICompatibleChat(
+    provider: RuntimeProvider & { id: 'grok' | 'groq' | 'openrouter' | 'ollama' },
+    body: Record<string, unknown>,
+  ): Promise<OpenAIChatBody> {
+    const url = `${provider.baseUrl.replace(/\/$/, '')}/chat/completions`;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Ollama runs unauthenticated locally; everyone else uses bearer auth.
+    if (provider.token) headers['Authorization'] = `Bearer ${provider.token}`;
+    if (provider.id === 'openrouter') {
+      headers['HTTP-Referer'] = 'https://github.com/tobsai/fort';
+      headers['X-Title'] = 'Fort';
+    }
+
+    const res = await fetch(url, {
+      method: 'POST', headers, body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({})) as any;
+      const message = errJson.error?.message ?? errJson.detail ?? errJson.message ?? `${provider.id} request failed: HTTP ${res.status}`;
+      throw new OpenAIHttpError(res.status, res.headers, errJson, message);
+    }
+    return await res.json() as OpenAIChatBody;
+  }
+
+  // ─── Google Gemini ────────────────────────────────────────────────────
+
+  private async completeGoogle(
+    provider: RuntimeProvider & { id: 'google' },
+    request: LLMRequest,
+    fallbackDepth = 0,
+  ): Promise<LLMResponse> {
+    const modelConfig = this.resolveModelForProvider(provider, request.model);
+    const system = await this.buildSystemPrompt(request);
+    const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+    const start = Date.now();
+
+    // Gemini uses contents[] with role/parts. 'assistant' becomes 'model'.
+    const contents = request.messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    let body: GeminiResponseBody;
+    try {
+      body = await this.callWithRetry<GeminiResponseBody>(
+        () => this.callGoogleGemini(provider, {
+          model: modelConfig.model,
+          contents,
+          systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+          generationConfig: { maxOutputTokens: maxTokens, temperature: request.temperature },
+        }),
+        (err) => this.classifyOpenAIError(err, provider.authMethod),
+        { modelConfig, request, fallbackDepth },
+      );
+    } catch (err: any) {
+      if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        return this.completeGoogle(provider, { ...request, model: err._fallbackTier }, (err._fallbackDepth ?? 0) + 1);
+      }
+      throw err;
+    }
+
+    const inputTokens = body.usageMetadata?.promptTokenCount ?? 0;
+    const outputTokens = body.usageMetadata?.candidatesTokenCount ?? 0;
+    const totalTokens = body.usageMetadata?.totalTokenCount ?? inputTokens + outputTokens;
+    const costUsd = this.calculateCost(modelConfig.model, inputTokens, outputTokens);
+    const content = (body.candidates?.[0]?.content?.parts ?? [])
+      .map((p) => p.text ?? '')
+      .join('');
+    const stopReason = body.candidates?.[0]?.finishReason ?? null;
+
+    this.requestCount++;
+    this.totalInputTokens += inputTokens;
+    this.totalOutputTokens += outputTokens;
+    this.totalCostUsd += costUsd;
+
+    if (this.tokenTracker) {
+      this.tokenTracker.record({
+        timestamp: new Date(),
+        model: modelConfig.model,
+        inputTokens, outputTokens, totalTokens, costUsd,
+        taskId: request.taskId, agentId: request.agentId,
+        source: 'llm_client_google',
+      });
+    }
+
+    const durationMs = Date.now() - start;
+    this.bus.publish('llm.completed', 'llm-client', {
+      model: modelConfig.model, tier: modelConfig.tier,
+      inputTokens, outputTokens, costUsd, durationMs,
+      taskId: request.taskId, agentId: request.agentId,
+    });
+    if (request.taskId && request.agentId) {
+      this.bus.publish('usage.recorded', request.agentId, {
+        taskId: request.taskId, agentId: request.agentId,
+        model: modelConfig.model, inputTokens, outputTokens,
+        cacheReadTokens: 0, cacheWriteTokens: 0,
+      });
+    }
+
+    return { content, model: modelConfig.model, inputTokens, outputTokens, totalTokens, costUsd, stopReason, durationMs };
+  }
+
+  /**
+   * Raw POST to Google Gemini `generateContent`. The model is part of the URL
+   * path; auth is via `?key=` URL parameter.
+   */
+  private async callGoogleGemini(
+    provider: RuntimeProvider & { id: 'google' },
+    params: {
+      model: string;
+      contents: Array<{ role: string; parts: Array<{ text: string }> }>;
+      systemInstruction?: { parts: Array<{ text: string }> };
+      generationConfig?: { maxOutputTokens?: number; temperature?: number };
+    },
+  ): Promise<GeminiResponseBody> {
+    const base = provider.baseUrl.replace(/\/$/, '');
+    const url = `${base}/v1beta/models/${encodeURIComponent(params.model)}:generateContent?key=${encodeURIComponent(provider.token)}`;
+    const body: Record<string, unknown> = { contents: params.contents };
+    if (params.systemInstruction) body.systemInstruction = params.systemInstruction;
+    if (params.generationConfig) body.generationConfig = params.generationConfig;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({})) as any;
+      const message = errJson.error?.message ?? `Gemini request failed: HTTP ${res.status}`;
+      throw new OpenAIHttpError(res.status, res.headers, errJson, message);
+    }
+    return await res.json() as GeminiResponseBody;
+  }
+}
+
+// ─── Response body shapes ────────────────────────────────────────────────
+
+interface OpenAIChatBody {
+  id?: string;
+  choices?: Array<{ message?: { role?: string; content?: string }; finish_reason?: string }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  error?: { message?: string };
+}
+
+interface GeminiResponseBody {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+  error?: { message?: string };
 }

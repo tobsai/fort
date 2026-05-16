@@ -39,6 +39,7 @@ export async function createAgent(data: {
   personality: string;
   avatarDataUrl?: string | null;
   modelTier?: "fast" | "standard" | "powerful";
+  provider?: "anthropic" | "openai" | "grok" | "groq" | "google" | "ollama" | "openrouter";
 }): Promise<{ id: string; name: string; emoji: string; error?: string }> {
   const res = await fetch(`${BASE}/api/agents/create`, {
     method: "POST",

@@ -75,13 +75,20 @@ export function createAgentsCommand(): Command {
 
   cmd
     .command('create')
-    .description('Create a new specialist agent')
-    .requiredOption('--name <name>', 'Agent name')
+    .description('Create a new specialist agent (interactive if no --name given)')
+    .option('--name <name>', 'Agent name')
     .option('--description <desc>', 'What this agent does')
     .option('--from <file>', 'Create from a YAML identity file')
     .action(async (opts) => {
       await withFort(async (fort) => {
         try {
+          // Interactive wizard when no flags provided
+          if (!opts.name && !opts.from) {
+            const { runAgentWizard } = await import('./wizard.js');
+            await runAgentWizard(fort);
+            return;
+          }
+
           let agent;
 
           if (opts.from) {

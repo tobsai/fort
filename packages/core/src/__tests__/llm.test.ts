@@ -674,4 +674,204 @@ describe('LLMClient', () => {
       expect(calls[1].token).toBe('Bearer new-token');
     });
   });
+
+  // ── Multi-provider chat-completions paths (Grok / Groq / OpenRouter) ──
+  describe('OpenAI-compatible providers', () => {
+    let savedFetch: typeof globalThis.fetch;
+    let savedKeys: Record<string, string | undefined>;
+
+    beforeEach(() => {
+      savedFetch = globalThis.fetch;
+      savedKeys = {
+        XAI_API_KEY: process.env.XAI_API_KEY,
+        GROQ_API_KEY: process.env.GROQ_API_KEY,
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      };
+      for (const k of Object.keys(savedKeys)) delete process.env[k];
+    });
+    afterEach(() => {
+      globalThis.fetch = savedFetch;
+      for (const [k, v] of Object.entries(savedKeys)) {
+        if (v !== undefined) process.env[k] = v;
+        else delete process.env[k];
+      }
+    });
+
+    function mockChatJson(content: string, model = 'whatever') {
+      return new Response(JSON.stringify({
+        id: 'mock-id',
+        choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    it('Grok routes to api.x.ai/chat/completions with bearer auth', async () => {
+      process.env.XAI_API_KEY = 'xai-test-1';
+      const calls: Array<{ url: string; init: any }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init });
+        return mockChatJson('hi from grok');
+      }) as any;
+
+      // Inject provider store with a grok row so we route to grok
+      const tmpDir2 = mkdtempSync(join(tmpdir(), 'fort-grok-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDir2, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'grok', name: 'Grok', defaultModel: 'grok-4', baseUrl: 'https://api.x.ai/v1', isDefault: true });
+
+      const client = setup({ providerStore: store });
+      const res = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'fast' });
+
+      expect(res.content).toBe('hi from grok');
+      expect(calls[0].url).toBe('https://api.x.ai/v1/chat/completions');
+      expect(calls[0].init.headers['Authorization']).toBe('Bearer xai-test-1');
+
+      store.close();
+      rmSync(tmpDir2, { recursive: true, force: true });
+    });
+
+    it('OpenRouter adds HTTP-Referer and X-Title attribution headers', async () => {
+      process.env.OPENROUTER_API_KEY = 'sk-or-test';
+      const calls: Array<{ url: string; init: any }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init });
+        return mockChatJson('ok');
+      }) as any;
+
+      const tmpDir3 = mkdtempSync(join(tmpdir(), 'fort-or-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDir3, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'openrouter', name: 'OpenRouter', defaultModel: 'anthropic/claude-sonnet-4-5', baseUrl: 'https://openrouter.ai/api/v1', isDefault: true });
+
+      const client = setup({ providerStore: store });
+      await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'standard' });
+
+      expect(calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
+      expect(calls[0].init.headers['HTTP-Referer']).toBe('https://github.com/tobsai/fort');
+      expect(calls[0].init.headers['X-Title']).toBe('Fort');
+
+      store.close();
+      rmSync(tmpDir3, { recursive: true, force: true });
+    });
+
+    it('Groq picks up GROQ_API_KEY and routes to api.groq.com', async () => {
+      process.env.GROQ_API_KEY = 'gsk-test';
+      const calls: Array<{ url: string; init: any }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init });
+        return mockChatJson('groq response');
+      }) as any;
+
+      const tmpDir4 = mkdtempSync(join(tmpdir(), 'fort-groq-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDir4, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'groq', name: 'Groq', defaultModel: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1', isDefault: true });
+
+      const client = setup({ providerStore: store });
+      const res = await client.complete({ messages: [{ role: 'user', content: 'hi' }] });
+
+      expect(res.content).toBe('groq response');
+      expect(calls[0].url).toBe('https://api.groq.com/openai/v1/chat/completions');
+      expect(calls[0].init.headers['Authorization']).toBe('Bearer gsk-test');
+
+      store.close();
+      rmSync(tmpDir4, { recursive: true, force: true });
+    });
+  });
+
+  // ── Google Gemini path ────────────────────────────────────────────────
+  describe('Google Gemini provider', () => {
+    let savedFetch: typeof globalThis.fetch;
+    let savedKey: string | undefined;
+
+    beforeEach(() => {
+      savedFetch = globalThis.fetch;
+      savedKey = process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GOOGLE_API_KEY;
+    });
+    afterEach(() => {
+      globalThis.fetch = savedFetch;
+      if (savedKey !== undefined) process.env.GEMINI_API_KEY = savedKey;
+      else delete process.env.GEMINI_API_KEY;
+    });
+
+    it('hits generateContent with key in URL and Gemini body shape', async () => {
+      process.env.GEMINI_API_KEY = 'AIza-test';
+      const calls: Array<{ url: string; init: any }> = [];
+      globalThis.fetch = vi.fn(async (url: any, init?: any) => {
+        calls.push({ url: String(url), init });
+        return new Response(JSON.stringify({
+          candidates: [{
+            content: { parts: [{ text: 'gemini reply' }] },
+            finishReason: 'STOP',
+          }],
+          usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 3, totalTokenCount: 8 },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }) as any;
+
+      const tmpDirG = mkdtempSync(join(tmpdir(), 'fort-google-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDirG, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'google', name: 'Google', defaultModel: 'gemini-2.5-pro', baseUrl: 'https://generativelanguage.googleapis.com', isDefault: true });
+
+      const client = setup({ providerStore: store });
+      const res = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'standard' });
+
+      expect(res.content).toBe('gemini reply');
+      expect(calls[0].url).toContain('/v1beta/models/');
+      expect(calls[0].url).toContain(':generateContent?key=AIza-test');
+      const body = JSON.parse(calls[0].init.body);
+      expect(body.contents[0].parts[0].text).toBe('hi');
+
+      store.close();
+      rmSync(tmpDirG, { recursive: true, force: true });
+    });
+  });
+
+  // ── Provider availability detection ───────────────────────────────────
+  describe('getAvailableProviders', () => {
+    it('returns 7 providers with correct shape', async () => {
+      const client = setup();
+      const providers = await client.getAvailableProviders();
+      expect(providers.length).toBe(7);
+      expect(providers.map((p) => p.id)).toEqual([
+        'anthropic', 'openai', 'grok', 'groq', 'google', 'ollama', 'openrouter',
+      ]);
+      // each entry has the contract fields
+      for (const p of providers) {
+        expect(typeof p.usable).toBe('boolean');
+        expect(p.models.fast).toBeTruthy();
+        expect(p.models.standard).toBeTruthy();
+        expect(p.models.powerful).toBeTruthy();
+      }
+    });
+
+    it('marks grok usable when XAI_API_KEY is present', async () => {
+      process.env.XAI_API_KEY = 'xai-test';
+      try {
+        const client = setup();
+        const providers = await client.getAvailableProviders();
+        const grok = providers.find((p) => p.id === 'grok');
+        expect(grok?.usable).toBe(true);
+        expect(grok?.authMethod).toBe('grok_env');
+      } finally {
+        delete process.env.XAI_API_KEY;
+      }
+    });
+
+    it('marks google usable when GEMINI_API_KEY is present', async () => {
+      process.env.GEMINI_API_KEY = 'AIza-test';
+      try {
+        const client = setup();
+        const providers = await client.getAvailableProviders();
+        const google = providers.find((p) => p.id === 'google');
+        expect(google?.usable).toBe(true);
+        expect(google?.authMethod).toBe('google_env');
+      } finally {
+        delete process.env.GEMINI_API_KEY;
+      }
+    });
+  });
 });

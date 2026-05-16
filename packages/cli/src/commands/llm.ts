@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { withFort } from '../utils/fort-instance.js';
 import { bold, dim, green, yellow, cyan } from '../utils/format.js';
 import { LLMClient } from '@fort-ai/core';
@@ -11,13 +12,21 @@ export function createLLMCommand(): Command {
 
   cmd
     .command('setup')
-    .description('Authenticate Fort with a Claude or OpenAI subscription')
+    .description('Authenticate Fort with an LLM provider (Claude, OpenAI, Grok, Groq, Google, OpenRouter)')
     .option('--api-key', 'Set up with an Anthropic API key instead of Claude subscription')
     .option('--openai', 'Authenticate with OpenAI via the Codex CLI subscription')
+    .option('--grok', 'Set up Grok (xAI) — prompts for XAI_API_KEY')
+    .option('--groq', 'Set up Groq (Llama inference) — prompts for GROQ_API_KEY')
+    .option('--google', 'Set up Google Gemini — prompts for GEMINI_API_KEY')
+    .option('--openrouter', 'Set up OpenRouter — prompts for OPENROUTER_API_KEY')
     .action(async (opts) => {
       await withFort(async (fort) => {
         if (opts.openai) {
           await setupOpenAI(fort);
+          return;
+        }
+        if (opts.grok || opts.groq || opts.google || opts.openrouter) {
+          await setupApiKeyProvider(opts);
           return;
         }
         if (fort.llm.isConfigured) {
@@ -427,6 +436,42 @@ async function setupOpenAI(fort: any): Promise<void> {
  * Register the OpenAI provider in Fort's provider store so it shows up in the
  * dashboard Settings page. Idempotent — does nothing if already registered.
  */
+/**
+ * One-flag setup flow for API-key providers (Grok, Groq, Google, OpenRouter).
+ * Prompts for the API key, writes it to ~/.fort/.env under the right env var.
+ */
+async function setupApiKeyProvider(opts: {
+  grok?: boolean; groq?: boolean; google?: boolean; openrouter?: boolean;
+}): Promise<void> {
+  const spec = opts.grok
+    ? { id: 'grok',       label: 'Grok (xAI)',  envVar: 'XAI_API_KEY',        prefix: 'xai-',    url: 'https://console.x.ai' }
+    : opts.groq
+    ? { id: 'groq',       label: 'Groq',        envVar: 'GROQ_API_KEY',        prefix: 'gsk_',    url: 'https://console.groq.com/keys' }
+    : opts.google
+    ? { id: 'google',     label: 'Google Gemini', envVar: 'GEMINI_API_KEY',    prefix: 'AIza',    url: 'https://aistudio.google.com/apikey' }
+    : { id: 'openrouter', label: 'OpenRouter',  envVar: 'OPENROUTER_API_KEY', prefix: 'sk-or-',  url: 'https://openrouter.ai/keys' };
+
+  console.log(bold(`\n  ${spec.label} Setup\n`));
+  console.log(`  Get an API key at: ${cyan(spec.url)}\n`);
+
+  const key = await new Promise<string>((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`  ${bold(spec.envVar + ':')} `, (answer) => { rl.close(); resolve(answer.trim()); });
+  });
+
+  if (!key) {
+    console.log(`\n  ${yellow('⚠')} No key entered. Aborted.\n`);
+    return;
+  }
+  if (!key.startsWith(spec.prefix)) {
+    console.log(`\n  ${yellow('⚠')} Key does not start with expected prefix "${spec.prefix}". Saving anyway.`);
+  }
+
+  LLMClient.writeEnvFileValue(spec.envVar, key);
+  console.log(`\n  ${green('✓')} ${spec.label} key saved to ${cyan(LLMClient.envFilePath)}.`);
+  console.log(dim(`  Verify with: ${cyan('fort llm status')}\n`));
+}
+
 function registerOpenAIProvider(fort: any, _tokenInfo: { accountId?: string }): void {
   try {
     const existing = fort.llmProviders.getProvider('openai');

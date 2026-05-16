@@ -123,6 +123,8 @@ export interface SpecialistIdentity {
   emoji?: string;
   avatar?: string;
   defaultModelTier?: 'fast' | 'standard' | 'powerful';
+  /** LLM provider id this agent prefers. Falls back to global default if absent. */
+  provider?: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
 }
 
 export interface AgentInfo {

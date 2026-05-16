@@ -71,11 +71,11 @@ interface LLMProvider {
   updatedAt: string;
 }
 
-type ProviderType = "anthropic" | "openai" | "groq" | "ollama";
+type ProviderType = "anthropic" | "openai" | "grok" | "groq" | "google" | "ollama" | "openrouter";
 
 const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string; needsKey: boolean; keyLabel?: string; keyPlaceholder?: string; keyHint?: string }> = {
-  anthropic: { label: "Anthropic", icon: "🟣", needsKey: true },
-  openai:    {
+  anthropic:  { label: "Anthropic", icon: "🟣", needsKey: true },
+  openai:     {
     label: "OpenAI",
     icon: "🟢",
     needsKey: false,
@@ -83,22 +83,47 @@ const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string; needsKe
     keyPlaceholder: "Leave blank to use Codex/OpenAI subscription",
     keyHint: "If no key is provided, Fort uses your active Codex/OpenAI login from ~/.codex/auth.json.",
   },
-  groq:      { label: "Groq",      icon: "⚡",  needsKey: true },
-  ollama:    { label: "Ollama",    icon: "🦙", needsKey: false },
+  grok:       {
+    label: "Grok (xAI)", icon: "⚪", needsKey: true,
+    keyLabel: "xAI API Key", keyPlaceholder: "xai-...",
+    keyHint: "Get a key at https://console.x.ai",
+  },
+  groq:       {
+    label: "Groq",       icon: "⚡", needsKey: true,
+    keyLabel: "Groq API Key", keyPlaceholder: "gsk_...",
+    keyHint: "Get a key at https://console.groq.com",
+  },
+  google:     {
+    label: "Google",     icon: "🔵", needsKey: true,
+    keyLabel: "Gemini API Key", keyPlaceholder: "AIza...",
+    keyHint: "Get a key at https://aistudio.google.com/apikey",
+  },
+  ollama:     { label: "Ollama",      icon: "🦙", needsKey: false },
+  openrouter: {
+    label: "OpenRouter", icon: "🛣️", needsKey: true,
+    keyLabel: "OpenRouter API Key", keyPlaceholder: "sk-or-...",
+    keyHint: "Get a key at https://openrouter.ai/keys",
+  },
 };
 
 const PROVIDER_MODELS: Record<ProviderType, string[]> = {
-  anthropic: ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
-  openai:    ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"],
-  groq:      ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
-  ollama:    ["llama3", "mistral", "codellama"],
+  anthropic:  ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
+  openai:     ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"],
+  grok:       ["grok-4-heavy", "grok-4", "grok-3", "grok-3-mini", "grok-code-fast"],
+  groq:       ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+  google:     ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+  ollama:     ["llama3.2", "llama3.2:1b", "qwen2.5-coder", "mistral", "codellama"],
+  openrouter: ["openai/gpt-5.5", "anthropic/claude-opus-4-6", "anthropic/claude-sonnet-4-5", "openai/gpt-5.4-mini", "google/gemini-2.5-pro", "x-ai/grok-4"],
 };
 
 const PROVIDER_DEFAULTS: Record<ProviderType, { defaultModel: string; baseUrl?: string }> = {
-  anthropic: { defaultModel: "claude-sonnet-4-5-20250929" },
-  openai:    { defaultModel: "gpt-5.4",                  baseUrl: "https://api.openai.com/v1" },
-  groq:      { defaultModel: "llama-3.3-70b-versatile",  baseUrl: "https://api.groq.com/openai/v1" },
-  ollama:    { defaultModel: "llama3",                   baseUrl: "http://localhost:11434" },
+  anthropic:  { defaultModel: "claude-sonnet-4-5-20250929" },
+  openai:     { defaultModel: "gpt-5.4",                       baseUrl: "https://api.openai.com/v1" },
+  grok:       { defaultModel: "grok-4",                        baseUrl: "https://api.x.ai/v1" },
+  groq:       { defaultModel: "llama-3.3-70b-versatile",       baseUrl: "https://api.groq.com/openai/v1" },
+  google:     { defaultModel: "gemini-2.5-pro",                baseUrl: "https://generativelanguage.googleapis.com" },
+  ollama:     { defaultModel: "llama3.2",                      baseUrl: "http://localhost:11434" },
+  openrouter: { defaultModel: "anthropic/claude-sonnet-4-5",   baseUrl: "https://openrouter.ai/api/v1" },
 };
 
 // ─── Add Provider Modal ───────────────────────────────────────────────────────

@@ -10,55 +10,80 @@ const EMOJI_OPTIONS = [
   "🗡️", "🎭", "📡", "🧬",
 ];
 
-const MODEL_OPTIONS = [
-  {
-    tier: "fast" as const,
-    name: "Fast",
-    model: "Haiku",
-    desc: "Quick responses, simple tasks. Lowest cost.",
-  },
-  {
-    tier: "standard" as const,
-    name: "Standard",
-    model: "Sonnet",
-    desc: "Balanced quality and speed. Best for most tasks.",
-  },
-  {
-    tier: "powerful" as const,
-    name: "Powerful",
-    model: "Opus",
-    desc: "Maximum reasoning. Complex planning and analysis.",
-  },
-];
+const PROVIDER_ICONS: Record<string, string> = {
+  anthropic:  "🟣",
+  openai:     "🟢",
+  grok:       "⚪",
+  groq:       "⚡",
+  google:     "🔵",
+  ollama:     "🦙",
+  openrouter: "🛣️",
+};
+
+type ProviderId = "anthropic" | "openai" | "grok" | "groq" | "google" | "ollama" | "openrouter";
+type ModelTier = "fast" | "standard" | "powerful";
+
+interface AvailableProvider {
+  id: ProviderId;
+  name: string;
+  usable: boolean;
+  authMethod: string | null;
+  models: { fast: string; standard: string; powerful: string };
+  hint?: string;
+}
+
+const TIER_LABELS: Record<ModelTier, { name: string; desc: string }> = {
+  fast:     { name: "Fast",     desc: "Quick responses, simple tasks. Lowest cost." },
+  standard: { name: "Standard", desc: "Balanced quality and speed. Best for most tasks." },
+  powerful: { name: "Powerful", desc: "Maximum reasoning. Complex planning and analysis." },
+};
 
 export default function SetupWizard() {
   const navigate = useNavigate();
-  const { send } = useFortSocket();
+  const { send, subscribe } = useFortSocket();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [providers, setProviders] = useState<AvailableProvider[]>([]);
   const [data, setData] = useState({
     name: "Fort",
     goals: "",
     emoji: "🏰",
     personality: "",
     avatarDataUrl: "",
-    modelTier: "standard" as "fast" | "standard" | "powerful",
+    provider: null as ProviderId | null,
+    modelTier: "standard" as ModelTier,
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Show wizard only on first run.
   useEffect(() => {
     fetchSetupStatus()
-      .then((s) => {
-        if (!s.complete) setVisible(true);
-      })
+      .then((s) => { if (!s.complete) setVisible(true); })
       .catch(() => {});
   }, []);
 
+  // Pull provider list once the wizard becomes visible.
+  useEffect(() => {
+    if (!visible) return;
+    const unsub = subscribe("providers.available.response", (msg) => {
+      const payload = msg.payload as { providers?: AvailableProvider[] };
+      if (payload?.providers) setProviders(payload.providers);
+    });
+    send("providers.available");
+    return () => unsub();
+  }, [visible, send, subscribe]);
+
+  // Default the wizard to the first usable provider once data lands.
+  useEffect(() => {
+    if (data.provider) return;
+    const firstUsable = providers.find((p) => p.usable);
+    if (firstUsable) setData((prev) => ({ ...prev, provider: firstUsable.id }));
+  }, [providers, data.provider]);
+
   if (!visible) return null;
 
-  const update = (fields: Partial<typeof data>) =>
-    setData((prev) => ({ ...prev, ...fields }));
+  const update = (fields: Partial<typeof data>) => setData((prev) => ({ ...prev, ...fields }));
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,6 +98,10 @@ export default function SetupWizard() {
   };
 
   const handleSubmit = async () => {
+    if (!data.provider) {
+      alert("Pick a provider first.");
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await createAgent({
@@ -82,6 +111,7 @@ export default function SetupWizard() {
         personality: data.personality,
         avatarDataUrl: data.avatarDataUrl || null,
         modelTier: data.modelTier,
+        provider: data.provider,
       });
       if (result.error) {
         alert("Error: " + result.error);
@@ -91,19 +121,16 @@ export default function SetupWizard() {
       setVisible(false);
       send("agents");
       send("status");
-
-      // Navigate to chat — ChatPage handles auto-greeting
-      setTimeout(() => {
-        navigate(`/chat/${result.id}`);
-      }, 1500);
+      setTimeout(() => { navigate(`/chat/${result.id}`); }, 1500);
     } catch {
       alert("Failed to create agent");
       setSubmitting(false);
     }
   };
 
-  // 5 steps: Welcome (0), Name/Goals (1), Model (2), Emoji/Avatar (3), Summary (4)
-  const totalSteps = 5;
+  // 6 steps: Welcome (0), Name/Goals (1), Provider (2), Model (3), Emoji/Avatar (4), Summary (5)
+  const totalSteps = 6;
+  const selectedProvider = providers.find((p) => p.id === data.provider);
 
   return (
     <div className="wizard-overlay active">
@@ -166,29 +193,80 @@ export default function SetupWizard() {
 
         {step === 2 && (
           <div className="wizard-step">
-            <h2>Choose a Model</h2>
-            <p>Select the default AI model for this agent. You can override this per-message later.</p>
-            <div className="model-selector">
-              {MODEL_OPTIONS.map((m) => (
-                <button
-                  key={m.tier}
-                  className={`model-option${data.modelTier === m.tier ? " selected" : ""}`}
-                  onClick={() => update({ modelTier: m.tier })}
-                >
-                  <div className="model-option-name">{m.name}</div>
-                  <div className="model-option-model">{m.model}</div>
-                  <div className="model-option-desc">{m.desc}</div>
-                </button>
-              ))}
-            </div>
+            <h2>Choose a Provider</h2>
+            <p>This will be your default LLM provider. You can change it later in Settings.</p>
+            {providers.length === 0 ? (
+              <div className="wizard-loading">Detecting available providers...</div>
+            ) : (
+              <div className="provider-selector">
+                {providers.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`provider-option${data.provider === p.id ? " selected" : ""}${p.usable ? "" : " disabled"}`}
+                    onClick={() => p.usable && update({ provider: p.id })}
+                    disabled={!p.usable}
+                    title={p.hint}
+                  >
+                    <div className="provider-option-icon">{PROVIDER_ICONS[p.id] ?? "🔌"}</div>
+                    <div className="provider-option-body">
+                      <div className="provider-option-name">{p.name}</div>
+                      <div className="provider-option-meta">
+                        {p.usable ? (
+                          <span className="badge badge--ok">Configured</span>
+                        ) : (
+                          <span className="badge badge--warn">Not configured</span>
+                        )}
+                      </div>
+                      {!p.usable && p.hint && (
+                        <div className="provider-option-hint">{p.hint}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="wizard-buttons">
               <button className="wizard-btn" onClick={() => setStep(1)}>Back</button>
-              <button className="wizard-btn primary" onClick={() => setStep(3)}>Next</button>
+              <button
+                className="wizard-btn primary"
+                onClick={() => setStep(3)}
+                disabled={!data.provider}
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
 
         {step === 3 && (
+          <div className="wizard-step">
+            <h2>Choose a Model</h2>
+            <p>Select the default tier for this agent. You can override per-message later.</p>
+            {selectedProvider ? (
+              <div className="model-selector">
+                {(["fast", "standard", "powerful"] as ModelTier[]).map((tier) => (
+                  <button
+                    key={tier}
+                    className={`model-option${data.modelTier === tier ? " selected" : ""}`}
+                    onClick={() => update({ modelTier: tier })}
+                  >
+                    <div className="model-option-name">{TIER_LABELS[tier].name}</div>
+                    <div className="model-option-model">{selectedProvider.models[tier]}</div>
+                    <div className="model-option-desc">{TIER_LABELS[tier].desc}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="wizard-loading">No provider selected.</div>
+            )}
+            <div className="wizard-buttons">
+              <button className="wizard-btn" onClick={() => setStep(2)}>Back</button>
+              <button className="wizard-btn primary" onClick={() => setStep(4)}>Next</button>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
           <div className="wizard-step">
             <h2>Choose an Emoji</h2>
             <div className="emoji-grid">
@@ -227,13 +305,13 @@ export default function SetupWizard() {
               )}
             </div>
             <div className="wizard-buttons">
-              <button className="wizard-btn" onClick={() => setStep(2)}>Back</button>
-              <button className="wizard-btn primary" onClick={() => setStep(4)}>Next</button>
+              <button className="wizard-btn" onClick={() => setStep(3)}>Back</button>
+              <button className="wizard-btn primary" onClick={() => setStep(5)}>Next</button>
             </div>
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="wizard-step">
             <h2>Summary</h2>
             <div className="wizard-summary">
@@ -241,11 +319,15 @@ export default function SetupWizard() {
               <div className="wizard-summary-name">{data.name}</div>
               {data.goals && <div className="wizard-summary-goals">{data.goals}</div>}
               <div className="wizard-summary-model">
-                Model: {MODEL_OPTIONS.find((m) => m.tier === data.modelTier)?.name} ({MODEL_OPTIONS.find((m) => m.tier === data.modelTier)?.model})
+                Provider: {selectedProvider?.name ?? "—"}
+              </div>
+              <div className="wizard-summary-model">
+                Model: {TIER_LABELS[data.modelTier].name}
+                {selectedProvider ? ` (${selectedProvider.models[data.modelTier]})` : ""}
               </div>
             </div>
             <div className="wizard-buttons">
-              <button className="wizard-btn" onClick={() => setStep(3)}>Back</button>
+              <button className="wizard-btn" onClick={() => setStep(4)}>Back</button>
               <button
                 className="wizard-btn primary"
                 onClick={handleSubmit}
