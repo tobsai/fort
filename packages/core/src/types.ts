@@ -125,6 +125,12 @@ export interface SpecialistIdentity {
   defaultModelTier?: 'fast' | 'standard' | 'powerful';
   /** LLM provider id this agent prefers. Falls back to global default if absent. */
   provider?: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
+  /**
+   * Whether this agent should classify incoming chats and decompose multi-step
+   * tasks into subtasks. Defaults to true. Set to false in identity.yaml to
+   * opt out of the decomposition pipeline.
+   */
+  decompose?: boolean;
 }
 
 export interface AgentInfo {

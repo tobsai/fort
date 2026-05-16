@@ -18,6 +18,7 @@ import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
 import type { ToolRegistry } from '../tools/index.js';
 import type { ToolExecutor } from '../tools/executor.js';
+import { classifyAsTask, decomposeTask, formatPlan } from './task-planner.js';
 
 export class SpecialistAgent extends BaseAgent {
   readonly identity: SpecialistIdentity;
@@ -130,6 +131,81 @@ export class SpecialistAgent extends BaseAgent {
         agentName: this.identity.name,
         message: `Working on ${task.shortId}: ${task.title}`,
       });
+    }
+
+    // ── Classify + decompose (top-level chat tasks only) ─────────
+    // If the user's message describes a multi-step task, break it down into
+    // subtasks on the board before falling through to the normal reply path.
+    // Subtasks (parentId !== null) skip this block entirely so we don't
+    // recurse forever.
+    const decomposeEnabled = (this.identity as any).decompose !== false;
+    if (
+      isChatTask &&
+      task.parentId === null &&
+      decomposeEnabled &&
+      this.llm &&
+      this.llm.isConfigured
+    ) {
+      const userMessage = task.description;
+      const soul = this.getSoul() ?? undefined;
+
+      this.bus.publish('agent.classifying', this.config.id, {
+        taskId: task.id, agentId: this.config.id,
+      });
+
+      const classification = await classifyAsTask(this.llm, userMessage, soul);
+
+      this.bus.publish('agent.classified', this.config.id, {
+        taskId: task.id, agentId: this.config.id,
+        isTask: classification.isTask,
+        confidence: classification.confidence,
+        summary: classification.summary,
+      });
+
+      if (classification.isTask && classification.confidence >= 0.6) {
+        this.bus.publish('agent.decomposing', this.config.id, {
+          taskId: task.id, agentId: this.config.id,
+        });
+
+        const plan = await decomposeTask(this.llm, userMessage, classification, soul);
+
+        if (plan.subtasks.length > 0) {
+          const children = this.taskGraph.decompose(
+            taskId,
+            plan.subtasks.map((s) => ({
+              title: s.title,
+              description: s.description + (s.expectedOutcome ? `\n\n**Expected outcome:** ${s.expectedOutcome}` : ''),
+              assignedAgent: this.config.id,
+            })),
+          );
+
+          // Set parent result to a markdown plan card so ChatPage renders it.
+          this.taskGraph.updateStatus(
+            taskId,
+            'in_progress',
+            'Decomposed into subtasks',
+            formatPlan(classification.summary, children.map((c) => ({ shortId: c.shortId, title: c.title }))),
+          );
+
+          this.bus.publish('agent.decomposed', this.config.id, {
+            taskId: task.id, agentId: this.config.id,
+            subtasks: children.map((c) => ({ id: c.id, shortId: c.shortId, title: c.title })),
+          });
+
+          // Take the next step — run each subtask in order. They skip the
+          // classifier because parentId !== null. Parent auto-completes when
+          // all children finish via TaskGraph's checkParentCompletion.
+          for (const child of children) {
+            await this.onTask(child.id);
+          }
+          return;
+        }
+
+        // Decomposer returned empty — bail to the normal reply path.
+        this.bus.publish('agent.decomposed_failed', this.config.id, {
+          taskId: task.id, agentId: this.config.id, reason: 'empty_plan',
+        });
+      }
     }
 
     // ── Tool search ─────────────────────────────────────────────

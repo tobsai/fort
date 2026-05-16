@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useFortSocket } from "../contexts/FortSocketContext";
 import { fetchLLMStatus } from "../utils/api";
 import ToolCallBlock from "../components/ToolCallBlock";
-import type { AgentInfo, ChatMessage, ToolCallEvent, WSMessage, ThreadMessage } from "../types";
+import type { AgentInfo, ChatMessage, PlanSubtask, ToolCallEvent, WSMessage, ThreadMessage } from "../types";
 
 export default function ChatPage() {
   const { agentId } = useParams<{ agentId?: string }>();
@@ -15,6 +15,7 @@ export default function ChatPage() {
   const [modelTier, setModelTier] = useState<"auto" | "fast" | "standard" | "powerful">("auto");
   const [hasGreeted, setHasGreeted] = useState(false);
   const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
+  const [planningStatus, setPlanningStatus] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // threadIdByAgent: persists the thread ID per agent so refreshes restore context
   const threadIdByAgent = useRef<Record<string, string>>(
@@ -158,6 +159,52 @@ export default function ChatPage() {
           setThinkingAgents((prev) => new Set(prev).add(p.agentId!));
         }
       }),
+      subscribe("agent.classifying", (msg: WSMessage) => {
+        const p = msg.payload as { agentId?: string };
+        if (p?.agentId) setPlanningStatus((prev) => ({ ...prev, [p.agentId!]: "Reading…" }));
+      }),
+      subscribe("agent.classified", (msg: WSMessage) => {
+        const p = msg.payload as { agentId?: string; isTask?: boolean };
+        if (!p?.agentId) return;
+        // If it's not a task, clear the status — normal reply path takes over.
+        if (!p.isTask) {
+          setPlanningStatus((prev) => { const n = { ...prev }; delete n[p.agentId!]; return n; });
+        }
+      }),
+      subscribe("agent.decomposing", (msg: WSMessage) => {
+        const p = msg.payload as { agentId?: string };
+        if (p?.agentId) setPlanningStatus((prev) => ({ ...prev, [p.agentId!]: "Breaking this down…" }));
+      }),
+      subscribe("agent.decomposed", (msg: WSMessage) => {
+        const p = msg.payload as {
+          agentId?: string;
+          taskId?: string;
+          subtasks?: Array<{ id: string; shortId: string; title: string }>;
+        };
+        if (!p?.agentId || !p.taskId || !p.subtasks) return;
+        // Append a plan message to the chat for this agent.
+        setChatMessages((prev) => ({
+          ...prev,
+          [p.agentId!]: [
+            ...(prev[p.agentId!] || []),
+            {
+              role: "plan" as const,
+              text: "",
+              ts: Date.now(),
+              plan: {
+                parentTaskId: p.taskId!,
+                subtasks: p.subtasks!.map((s) => ({ ...s, status: "created" as const })),
+              },
+            },
+          ],
+        }));
+        // Clear the planning pill — the plan card replaces it visually.
+        setPlanningStatus((prev) => { const n = { ...prev }; delete n[p.agentId!]; return n; });
+      }),
+      subscribe("agent.decomposed_failed", (msg: WSMessage) => {
+        const p = msg.payload as { agentId?: string };
+        if (p?.agentId) setPlanningStatus((prev) => { const n = { ...prev }; delete n[p.agentId!]; return n; });
+      }),
       subscribe("tool.executed", (msg: WSMessage) => {
         const event = msg.payload as ToolCallEvent;
         const aid = event.agentId || selectedAgent;
@@ -201,13 +248,41 @@ export default function ChatPage() {
           result?: string;
           source?: string;
           status?: string;
+          parentId?: string | null;
           assignedAgent?: string;
           title?: string;
           shortId?: string;
         };
+
+        // Update any plan-card subtasks that match this task id, regardless of
+        // status (so live ⏳/✅/❌ indicators reflect in_progress + completed).
+        if (t?.id && t.status) {
+          setChatMessages((prev) => {
+            const next: typeof prev = {};
+            let changed = false;
+            for (const [aid, msgs] of Object.entries(prev)) {
+              let agentChanged = false;
+              const newMsgs = msgs.map((m) => {
+                if (m.role !== "plan" || !m.plan) return m;
+                const matchIdx = m.plan.subtasks.findIndex((s) => s.id === t.id);
+                if (matchIdx < 0) return m;
+                const newSubs = m.plan.subtasks.slice();
+                newSubs[matchIdx] = { ...newSubs[matchIdx], status: t.status as PlanSubtask["status"] };
+                agentChanged = true;
+                return { ...m, plan: { ...m.plan, subtasks: newSubs } };
+              });
+              if (agentChanged) { next[aid] = newMsgs; changed = true; }
+              else next[aid] = msgs;
+            }
+            return changed ? next : prev;
+          });
+        }
+
         if (!t?.result) return;
         if (t.status !== "completed" && t.status !== "failed" && t.status !== "needs_review") return;
         if (t.source !== "user_chat" && t.source !== "background") return;
+        // Skip subtasks — their results render via the plan card, not as standalone messages.
+        if (t.parentId) return;
         // Skip tasks already shown (dedup across chat.response and task.status_changed)
         if (t.id && shownTaskIds.current.has(t.id)) return;
         if (t.id) shownTaskIds.current.add(t.id);
@@ -306,6 +381,33 @@ export default function ChatPage() {
                 </div>
               );
             }
+            if (m.role === "plan" && m.plan) {
+              return (
+                <div key={i} className="chat-plan-card">
+                  <div className="chat-plan-header">
+                    <span className="chat-plan-icon">📋</span>
+                    <span className="chat-plan-title">Plan</span>
+                  </div>
+                  <ol className="chat-plan-list">
+                    {m.plan.subtasks.map((s) => {
+                      const icon =
+                        s.status === "completed" ? "✅" :
+                        s.status === "failed" ? "❌" :
+                        s.status === "in_progress" ? "⏳" :
+                        s.status === "blocked" || s.status === "needs_review" ? "⚠️" :
+                        "▢";
+                      return (
+                        <li key={s.id} className={`chat-plan-step chat-plan-step--${s.status}`}>
+                          <span className="chat-plan-step-icon">{icon}</span>
+                          <span className="chat-plan-step-title">{s.title}</span>
+                          <span className="chat-plan-step-id">{s.shortId}</span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              );
+            }
             return (
               <div key={i} className={`chat-msg ${m.role}`}>
                 <div className="chat-msg-avatar">
@@ -337,7 +439,17 @@ export default function ChatPage() {
               </div>
             );
           })}
-          {selectedAgent && thinkingAgents.has(selectedAgent) && (
+          {selectedAgent && planningStatus[selectedAgent] && (
+            <div className="chat-msg agent">
+              <div className="chat-msg-avatar">{getEmoji(selectedAgent)}</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-content chat-planning-pill">
+                  {planningStatus[selectedAgent]}
+                </div>
+              </div>
+            </div>
+          )}
+          {selectedAgent && !planningStatus[selectedAgent] && thinkingAgents.has(selectedAgent) && (
             <div className="chat-msg agent">
               <div className="chat-msg-avatar">{getEmoji(selectedAgent)}</div>
               <div className="chat-msg-body">

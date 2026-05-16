@@ -63,8 +63,15 @@ export interface ToolCallEvent {
   calledAt?: string;
 }
 
+export interface PlanSubtask {
+  id: string;
+  shortId: string;
+  title: string;
+  status: "created" | "pending" | "in_progress" | "blocked" | "needs_review" | "completed" | "failed";
+}
+
 export interface ChatMessage {
-  role: "user" | "agent" | "tool";
+  role: "user" | "agent" | "tool" | "plan";
   text: string;
   ts: number;
   task?: {
@@ -74,6 +81,12 @@ export interface ChatMessage {
   } | null;
   toolCall?: ToolCallEvent;
   toolEventType?: "tool.executed" | "tool.denied" | "tool.error";
+  /** Present on role:"plan" messages — list of subtasks and their live status. */
+  plan?: {
+    parentTaskId: string;
+    summary?: string;
+    subtasks: PlanSubtask[];
+  };
 }
 
 export interface FortState {

@@ -614,6 +614,75 @@ a.nav-tab.active { color: var(--accent); background: var(--bg-tertiary); }
   40% { opacity: 1; transform: scale(1); }
 }
 
+/* ─── Planning pill (classifier / decomposer running) ─── */
+.chat-planning-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(108,92,231,0.12);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ─── Plan card (rendered when agent.decomposed arrives) ─── */
+.chat-plan-card {
+  margin: 8px 0 12px 56px; /* align with chat-msg body */
+  max-width: 640px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.chat-plan-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.chat-plan-icon { font-size: 16px; line-height: 1; }
+.chat-plan-title { color: var(--accent); }
+
+.chat-plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-plan-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.chat-plan-step--completed .chat-plan-step-title { text-decoration: line-through; color: var(--text-secondary); }
+.chat-plan-step--failed .chat-plan-step-title { color: var(--danger); }
+.chat-plan-step--in_progress .chat-plan-step-title { color: var(--accent); font-weight: 500; }
+
+.chat-plan-step-icon { width: 18px; text-align: center; flex-shrink: 0; }
+.chat-plan-step-title { flex: 1; }
+.chat-plan-step-id {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 .chat-msg-meta {
   display: flex;
   align-items: center;

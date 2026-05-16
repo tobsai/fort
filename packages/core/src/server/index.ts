@@ -424,6 +424,20 @@ export class FortServer {
       this.broadcast({ id: event.id, type: 'agent.error', payload: event.payload });
     });
 
+    // Planning lifecycle — emitted by SpecialistAgent.onTask when classifying
+    // a chat as a multi-step task and decomposing it into subtasks.
+    for (const eventType of [
+      'agent.classifying',
+      'agent.classified',
+      'agent.decomposing',
+      'agent.decomposed',
+      'agent.decomposed_failed',
+    ] as const) {
+      this.fort.bus.subscribe(eventType, (event) => {
+        this.broadcast({ id: event.id, type: eventType, payload: event.payload });
+      });
+    }
+
     this.fort.bus.subscribe('reflection.insight', (event) => {
       this.broadcast({ id: event.id, type: 'reflection.insight', payload: event.payload });
     });
