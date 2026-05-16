@@ -36,47 +36,70 @@ function hasBinary(name: string): boolean {
 }
 
 /**
- * Interactive menu: list all 7 providers with state, let the user pick which
- * to set up. Returns when the user enters nothing (continue) and at least one
- * provider is configured.
+ * Interactive provider picker. Lists all 7 providers with their detected
+ * state and asks the user to pick one. If the picked provider is already
+ * configured, sets it as the global default and returns its id. If it's
+ * not configured, runs the setup flow first, then re-shows the menu.
+ *
+ * No Enter default — the user must explicitly type a number. This matches
+ * the user's preference: "detect the provider, but not preselect one".
+ *
+ * Returns the chosen provider id (which is now also the global default).
  */
-export async function runProviderSetupMenu(fort: any): Promise<void> {
+export async function pickProvider(fort: any): Promise<ProviderId | null> {
   while (true) {
     const providers = await fort.llm.getAvailableProviders();
-    console.log(bold('\n  Providers:\n'));
+    console.log(bold('\n  Detected providers:\n'));
     providers.forEach((p: any, i: number) => {
       const num = cyan(`[${i + 1}]`);
       const icon = PROVIDER_ICONS[p.id] ?? '🔌';
-      const status = p.usable ? green(`✓ ${p.authMethod ?? 'configured'}`) : yellow('○ not configured');
+      const status = p.usable
+        ? green(`✓ ${p.authMethod ?? 'configured'}`)
+        : yellow('○ not configured');
       console.log(`    ${num} ${icon}  ${bold(p.name.padEnd(14))} ${status}`);
     });
 
-    const anyUsable = providers.some((p: any) => p.usable);
-    const hint = anyUsable
-      ? `${dim(`[1-${providers.length}, or Enter to continue]`)}`
-      : `${dim(`[1-${providers.length}]`)} ${yellow('(at least one required)')}`;
-
-    const answer = await prompt(`\n    ${bold('Set up which provider?')} ${hint}: `);
+    const answer = await prompt(`\n    ${bold('Pick a provider')} ${dim(`[1-${providers.length}]`)}: `);
     if (!answer) {
-      if (anyUsable) return;
-      console.log(`    ${yellow('Pick at least one provider to continue.')}`);
+      console.log(`    ${yellow('Type a number to pick a provider.')}`);
       continue;
     }
 
     const idx = parseInt(answer, 10) - 1;
-    if (idx < 0 || idx >= providers.length) {
+    if (Number.isNaN(idx) || idx < 0 || idx >= providers.length) {
       console.log(`    ${yellow('Invalid selection.')}`);
       continue;
     }
 
     const chosen = providers[idx] as { id: ProviderId; name: string; usable: boolean };
+
+    // Already configured — just set as default and return.
     if (chosen.usable) {
-      console.log(`    ${dim(`${chosen.name} is already configured. Continuing.`)}`);
-      continue;
+      try {
+        if (fort.llmProviders.getProvider(chosen.id)) {
+          fort.llmProviders.setDefault(chosen.id);
+        }
+      } catch { /* row may not exist for env-only providers — that's fine */ }
+      console.log(`    ${green('✓')} Selected ${bold(chosen.name)} as your default provider.`);
+      return chosen.id;
     }
 
+    // Not configured — run setup, then loop back to let the user confirm.
     await setupProvider(chosen.id);
+    console.log(`\n    ${dim('Re-checking provider state...')}`);
+    // Loop continues — refreshed `providers` will reflect the new state and
+    // user can pick the now-configured provider (or a different one).
   }
+}
+
+/**
+ * Backwards-compat wrapper: setup-only menu (no return value), used by
+ * places that just want to walk a user through configuring credentials
+ * without selecting a default. Returns when at least one provider is
+ * configured and the user presses Enter.
+ */
+export async function runProviderSetupMenu(fort: any): Promise<void> {
+  await pickProvider(fort);
 }
 
 /**

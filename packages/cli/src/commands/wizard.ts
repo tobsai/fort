@@ -54,8 +54,15 @@ function prompt(question: string): Promise<string> {
  * Run the interactive agent-creation wizard. The `fort` argument is the live
  * Fort instance (used both to query available providers and to submit the
  * agent — either directly via AgentFactory, or via HTTP POST to the portal).
+ *
+ * When `opts.providerId` is supplied, the wizard skips the provider-picker
+ * step and uses the given provider directly. This is used from `fort init`
+ * where Step 2 already chose a provider, so Step 3 doesn't ask again.
  */
-export async function runAgentWizard(fort: any): Promise<void> {
+export async function runAgentWizard(
+  fort: any,
+  opts: { providerId?: ProviderId } = {},
+): Promise<void> {
   console.log(bold('\n  New Agent Setup\n'));
 
   // Step 1: name
@@ -65,34 +72,47 @@ export async function runAgentWizard(fort: any): Promise<void> {
   // Step 2: goals
   const goals = await prompt(`    ${bold('What should this agent help you with?')}\n      ${dim('(short description)')}: `);
 
-  // Step 3: provider
+  // Step 3: provider — inherited from caller (init Step 2) or pick interactively.
   const providers: AvailableProvider[] = await fort.llm.getAvailableProviders();
-  console.log(bold('\n    Available providers:\n'));
-  providers.forEach((p, i) => {
-    const num = `${i + 1}`.padStart(2, ' ');
-    const icon = PROVIDER_ICONS[p.id] ?? '🔌';
-    const status = p.usable ? green('✓ configured') : yellow('○ not configured');
-    console.log(`      ${cyan(num + '.')} ${icon}  ${bold(p.name.padEnd(14))} ${status}`);
-    if (!p.usable && p.hint) {
-      console.log(`         ${dim(p.hint)}`);
-    }
-  });
-
   let providerChoice: AvailableProvider | null = null;
-  while (!providerChoice) {
-    const usableDefault = providers.findIndex((p) => p.usable) + 1;
-    const answer = await prompt(`\n    ${bold('Pick a provider')} ${dim(`[1-${providers.length}${usableDefault > 0 ? `, default ${usableDefault}` : ''}]`)}: `);
-    const idx = answer ? parseInt(answer, 10) - 1 : usableDefault - 1;
-    if (idx < 0 || idx >= providers.length) {
-      console.log(`    ${yellow('Invalid selection.')}`);
-      continue;
+
+  if (opts.providerId) {
+    providerChoice = providers.find((p) => p.id === opts.providerId) ?? null;
+    if (providerChoice) {
+      console.log(`\n    ${dim('Provider:')} ${PROVIDER_ICONS[providerChoice.id]} ${bold(providerChoice.name)} ${dim('(inherited)')}`);
     }
-    const candidate = providers[idx];
-    if (!candidate.usable) {
-      console.log(`    ${yellow('That provider is not configured.')} ${dim(candidate.hint ?? '')}`);
-      continue;
+  }
+
+  if (!providerChoice) {
+    console.log(bold('\n    Detected providers:\n'));
+    providers.forEach((p, i) => {
+      const num = `${i + 1}`.padStart(2, ' ');
+      const icon = PROVIDER_ICONS[p.id] ?? '🔌';
+      const status = p.usable ? green('✓ configured') : yellow('○ not configured');
+      console.log(`      ${cyan(num + '.')} ${icon}  ${bold(p.name.padEnd(14))} ${status}`);
+      if (!p.usable && p.hint) {
+        console.log(`         ${dim(p.hint)}`);
+      }
+    });
+
+    while (!providerChoice) {
+      const answer = await prompt(`\n    ${bold('Pick a provider')} ${dim(`[1-${providers.length}]`)}: `);
+      if (!answer) {
+        console.log(`    ${yellow('Type a number to pick a provider.')}`);
+        continue;
+      }
+      const idx = parseInt(answer, 10) - 1;
+      if (Number.isNaN(idx) || idx < 0 || idx >= providers.length) {
+        console.log(`    ${yellow('Invalid selection.')}`);
+        continue;
+      }
+      const candidate = providers[idx];
+      if (!candidate.usable) {
+        console.log(`    ${yellow('That provider is not configured.')} ${dim(candidate.hint ?? '')}`);
+        continue;
+      }
+      providerChoice = candidate;
     }
-    providerChoice = candidate;
   }
 
   // Step 4: model tier
@@ -104,16 +124,19 @@ export async function runAgentWizard(fort: any): Promise<void> {
     console.log(`         ${dim(TIER_LABELS[t])}`);
   });
 
-  let modelTier: ModelTier = 'standard';
-  while (true) {
-    const answer = await prompt(`\n    ${bold('Pick a tier')} ${dim('[1-3, default 2]')}: `);
-    const idx = answer ? parseInt(answer, 10) - 1 : 1;
-    if (idx < 0 || idx > 2) {
+  let modelTier: ModelTier | null = null;
+  while (modelTier === null) {
+    const answer = await prompt(`\n    ${bold('Pick a tier')} ${dim('[1-3]')}: `);
+    if (!answer) {
+      console.log(`    ${yellow('Type a number to pick a tier.')}`);
+      continue;
+    }
+    const idx = parseInt(answer, 10) - 1;
+    if (Number.isNaN(idx) || idx < 0 || idx > 2) {
       console.log(`    ${yellow('Invalid selection.')}`);
       continue;
     }
     modelTier = tiers[idx];
-    break;
   }
 
   // Step 5: emoji

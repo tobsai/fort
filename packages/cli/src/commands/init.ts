@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
 import { withFort } from '../utils/fort-instance.js';
 import { runAgentWizard } from './wizard.js';
-import { runProviderSetupMenu } from './provider-setup.js';
+import { pickProvider } from './provider-setup.js';
 
 const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'fort-logo.png');
 
@@ -199,15 +199,15 @@ export function createInitCommand(): Command {
       // Steps 2 + 3 share a Fort instance for provider detection + agent creation.
       try {
         await withFort(async (fort) => {
-          // Step 2: Connect a Provider
-          console.log(bold('  Step 2: Connect a Provider\n'));
-          console.log(`    ${dim('Pick which LLM provider(s) Fort should use. You can configure more later')}`);
-          console.log(`    ${dim('via `fort llm setup --<provider>` or the dashboard Settings page.')}`);
-          await runProviderSetupMenu(fort);
+          // Step 2: Pick a Provider
+          console.log(bold('  Step 2: Pick a Provider\n'));
+          console.log(`    ${dim('Fort detects each provider and shows its state. Pick one to use as default.')}`);
+          console.log(`    ${dim('Picking an unconfigured provider runs its setup flow inline.')}\n`);
+          const chosenProvider = await pickProvider(fort);
 
           console.log();
 
-          // Step 3: Create the first agent
+          // Step 3: Create the first agent — inherits the provider from Step 2
           console.log(bold('  Step 3: Create your first agent\n'));
           const agentEntries = existsSync(agentsDir)
             ? readdirSync(agentsDir).filter((e) => !e.startsWith('.'))
@@ -216,7 +216,7 @@ export function createInitCommand(): Command {
           if (agentEntries.length > 0) {
             console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} already configured.`);
           } else {
-            await runAgentWizard(fort);
+            await runAgentWizard(fort, { providerId: chosenProvider ?? undefined });
           }
         });
       } catch (err) {
