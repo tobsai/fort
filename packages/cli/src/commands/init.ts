@@ -1,47 +1,115 @@
 import { Command } from 'commander';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { spawnSync, execSync, spawn } from 'node:child_process';
-import { bold, dim, green, cyan, yellow, magenta, blue } from '../utils/format.js';
+import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
 
-// Fort-shaped castle ASCII art — detailed and colorful
-function getBanner(): string {
-  const m = (s: string) => magenta(s);
-  const c = (s: string) => bold(cyan(s));
-  const y = (s: string) => yellow(s);
-  const b = (s: string) => blue(s);
-  const g = (s: string) => green(s);
+const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'fort-logo.png');
+
+/**
+ * Detect whether the current terminal supports inline images, and which protocol.
+ * Returns 'iterm' (OSC 1337), 'kitty' (Kitty graphics protocol), or null (use ASCII).
+ */
+function detectImageProtocol(): 'iterm' | 'kitty' | null {
+  if (!process.stdout.isTTY) return null;
+  const term = process.env.TERM ?? '';
+  const termProgram = process.env.TERM_PROGRAM ?? '';
+
+  // Kitty + Ghostty use the Kitty graphics protocol
+  if (term === 'xterm-kitty' || term.startsWith('xterm-kitty')) return 'kitty';
+  if (term === 'xterm-ghostty' || termProgram === 'ghostty') return 'kitty';
+
+  // iTerm2 and WezTerm understand the iTerm2 inline-image protocol
+  if (termProgram === 'iTerm.app') return 'iterm';
+  if (termProgram === 'WezTerm') return 'iterm';
+
+  return null;
+}
+
+/**
+ * Emit an iTerm2 OSC 1337 inline-image sequence.
+ * Width is in terminal cells; aspect ratio is preserved.
+ */
+function emitIterm2Image(buf: Buffer, widthCells: number): void {
+  const b64 = buf.toString('base64');
+  const args = [
+    'inline=1',
+    `width=${widthCells}`,
+    'preserveAspectRatio=1',
+    `size=${buf.length}`,
+  ].join(';');
+  process.stdout.write(`\x1b]1337;File=${args}:${b64}\x07\n`);
+}
+
+/**
+ * Emit a Kitty graphics protocol inline image.
+ * Splits the base64 payload into 4KB chunks per the protocol spec.
+ */
+function emitKittyImage(buf: Buffer, widthCells: number): void {
+  const b64 = buf.toString('base64');
+  const CHUNK = 4096;
+  if (b64.length <= CHUNK) {
+    process.stdout.write(`\x1b_Gf=100,a=T,c=${widthCells};${b64}\x1b\\`);
+  } else {
+    for (let i = 0; i < b64.length; i += CHUNK) {
+      const chunk = b64.slice(i, i + CHUNK);
+      const isLast = i + CHUNK >= b64.length;
+      const headers = i === 0
+        ? `f=100,a=T,c=${widthCells},m=${isLast ? 0 : 1}`
+        : `m=${isLast ? 0 : 1}`;
+      process.stdout.write(`\x1b_G${headers};${chunk}\x1b\\`);
+    }
+  }
+  process.stdout.write('\n');
+}
+
+/**
+ * Render the Fort banner. On terminals with inline-image support, prints the
+ * PNG logo at ~52 cells wide. Elsewhere, prints a clean ANSI wordmark.
+ */
+function printBanner(): void {
+  const protocol = detectImageProtocol();
+  if (protocol && existsSync(LOGO_PATH)) {
+    try {
+      const buf = readFileSync(LOGO_PATH);
+      process.stdout.write('\n');
+      if (protocol === 'iterm') emitIterm2Image(buf, 52);
+      else emitKittyImage(buf, 52);
+      process.stdout.write('\n');
+      return;
+    } catch {
+      // Fall through to ASCII
+    }
+  }
+  process.stdout.write(asciiBanner());
+}
+
+/**
+ * Sharp ASCII fallback — ANSI Shadow wordmark, no decorations.
+ */
+function asciiBanner(): string {
+  const p = (s: string) => bold(magenta(s));
+  const c = (s: string) => cyan(s);
   const d = (s: string) => dim(s);
-  const w = (s: string) => bold(s);
-
   return `
-${d('     ▄▀▀▀▄')}    ${y('⚑')}    ${d('▄▀▀▀▄')}           ${d('▄▀▀▀▄')}    ${y('⚑')}    ${d('▄▀▀▀▄')}
-${d('     █   █')}  ${m('▄███▄')}  ${d('█   █')}           ${d('█   █')}  ${m('▄███▄')}  ${d('█   █')}
-${d('     █   █')}  ${m('█████')}  ${d('█   █')}           ${d('█   █')}  ${m('█████')}  ${d('█   █')}
-${d('     █▄▄▄█▄▄')}${m('█████')}${d('▄▄█▄▄▄█')}${d('▄▄▄▄▄▄▄▄▄')}${d('█▄▄▄█▄▄')}${m('█████')}${d('▄▄█▄▄▄█')}
-${d('     ███████████████████████████████████████████')}
-${d('     ██')}${b('╔═════════════════════════════════════╗')}${d('██')}
-${d('     ██')}${b('║')}                                     ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('███████╗ ██████╗ ██████╗ ████████╗')} ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝')} ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('█████╗  ██║   ██║██████╔╝   ██║')}    ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('██╔══╝  ██║   ██║██╔══██╗   ██║')}    ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('██║     ╚██████╔╝██║  ██║   ██║')}    ${b('║')}${d('██')}
-${d('     ██')}${b('║')}  ${c('╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝')}    ${b('║')}${d('██')}
-${d('     ██')}${b('║')}                                     ${b('║')}${d('██')}
-${d('     ██')}${b('║')}   ${g('A self-improving AI agent platform')} ${b('║')}${d('██')}
-${d('     ██')}${b('║')}                                     ${b('║')}${d('██')}
-${d('     ██')}${b('╚═════════════════════════════════════╝')}${d('██')}
-${d('     ███████████████████████████████████████████')}
-${d('     ██')}   ${m('██')}   ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}    ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}   ${m('██')}   ${d('██')}
-${d('     ██')}   ${m('██')}   ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}    ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}   ${m('██')}   ${d('██')}
-${d('     ██')}   ${m('██')}   ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}    ${d('██')}  ${y('▓▓▓▓')}  ${d('██')}   ${m('██')}   ${d('██')}
-${d('   ▄▄██▄▄▄██▄▄▄██▄▄▓▓▓▓▄▄██▄▄▄▄██▄▄▓▓▓▓▄▄██▄▄▄██▄▄██▄▄')}
-${d('   ████████████████████████████████████████████████████████')}
-${d('   ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀')}
+   ${p('███████╗ ██████╗ ██████╗ ████████╗')}
+   ${p('██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝')}
+   ${p('█████╗  ██║   ██║██████╔╝   ██║   ')}
+   ${p('██╔══╝  ██║   ██║██╔══██╗   ██║   ')}
+   ${p('██║     ╚██████╔╝██║  ██║   ██║   ')}
+   ${p('╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ')}
+
+   ${c('A self-improving AI agent platform')}
+   ${d('https://github.com/tobsai/fort')}
+
 `;
+}
+
+// Kept for backward compatibility — re-exported as BANNER.
+function getBanner(): string {
+  return asciiBanner();
 }
 
 function sleep(ms: number): Promise<void> {
@@ -64,8 +132,8 @@ export function createInitCommand(): Command {
     .description('Initialize Fort and run first-time setup')
     .option('--skip-risks', 'Skip the risk acknowledgment prompt')
     .action(async (opts) => {
-      console.log(getBanner());
-      await sleep(2000);
+      printBanner();
+      await sleep(1500);
 
       // ─── Risk Acknowledgment ──────────────────────────────────
       const fortDir = join(homedir(), '.fort');
