@@ -1,6 +1,6 @@
 {
   "name": "fort",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "description": "A self-improving personal AI agent platform",
   "workspaces": [

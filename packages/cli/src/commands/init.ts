@@ -115,6 +115,22 @@ function getBanner(): string {
   return asciiBanner();
 }
 
+/**
+ * Print the running CLI version + the binary path. Useful for diagnosing
+ * stale installs (e.g. an nvm-linked dev copy shadowing the brew install).
+ */
+function printVersionLine(): void {
+  let version = 'unknown';
+  try {
+    const pkgPath = join(__dirname, '..', '..', 'package.json');
+    version = JSON.parse(readFileSync(pkgPath, 'utf-8')).version ?? 'unknown';
+  } catch {
+    // fall through with 'unknown'
+  }
+  const binPath = process.argv[1] ?? 'unknown';
+  console.log(`   ${dim(`v${version}`)}  ${dim(`(${binPath})`)}\n`);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -136,6 +152,7 @@ export function createInitCommand(): Command {
     .option('--skip-risks', 'Skip the risk acknowledgment prompt')
     .action(async (opts) => {
       printBanner();
+      printVersionLine();
       await sleep(1500);
 
       // ─── Risk Acknowledgment ──────────────────────────────────
