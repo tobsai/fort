@@ -79,6 +79,31 @@ export class TaskGraph {
     return task;
   }
 
+  /**
+   * Merge fields into a task's metadata bag. Used by the classifier to stamp
+   * `board`, `classification`, `classifierConfidence`, etc. without mutating
+   * other status fields. Persists through to the store + publishes
+   * `task.status_changed` with the same status so live UIs refresh.
+   */
+  updateMetadata(taskId: string, patch: Record<string, unknown>): Task {
+    const task = this.getTask(taskId);
+    task.metadata = { ...task.metadata, ...patch };
+    task.updatedAt = new Date();
+    if (this.store) { this.store.upsertTask(task); }
+    this.bus.publish('task.status_changed', 'task-graph', {
+      task,
+      previousStatus: task.status,
+      newStatus: task.status,
+      reason: 'metadata_update',
+    });
+    return task;
+  }
+
+  /** Convenience wrapper: route a task to a named board. */
+  setBoard(taskId: string, board: 'main' | 'questions'): Task {
+    return this.updateMetadata(taskId, { board });
+  }
+
   updateStatus(taskId: string, status: TaskStatus, reason?: string, result?: string): Task {
     const task = this.getTask(taskId);
     const previousStatus = task.status;

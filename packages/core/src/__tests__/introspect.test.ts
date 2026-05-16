@@ -16,6 +16,7 @@ describe('Introspector', () => {
     fort = new Fort({
       dataDir: join(tmpDir, 'data'),
       specsDir,
+      bootstrapTriager: false,
     });
     return fort;
   }

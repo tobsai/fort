@@ -55,6 +55,12 @@ export interface FortConfig {
   permissionsPath?: string;
   agentsDir?: string;
   llm?: LLMClientConfig;
+  /**
+   * Whether to bootstrap the pre-built Triager agent (`triager` id) on
+   * `start()` if missing. Defaults to true. Tests typically pass false so
+   * "should start with no agents" assertions still hold.
+   */
+  bootstrapTriager?: boolean;
 }
 
 export class Fort {
@@ -298,6 +304,28 @@ export class Fort {
     this.errorLog.loadFromDb();
     await this.memory.initialize();
     await this.agentFactory.loadAll();
+
+    // Bootstrap the pre-built Triager agent if missing. Looks for assets next
+    // to the CLI's compiled output (packages/cli/assets/triager). For npm-link
+    // / dev workflows where the CLI isn't installed, falls back to a copy in
+    // the core's own bundled assets if present. Silent no-op when neither is
+    // available (older installs keep working via task-planner inline fallback).
+    //
+    // Tests can pass `bootstrapTriager: false` to keep agent counts clean.
+    if (this.config.bootstrapTriager !== false) {
+      try {
+        const cliAssets = this.findTriagerAssetsDir();
+        if (cliAssets) {
+          const seeded = this.agentFactory.seedTriagerIfMissing(cliAssets);
+          if (seeded) {
+            this.bus.publish('fort.triager_seeded', 'fort', { from: cliAssets });
+          }
+        }
+      } catch {
+        // Bootstrap is best-effort. Don't fail startup over it.
+      }
+    }
+
     await this.agents.startAll();
     this.notifications.start();
     if (process.env['FORT_SCHEDULER_ENABLED'] !== 'false') {
@@ -358,6 +386,35 @@ export class Fort {
   isSetupComplete(): boolean {
     const identities = this.agentFactory.listIdentities();
     return identities.some((i) => i.isDefault && i.status === 'active');
+  }
+
+  /**
+   * Walk plausible filesystem locations for the bundled Triager assets and
+   * return the first directory that contains both files. Returns null if
+   * neither location matches (e.g. dev install with no CLI assets nearby).
+   */
+  private findTriagerAssetsDir(): string | null {
+    const { existsSync } = require('node:fs');
+    const { join } = require('node:path');
+
+    // Candidate locations, in priority order:
+    // 1. Sibling to compiled core (Homebrew install layout: libexec/packages/cli/assets/triager)
+    // 2. Repo-relative when running from a dev checkout (../../cli/assets/triager from dist/)
+    // 3. Inside the CLI's installed node_module (./node_modules/@fort-ai/cli/assets/triager)
+    const candidates = [
+      join(__dirname, '..', '..', 'cli', 'assets', 'triager'),
+      join(__dirname, '..', '..', '..', 'cli', 'assets', 'triager'),
+      join(__dirname, '..', '..', '..', '..', 'cli', 'assets', 'triager'),
+      join(__dirname, '..', '..', 'node_modules', '@fort-ai', 'cli', 'assets', 'triager'),
+      join(process.cwd(), 'packages', 'cli', 'assets', 'triager'),
+    ];
+
+    for (const dir of candidates) {
+      if (existsSync(join(dir, 'identity.yaml')) && existsSync(join(dir, 'SOUL.md'))) {
+        return dir;
+      }
+    }
+    return null;
   }
 
   private agentDiagnostics(): DiagnosticResult {

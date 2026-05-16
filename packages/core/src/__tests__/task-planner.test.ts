@@ -113,4 +113,118 @@ describe('task-planner', () => {
       expect(out).toContain('2. `T-102` Book hotel');
     });
   });
+
+  // ── Triager-config wiring (v0.3.0) ──────────────────────────────────────
+  describe('TriagerConfig', () => {
+    it('uses the Triager SOUL.md as the classifier system prompt', async () => {
+      const captured: any[] = [];
+      const llm = {
+        isConfigured: true,
+        complete: vi.fn(async (req: any) => {
+          captured.push(req);
+          return {
+            content: '{"isTask": false, "confidence": 0.9, "summary": "casual chat"}',
+            model: 'mock', inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0,
+            stopReason: 'end_turn', durationMs: 1,
+          };
+        }),
+      };
+      const customSoul = '# Triager\nYou MUST decide.';
+      await classifyAsTask(llm as any, 'hi', { soul: customSoul });
+      expect(captured.length).toBe(1);
+      expect(captured[0].system).toContain('# Triager');
+      expect(captured[0].system).toContain('You MUST decide');
+    });
+
+    it('honours the Triager modelTier when set', async () => {
+      const captured: any[] = [];
+      const llm = {
+        isConfigured: true,
+        complete: vi.fn(async (req: any) => {
+          captured.push(req);
+          return {
+            content: '{"isTask": true, "confidence": 0.85, "summary": "do thing"}',
+            model: 'mock', inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0,
+            stopReason: 'end_turn', durationMs: 1,
+          };
+        }),
+      };
+      await classifyAsTask(llm as any, 'do thing', { modelTier: 'standard' });
+      expect(captured[0].model).toBe('standard');
+
+      // Default is 'fast'
+      await classifyAsTask(llm as any, 'do thing', {});
+      expect(captured[1].model).toBe('fast');
+    });
+
+    it('injects recent feedback as few-shot examples in the user prompt', async () => {
+      const captured: any[] = [];
+      const llm = {
+        isConfigured: true,
+        complete: vi.fn(async (req: any) => {
+          captured.push(req);
+          return {
+            content: '{"isTask": true, "confidence": 0.9, "summary": "x"}',
+            model: 'mock', inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0,
+            stopReason: 'end_turn', durationMs: 1,
+          };
+        }),
+      };
+      await classifyAsTask(llm as any, 'what time is it in Paris', {
+        recentFeedback: [
+          { message: 'what time is it in Tokyo', was: 'task', shouldBe: 'question' },
+          { message: 'schedule a 1:1 with everyone', was: 'question', shouldBe: 'task' },
+        ],
+      });
+      const userMsg = captured[0].messages[0].content;
+      expect(userMsg).toContain('Recent user corrections');
+      expect(userMsg).toContain('what time is it in Tokyo');
+      expect(userMsg).toContain('was TASK, should be QUESTION');
+      expect(userMsg).toContain('schedule a 1:1 with everyone');
+      expect(userMsg).toContain('was QUESTION, should be TASK');
+      // The actual message is still appended after the feedback block.
+      expect(userMsg).toContain('what time is it in Paris');
+    });
+
+    it('caps feedback at 5 examples even when more are supplied', async () => {
+      const captured: any[] = [];
+      const llm = {
+        isConfigured: true,
+        complete: vi.fn(async (req: any) => {
+          captured.push(req);
+          return {
+            content: '{"isTask": false, "confidence": 0.9, "summary": "x"}',
+            model: 'mock', inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0,
+            stopReason: 'end_turn', durationMs: 1,
+          };
+        }),
+      };
+      const tenFeedback = Array.from({ length: 10 }, (_, i) => ({
+        message: `example ${i}`, was: 'task' as const, shouldBe: 'question' as const,
+      }));
+      await classifyAsTask(llm as any, 'foo', { recentFeedback: tenFeedback });
+      const userMsg = captured[0].messages[0].content;
+      expect(userMsg).toContain('example 0');
+      expect(userMsg).toContain('example 4');
+      expect(userMsg).not.toContain('example 5');
+      expect(userMsg).not.toContain('example 9');
+    });
+
+    it('still accepts a plain SOUL string (legacy callers)', async () => {
+      const captured: any[] = [];
+      const llm = {
+        isConfigured: true,
+        complete: vi.fn(async (req: any) => {
+          captured.push(req);
+          return {
+            content: '{"isTask": false, "confidence": 0.5, "summary": "x"}',
+            model: 'mock', inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0,
+            stopReason: 'end_turn', durationMs: 1,
+          };
+        }),
+      };
+      await classifyAsTask(llm as any, 'hi', 'plain soul string');
+      expect(captured[0].system).toContain('plain soul string');
+    });
+  });
 });

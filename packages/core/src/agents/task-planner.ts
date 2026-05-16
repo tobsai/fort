@@ -8,7 +8,35 @@
  * Both helpers are conservative: any parse failure or low-confidence signal
  * falls back to "not a task" so the agent's default chat-reply path runs.
  */
-import type { LLMClient } from '../llm/index.js';
+import type { LLMClient, ModelTier } from '../llm/index.js';
+
+/**
+ * Tunable inputs to the classifier/decomposer. When a Triager agent is
+ * installed at `~/.fort/agents/triager/`, the caller passes its SOUL.md
+ * here and the planner uses it as the classifier's system prompt instead
+ * of the built-in default.
+ *
+ * `recentFeedback` is a small set of prior user corrections (from the
+ * Triager's memory partition) injected as few-shot examples so the model
+ * learns from the user over time.
+ */
+export interface TriagerConfig {
+  /** Contents of the Triager's SOUL.md (used as classifier system prompt). */
+  soul?: string;
+  /** Model tier for the classifier. Defaults to 'fast' so this stays cheap. */
+  modelTier?: ModelTier;
+  /** Up to ~5 recent reclassification corrections from memory. */
+  recentFeedback?: FeedbackExample[];
+}
+
+export interface FeedbackExample {
+  /** The original user message that was classified. */
+  message: string;
+  /** What the classifier originally said ('task' or 'question'). */
+  was: 'task' | 'question';
+  /** What the user corrected it to. */
+  shouldBe: 'task' | 'question';
+}
 
 export interface TaskClassification {
   isTask: boolean;
@@ -80,23 +108,48 @@ function extractJson(raw: string): unknown {
 }
 
 /**
- * Decide whether `message` is a task. Runs on the `fast` tier — cheap to call
- * on every chat. Returns `isTask: false` on any error or parse failure.
+ * Decide whether `message` is a task.
+ *
+ * The 3rd argument is a TriagerConfig (preferred) — the SOUL.md becomes the
+ * classifier system prompt, `modelTier` controls cost, and `recentFeedback`
+ * injects prior user corrections as few-shot examples.
+ *
+ * Legacy callers can still pass a plain SOUL string; we'll wrap it.
  */
 export async function classifyAsTask(
   llm: LLMClient,
   message: string,
-  agentSoul?: string,
+  triagerOrSoul?: TriagerConfig | string,
 ): Promise<TaskClassification> {
   if (!llm.isConfigured) {
     return { isTask: false, confidence: 0, summary: '' };
   }
+
+  const triager: TriagerConfig = typeof triagerOrSoul === 'string'
+    ? { soul: triagerOrSoul }
+    : (triagerOrSoul ?? {});
+
+  // System prompt: prefer the Triager's SOUL.md when present.
+  const system = triager.soul && triager.soul.trim().length > 0
+    ? triager.soul + '\n\n## Output\nStrict JSON only — no commentary, no markdown fences:\n{"isTask": true|false, "confidence": 0..1, "summary": "one-sentence summary"}'
+    : CLASSIFIER_SYSTEM;
+
+  // Build the user prompt — optionally prepend recent feedback as few-shot.
+  const feedbackBlock = triager.recentFeedback && triager.recentFeedback.length > 0
+    ? '## Recent user corrections\nThese are messages where the human flipped your previous answer. Treat them as the strongest signal for similar future cases.\n\n'
+      + triager.recentFeedback
+          .slice(0, 5)
+          .map((f) => `- "${f.message.replace(/\s+/g, ' ').slice(0, 140)}" → was ${f.was.toUpperCase()}, should be ${f.shouldBe.toUpperCase()}`)
+          .join('\n')
+      + '\n\n## Classify\n'
+    : '';
+  const userContent = feedbackBlock + message;
+
   try {
     const response = await llm.complete({
-      messages: [{ role: 'user', content: message }],
-      system: CLASSIFIER_SYSTEM,
-      soul: agentSoul,
-      model: 'fast',
+      messages: [{ role: 'user', content: userContent }],
+      system,
+      model: triager.modelTier ?? 'fast',
       maxTokens: 200,
       temperature: 0.1,
       injectBehaviors: false,

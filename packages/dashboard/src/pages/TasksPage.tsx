@@ -33,7 +33,20 @@ function fmtDuration(ms: number): string {
   return `${Math.round(ms / 60_000)}m`;
 }
 
-export default function TasksPage() {
+export interface TasksPageProps {
+  /** Which board to render. Defaults to 'main'. */
+  board?: "main" | "questions";
+  /** Page header to show in place of the default "Tasks". */
+  title?: string;
+  /** Empty-state copy to show when no tasks match. */
+  emptyState?: string;
+}
+
+export default function TasksPage({
+  board = "main",
+  title = "Tasks",
+  emptyState = "No tasks yet.",
+}: TasksPageProps = {}) {
   const { send, subscribe } = useFortSocket();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
@@ -48,8 +61,9 @@ export default function TasksPage() {
       assignedAgent: agentFilter || undefined,
       limit: PAGE_SIZE,
       offset,
+      board,
     });
-  }, [send, statusFilter, agentFilter, offset]);
+  }, [send, statusFilter, agentFilter, offset, board]);
 
   useEffect(() => {
     fetchTasks();
@@ -65,7 +79,10 @@ export default function TasksPage() {
   useEffect(() => {
     const unsub1 = subscribe("task.created", () => { fetchTasks(); });
     const unsub2 = subscribe("task.status_changed", () => { fetchTasks(); });
-    return () => { unsub1(); unsub2(); };
+    // Reclassification moves the row to a different board — both boards
+    // should refresh so the row disappears here and reappears there.
+    const unsub3 = subscribe("triager.reclassified", () => { fetchTasks(); });
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [subscribe, fetchTasks]);
 
   function handleFilterChange() {
@@ -75,7 +92,7 @@ export default function TasksPage() {
 
   return (
     <div className="tasks-page" style={{ padding: "1.5rem", maxWidth: 1100, margin: "0 auto" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Task History</h2>
+      <h2 style={{ marginBottom: "1rem" }}>{title}</h2>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
@@ -121,7 +138,7 @@ export default function TasksPage() {
             {tasks.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
-                  No tasks found.
+                  {emptyState}
                 </td>
               </tr>
             )}
@@ -193,6 +210,76 @@ export default function TasksPage() {
                       {task.metadata?.statusReason != null && (
                         <div style={{ color: "#ffc107", fontSize: 12 }}>
                           <strong>Reason: </strong>{String(task.metadata.statusReason)}
+                        </div>
+                      )}
+                      {/* Reclassify action — only for top-level chat tasks.
+                          Lets the user teach the Triager when it routed a
+                          chat to the wrong board. The classifier reads recent
+                          corrections as few-shot examples on future calls. */}
+                      {task.parentId == null && task.metadata?.classification != null && (
+                        <div style={{
+                          marginTop: "0.75rem",
+                          padding: "0.6rem 0.8rem",
+                          background: "rgba(108,92,231,0.08)",
+                          border: "1px solid rgba(108,92,231,0.25)",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.6rem",
+                          flexWrap: "wrap",
+                        }}>
+                          <span style={{ color: "#aaa" }}>
+                            Triager classified this as{" "}
+                            <strong style={{ color: "#6c5ce7" }}>
+                              {String(task.metadata.classification)}
+                            </strong>
+                            {typeof task.metadata.classifierConfidence === "number" && (
+                              <span style={{ color: "#666" }}>
+                                {" "}({Math.round((task.metadata.classifierConfidence as number) * 100)}% confidence)
+                              </span>
+                            )}
+                            .
+                          </span>
+                          {board === "main" ? (
+                            <button
+                              style={{
+                                marginLeft: "auto",
+                                background: "transparent",
+                                border: "1px solid #6c5ce7",
+                                color: "#6c5ce7",
+                                padding: "3px 10px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                cursor: "pointer",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                send("triager.reclassify", { taskId: task.id, corrected: "question" });
+                              }}
+                            >
+                              Move to Questions
+                            </button>
+                          ) : (
+                            <button
+                              style={{
+                                marginLeft: "auto",
+                                background: "transparent",
+                                border: "1px solid #6c5ce7",
+                                color: "#6c5ce7",
+                                padding: "3px 10px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                cursor: "pointer",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                send("triager.reclassify", { taskId: task.id, corrected: "task" });
+                              }}
+                            >
+                              Should have been a Task
+                            </button>
+                          )}
                         </div>
                       )}
                       {hasSubtasks && (

@@ -1,6 +1,6 @@
 {
   "name": "@fort-ai/core",
-  "version": "0.2.10",
+  "version": "0.3.0",
   "description": "Core engine for Fort — a self-improving personal AI agent platform",
   "license": "MIT",
   "repository": {
@@ -19,8 +19,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "FORT_DISABLE_TRIAGE=1 vitest run",
+    "test:watch": "FORT_DISABLE_TRIAGE=1 vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

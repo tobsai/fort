@@ -235,6 +235,14 @@ export function createInitCommand(): Command {
           } else {
             await runAgentWizard(fort, { providerId: chosenProvider ?? undefined });
           }
+
+          // Step 4: Bootstrap the Triager agent (idempotent — does nothing if it exists).
+          const triagerAssets = join(__dirname, '..', '..', 'assets', 'triager');
+          const seeded = fort.agentFactory.seedTriagerIfMissing(triagerAssets);
+          if (seeded) {
+            console.log(`    ${green('✓')} Triager agent installed at ${dim('~/.fort/agents/triager/')}`);
+            console.log(`    ${dim('  Edit SOUL.md to tune how it classifies chats as tasks vs questions.')}`);
+          }
         });
       } catch (err) {
         console.log(`    ${yellow('⚠')} Setup interrupted: ${err instanceof Error ? err.message : err}`);

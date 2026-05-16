@@ -432,6 +432,7 @@ export class FortServer {
       'agent.decomposing',
       'agent.decomposed',
       'agent.decomposed_failed',
+      'triager.reclassified',
     ] as const) {
       this.fort.bus.subscribe(eventType, (event) => {
         this.broadcast({ id: event.id, type: eventType, payload: event.payload });
@@ -533,20 +534,91 @@ export class FortServer {
           since?: string;
           limit?: number;
           offset?: number;
+          /** 'main' (default) shows the work board; 'questions' shows the
+           *  quick-answer board. 'all' returns both (legacy behaviour). */
+          board?: 'main' | 'questions' | 'all';
         };
         const tasks = this.fort.taskGraph.queryTasksFromStore({
           status: queryPayload.status as any,
           assignedAgent: queryPayload.assignedAgent,
           since: queryPayload.since ? new Date(queryPayload.since) : undefined,
-          limit: queryPayload.limit ?? 50,
+          // Over-fetch when board-filtering so the post-filter doesn't shrink
+          // the page below the requested limit.
+          limit: (queryPayload.board && queryPayload.board !== 'all')
+            ? (queryPayload.limit ?? 50) * 3
+            : (queryPayload.limit ?? 50),
           offset: queryPayload.offset ?? 0,
         });
+
+        // Board filter — defaults to 'main' so casual questions don't clutter
+        // the main TasksPage. Tasks without an explicit board fall back to
+        // 'main' (covers pre-0.3.0 rows).
+        const board = queryPayload.board ?? 'main';
+        const filtered = board === 'all'
+          ? tasks
+          : tasks.filter((t) => {
+              const taskBoard = (t.metadata as Record<string, unknown>)?.board ?? 'main';
+              return taskBoard === board;
+            });
+        const paged = filtered.slice(0, queryPayload.limit ?? 50);
         // Enrich each task with its direct subtasks
-        const tasksWithSubtasks = tasks.map((task) => ({
+        const tasksWithSubtasks = paged.map((task) => ({
           ...task,
           subtasks: this.fort.taskGraph.getSubtasksFromStore(task.id),
         }));
         return { id: msg.id, type: 'tasks.query.response', payload: tasksWithSubtasks };
+      }
+
+      case 'triager.reclassify': {
+        const payload = (msg.payload ?? {}) as {
+          taskId?: string;
+          corrected?: 'task' | 'question';
+        };
+        if (!payload.taskId || !payload.corrected) {
+          return { id: msg.id, type: 'error', payload: null, error: 'triager.reclassify requires taskId + corrected' };
+        }
+        const task = this.fort.taskGraph.getTask(payload.taskId);
+        const meta = task.metadata as Record<string, unknown>;
+        const originalClassification = (meta.classification as string) ?? 'unknown';
+        const originalMessage = task.description;
+        const newBoard = payload.corrected === 'task' ? 'main' : 'questions';
+
+        // Move the task to the corrected board.
+        this.fort.taskGraph.updateMetadata(payload.taskId, {
+          board: newBoard,
+          classification: payload.corrected,
+          correctedAt: new Date().toISOString(),
+        });
+
+        // Persist the correction as a 'preference' memory node in the
+        // Triager's partition. The classifier reads recent nodes of this
+        // shape as few-shot examples on future calls.
+        this.fort.memory.createNode({
+          type: 'preference',
+          label: 'Reclassification correction',
+          properties: {
+            partition: 'triager',
+            originalMessage,
+            originalClassification,
+            correctedClassification: payload.corrected,
+            taskId: payload.taskId,
+            correctedAt: new Date().toISOString(),
+          },
+          source: 'user',
+        });
+
+        this.fort.bus.publish('triager.reclassified', 'server', {
+          taskId: payload.taskId,
+          from: originalClassification,
+          to: payload.corrected,
+          newBoard,
+        });
+
+        return {
+          id: msg.id,
+          type: 'triager.reclassify.response',
+          payload: { taskId: payload.taskId, fromBoard: originalClassification === 'task' ? 'main' : 'questions', toBoard: newBoard },
+        };
       }
 
       case 'agents':

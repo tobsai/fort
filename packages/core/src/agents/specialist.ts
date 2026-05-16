@@ -10,6 +10,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { BaseAgent } from './index.js';
 import type { AgentConfig, SpecialistIdentity } from '../types.js';
 import type { ModuleBus } from '../module-bus/index.js';
@@ -18,7 +19,7 @@ import type { MemoryManager } from '../memory/index.js';
 import type { LLMClient } from '../llm/index.js';
 import type { ToolRegistry } from '../tools/index.js';
 import type { ToolExecutor } from '../tools/executor.js';
-import { classifyAsTask, decomposeTask, formatPlan } from './task-planner.js';
+import { classifyAsTask, decomposeTask, formatPlan, type TriagerConfig } from './task-planner.js';
 
 export class SpecialistAgent extends BaseAgent {
   readonly identity: SpecialistIdentity;
@@ -138,7 +139,14 @@ export class SpecialistAgent extends BaseAgent {
     // subtasks on the board before falling through to the normal reply path.
     // Subtasks (parentId !== null) skip this block entirely so we don't
     // recurse forever.
-    const decomposeEnabled = (this.identity as any).decompose !== false;
+    //
+    // Routes the message through the Triager agent's SOUL.md if present
+    // (~/.fort/agents/triager/SOUL.md). Users can edit that file to shape
+    // judgment without touching code. Falls back to the built-in classifier
+    // prompt when Triager is absent (e.g. upgrade-in-progress installs).
+    const decomposeEnabled =
+      (this.identity as any).decompose !== false
+      && process.env.FORT_DISABLE_TRIAGE !== '1';
     if (
       isChatTask &&
       task.parentId === null &&
@@ -147,13 +155,23 @@ export class SpecialistAgent extends BaseAgent {
       this.llm.isConfigured
     ) {
       const userMessage = task.description;
-      const soul = this.getSoul() ?? undefined;
+      const triager = this.loadTriagerConfig();
 
       this.bus.publish('agent.classifying', this.config.id, {
         taskId: task.id, agentId: this.config.id,
       });
 
-      const classification = await classifyAsTask(this.llm, userMessage, soul);
+      const classification = await classifyAsTask(this.llm, userMessage, triager);
+
+      // Persist the classifier's verdict on the task so the reclassify UI
+      // can show "what the classifier saw" and feedback can reference it.
+      this.taskGraph.updateMetadata(taskId, {
+        classification: classification.isTask ? 'task' : 'question',
+        classifierConfidence: classification.confidence,
+        classifierSummary: classification.summary,
+        // Route to the right board immediately.
+        board: classification.isTask && classification.confidence >= 0.6 ? 'main' : 'questions',
+      });
 
       this.bus.publish('agent.classified', this.config.id, {
         taskId: task.id, agentId: this.config.id,
@@ -167,7 +185,7 @@ export class SpecialistAgent extends BaseAgent {
           taskId: task.id, agentId: this.config.id,
         });
 
-        const plan = await decomposeTask(this.llm, userMessage, classification, soul);
+        const plan = await decomposeTask(this.llm, userMessage, classification, triager.soul);
 
         if (plan.subtasks.length > 0) {
           const children = this.taskGraph.decompose(
@@ -353,6 +371,67 @@ Include the JSON block in your response along with your explanation to the user.
 
     // Review completion with LLM before marking done
     await this.taskGraph.reviewCompletion(taskId, responseText);
+  }
+
+  /**
+   * Load the Triager agent's SOUL.md + identity from its sibling directory
+   * so its prompt + model tier drive the classifier. Returns an empty config
+   * when the Triager isn't installed — the planner falls back to the built-in
+   * default prompt.
+   *
+   * Also pulls the most recent reclassification feedback nodes from memory
+   * (partition: 'triager') so the classifier sees user corrections as
+   * few-shot examples.
+   */
+  private loadTriagerConfig(): TriagerConfig {
+    try {
+      const triagerDir = join(this.agentDir, '..', 'triager');
+      if (!existsSync(triagerDir)) return {};
+
+      let soul: string | undefined;
+      const soulPath = join(triagerDir, 'SOUL.md');
+      if (existsSync(soulPath)) {
+        soul = readFileSync(soulPath, 'utf-8');
+      }
+
+      let modelTier: 'fast' | 'standard' | 'powerful' | undefined;
+      const identityPath = join(triagerDir, 'identity.yaml');
+      if (existsSync(identityPath)) {
+        try {
+          const id = parseYaml(readFileSync(identityPath, 'utf-8')) as { defaultModelTier?: 'fast' | 'standard' | 'powerful' };
+          modelTier = id.defaultModelTier;
+        } catch {
+          // ignore malformed yaml
+        }
+      }
+
+      // Pull recent feedback nodes from the Triager's memory partition. We
+      // store these as 'preference' nodes with properties.partition='triager'
+      // since the memory schema doesn't have a dedicated 'feedback' type yet.
+      const feedback = this.memory.search({
+        nodeType: 'preference',
+        text: 'Reclassification',
+        limit: 25,
+      });
+      const recentFeedback = feedback.nodes
+        .filter((n) => {
+          const p = n.properties as Record<string, unknown>;
+          return p.partition === 'triager' && typeof p.originalMessage === 'string';
+        })
+        .slice(0, 5)
+        .map((n) => {
+          const p = n.properties as Record<string, unknown>;
+          const msg = typeof p.originalMessage === 'string' ? p.originalMessage : '';
+          const was = p.originalClassification === 'task' ? 'task' as const : 'question' as const;
+          const shouldBe = p.correctedClassification === 'task' ? 'task' as const : 'question' as const;
+          return { message: msg, was, shouldBe };
+        })
+        .filter((f) => f.message.length > 0);
+
+      return { soul, modelTier, recentFeedback };
+    } catch {
+      return {};
+    }
   }
 
   /**

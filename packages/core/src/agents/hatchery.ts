@@ -431,4 +431,45 @@ ${goalsSection}
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   }
+
+  /**
+   * Ensure the pre-built Triager agent exists under {agentsDir}/triager. Used
+   * by both `fort init` (during first-run setup) and the portal server (so
+   * upgrades from pre-v0.3.0 installs get the agent without user action).
+   *
+   * Reads default identity.yaml + SOUL.md from `assetsDir` (typically the CLI
+   * package's bundled assets) and writes them through if the agent directory
+   * is missing. Idempotent — never overwrites existing files, so user edits
+   * to SOUL.md survive.
+   *
+   * Returns true when the agent was newly seeded, false when it already
+   * existed (or when assets were missing).
+   */
+  seedTriagerIfMissing(assetsDir: string): boolean {
+    const triagerDir = join(this.agentsDir, 'triager');
+    if (existsSync(triagerDir)) return false;
+
+    const identitySrc = join(assetsDir, 'identity.yaml');
+    const soulSrc = join(assetsDir, 'SOUL.md');
+    if (!existsSync(identitySrc) || !existsSync(soulSrc)) return false;
+
+    mkdirSync(triagerDir, { recursive: true });
+    copyFileSync(identitySrc, join(triagerDir, 'identity.yaml'));
+    copyFileSync(soulSrc, join(triagerDir, 'SOUL.md'));
+
+    // Load + register the agent so it's live without restart.
+    try {
+      const identity = parseYaml(readFileSync(join(triagerDir, 'identity.yaml'), 'utf-8')) as SpecialistIdentity;
+      const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, triagerDir);
+      if (this.llm) agent.setLLM(this.llm);
+      if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
+      if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
+      this.registry.register(agent);
+      this.bus.publish('agent.created', 'agent-factory', { identity });
+    } catch {
+      // Identity parse failure — leave the files on disk; next start will
+      // pick them up via `loadAll()`.
+    }
+    return true;
+  }
 }

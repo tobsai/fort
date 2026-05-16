@@ -5,6 +5,7 @@ import ChatPage from "./pages/ChatPage";
 import DashboardPage from "./pages/DashboardPage";
 import AgentsPage from "./pages/AgentsPage";
 import TasksPage from "./pages/TasksPage";
+import QuestionsPage from "./pages/QuestionsPage";
 import SchedulesPage from "./pages/SchedulesPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
 import DiagnosticsPage from "./pages/DiagnosticsPage";
@@ -22,6 +23,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/questions" element={<QuestionsPage />} />
           <Route path="/schedules" element={<SchedulesPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/diagnostics" element={<DiagnosticsPage />} />

@@ -38,6 +38,7 @@ describe('Fort Integration', () => {
       dataDir: join(tmpDir, 'data'),
       specsDir,
       agentsDir: join(tmpDir, 'agents'),
+      bootstrapTriager: false, // keep agent counts clean in tests
     });
     return fort;
   }
