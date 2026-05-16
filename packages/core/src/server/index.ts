@@ -174,6 +174,10 @@ export class FortServer {
         });
         return;
       }
+      if (req.url === '/api/providers/setup' && req.method === 'POST') {
+        this.handleProviderSetup(req, res);
+        return;
+      }
       if (req.url === '/api/agents') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         const agents = this.fort.agents.listInfo().map((a) => ({
@@ -1355,6 +1359,64 @@ export class FortServer {
     }).catch((err) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));
+    });
+  }
+
+  /**
+   * Accept a credential from the dashboard's inline setup form. Writes the
+   * key to ~/.fort/.env under the right env var so the next
+   * resolveAvailableProviders() pass sees it as usable.
+   */
+  private handleProviderSetup(req: IncomingMessage, res: ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { id, key } = JSON.parse(body) as { id: string; key?: string };
+
+        const ENV_VARS: Record<string, string> = {
+          anthropic:  'ANTHROPIC_API_KEY',
+          openai:     'OPENAI_API_KEY',
+          grok:       'XAI_API_KEY',
+          groq:       'GROQ_API_KEY',
+          google:     'GEMINI_API_KEY',
+          openrouter: 'OPENROUTER_API_KEY',
+        };
+
+        if (id === 'ollama') {
+          // Ollama has no key — just probe and report
+          try {
+            const r = await fetch('http://localhost:11434/api/tags');
+            const ok = r.ok;
+            res.writeHead(ok ? 200 : 503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ usable: ok, hint: ok ? null : 'Ollama server not reachable at localhost:11434.' }));
+          } catch {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ usable: false, hint: 'Ollama server not reachable at localhost:11434. Run `ollama serve`.' }));
+          }
+          return;
+        }
+
+        const envVar = ENV_VARS[id];
+        if (!envVar) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Unknown provider: ${id}` }));
+          return;
+        }
+        if (!key || !key.trim()) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'API key is required' }));
+          return;
+        }
+
+        const { LLMClient } = await import('../llm/index.js');
+        LLMClient.writeEnvFileValue(envVar, key.trim());
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ usable: true, envVar }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
     });
   }
 

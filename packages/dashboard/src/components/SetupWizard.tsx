@@ -38,6 +38,95 @@ const TIER_LABELS: Record<ModelTier, { name: string; desc: string }> = {
   powerful: { name: "Powerful", desc: "Maximum reasoning. Complex planning and analysis." },
 };
 
+const KEY_PROMPTS: Record<ProviderId, { envVar: string; placeholder: string; signupUrl: string } | null> = {
+  anthropic:  { envVar: "ANTHROPIC_API_KEY",   placeholder: "sk-ant-...",  signupUrl: "https://console.anthropic.com/settings/keys" },
+  openai:     { envVar: "OPENAI_API_KEY",      placeholder: "sk-...",      signupUrl: "https://platform.openai.com/api-keys" },
+  grok:       { envVar: "XAI_API_KEY",         placeholder: "xai-...",     signupUrl: "https://console.x.ai" },
+  groq:       { envVar: "GROQ_API_KEY",        placeholder: "gsk_...",     signupUrl: "https://console.groq.com/keys" },
+  google:     { envVar: "GEMINI_API_KEY",      placeholder: "AIza...",     signupUrl: "https://aistudio.google.com/apikey" },
+  openrouter: { envVar: "OPENROUTER_API_KEY",  placeholder: "sk-or-...",   signupUrl: "https://openrouter.ai/keys" },
+  ollama:     null, // no key — runs locally
+};
+
+interface InlineSetupProps {
+  providerId: ProviderId;
+  onDone: () => void;
+  onCancel: () => void;
+}
+
+function InlineSetup({ providerId, onDone, onCancel }: InlineSetupProps) {
+  const [key, setKey] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const spec = KEY_PROMPTS[providerId];
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const body = spec ? { id: providerId, key: key.trim() } : { id: providerId };
+      const res = await fetch("/api/providers/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error ?? `HTTP ${res.status}`);
+        setSubmitting(false);
+        return;
+      }
+      if (!data.usable) {
+        setError(data.hint ?? "Provider still not usable.");
+        setSubmitting(false);
+        return;
+      }
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="inline-setup">
+      {spec ? (
+        <>
+          <p className="inline-setup-help">
+            Get a key at <a href={spec.signupUrl} target="_blank" rel="noreferrer">{spec.signupUrl}</a>
+          </p>
+          <input
+            type="password"
+            placeholder={spec.placeholder}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            autoFocus
+          />
+          <p className="inline-setup-note">
+            Stored as <code>{spec.envVar}</code> in <code>~/.fort/.env</code>.
+          </p>
+        </>
+      ) : (
+        <p className="inline-setup-help">
+          Ollama runs locally. Make sure it's running:{" "}
+          <code>ollama serve</code>
+        </p>
+      )}
+      {error && <div className="inline-setup-error">{error}</div>}
+      <div className="inline-setup-actions">
+        <button className="btn-sm btn-secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
+        <button
+          className="btn-sm btn-primary"
+          onClick={submit}
+          disabled={submitting || (spec !== null && !key.trim())}
+        >
+          {submitting ? "Saving..." : (spec ? "Save & verify" : "Retry check")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SetupWizard() {
   const navigate = useNavigate();
   const { send, subscribe } = useFortSocket();
@@ -45,6 +134,7 @@ export default function SetupWizard() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<AvailableProvider[]>([]);
+  const [expandedSetup, setExpandedSetup] = useState<ProviderId | null>(null);
   const [data, setData] = useState({
     name: "Fort",
     goals: "",
@@ -73,6 +163,8 @@ export default function SetupWizard() {
     send("providers.available");
     return () => unsub();
   }, [visible, send, subscribe]);
+
+  const refreshProviders = () => send("providers.available");
 
   // Default the wizard to the first usable provider once data lands.
   useEffect(() => {
@@ -200,28 +292,43 @@ export default function SetupWizard() {
             ) : (
               <div className="provider-selector">
                 {providers.map((p) => (
-                  <button
-                    key={p.id}
-                    className={`provider-option${data.provider === p.id ? " selected" : ""}${p.usable ? "" : " disabled"}`}
-                    onClick={() => p.usable && update({ provider: p.id })}
-                    disabled={!p.usable}
-                    title={p.hint}
-                  >
-                    <div className="provider-option-icon">{PROVIDER_ICONS[p.id] ?? "🔌"}</div>
-                    <div className="provider-option-body">
-                      <div className="provider-option-name">{p.name}</div>
-                      <div className="provider-option-meta">
-                        {p.usable ? (
-                          <span className="badge badge--ok">Configured</span>
-                        ) : (
-                          <span className="badge badge--warn">Not configured</span>
+                  <div key={p.id} className="provider-option-wrap">
+                    <button
+                      className={`provider-option${data.provider === p.id ? " selected" : ""}${p.usable ? "" : " unconfigured"}`}
+                      onClick={() => {
+                        if (p.usable) {
+                          update({ provider: p.id });
+                          setExpandedSetup(null);
+                        } else {
+                          setExpandedSetup(expandedSetup === p.id ? null : p.id);
+                        }
+                      }}
+                    >
+                      <div className="provider-option-icon">{PROVIDER_ICONS[p.id] ?? "🔌"}</div>
+                      <div className="provider-option-body">
+                        <div className="provider-option-name">{p.name}</div>
+                        <div className="provider-option-meta">
+                          {p.usable ? (
+                            <span className="badge badge--ok">Configured</span>
+                          ) : (
+                            <span className="badge badge--warn">
+                              {expandedSetup === p.id ? "Set up below ↓" : "Set up →"}
+                            </span>
+                          )}
+                        </div>
+                        {!p.usable && p.hint && expandedSetup !== p.id && (
+                          <div className="provider-option-hint">{p.hint}</div>
                         )}
                       </div>
-                      {!p.usable && p.hint && (
-                        <div className="provider-option-hint">{p.hint}</div>
-                      )}
-                    </div>
-                  </button>
+                    </button>
+                    {expandedSetup === p.id && (
+                      <InlineSetup
+                        providerId={p.id}
+                        onDone={() => { setExpandedSetup(null); refreshProviders(); }}
+                        onCancel={() => setExpandedSetup(null)}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             )}

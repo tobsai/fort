@@ -3,10 +3,11 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
-import { spawnSync, execSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
 import { withFort } from '../utils/fort-instance.js';
 import { runAgentWizard } from './wizard.js';
+import { runProviderSetupMenu } from './provider-setup.js';
 
 const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'fort-logo.png');
 
@@ -195,126 +196,32 @@ export function createInitCommand(): Command {
       }
       console.log();
 
-      // Step 2: LLM setup
-      console.log(bold('  Step 2: Connect to Claude\n'));
+      // Steps 2 + 3 share a Fort instance for provider detection + agent creation.
+      try {
+        await withFort(async (fort) => {
+          // Step 2: Connect a Provider
+          console.log(bold('  Step 2: Connect a Provider\n'));
+          console.log(`    ${dim('Pick which LLM provider(s) Fort should use. You can configure more later')}`);
+          console.log(`    ${dim('via `fort llm setup --<provider>` or the dashboard Settings page.')}`);
+          await runProviderSetupMenu(fort);
 
-      const { LLMClient } = await import('@fort-ai/core');
-      const testClient = new LLMClient(
-        {},
-        { publish: () => {}, subscribe: () => () => {}, clear: () => {} } as any,
-      );
+          console.log();
 
-      // Helper: validate a configured client and report
-      const validateAndReport = async () => {
-        const client = new LLMClient(
-          {},
-          { publish: () => {}, subscribe: () => () => {}, clear: () => {} } as any,
-        );
-        if (!client.isConfigured) return false;
-        console.log(`    ${dim('Validating...')}`);
-        const error = await client.validateAuth();
-        if (error) {
-          console.log(`    ${yellow('⚠')} ${error}`);
-        } else {
-          console.log(`    ${green('✓')} Authentication validated!`);
-          console.log(dim(`    Token stored in: ${LLMClient.envFilePath}`));
-        }
-        return true;
-      };
+          // Step 3: Create the first agent
+          console.log(bold('  Step 3: Create your first agent\n'));
+          const agentEntries = existsSync(agentsDir)
+            ? readdirSync(agentsDir).filter((e) => !e.startsWith('.'))
+            : [];
 
-      // Helper: extract keychain token → .env
-      const extractKeychain = (): boolean => {
-        const token = LLMClient.readKeychainToken();
-        if (token) {
-          LLMClient.writeEnvFile(token);
-          return true;
-        }
-        return false;
-      };
-
-      if (testClient.isConfigured) {
-        // .env already has a token (or ANTHROPIC_API_KEY env var is set)
-        console.log(`    ${green('✓')} Found credentials in ${dim(LLMClient.envFilePath)}`);
-        await validateAndReport();
-      } else {
-        // No .env token — check if keychain has one from a previous `claude setup-token`
-        if (extractKeychain()) {
-          console.log(`    ${green('✓')} Extracted token from Claude Code keychain to .env`);
-          await validateAndReport();
-        } else {
-          // No keychain token either — need to set one up
-          console.log(`    ${yellow('○')} No API credentials found.\n`);
-
-          let hasClaude = false;
-          try {
-            execSync('which claude', { stdio: 'ignore' });
-            hasClaude = true;
-          } catch {}
-
-          if (hasClaude) {
-            console.log(`    Run ${cyan('claude setup-token')} to authenticate via your Claude subscription.`);
-            console.log(`    Or paste an API key from ${cyan('https://console.anthropic.com/settings/keys')}\n`);
-
-            const choice = await promptUser(`    ${bold('Run claude setup-token?')} ${dim('[Y/n]')} `);
-
-            if (choice.toLowerCase() !== 'n') {
-              console.log();
-              const result = spawnSync('claude', ['setup-token'], {
-                stdio: 'inherit',
-                env: { ...process.env },
-              });
-
-              if (result.status === 0 && extractKeychain()) {
-                console.log();
-                await validateAndReport();
-              } else {
-                console.log(`\n    ${yellow('⚠')} Token not detected. Try ${cyan('fort llm setup')} later.`);
-              }
-            } else {
-              const apiKeyInput = await promptUser(`\n    ${bold('Paste your API key (sk-ant-...):')} `);
-              if (apiKeyInput && apiKeyInput.startsWith('sk-ant-')) {
-                LLMClient.writeEnvFile(apiKeyInput);
-                await validateAndReport();
-              } else {
-                console.log(`\n    ${dim('Skipped. Run')} ${cyan('fort llm setup')} ${dim('later.')}`);
-              }
-            }
+          if (agentEntries.length > 0) {
+            console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} already configured.`);
           } else {
-            console.log(`    Fort requires an API key to power your agents.\n`);
-            console.log(`    Option 1: Install Claude Code (${cyan('npm i -g @anthropic-ai/claude-code')})`);
-            console.log(`             then run ${cyan('fort llm setup')} to authenticate`);
-            console.log(`    Option 2: Paste an API key from ${cyan('https://console.anthropic.com/settings/keys')}\n`);
-
-            const apiKeyInput = await promptUser(`    ${bold('Paste your API key (sk-ant-...):')} `);
-            if (apiKeyInput && apiKeyInput.startsWith('sk-ant-')) {
-              LLMClient.writeEnvFile(apiKeyInput);
-              await validateAndReport();
-            } else {
-              console.log(`\n    ${dim('Skipped. Run')} ${cyan('fort llm setup')} ${dim('later.')}`);
-            }
-          }
-        }
-      }
-      console.log();
-
-      // Step 3: Create the first agent interactively
-      console.log(bold('  Step 3: Create your first agent\n'));
-
-      const agentEntries = existsSync(agentsDir)
-        ? readdirSync(agentsDir).filter((e) => !e.startsWith('.'))
-        : [];
-
-      if (agentEntries.length > 0) {
-        console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} already configured.`);
-      } else {
-        try {
-          await withFort(async (fort) => {
             await runAgentWizard(fort);
-          });
-        } catch (err) {
-          console.log(`    ${yellow('⚠')} Skipped agent setup: ${err instanceof Error ? err.message : err}`);
-          console.log(`    ${dim('Run')} ${cyan('fort agents create')} ${dim('later to create your first agent.')}`);
-        }
+          }
+        });
+      } catch (err) {
+        console.log(`    ${yellow('⚠')} Setup interrupted: ${err instanceof Error ? err.message : err}`);
+        console.log(`    ${dim('Run')} ${cyan('fort llm setup')} ${dim('and')} ${cyan('fort agents create')} ${dim('to finish manually.')}`);
       }
       console.log();
 
