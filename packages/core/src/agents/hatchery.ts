@@ -108,6 +108,11 @@ export class AgentFactory {
       soulPath: 'SOUL.md',
       emoji: params.emoji,
       avatar: params.avatar,
+      // User-created agents start un-hatched; the portal triggers a
+      // getting-to-know-you conversation on first chat. System-seeded
+      // utility agents (e.g. Triager) skip this — they have no user
+      // relationship to bootstrap.
+      hatchedAt: params.createdBy === 'system' ? new Date().toISOString() : null,
     };
 
     // Create agent directory structure
@@ -351,6 +356,28 @@ export class AgentFactory {
   }
 
   /**
+   * Get a single agent's identity (active or retired). Returns null if
+   * no identity.yaml exists for the id.
+   */
+  getIdentity(agentId: string): SpecialistIdentity | null {
+    return this.loadIdentity(agentId);
+  }
+
+  /**
+   * Merge `patch` into the agent's identity.yaml on disk. Used by the
+   * hatch service to set `hatchedAt` and by anything else that needs to
+   * update durable identity fields without rewriting the whole file.
+   * Returns the updated identity, or null if the agent is unknown.
+   */
+  updateIdentity(agentId: string, patch: Partial<SpecialistIdentity>): SpecialistIdentity | null {
+    const current = this.loadIdentity(agentId);
+    if (!current) return null;
+    const updated: SpecialistIdentity = { ...current, ...patch };
+    this.saveIdentity(updated);
+    return updated;
+  }
+
+  /**
    * Get the SOUL.md contents for an agent.
    */
   getSoul(agentId: string): string | null {
@@ -398,16 +425,17 @@ export class AgentFactory {
     }
   }
 
-  private generateDefaultSoul(name: string, description: string, goals?: string): string {
-    const goalsSection = goals
-      ? `## Goals\n${goals}\n`
-      : '## Goals\n<!-- What should this agent help you accomplish? -->\n';
-
+  private generateDefaultSoul(name: string, description: string, _goals?: string): string {
+    // The user's goals are managed by Fort as structured DB objects (see
+    // `fort goals list`). SOUL.md holds the agent's durable identity —
+    // purpose, personality, rules, voice, boundaries — not the user's
+    // working goals.
     return `# ${name}
 
 ${description}
 
-${goalsSection}
+<!-- The user's goals are managed by Fort as structured objects. See \`fort goals list\` or the Goals lens in the portal. SOUL.md holds the agent's durable identity (purpose, personality, rules, voice, boundaries) — not the user's working goals. -->
+
 ## Personality
 <!-- How should this agent communicate? What's its tone and style? -->
 

@@ -13,6 +13,7 @@ import type { Task, TaskStatus, TaskSource } from '../types.js';
 export interface TaskQuery {
   status?: TaskStatus | TaskStatus[];
   assignedAgent?: string;
+  goalId?: string | null;
   since?: Date;
   limit?: number;
   offset?: number;
@@ -55,6 +56,15 @@ export class TaskStore {
     } catch {
       // Column already exists — ignore
     }
+
+    // Add goal_id column for goal-tagged tasks. Index supports `?goalId=` queries.
+    try {
+      this.db.exec(
+        'ALTER TABLE tasks ADD COLUMN goal_id TEXT; CREATE INDEX IF NOT EXISTS idx_tasks_goal ON tasks(goal_id);',
+      );
+    } catch {
+      // Column already exists — ignore
+    }
   }
 
   upsertTask(task: Task): void {
@@ -62,8 +72,8 @@ export class TaskStore {
       INSERT OR REPLACE INTO tasks (
         id, short_id, title, description, status, source,
         assigned_agent, assigned_to, parent_id, source_agent_id, result, inability_reason,
-        subtask_ids, thread_id, created_at, updated_at, completed_at, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        subtask_ids, thread_id, created_at, updated_at, completed_at, metadata, goal_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `) as any).run(
       task.id,
       task.shortId,
@@ -83,6 +93,7 @@ export class TaskStore {
       task.updatedAt.toISOString(),
       task.completedAt?.toISOString() ?? null,
       JSON.stringify(task.metadata ?? {}),
+      task.goalId ?? null,
     );
   }
 
@@ -117,6 +128,15 @@ export class TaskStore {
     if (query.assignedAgent !== undefined) {
       conditions.push('assigned_agent = ?');
       params.push(query.assignedAgent);
+    }
+
+    if (query.goalId !== undefined) {
+      if (query.goalId === null) {
+        conditions.push('goal_id IS NULL');
+      } else {
+        conditions.push('goal_id = ?');
+        params.push(query.goalId);
+      }
     }
 
     if (query.since !== undefined) {
@@ -158,6 +178,7 @@ export class TaskStore {
       updatedAt: new Date(row['updated_at'] as string),
       completedAt: row['completed_at'] ? new Date(row['completed_at'] as string) : null,
       metadata,
+      goalId: (row['goal_id'] as string | null) ?? null,
     };
   }
 

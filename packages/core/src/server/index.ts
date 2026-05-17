@@ -217,6 +217,16 @@ export class FortServer {
         res.end(JSON.stringify(tasks));
         return;
       }
+      // Goals endpoints — first-class structured goals (see spec 018)
+      if (req.url?.startsWith('/api/goals')) {
+        if (this.handleGoalsRoutes(req, res)) return;
+      }
+
+      // Hatch endpoints — agent onboarding flow (see spec 018)
+      if (req.url?.startsWith('/api/hatch')) {
+        if (this.handleHatchRoutes(req, res)) return;
+      }
+
       // Serve agent avatar images: /api/agents/:id/avatar
       const avatarMatch = req.url?.match(/^\/api\/agents\/([^/]+)\/avatar$/);
       if (avatarMatch) {
@@ -1450,6 +1460,206 @@ export class FortServer {
 
   /**
    * Accept a credential from the dashboard's inline setup form. Writes the
+   * Hatch endpoints — read status (is an agent un-hatched? what's the
+   * opener?) and complete the hatch (persist confirmed goals + set
+   * hatchedAt). Returns true if the request matched a hatch route.
+   */
+  private handleHatchRoutes(req: IncomingMessage, res: ServerResponse): boolean {
+    const url = req.url ?? '';
+
+    // GET /api/hatch/status?agentId=X
+    if (url.startsWith('/api/hatch/status') && req.method === 'GET') {
+      const params = new URLSearchParams(url.split('?')[1] ?? '');
+      const agentId = params.get('agentId') ?? this.resolveDefaultAgentId();
+      if (!agentId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'No agentId and no default agent.' }));
+        return true;
+      }
+      const hatching = this.fort.hatch.isHatching(agentId);
+      const opener = hatching ? this.fort.hatch.openingMessage(agentId) : null;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ agentId, hatching, opener }));
+      return true;
+    }
+
+    // POST /api/hatch/complete
+    // Body: { agentId?: string, goals: [{ title, description? }, ...] }
+    if (url === '/api/hatch/complete' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c: Buffer) => { body += c.toString(); });
+      req.on('end', () => {
+        try {
+          const { agentId, goals } = JSON.parse(body) as {
+            agentId?: string;
+            goals?: Array<{ title: string; description?: string | null }>;
+          };
+          const resolved = agentId ?? this.resolveDefaultAgentId();
+          if (!resolved) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No agentId and no default agent.' }));
+            return;
+          }
+          if (!Array.isArray(goals)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'goals must be an array' }));
+            return;
+          }
+          const result = this.fort.hatch.complete(resolved, goals);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+      return true;
+    }
+
+    // POST /api/hatch/profile-fact
+    // Body: { label: string, properties?: Record<string, unknown> }
+    // Lets the portal/CLI write a profile fact captured during the hatch.
+    if (url === '/api/hatch/profile-fact' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c: Buffer) => { body += c.toString(); });
+      req.on('end', () => {
+        try {
+          const { label, properties } = JSON.parse(body) as {
+            label?: string;
+            properties?: Record<string, unknown>;
+          };
+          if (!label || !label.trim()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'label is required' }));
+            return;
+          }
+          this.fort.hatch.captureProfileFact(label, properties ?? {});
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Goals endpoints — list / create / update / delete structured goals.
+   * Returns true if the request matched a goals route, false otherwise.
+   */
+  private handleGoalsRoutes(req: IncomingMessage, res: ServerResponse): boolean {
+    const url = req.url ?? '';
+
+    // GET /api/goals?agentId=X[&all=1]
+    if (url.startsWith('/api/goals') && (url === '/api/goals' || url.includes('?')) && req.method === 'GET') {
+      const params = new URLSearchParams(url.split('?')[1] ?? '');
+      const agentId = params.get('agentId') ?? this.resolveDefaultAgentId();
+      if (!agentId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'No agentId and no default agent.' }));
+        return true;
+      }
+      const includeAll = params.get('all') === '1' || params.get('all') === 'true';
+      const goals = includeAll
+        ? this.fort.goals.listAll(agentId)
+        : this.fort.goals.listForAgent(agentId, 'active');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ goals }));
+      return true;
+    }
+
+    // POST /api/goals
+    if (url === '/api/goals' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c: Buffer) => { body += c.toString(); });
+      req.on('end', () => {
+        try {
+          const { agentId, title, description, source } = JSON.parse(body) as {
+            agentId?: string;
+            title?: string;
+            description?: string;
+            source?: 'hatch' | 'user' | 'agent_proposed';
+          };
+          if (!title || !title.trim()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'title is required' }));
+            return;
+          }
+          const resolved = agentId ?? this.resolveDefaultAgentId();
+          if (!resolved) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No agentId and no default agent.' }));
+            return;
+          }
+          const goal = this.fort.goals.create({
+            agentId: resolved,
+            title,
+            description: description ?? null,
+            source: source ?? 'user',
+          });
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ goal }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+      return true;
+    }
+
+    // PATCH /api/goals/:id
+    const patchMatch = url.match(/^\/api\/goals\/([^/?]+)$/);
+    if (patchMatch && req.method === 'PATCH') {
+      const id = patchMatch[1];
+      let body = '';
+      req.on('data', (c: Buffer) => { body += c.toString(); });
+      req.on('end', () => {
+        try {
+          const patch = JSON.parse(body) as {
+            title?: string;
+            description?: string | null;
+            status?: 'active' | 'paused' | 'achieved' | 'abandoned';
+          };
+          const updated = this.fort.goals.update(id, patch);
+          if (!updated) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Goal not found' }));
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ goal: updated }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+      return true;
+    }
+
+    // DELETE /api/goals/:id
+    if (patchMatch && req.method === 'DELETE') {
+      const id = patchMatch[1];
+      const ok = this.fort.goals.delete(id);
+      res.writeHead(ok ? 200 : 404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok }));
+      return true;
+    }
+
+    return false;
+  }
+
+  private resolveDefaultAgentId(): string | null {
+    const records = this.fort.agentStore.list();
+    if (records.length === 0) return null;
+    const def = records.find((r) => r.isDefault);
+    return (def ?? records[0]).id;
+  }
+
+  /**
    * key to ~/.fort/.env under the right env var so the next
    * resolveAvailableProviders() pass sees it as usable.
    */
@@ -1577,8 +1787,7 @@ export class FortServer {
 
 ${goalsText}
 
-## Goals
-${goalsText}
+<!-- The user's goals are managed by Fort as structured objects. See \`fort goals list\` or the Goals lens in the portal. SOUL.md holds the agent's durable identity (purpose, personality, rules, boundaries) — not the user's working goals. -->
 
 ## Personality
 ${personalityText}

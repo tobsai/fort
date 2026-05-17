@@ -63,6 +63,28 @@ export interface LLMRequest {
   stream?: boolean;
   /** Optional tools to expose to the LLM for this request */
   tools?: FortTool[];
+  /**
+   * Whether to inject the agent's active goals and user profile facts into
+   * the system prompt. Defaults to true when `agentId` is set and `system`
+   * is not overridden — the "regular agent chat" path. Triager and Hatch
+   * pass their own `system` so they opt out automatically.
+   */
+  injectAgentContext?: boolean;
+  /**
+   * When true, append the hatch-mode addendum to the system prompt. Set
+   * by Specialist when the agent's `hatchedAt` is null — drives the
+   * conversational onboarding flow. Composes WITH the base prompt and
+   * SOUL, doesn't replace them.
+   */
+  hatchMode?: boolean;
+}
+
+/**
+ * Minimal interface for goal lookup. Implemented by GoalsService — kept as
+ * a structural type so LLMClient doesn't need to import the service module.
+ */
+export interface GoalsLookup {
+  listForAgent(agentId: string, status?: 'active'): Array<{ id: string; title: string; status: string }>;
 }
 
 export interface LLMResponse {
@@ -230,7 +252,23 @@ const DEFAULT_OPENROUTER_MODELS: Record<ModelTier, ModelConfig> = {
   powerful: { tier: 'powerful', model: 'anthropic/claude-opus-4-6',     maxTokens: 8192, description: 'Powerful via OpenRouter' },
 };
 
-const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform. You are helpful, concise, and action-oriented. You prefer to take action rather than ask unnecessary clarifying questions. When given a task, you execute it and report results.`;
+const DEFAULT_SYSTEM_PROMPT = `You are Fort, a personal AI agent platform.
+
+You operate in two modes and pick between them per message:
+
+- Quick mode: terse, direct, no preamble. Answer the question or do the thing. Use it for lookups, well-formed asks, and anything where the right answer is unambiguous.
+- Curious mode: propose options with brief reasoning, address the user personally using what you know about them, and ask one clarifying question when one would change the answer. Use it for decisions, design choices, planning, and anything load-bearing on the user's goals.
+
+Pick mode from the shape and intent of each message. When genuinely in doubt, prefer curious — but don't pad a quick question with curious framing.
+
+Override your default when a short answer would mislead. In that case, lean in: ask the one question whose answer changes everything, then answer once you have it. An extra question beats a wrong answer.
+
+Three constraints, always:
+1. No inner monologue. Don't narrate your reasoning or think out loud — state results.
+2. Never stack questions. One clarifying question at a time, in your own voice, in the chat.
+3. No recap. Don't restate the user's message before answering.
+
+Speak personally. When you have context about the user (active goals, profile facts, prior work), let it shape the answer so it feels addressed to them, not generic. Don't perform that context — just use it.`;
 
 // ─── Pricing (per 1M tokens) ────────────────────────────────────────
 
@@ -285,6 +323,7 @@ export class LLMClient {
   private tokenTracker: TokenTracker | null;
   private behaviors: BehaviorManager | null;
   private memory: MemoryManager | null;
+  private goals: GoalsLookup | null = null;
   private providerStore: LLMProviderStore | null;
   private quotaStore: SubscriptionQuotaStore | null;
 
@@ -346,6 +385,14 @@ export class LLMClient {
         : 'api_key_env';
     }
     // If nothing found, client stays null — requests will return helpful errors
+  }
+
+  /**
+   * Inject the goals lookup so user-facing chats see active goals as
+   * system-prompt context. Called once by Fort during wiring.
+   */
+  setGoals(goals: GoalsLookup): void {
+    this.goals = goals;
   }
 
   /**
@@ -1133,6 +1180,7 @@ export class LLMClient {
       system?: string;
       injectBehaviors?: boolean;
       injectMemory?: string;
+      injectAgentContext?: boolean;
     },
   ): Promise<string> {
     const response = await this.complete({
@@ -1143,6 +1191,7 @@ export class LLMClient {
       agentId: opts?.agentId,
       injectBehaviors: opts?.injectBehaviors,
       injectMemory: opts?.injectMemory,
+      injectAgentContext: opts?.injectAgentContext,
     });
     return response.content;
   }
@@ -2068,6 +2117,45 @@ export class LLMClient {
             allBehaviors.map((b) => `- ${b}`).join('\n'),
         );
       }
+    }
+
+    // Inject the agent's active goals and user profile facts on the
+    // regular agent-chat path. The model uses these to address the user
+    // personally — answers feel "shaped by who you are" instead of generic.
+    // Triager / Hatch / classification calls pass `system` themselves;
+    // those don't get this context. Tests / generic calls without agentId
+    // also skip it. Callers can force via `injectAgentContext`.
+    const wantAgentContext =
+      request.injectAgentContext ?? (!!request.agentId && !request.system);
+    if (wantAgentContext) {
+      if (this.goals && request.agentId) {
+        const active = this.goals.listForAgent(request.agentId, 'active');
+        if (active.length > 0) {
+          parts.push(
+            '\n\n## Active Goals\nThe user is working toward:\n' +
+              active.map((g) => `- ${g.title}`).join('\n'),
+          );
+        }
+      }
+      if (this.memory) {
+        const profile = this.memory.search({ nodeType: 'profile', limit: 10 });
+        if (profile.nodes.length > 0) {
+          parts.push(
+            '\n\n## About the User\n' +
+              profile.nodes.map((n) => `- ${n.label}`).join('\n'),
+          );
+        }
+      }
+    }
+
+    // Hatch addendum — drives the first conversation with a new agent.
+    // Composed AFTER goals/profile so the model sees them while
+    // having the getting-to-know-you conversation (it may already have
+    // started capturing facts).
+    if (request.hatchMode) {
+      // Imported lazily so this file doesn't depend on the services dir.
+      const { HATCH_SYSTEM_ADDENDUM } = await import('../services/hatch-prompt.js');
+      parts.push('\n\n' + HATCH_SYSTEM_ADDENDUM);
     }
 
     // Inject relevant memories

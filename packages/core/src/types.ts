@@ -43,6 +43,28 @@ export interface Task {
   metadata: Record<string, unknown>;
   subtaskIds: string[];
   threadId: string | null;
+  /** Structured goal this task is tagged to. null when no goal applies. */
+  goalId?: string | null;
+}
+
+// ─── Goal Types ─────────────────────────────────────────────────────
+
+export type GoalStatus = 'active' | 'paused' | 'achieved' | 'abandoned';
+export type GoalSource = 'hatch' | 'user' | 'agent_proposed';
+
+export interface Goal {
+  id: string;
+  agentId: string;
+  title: string;
+  description: string | null;
+  status: GoalStatus;
+  source: GoalSource;
+  createdAt: Date;
+  updatedAt: Date;
+  /** Last time a task tagged to this goal moved, or the goal itself changed. */
+  lastActivityAt: Date | null;
+  /** Last time the Reflection service posted a nudge / draft for this goal. */
+  lastNudgeAt: Date | null;
 }
 
 export interface Thread {
@@ -131,6 +153,12 @@ export interface SpecialistIdentity {
    * opt out of the decomposition pipeline.
    */
   decompose?: boolean;
+  /**
+   * ISO timestamp of when this agent finished its onboarding "hatch"
+   * conversation with the user. null means the hatch has not happened yet
+   * (or was interrupted); the portal triggers the hatch flow on next chat.
+   */
+  hatchedAt?: string | null;
 }
 
 export interface AgentInfo {
@@ -146,7 +174,17 @@ export interface AgentInfo {
 
 export interface MemoryNode {
   id: string;
-  type: 'person' | 'project' | 'preference' | 'fact' | 'decision' | 'behavior' | 'routine' | 'entity';
+  type:
+    | 'person'
+    | 'project'
+    | 'preference'
+    | 'fact'
+    | 'decision'
+    | 'behavior'
+    | 'routine'
+    | 'entity'
+    /** User profile facts captured during the hatch and across chats. */
+    | 'profile';
   label: string;
   properties: Record<string, unknown>;
   createdAt: Date;

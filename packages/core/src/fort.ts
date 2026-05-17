@@ -16,6 +16,9 @@ import { AgentFactory } from './agents/hatchery.js';
 import { AgentStore } from './agents/store.js';
 import { OrchestratorService } from './services/orchestrator.js';
 import { ReflectionService } from './services/reflection.js';
+import { GoalsStore } from './services/goals-store.js';
+import { GoalsService } from './services/goals.js';
+import { HatchService } from './services/hatch.js';
 import { MemoryManager } from './memory/index.js';
 import { PermissionManager } from './permissions/index.js';
 import { ToolRegistry, ToolExecutor, ApprovalStore, createDelegateTool } from './tools/index.js';
@@ -76,6 +79,8 @@ export class Fort {
   // Deterministic services (not agents)
   readonly orchestrator: OrchestratorService;
   readonly reflection: ReflectionService;
+  readonly goals: GoalsService;
+  readonly hatch: HatchService;
 
   // Modules
   readonly memory: MemoryManager;
@@ -230,6 +235,15 @@ export class Fort {
     this.orchestrator.setAgentMemoryStore(this.agentMemory);
     this.reflection = new ReflectionService(this.taskGraph, this.bus, this.llm);
 
+    // Goals — shared task DB (separate `goals` table)
+    const goalsStore = new GoalsStore(this.taskDb as InstanceType<typeof Database>);
+    goalsStore.initSchema();
+    this.goals = new GoalsService(goalsStore, this.bus);
+    // Inject goals into the LLM client so every user-facing chat sees them
+    this.llm.setGoals(this.goals);
+    // Reflection reads goals on its periodic pass
+    this.reflection.setGoals(this.goals);
+
     // Agent store (SQLite persistence for agent metadata)
     this.agentStore = new AgentStore(
       join(config.dataDir, 'agents-store.db'),
@@ -247,6 +261,9 @@ export class Fort {
     this.agentFactory.setLLM(this.llm);
     this.agentFactory.setToolRegistry(this.tools);
     this.agentFactory.setToolExecutor(this.toolExecutor);
+
+    // Hatch — runs conversational onboarding for newly-created agents
+    this.hatch = new HatchService(this.agentFactory, this.goals, this.memory, this.bus);
 
     // Register the delegate-to-agent built-in tool (needs taskGraph, bus, agents)
     this.tools.registerTool(createDelegateTool(this.taskGraph, this.bus, this.agents));

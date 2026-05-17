@@ -261,6 +261,12 @@ Include the JSON block in your response along with your explanation to the user.
         const modelTier = (task.metadata.modelTier as string) || this.identity.defaultModelTier;
         const liveTools = this.toolRegistry ? this.toolRegistry.listLiveTools() : [];
 
+        // Un-hatched agents run their first conversation in hatch mode:
+        // the LLM gets the hatch addendum on top of the base prompt + SOUL
+        // and steers toward a getting-to-know-you flow ending in a
+        // proposed goals list.
+        const hatchMode = this.identity.hatchedAt == null;
+
         if (this.toolExecutor && liveTools.length > 0) {
           // Use the tool loop — LLM can invoke tools mid-conversation
           const response = await this.llm.completeWithTools(
@@ -274,6 +280,7 @@ Include the JSON block in your response along with your explanation to the user.
               injectMemory: task.description,
               context: toolContext ? [toolContext] : undefined,
               tools: liveTools,
+              hatchMode,
             },
             this.toolExecutor,
           );
@@ -294,6 +301,7 @@ Include the JSON block in your response along with your explanation to the user.
             injectBehaviors: true,
             injectMemory: task.description,
             context: toolContext ? [toolContext] : undefined,
+            hatchMode,
           });
           responseText = response.content;
         }

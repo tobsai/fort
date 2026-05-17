@@ -30,6 +30,8 @@ import { createPsCommand } from './commands/ps.js';
 import { createResetCommand } from './commands/reset.js';
 import { createUninstallCommand } from './commands/uninstall.js';
 import { createPortalCommand } from './commands/portal.js';
+import { createGoalsCommand } from './commands/goals.js';
+import { createReflectionCommand } from './commands/reflection.js';
 
 // First-run: if user just types `fort` with no args, show init
 if (isFirstRun() && process.argv.length === 2) {
@@ -75,6 +77,8 @@ if (isFirstRun() && process.argv.length === 2) {
   program.addCommand(createResetCommand());
   program.addCommand(createUninstallCommand());
   program.addCommand(createPortalCommand());
+  program.addCommand(createGoalsCommand());
+  program.addCommand(createReflectionCommand());
 
   program.parse();
 }

@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
-import { spawn } from 'node:child_process';
 import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
 import { withFort } from '../utils/fort-instance.js';
 import { runAgentWizard } from './wizard.js';
@@ -252,28 +251,16 @@ export function createInitCommand(): Command {
 
       // Summary
       console.log(bold('  Ready!\n'));
-      console.log(`    ${cyan('fort portal')}              ${dim('— Open the web portal')}`);
+      console.log(`    ${green('→')} ${bold('Run')} ${cyan('fort portal')} ${bold('to meet your agent.')}`);
+      console.log(`    ${dim('  Your agent will introduce itself and spend a few minutes getting to know')}`);
+      console.log(`    ${dim('  you. From that conversation it sets up the goals it works toward.')}\n`);
+      console.log(`    ${dim('Other useful commands:')}`);
       console.log(`    ${cyan('fort doctor')}              ${dim('— Health check across all modules')}`);
       console.log(`    ${cyan('fort status')}              ${dim('— System overview')}`);
-      console.log(`    ${cyan('fort ps')}                  ${dim('— Check running services')}`);
+      console.log(`    ${cyan('fort goals list')}          ${dim('— See what you are working toward')}`);
       console.log(`    ${cyan('fort agents create')}       ${dim('— Create another specialist agent')}`);
-      console.log(`    ${cyan('fort llm ask "prompt"')}    ${dim('— Ask Claude a question')}`);
       console.log(`    ${cyan('fort stop')}                ${dim('— Stop all Fort services')}`);
-      console.log(`    ${cyan('fort reset')}               ${dim('— Reset Fort data')}`);
       console.log();
-
-      // Launch portal in the background
-      console.log(`  ${dim('Opening Fort portal...')}\n`);
-      try {
-        const child = spawn('fort', ['portal'], {
-          detached: true,
-          stdio: 'ignore',
-        });
-        child.unref();
-      } catch {
-        // If fort isn't in PATH yet, just print instructions
-        console.log(`    ${dim('Run')} ${cyan('fort portal')} ${dim('to open the web interface')}\n`);
-      }
     });
 }
 
