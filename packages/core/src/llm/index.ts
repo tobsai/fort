@@ -31,6 +31,7 @@ import type { FortTool, ToolCallLog } from '../tools/types.js';
 import type { ToolExecutor } from '../tools/executor.js';
 import type { LLMProviderStore, LLMProviderRuntime } from './provider-store.js';
 import type { SubscriptionQuotaStore, QuotaSnapshot } from './quota-store.js';
+import type { SpecialistIdentity } from '../types.js';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -86,6 +87,13 @@ export interface LLMRequest {
 export interface GoalsLookup {
   listForAgent(agentId: string, status?: 'active'): Array<{ id: string; title: string; status: string }>;
 }
+
+/**
+ * Callback that resolves an agentId to its identity. Injected after construction
+ * by Fort so the LLM client can read `identity.provider` for per-agent routing
+ * without importing AgentFactory directly.
+ */
+export type IdentityResolver = (agentId: string) => SpecialistIdentity | null;
 
 export interface LLMResponse {
   content: string;
@@ -324,6 +332,7 @@ export class LLMClient {
   private behaviors: BehaviorManager | null;
   private memory: MemoryManager | null;
   private goals: GoalsLookup | null = null;
+  private identityResolver: IdentityResolver | null = null;
   private providerStore: LLMProviderStore | null;
   private quotaStore: SubscriptionQuotaStore | null;
 
@@ -393,6 +402,14 @@ export class LLMClient {
    */
   setGoals(goals: GoalsLookup): void {
     this.goals = goals;
+  }
+
+  /**
+   * Inject the identity resolver so per-agent provider routing can read
+   * `identity.provider`. Called once by Fort during wiring, after AgentFactory exists.
+   */
+  setIdentityResolver(resolver: IdentityResolver): void {
+    this.identityResolver = resolver;
   }
 
   /**
@@ -1373,16 +1390,18 @@ export class LLMClient {
 
   /**
    * Get the active provider for a given agent (or the global default).
-   * Resolution order: agent DB preference → global DB default → env var fallback (null).
-   *
-   * Per-agent override is stored on `SpecialistIdentity.provider` (set during
-   * agent creation in the wizard) but reading it requires AgentRegistry
-   * coupling we don't have here yet. For now, returns the global default —
-   * which is set to the wizard's chosen provider via `LLMProviderStore.setDefault`
-   * during agent creation, so wizard-picked providers do take effect.
+   * Resolution order: agent's `identity.provider` → global default → null.
+   * The runtime caller falls through to ambient env credentials if this returns null.
    */
-  getActiveProvider(_agentId?: string): LLMProviderRuntime | null {
+  getActiveProvider(agentId?: string): LLMProviderRuntime | null {
     if (!this.providerStore) return null;
+    if (agentId && this.identityResolver) {
+      const identity = this.identityResolver(agentId);
+      if (identity?.provider) {
+        const rt = this.providerStore.getProviderRuntime(identity.provider);
+        if (rt) return rt;
+      }
+    }
     return this.providerStore.getDefaultProviderRuntime();
   }
 

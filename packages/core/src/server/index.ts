@@ -8,6 +8,7 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { writeFileSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { spawn } from 'node:child_process';
 import { stringify as stringifyYaml } from 'yaml';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Fort } from '../fort.js';
@@ -176,6 +177,18 @@ export class FortServer {
       }
       if (req.url === '/api/providers/setup' && req.method === 'POST') {
         this.handleProviderSetup(req, res);
+        return;
+      }
+      if (req.url === '/api/providers/connect-subscription' && req.method === 'POST') {
+        this.handleConnectSubscription(req, res);
+        return;
+      }
+      if (req.url?.startsWith('/api/providers/subscription-status') && req.method === 'GET') {
+        this.handleSubscriptionStatus(req, res);
+        return;
+      }
+      if (req.url === '/api/providers/configured' && req.method === 'GET') {
+        this.handleConfiguredProviders(res);
         return;
       }
       if (req.url === '/api/agents') {
@@ -1716,12 +1729,155 @@ export class FortServer {
     });
   }
 
+  /**
+   * Spawn the subscription-login CLI for the given provider in a Terminal
+   * window via osascript. macOS only — other platforms get a hint to run
+   * the command manually. Returns immediately; the client polls
+   * /api/providers/subscription-status to detect completion.
+   */
+  private handleConnectSubscription(req: IncomingMessage, res: ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { providerId } = JSON.parse(body) as { providerId: 'anthropic' | 'openai' };
+
+        const COMMANDS: Record<string, { binary: string; command: string }> = {
+          anthropic: { binary: 'claude', command: 'claude setup-token' },
+          openai:    { binary: 'codex',  command: 'codex login' },
+        };
+
+        const spec = COMMANDS[providerId];
+        if (!spec) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'unsupported_provider', hint: `Subscription auth not supported for ${providerId}.` }));
+          return;
+        }
+
+        if (process.platform !== 'darwin') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            ok: false,
+            error: 'unsupported_platform',
+            hint: `Open a terminal and run: ${spec.command}`,
+          }));
+          return;
+        }
+
+        // Check the binary exists on PATH before opening Terminal.
+        const which = spawn('which', [spec.binary], { stdio: 'ignore' });
+        which.on('close', (code) => {
+          if (code !== 0) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: false,
+              error: 'binary_missing',
+              hint: providerId === 'anthropic'
+                ? 'Install the Claude CLI: npm i -g @anthropic-ai/claude-code'
+                : 'Install the Codex CLI: npm i -g @openai/codex',
+            }));
+            return;
+          }
+
+          const script = `tell application "Terminal" to do script "${spec.command}"`;
+          const proc = spawn('osascript', ['-e', script], { stdio: 'ignore', detached: true });
+          proc.on('error', () => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'spawn_failed', hint: 'Could not open Terminal.app.' }));
+          });
+          proc.on('spawn', () => {
+            proc.unref();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true,
+              pollUrl: `/api/providers/subscription-status?providerId=${providerId}`,
+            }));
+          });
+        });
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'server_error', hint: err instanceof Error ? err.message : String(err) }));
+      }
+    });
+  }
+
+  /**
+   * Poll endpoint — checks whether subscription auth completed in the terminal.
+   * On first success, persists the Anthropic token into ~/.fort/.env so the
+   * existing resolution paths see it. Codex manages its own auth file.
+   */
+  private async handleSubscriptionStatus(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+      const url = new URL(`http://localhost${req.url}`);
+      const providerId = url.searchParams.get('providerId');
+
+      const { LLMClient } = await import('../llm/index.js');
+
+      if (providerId === 'anthropic') {
+        const token = LLMClient.readKeychainToken();
+        if (token) {
+          // Mirror the CLI flow: persist to .env so ambient detection picks it up
+          // across restarts.
+          try { LLMClient.writeEnvFile(token); } catch { /* non-fatal */ }
+          const authMethod = token.startsWith('sk-ant-oat') ? 'claude_subscription' : 'api_key';
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ready: true, authMethod }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ready: false, authMethod: null }));
+        return;
+      }
+
+      if (providerId === 'openai') {
+        const codex = LLMClient.readCodexOpenAIToken();
+        if (codex) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ready: true, authMethod: 'codex_subscription' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ready: false, authMethod: null }));
+        return;
+      }
+
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Unsupported providerId: ${providerId}` }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  /**
+   * Single source of truth for "what is configured" — combines ambient
+   * credential detection with provider-store state. Lets the wizard skip
+   * provider setup entirely if the CLI already did it.
+   */
+  private async handleConfiguredProviders(res: ServerResponse): Promise<void> {
+    try {
+      const providers = await this.fort.llm.getAvailableProviders();
+      const defaultProvider = this.fort.llmProviders.getDefaultProvider?.() ?? null;
+      const defaultProviderId = defaultProvider?.id
+        ?? (providers.find((p: any) => p.usable)?.id ?? null);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        providers,
+        defaultProviderId,
+        agentDefaultExists: this.fort.isSetupComplete(),
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
   private handleCreateAgent(req: IncomingMessage, res: ServerResponse): void {
     let body = '';
     req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
-        const { name, goals, emoji, personality, avatarDataUrl, modelTier, provider } = JSON.parse(body) as {
+        const { name, goals, emoji, personality, avatarDataUrl, modelTier, provider, isDefault } = JSON.parse(body) as {
           name: string;
           goals?: string;
           emoji?: string;
@@ -1729,6 +1885,8 @@ export class FortServer {
           avatarDataUrl?: string | null;
           modelTier?: 'fast' | 'standard' | 'powerful';
           provider?: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
+          /** Defaults to true (primary agent). Pass false for doer agents created post-setup. */
+          isDefault?: boolean;
         };
 
         if (!name || !name.trim()) {
@@ -1736,6 +1894,8 @@ export class FortServer {
           res.end(JSON.stringify({ error: 'Agent name is required' }));
           return;
         }
+
+        const makeDefault = isDefault !== false;
 
         // Create the agent
         const agent = this.fort.agentFactory.create({
@@ -1746,13 +1906,14 @@ export class FortServer {
 
         // Set isDefault, modelTier, and provider on the identity and re-save
         const identity = agent.identity;
-        (identity as any).isDefault = true;
+        if (makeDefault) (identity as any).isDefault = true;
         if (modelTier) (identity as any).defaultModelTier = modelTier;
         if (provider) (identity as any).provider = provider;
 
-        // If a provider was chosen and a row exists in the store, also mark it
-        // as the global default so future calls without an explicit agent use it.
-        if (provider) {
+        // Only the primary agent's provider choice changes the global default —
+        // doer agents keep their per-identity preference without nudging the
+        // global routing.
+        if (provider && makeDefault) {
           try {
             const existing = this.fort.llmProviders.getProvider(provider);
             if (existing) {
@@ -1840,7 +2001,7 @@ ${personalityText}
           id: identity.id,
           name: identity.name,
           emoji: identity.emoji,
-          isDefault: true,
+          isDefault: makeDefault,
         }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });

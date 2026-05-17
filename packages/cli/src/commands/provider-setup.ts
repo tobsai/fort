@@ -35,18 +35,45 @@ function hasBinary(name: string): boolean {
   return spawnSync('which', [name], { stdio: 'ignore' }).status === 0;
 }
 
+export interface ProviderPickResult {
+  /** The provider chosen as primary/default. Null if the user configured nothing. */
+  primary: ProviderId | null;
+  /** All provider ids configured (or already configured) in this session. */
+  configured: ProviderId[];
+}
+
 /**
- * Interactive provider picker. Lists all 7 providers with their detected
- * state and asks the user to pick one. If the picked provider is already
- * configured, sets it as the global default and returns its id. If it's
- * not configured, runs the setup flow first, then re-shows the menu.
- *
- * No Enter default — the user must explicitly type a number. This matches
- * the user's preference: "detect the provider, but not preselect one".
- *
- * Returns the chosen provider id (which is now also the global default).
+ * Detect what's already set up so callers can short-circuit when re-running init.
  */
-export async function pickProvider(fort: any): Promise<ProviderId | null> {
+export async function detectExistingSetup(fort: any): Promise<{ hasDefault: boolean; providers: Array<{ id: ProviderId; name: string; authMethod?: string }> }> {
+  const available = await fort.llm.getAvailableProviders();
+  const usable = available.filter((p: any) => p.usable);
+  let hasDefault = false;
+  try {
+    hasDefault = !!fort.llmProviders.getDefaultProvider();
+  } catch { /* store may be empty — ambient creds count as configured but not "default" */ }
+  // Treat ambient-only configuration as "has default" too, so the wizard skips correctly.
+  if (!hasDefault && usable.length > 0) hasDefault = true;
+  return {
+    hasDefault,
+    providers: usable.map((p: any) => ({ id: p.id, name: p.name, authMethod: p.authMethod })),
+  };
+}
+
+/**
+ * Interactive multi-provider picker. Lists all 7 providers with detected state;
+ * picking a configured one selects it, picking an unconfigured one runs setup.
+ * After each successful setup, asks "Configure another?". When the user is done,
+ * if more than one was configured this session, asks which should be primary.
+ *
+ * No Enter default — the user must explicitly type a number.
+ *
+ * Returns the primary provider id and the full list of providers configured.
+ */
+export async function pickProvider(fort: any): Promise<ProviderPickResult> {
+  const configured = new Set<ProviderId>();
+  let primary: ProviderId | null = null;
+
   while (true) {
     const providers = await fort.llm.getAvailableProviders();
     console.log(bold('\n  Detected providers:\n'));
@@ -73,30 +100,68 @@ export async function pickProvider(fort: any): Promise<ProviderId | null> {
 
     const chosen = providers[idx] as { id: ProviderId; name: string; usable: boolean };
 
-    // Already configured — just set as default and return.
     if (chosen.usable) {
-      try {
-        if (fort.llmProviders.getProvider(chosen.id)) {
-          fort.llmProviders.setDefault(chosen.id);
-        }
-      } catch { /* row may not exist for env-only providers — that's fine */ }
-      console.log(`    ${green('✓')} Selected ${bold(chosen.name)} as your default provider.`);
-      return chosen.id;
+      configured.add(chosen.id);
+      if (!primary) primary = chosen.id;
+      console.log(`    ${green('✓')} ${bold(chosen.name)} ready.`);
+    } else {
+      await setupProvider(chosen.id);
+      console.log(`\n    ${dim('Re-checking provider state...')}`);
+      // Re-fetch to see if setup succeeded.
+      const refreshed = await fort.llm.getAvailableProviders();
+      const refreshedChosen = refreshed.find((p: any) => p.id === chosen.id);
+      if (refreshedChosen?.usable) {
+        configured.add(chosen.id);
+        if (!primary) primary = chosen.id;
+      } else {
+        console.log(`    ${yellow('⚠')} ${chosen.name} not configured — try again or pick another.`);
+        continue;
+      }
     }
 
-    // Not configured — run setup, then loop back to let the user confirm.
-    await setupProvider(chosen.id);
-    console.log(`\n    ${dim('Re-checking provider state...')}`);
-    // Loop continues — refreshed `providers` will reflect the new state and
-    // user can pick the now-configured provider (or a different one).
+    if (configured.size === 0) continue;
+
+    const more = await prompt(`\n    ${bold('Configure another provider?')} ${dim('[y/N]')}: `);
+    if (more.toLowerCase() !== 'y' && more.toLowerCase() !== 'yes') break;
   }
+
+  // Choose primary when multiple were configured this session.
+  const configuredList = Array.from(configured);
+  if (configuredList.length > 1) {
+    console.log(bold('\n  Which provider should be primary?\n'));
+    configuredList.forEach((id, i) => {
+      const icon = PROVIDER_ICONS[id] ?? '🔌';
+      console.log(`    ${cyan(`[${i + 1}]`)} ${icon}  ${bold(id)}`);
+    });
+    while (true) {
+      const ans = await prompt(`\n    ${bold('Pick primary')} ${dim(`[1-${configuredList.length}]`)}: `);
+      const i = parseInt(ans, 10) - 1;
+      if (!Number.isNaN(i) && i >= 0 && i < configuredList.length) {
+        primary = configuredList[i];
+        break;
+      }
+      console.log(`    ${yellow('Invalid selection.')}`);
+    }
+  }
+
+  // Persist the primary as the global default (best-effort — env-only providers
+  // may not have a provider-store row, and that's fine).
+  if (primary) {
+    try {
+      if (fort.llmProviders.getProvider(primary)) {
+        fort.llmProviders.setDefault(primary);
+      }
+    } catch { /* env-only — ambient detection still works */ }
+    const name = primary;
+    console.log(`\n    ${green('✓')} Primary provider: ${bold(name)}.`);
+  }
+
+  return { primary, configured: configuredList };
 }
 
 /**
- * Backwards-compat wrapper: setup-only menu (no return value), used by
- * places that just want to walk a user through configuring credentials
- * without selecting a default. Returns when at least one provider is
- * configured and the user presses Enter.
+ * Backwards-compat wrapper: setup-only menu used by `fort llm setup` (no flags).
+ * Returns when the user finishes the multi-provider flow.
  */
 export async function runProviderSetupMenu(fort: any): Promise<void> {
   await pickProvider(fort);

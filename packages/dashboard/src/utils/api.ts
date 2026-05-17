@@ -40,11 +40,48 @@ export async function createAgent(data: {
   avatarDataUrl?: string | null;
   modelTier?: "fast" | "standard" | "powerful";
   provider?: "anthropic" | "openai" | "grok" | "groq" | "google" | "ollama" | "openrouter";
+  isDefault?: boolean;
 }): Promise<{ id: string; name: string; emoji: string; error?: string }> {
   const res = await fetch(`${BASE}/api/agents/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  return res.json();
+}
+
+export interface ConfiguredProvidersResponse {
+  providers: Array<{
+    id: string;
+    name: string;
+    usable: boolean;
+    authMethod: string | null;
+    models: { fast: string; standard: string; powerful: string };
+    hint?: string;
+  }>;
+  defaultProviderId: string | null;
+  agentDefaultExists: boolean;
+}
+
+export async function fetchConfiguredProviders(): Promise<ConfiguredProvidersResponse> {
+  const res = await fetch(`${BASE}/api/providers/configured`);
+  return res.json();
+}
+
+export async function connectSubscription(
+  providerId: "anthropic" | "openai",
+): Promise<{ ok: boolean; pollUrl?: string; error?: string; hint?: string }> {
+  const res = await fetch(`${BASE}/api/providers/connect-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providerId }),
+  });
+  return res.json();
+}
+
+export async function pollSubscriptionStatus(
+  providerId: "anthropic" | "openai",
+): Promise<{ ready: boolean; authMethod: string | null; error?: string }> {
+  const res = await fetch(`${BASE}/api/providers/subscription-status?providerId=${providerId}`);
   return res.json();
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFortSocket } from "../contexts/FortSocketContext";
+import { createAgent, fetchConfiguredProviders, type ConfiguredProvidersResponse } from "../utils/api";
 import type { AgentInfo, WSMessage } from "../types";
 
 interface AgentMemory {
@@ -26,7 +27,8 @@ interface CreateAgentForm {
   description: string;
   emoji: string;
   soul: string;
-  modelPreference: string;
+  modelTier: "" | "fast" | "standard" | "powerful";
+  provider: string;
 }
 
 const EMOJI_OPTIONS = ["🤖", "🧠", "🔍", "✍️", "📊", "🛠️", "🎯", "⚡", "🌐", "📝", "🔬", "💡"];
@@ -36,7 +38,8 @@ const DEFAULT_FORM: CreateAgentForm = {
   description: "",
   emoji: "🤖",
   soul: "",
-  modelPreference: "",
+  modelTier: "",
+  provider: "",
 };
 
 export default function AgentsPage() {
@@ -47,6 +50,7 @@ export default function AgentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<CreateAgentForm>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
+  const [configuredProviders, setConfiguredProviders] = useState<ConfiguredProvidersResponse["providers"]>([]);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"overview" | "memory">("overview");
@@ -85,6 +89,17 @@ export default function AgentsPage() {
   function openCreate() {
     setForm(DEFAULT_FORM);
     setShowCreate(true);
+    fetchConfiguredProviders()
+      .then((cfg) => {
+        const usable = (cfg.providers ?? []).filter((p) => p.usable);
+        setConfiguredProviders(usable);
+        if (cfg.defaultProviderId) {
+          setForm((f) => ({ ...f, provider: cfg.defaultProviderId ?? "" }));
+        } else if (usable[0]) {
+          setForm((f) => ({ ...f, provider: usable[0].id }));
+        }
+      })
+      .catch(() => { /* fall back to "no provider" — REST will use global default */ });
   }
 
   function closeCreate() {
@@ -96,25 +111,26 @@ export default function AgentsPage() {
     if (!form.name.trim()) return;
     setCreating(true);
     try {
-      send("agent.create", {
+      const result = await createAgent({
         name: form.name.trim(),
-        description: form.description.trim() || undefined,
-        emoji: form.emoji || undefined,
-        soul: form.soul.trim() || undefined,
-        modelPreference: form.modelPreference || undefined,
+        goals: form.description.trim(),
+        personality: form.soul.trim(),
+        emoji: form.emoji || "🤖",
+        modelTier: form.modelTier || undefined,
+        provider: (form.provider || undefined) as any,
+        // Doer agent — not the primary, and doesn't change the global default provider.
+        isDefault: false,
       });
-      // Listen for response once
-      const unsub = subscribe("agent.create.response", () => {
-        unsub();
+      if (result.error) {
+        alert("Error: " + result.error);
         setCreating(false);
-        closeCreate();
-        refreshAgents();
-      });
-      const errUnsub = subscribe("error", () => {
-        errUnsub();
-        setCreating(false);
-      });
-    } catch {
+        return;
+      }
+      setCreating(false);
+      closeCreate();
+      refreshAgents();
+    } catch (e) {
+      alert("Failed to create agent: " + (e instanceof Error ? e.message : String(e)));
       setCreating(false);
     }
   }
@@ -456,12 +472,27 @@ export default function AgentsPage() {
                 />
               </div>
 
+              {configuredProviders.length > 1 && (
+                <div className="form-group">
+                  <label className="form-label">Provider</label>
+                  <select
+                    className="form-input model-select"
+                    value={form.provider}
+                    onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+                  >
+                    {configuredProviders.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="form-group">
-                <label className="form-label">Model Preference</label>
+                <label className="form-label">Model Tier</label>
                 <select
                   className="form-input model-select"
-                  value={form.modelPreference}
-                  onChange={(e) => setForm((f) => ({ ...f, modelPreference: e.target.value }))}
+                  value={form.modelTier}
+                  onChange={(e) => setForm((f) => ({ ...f, modelTier: e.target.value as CreateAgentForm["modelTier"] }))}
                 >
                   <option value="">Default</option>
                   <option value="fast">Fast</option>

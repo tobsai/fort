@@ -262,6 +262,10 @@ export class Fort {
     this.agentFactory.setToolRegistry(this.tools);
     this.agentFactory.setToolExecutor(this.toolExecutor);
 
+    // Per-agent provider routing: read identity.provider so each agent (primary
+    // + doer agents) can pick its own provider, falling back to global default.
+    this.llm.setIdentityResolver((agentId) => this.agentFactory.getIdentity(agentId));
+
     // Hatch — runs conversational onboarding for newly-created agents
     this.hatch = new HatchService(this.agentFactory, this.goals, this.memory, this.bus);
 

@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import { bold, dim, green, cyan, yellow, magenta } from '../utils/format.js';
 import { withFort } from '../utils/fort-instance.js';
 import { runAgentWizard } from './wizard.js';
-import { pickProvider } from './provider-setup.js';
+import { pickProvider, detectExistingSetup } from './provider-setup.js';
 
 const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'fort-logo.png');
 
@@ -215,15 +215,40 @@ export function createInitCommand(): Command {
       // Steps 2 + 3 share a Fort instance for provider detection + agent creation.
       try {
         await withFort(async (fort) => {
-          // Step 2: Pick a Provider
+          // Step 2: Pick a Provider — multi-provider loop (configure several
+          // before moving on). If providers are already configured (from a
+          // previous run or from the portal), offer to skip.
           console.log(bold('  Step 2: Pick a Provider\n'));
-          console.log(`    ${dim('Fort detects each provider and shows its state. Pick one to use as default.')}`);
-          console.log(`    ${dim('Picking an unconfigured provider runs its setup flow inline.')}\n`);
-          const chosenProvider = await pickProvider(fort);
+          const existing = await detectExistingSetup(fort);
+          type WizardProviderId = 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
+          let primaryProvider: WizardProviderId | null = null;
+
+          if (existing.hasDefault && existing.providers.length > 0) {
+            console.log(`    ${green('✓')} Existing setup detected:`);
+            for (const p of existing.providers) {
+              console.log(`      ${dim('•')} ${bold(p.name)} ${dim(`(${p.authMethod ?? 'configured'})`)}`);
+            }
+            const ans = await promptUser(`\n    ${bold('Reconfigure providers?')} ${dim('[y/N]')} `);
+            if (ans.toLowerCase() === 'y' || ans.toLowerCase() === 'yes') {
+              const result = await pickProvider(fort);
+              primaryProvider = (result.primary ?? null) as WizardProviderId | null;
+            } else {
+              try {
+                const def = fort.llmProviders.getDefaultProvider?.();
+                primaryProvider = ((def?.id ?? existing.providers[0]?.id) ?? null) as WizardProviderId | null;
+              } catch {
+                primaryProvider = (existing.providers[0]?.id ?? null) as WizardProviderId | null;
+              }
+            }
+          } else {
+            console.log(`    ${dim('Pick providers to enable. You can configure multiple — Claude and ChatGPT subscriptions both work.')}\n`);
+            const result = await pickProvider(fort);
+            primaryProvider = (result.primary ?? null) as WizardProviderId | null;
+          }
 
           console.log();
 
-          // Step 3: Create the first agent — inherits the provider from Step 2
+          // Step 3: Create the first agent — inherits the primary provider.
           console.log(bold('  Step 3: Create your first agent\n'));
           const agentEntries = existsSync(agentsDir)
             ? readdirSync(agentsDir).filter((e) => !e.startsWith('.'))
@@ -232,7 +257,7 @@ export function createInitCommand(): Command {
           if (agentEntries.length > 0) {
             console.log(`    ${green('✓')} ${agentEntries.length} agent${agentEntries.length > 1 ? 's' : ''} already configured.`);
           } else {
-            await runAgentWizard(fort, { providerId: chosenProvider ?? undefined });
+            await runAgentWizard(fort, { providerId: primaryProvider ?? undefined });
           }
 
           // Step 4: Bootstrap the Triager agent (idempotent — does nothing if it exists).

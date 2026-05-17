@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchSetupStatus, createAgent } from "../utils/api";
+import {
+  fetchSetupStatus,
+  createAgent,
+  fetchConfiguredProviders,
+  connectSubscription,
+  pollSubscriptionStatus,
+} from "../utils/api";
 import { useFortSocket } from "../contexts/FortSocketContext";
 
 const EMOJI_OPTIONS = [
@@ -54,13 +60,79 @@ interface InlineSetupProps {
   onCancel: () => void;
 }
 
+const SUBSCRIPTION_PROVIDERS = new Set<ProviderId>(["anthropic", "openai"]);
+const SUBSCRIPTION_LABEL: Record<string, string> = {
+  anthropic: "Claude subscription",
+  openai: "ChatGPT/Codex subscription",
+};
+
+type SubStatus = "idle" | "waiting" | "done" | "timeout" | "error";
+
 function InlineSetup({ providerId, onDone, onCancel }: InlineSetupProps) {
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"choose" | "subscription" | "apikey">(
+    SUBSCRIPTION_PROVIDERS.has(providerId) ? "choose" : "apikey",
+  );
+  const [subStatus, setSubStatus] = useState<SubStatus>("idle");
+  const [subMessage, setSubMessage] = useState<string | null>(null);
+  const pollHandle = useRef<{ stopped: boolean }>({ stopped: false });
   const spec = KEY_PROMPTS[providerId];
 
-  async function submit() {
+  useEffect(() => () => { pollHandle.current.stopped = true; }, []);
+
+  async function startSubscription() {
+    if (!SUBSCRIPTION_PROVIDERS.has(providerId)) return;
+    setMode("subscription");
+    setSubStatus("waiting");
+    setSubMessage("Opening Terminal — finish the login there, this page will detect it.");
+    pollHandle.current.stopped = false;
+
+    const start = await connectSubscription(providerId as "anthropic" | "openai");
+    if (!start.ok) {
+      setSubStatus("error");
+      setSubMessage(start.hint ?? start.error ?? "Could not start subscription login.");
+      return;
+    }
+
+    const deadline = Date.now() + 120_000;
+    let fetchFailures = 0;
+    while (!pollHandle.current.stopped) {
+      if (Date.now() > deadline) {
+        setSubStatus("timeout");
+        setSubMessage("Login took too long. Try again or paste an API key instead.");
+        return;
+      }
+      try {
+        const s = await pollSubscriptionStatus(providerId as "anthropic" | "openai");
+        if (s.ready) {
+          setSubStatus("done");
+          setSubMessage(`Connected via ${s.authMethod ?? "subscription"}.`);
+          // Brief pause so users see the success state, then close.
+          setTimeout(() => { if (!pollHandle.current.stopped) onDone(); }, 800);
+          return;
+        }
+        fetchFailures = 0;
+      } catch {
+        fetchFailures += 1;
+        if (fetchFailures >= 3) {
+          setSubStatus("error");
+          setSubMessage("Lost connection to Fort. Retry?");
+          return;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  function cancelSubscription() {
+    pollHandle.current.stopped = true;
+    setSubStatus("idle");
+    setMode("choose");
+  }
+
+  async function submitApiKey() {
     setSubmitting(true);
     setError(null);
     try {
@@ -86,6 +158,46 @@ function InlineSetup({ providerId, onDone, onCancel }: InlineSetupProps) {
       setError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
+  }
+
+  // Subscription-capable providers default to a choice between subscription and API key.
+  if (mode === "choose" && SUBSCRIPTION_PROVIDERS.has(providerId)) {
+    return (
+      <div className="inline-setup">
+        <p className="inline-setup-help">
+          Connect your {SUBSCRIPTION_LABEL[providerId]} — no API key needed.
+        </p>
+        <div className="inline-setup-actions">
+          <button className="btn-sm btn-secondary" onClick={onCancel}>Cancel</button>
+          <button className="btn-sm" onClick={() => setMode("apikey")}>Use API key instead</button>
+          <button className="btn-sm btn-primary" onClick={startSubscription}>
+            Connect {SUBSCRIPTION_LABEL[providerId]}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "subscription") {
+    return (
+      <div className="inline-setup">
+        <p className="inline-setup-help">{subMessage}</p>
+        {subStatus === "waiting" && (
+          <div className="inline-setup-actions">
+            <button className="btn-sm btn-secondary" onClick={cancelSubscription}>Cancel</button>
+          </div>
+        )}
+        {(subStatus === "timeout" || subStatus === "error") && (
+          <div className="inline-setup-actions">
+            <button className="btn-sm" onClick={() => setMode("apikey")}>Use API key instead</button>
+            <button className="btn-sm btn-primary" onClick={startSubscription}>Retry</button>
+          </div>
+        )}
+        {subStatus === "done" && (
+          <div className="inline-setup-success">✓ {subMessage}</div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -115,9 +227,14 @@ function InlineSetup({ providerId, onDone, onCancel }: InlineSetupProps) {
       {error && <div className="inline-setup-error">{error}</div>}
       <div className="inline-setup-actions">
         <button className="btn-sm btn-secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
+        {SUBSCRIPTION_PROVIDERS.has(providerId) && (
+          <button className="btn-sm" onClick={() => setMode("choose")} disabled={submitting}>
+            Use subscription instead
+          </button>
+        )}
         <button
           className="btn-sm btn-primary"
-          onClick={submit}
+          onClick={submitApiKey}
           disabled={submitting || (spec !== null && !key.trim())}
         >
           {submitting ? "Saving..." : (spec ? "Save & verify" : "Retry check")}
@@ -146,14 +263,29 @@ export default function SetupWizard() {
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Show wizard only on first run.
+  // Show wizard only on first run. If providers are already configured (from
+  // the CLI), jump straight to step 3 so the user isn't re-prompted.
   useEffect(() => {
     fetchSetupStatus()
-      .then((s) => { if (!s.complete) setVisible(true); })
+      .then(async (s) => {
+        if (s.complete) return;
+        setVisible(true);
+        try {
+          const cfg = await fetchConfiguredProviders();
+          if (cfg.providers?.length) setProviders(cfg.providers as AvailableProvider[]);
+          if (cfg.defaultProviderId) {
+            setData((prev) => ({ ...prev, provider: cfg.defaultProviderId as ProviderId }));
+          }
+          const hasUsable = cfg.providers?.some((p) => p.usable);
+          if (hasUsable && !cfg.agentDefaultExists) {
+            setStep(3);
+          }
+        } catch { /* fall through to step 0 */ }
+      })
       .catch(() => {});
   }, []);
 
-  // Pull provider list once the wizard becomes visible.
+  // Refresh provider list when the wizard becomes visible (in case CLI changes things mid-flow).
   useEffect(() => {
     if (!visible) return;
     const unsub = subscribe("providers.available.response", (msg) => {
@@ -164,7 +296,13 @@ export default function SetupWizard() {
     return () => unsub();
   }, [visible, send, subscribe]);
 
-  const refreshProviders = () => send("providers.available");
+  const refreshProviders = async () => {
+    try {
+      const cfg = await fetchConfiguredProviders();
+      if (cfg.providers?.length) setProviders(cfg.providers as AvailableProvider[]);
+    } catch { /* fall back to ws refresh */ }
+    send("providers.available");
+  };
 
   // Default the wizard to the first usable provider once data lands.
   useEffect(() => {
@@ -285,8 +423,8 @@ export default function SetupWizard() {
 
         {step === 2 && (
           <div className="wizard-step">
-            <h2>Choose a Provider</h2>
-            <p>This will be your default LLM provider. You can change it later in Settings.</p>
+            <h2>Choose Providers</h2>
+            <p>Connect one or more LLM providers — Claude and ChatGPT subscriptions both work. You can pick which one this agent uses on the next step, and future agents can use any of them.</p>
             {providers.length === 0 ? (
               <div className="wizard-loading">Detecting available providers...</div>
             ) : (
@@ -347,8 +485,27 @@ export default function SetupWizard() {
 
         {step === 3 && (
           <div className="wizard-step">
-            <h2>Choose a Model</h2>
-            <p>Select the default tier for this agent. You can override per-message later.</p>
+            <h2>Provider & Model</h2>
+            <p>Pick which provider this agent should use, and its default tier. You can override per-message later, and each future agent (Triager, doers) can have its own.</p>
+            {providers.filter((p) => p.usable).length > 1 && (
+              <div className="provider-selector compact">
+                {providers.filter((p) => p.usable).map((p) => (
+                  <button
+                    key={p.id}
+                    className={`provider-option${data.provider === p.id ? " selected" : ""}`}
+                    onClick={() => update({ provider: p.id })}
+                  >
+                    <div className="provider-option-icon">{PROVIDER_ICONS[p.id] ?? "🔌"}</div>
+                    <div className="provider-option-body">
+                      <div className="provider-option-name">{p.name}</div>
+                      <div className="provider-option-meta">
+                        <span className="badge badge--ok">{p.authMethod ?? "configured"}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             {selectedProvider ? (
               <div className="model-selector">
                 {(["fast", "standard", "powerful"] as ModelTier[]).map((tier) => (

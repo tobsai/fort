@@ -780,6 +780,57 @@ describe('LLMClient', () => {
     });
   });
 
+  // ── Per-agent provider routing ──────────────────────────────────────
+  describe('Per-agent provider routing via identityResolver', () => {
+    it('routes to the agent identity.provider when set, ignoring global default', async () => {
+      const tmpDirA = mkdtempSync(join(tmpdir(), 'fort-peragent-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDirA, 'pstore.db'), 'test-key');
+      // Two providers: anthropic is global default, openai is also stored.
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-sonnet-4-5-20250929', apiKey: 'sk-ant-stored', isDefault: true });
+      store.addProvider({ id: 'openai',    name: 'OpenAI',    defaultModel: 'gpt-5.4', apiKey: 'sk-openai-stored', baseUrl: 'https://api.openai.com/v1' });
+
+      const client = setup({ providerStore: store });
+
+      // No resolver yet → falls back to global default (anthropic).
+      expect(client.getActiveProvider()?.id).toBe('anthropic');
+      expect(client.getActiveProvider('any-agent')?.id).toBe('anthropic');
+
+      // Resolver returns an identity with provider=openai for one agent.
+      client.setIdentityResolver((agentId) => {
+        if (agentId === 'doer-1') {
+          return { id: 'doer-1', name: 'Doer', provider: 'openai' } as any;
+        }
+        return null;
+      });
+
+      expect(client.getActiveProvider('doer-1')?.id).toBe('openai');
+      // Unknown agent → falls through to global default.
+      expect(client.getActiveProvider('unknown')?.id).toBe('anthropic');
+      // No identity provider → falls through to global default.
+      client.setIdentityResolver(() => ({ id: 'x', name: 'X' } as any));
+      expect(client.getActiveProvider('x')?.id).toBe('anthropic');
+
+      store.close();
+      rmSync(tmpDirA, { recursive: true, force: true });
+    });
+
+    it('falls back to global default when identity.provider has no store row', async () => {
+      const tmpDirB = mkdtempSync(join(tmpdir(), 'fort-peragent-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDirB, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-sonnet-4-5-20250929', apiKey: 'sk-ant-stored', isDefault: true });
+
+      const client = setup({ providerStore: store });
+      client.setIdentityResolver(() => ({ id: 'x', name: 'X', provider: 'grok' } as any));
+      // grok is not in the store → falls back to anthropic (the global default).
+      expect(client.getActiveProvider('x')?.id).toBe('anthropic');
+
+      store.close();
+      rmSync(tmpDirB, { recursive: true, force: true });
+    });
+  });
+
   // ── Google Gemini path ────────────────────────────────────────────────
   describe('Google Gemini provider', () => {
     let savedFetch: typeof globalThis.fetch;
