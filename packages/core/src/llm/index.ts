@@ -1273,6 +1273,12 @@ export class LLMClient {
     models: { fast: string; standard: string; powerful: string };
     hint?: string;
   }>> {
+    // Pick up any tokens written since construction (fort init's claude
+    // setup-token / paste-API-key flows write to ~/.fort/.env or keychain).
+    // Without this, anthropicUsable stays false until Fort restarts and the
+    // CLI loops on the provider menu after a successful setup.
+    this.refreshAuth();
+
     const tierMap = (id: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter') => {
       const m = id === 'anthropic' ? this.models : LLMClient.tierMapFor(id);
       return {
@@ -1671,6 +1677,17 @@ export class LLMClient {
     this._isOAuthToken = freshToken.startsWith('sk-ant-oat');
     this.client = LLMClient.createAnthropicClient(freshToken, this._isOAuthToken);
     return true;
+  }
+
+  /**
+   * Force-refresh the Anthropic client from ambient credentials, bypassing the
+   * TTL guard. Called from the CLI/portal after `fort init`'s provider setup
+   * writes a fresh token to ~/.fort/.env so `getAvailableProviders()` sees it
+   * without restarting Fort.
+   */
+  refreshAuth(): boolean {
+    this.lastTokenRefresh = 0;
+    return this.maybeRefreshToken();
   }
 
   // ── Retry-Aware API Call ──────────────────────────────────────────
