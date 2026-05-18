@@ -107,10 +107,12 @@ export default function ChatPage() {
       return;
     }
     setHasGreeted(true);
-    // Only greet if this is a brand-new agent with zero history
+    // Only check `configured` (cheap), not `validateAuth` (which probes the
+    // global default provider and can return invalid even when the agent's
+    // own provider works fine — gating on it suppresses hatch onboarding).
     fetchLLMStatus()
       .then((status) => {
-        if (status?.valid) {
+        if (status?.configured) {
           send("chat", { text: "__greeting__", agentId: selectedAgent, hidden: true });
         }
       })

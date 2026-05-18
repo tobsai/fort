@@ -1945,6 +1945,24 @@ export class LLMClient {
       }
     }
 
+    // Per-agent ambient fallback: if the agent's identity asks for a specific
+    // provider and the provider store has no row, honor the preference using
+    // ambient credentials for THAT provider. Without this, the user picks
+    // "Anthropic" in `fort init` but routing falls through to ambient OpenAI
+    // (which lands below) — the wrong subscription gets charged.
+    if (agentId && this.identityResolver) {
+      const identity = this.identityResolver(agentId);
+      if (identity?.provider === 'anthropic' && this.client) {
+        return { id: 'anthropic', client: this.client, authMethod: this._authMethod ?? 'unknown', isOAuth: this._isOAuthToken };
+      }
+      if (identity?.provider === 'openai') {
+        const openai = LLMClient.resolveOpenAIToken();
+        if (openai) {
+          return { id: 'openai', token: openai.token, baseUrl: 'https://api.openai.com/v1', authMethod: openai.authMethod, accountId: openai.accountId };
+        }
+      }
+    }
+
     // Fallback to ambient credentials: prefer OpenAI Codex subscription /
     // OPENAI_API_KEY first (the most common Fort default), then Anthropic.
     const openai = LLMClient.resolveOpenAIToken();

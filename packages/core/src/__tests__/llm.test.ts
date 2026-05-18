@@ -829,6 +829,48 @@ describe('LLMClient', () => {
       store.close();
       rmSync(tmpDirB, { recursive: true, force: true });
     });
+
+    it('routes Anthropic via ambient client when identity.provider=anthropic and no store row', async () => {
+      // Mimics fresh `fort init`: Anthropic configured via claude setup-token
+      // (token in keychain/.env, this.client populated) but the user never
+      // ran `fort llm setup` to add an anthropic row to the provider store.
+      // Codex/OpenAI is also ambient. Without the per-agent fix, the agent's
+      // chat traffic would silently route through Codex.
+      const tmpDirC = mkdtempSync(join(tmpdir(), 'fort-peragent-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDirC, 'pstore.db'), 'test-key');
+      // No anthropic row, no openai row, no default → store is empty.
+
+      // Force ambient: Anthropic via env (becomes this.client), OpenAI via env.
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+      process.env.OPENAI_API_KEY = 'sk-openai-test';
+
+      const client = setup({ providerStore: store, apiKey: 'sk-ant-test' });
+      client.setIdentityResolver((agentId) => {
+        if (agentId === 'fort') return { id: 'fort', name: 'Fort', provider: 'anthropic' } as any;
+        return null;
+      });
+
+      // resolveRuntimeProvider is private; the public read path is via
+      // anything that calls it. Use the test surface: a non-agent call falls
+      // through to OpenAI ambient (matching today's behavior), but an agent
+      // with identity.provider=anthropic must honor that preference.
+      // We exercise this indirectly via getActiveProvider (returns null when
+      // store empty), and then verify the ambient routing by mocking a call.
+      // Simplest: spy on the resolution by calling the internal method via
+      // `(client as any).resolveRuntimeProvider(agentId)`.
+      const forFort = (client as any).resolveRuntimeProvider('fort');
+      expect(forFort?.id).toBe('anthropic');
+
+      const forUnknown = (client as any).resolveRuntimeProvider();
+      // No agent context → existing ambient preference (OpenAI first) preserved.
+      expect(forUnknown?.id).toBe('openai');
+
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      store.close();
+      rmSync(tmpDirC, { recursive: true, force: true });
+    });
   });
 
   // ── Google Gemini path ────────────────────────────────────────────────
