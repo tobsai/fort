@@ -849,9 +849,9 @@ export class LLMClient {
     });
 
     try {
-      const modelConfig = this.resolveModelForProvider(runtime, request.model);
+      let modelConfig = this.resolveModelForProvider(runtime, request.model);
       const system = await this.buildSystemPrompt(request);
-      const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+      let maxTokens = request.maxTokens ?? modelConfig.maxTokens;
 
       // Convert FortTool[] to Claude's tools format
       const claudeTools: Anthropic.Tool[] = request.tools.map((t) => ({
@@ -889,13 +889,25 @@ export class LLMClient {
             temperature: request.temperature,
           }, { modelConfig, request });
         } catch (err: any) {
-          // Tier fallback inside tool loop is complex — surface the error
-          // rather than silently switching models mid-conversation
-          if (err?.message === '__TIER_FALLBACK__') {
-            throw new Error(
-              `Rate limited on "${modelConfig.model}" during tool loop. ` +
-              `Fallback tier "${err._fallbackTier}" available — retry with a different model.`,
-            );
+          // Rate limited with a lower tier available: switch models and retry
+          // this same turn. The conversation + tool results so far are kept in
+          // `messages`, so no progress is lost. Without this the agent's first
+          // run dies on an opus rate limit even though haiku/sonnet are free.
+          if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+            const fallback = this.resolveModelForProvider(runtime, err._fallbackTier);
+            if (fallback.model !== modelConfig.model) {
+              this.bus.publish('llm.tier_fallback', 'llm-client', {
+                from: modelConfig.model,
+                to: fallback.model,
+                reason: 'rate_limit_tool_loop',
+                taskId: request.taskId,
+                agentId: request.agentId,
+              });
+              modelConfig = fallback;
+              maxTokens = request.maxTokens ?? fallback.maxTokens;
+              iteration--; // this turn didn't count — retry it on the new model
+              continue;
+            }
           }
           throw err;
         }
@@ -2502,9 +2514,9 @@ export class LLMClient {
     });
 
     try {
-      const modelConfig = this.resolveModelForProvider(provider, request.model);
+      let modelConfig = this.resolveModelForProvider(provider, request.model);
       const system = await this.buildSystemPrompt(request);
-      const maxTokens = request.maxTokens ?? modelConfig.maxTokens;
+      let maxTokens = request.maxTokens ?? modelConfig.maxTokens;
       const toolMap = new Map<string, FortTool>(request.tools.map((t) => [t.name, t]));
       const input: any[] = request.messages.map((m) => ({ role: m.role, content: m.content }));
       const openaiTools = request.tools.map((t) => ({
@@ -2521,41 +2533,54 @@ export class LLMClient {
 
       let currentProvider = provider;
       for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
-        const iterCall = await this.callWithRetry<OpenAICallResult>(
-          () => this.callOpenAIResponses(currentProvider, {
-            model: modelConfig.model,
-            instructions: system,
-            input,
-            tools: openaiTools,
-            max_output_tokens: maxTokens,
-            temperature: request.temperature,
-          }),
-          (err) => this.classifyOpenAIError(err, currentProvider.authMethod),
-          {
-            modelConfig,
-            request,
-            onAuthRefresh: () => {
-              if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
-                const fresh = this.resolveRuntimeProvider(request.agentId);
-                if (fresh && (fresh.id === 'openai')) {
-                  currentProvider = fresh;
-                  return true;
+        let iterCall: OpenAICallResult;
+        try {
+          iterCall = await this.callWithRetry<OpenAICallResult>(
+            () => this.callOpenAIResponses(currentProvider, {
+              model: modelConfig.model,
+              instructions: system,
+              input,
+              tools: openaiTools,
+              max_output_tokens: maxTokens,
+              temperature: request.temperature,
+            }),
+            (err) => this.classifyOpenAIError(err, currentProvider.authMethod),
+            {
+              modelConfig,
+              request,
+              onAuthRefresh: () => {
+                if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
+                  const fresh = this.resolveRuntimeProvider(request.agentId);
+                  if (fresh && (fresh.id === 'openai')) {
+                    currentProvider = fresh;
+                    return true;
+                  }
                 }
-              }
-              return false;
+                return false;
+              },
             },
-          },
-        ).catch((err: any) => {
-          // Mid-loop tier fallback is unsafe (changes assistant identity mid-conversation);
-          // surface the error like the Anthropic tool loop at line ~692.
-          if (err?.message === '__TIER_FALLBACK__') {
-            throw new Error(
-              `Rate limited on "${modelConfig.model}" during tool loop. ` +
-              `Fallback tier "${err._fallbackTier}" available — retry with a different model.`,
-            );
+          );
+        } catch (err: any) {
+          // Rate limited with a lower tier available: switch models and retry.
+          // `input` isn't mutated for this turn until after a successful call,
+          // so re-sending it on the fallback model loses no progress.
+          if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+            const fallback = this.resolveModelForProvider(currentProvider, err._fallbackTier);
+            if (fallback.model !== modelConfig.model) {
+              this.bus.publish('llm.tier_fallback', 'llm-client', {
+                from: modelConfig.model,
+                to: fallback.model,
+                reason: 'rate_limit_tool_loop',
+                taskId: request.taskId,
+                agentId: request.agentId,
+              });
+              modelConfig = fallback;
+              maxTokens = request.maxTokens ?? fallback.maxTokens;
+              continue;
+            }
           }
           throw err;
-        });
+        }
         this.observeOpenAIHeaders(currentProvider, iterCall.headers);
         const response = iterCall.body;
 
