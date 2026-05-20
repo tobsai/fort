@@ -115,6 +115,32 @@ describe('Fort Integration', () => {
     expect(fort.isSetupComplete()).toBe(true);
   });
 
+  it('exposes isDefault + hatchedAt on identities so the portal can pick the primary', async () => {
+    // Regression guard: the portal's buildAgentList() reads these fields to
+    // land on the primary agent (not whichever agent loads first). If they
+    // ever drop off the identity, hatch onboarding silently routes to the
+    // wrong agent (e.g. Triager).
+    setup();
+    await fort.start();
+
+    const primary = fort.agentFactory.create({ name: 'Fort' });
+    primary.identity.isDefault = true;
+    primary.identity.hatchedAt = null;
+    writeFileSync(join(primary.agentDir, 'identity.yaml'), stringifyYaml(primary.identity), 'utf-8');
+
+    const helper = fort.agentFactory.create({ name: 'Helper' });
+    writeFileSync(join(helper.agentDir, 'identity.yaml'), stringifyYaml(helper.identity), 'utf-8');
+
+    const identities = fort.agentFactory.listIdentities();
+    const primaryId = identities.find((i) => i.id === primary.identity.id);
+    const helperId = identities.find((i) => i.id === helper.identity.id);
+
+    expect(primaryId?.isDefault).toBe(true);
+    expect(primaryId?.hatchedAt ?? null).toBeNull();
+    // Non-primary agents must not masquerade as the default.
+    expect(helperId?.isDefault === true).toBe(false);
+  });
+
   it('should run doctor and report healthy', async () => {
     setup();
     await fort.start();

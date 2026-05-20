@@ -2059,13 +2059,23 @@ ${personalityText}
   private buildAgentList(): unknown[] {
     // Start from the live registry — these are agents currently running/stopped
     const registryInfos = this.fort.agents.listInfo();
-    const result: unknown[] = registryInfos.map((info) => ({
-      ...info,
-      soul: this.fort.agentStore.get(info.config.id)?.soul
-        ?? this.fort.agentFactory.getSoul(info.config.id)
-        ?? undefined,
-      emoji: this.getAgentEmoji(info.config.id),
-    }));
+    const identitiesById = new Map(
+      this.fort.agentFactory.listIdentities().map((i) => [i.id, i] as const),
+    );
+    const result: unknown[] = registryInfos.map((info) => {
+      const identity = identitiesById.get(info.config.id);
+      return {
+        ...info,
+        soul: this.fort.agentStore.get(info.config.id)?.soul
+          ?? this.fort.agentFactory.getSoul(info.config.id)
+          ?? undefined,
+        emoji: identity?.emoji,
+        // Exposed so the portal can land on the primary agent (and detect
+        // un-hatched agents) instead of whichever loads first.
+        isDefault: identity?.isDefault === true,
+        hatchedAt: identity?.hatchedAt ?? null,
+      };
+    });
     return result;
   }
 

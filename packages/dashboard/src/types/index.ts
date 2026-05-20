@@ -18,6 +18,7 @@ export interface AgentInfo {
   soul?: string;
   emoji?: string;
   isDefault?: boolean;
+  hatchedAt?: string | null;
 }
 
 export type TaskStatus =

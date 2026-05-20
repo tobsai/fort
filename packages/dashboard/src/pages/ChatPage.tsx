@@ -42,12 +42,15 @@ export default function ChatPage() {
     return unsub;
   }, [send, subscribe]);
 
-  // Auto-select default agent if none specified
+  // Auto-select default agent if none specified. Prefer the primary
+  // (isDefault) agent — otherwise the portal can land on Triager (which loads
+  // first) and the hatch greeting gets routed to the wrong agent.
   useEffect(() => {
     if (!agentId && agents.length > 0) {
-      const running = agents.find((a) => a.status === "running");
-      if (running) {
-        navigate(`/chat/${running.config.id}`, { replace: true });
+      const isRunning = (a: AgentInfo) => a.status === "running";
+      const target = agents.find((a) => isRunning(a) && a.isDefault) ?? agents.find(isRunning);
+      if (target) {
+        navigate(`/chat/${target.config.id}`, { replace: true });
       }
     }
   }, [agentId, agents, navigate]);
