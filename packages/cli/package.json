@@ -1,6 +1,6 @@
 {
   "name": "@fort-ai/cli",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "CLI for Fort — a self-improving personal AI agent platform",
   "license": "MIT",
   "repository": {
@@ -26,7 +26,7 @@
     "fort": "node dist/index.js"
   },
   "dependencies": {
-    "@fort-ai/core": "^0.3.6",
+    "@fort-ai/core": "^0.3.7",
     "commander": "^13.0.0",
     "chalk": "^5.4.0"
   },
