@@ -13,7 +13,6 @@ export default function ChatPage() {
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
   const [input, setInput] = useState("");
   const [modelTier, setModelTier] = useState<"auto" | "fast" | "standard" | "powerful">("auto");
-  const [hasGreeted, setHasGreeted] = useState(false);
   const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
   const [planningStatus, setPlanningStatus] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -30,6 +29,10 @@ export default function ChatPage() {
   const historyRequestedRef = useRef<Record<string, boolean>>({});
   const [historyFetched, setHistoryFetched] = useState(false);
   const shownTaskIds = useRef(new Set<string>());
+  // Synchronous per-agent guard so the auto-greet fires at most once even if the
+  // effect re-runs before setHasGreeted propagates (a state-batching race that
+  // produced duplicate greetings).
+  const greetedRef = useRef(new Set<string>());
 
   const selectedAgent = agentId || null;
 
@@ -100,16 +103,19 @@ export default function ChatPage() {
 
   // Auto-greet: only on first-ever conversation with an agent (no history at all)
   useEffect(() => {
-    if (!selectedAgent || hasGreeted) return;
+    if (!selectedAgent) return;
     // Wait until history fetch has actually completed
     if (!historyFetched) return;
+    // Ref guard is synchronous — immune to the setState race that let this
+    // effect send two greetings before `hasGreeted` updated.
+    if (greetedRef.current.has(selectedAgent)) return;
     const msgs = chatMessages[selectedAgent];
     // If the agent already has ANY chat history, skip greeting entirely
     if (msgs && msgs.length > 0) {
-      setHasGreeted(true);
+      greetedRef.current.add(selectedAgent);
       return;
     }
-    setHasGreeted(true);
+    greetedRef.current.add(selectedAgent);
     // Only check `configured` (cheap), not `validateAuth` (which probes the
     // global default provider and can return invalid even when the agent's
     // own provider works fine — gating on it suppresses hatch onboarding).
@@ -120,7 +126,7 @@ export default function ChatPage() {
         }
       })
       .catch(() => {});
-  }, [selectedAgent, chatMessages, hasGreeted, historyFetched, send]);
+  }, [selectedAgent, chatMessages, historyFetched, send]);
 
   // Handle incoming messages
   const addMessage = useCallback(
@@ -327,10 +333,10 @@ export default function ChatPage() {
         if (t.id) shownTaskIds.current.add(t.id);
         const aid = t.assignedAgent;
         if (!aid) return;
-        const isGreeting =
-          t.source === "background" && (t.title || "").includes("Please greet me");
-        // Skip greeting responses — handled by chat.response
-        if (isGreeting) return;
+        // Greetings are background-source chat tasks rendered via chat.response.
+        // Detect by source alone — the title text varies (hatch vs. normal
+        // greeting), and matching on a phrase double-rendered hatch greetings.
+        if (t.source === "background") return;
         setThinkingAgents((prev) => {
           const next = new Set(prev);
           next.delete(aid);
