@@ -144,8 +144,14 @@ export class SpecialistAgent extends BaseAgent {
     // (~/.fort/agents/triager/SOUL.md). Users can edit that file to shape
     // judgment without touching code. Falls back to the built-in classifier
     // prompt when Triager is absent (e.g. upgrade-in-progress installs).
+    //
+    // While the agent is un-hatched, the conversation IS the onboarding
+    // interview — the system greeting and the user's answers are chat, not
+    // tasks. Classifying them fires the Triager (and a classification card)
+    // before the user has even replied. Skip triage entirely until hatched.
     const decomposeEnabled =
       (this.identity as any).decompose !== false
+      && this.identity.hatchedAt != null
       && process.env.FORT_DISABLE_TRIAGE !== '1';
     if (
       isChatTask &&
