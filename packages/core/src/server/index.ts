@@ -193,12 +193,8 @@ export class FortServer {
       }
       if (req.url === '/api/agents') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        const agents = this.fort.agents.listInfo().map((a) => ({
-          ...a,
-          soul: this.fort.agentFactory.getSoul(a.config.id) ?? undefined,
-          emoji: this.getAgentEmoji(a.config.id),
-        }));
-        res.end(JSON.stringify(agents));
+        // Reuse buildAgentList so REST + WS agree (isDefault, hatchedAt, emoji).
+        res.end(JSON.stringify(this.buildAgentList()));
         return;
       }
       // /api/agents/:id/soul
@@ -492,13 +488,23 @@ export class FortServer {
         const dateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const hour = now.getHours();
         const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+
+        // Resolve the target agent up-front so the greeting can be hatch-aware.
+        const chatAgentId = chatPayload.agentId ?? this.fort.orchestrator.findDefaultAgentId();
+        const greetingIdentity = chatAgentId ? this.fort.agentFactory.getIdentity(chatAgentId) : null;
+        const isUnhatched = !!greetingIdentity && greetingIdentity.hatchedAt == null;
+
+        // For an un-hatched agent, the first message must START the hatch
+        // interview — not the generic "what do you want to accomplish?" greeting,
+        // which fights the hatch addendum and produces a throwaway hello.
+        const hatchGreeting = `Today is ${dateFull}, ${timeOfDay}. This is our very first conversation. Introduce yourself briefly in your own voice, then begin getting to know me — ask your single most important opening question. Do not ask what I want to accomplish yet; right now your job is to understand who I am and what I'm trying to move.`;
+        const normalGreeting = `Today is ${dateFull}. It is currently ${timeOfDay} (${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}). Please greet me warmly for this ${dayName} ${timeOfDay} and ask what I would like to accomplish today. Be yourself — use your personality from your SOUL.md.`;
         const chatText = isGreeting
-          ? `Today is ${dateFull}. It is currently ${timeOfDay} (${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}). Please greet me warmly for this ${dayName} ${timeOfDay} and ask what I would like to accomplish today. Be yourself — use your personality from your SOUL.md.`
+          ? (isUnhatched ? hatchGreeting : normalGreeting)
           : chatPayload.text;
 
         // Persist user message to thread (skip internal greeting messages)
         let chatThreadId: string | undefined;
-        const chatAgentId = chatPayload.agentId ?? this.fort.orchestrator.findDefaultAgentId();
         if (!isGreeting && chatAgentId) {
           try {
             chatThreadId = this.getOrCreateAgentThread(chatAgentId);
