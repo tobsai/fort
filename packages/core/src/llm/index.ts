@@ -2537,6 +2537,9 @@ export class LLMClient {
       );
     } catch (err: any) {
       if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        if (request.interactive) {
+          throw await this.buildModelGatedError(modelConfig, provider.id);
+        }
         return this.completeOpenAI(
           provider,
           { ...request, model: err._fallbackTier },
@@ -3006,6 +3009,9 @@ export class LLMClient {
       );
     } catch (err: any) {
       if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        if (request.interactive) {
+          throw await this.buildModelGatedError(modelConfig, provider.id);
+        }
         return this.completeOpenAICompatible(
           provider,
           { ...request, model: err._fallbackTier },
@@ -3116,6 +3122,9 @@ export class LLMClient {
       );
     } catch (err: any) {
       if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        if (request.interactive) {
+          throw await this.buildModelGatedError(modelConfig, provider.id);
+        }
         return this.completeGoogle(provider, { ...request, model: err._fallbackTier }, (err._fallbackDepth ?? 0) + 1);
       }
       throw err;

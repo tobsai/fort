@@ -1023,5 +1023,21 @@ describe('LLMClient', () => {
       store.close();
       rmSync(tmp, { recursive: true, force: true });
     });
+
+    it('throws ModelGatedError on the OpenAI simple path when interactive', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'fort-gated-oai-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const { ModelGatedError } = await import('../llm/index.js');
+      const store = new LLMProviderStore(join(tmp, 'p.db'), 'k');
+      store.addProvider({ id: 'openai', name: 'OpenAI', defaultModel: 'gpt-5.5', apiKey: 'sk-openai-x', baseUrl: 'https://api.openai.com/v1', isDefault: true });
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-opus-4-6', apiKey: 'sk-ant-x' });
+      const client = setup({ providerStore: store });
+      (client as any).setCooldown('gpt-5.5', 60_000, 'rate_limit');
+      await expect(
+        client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true }),
+      ).rejects.toBeInstanceOf(ModelGatedError);
+      store.close();
+      rmSync(tmp, { recursive: true, force: true });
+    });
   });
 });
