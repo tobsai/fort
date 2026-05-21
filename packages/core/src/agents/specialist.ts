@@ -291,7 +291,6 @@ Include the JSON block in your response along with your explanation to the user.
       // mutate this.identity.
       let providerOverride: string | undefined;
       let tierOverride: string | undefined;
-      const triedGated = new Set<string>(); // models we've already been told are gated
       let rounds = 0;
 
       // Bounded retry: on ModelGatedError, block on the user's choice, apply
@@ -345,8 +344,6 @@ Include the JSON block in your response along with your explanation to the user.
           break; // success
         } catch (err) {
           if (err instanceof ModelGatedError && this.modelChoice && rounds <= 4) {
-            triedGated.add(err.gatedModel);
-
             // Block the task while we ask the user how to proceed.
             this.taskGraph.updateStatus(task.id, 'blocked', 'Model gated — awaiting your choice');
 
