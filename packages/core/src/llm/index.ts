@@ -101,6 +101,23 @@ export interface GoalsLookup {
  */
 export type IdentityResolver = (agentId: string) => SpecialistIdentity | null;
 
+/** Thrown (only when request.interactive) when the requested model is gated by
+ *  a 429 and a tier/provider fallback exists. The Specialist turns this into a
+ *  user-facing choice card. */
+export class ModelGatedError extends Error {
+  constructor(
+    public readonly gatedModel: string,
+    public readonly gatedTier: ModelTier,
+    public readonly providerId: string,
+    public readonly viableProviders: Array<{ id: string; name: string; powerfulModel: string }>,
+    public readonly viableTiers: ModelTier[],
+    public readonly canUseApiKey: boolean,
+  ) {
+    super('__MODEL_GATED__');
+    this.name = 'ModelGatedError';
+  }
+}
+
 export interface LLMResponse {
   content: string;
   model: string;
@@ -729,6 +746,9 @@ export class LLMClient {
     } catch (err: any) {
       // Handle tier fallback signal from callApi
       if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+        if (request.interactive) {
+          throw await this.buildModelGatedError(modelConfig, runtime.id);
+        }
         return this.complete(
           { ...request, model: err._fallbackTier },
           (err._fallbackDepth ?? 0) + 1,
@@ -900,6 +920,9 @@ export class LLMClient {
           // `messages`, so no progress is lost. Without this the agent's first
           // run dies on an opus rate limit even though haiku/sonnet are free.
           if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+            if (request.interactive) {
+              throw await this.buildModelGatedError(modelConfig, runtime.id);
+            }
             const fallback = this.resolveModelForProvider(runtime, err._fallbackTier);
             if (fallback.model !== modelConfig.model) {
               this.bus.publish('llm.tier_fallback', 'llm-client', {
@@ -1656,6 +1679,23 @@ export class LLMClient {
       }
     }
     return null;
+  }
+
+  /** Build a ModelGatedError describing the alternatives to a gated model. */
+  private async buildModelGatedError(modelConfig: ModelConfig, providerId: string): Promise<ModelGatedError> {
+    const all = await this.getAvailableProviders();
+    const viableProviders = all
+      .filter((p) => p.usable && p.id !== providerId)
+      .map((p) => ({ id: p.id, name: p.name, powerfulModel: p.models.powerful }));
+    const viableTiers: ModelTier[] = [];
+    for (const t of ['standard', 'fast'] as ModelTier[]) {
+      if (TIER_FALLBACK.indexOf(t) > TIER_FALLBACK.indexOf(modelConfig.tier)
+          && !this.isInCooldown(this.models[t].model)) {
+        viableTiers.push(t);
+      }
+    }
+    const canUseApiKey = providerId === 'anthropic' && this._isOAuthToken;
+    return new ModelGatedError(modelConfig.model, modelConfig.tier, providerId, viableProviders, viableTiers, canUseApiKey);
   }
 
   /**
@@ -2580,6 +2620,9 @@ export class LLMClient {
           // `input` isn't mutated for this turn until after a successful call,
           // so re-sending it on the fallback model loses no progress.
           if (err?.message === '__TIER_FALLBACK__' && err._fallbackTier) {
+            if (request.interactive) {
+              throw await this.buildModelGatedError(modelConfig, currentProvider.id);
+            }
             const fallback = this.resolveModelForProvider(currentProvider, err._fallbackTier);
             if (fallback.model !== modelConfig.model) {
               this.bus.publish('llm.tier_fallback', 'llm-client', {

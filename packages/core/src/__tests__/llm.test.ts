@@ -985,4 +985,43 @@ describe('LLMClient', () => {
       }
     });
   });
+
+  describe('ModelGatedError on gated models (interactive)', () => {
+    it('throws ModelGatedError when interactive and the tier is gated', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'fort-gated-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const { ModelGatedError } = await import('../llm/index.js');
+      const store = new LLMProviderStore(join(tmp, 'p.db'), 'k');
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-opus-4-6', apiKey: 'sk-ant-x', isDefault: true });
+      store.addProvider({ id: 'openai', name: 'OpenAI', defaultModel: 'gpt-5.4', apiKey: 'sk-openai-x', baseUrl: 'https://api.openai.com/v1' });
+
+      const client = setup({ providerStore: store });
+      (client as any).setCooldown('claude-opus-4-6', 60_000, 'rate_limit');
+
+      await expect(
+        client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true }),
+      ).rejects.toBeInstanceOf(ModelGatedError);
+
+      store.close();
+      rmSync(tmp, { recursive: true, force: true });
+    });
+
+    it('auto-falls-back (no ModelGatedError) when not interactive', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'fort-gated-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmp, 'p.db'), 'k');
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-opus-4-6', apiKey: 'sk-ant-x', isDefault: true });
+      const client = setup({ providerStore: store });
+      (client as any).setCooldown('claude-opus-4-6', 60_000, 'rate_limit');
+      vi.spyOn(client as any, 'callApi').mockResolvedValue({
+        content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 }, model: 'claude-haiku-4-5-20251001',
+      });
+      const res = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful' });
+      expect(res.content).toBe('ok');
+
+      store.close();
+      rmSync(tmp, { recursive: true, force: true });
+    });
+  });
 });
