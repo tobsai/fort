@@ -47,6 +47,7 @@ import type { LLMClientConfig } from './llm/index.js';
 import { UsageStore, UsageTracker } from './usage/index.js';
 import { LLMProviderStore } from './llm/provider-store.js';
 import { SubscriptionQuotaStore } from './llm/quota-store.js';
+import { ModelChoiceService } from './services/model-choice.js';
 
 import type { DiagnosticResult, Task } from './types.js';
 
@@ -81,6 +82,7 @@ export class Fort {
   readonly reflection: ReflectionService;
   readonly goals: GoalsService;
   readonly hatch: HatchService;
+  readonly modelChoice: ModelChoiceService;
 
   // Modules
   readonly memory: MemoryManager;
@@ -261,6 +263,10 @@ export class Fort {
     this.agentFactory.setLLM(this.llm);
     this.agentFactory.setToolRegistry(this.tools);
     this.agentFactory.setToolExecutor(this.toolExecutor);
+
+    this.modelChoice = new ModelChoiceService(this.bus);
+    this.modelChoice.setAgentFactory(this.agentFactory);
+    this.agentFactory.setModelChoice(this.modelChoice);
 
     // Per-agent provider routing: read identity.provider so each agent (primary
     // + doer agents) can pick its own provider, falling back to global default.

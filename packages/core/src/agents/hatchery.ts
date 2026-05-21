@@ -32,6 +32,7 @@ export class AgentFactory {
   private llm: LLMClient | null = null;
   private toolRegistry: ToolRegistry | null = null;
   private toolExecutor: ToolExecutor | null = null;
+  private modelChoice: import('../services/model-choice.js').ModelChoiceService | null = null;
 
   constructor(
     agentsDir: string,
@@ -70,6 +71,13 @@ export class AgentFactory {
    */
   setToolExecutor(executor: ToolExecutor): void {
     this.toolExecutor = executor;
+  }
+
+  /**
+   * Attach the model-choice service. Agents created after this call can handle gated-model prompts.
+   */
+  setModelChoice(svc: import('../services/model-choice.js').ModelChoiceService): void {
+    this.modelChoice = svc;
   }
 
   /**
@@ -133,6 +141,7 @@ export class AgentFactory {
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
+    if (this.modelChoice) agent.setModelChoice(this.modelChoice);
     this.registry.register(agent);
 
     // Store create event in memory
@@ -194,6 +203,7 @@ export class AgentFactory {
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
+    if (this.modelChoice) agent.setModelChoice(this.modelChoice);
     this.registry.register(agent);
 
     this.bus.publish('agent.created', 'agent-factory', { identity });
@@ -282,6 +292,7 @@ export class AgentFactory {
     if (this.llm) agent.setLLM(this.llm);
     if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
     if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
+    if (this.modelChoice) agent.setModelChoice(this.modelChoice);
     this.registry.register(agent);
 
     this.bus.publish('agent.revived', 'agent-factory', { identity });
@@ -492,6 +503,7 @@ ${description}
       if (this.llm) agent.setLLM(this.llm);
       if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
       if (this.toolExecutor) agent.setToolExecutor(this.toolExecutor);
+      if (this.modelChoice) agent.setModelChoice(this.modelChoice);
       this.registry.register(agent);
       this.bus.publish('agent.created', 'agent-factory', { identity });
     } catch {

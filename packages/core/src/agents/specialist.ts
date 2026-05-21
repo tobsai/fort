@@ -28,6 +28,7 @@ export class SpecialistAgent extends BaseAgent {
   private llm: LLMClient | null = null;
   private toolRegistry: ToolRegistry | null = null;
   private toolExecutor: ToolExecutor | null = null;
+  private modelChoice: import('../services/model-choice.js').ModelChoiceService | null = null;
   private unsubscribers: Array<() => void> = [];
   private _soulCache: string | null = null;
 
@@ -113,6 +114,13 @@ export class SpecialistAgent extends BaseAgent {
    */
   setToolExecutor(executor: ToolExecutor): void {
     this.toolExecutor = executor;
+  }
+
+  /**
+   * Attach the model-choice service so this agent can handle gated-model prompts.
+   */
+  setModelChoice(svc: import('../services/model-choice.js').ModelChoiceService): void {
+    this.modelChoice = svc;
   }
 
   protected async onTask(taskId: string): Promise<void> {
