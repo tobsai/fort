@@ -15,6 +15,7 @@ export default function ChatPage() {
   const [modelTier, setModelTier] = useState<"auto" | "fast" | "standard" | "powerful">("auto");
   const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
   const [planningStatus, setPlanningStatus] = useState<Record<string, string>>({});
+  const [rememberChoice, setRememberChoice] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // threadIdByAgent: persists the thread ID per agent so refreshes restore context
   const threadIdByAgent = useRef<Record<string, string>>(
@@ -348,6 +349,23 @@ export default function ChatPage() {
           status: t.status || "completed",
         });
       }),
+      subscribe("model-choice.new", (msg: WSMessage) => {
+        const p = msg.payload as { id: string; agentId?: string; gatedModel: string; options: NonNullable<ChatMessage["modelChoice"]>["options"] };
+        const aid = p.agentId || selectedAgent;
+        if (!aid) return;
+        setChatMessages((prev) => ({
+          ...prev,
+          [aid]: [
+            ...(prev[aid] || []),
+            {
+              role: "model-choice" as const,
+              text: "",
+              ts: Date.now(),
+              modelChoice: { id: p.id, gatedModel: p.gatedModel, options: p.options },
+            },
+          ],
+        }));
+      }),
     ];
     return () => unsubs.forEach((u) => u());
   }, [subscribe, addMessage, addToolMessage, selectedAgent]);
@@ -365,6 +383,33 @@ export default function ChatPage() {
     const payload: Record<string, unknown> = { text, agentId: selectedAgent };
     if (modelTier !== "auto") payload.modelTier = modelTier;
     send("chat", payload);
+  };
+
+  const respondModelChoice = (
+    mc: NonNullable<ChatMessage["modelChoice"]>,
+    opt: NonNullable<ChatMessage["modelChoice"]>["options"][number],
+    remember: boolean,
+  ) => {
+    let apiKey: string | undefined;
+    if (opt.action === "use_api_key") {
+      apiKey = window.prompt(`Paste your ${opt.providerId} API key`) ?? undefined;
+      if (!apiKey) return;
+    }
+    send("model-choice.respond", {
+      id: mc.id, action: opt.action, providerId: opt.providerId, tier: opt.tier, apiKey, remember,
+    });
+    setChatMessages((prev) => {
+      const aid = selectedAgent!;
+      return {
+        ...prev,
+        [aid]: (prev[aid] || []).map((x) =>
+          x.role === "model-choice" && x.modelChoice?.id === mc.id
+            ? { ...x, modelChoice: { ...x.modelChoice!, resolved: opt.label } }
+            : x,
+        ),
+      };
+    });
+    setRememberChoice(false);
   };
 
   const currentAgent = agents.find((a) => a.config.id === selectedAgent);
@@ -511,6 +556,28 @@ export default function ChatPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              );
+            }
+            if (m.role === "model-choice" && m.modelChoice) {
+              const mc = m.modelChoice;
+              return (
+                <div key={i} className="model-choice-card">
+                  {mc.resolved ? (
+                    <div className="model-choice-resolved">&#10003; {mc.resolved}</div>
+                  ) : (
+                    <>
+                      <div className="model-choice-title">&#9888; {mc.gatedModel} is gated. How should I proceed?</div>
+                      {mc.options.map((opt, oi) => (
+                        <button key={oi} className="model-choice-opt" onClick={() => respondModelChoice(mc, opt, rememberChoice)}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      <label className="model-choice-remember">
+                        <input type="checkbox" checked={rememberChoice} onChange={(e) => setRememberChoice(e.target.checked)} /> Remember for this agent
+                      </label>
+                    </>
+                  )}
                 </div>
               );
             }

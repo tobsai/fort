@@ -72,7 +72,7 @@ export interface PlanSubtask {
 }
 
 export interface ChatMessage {
-  role: "user" | "agent" | "tool" | "plan" | "classification";
+  role: "user" | "agent" | "tool" | "plan" | "classification" | "model-choice";
   text: string;
   ts: number;
   task?: {
@@ -96,6 +96,13 @@ export interface ChatMessage {
     summary: string;
     /** "pending" → buttons visible; "confirmed" → user said yes; "corrected" → user flipped it */
     feedback: "pending" | "confirmed" | "corrected";
+  };
+  /** Present on role:"model-choice" — the gated-model choice card. */
+  modelChoice?: {
+    id: string;
+    gatedModel: string;
+    options: Array<{ action: "switch_provider" | "lighter_model" | "use_api_key"; providerId?: string; tier?: "fast" | "standard"; label: string }>;
+    resolved?: string; // one-line summary once answered
   };
 }
 
