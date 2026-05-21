@@ -871,6 +871,21 @@ describe('LLMClient', () => {
       store.close();
       rmSync(tmpDirC, { recursive: true, force: true });
     });
+
+    it('honors request.providerOverride above identity and global default', async () => {
+      const tmpDirO = mkdtempSync(join(tmpdir(), 'fort-override-'));
+      const { LLMProviderStore } = await import('../llm/provider-store.js');
+      const store = new LLMProviderStore(join(tmpDirO, 'pstore.db'), 'test-key');
+      store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-sonnet-4-5-20250929', apiKey: 'sk-ant-stored', isDefault: true });
+      store.addProvider({ id: 'openai', name: 'OpenAI', defaultModel: 'gpt-5.4', apiKey: 'sk-openai-stored', baseUrl: 'https://api.openai.com/v1' });
+
+      const client = setup({ providerStore: store });
+      expect((client as any).resolveRuntimeProvider(undefined, 'openai')?.id).toBe('openai');
+      expect((client as any).resolveRuntimeProvider(undefined, undefined)?.id).toBe('anthropic');
+
+      store.close();
+      rmSync(tmpDirO, { recursive: true, force: true });
+    });
   });
 
   // ── Google Gemini path ────────────────────────────────────────────────

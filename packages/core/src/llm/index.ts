@@ -57,6 +57,12 @@ export interface LLMRequest {
   temperature?: number;
   taskId?: string;
   agentId?: string;
+  /** When true, a gated 429 throws ModelGatedError instead of auto-falling-back.
+   *  Set by the Specialist for interactive (user_chat) tasks. */
+  interactive?: boolean;
+  /** Forces a specific provider id for this one request, above identity/global
+   *  resolution. Used to retry after the user picks a different provider. */
+  providerOverride?: string;
   context?: string[];
   injectBehaviors?: boolean;
   injectMemory?: string;
@@ -664,7 +670,7 @@ export class LLMClient {
    * and automatic tier fallback.
    */
   async complete(request: LLMRequest, _fallbackDepth = 0): Promise<LLMResponse> {
-    const runtime = this.resolveRuntimeProvider(request.agentId);
+    const runtime = this.resolveRuntimeProvider(request.agentId, request.providerOverride);
     if (!runtime) {
       throw new Error(
         'LLM client not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, add a provider, or sign in with Codex.',
@@ -816,7 +822,7 @@ export class LLMClient {
     executor: ToolExecutor,
     opts: { maxIterations?: number } = {},
   ): Promise<LLMToolsResponse> {
-    const runtime = this.resolveRuntimeProvider(request.agentId);
+    const runtime = this.resolveRuntimeProvider(request.agentId, request.providerOverride);
     if (!runtime) {
       throw new Error(
         'LLM client not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, add a provider, or sign in with Codex.',
@@ -1078,7 +1084,7 @@ export class LLMClient {
    * Returns an async generator of stream events.
    */
   async *stream(request: LLMRequest): AsyncGenerator<LLMStreamEvent> {
-    const runtime = this.resolveRuntimeProvider(request.agentId);
+    const runtime = this.resolveRuntimeProvider(request.agentId, request.providerOverride);
     if (!runtime) {
       yield {
         type: 'error',
@@ -1885,7 +1891,7 @@ export class LLMClient {
         ...context,
         onAuthRefresh: () => {
           if (this.maybeRefreshToken()) {
-            const fresh = this.resolveClient(context.request.agentId);
+            const fresh = this.resolveClient(context.request.agentId, context.request.providerOverride);
             if (fresh) {
               currentClient = fresh;
               return true;
@@ -1943,12 +1949,21 @@ export class LLMClient {
    * Priority: DB default provider key → constructor-configured client.
    * Returns null only when neither is available.
    */
-  private resolveClient(agentId?: string): Anthropic | null {
-    const runtime = this.resolveRuntimeProvider(agentId);
+  private resolveClient(agentId?: string, providerOverride?: string): Anthropic | null {
+    const runtime = this.resolveRuntimeProvider(agentId, providerOverride);
     return runtime?.id === 'anthropic' ? runtime.client : null;
   }
 
-  private resolveRuntimeProvider(agentId?: string): RuntimeProvider | null {
+  private resolveRuntimeProvider(agentId?: string, providerOverride?: string): RuntimeProvider | null {
+    // Explicit per-request override wins (user picked a provider in the choice gate).
+    if (providerOverride && this.providerStore) {
+      const rt = this.providerStore.getProviderRuntime(providerOverride);
+      if (rt) {
+        const built = this.buildRuntimeProviderFromStore(rt);
+        if (built) return built;
+      }
+    }
+
     if (this.providerStore) {
       const provider = this.getActiveProvider(agentId);
       if (provider) {
@@ -2470,7 +2485,7 @@ export class LLMClient {
           fallbackDepth,
           onAuthRefresh: () => {
             if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
-              const fresh = this.resolveRuntimeProvider(request.agentId);
+              const fresh = this.resolveRuntimeProvider(request.agentId, request.providerOverride);
               if (fresh && (fresh.id === 'openai')) {
                 currentProvider = fresh;
                 return true;
@@ -2550,7 +2565,7 @@ export class LLMClient {
               request,
               onAuthRefresh: () => {
                 if (currentProvider.authMethod === 'codex_subscription' && this.maybeRefreshCodexToken()) {
-                  const fresh = this.resolveRuntimeProvider(request.agentId);
+                  const fresh = this.resolveRuntimeProvider(request.agentId, request.providerOverride);
                   if (fresh && (fresh.id === 'openai')) {
                     currentProvider = fresh;
                     return true;
