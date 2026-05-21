@@ -883,6 +883,9 @@ describe('LLMClient', () => {
       expect((client as any).resolveRuntimeProvider(undefined, 'openai')?.id).toBe('openai');
       expect((client as any).resolveRuntimeProvider(undefined, undefined)?.id).toBe('anthropic');
 
+      // Unknown override id → falls through to the global default (anthropic).
+      expect((client as any).resolveRuntimeProvider(undefined, 'bogus-provider')?.id).toBe('anthropic');
+
       store.close();
       rmSync(tmpDirO, { recursive: true, force: true });
     });
