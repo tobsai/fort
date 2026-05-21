@@ -20,6 +20,7 @@ import type { LLMClient } from '../llm/index.js';
 import type { ToolRegistry } from '../tools/index.js';
 import type { ToolExecutor } from '../tools/executor.js';
 import { classifyAsTask, decomposeTask, formatPlan, type TriagerConfig } from './task-planner.js';
+import { ModelGatedError } from '../llm/index.js';
 
 export class SpecialistAgent extends BaseAgent {
   readonly identity: SpecialistIdentity;
@@ -270,61 +271,155 @@ Include the JSON block in your response along with your explanation to the user.
 
     if (this.llm && this.llm.isConfigured && isChatTask) {
       // LLM-powered response
-      try {
-        const soul = this.getSoul();
-        const modelTier = (task.metadata.modelTier as string) || this.identity.defaultModelTier;
-        const liveTools = this.toolRegistry ? this.toolRegistry.listLiveTools() : [];
+      const soul = this.getSoul();
+      const baseTier = (task.metadata.modelTier as string) || this.identity.defaultModelTier;
+      const liveTools = this.toolRegistry ? this.toolRegistry.listLiveTools() : [];
 
-        // Un-hatched agents run their first conversation in hatch mode:
-        // the LLM gets the hatch addendum on top of the base prompt + SOUL
-        // and steers toward a getting-to-know-you flow ending in a
-        // proposed goals list.
-        const hatchMode = this.identity.hatchedAt == null;
+      // Un-hatched agents run their first conversation in hatch mode:
+      // the LLM gets the hatch addendum on top of the base prompt + SOUL
+      // and steers toward a getting-to-know-you flow ending in a
+      // proposed goals list.
+      const hatchMode = this.identity.hatchedAt == null;
 
-        if (this.toolExecutor && liveTools.length > 0) {
-          // Use the tool loop — LLM can invoke tools mid-conversation
-          const response = await this.llm.completeWithTools(
-            {
+      // Only interactive (user_chat) requests trigger the gated-model choice
+      // gate. Background work keeps the LLM client's silent auto-fallback.
+      const interactive = task.source === 'user_chat';
+
+      // Per-task routing overrides selected via the choice gate. These are
+      // local-only unless the user chose "remember" (then persisted to
+      // identity.yaml). They reset every task — unremembered choices never
+      // mutate this.identity.
+      let providerOverride: string | undefined;
+      let tierOverride: string | undefined;
+      const triedGated = new Set<string>(); // models we've already been told are gated
+      let rounds = 0;
+
+      // Bounded retry: on ModelGatedError, block on the user's choice, apply
+      // the chosen routing, and retry. Capped at 4 rounds so a recurring gate
+      // (e.g. each fallback tier is also cooled down) can't loop forever.
+      while (true) {
+        rounds++;
+        try {
+          if (this.toolExecutor && liveTools.length > 0) {
+            // Use the tool loop — LLM can invoke tools mid-conversation
+            const response = await this.llm.completeWithTools(
+              {
+                messages: [{ role: 'user', content: task.description }],
+                soul: soul ?? undefined,
+                taskId: task.id,
+                agentId: this.identity.id,
+                model: tierOverride ?? baseTier,
+                providerOverride,
+                injectBehaviors: true,
+                injectMemory: task.description,
+                context: toolContext ? [toolContext] : undefined,
+                tools: liveTools,
+                hatchMode,
+                interactive,
+              },
+              this.toolExecutor,
+            );
+            responseText = response.content;
+            // Store tool call log in task metadata for transparency
+            if (response.toolCallLog.length > 0) {
+              task.metadata.toolCallLog = response.toolCallLog;
+              task.metadata.toolIterations = response.iterations;
+            }
+          } else {
+            // Plain completion — no live tools registered
+            const response = await this.llm.complete({
               messages: [{ role: 'user', content: task.description }],
               soul: soul ?? undefined,
               taskId: task.id,
               agentId: this.identity.id,
-              model: modelTier,
+              model: tierOverride ?? baseTier,
+              providerOverride,
               injectBehaviors: true,
               injectMemory: task.description,
               context: toolContext ? [toolContext] : undefined,
-              tools: liveTools,
               hatchMode,
-            },
-            this.toolExecutor,
-          );
-          responseText = response.content;
-          // Store tool call log in task metadata for transparency
-          if (response.toolCallLog.length > 0) {
-            task.metadata.toolCallLog = response.toolCallLog;
-            task.metadata.toolIterations = response.iterations;
+              interactive,
+            });
+            responseText = response.content;
           }
-        } else {
-          // Plain completion — no live tools registered
-          const response = await this.llm.complete({
-            messages: [{ role: 'user', content: task.description }],
-            soul: soul ?? undefined,
-            taskId: task.id,
-            agentId: this.identity.id,
-            model: modelTier,
-            injectBehaviors: true,
-            injectMemory: task.description,
-            context: toolContext ? [toolContext] : undefined,
-            hatchMode,
-          });
-          responseText = response.content;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('401') || msg.includes('authentication_error') || msg.includes('Invalid bearer')) {
-          responseText = `Authentication error — your Claude token may be expired. Run \`fort llm setup\` or \`claude setup-token\` to re-authenticate, then restart the portal.`;
-        } else {
-          responseText = `I encountered an error: ${msg}. Please try again.`;
+          break; // success
+        } catch (err) {
+          if (err instanceof ModelGatedError && this.modelChoice && rounds <= 4) {
+            triedGated.add(err.gatedModel);
+
+            // Block the task while we ask the user how to proceed.
+            this.taskGraph.updateStatus(task.id, 'blocked', 'Model gated — awaiting your choice');
+
+            const options = [
+              ...err.viableProviders.map((p) => ({
+                action: 'switch_provider' as const,
+                providerId: p.id,
+                label: `Switch to ${p.name}`,
+              })),
+              ...err.viableTiers.map((t) => ({
+                action: 'lighter_model' as const,
+                tier: t as 'fast' | 'standard',
+                label: `Use a lighter ${err.providerId} model`,
+              })),
+              ...(err.canUseApiKey
+                ? [{
+                    action: 'use_api_key' as const,
+                    providerId: err.providerId,
+                    label: `Use ${err.providerId} API key instead`,
+                  }]
+                : []),
+            ];
+
+            const choice = await this.modelChoice.requestChoice({
+              taskId: task.id,
+              agentId: this.identity.id,
+              gatedModel: err.gatedModel,
+              options,
+            });
+
+            // Restore in_progress before retrying.
+            this.taskGraph.updateStatus(task.id, 'in_progress', 'Resuming after model choice');
+
+            if (choice.action === 'switch_provider' && choice.providerId) {
+              providerOverride = choice.providerId;
+              tierOverride = undefined;
+              if (choice.remember) this.modelChoice.persist(this.identity.id, { provider: choice.providerId as any });
+            } else if (choice.action === 'lighter_model' && choice.tier) {
+              tierOverride = choice.tier;
+              providerOverride = undefined;
+              if (choice.remember) this.modelChoice.persist(this.identity.id, { defaultModelTier: choice.tier });
+            } else if (choice.action === 'use_api_key' && choice.apiKey) {
+              const { LLMClient } = await import('../llm/index.js');
+              if (err.providerId === 'anthropic') {
+                LLMClient.writeEnvFile(choice.apiKey);
+              } else {
+                const envVar = `${err.providerId.toUpperCase()}_API_KEY`;
+                LLMClient.writeEnvFileValue(envVar, choice.apiKey);
+              }
+              this.llm.refreshAuth();
+              providerOverride = err.providerId;
+              tierOverride = undefined;
+            } else {
+              // fallback / timeout — degrade to the lowest viable tier and stop
+              // re-prompting on subsequent gates.
+              tierOverride = err.viableTiers[err.viableTiers.length - 1] ?? 'fast';
+              providerOverride = undefined;
+            }
+            continue;
+          }
+
+          // Not gated, no choice service, or out of rounds — fall through to
+          // the existing error mapping.
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('401') || msg.includes('authentication_error') || msg.includes('Invalid bearer')) {
+            responseText = `Authentication error — your Claude token may be expired. Run \`fort llm setup\` or \`claude setup-token\` to re-authenticate, then restart the portal.`;
+          } else if (err instanceof ModelGatedError) {
+            // Gated but we can no longer prompt (no service / exhausted rounds).
+            responseText = `I encountered an error: the ${err.gatedModel} model is currently gated and I couldn't switch to an alternative. Please try again.`;
+          } else {
+            responseText = `I encountered an error: ${msg}. Please try again.`;
+          }
+          break;
         }
       }
     } else if (isChatTask) {

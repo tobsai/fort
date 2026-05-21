@@ -40,8 +40,12 @@ export class ModelChoiceService {
 
   requestChoice(req: ChoiceRequest): Promise<ResolvedChoice> {
     const id = uuid();
-    void this.bus.publish('model-choice.required', 'model-choice', { id, ...req });
-    return new Promise<ResolvedChoice>((resolve) => {
+    // Register the pending resolver BEFORE publishing. A synchronous subscriber
+    // (e.g. an in-process auto-responder, or any handler that calls
+    // resolveChoice during the publish loop) would otherwise race ahead of the
+    // executor and find no pending entry. Async WS round-trips don't hit this,
+    // but registering first is correct regardless of resolver timing.
+    const promise = new Promise<ResolvedChoice>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         resolve({ action: 'fallback', remember: false });
@@ -50,6 +54,8 @@ export class ModelChoiceService {
         resolve: (c) => { clearTimeout(timer); this.pending.delete(id); resolve(c); },
       });
     });
+    void this.bus.publish('model-choice.required', 'model-choice', { id, ...req });
+    return promise;
   }
 
   resolveChoice(id: string, choice: ResolvedChoice): boolean {
