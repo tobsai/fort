@@ -998,9 +998,18 @@ describe('LLMClient', () => {
       const client = setup({ providerStore: store });
       (client as any).setCooldown('claude-opus-4-6', 60_000, 'rate_limit');
 
-      await expect(
-        client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true }),
-      ).rejects.toBeInstanceOf(ModelGatedError);
+      // Set OPENAI_API_KEY so getAvailableProviders marks openai as usable
+      process.env.OPENAI_API_KEY = 'sk-openai-x';
+      const err = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true })
+        .then(() => null, (e) => e);
+      delete process.env.OPENAI_API_KEY;
+      expect(err).toBeInstanceOf(ModelGatedError);
+      expect(err.gatedModel).toBe('claude-opus-4-6');
+      expect(err.gatedTier).toBe('powerful');
+      expect(err.providerId).toBe('anthropic');
+      expect(err.viableTiers).toEqual(['standard', 'fast']);
+      expect(err.viableProviders.map((p: any) => p.id)).toContain('openai');
+      expect(err.canUseApiKey).toBe(false); // api-key auth, not OAuth
 
       store.close();
       rmSync(tmp, { recursive: true, force: true });
@@ -1033,9 +1042,12 @@ describe('LLMClient', () => {
       store.addProvider({ id: 'anthropic', name: 'Anthropic', defaultModel: 'claude-opus-4-6', apiKey: 'sk-ant-x' });
       const client = setup({ providerStore: store });
       (client as any).setCooldown('gpt-5.5', 60_000, 'rate_limit');
-      await expect(
-        client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true }),
-      ).rejects.toBeInstanceOf(ModelGatedError);
+      const err = await client.complete({ messages: [{ role: 'user', content: 'hi' }], model: 'powerful', interactive: true })
+        .then(() => null, (e) => e);
+      expect(err).toBeInstanceOf(ModelGatedError);
+      expect(err.providerId).toBe('openai');
+      // Only gpt-5.5 (powerful) is in cooldown; OpenAI standard+fast are free.
+      expect(err.viableTiers).toEqual(['standard', 'fast']);
       store.close();
       rmSync(tmp, { recursive: true, force: true });
     });

@@ -1306,7 +1306,7 @@ export class LLMClient {
    * right now (env var, ~/.fort/.env, provider-store row with apiKey,
    * Codex subscription, Claude keychain, or reachable Ollama server).
    */
-  async getAvailableProviders(): Promise<Array<{
+  async getAvailableProviders(opts: { probeOllama?: boolean } = {}): Promise<Array<{
     id: 'anthropic' | 'openai' | 'grok' | 'groq' | 'google' | 'ollama' | 'openrouter';
     name: string;
     usable: boolean;
@@ -1314,6 +1314,7 @@ export class LLMClient {
     models: { fast: string; standard: string; powerful: string };
     hint?: string;
   }>> {
+    const probeOllama = opts.probeOllama !== false;
     // Pick up any tokens written since construction (fort init's claude
     // setup-token / paste-API-key flows write to ~/.fort/.env or keychain).
     // Without this, anthropicUsable stays false until Fort restarts and the
@@ -1345,14 +1346,16 @@ export class LLMClient {
 
     // Ollama — usable if local server responds (short timeout)
     let ollamaUsable = false;
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 500);
-      const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
-      clearTimeout(timer);
-      ollamaUsable = res.ok;
-    } catch {
-      ollamaUsable = false;
+    if (probeOllama) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 500);
+        const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+        clearTimeout(timer);
+        ollamaUsable = res.ok;
+      } catch {
+        ollamaUsable = false;
+      }
     }
 
     return [
@@ -1683,14 +1686,15 @@ export class LLMClient {
 
   /** Build a ModelGatedError describing the alternatives to a gated model. */
   private async buildModelGatedError(modelConfig: ModelConfig, providerId: string): Promise<ModelGatedError> {
-    const all = await this.getAvailableProviders();
+    const all = await this.getAvailableProviders({ probeOllama: false });
     const viableProviders = all
       .filter((p) => p.usable && p.id !== providerId)
       .map((p) => ({ id: p.id, name: p.name, powerfulModel: p.models.powerful }));
+    const tierMap = LLMClient.tierMapFor(providerId as any) ?? this.models;
     const viableTiers: ModelTier[] = [];
     for (const t of ['standard', 'fast'] as ModelTier[]) {
       if (TIER_FALLBACK.indexOf(t) > TIER_FALLBACK.indexOf(modelConfig.tier)
-          && !this.isInCooldown(this.models[t].model)) {
+          && !this.isInCooldown(tierMap[t].model)) {
         viableTiers.push(t);
       }
     }
