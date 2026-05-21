@@ -15,7 +15,8 @@ describe('ModelChoiceService', () => {
     });
     expect(events).toHaveLength(1);
     const id = events[0].id;
-    svc.resolveChoice(id, { action: 'switch_provider', providerId: 'openai', remember: false });
+    expect(svc.resolveChoice('unknown-id', { action: 'fallback', remember: false })).toBe(false);
+    expect(svc.resolveChoice(id, { action: 'switch_provider', providerId: 'openai', remember: false })).toBe(true);
     await expect(p).resolves.toEqual({ action: 'switch_provider', providerId: 'openai', remember: false });
   });
 

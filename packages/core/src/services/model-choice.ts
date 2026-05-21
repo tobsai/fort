@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import type { ModuleBus } from '../module-bus/index.js';
 import type { AgentFactory } from '../agents/hatchery.js';
+import type { SpecialistIdentity } from '../types.js';
 
 export type ChoiceOption =
   | { action: 'switch_provider'; providerId: string; label: string }
@@ -59,7 +60,10 @@ export class ModelChoiceService {
   }
 
   /** Persist a remembered choice to the agent's identity. No-op without a factory. */
-  persist(agentId: string, patch: { provider?: string; defaultModelTier?: 'fast' | 'standard' | 'powerful' }): void {
-    this.factory?.updateIdentity(agentId, patch as any);
+  persist(agentId: string, patch: {
+    provider?: SpecialistIdentity['provider'];
+    defaultModelTier?: SpecialistIdentity['defaultModelTier'];
+  }): void {
+    this.factory?.updateIdentity(agentId, patch);
   }
 }
