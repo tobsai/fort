@@ -100,6 +100,7 @@ export interface ChatMessage {
   /** Present on role:"model-choice" — the gated-model choice card. */
   modelChoice?: {
     id: string;
+    agentId: string;
     gatedModel: string;
     options: Array<{ action: "switch_provider" | "lighter_model" | "use_api_key"; providerId?: string; tier?: "fast" | "standard"; label: string }>;
     resolved?: string; // one-line summary once answered

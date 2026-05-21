@@ -361,7 +361,7 @@ export default function ChatPage() {
               role: "model-choice" as const,
               text: "",
               ts: Date.now(),
-              modelChoice: { id: p.id, gatedModel: p.gatedModel, options: p.options },
+              modelChoice: { id: p.id, agentId: aid, gatedModel: p.gatedModel, options: p.options },
             },
           ],
         }));
@@ -392,14 +392,14 @@ export default function ChatPage() {
   ) => {
     let apiKey: string | undefined;
     if (opt.action === "use_api_key") {
-      apiKey = window.prompt(`Paste your ${opt.providerId} API key`) ?? undefined;
+      apiKey = window.prompt(`Paste your ${opt.providerId ?? "provider"} API key`) ?? undefined;
       if (!apiKey) return;
     }
     send("model-choice.respond", {
       id: mc.id, action: opt.action, providerId: opt.providerId, tier: opt.tier, apiKey, remember,
     });
     setChatMessages((prev) => {
-      const aid = selectedAgent!;
+      const aid = mc.agentId;
       return {
         ...prev,
         [aid]: (prev[aid] || []).map((x) =>
