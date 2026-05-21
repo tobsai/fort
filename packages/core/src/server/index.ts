@@ -278,6 +278,11 @@ export class FortServer {
     this.fort.bus.subscribe('approval.required', (event) => {
       this.broadcast({ id: event.id, type: 'approval.new', payload: event.payload });
     });
+
+    // Wire model-choice.required bus event → broadcast 'model-choice.new' to all WS clients
+    this.fort.bus.subscribe('model-choice.required', (event) => {
+      this.broadcast({ id: event.id, type: 'model-choice.new', payload: event.payload });
+    });
   }
 
   private isAuthenticated(req: IncomingMessage): boolean {
@@ -1317,6 +1322,25 @@ export class FortServer {
             error: err instanceof Error ? err.message : String(err),
           };
         }
+      }
+
+      case 'model-choice.respond': {
+        const p = (msg.payload ?? {}) as {
+          id: string;
+          action: 'switch_provider' | 'lighter_model' | 'use_api_key' | 'fallback';
+          providerId?: string;
+          tier?: 'fast' | 'standard';
+          apiKey?: string;
+          remember?: boolean;
+        };
+        const ok = this.fort.modelChoice.resolveChoice(p.id, {
+          action: p.action,
+          providerId: p.providerId,
+          tier: p.tier,
+          apiKey: p.apiKey,
+          remember: p.remember ?? false,
+        });
+        return { id: msg.id, type: 'model-choice.respond.response', payload: { ok } };
       }
 
       // ─── Diagnostics (SPEC-013) ─────────────────────────────────────────
