@@ -334,6 +334,7 @@ export class AgentFactory {
       const agent = new SpecialistAgent(identity, this.bus, this.taskGraph, this.memory, agentDir);
       if (this.llm) agent.setLLM(this.llm);
       if (this.toolRegistry) agent.setToolRegistry(this.toolRegistry);
+      if (this.modelChoice) agent.setModelChoice(this.modelChoice);
       this.registry.register(agent);
       agents.push(agent);
     }
