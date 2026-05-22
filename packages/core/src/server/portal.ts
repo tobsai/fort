@@ -18,20 +18,41 @@ export function getPortalHTML(): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fort Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-primary: #0e0e12;
-    --bg-secondary: #16161d;
-    --bg-tertiary: #1e1e28;
-    --border: #2a2a3a;
-    --text-primary: #e0e0e8;
-    --text-secondary: #8888a0;
-    --accent: #6c5ce7;
-    --success: #2ed573;
-    --warning: #ffa502;
-    --danger: #ff4757;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    /* Surfaces — cool slate, layered for depth */
+    --bg-primary: #0b0d12;
+    --bg-secondary: #11141c;
+    --bg-tertiary: #181c26;
+    --bg-elevated: #1e2330;
+    --border: #262b3a;
+    --border-strong: #353c50;
+    /* Text — cool whites */
+    --text-primary: #e7e9f0;
+    --text-secondary: #888fa3;
+    --text-dim: #565d72;
+    /* Signal — brass/amber, the instrument-panel glow */
+    --accent: #e6a23c;
+    --accent-bright: #f5bd63;
+    --accent-ink: #1a1206;
+    --accent-dim: rgba(230,162,60,0.13);
+    --accent-glow: rgba(230,162,60,0.40);
+    /* Status — reserved, distinct from the accent */
+    --success: #46c98b;
+    --warning: #f0883e;
+    --danger: #f0556b;
+    /* Type */
+    --font-display: 'Chakra Petch', 'SF Mono', monospace;
+    --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+    /* Depth */
+    --shadow-card: 0 1px 1px rgba(0,0,0,0.5), 0 10px 28px -14px rgba(0,0,0,0.7);
+    --shadow-pop: 0 4px 14px rgba(0,0,0,0.55), 0 24px 56px -20px rgba(0,0,0,0.8);
+    --grid-line: rgba(120,140,180,0.045);
+    --ease: cubic-bezier(.2,.7,.3,1);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,26 +65,107 @@ export function getPortalHTML(): string {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Atmosphere: faint blueprint grid, vignetted toward the top */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse 130% 90% at 50% -10%, #000 35%, transparent 78%);
+            mask-image: radial-gradient(ellipse 130% 90% at 50% -10%, #000 35%, transparent 78%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Atmosphere: subtle film grain */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.022;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    z-index: 0;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes ws-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(70,201,139,0.5); }
+    70%  { box-shadow: 0 0 0 6px rgba(70,201,139,0); }
+    100% { box-shadow: 0 0 0 0 rgba(70,201,139,0); }
+  }
+  @keyframes castle-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
   }
 
   /* ─── Top Bar ─── */
   .topbar {
     display: flex;
     align-items: center;
-    padding: 0 20px;
-    height: 52px;
-    background: var(--bg-secondary);
+    padding: 0 24px;
+    height: 56px;
+    background: linear-gradient(180deg, rgba(20,24,33,0.92), rgba(13,16,22,0.92));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
   }
 
   .logo {
-    font-size: 18px;
+    font-family: var(--font-display);
+    font-size: 20px;
     font-weight: 700;
     color: var(--accent);
-    letter-spacing: 3px;
-    margin-right: 32px;
-    font-family: var(--mono);
+    letter-spacing: 6px;
+    margin-right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    position: relative;
+    padding-bottom: 6px;
+    text-shadow: 0 0 18px var(--accent-glow);
+  }
+
+  /* keep-tower tick */
+  .logo::before {
+    content: '';
+    flex: none;
+    width: 4px;
+    height: 16px;
+    border-radius: 1px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  /* battlement underline */
+  .logo::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0 5px, transparent 5px 9px);
+    opacity: 0.5;
   }
 
   .nav-tabs {
@@ -75,16 +177,23 @@ export function getPortalHTML(): string {
     padding: 8px 16px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     color: var(--text-secondary);
     border: none;
     background: transparent;
-    transition: all 0.15s;
+    transition: color 0.15s, background 0.15s;
   }
 
   .nav-tab:hover { color: var(--text-primary); background: var(--bg-tertiary); }
-  .nav-tab.active { color: var(--accent); background: var(--bg-tertiary); }
+  .nav-tab.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1px rgba(230,162,60,0.25);
+  }
 
   .topbar-right {
     margin-left: auto;
@@ -96,8 +205,11 @@ export function getPortalHTML(): string {
   .ws-status {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
+    gap: 7px;
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
     color: var(--text-secondary);
   }
 
@@ -106,60 +218,100 @@ export function getPortalHTML(): string {
     height: 8px;
     border-radius: 50%;
     background: var(--danger);
+    transition: background 0.2s;
   }
 
-  .ws-dot.connected { background: var(--success); }
+  .ws-dot.connected {
+    background: var(--success);
+    animation: ws-pulse 2.4s infinite;
+  }
 
   /* ─── Content Area ─── */
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 28px;
+    position: relative;
+    z-index: 1;
   }
 
   .tab-panel { display: none; height: 100%; }
-  .tab-panel.active { display: flex; flex-direction: column; }
+  .tab-panel.active { display: flex; flex-direction: column; animation: fade-in 0.3s var(--ease); }
 
   /* ─── Dashboard Tab ─── */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
   }
 
   .stat-card {
-    background: var(--bg-secondary);
+    background: linear-gradient(160deg, var(--bg-secondary), var(--bg-primary));
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    animation: rise 0.5s var(--ease) both;
   }
 
+  /* hairline of brass across the top edge */
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.45;
+  }
+
+  .stats-grid .stat-card:nth-child(1) { animation-delay: 0.02s; }
+  .stats-grid .stat-card:nth-child(2) { animation-delay: 0.08s; }
+  .stats-grid .stat-card:nth-child(3) { animation-delay: 0.14s; }
+  .stats-grid .stat-card:nth-child(4) { animation-delay: 0.20s; }
+
   .stat-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    font-weight: 500;
   }
 
   .stat-value {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
-    font-family: var(--mono);
+    font-family: var(--font-display);
+    line-height: 1;
   }
 
-  .stat-value.accent { color: var(--accent); }
+  .stat-value.accent { color: var(--accent); text-shadow: 0 0 20px var(--accent-glow); }
   .stat-value.success { color: var(--success); }
   .stat-value.warning { color: var(--warning); }
 
   .section-title {
-    font-size: 14px;
+    font-family: var(--font-display);
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 12px;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
   }
 
   /* ─── Kanban Board ─── */
@@ -172,14 +324,20 @@ export function getPortalHTML(): string {
   }
 
   .kanban-column {
-    background: var(--bg-secondary);
+    background: linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     min-height: 200px;
-    max-height: calc(100vh - 280px);
+    max-height: calc(100vh - 300px);
+    box-shadow: var(--shadow-card);
+    animation: rise 0.5s var(--ease) both;
   }
+
+  .kanban .kanban-column:nth-child(1) { animation-delay: 0.05s; }
+  .kanban .kanban-column:nth-child(2) { animation-delay: 0.12s; }
+  .kanban .kanban-column:nth-child(3) { animation-delay: 0.19s; }
 
   .kanban-col-header {
     display: flex;
@@ -191,19 +349,21 @@ export function getPortalHTML(): string {
   }
 
   .kanban-col-title {
-    font-size: 13px;
+    font-family: var(--font-display);
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     color: var(--text-secondary);
   }
 
   .kanban-col-count {
-    font-size: 12px;
+    font-size: 11px;
     font-family: var(--mono);
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    padding: 2px 8px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 9px;
     border-radius: 10px;
   }
 
@@ -219,14 +379,21 @@ export function getPortalHTML(): string {
   .kanban-card {
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 9px;
     padding: 12px;
     border-left: 3px solid var(--border);
-    transition: border-color 0.15s;
+    transition: transform 0.15s var(--ease), border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .kanban-card:hover {
+    transform: translateX(2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-card);
   }
 
   .kanban-card.agent-owned { border-left-color: var(--accent); }
-  .kanban-card.user-owned { border-left-color: #555; }
+  .kanban-card.agent-owned:hover { box-shadow: -3px 0 14px -6px var(--accent-glow), var(--shadow-card); }
+  .kanban-card.user-owned { border-left-color: var(--border-strong); }
 
   .kanban-card-title {
     font-size: 13px;
@@ -252,7 +419,7 @@ export function getPortalHTML(): string {
   }
 
   .kanban-card-assignee.agent {
-    background: rgba(108,92,231,0.15);
+    background: var(--accent-dim);
     color: var(--accent);
   }
 
@@ -344,8 +511,9 @@ export function getPortalHTML(): string {
   }
 
   .add-task-submit {
-    background: var(--accent);
-    color: #fff;
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    color: var(--accent-ink);
+    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .add-task-cancel {
@@ -362,17 +530,19 @@ export function getPortalHTML(): string {
   }
 
   .agent-card {
-    background: var(--bg-secondary);
+    background: linear-gradient(160deg, var(--bg-secondary), var(--bg-primary));
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 20px;
     cursor: pointer;
-    transition: all 0.15s;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.18s var(--ease), border-color 0.18s, box-shadow 0.18s;
   }
 
   .agent-card:hover {
     border-color: var(--accent);
-    transform: translateY(-1px);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px -16px var(--accent-glow), var(--shadow-pop);
   }
 
   .agent-header {
@@ -385,8 +555,10 @@ export function getPortalHTML(): string {
   .agent-emoji { font-size: 28px; }
 
   .agent-name {
+    font-family: var(--font-display);
     font-size: 16px;
     font-weight: 600;
+    letter-spacing: 0.3px;
   }
 
   .agent-type {
@@ -413,7 +585,7 @@ export function getPortalHTML(): string {
     font-weight: 500;
   }
 
-  .agent-status-badge.idle { background: rgba(108,92,231,0.15); color: var(--accent); }
+  .agent-status-badge.idle { background: var(--accent-dim); color: var(--accent); }
   .agent-status-badge.running { background: rgba(46,213,115,0.15); color: var(--success); }
   .agent-status-badge.error { background: rgba(255,71,87,0.15); color: var(--danger); }
 
@@ -421,7 +593,7 @@ export function getPortalHTML(): string {
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(108,92,231,0.2);
+    background: rgba(230,162,60,0.22);
     color: var(--accent);
     margin-left: 8px;
     font-weight: 600;
@@ -444,13 +616,27 @@ export function getPortalHTML(): string {
 
   .modal {
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
     width: 90%;
     max-width: 600px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--shadow-pop);
+    position: relative;
+    overflow: hidden;
+    animation: rise 0.25s var(--ease) both;
+  }
+
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
   }
 
   .modal-header {
@@ -493,21 +679,23 @@ export function getPortalHTML(): string {
   }
 
   .chat-sidebar {
-    width: 200px;
-    background: var(--bg-secondary);
+    width: 210px;
+    background: linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
     border: 1px solid var(--border);
-    border-radius: 10px 0 0 10px;
+    border-radius: 12px 0 0 12px;
     overflow-y: auto;
     flex-shrink: 0;
+    box-shadow: var(--shadow-card);
   }
 
   .chat-sidebar-title {
+    font-family: var(--font-display);
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     color: var(--text-secondary);
-    padding: 14px 16px 8px;
+    padding: 16px 16px 8px;
   }
 
   .chat-agent-item {
@@ -544,17 +732,20 @@ export function getPortalHTML(): string {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-left: none;
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 12px 12px 0;
+    box-shadow: var(--shadow-card);
   }
 
   .chat-header {
-    padding: 12px 16px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
-    font-size: 14px;
+    font-family: var(--font-display);
+    font-size: 15px;
     font-weight: 600;
+    letter-spacing: 0.3px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     flex-shrink: 0;
   }
 
@@ -581,23 +772,34 @@ export function getPortalHTML(): string {
     flex-shrink: 0;
   }
 
-  .chat-msg.user .chat-msg-avatar { background: var(--accent); color: #fff; }
-  .chat-msg.agent .chat-msg-avatar { background: var(--bg-tertiary); font-size: 18px; }
+  .chat-msg.user .chat-msg-avatar {
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    color: var(--accent-ink);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 11px;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+  .chat-msg.agent .chat-msg-avatar {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    font-size: 18px;
+  }
 
   .chat-msg-content {
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 12px 16px;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.55;
     max-width: 80%;
   }
 
   .chat-msg.user .chat-msg-content {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
+    background: linear-gradient(180deg, rgba(230,162,60,0.16), rgba(230,162,60,0.08));
+    color: var(--text-primary);
+    border-color: rgba(230,162,60,0.35);
   }
 
   .chat-msg-body { max-width: 80%; }
@@ -638,7 +840,7 @@ export function getPortalHTML(): string {
   }
 
   .chat-task-status.completed { background: rgba(46,213,115,0.15); color: var(--success); }
-  .chat-task-status.in_progress { background: rgba(108,92,231,0.15); color: var(--accent); }
+  .chat-task-status.in_progress { background: var(--accent-dim); color: var(--accent); }
   .chat-task-status.created { background: rgba(136,136,160,0.15); color: var(--text-secondary); }
   .chat-task-status.failed { background: rgba(255,71,87,0.15); color: var(--danger); }
 
@@ -666,20 +868,25 @@ export function getPortalHTML(): string {
   .chat-input:focus { border-color: var(--accent); }
 
   .chat-send {
-    padding: 12px 20px;
-    background: var(--accent);
-    color: #fff;
+    padding: 12px 22px;
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    color: var(--accent-ink);
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 9px;
+    font-family: var(--font-display);
+    font-size: 13px;
     font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: opacity 0.15s;
+    box-shadow: 0 2px 10px var(--accent-glow);
+    transition: filter 0.15s, transform 0.1s;
     flex-shrink: 0;
   }
 
-  .chat-send:hover { opacity: 0.85; }
-  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-send:hover { filter: brightness(1.08); }
+  .chat-send:active { transform: translateY(1px); }
+  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
   .chat-empty {
     text-align: center;
@@ -720,27 +927,44 @@ export function getPortalHTML(): string {
   .wizard-progress-dot.done { background: var(--success); }
 
   .wizard-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    background: linear-gradient(160deg, var(--bg-secondary), var(--bg-primary));
+    border: 1px solid var(--border-strong);
+    border-radius: 18px;
     padding: 48px;
     width: 90%;
     max-width: 520px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-pop);
+  }
+
+  .wizard-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
   }
 
   .wizard-step { display: none; }
-  .wizard-step.active { display: block; }
+  .wizard-step.active { display: block; animation: fade-in 0.35s var(--ease); }
 
   .wizard-castle {
     font-size: 72px;
     margin-bottom: 16px;
     display: block;
+    animation: castle-float 4s ease-in-out infinite;
+    filter: drop-shadow(0 8px 24px var(--accent-glow));
   }
 
   .wizard-title {
-    font-size: 24px;
+    font-family: var(--font-display);
+    font-size: 25px;
     font-weight: 700;
+    letter-spacing: 0.5px;
     margin-bottom: 12px;
   }
 
@@ -752,19 +976,24 @@ export function getPortalHTML(): string {
   }
 
   .wizard-btn {
-    padding: 12px 32px;
-    background: var(--accent);
-    color: #fff;
+    padding: 13px 34px;
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    color: var(--accent-ink);
     border: none;
-    border-radius: 8px;
-    font-size: 15px;
+    border-radius: 9px;
+    font-family: var(--font-display);
+    font-size: 14px;
     font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: opacity 0.15s;
+    box-shadow: 0 3px 14px var(--accent-glow);
+    transition: filter 0.15s, transform 0.1s;
   }
 
-  .wizard-btn:hover { opacity: 0.85; }
-  .wizard-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .wizard-btn:hover { filter: brightness(1.08); }
+  .wizard-btn:active { transform: translateY(1px); }
+  .wizard-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
   .wizard-btn-secondary {
     padding: 10px 24px;
@@ -844,7 +1073,7 @@ export function getPortalHTML(): string {
   }
 
   .emoji-option:hover { border-color: var(--accent); transform: scale(1.1); }
-  .emoji-option.selected { border-color: var(--accent); background: rgba(108,92,231,0.2); }
+  .emoji-option.selected { border-color: var(--accent); background: rgba(230,162,60,0.22); }
 
   /* Avatar upload */
   .avatar-section {
@@ -933,7 +1162,7 @@ export function getPortalHTML(): string {
   }
 
   .wizard-summary-emoji { font-size: 48px; display: block; margin-bottom: 12px; }
-  .wizard-summary-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .wizard-summary-name { font-family: var(--font-display); font-size: 21px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px; }
   .wizard-summary-goals {
     font-size: 13px;
     color: var(--text-secondary);
@@ -953,8 +1182,8 @@ export function getPortalHTML(): string {
   /* ─── Scrollbar ─── */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 </style>
 </head>
 <body>
