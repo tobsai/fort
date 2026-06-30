@@ -1,0 +1,462 @@
+# Agent Ops — machine-readable backlog (rev. 2: Fort-native, one project)
+# Canonical copy for ingestion into a tracker or as a Fort flow seed.
+# Keep IDs stable. estimate: S<=0.5d, M=1-2d, L=3-5d, XL=>1wk/spike. status: todo|in-progress|done|wontfix.
+meta:
+  project: fort
+  revision: 2
+  created: 2026-06-30
+  owner: toby
+  spec: ../mtree - Agent Ops - Build vs Buy Analysis & Spec.md
+  architecture: one repo, three modules - fort-core (orchestration), fort-exec (native execution), fort-ui (interface)
+  references_not_components: [multica, agent-portal, postern]
+  estimate_legend: { S: "<=0.5d", M: "1-2d", L: "3-5d", XL: ">1wk or spike" }
+  routing:               # label -> agent (mirrors Fort's v1 ruleset, AO-017)
+    dev: codex
+    design: claude-code
+    chat: claude-code
+    errand: openclaw
+    research: hermes
+    spike: hermes
+    decision: human
+
+tickets:
+  # ---------- Phase 0 — Reconnaissance & setup ----------
+  - id: AO-001
+    title: Set up the Fort monorepo (core/exec/ui seams)
+    phase: 0
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-090]
+    status: todo
+    acceptance:
+      - Repo builds; core/exec/ui/rules/flows/cmd/docs modules exist
+      - Module boundaries enforced (core cannot import ui; core->exec only via Runtime)
+  - id: AO-002
+    title: Runtime recon - drive each CLI headless
+    phase: 0
+    type: spike
+    priority: P0
+    estimate: M
+    labels: [spike]
+    routes_to: hermes
+    depends_on: []
+    status: todo
+    key: true
+    acceptance:
+      - docs/notes/runtime-recon.md documents command/streaming/stdin/exit per CLI
+      - A script runs one real task on each of the four CLIs headless
+  - id: AO-003
+    title: Study Multica's Apache-2.0 daemon; decide what to vendor
+    phase: 0
+    type: spike
+    priority: P0
+    estimate: M
+    labels: [spike]
+    routes_to: hermes
+    depends_on: []
+    status: todo
+    key: true
+    acceptance:
+      - docs/notes/multica-daemon.md with borrow/skip decision per component + attribution plan
+      - AO-014 re-estimated against the decision
+  - id: AO-004
+    title: Extract fort-ui contracts from Agent Portal/Postern
+    phase: 0
+    type: spike
+    priority: P1
+    estimate: M
+    labels: [spike]
+    routes_to: hermes
+    depends_on: []
+    status: todo
+    acceptance:
+      - docs/notes/interface-contracts.md distills chat API, SSE/WS, board model, OpenClaw channel, iOS
+  - id: AO-005
+    title: Provider keys + secrets baseline
+    phase: 0
+    type: task
+    priority: P0
+    estimate: S
+    labels: [errand]
+    routes_to: openclaw
+    depends_on: []
+    status: todo
+    acceptance:
+      - Each CLI can call its provider headless
+      - No keys committed; .env.example documents required vars
+  - id: AO-006
+    title: Runtime topology decision (local vs VPS)
+    phase: 0
+    type: decision
+    priority: P1
+    estimate: S
+    labels: [decision]
+    routes_to: human
+    depends_on: [AO-002]
+    status: todo
+    acceptance:
+      - Decision recorded; if a box, provisioned with CLIs + keys
+
+  # ---------- Phase 1 — fort-core + fort-exec ----------
+  - id: AO-011
+    title: Scaffold fort-core service
+    phase: 1
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-001]
+    status: todo
+    acceptance:
+      - fort boots, loads config, serves /health
+      - CI runs lint + tests on push
+  - id: AO-012
+    title: Routing-rule YAML schema + parser
+    phase: 1
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-011]
+    status: todo
+    acceptance:
+      - Loads a ruleset; rejects invalid ones with line-level errors
+      - Unit tests for first-match-wins + default
+  - id: AO-013
+    title: Deterministic matcher engine
+    phase: 1
+    type: task
+    priority: P0
+    estimate: L
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-012]
+    status: todo
+    acceptance:
+      - Table-driven tests cover label/path/repo/@agent/size/time + any/all
+      - Returns exactly one route + a route_decision
+      - Zero model calls in the routing path (asserted)
+  - id: AO-014
+    title: Runtime interface + NativeRuntime (PTY executor)
+    phase: 1
+    type: task
+    priority: P0
+    estimate: XL
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-002, AO-003, AO-011]
+    status: todo
+    key: true
+    acceptance:
+      - Each of the four providers runs a real task via NativeRuntime and streams events
+      - signal injects input into a running interactive task; cancel works
+      - Interface is mockable (FakeRuntime) for unit tests
+  - id: AO-015
+    title: Inbox watcher -> router -> native dispatch
+    phase: 1
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-013, AO-014]
+    status: todo
+    acceptance:
+      - New task auto-routes and runs natively with zero manual assignment
+      - Routing accuracy measured (target >=90%)  # exit gate
+  - id: AO-016
+    title: State store + route_decision + event log
+    phase: 1
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-011]
+    status: todo
+    acceptance:
+      - SQLite run/node_run/route_decision/event (append-only)
+      - Every dispatch persisted with matched rule + provider
+  - id: AO-017
+    title: Author v1 ruleset (the four lanes)
+    phase: 1
+    type: task
+    priority: P0
+    estimate: S
+    labels: [design]
+    routes_to: claude-code
+    depends_on: [AO-013]
+    status: todo
+    acceptance:
+      - design/chat->Claude, dev->Codex, errand->OpenClaw, research->Hermes + default
+      - Sample tasks for each lane route correctly
+  - id: AO-018
+    title: fort CLI (dry-run, runs, logs)
+    phase: 1
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-013, AO-014]
+    status: todo
+    acceptance:
+      - route --dry-run prints matched rule + target agent
+      - run logs tails a live native run
+
+  # ---------- Phase 2 — task-graph + gates ----------
+  - id: AO-021
+    title: DAG model + executor
+    phase: 2
+    type: task
+    priority: P0
+    estimate: L
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-015, AO-016]
+    status: todo
+    acceptance:
+      - Node types task/gate/check/transform/fanout/fanin with conditional edges
+      - Only task nodes invoke Runtime/inference (asserted); flows resumable
+  - id: AO-022
+    title: check node (deterministic predicates)
+    phase: 2
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-021]
+    status: todo
+    acceptance:
+      - Pass/fail branch taken from a real command exit code
+  - id: AO-023
+    title: gate node (human approve/edit/reject)
+    phase: 2
+    type: task
+    priority: P0
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-021]
+    status: todo
+    acceptance:
+      - Flow halts at a gate; resumes via fort gate approve/reject or API
+  - id: AO-024
+    title: transform node
+    phase: 2
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-021]
+    status: todo
+    acceptance:
+      - Records inputs, outputs, and content hash
+  - id: AO-025
+    title: Retry + escalation semantics
+    phase: 2
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-021]
+    status: todo
+    acceptance:
+      - Failing task retries N times then escalates to a human gate
+  - id: AO-026
+    title: Port game-starter pipeline as Flow #1
+    phase: 2
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-022, AO-024]
+    status: todo
+    acceptance:
+      - batch_uniformity->normalize->catalog->import_drop runs as a Fort DAG
+  - id: AO-027
+    title: Author "ship a feature" Flow #2
+    phase: 2
+    type: task
+    priority: P1
+    estimate: M
+    labels: [design]
+    routes_to: claude-code
+    depends_on: [AO-022, AO-023]
+    status: todo
+    acceptance:
+      - spec->plan_gate->implement->tests->review->merge_gate->deploy with retry/escalate
+      - Runs unattended except at the two gates  # exit gate
+  - id: AO-028
+    title: Scheduler (cron/once triggers)
+    phase: 2
+    type: task
+    priority: P2
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-021]
+    status: todo
+    acceptance:
+      - A flow fires on a cron schedule and on a one-shot time
+
+  # ---------- Phase 3 — fort-ui interface ----------
+  - id: AO-031
+    title: fort-ui <-> fort-core event/command contract
+    phase: 3
+    type: task
+    priority: P1
+    estimate: M
+    labels: [design]
+    routes_to: claude-code
+    depends_on: [AO-016]
+    status: todo
+    acceptance:
+      - Event schema + command API published; fort-core emits conformant events; a run is replayable
+  - id: AO-032
+    title: Board module (live runs/nodes/agents)
+    phase: 3
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-031]
+    status: todo
+    acceptance:
+      - Board renders live Fort runs/nodes/agents in real time
+  - id: AO-033
+    title: Live-feed transport (SSE/WS)
+    phase: 3
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-031]
+    status: todo
+    acceptance:
+      - Board + chat update in real time as a run progresses
+  - id: AO-034
+    title: Chat surface wired to fort-core
+    phase: 3
+    type: task
+    priority: P1
+    estimate: L
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-031]
+    status: todo
+    acceptance:
+      - Chat to a specific agent works (the Claude chat/design surface)
+      - Saying "ship X" instantiates the matching Fort flow (template, not LLM planner)
+  - id: AO-035
+    title: Gate-inbox UI (approve/edit/reject -> signal)
+    phase: 3
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-023, AO-031]
+    status: todo
+    acceptance:
+      - Approving/rejecting from fort-ui resumes/branches the paused flow
+  - id: AO-036
+    title: OpenClaw channel (informed by Agent Portal)
+    phase: 3
+    type: task
+    priority: P2
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-004]
+    status: todo
+    acceptance:
+      - OpenClaw messages create/route Fort tasks
+  - id: AO-037
+    title: iOS shell pointed at Fort
+    phase: 3
+    type: task
+    priority: P2
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-032]
+    status: todo
+    acceptance:
+      - iOS app shows live runs and can approve a gate
+
+  # ---------- Phase 4 — Hardening, gateway, distribution ----------
+  - id: AO-041
+    title: Security baseline (sandbox, least-privilege, keys)
+    phase: 4
+    type: task
+    priority: P1
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-005, AO-014]
+    status: todo
+    acceptance:
+      - Each runtime runs with a scoped workdir + minimal permissions
+      - docs/notes/threat-model.md covers code-exec, secrets, and spend
+  - id: AO-042
+    title: Optional gateway (keys/budgets/failover)
+    phase: 4
+    type: task
+    priority: P2
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-014]
+    status: todo
+    acceptance:
+      - Per-flow spend cap enforced in a test; every model call traced (OTel)
+  - id: AO-043
+    title: Packaging & distribution (Homebrew tap)
+    phase: 4
+    type: task
+    priority: P2
+    estimate: M
+    labels: [dev]
+    routes_to: codex
+    depends_on: [AO-018]
+    status: todo
+    acceptance:
+      - brew install (your tap) installs a working fort; a release is cut
+
+  # ---------- Cross-cutting — decisions ----------
+  - id: AO-090
+    title: Decide Fort's language + module boundaries
+    phase: cross-cutting
+    type: decision
+    priority: P0
+    estimate: S
+    labels: [decision]
+    routes_to: human
+    depends_on: []
+    status: todo
+    acceptance:
+      - Decision recorded (recommend Go core/exec + ui over local HTTP/WS); unblocks AO-001
+  - id: AO-091
+    title: Open-core / licensing decision
+    phase: cross-cutting
+    type: decision
+    priority: P2
+    estimate: S
+    labels: [decision]
+    routes_to: human
+    depends_on: []
+    status: todo
+    acceptance:
+      - License chosen; Apache-2.0 attributions in place if vendoring Multica code
