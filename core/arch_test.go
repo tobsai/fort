@@ -26,6 +26,11 @@ func TestCoreDoesNotImportUIOrExec(t *testing.T) {
 		if d.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
+		// The seam governs production code. Test files legitimately inject a
+		// concrete runtime (exec/fake) to exercise the runtime.Runtime contract.
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
 		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if perr != nil {
 			return perr

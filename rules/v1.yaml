@@ -1,0 +1,56 @@
+# Fort v1 routing ruleset (backlog AO-017).
+# Deterministic, first-match-wins, with a default fallback. No model decides
+# routing — only the signals on a task. Lanes mirror the backlog's four agents.
+version: 1
+
+defaults:
+  route: claude # chat/design is the safe default lane
+
+rules:
+  # 0. An explicit @agent on the task always wins.
+  - id: explicit-agent
+    when:
+      agent: claude
+    route: claude
+  - id: explicit-codex
+    when:
+      agent: codex
+    route: codex
+  - id: explicit-openclaw
+    when:
+      agent: openclaw
+    route: openclaw
+  - id: explicit-hermes
+    when:
+      agent: hermes
+    route: hermes
+
+  # 1. dev lane -> Codex (implementation, refactors, tests, packaging, CI).
+  - id: dev-lane
+    when:
+      label: [dev, feature, bug, refactor, build, ci, test, packaging]
+    route: codex
+
+  # 2. errand lane -> OpenClaw (provisioning, secrets, messages, home, notify).
+  - id: errand-lane
+    when:
+      label: [errand, message, home, notify, provision, secrets]
+    route: openclaw
+
+  # 3. research/memory lane -> Hermes (repo reading, recon, long-running, knowledge).
+  - id: research-lane
+    when:
+      label: [research, spike, memory, longrun, knowledge, recon]
+    route: hermes
+
+  # 4. design/chat lane -> Claude (API/schema design, rulesets, decisions, chat).
+  - id: design-lane
+    when:
+      label: [design, chat, decision, schema, spec]
+    route: claude
+
+  # 5. code paths default to Codex even without a label.
+  - id: code-paths
+    when:
+      path: ["**/*.go", "**/*.ts", "**/*.tsx", "**/*.py", "**/*.rs", "**/*.swift"]
+    route: codex
