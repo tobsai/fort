@@ -1,0 +1,37 @@
+# Flow #1 — game-starter asset pipeline (backlog AO-026).
+# "Orchestration is coordination, not generation": every node here is
+# deterministic (check/transform). Any actual asset *generation* happens at a
+# task node outside this template. The pipeline is:
+#   batch_uniformity -> normalize -> catalog -> import_drop
+id: game-starter
+name: Game Starter Asset Pipeline
+start: batch_uniformity
+nodes:
+  - id: batch_uniformity
+    type: check
+    # Verify the incoming batch is uniform (placeholder: always passes).
+    # In practice: a script that asserts dimensions/format across the batch.
+    check:
+      command: ["sh", "-c", "exit 0"]
+    edges:
+      - { on: pass, to: normalize }
+      - { on: fail, to: reject }
+
+  - id: normalize
+    type: transform
+    transform: { op: identity } # normalize naming/format deterministically
+    edges:
+      - { on: success, to: catalog }
+
+  - id: catalog
+    type: transform
+    transform: { op: identity } # build the catalog record (records a content hash)
+    edges:
+      - { on: success, to: import_drop }
+
+  - id: import_drop
+    type: transform
+    transform: { op: identity } # stage the import drop; terminal
+
+  - id: reject
+    type: gate # non-uniform batch escalates to a human

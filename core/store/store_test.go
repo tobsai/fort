@@ -78,6 +78,21 @@ func TestEventsAppendOnlyAndOrdered(t *testing.T) {
 	}
 }
 
+func TestWaitingGates(t *testing.T) {
+	s := openTemp(t)
+	_ = s.CreateRun(Run{ID: "run1", Status: "blocked", FlowID: "ship"})
+	_ = s.UpsertNodeRun(NodeRun{ID: "run1:g1", RunID: "run1", NodeID: "g1", Type: "gate", Status: "waiting"})
+	_ = s.UpsertNodeRun(NodeRun{ID: "run1:t1", RunID: "run1", NodeID: "t1", Type: "task", Status: "succeeded"})
+
+	gates, err := s.WaitingGates()
+	if err != nil {
+		t.Fatalf("waiting gates: %v", err)
+	}
+	if len(gates) != 1 || gates[0].NodeID != "g1" {
+		t.Fatalf("waiting gates = %+v, want [g1]", gates)
+	}
+}
+
 func TestNodeRunUpsert(t *testing.T) {
 	s := openTemp(t)
 	_ = s.CreateRun(Run{ID: "run1", Agent: "codex", Status: "running"})

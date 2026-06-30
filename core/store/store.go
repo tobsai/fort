@@ -261,6 +261,31 @@ func (s *Store) NodeRuns(runID string) ([]NodeRun, error) {
 	return out, rows.Err()
 }
 
+// WaitingGates returns every gate node currently awaiting a human decision,
+// across all runs (the gate-inbox source).
+func (s *Store) WaitingGates() ([]NodeRun, error) {
+	rows, err := s.db.Query(
+		`SELECT id,run_id,node_id,type,status,input,output,attempts,created_at,updated_at
+		 FROM node_run WHERE type='gate' AND status='waiting' ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []NodeRun
+	for rows.Next() {
+		var n NodeRun
+		var created, updated string
+		if err := rows.Scan(&n.ID, &n.RunID, &n.NodeID, &n.Type, &n.Status,
+			&n.Input, &n.Output, &n.Attempts, &created, &updated); err != nil {
+			return nil, err
+		}
+		n.CreatedAt = parseTime(created)
+		n.UpdatedAt = parseTime(updated)
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
 // AppendEvent appends an event (append-only) and returns its id.
 func (s *Store) AppendEvent(e Event) (int64, error) {
 	res, err := s.db.Exec(

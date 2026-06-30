@@ -1,0 +1,64 @@
+# Flow #2 — "ship a feature" (backlog AO-027, spec §6.4).
+#   spec(claude) -> plan_gate -> implement(codex) -> tests(check)
+#     -> review(claude) -> merge_gate -> deploy(transform)
+# Runs unattended except at plan_gate and merge_gate. Failures retry then
+# escalate to a human gate.
+id: ship-feature
+name: Ship a Feature
+start: spec
+nodes:
+  - id: spec
+    type: task
+    agent: claude
+    prompt: "Write the spec for the requested feature."
+    edges:
+      - { on: success, to: plan_gate }
+
+  - id: plan_gate
+    type: gate # HUMAN: approve/edit/reject the plan
+    edges:
+      - { on: approve, to: implement }
+      - { on: reject, to: abandoned }
+
+  - id: implement
+    type: task
+    agent: codex
+    prompt: "Implement the approved plan."
+    retry: { max: 2 }
+    edges:
+      - { on: success, to: tests }
+      - { on: fail, to: escalate }
+
+  - id: tests
+    type: check
+    # The project's test command; placeholder passes for the template.
+    check:
+      command: ["sh", "-c", "exit 0"]
+    edges:
+      - { on: pass, to: review }
+      - { on: fail, to: escalate }
+
+  - id: review
+    type: task
+    agent: claude
+    prompt: "Review the implementation for correctness and conventions."
+    edges:
+      - { on: success, to: merge_gate }
+      - { on: fail, to: escalate }
+
+  - id: merge_gate
+    type: gate # HUMAN: approve/edit/reject the merge
+    edges:
+      - { on: approve, to: deploy }
+      - { on: reject, to: abandoned }
+
+  - id: deploy
+    type: transform
+    transform: { op: identity } # deterministic deploy/record; terminal
+
+  - id: escalate
+    type: gate # HUMAN: a failure escalated here
+
+  - id: abandoned
+    type: transform
+    transform: { op: identity } # rejected path; terminal

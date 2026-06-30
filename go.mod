@@ -5,6 +5,7 @@ go 1.26.4
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/google/uuid v1.6.0
+	github.com/robfig/cron/v3 v3.0.1
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.53.0
 )
