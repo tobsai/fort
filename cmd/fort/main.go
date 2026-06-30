@@ -12,9 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobsai/fort/core/flow"
+	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/task"
+	"github.com/tobsai/fort/ui"
 )
 
 const usage = `fort — deterministic agent orchestration
@@ -145,8 +148,21 @@ func cmdServe(args []string) error {
 		_ = in.Watch(ctx, time.Second)
 	}()
 
-	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store})
+	// Mount the fort-ui module (board, SSE feed, chat, gate inbox, OpenClaw).
+	flows, err := flow.LoadDir(flowsDir())
+	if err != nil {
+		return err
+	}
+	uiSrv := ui.New(ui.Deps{
+		Engine: a.engine,
+		Exec:   graph.NewExecutor(a.rt, a.store),
+		Store:  a.store,
+		Flows:  flows,
+	})
+
+	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: uiSrv.Register})
 	fmt.Printf("fort-core on http://%s  (runtime=%s)\n", a.cfg.Addr, a.rt.Name())
+	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat)\n", a.cfg.Addr)
 	return srv.Run(ctx)
 }
 

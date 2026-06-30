@@ -22,6 +22,10 @@ type Deps struct {
 	Engine *engine.Engine
 	Store  *store.Store
 	Logger *slog.Logger
+	// Mount optionally adds extra routes (the fort-ui module, wired in by
+	// cmd/fort). core never imports ui — the closure is provided from outside,
+	// preserving the core !-> ui seam.
+	Mount func(*http.ServeMux)
 }
 
 // Server serves the fort-core API.
@@ -43,7 +47,9 @@ func New(d Deps) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
-	s.registerUI(mux) // Phase 3 routes (no-op if UI deps absent)
+	if s.deps.Mount != nil {
+		s.deps.Mount(mux) // fort-ui routes, injected by cmd/fort
+	}
 	return mux
 }
 
