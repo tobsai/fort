@@ -2,6 +2,10 @@
 #   cd ui/apple && xcodegen generate
 # then open Fort.xcodeproj. The generated .xcodeproj is git-ignored (regenerable
 # from this spec). All targets depend on the local FortKit Swift package.
+#
+# Shipping shape: the iOS app (Fort) embeds the watchOS app (FortWatch), which in
+# turn embeds the complication (FortComplication) — so one TestFlight iOS build
+# delivers phone + watch + complication. FortMac ships as its own record.
 name: Fort
 options:
   bundleIdPrefix: io.mtree
@@ -26,8 +30,8 @@ packages:
     path: FortKit
 
 targets:
-  # iOS app — Board / Gates / Feed tabs. Includes the CarPlay scene delegate
-  # (compiles as part of the app; running CarPlay needs Apple's entitlement).
+  # iOS app — Board / Gates / Feed tabs. Embeds the watch app, and includes the
+  # CarPlay scene delegate (compiles; running CarPlay needs Apple's entitlement).
   Fort:
     type: application
     platform: iOS
@@ -37,15 +41,32 @@ targets:
       - path: CarPlay/FortCarPlaySceneDelegate.swift
     dependencies:
       - package: FortKit
+      - target: FortWatch
+        embed: true # deliver the watch app inside the iOS app
+    info:
+      path: Support/Fort-iOS-Info.plist
+      properties:
+        UILaunchScreen: {}
+        ITSAppUsesNonExemptEncryption: false # standard networking only
+        # Allow http to LAN / .local hosts (the control plane), without fully
+        # disabling ATS. Point the app at your host via the Settings screen.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # CarPlay scene. SwiftUI still provides the phone window scene; this only
+        # adds the CarPlay role. Inert until the CarPlay entitlement is granted
+        # (see docs/notes/testflight.md) — remove this block to ship without it.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneConfigurationName: FortCarPlay
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).FortCarPlaySceneDelegate
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: "YES"
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort
         TARGETED_DEVICE_FAMILY: "1,2"
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
-        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
 
-  # macOS menu-bar app (LSUIElement — no dock icon).
+  # macOS menu-bar app (LSUIElement — no dock icon). Ships as its own record.
   FortMac:
     type: application
     platform: macOS
@@ -54,13 +75,19 @@ targets:
         excludes: ["*.md"]
     dependencies:
       - package: FortKit
+    info:
+      path: Support/FortMac-Info.plist
+      properties:
+        LSUIElement: true
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: "YES"
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.mac
-        INFOPLIST_KEY_LSUIElement: "YES"
 
-  # watchOS app — glance + gate quick-approve.
+  # watchOS app — glance + gate quick-approve. Embedded in the iOS app; embeds
+  # the complication. Its bundle id is a child of the iOS app id.
   FortWatch:
     type: application
     platform: watchOS
@@ -69,11 +96,19 @@ targets:
       - path: watch/GlanceView.swift
     dependencies:
       - package: FortKit
+      - target: FortComplication
+        embed: true
+    info:
+      path: Support/FortWatch-Info.plist
+      properties:
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: io.mtree.fort # pair with the iOS app
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: "YES"
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.watch
-        INFOPLIST_KEY_WKApplication: "YES"
 
   # watchOS WidgetKit complication (pending-gate count).
   FortComplication:

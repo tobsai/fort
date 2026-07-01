@@ -118,6 +118,10 @@ struct FortComplication: Widget {
     }
 }
 
+// Xcode preview — the widget-preview macro requires watchOS 10 / iOS 17, so it
+// is scoped to watchOS (where this complication actually runs). This keeps the
+// file compiling when it is pulled into the iOS app's build graph (iOS 16).
+#if os(watchOS)
 #Preview(as: .accessoryCircular) {
     FortComplication()
 } timeline: {
@@ -125,3 +129,4 @@ struct FortComplication: Widget {
     GateEntry(date: .now, pendingGates: 3, hasExecution: true)
     GateEntry(date: .now, pendingGates: 1, hasExecution: false)
 }
+#endif
