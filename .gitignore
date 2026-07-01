@@ -17,3 +17,7 @@ dist/
 
 # fort-native runtime data
 .fort-native/
+
+# build outputs
+bin/
+dist/

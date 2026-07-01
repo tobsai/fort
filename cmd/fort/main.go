@@ -20,6 +20,9 @@ import (
 	"github.com/tobsai/fort/ui"
 )
 
+// version is injected at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 const usage = `fort — deterministic agent orchestration
 
 usage:
@@ -64,7 +67,7 @@ func main() {
 	case "schedule":
 		err = cmdSchedule(os.Args[2:])
 	case "version", "--version", "-v":
-		fmt.Println("fort 0.1.0 (fort-native)")
+		fmt.Printf("fort %s (fort-native)\n", version)
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	default:

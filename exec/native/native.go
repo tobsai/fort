@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +35,10 @@ type Provider struct {
 type Runtime struct {
 	providers map[string]Provider
 	workRoot  string
+	// EnvAllow, when non-empty, restricts which host environment variables are
+	// passed to spawned CLIs (least privilege, AO-041). Empty = pass the full
+	// environment (the relaxed default; providers need their own auth keys).
+	EnvAllow []string
 }
 
 // New builds a native runtime rooted at workRoot with the given providers.
@@ -51,6 +56,24 @@ func (r *Runtime) Name() string { return "native" }
 func (r *Runtime) provider(name string) (Provider, bool) {
 	p, ok := r.providers[name]
 	return p, ok
+}
+
+// scopedEnv builds the environment for a spawned CLI, honoring EnvAllow.
+func (r *Runtime) scopedEnv(spec runtime.RunSpec) []string {
+	if len(r.EnvAllow) == 0 {
+		return append(os.Environ(), spec.Env...)
+	}
+	allow := make(map[string]bool, len(r.EnvAllow))
+	for _, k := range r.EnvAllow {
+		allow[k] = true
+	}
+	var out []string
+	for _, kv := range os.Environ() {
+		if i := strings.IndexByte(kv, '='); i > 0 && allow[kv[:i]] {
+			out = append(out, kv)
+		}
+	}
+	return append(out, spec.Env...)
 }
 
 // Dispatch launches spec via its provider.
@@ -77,7 +100,7 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	cctx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(cctx, argv[0], argv[1:]...)
 	cmd.Dir = workdir
-	cmd.Env = append(os.Environ(), spec.Env...)
+	cmd.Env = r.scopedEnv(spec)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

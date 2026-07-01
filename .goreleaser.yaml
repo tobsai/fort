@@ -1,0 +1,44 @@
+# GoReleaser config for the fort-native binary (backlog AO-043).
+# Cross-compiles `fort` and publishes a Homebrew formula to tobsai/homebrew-tap.
+#   goreleaser release --clean          (needs a git tag + GITHUB_TOKEN)
+#   goreleaser build --snapshot --clean (local, no publish)
+version: 2
+
+project_name: fort
+
+builds:
+  - id: fort
+    main: ./cmd/fort
+    binary: fort
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: fort
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - name: fort
+    repository:
+      owner: tobsai
+      name: homebrew-tap
+    homepage: https://github.com/tobsai/fort
+    description: Deterministic agent orchestration — route, run, and gate agent CLIs natively
+    license: MIT
+    directory: Formula
+    install: |
+      bin.install "fort"
+    test: |
+      system "#{bin}/fort", "version"
+
+release:
+  github:
+    owner: tobsai
+    name: fort
