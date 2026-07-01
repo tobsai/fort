@@ -110,7 +110,7 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 			failID := e.newID()
 			_ = e.store.CreateRun(store.Run{
 				ID: failID, Title: title, Agent: dec.Route, Status: "failed",
-				MatchedRule: dec.MatchedRule, Error: perr.Error(),
+				MatchedRule: dec.MatchedRule, ExitCode: -1, Error: perr.Error(),
 			})
 			return failID, "", perr
 		}

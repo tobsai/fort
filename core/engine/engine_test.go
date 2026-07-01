@@ -136,8 +136,8 @@ func TestPlacementErrorBoardsFailedRun(t *testing.T) {
 		t.Errorf("expected no dispatch on placement failure")
 	}
 	got, gerr := st.GetRun(runID)
-	if gerr != nil || got.Status != "failed" || got.Error == "" {
-		t.Errorf("boarded run = %+v (err %v), want failed with error", got, gerr)
+	if gerr != nil || got.Status != "failed" || got.Error == "" || got.ExitCode != -1 {
+		t.Errorf("boarded run = %+v (err %v), want failed/-1 with error", got, gerr)
 	}
 }
 

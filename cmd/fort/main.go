@@ -208,6 +208,15 @@ func cmdServe(args []string) error {
 			exec = "on"
 		}
 		fmt.Printf("fort mesh : %d machines (%s) · accept remote exec: %s\n", len(a.reg.Machines), a.cfg.MachinesPath, exec)
+		peers := 0
+		for _, m := range a.reg.Machines {
+			if m.Name != a.reg.Local() {
+				peers++
+			}
+		}
+		if peers > 0 && a.cfg.NodeToken == "" {
+			fmt.Println("  warning: FORT_NODE_TOKEN is empty — outbound dispatch to peer machines will fail auth")
+		}
 	}
 	return srv.Run(ctx)
 }

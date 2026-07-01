@@ -98,8 +98,10 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad run spec", http.StatusBadRequest)
 		return
 	}
-	// The caller's placement label is spent; this node always runs locally.
+	// The caller's placement label is spent; this node always runs locally, and
+	// in its own workspace — never a workdir path dictated by the caller.
 	spec.Machine = ""
+	spec.Workdir = ""
 
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	enc := json.NewEncoder(w)
@@ -115,11 +117,24 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 
 	for ev := range run.Stream() {
 		if err := enc.Encode(ev); err != nil {
-			// Client vanished mid-stream — stop and cancel the local work.
+			// Client vanished mid-stream. Cancel the local work, then keep
+			// draining the stream to completion: the runtime's event channel is
+			// buffered, so a consumer that simply stops reading wedges the
+			// producer goroutines on a full-channel send (Cancel kills the
+			// process but cannot unblock a goroutine parked on a send). Draining
+			// lets them finish and the run terminate instead of leaking.
 			_ = run.Cancel()
+			go drain(run)
 			return
 		}
 		flusher.Flush()
+	}
+}
+
+// drain discards any remaining events so a runtime's producer goroutines unblock
+// and the run reaches a terminal state after the consumer has gone away.
+func drain(run runtime.Run) {
+	for range run.Stream() {
 	}
 }
 

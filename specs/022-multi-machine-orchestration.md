@@ -131,9 +131,14 @@ So `brew install fort` works without a checked-out repo:
   home LAN with two Macs. The exec endpoint runs arbitrary agent CLIs, so it is
   always authenticated; exposing the board is the operator's choice via
   `FORT_ADDR`. Board auth is a future add if Fort leaves the LAN.
-- **D6 — `fort serve` default is unchanged (single-machine).** Multi-machine is
-  opt-in via `FORT_MACHINES`; with it unset, no registry, no placement, no exec
-  endpoint — byte-for-byte today's behavior.
+- **D6 — `fort serve` default is unchanged (single-machine).** With both
+  `FORT_MACHINES` and `FORT_NODE_TOKEN` unset (the default), there is no registry,
+  no placement, and no exec endpoint — byte-for-byte today's behavior. The two
+  knobs are independent by design: `FORT_MACHINES` turns on outbound placement
+  (this host drives peers); `FORT_NODE_TOKEN` opens the authenticated inbound
+  `/api/exec` so this host can *accept* peer work. A pure execution node therefore
+  needs only the token, not the registry. Setting a token is an explicit opt-in
+  to accepting remote work; it is never on by default.
 - **D7 — Flows run on the local node in v1.** Threading machine placement through
   `graph.Node` is deferred to keep scope bounded.
 
