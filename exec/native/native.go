@@ -101,6 +101,7 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	cmd := exec.CommandContext(cctx, argv[0], argv[1:]...)
 	cmd.Dir = workdir
 	cmd.Env = r.scopedEnv(spec)
+	setProcGroup(cmd) // own process group so Cancel can kill the whole tree
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -132,6 +133,7 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 		cancel()
 		return nil, fmt.Errorf("native: start %s: %w", argv[0], err)
 	}
+	run.pgid = cmd.Process.Pid // == the new process group's ID (Setpgid)
 	go run.pump(cmd, stdout, stderr)
 	return run, nil
 }
@@ -143,6 +145,7 @@ type nativeRun struct {
 	done   chan struct{}
 	stdin  io.WriteCloser
 	cancel context.CancelFunc
+	pgid   int // process group ID; set once before pump starts
 
 	mu       sync.Mutex
 	status   runtime.Status
@@ -219,6 +222,11 @@ func (n *nativeRun) Cancel() error {
 	n.mu.Lock()
 	n.canceled = true
 	n.mu.Unlock()
+	// Kill the whole process group first: a grandchild the CLI backgrounded may
+	// hold the stdout/stderr pipes open, which would block the scanner
+	// goroutines on Scan() and stall teardown. Cancelling the context alone only
+	// SIGKILLs the direct child. Then cancel to reap it and free resources.
+	killProcGroup(n.pgid)
 	n.cancel()
 	return nil
 }
