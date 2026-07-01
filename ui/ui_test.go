@@ -1,4 +1,4 @@
-package ui
+package ui_test
 
 import (
 	"bufio"
@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tobsai/fort/control"
 	"github.com/tobsai/fort/core/engine"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
@@ -20,16 +21,32 @@ import (
 	"github.com/tobsai/fort/core/rules"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/exec/fake"
+	"github.com/tobsai/fort/ui"
 )
 
-func newUI(t *testing.T) (*Server, *store.Store) {
+func openStore(t *testing.T) *store.Store {
 	t.Helper()
-	tmp := t.TempDir()
-	st, err := store.Open(filepath.Join(tmp, "fort.db"))
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
+	return st
+}
+
+func loadFlows(t *testing.T) []graph.Flow {
+	t.Helper()
+	f, err := flow.LoadDir(filepath.Join("..", "flows"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// full mode: execution plane wired (engine dispatcher + flow runner).
+func newFullUI(t *testing.T) (*ui.Server, *store.Store) {
+	t.Helper()
+	st := openStore(t)
 	data, err := os.ReadFile(filepath.Join("..", "rules", "v1.yaml"))
 	if err != nil {
 		t.Fatal(err)
@@ -39,16 +56,32 @@ func newUI(t *testing.T) (*Server, *store.Store) {
 		t.Fatal(err)
 	}
 	rt := fake.New()
-	eng := engine.New(router.New(rs), rt, st, tmp)
-	ex := graph.NewExecutor(rt, st)
-	flows, err := flow.LoadDir(filepath.Join("..", "flows"))
-	if err != nil {
-		t.Fatal(err)
+	eng := engine.New(router.New(rs), rt, st, t.TempDir())
+	flows := loadFlows(t)
+	ids := make([]string, len(flows))
+	for i, f := range flows {
+		ids[i] = f.ID
 	}
-	return New(Deps{Engine: eng, Exec: ex, Store: st, Flows: flows}), st
+	return ui.New(ui.Deps{
+		Dispatcher: control.NewEngineDispatcher(eng),
+		Runner:     control.NewFlowExecutor(graph.NewExecutor(rt, st), flows),
+		Store:      st,
+		FlowIDs:    ids,
+	}), st
 }
 
-func do(t *testing.T, s *Server, method, path string, body any) *httptest.ResponseRecorder {
+// control-only mode: no execution plane at all.
+func newControlUI(t *testing.T) (*ui.Server, *store.Store) {
+	t.Helper()
+	st := openStore(t)
+	return ui.New(ui.Deps{
+		Dispatcher: control.NewQueueDispatcher(st),
+		Runner:     nil,
+		Store:      st,
+	}), st
+}
+
+func do(t *testing.T, s *ui.Server, method, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
 	s.Register(mux)
@@ -62,55 +95,58 @@ func do(t *testing.T, s *Server, method, path string, body any) *httptest.Respon
 	return rec
 }
 
+func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
+	t.Helper()
+	var v T
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
+		t.Fatalf("decode: %v (%s)", err, rec.Body)
+	}
+	return v
+}
+
+// ---- full mode ----
+
 func TestChatCreatesRoutedTask(t *testing.T) {
-	s, _ := newUI(t)
-	rec := do(t, s, "POST", "/api/chat", ChatRequest{Text: "please summarize the repo"})
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "please summarize the repo"})
 	if rec.Code != 200 {
 		t.Fatalf("code %d: %s", rec.Code, rec.Body)
 	}
-	var res ChatResult
-	_ = json.Unmarshal(rec.Body.Bytes(), &res)
-	if res.Kind != "task" || res.Route != "claude" {
-		t.Errorf("res = %+v, want task/claude", res)
+	res := decode[ui.ChatResult](t, rec)
+	if res.Kind != "task" || res.Route != "claude" || res.Queued {
+		t.Errorf("res = %+v, want task/claude not queued", res)
 	}
 }
 
 func TestChatShipInstantiatesFlow(t *testing.T) {
-	s, _ := newUI(t)
-	rec := do(t, s, "POST", "/api/chat", ChatRequest{Text: "ship dark mode toggle"})
-	var res ChatResult
-	_ = json.Unmarshal(rec.Body.Bytes(), &res)
-	if res.Kind != "flow" || res.FlowID != "ship-feature" {
-		t.Fatalf("res = %+v, want flow/ship-feature", res)
-	}
-	if res.Paused != "plan_gate" {
-		t.Errorf("paused = %q, want plan_gate", res.Paused)
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship dark mode toggle"})
+	res := decode[ui.ChatResult](t, rec)
+	if res.Kind != "flow" || res.FlowID != "ship-feature" || res.Paused != "plan_gate" {
+		t.Fatalf("res = %+v, want flow/ship-feature paused at plan_gate", res)
 	}
 }
 
 func TestGateDecisionResumesFlow(t *testing.T) {
-	s, _ := newUI(t)
-	rec := do(t, s, "POST", "/api/chat", ChatRequest{Text: "ship a thing"})
-	var started ChatResult
-	_ = json.Unmarshal(rec.Body.Bytes(), &started)
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship a thing"})
+	started := decode[ui.ChatResult](t, rec)
 
-	rec = do(t, s, "POST", "/api/gate", GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "approve"})
+	rec = do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "approve"})
 	if rec.Code != 200 {
 		t.Fatalf("gate code %d: %s", rec.Code, rec.Body)
 	}
-	var ar ActionResult
-	_ = json.Unmarshal(rec.Body.Bytes(), &ar)
+	ar := decode[ui.ActionResult](t, rec)
 	if ar.State != "paused" || ar.PausedNode != "merge_gate" {
 		t.Errorf("after plan approve = %+v, want paused at merge_gate", ar)
 	}
 }
 
 func TestBoardListsRunsAndGates(t *testing.T) {
-	s, _ := newUI(t)
-	_ = do(t, s, "POST", "/api/chat", ChatRequest{Text: "ship something"})
+	s, _ := newFullUI(t)
+	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship something"})
 	rec := do(t, s, "GET", "/api/board", nil)
-	var b Board
-	_ = json.Unmarshal(rec.Body.Bytes(), &b)
+	b := decode[ui.Board](t, rec)
 	if len(b.Runs) != 1 {
 		t.Errorf("runs = %d, want 1", len(b.Runs))
 	}
@@ -120,17 +156,66 @@ func TestBoardListsRunsAndGates(t *testing.T) {
 }
 
 func TestOpenClawMessageBecomesTask(t *testing.T) {
-	s, _ := newUI(t)
-	rec := do(t, s, "POST", "/api/openclaw", OpenClawMessage{From: "+15550100", Text: "tell me when the build is done"})
-	var res ChatResult
-	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/openclaw", ui.OpenClawMessage{From: "+15550100", Text: "tell me when the build is done"})
+	res := decode[ui.ChatResult](t, rec)
 	if res.Kind != "task" || res.Route != "openclaw" {
 		t.Errorf("res = %+v, want task routed to openclaw", res)
 	}
 }
 
+// ---- control-only mode ----
+
+func TestControlOnlyChatQueuesTask(t *testing.T) {
+	s, st := newControlUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "remember to water plants"})
+	res := decode[ui.ChatResult](t, rec)
+	if res.Kind != "task" || !res.Queued || res.Route != "" {
+		t.Fatalf("res = %+v, want a queued task with no route", res)
+	}
+	run, err := st.GetRun(res.RunID)
+	if err != nil || run.Status != "queued" {
+		t.Errorf("run = %+v err=%v, want queued", run, err)
+	}
+}
+
+func TestControlOnlyShipDoesNotRunFlow(t *testing.T) {
+	s, _ := newControlUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship dark mode"})
+	res := decode[ui.ChatResult](t, rec)
+	// with no execution plane, "ship X" degrades to a boarded task, not a flow.
+	if res.Kind != "task" || !res.Queued {
+		t.Errorf("res = %+v, want a queued task (no flow without execution)", res)
+	}
+}
+
+func TestControlOnlyGateReturns409(t *testing.T) {
+	s, _ := newControlUI(t)
+	rec := do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: "x", NodeID: "g", Decision: "approve"})
+	if rec.Code != http.StatusConflict {
+		t.Errorf("code = %d, want 409 (no execution plane)", rec.Code)
+	}
+}
+
+func TestControlOnlyBoardAndSummaryWork(t *testing.T) {
+	s, _ := newControlUI(t)
+	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "task one"})
+	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "task two"})
+
+	board := decode[ui.Board](t, do(t, s, "GET", "/api/board", nil))
+	if len(board.Runs) != 2 {
+		t.Errorf("board runs = %d, want 2", len(board.Runs))
+	}
+	sum := decode[ui.Summary](t, do(t, s, "GET", "/api/summary", nil))
+	if sum.Total != 2 || sum.Queued != 2 || sum.Execution {
+		t.Errorf("summary = %+v, want total/queued 2 and execution=false", sum)
+	}
+}
+
+// ---- shared ----
+
 func TestEventsSSEReplaysLog(t *testing.T) {
-	s, st := newUI(t)
+	s, st := newControlUI(t)
 	_ = st.CreateRun(store.Run{ID: "r1", Agent: "codex", Status: "running"})
 	_, _ = st.AppendEvent(store.Event{RunID: "r1", Type: "started", Data: "codex"})
 	_, _ = st.AppendEvent(store.Event{RunID: "r1", Type: "message", Data: "hello world"})
@@ -154,18 +239,14 @@ func TestEventsSSEReplaysLog(t *testing.T) {
 	var got []string
 	sc := bufio.NewScanner(resp.Body)
 	for sc.Scan() {
-		line := sc.Text()
-		if strings.HasPrefix(line, "data: ") {
+		if line := sc.Text(); strings.HasPrefix(line, "data: ") {
 			got = append(got, line)
 			if len(got) >= 2 {
 				break
 			}
 		}
 	}
-	if len(got) < 2 {
-		t.Fatalf("got %d data frames, want >=2: %v", len(got), got)
-	}
-	if !strings.Contains(strings.Join(got, "\n"), "hello world") {
-		t.Errorf("SSE frames missing message: %v", got)
+	if len(got) < 2 || !strings.Contains(strings.Join(got, "\n"), "hello world") {
+		t.Fatalf("SSE frames = %v", got)
 	}
 }

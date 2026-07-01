@@ -10,39 +10,40 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tobsai/fort/core/engine"
-	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 )
 
-// Deps are the ui module's collaborators (all from core).
+// Deps are the control-plane collaborators — ports only. With no Runner and a
+// queue Dispatcher this serves a full control plane (board, chat, scheduler,
+// gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Engine *engine.Engine
-	Exec   *graph.Executor
-	Store  *store.Store
-	Flows  []graph.Flow
+	Dispatcher Dispatcher   // required
+	Runner     FlowRunner   // nil in control-only mode
+	Store      *store.Store // required
+	FlowIDs    []string     // available flow ids (for chat templates); empty in control-only
 }
 
 // Server holds the ui handlers.
 type Server struct {
-	d     Deps
-	flows map[string]graph.Flow
+	d       Deps
+	flowIDs map[string]bool
 }
 
 // New builds a ui server.
 func New(d Deps) *Server {
-	m := map[string]graph.Flow{}
-	for _, f := range d.Flows {
-		m[f.ID] = f
+	set := map[string]bool{}
+	for _, id := range d.FlowIDs {
+		set[id] = true
 	}
-	return &Server{d: d, flows: m}
+	return &Server{d: d, flowIDs: set}
 }
 
 // Register mounts the ui routes onto mux.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", s.handlePage)
 	mux.HandleFunc("GET /api/board", s.handleBoard)
+	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRunDetail)
 	mux.HandleFunc("GET /api/gates", s.handleGates)
 	mux.HandleFunc("POST /api/gate", s.handleGate)
@@ -50,6 +51,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 }
+
+// HasExecution reports whether an execution plane is wired (for diagnostics).
+func (s *Server) HasExecution() bool { return s.d.Runner != nil }
 
 func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 	runs, err := s.d.Store.ListRuns()
@@ -70,6 +74,43 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 		b.Gates = append(b.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
 	}
 	writeJSON(w, http.StatusOK, b)
+}
+
+// handleSummary is the glanceable payload for constrained surfaces (watch
+// complication, CarPlay). Counts by status + the pending gates.
+func (s *Server) handleSummary(w http.ResponseWriter, _ *http.Request) {
+	runs, err := s.d.Store.ListRuns()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	gates, err := s.d.Store.WaitingGates()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	sum := Summary{Total: len(runs), Execution: s.d.Runner != nil}
+	for _, r := range runs {
+		switch r.Status {
+		case "running":
+			sum.Running++
+		case "queued":
+			sum.Queued++
+		case "blocked":
+			sum.Blocked++
+		case "succeeded":
+			sum.Succeeded++
+		case "failed":
+			sum.Failed++
+		}
+	}
+	for i, g := range gates {
+		if i >= 10 {
+			break
+		}
+		sum.Gates = append(sum.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
+	}
+	writeJSON(w, http.StatusOK, sum)
 }
 
 func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
@@ -104,8 +145,13 @@ func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleGate approves/rejects a gate and resumes the flow (AO-035).
+// handleGate approves/rejects a gate and resumes the flow (AO-035). Requires an
+// execution plane; in control-only mode it returns 409.
 func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
+	if s.d.Runner == nil {
+		http.Error(w, "no execution plane: gate actions need the deterministic engine", http.StatusConflict)
+		return
+	}
 	var dec GateDecision
 	if err := json.NewDecoder(r.Body).Decode(&dec); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -116,16 +162,11 @@ func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "run not found", http.StatusNotFound)
 		return
 	}
-	f, ok := s.flows[run.FlowID]
-	if !ok {
-		http.Error(w, "flow not found for run", http.StatusNotFound)
-		return
-	}
 	switch dec.Decision {
 	case "approve":
-		err = s.d.Exec.Approve(dec.RunID, dec.NodeID, dec.Edit)
+		err = s.d.Runner.Approve(dec.RunID, dec.NodeID, dec.Edit)
 	case "reject":
-		err = s.d.Exec.Reject(dec.RunID, dec.NodeID)
+		err = s.d.Runner.Reject(dec.RunID, dec.NodeID)
 	default:
 		http.Error(w, "decision must be approve|reject", http.StatusBadRequest)
 		return
@@ -134,7 +175,7 @@ func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	res, err := s.d.Exec.Resume(r.Context(), f, dec.RunID)
+	res, err := s.d.Runner.ResumeFlow(r.Context(), run.FlowID, dec.RunID)
 	if err != nil {
 		httpError(w, err)
 		return
@@ -142,35 +183,34 @@ func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ActionResult{State: res.State, PausedNode: res.PausedNode})
 }
 
-// handleChat creates a task — or, if the message matches a flow template,
-// instantiates that flow deterministically (no LLM planner) (AO-034).
+// handleChat boards a task — or, with an execution plane, routes it or (for a
+// template trigger like "ship X") instantiates that flow deterministically.
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Text) == "" {
 		http.Error(w, "text is required", http.StatusBadRequest)
 		return
 	}
-	if flowID, input, ok := matchFlow(req.Text, s.flows); ok {
-		runID := uuid.NewString()
-		res, err := s.d.Exec.Start(r.Context(), s.flows[flowID], runID, input)
-		if err != nil {
-			httpError(w, err)
+	// Flow templates require an execution plane.
+	if s.d.Runner != nil {
+		if flowID, input, ok := matchFlow(req.Text, s.flowIDs); ok {
+			runID := uuid.NewString()
+			res, err := s.d.Runner.StartFlow(r.Context(), flowID, runID, input)
+			if err != nil {
+				httpError(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, ChatResult{Kind: "flow", RunID: runID, FlowID: flowID, Paused: res.PausedNode})
 			return
 		}
-		writeJSON(w, http.StatusOK, ChatResult{Kind: "flow", RunID: runID, FlowID: flowID, Paused: res.PausedNode})
-		return
 	}
-	t := task.Task{
-		ID: uuid.NewString(), Title: req.Text, Body: req.Text,
-		Agent: req.Agent, CreatedAt: time.Now(),
-	}
-	dec := s.d.Engine.Route(t)
-	runID, err := s.d.Engine.Submit(r.Context(), t)
+	t := task.Task{ID: uuid.NewString(), Title: req.Text, Body: req.Text, Agent: req.Agent, CreatedAt: time.Now()}
+	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: runID, Route: dec.Route})
+	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Queued: ref.Queued})
 }
 
 // handleOpenClaw maps an inbound OpenClaw message to a Fort task (AO-036).
@@ -182,16 +222,15 @@ func (s *Server) handleOpenClaw(w http.ResponseWriter, r *http.Request) {
 	}
 	t := task.Task{
 		ID: uuid.NewString(), Title: m.Text, Body: m.Text,
-		Labels: []string{"message"}, // routes via the errand lane -> openclaw
+		Labels:    []string{"message"}, // routes via the errand lane -> openclaw
 		CreatedAt: time.Now(),
 	}
-	dec := s.d.Engine.Route(t)
-	runID, err := s.d.Engine.Submit(r.Context(), t)
+	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: runID, Route: dec.Route})
+	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Queued: ref.Queued})
 }
 
 // handleEvents streams the append-only event log as SSE (AO-033). ?since=N
@@ -238,10 +277,10 @@ func (s *Server) handlePage(w http.ResponseWriter, _ *http.Request) {
 
 // matchFlow maps a chat message to a flow template (deterministic, not an LLM
 // planner): "ship <X>" -> ship-feature with input <X>.
-func matchFlow(text string, flows map[string]graph.Flow) (flowID, input string, ok bool) {
+func matchFlow(text string, flowIDs map[string]bool) (flowID, input string, ok bool) {
 	lower := strings.ToLower(strings.TrimSpace(text))
 	if rest, found := strings.CutPrefix(lower, "ship "); found {
-		if _, has := flows["ship-feature"]; has {
+		if flowIDs["ship-feature"] {
 			return "ship-feature", strings.TrimSpace(text[len(text)-len(rest):]), true
 		}
 	}

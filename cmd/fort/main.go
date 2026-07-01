@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobsai/fort/control"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
@@ -26,7 +27,10 @@ var version = "dev"
 const usage = `fort — deterministic agent orchestration
 
 usage:
-  fort serve [--inbox DIR]         boot fort-core (health, inbox watcher)
+  fort serve [--inbox DIR]         boot the full plane (control + execution)
+  fort control [--inbox DIR]       boot the CONTROL PLANE ONLY (board, chat,
+                                   scheduler, gate inbox) — no router/runtime/DAG,
+                                   no agent CLIs needed; tasks are boarded as queued
   fort route --dry-run [taskflags] print the matched rule + target agent
   fort task add [taskflags]        route + dispatch a task natively
   fort runs list                   list runs
@@ -52,6 +56,8 @@ func main() {
 	switch os.Args[1] {
 	case "serve":
 		err = cmdServe(os.Args[2:])
+	case "control":
+		err = cmdControl(os.Args[2:])
 	case "route":
 		err = cmdRoute(os.Args[2:])
 	case "task":
@@ -151,21 +157,25 @@ func cmdServe(args []string) error {
 		_ = in.Watch(ctx, time.Second)
 	}()
 
-	// Mount the fort-ui module (board, SSE feed, chat, gate inbox, OpenClaw).
+	// Mount the fort-ui module with a full execution plane wired in.
 	flows, err := flow.LoadDir(flowsDir())
 	if err != nil {
 		return err
 	}
+	ids := make([]string, len(flows))
+	for i, f := range flows {
+		ids[i] = f.ID
+	}
 	uiSrv := ui.New(ui.Deps{
-		Engine: a.engine,
-		Exec:   graph.NewExecutor(a.rt, a.store),
-		Store:  a.store,
-		Flows:  flows,
+		Dispatcher: control.NewEngineDispatcher(a.engine),
+		Runner:     control.NewFlowExecutor(graph.NewExecutor(a.rt, a.store), flows),
+		Store:      a.store,
+		FlowIDs:    ids,
 	})
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: uiSrv.Register})
 	fmt.Printf("fort-core on http://%s  (runtime=%s)\n", a.cfg.Addr, a.rt.Name())
-	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat)\n", a.cfg.Addr)
+	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat · execution)\n", a.cfg.Addr)
 	return srv.Run(ctx)
 }
 

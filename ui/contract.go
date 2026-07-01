@@ -77,11 +77,25 @@ type ChatRequest struct {
 
 // ChatResult is the response for chat/openclaw.
 type ChatResult struct {
-	Kind   string `json:"kind"`             // task | flow
+	Kind   string `json:"kind"`              // task | flow
 	RunID  string `json:"run_id"`
-	Route  string `json:"route,omitempty"`  // agent, for task kind
+	Route  string `json:"route,omitempty"`   // agent, for task kind (execution plane)
+	Queued bool   `json:"queued,omitempty"`  // true when only boarded (control-only)
 	FlowID string `json:"flow_id,omitempty"` // for flow kind
 	Paused string `json:"paused,omitempty"`  // gate id if the flow paused
+}
+
+// Summary is the glanceable control-plane snapshot for constrained surfaces
+// (watch complication, CarPlay). Served at GET /api/summary.
+type Summary struct {
+	Total     int        `json:"total"`
+	Running   int        `json:"running"`
+	Queued    int        `json:"queued"`
+	Blocked   int        `json:"blocked"` // paused at a gate
+	Succeeded int        `json:"succeeded"`
+	Failed    int        `json:"failed"`
+	Execution bool       `json:"execution"` // whether an execution plane is attached
+	Gates     []GateItem `json:"gates"`
 }
 
 // OpenClawMessage is an inbound OpenClaw message (AO-036).
