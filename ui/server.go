@@ -18,10 +18,11 @@ import (
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Dispatcher Dispatcher   // required
-	Runner     FlowRunner   // nil in control-only mode
-	Store      *store.Store // required
-	FlowIDs    []string     // available flow ids (for chat templates); empty in control-only
+	Dispatcher Dispatcher    // required
+	Runner     FlowRunner    // nil in control-only mode
+	Store      *store.Store  // required
+	FlowIDs    []string      // available flow ids (for chat templates); empty in control-only
+	Machines   MachineLister // nil in single-machine mode (spec 022)
 }
 
 // Server holds the ui handlers.
@@ -46,6 +47,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRunDetail)
 	mux.HandleFunc("GET /api/gates", s.handleGates)
+	mux.HandleFunc("GET /api/machines", s.handleMachines)
 	mux.HandleFunc("POST /api/gate", s.handleGate)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
@@ -70,7 +72,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 	// (the Swift surfaces via FortKit) decode cleanly.
 	b := Board{Runs: []RunSummary{}, Gates: []GateItem{}}
 	for _, r := range runs {
-		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Agent: r.Agent, Status: r.Status, FlowID: r.FlowID})
+		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Agent: r.Agent, Status: r.Status, Machine: r.Machine, FlowID: r.FlowID})
 	}
 	for _, g := range gates {
 		b.Gates = append(b.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
@@ -125,7 +127,7 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 	nodes, _ := s.d.Store.NodeRuns(id)
 	evs, _ := s.d.Store.Events(id)
 	d := RunDetail{
-		Run:    RunSummary{ID: run.ID, Title: run.Title, Agent: run.Agent, Status: run.Status, FlowID: run.FlowID},
+		Run:    RunSummary{ID: run.ID, Title: run.Title, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID},
 		Nodes:  []NodeSummary{},
 		Events: []Event{},
 	}
@@ -136,6 +138,16 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 		d.Events = append(d.Events, toEvent(e))
 	}
 	writeJSON(w, http.StatusOK, d)
+}
+
+// handleMachines returns the machine roster + reachability (spec 022). Empty in
+// single-machine mode (no MachineLister wired).
+func (s *Server) handleMachines(w http.ResponseWriter, _ *http.Request) {
+	out := []MachineStatus{}
+	if s.d.Machines != nil {
+		out = s.d.Machines.Machines()
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {
@@ -210,13 +222,13 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	t := task.Task{ID: uuid.NewString(), Title: req.Text, Body: req.Text, Agent: req.Agent, CreatedAt: time.Now()}
+	t := task.Task{ID: uuid.NewString(), Title: req.Text, Body: req.Text, Agent: req.Agent, Machine: req.Machine, CreatedAt: time.Now()}
 	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Queued: ref.Queued})
+	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
 }
 
 // handleOpenClaw maps an inbound OpenClaw message to a Fort task (AO-036).
@@ -236,7 +248,7 @@ func (s *Server) handleOpenClaw(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Queued: ref.Queued})
+	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
 }
 
 // handleEvents streams the append-only event log as SSE (AO-033). ?since=N

@@ -73,10 +73,18 @@ func (e *Engine) wait(runID string) {
 // (powers `fort route --dry-run`).
 func (e *Engine) Route(t task.Task) router.RouteDecision { return e.router.Route(t) }
 
-// Submit routes and dispatches a task. It persists the route decision and a run
-// row, starts native execution, and streams events into the store on a
-// goroutine. It returns the run id immediately.
+// Submit routes and dispatches a task, returning the run id immediately. It
+// satisfies inbox.Submitter; callers that need the resolved machine use
+// SubmitRef.
 func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
+	runID, _, err := e.SubmitRef(ctx, t)
+	return runID, err
+}
+
+// SubmitRef is Submit that also returns the resolved machine (spec 022). It
+// persists the route decision and a run row, starts native execution, and
+// streams events into the store on a goroutine.
+func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, error) {
 	dec := e.router.Route(t)
 	_ = e.store.SaveRouteDecision(store.RouteDecision{
 		ID:          e.newID(),
@@ -96,15 +104,15 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 	// original single-machine behavior (machine stays "").
 	machine := ""
 	if e.placer != nil {
-		m, err := e.placer.Place(dec.Route, t.Machine)
-		if err != nil {
+		m, perr := e.placer.Place(dec.Route, t.Machine)
+		if perr != nil {
 			// Board the placement failure so it is visible, then surface it.
-			runID := e.newID()
+			failID := e.newID()
 			_ = e.store.CreateRun(store.Run{
-				ID: runID, Title: title, Agent: dec.Route, Status: "failed",
-				MatchedRule: dec.MatchedRule, Error: err.Error(),
+				ID: failID, Title: title, Agent: dec.Route, Status: "failed",
+				MatchedRule: dec.MatchedRule, Error: perr.Error(),
 			})
-			return runID, err
+			return failID, "", perr
 		}
 		machine = m
 	}
@@ -118,7 +126,7 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 		MatchedRule: dec.MatchedRule,
 		Machine:     machine,
 	}); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	spec := runtime.RunSpec{
@@ -131,14 +139,14 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 	run, err := e.rt.Dispatch(ctx, spec)
 	if err != nil {
 		_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
-		return runID, err
+		return runID, machine, err
 	}
 
 	done := make(chan struct{})
 	go e.consume(run, runID, done)
 	// stash the done channel so SubmitAndWait can block on it
 	e.track(runID, done)
-	return runID, nil
+	return runID, machine, nil
 }
 
 // SubmitAndWait submits a task and blocks until its run terminates, returning

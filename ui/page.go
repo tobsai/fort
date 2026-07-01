@@ -36,6 +36,10 @@ const boardHTML = `<!doctype html>
   .s-failed{color:var(--bad);border-color:#5a2f2a}
   .s-running,.s-blocked{color:var(--warn);border-color:#5a4a23}
   .s-queued{color:var(--mut)}
+  .mtag{font-size:10px;color:var(--mut);border:1px solid var(--line);border-radius:10px;padding:1px 6px}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dot.up{background:var(--ok)}.dot.down{background:var(--bad)}
+  .chat select{background:#0d1117;border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 8px;font:inherit}
   .feed{font-size:12px;max-height:26vh;overflow:auto;padding:6px 0}
   .ev{padding:2px 14px;white-space:pre-wrap;word-break:break-word}
   .ev .t{color:var(--mut)}
@@ -56,6 +60,7 @@ const boardHTML = `<!doctype html>
   <span class="id" id="clock"></span>
 </header>
 <div class="counts" id="counts"></div>
+<div class="counts" id="machines" style="display:none"></div>
 <div class="wrap">
   <section class="panel">
     <h2>Runs</h2>
@@ -67,6 +72,7 @@ const boardHTML = `<!doctype html>
     <h2 style="border-top:1px solid var(--line)">Live feed</h2>
     <div class="feed" id="feed"></div>
     <div class="chat">
+      <select id="machine" title="target machine"><option value="">any machine</option></select>
       <input id="msg" placeholder="chat… (try: ship dark mode)" onkeydown="if(event.key==='Enter')send()"/>
       <button onclick="send()">send</button>
     </div>
@@ -84,9 +90,21 @@ async function refresh(){
   $('#counts').innerHTML=['running','queued','blocked','succeeded','failed']
     .map(k=>'<span class="count">'+k+' <b>'+(sum[k]||0)+'</b></span>').join('')+
     '<span class="count">total <b>'+sum.total+'</b></span>';
+  const ms=await (await fetch('/api/machines')).json();
+  const mbar=$('#machines');
+  if(ms&&ms.length){
+    mbar.style.display='flex';
+    mbar.innerHTML='<span class="count">machines</span>'+ms.map(m=>
+      '<span class="count"><span class="dot '+(m.reachable?'up':'down')+'"></span>'+m.name+(m.local?' (local)':'')+
+      ' <b>'+(m.agents||[]).join(',')+'</b></span>').join('');
+    const sel=$('#machine');const cur=sel.value;
+    sel.innerHTML='<option value="">any machine</option>'+ms.map(m=>'<option value="'+m.name+'">'+m.name+'</option>').join('');
+    sel.value=cur;
+  }else{mbar.style.display='none';}
   const b=await (await fetch('/api/board')).json();
   $('#runs').innerHTML=(b.runs&&b.runs.length)?b.runs.map(r=>
     '<div class="row">'+badge(r.status)+'<span class="agent">'+r.agent+'</span>'+
+    (r.machine?'<span class="mtag">'+r.machine+'</span>':'')+
     '<span class="grow">'+(r.title||r.id)+'</span><span class="id">'+r.id.slice(0,8)+'</span></div>').join(''):'<div class="empty">no runs yet</div>';
   $('#gates').innerHTML=(b.gates&&b.gates.length)?b.gates.map(g=>
     '<div class="gate"><span class="grow">'+g.node_id+'<span class="id"> · '+g.run_id.slice(0,8)+'</span></span>'+
@@ -100,7 +118,8 @@ async function decide(run,node,decision){
 }
 async function send(){
   const el=$('#msg');const text=el.value.trim();if(!text)return;el.value='';
-  await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text})});
+  const machine=$('#machine')?$('#machine').value:'';
+  await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine})});
   refresh();
 }
 const es=new EventSource('/api/events?since=0');

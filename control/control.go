@@ -29,11 +29,11 @@ func NewEngineDispatcher(e *engine.Engine) EngineDispatcher { return EngineDispa
 // Submit routes the task and starts native execution.
 func (d EngineDispatcher) Submit(ctx context.Context, t task.Task) (ui.RunRef, error) {
 	dec := d.e.Route(t)
-	runID, err := d.e.Submit(ctx, t)
+	runID, machine, err := d.e.SubmitRef(ctx, t)
 	if err != nil {
 		return ui.RunRef{}, err
 	}
-	return ui.RunRef{RunID: runID, Route: dec.Route}, nil
+	return ui.RunRef{RunID: runID, Route: dec.Route, Machine: machine}, nil
 }
 
 // QueueDispatcher boards a task as a "queued" run with no execution plane.

@@ -26,11 +26,21 @@ type Event struct {
 
 // RunSummary is a board card.
 type RunSummary struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Agent  string `json:"agent"`
-	Status string `json:"status"`
-	FlowID string `json:"flow_id,omitempty"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Agent   string `json:"agent"`
+	Status  string `json:"status"`
+	Machine string `json:"machine,omitempty"` // host the run is placed on (spec 022)
+	FlowID  string `json:"flow_id,omitempty"`
+}
+
+// MachineStatus is one host in the roster (GET /api/machines, spec 022).
+type MachineStatus struct {
+	Name      string   `json:"name"`
+	URL       string   `json:"url,omitempty"`
+	Agents    []string `json:"agents"`
+	Local     bool     `json:"local"`
+	Reachable bool     `json:"reachable"`
 }
 
 // NodeSummary is a node's state within a run.
@@ -71,18 +81,20 @@ type GateDecision struct {
 
 // ChatRequest is the command body for POST /api/chat.
 type ChatRequest struct {
-	Text  string `json:"text"`
-	Agent string `json:"agent,omitempty"` // force a specific agent
+	Text    string `json:"text"`
+	Agent   string `json:"agent,omitempty"`   // force a specific agent
+	Machine string `json:"machine,omitempty"` // pin a target host (spec 022)
 }
 
 // ChatResult is the response for chat/openclaw.
 type ChatResult struct {
-	Kind   string `json:"kind"`              // task | flow
-	RunID  string `json:"run_id"`
-	Route  string `json:"route,omitempty"`   // agent, for task kind (execution plane)
-	Queued bool   `json:"queued,omitempty"`  // true when only boarded (control-only)
-	FlowID string `json:"flow_id,omitempty"` // for flow kind
-	Paused string `json:"paused,omitempty"`  // gate id if the flow paused
+	Kind    string `json:"kind"`              // task | flow
+	RunID   string `json:"run_id"`
+	Route   string `json:"route,omitempty"`   // agent, for task kind (execution plane)
+	Machine string `json:"machine,omitempty"` // resolved host (spec 022)
+	Queued  bool   `json:"queued,omitempty"`  // true when only boarded (control-only)
+	FlowID  string `json:"flow_id,omitempty"` // for flow kind
+	Paused  string `json:"paused,omitempty"`  // gate id if the flow paused
 }
 
 // Summary is the glanceable control-plane snapshot for constrained surfaces

@@ -20,6 +20,7 @@ import (
 	"github.com/tobsai/fort/core/router"
 	"github.com/tobsai/fort/core/rules"
 	"github.com/tobsai/fort/core/store"
+	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/ui"
 )
@@ -221,6 +222,58 @@ func TestArraysSerializeAsEmptyNotNull(t *testing.T) {
 		if strings.Contains(body, "null") {
 			t.Errorf("%s emitted null for an array (want []): %s", path, strings.TrimSpace(body))
 		}
+	}
+}
+
+// ---- multi-machine (spec 022) ----
+
+// capturingDispatcher records the task it received (to assert wiring).
+type capturingDispatcher struct{ last task.Task }
+
+func (d *capturingDispatcher) Submit(_ context.Context, t task.Task) (ui.RunRef, error) {
+	d.last = t
+	return ui.RunRef{RunID: "cap", Route: t.Agent, Machine: t.Machine}, nil
+}
+
+type stubMachines struct{ list []ui.MachineStatus }
+
+func (s stubMachines) Machines() []ui.MachineStatus { return s.list }
+
+func TestChatPinsMachine(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "build it", Machine: "macbook-pro"})
+	res := decode[ui.ChatResult](t, rec)
+	if cd.last.Machine != "macbook-pro" {
+		t.Fatalf("task.Machine = %q, want macbook-pro", cd.last.Machine)
+	}
+	if res.Machine != "macbook-pro" {
+		t.Fatalf("result.Machine = %q, want macbook-pro", res.Machine)
+	}
+}
+
+func TestMachinesEndpointReturnsRoster(t *testing.T) {
+	st := openStore(t)
+	roster := stubMachines{list: []ui.MachineStatus{
+		{Name: "mac-mini", Agents: []string{"claude", "codex"}, Local: true, Reachable: true},
+		{Name: "macbook-pro", Agents: []string{"codex"}, Reachable: false},
+	}}
+	s := ui.New(ui.Deps{Dispatcher: control.NewQueueDispatcher(st), Store: st, Machines: roster})
+	got := decode[[]ui.MachineStatus](t, do(t, s, "GET", "/api/machines", nil))
+	if len(got) != 2 || got[0].Name != "mac-mini" || !got[0].Local || got[1].Reachable {
+		t.Fatalf("machines = %+v", got)
+	}
+}
+
+func TestMachinesEmptyWhenSingleMachine(t *testing.T) {
+	s, _ := newControlUI(t)
+	rec := do(t, s, "GET", "/api/machines", nil)
+	if got := decode[[]ui.MachineStatus](t, rec); len(got) != 0 {
+		t.Fatalf("want empty roster, got %+v", got)
+	}
+	if strings.Contains(rec.Body.String(), "null") {
+		t.Errorf("machines emitted null (want []): %s", strings.TrimSpace(rec.Body.String()))
 	}
 }
 
