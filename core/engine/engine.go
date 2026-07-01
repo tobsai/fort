@@ -16,6 +16,14 @@ import (
 	"github.com/tobsai/fort/core/task"
 )
 
+// Placer chooses the machine that will run an agent (spec 022). Like the router
+// it is a pure, deterministic function of its inputs — zero model calls — so the
+// full dispatch path stays model-free. core/machines.Registry implements it;
+// cmd/fort injects it in multi-machine mode.
+type Placer interface {
+	Place(agent, pin string) (machine string, err error)
+}
+
 // Engine routes and dispatches tasks.
 type Engine struct {
 	router   *router.Router
@@ -23,6 +31,7 @@ type Engine struct {
 	store    *store.Store
 	workRoot string
 	newID    func() string
+	placer   Placer // nil => single-machine (no placement)
 
 	mu      sync.Mutex
 	waiters map[string]chan struct{} // runID -> done
@@ -39,6 +48,10 @@ func New(r *router.Router, rt runtime.Runtime, st *store.Store, workRoot string)
 		waiters:  map[string]chan struct{}{},
 	}
 }
+
+// UsePlacer enables deterministic machine placement (spec 022). With no placer
+// the engine dispatches to the local runtime exactly as before.
+func (e *Engine) UsePlacer(p Placer) { e.placer = p }
 
 func (e *Engine) track(runID string, done chan struct{}) {
 	e.mu.Lock()
@@ -74,17 +87,36 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 		Reason:      dec.Reason,
 	})
 
-	runID := e.newID()
 	title := t.Title
 	if title == "" {
 		title = t.ID
 	}
+
+	// Deterministic machine placement (spec 022). A nil placer keeps the
+	// original single-machine behavior (machine stays "").
+	machine := ""
+	if e.placer != nil {
+		m, err := e.placer.Place(dec.Route, t.Machine)
+		if err != nil {
+			// Board the placement failure so it is visible, then surface it.
+			runID := e.newID()
+			_ = e.store.CreateRun(store.Run{
+				ID: runID, Title: title, Agent: dec.Route, Status: "failed",
+				MatchedRule: dec.MatchedRule, Error: err.Error(),
+			})
+			return runID, err
+		}
+		machine = m
+	}
+
+	runID := e.newID()
 	if err := e.store.CreateRun(store.Run{
 		ID:          runID,
 		Title:       title,
 		Agent:       dec.Route,
 		Status:      "running",
 		MatchedRule: dec.MatchedRule,
+		Machine:     machine,
 	}); err != nil {
 		return "", err
 	}
@@ -94,6 +126,7 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 		Agent:   dec.Route,
 		Prompt:  prompt(t),
 		Workdir: filepath.Join(e.workRoot, runID),
+		Machine: machine,
 	}
 	run, err := e.rt.Dispatch(ctx, spec)
 	if err != nil {

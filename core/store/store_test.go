@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 )
@@ -50,6 +51,64 @@ func TestRunLifecycle(t *testing.T) {
 	if err != nil || len(runs) != 1 {
 		t.Fatalf("list: %v / %d", err, len(runs))
 	}
+}
+
+func TestRunMachineRoundTrip(t *testing.T) {
+	s := openTemp(t)
+	if err := s.CreateRun(Run{ID: "r1", Title: "t", Agent: "codex", Status: "running", Machine: "macbook-pro"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := s.GetRun("r1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Machine != "macbook-pro" {
+		t.Errorf("machine = %q, want macbook-pro", got.Machine)
+	}
+}
+
+// TestMachineColumnMigratesOldDB proves the additive migration is idempotent:
+// a DB whose run table predates the machine column gains it on Open, and rows
+// written before the column read back with an empty machine.
+func TestMachineColumnMigratesOldDB(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+
+	// Simulate a pre-022 database: run table without the machine column.
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`CREATE TABLE run (
+	  id TEXT PRIMARY KEY, title TEXT, agent TEXT, status TEXT, matched_rule TEXT,
+	  flow_id TEXT, exit_code INTEGER, error TEXT, created_at TEXT, updated_at TEXT
+	);
+	INSERT INTO run(id,title,agent,status,matched_rule,flow_id,exit_code,error,created_at,updated_at)
+	VALUES('legacy','old run','claude','succeeded','','',0,'','2020-01-01T00:00:00Z','2020-01-01T00:00:00Z');`)
+	if err != nil {
+		t.Fatalf("seed old db: %v", err)
+	}
+	db.Close()
+
+	// Open through the store: migration must add the column without dropping the row.
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("open (migrate): %v", err)
+	}
+	defer s.Close()
+
+	got, err := s.GetRun("legacy")
+	if err != nil {
+		t.Fatalf("get legacy: %v", err)
+	}
+	if got.Title != "old run" || got.Machine != "" {
+		t.Errorf("legacy row = %+v, want title 'old run' + empty machine", got)
+	}
+	// A second Open must be a no-op (idempotent) and still succeed.
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatalf("second open: %v", err)
+	}
+	s2.Close()
 }
 
 func TestEventsAppendOnlyAndOrdered(t *testing.T) {

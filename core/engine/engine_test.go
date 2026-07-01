@@ -85,6 +85,76 @@ func TestSubmitDefaultsWhenNoRuleMatches(t *testing.T) {
 	}
 }
 
+// stubPlacer records the arguments it is asked to place and returns a fixed
+// answer (or an error), standing in for core/machines.Registry.
+type stubPlacer struct {
+	machine  string
+	err      error
+	gotAgent string
+	gotPin   string
+}
+
+func (p *stubPlacer) Place(agent, pin string) (string, error) {
+	p.gotAgent, p.gotPin = agent, pin
+	return p.machine, p.err
+}
+
+func TestPlacementRecordsMachineAndStampsSpec(t *testing.T) {
+	e, _, rt := newEngine(t)
+	p := &stubPlacer{machine: "macbook-pro"}
+	e.UsePlacer(p)
+
+	run, err := e.SubmitAndWait(context.Background(), task.Task{
+		ID: "t4", Title: "build", Labels: []string{"feature"}, Machine: "macbook-pro",
+	})
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	// Placement was asked about the routed agent + the task's machine pin.
+	if p.gotAgent != "codex" || p.gotPin != "macbook-pro" {
+		t.Errorf("place args = (%q,%q), want (codex,macbook-pro)", p.gotAgent, p.gotPin)
+	}
+	if run.Machine != "macbook-pro" {
+		t.Errorf("run machine = %q, want macbook-pro", run.Machine)
+	}
+	disp := rt.Dispatched()
+	if len(disp) != 1 || disp[0].Machine != "macbook-pro" {
+		t.Errorf("dispatched spec machine = %+v", disp)
+	}
+}
+
+func TestPlacementErrorBoardsFailedRun(t *testing.T) {
+	e, st, rt := newEngine(t)
+	e.UsePlacer(&stubPlacer{err: context.DeadlineExceeded})
+
+	runID, err := e.Submit(context.Background(), task.Task{ID: "t5", Title: "x", Labels: []string{"feature"}})
+	if err == nil {
+		t.Fatal("expected placement error")
+	}
+	// No dispatch happened, but the failure is boarded for visibility.
+	if len(rt.Dispatched()) != 0 {
+		t.Errorf("expected no dispatch on placement failure")
+	}
+	got, gerr := st.GetRun(runID)
+	if gerr != nil || got.Status != "failed" || got.Error == "" {
+		t.Errorf("boarded run = %+v (err %v), want failed with error", got, gerr)
+	}
+}
+
+func TestNoPlacerLeavesMachineEmpty(t *testing.T) {
+	e, _, rt := newEngine(t) // no UsePlacer
+	run, err := e.SubmitAndWait(context.Background(), task.Task{ID: "t6", Title: "x", Labels: []string{"feature"}})
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if run.Machine != "" {
+		t.Errorf("machine = %q, want empty (single-machine)", run.Machine)
+	}
+	if d := rt.Dispatched(); len(d) != 1 || d[0].Machine != "" {
+		t.Errorf("dispatched spec machine = %+v, want empty", d)
+	}
+}
+
 func TestSubmitFailureRecordsFailedStatus(t *testing.T) {
 	e, _, rt := newEngine(t)
 	rt.ExitCode = 1

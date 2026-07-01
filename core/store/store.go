@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // pure-Go driver, registered as "sqlite"
@@ -34,6 +35,7 @@ type Run struct {
 	Agent       string
 	Status      string
 	MatchedRule string
+	Machine     string // resolved target host (spec 022); "" = local/single-machine
 	FlowID      string
 	ExitCode    int
 	Error       string
@@ -97,7 +99,8 @@ CREATE TABLE IF NOT EXISTS route_decision (
 CREATE INDEX IF NOT EXISTS idx_route_decision_task ON route_decision(task_id);
 CREATE TABLE IF NOT EXISTS run (
   id TEXT PRIMARY KEY, title TEXT, agent TEXT, status TEXT, matched_rule TEXT,
-  flow_id TEXT, exit_code INTEGER, error TEXT, created_at TEXT, updated_at TEXT
+  machine TEXT, flow_id TEXT, exit_code INTEGER, error TEXT,
+  created_at TEXT, updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS node_run (
   id TEXT PRIMARY KEY, run_id TEXT, node_id TEXT, type TEXT, status TEXT,
@@ -110,11 +113,42 @@ CREATE TABLE IF NOT EXISTS event (
 );
 CREATE INDEX IF NOT EXISTS idx_event_run ON event(run_id);
 `
-	_, err := s.db.Exec(schema)
-	if err != nil {
+	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
 	}
+	// Additive migrations for databases created before a column existed. Each is
+	// idempotent (skipped when the column is already present).
+	if err := s.addColumn("run", "machine", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate run.machine: %w", err)
+	}
 	return nil
+}
+
+// addColumn adds col to table if it is not already present (idempotent).
+func (s *Store) addColumn(table, col, typ string) error {
+	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid, notnull, pk int
+			name, ctype      string
+			dflt             sql.NullString
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if strings.EqualFold(name, col) {
+			return nil // already present
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = s.db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, col, typ))
+	return err
 }
 
 func nowOr(t time.Time) string {
@@ -166,9 +200,9 @@ func (s *Store) RouteDecisions(taskID string) ([]RouteDecision, error) {
 func (s *Store) CreateRun(r Run) error {
 	now := nowOr(r.CreatedAt)
 	_, err := s.db.Exec(
-		`INSERT INTO run(id,title,agent,status,matched_rule,flow_id,exit_code,error,created_at,updated_at)
-		 VALUES(?,?,?,?,?,?,?,?,?,?)`,
-		r.ID, r.Title, r.Agent, r.Status, r.MatchedRule, r.FlowID, r.ExitCode, r.Error, now, now)
+		`INSERT INTO run(id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		r.ID, r.Title, r.Agent, r.Status, r.MatchedRule, r.Machine, r.FlowID, r.ExitCode, r.Error, now, now)
 	return err
 }
 
@@ -183,7 +217,7 @@ func (s *Store) UpdateRunStatus(id, status string, exitCode int, errMsg string) 
 // GetRun returns a run by id.
 func (s *Store) GetRun(id string) (Run, error) {
 	row := s.db.QueryRow(
-		`SELECT id,title,agent,status,matched_rule,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run WHERE id=?`, id)
 	return scanRun(row)
 }
@@ -191,7 +225,7 @@ func (s *Store) GetRun(id string) (Run, error) {
 // ListRuns returns all runs, newest first.
 func (s *Store) ListRuns() ([]Run, error) {
 	rows, err := s.db.Query(
-		`SELECT id,title,agent,status,matched_rule,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -215,11 +249,13 @@ type scanner interface {
 func scanRun(row scanner) (Run, error) {
 	var r Run
 	var created, updated string
-	err := row.Scan(&r.ID, &r.Title, &r.Agent, &r.Status, &r.MatchedRule, &r.FlowID,
+	var machine sql.NullString
+	err := row.Scan(&r.ID, &r.Title, &r.Agent, &r.Status, &r.MatchedRule, &machine, &r.FlowID,
 		&r.ExitCode, &r.Error, &created, &updated)
 	if err != nil {
 		return Run{}, err
 	}
+	r.Machine = machine.String // NULL (pre-migration rows) -> ""
 	r.CreatedAt = parseTime(created)
 	r.UpdatedAt = parseTime(updated)
 	return r, nil

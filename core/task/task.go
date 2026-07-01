@@ -13,7 +13,8 @@ type Task struct {
 	Labels    []string  `json:"labels,omitempty"`
 	Paths     []string  `json:"paths,omitempty"` // files the task touches
 	Repo      string    `json:"repo,omitempty"`
-	Agent     string    `json:"agent,omitempty"` // explicit @agent override
-	Size      string    `json:"size,omitempty"`  // S | M | L | XL
+	Agent     string    `json:"agent,omitempty"`   // explicit @agent override
+	Size      string    `json:"size,omitempty"`    // S | M | L | XL
+	Machine   string    `json:"machine,omitempty"` // explicit host pin (spec 022)
 	CreatedAt time.Time `json:"created_at"`
 }

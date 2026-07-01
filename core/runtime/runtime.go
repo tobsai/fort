@@ -17,6 +17,10 @@ type RunSpec struct {
 	Prompt  string   // the task body handed to the CLI
 	Workdir string   // scoped working directory
 	Env     []string // additional KEY=VALUE pairs
+	// Machine is the resolved target host (spec 022). Empty means "here": the
+	// local runtime handles it. A non-local name routes the spec to that
+	// machine's runtime (exec/cluster). Providers ignore this field.
+	Machine string
 }
 
 // EventType enumerates normalized run events streamed from any runtime.
