@@ -2,166 +2,94 @@
   <img src="assets/fort-logo.png" alt="Fort" width="800" />
 </p>
 
-# NOTE: This is still in the prototype phase and not ready for use
-
 # Fort
 
-Fort is a task-centric personal AI agent platform. It is not a chat wrapper. Every interaction creates a task with clear ownership and status. Deterministic services handle orchestration, memory, scheduling, and reflection. Users create long-lived specialist agents through a web portal, each defined by a SOUL.md that shapes its personality and goals.
+**Deterministic agent orchestration — route work, run it natively, gate it at humans.**
 
-## Quick Start
+Fort takes a task, routes it to the right agent by fixed rules (no model in the
+routing path), runs it by spawning the agent CLIs itself, and sequences
+multi-step work as a DAG that pauses at human gates. It runs as one native Go
+binary and exposes a control plane you can drive from the web, iOS, macOS,
+CarPlay, and Apple Watch.
 
-```bash
-# Install globally from npm
-npm install -g @fort-ai/cli
+> Built native per the [Agent Ops Backlog](./Agent%20Ops%20Backlog/) (rev. 2).
+> The original TypeScript prototype was an experiment; this Go build is the
+> delivered project. Governing spec: [`specs/021-fort-native.md`](./specs/021-fort-native.md).
 
-# Initialize Fort and open the portal wizard
-fort init
+## Two planes, two modes (one binary)
 
-# The portal opens at http://localhost:4077
-# Walk through the setup wizard to create your first agent
+```sh
+fort serve      # full plane: control + deterministic execution
+fort control    # CONTROL PLANE ONLY — board, chat, scheduler, gate inbox, feed
+                # no router/runtime/DAG, no agent CLIs needed; tasks are boarded
 ```
 
-### Use as a library
-
-```bash
-npm install @fort-ai/core
-```
-
-```typescript
-import { Fort } from '@fort-ai/core';
-```
-
-### Development
-
-```bash
-# Clone the repo
-git clone https://github.com/fort-ai/fort.git
-cd fort
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Link the CLI globally
-npm link --workspace=packages/cli
-```
+- **Control plane** — the human surfaces: Kanban board, chat, scheduler, gate
+  inbox, live feed, and the client apps. Depends on nothing but the store.
+- **Execution plane** (deterministic) — the router, the native runtime that
+  spawns `claude`/`codex`/`hermes`/`openclaw`, and the DAG engine. Optional —
+  plug it in for `fort serve`, leave it out for `fort control`.
 
 ## Architecture
 
-Fort separates **services** from **agents**.
+One Go module, hard module seams (enforced by `core/arch_test.go`):
 
-**Services** are deterministic infrastructure. They do not use LLMs unless they hit ambiguity. They live in `packages/core/src/services/`.
+| Module | Role |
+|---|---|
+| `core/` | deterministic orchestration: rules, router, runtime interface, store, engine, graph, inbox, flow, scheduler, server |
+| `exec/` | native execution: `NativeRuntime` (PTY-less CLI executor), `FakeRuntime`, `gateway` (budgets/tracing/failover) |
+| `ui/` | control-plane HTTP/SSE API + web board; imports **none** of the execution components |
+| `control/` | adapters wiring execution into the ui ports (or a queue-only dispatcher) |
+| `rules/`, `flows/` | the routing ruleset and flow definitions (YAML) |
+| `cmd/fort/` | the `fort` CLI |
+| `ui/apple/` | FortKit Swift package + iOS / macOS / CarPlay / watch clients |
 
-| Service | Role |
-|---------|------|
-| **Orchestrator** | Creates a task for every chat message and routes it to the correct agent |
-| **Memory** | Manages the graph-based knowledge store |
-| **Scheduler** | Executes cron-scheduled routines |
-| **Reflection** | Periodically scans completed tasks for missed action items, creates follow-up tasks |
+Design tenets: **routing is deterministic** (proven by tests, zero model calls);
+**only `task` nodes invoke inference**; **every state change is an append-only
+event** (the feed + board are derived, replayable).
 
-**Agents** are user-created specialists. Each agent has a SOUL.md that defines its personality, goals, rules, voice, and boundaries. The SOUL.md is injected into the LLM system prompt at runtime.
+## Quickstart
 
-Chat messages go to the user's default agent (or a selected long-lived agent). The orchestrator service creates the task and routes it -- it does not answer questions itself.
-
-### Task-Centric Design
-
-Every chat message creates a task. Tasks have:
-
-- `result` -- the outcome
-- `assignedTo` -- `'agent'` or `'user'`
-- Status -- To Do, In Progress, Done
-
-The portal at `http://localhost:4077` shows a kanban board with clear ownership across these columns.
-
-### Agent Lifecycle
-
-Users create agents through the portal setup wizard or the CLI. The wizard collects name, goals, and emoji, then generates a SOUL.md.
-
-Each agent gets a directory:
-
-```
-.fort/data/agents/<agent-slug>/
-  identity.yaml   # name, status, metadata
-  SOUL.md          # personality, goals, rules, voice, boundaries
-  tools/           # agent-specific tool configs
+```sh
+# needs Go 1.22+ (brew install go)
+make build                       # -> ./bin/fort
+./bin/fort control               # control plane at http://127.0.0.1:4087/
+# or, with the execution plane + agent CLIs installed:
+./bin/fort serve
 ```
 
-Lifecycle commands: `fort agents create`, `fork`, `retire`, `revive`.
+Then open the board at `/`, or drive the API:
 
-## CLI Reference
-
-| Command | Description |
-|---------|-------------|
-| `fort init` | Initialize Fort, open portal wizard |
-| `fort doctor` | Health checks across all modules |
-| `fort status` | System status overview |
-| `fort agents list` | List specialist agents |
-| `fort agents create` | Create a specialist agent |
-| `fort agents fork <id>` | Clone an agent with a new name |
-| `fort agents retire <id>` | Deactivate an agent |
-| `fort agents revive <id>` | Reactivate a retired agent |
-| `fort agents inspect <id>` | Deep-inspect an agent |
-| `fort tasks` | Show task graph (kanban view) |
-| `fort memory stats` | Memory graph statistics |
-| `fort tools list` | Tool registry |
-| `fort tokens` | Token usage and cost |
-| `fort tokens budget-set` | Set spending limits |
-| `fort schedule list` | Cron jobs |
-| `fort routines list` | Scheduled routines |
-| `fort flags list` | Feature flags |
-| `fort plugins list` | Loaded plugins |
-| `fort harness start` | Start a self-coding cycle |
-| `fort rewind` | Snapshot management |
-| `fort introspect` | System profile and capability map |
-| `fort llm setup` | Authenticate with Claude |
-| `fort llm status` | LLM config and usage stats |
-| `fort llm ask <prompt>` | Send a prompt (`--model fast\|standard\|powerful`) |
-
-## Project Structure
-
-```
-packages/
-  core/             TypeScript core
-    src/
-      services/       Orchestrator, Memory, Scheduler, Reflection
-      agents/         Agent framework, SOUL.md handling
-      task-graph/     Task tracking and kanban state
-      memory/         Graph-based memory store
-      module-bus/     Event-driven message bus
-      llm/            Anthropic Claude API client
-      threads/        Conversation threading
-      tools/          Tool registry
-      permissions/    Tiered action model
-      flows/          Deterministic workflow engine
-      tokens/         Usage tracking and budgets
-      scheduler/      Cron scheduling
-      routines/       Cron-scheduled routines
-      diagnostics/    FortDoctor health checks
-      harness/        Self-coding cycle
-      integrations/   Gmail, Calendar, iMessage, Brave Search
-      ipc/            WebSocket server
-      plugins/        Plugin system
-      rewind/         Snapshot backup and restore
-      specs/          Spec-driven development
-  cli/              Commander.js CLI
-  swift-shell/      macOS menu bar app (AppKit + WebSocket)
-  dashboard/        Tauri + React dashboard and portal (http://localhost:4077)
-  docs/             Docusaurus documentation
+```sh
+fort route --dry-run --label bug "null deref"      # -> codex
+fort task add --label research "read the repo"      # auto-route + run natively
+fort flow run ship-feature --input "add search"     # DAG, pauses at gates
+fort gate approve <run> plan_gate
 ```
 
-## Tech Stack
+`FORT_FAKE=1` runs a token-free fake runtime for demos/CI.
 
-- **Runtime**: Node.js / TypeScript
-- **Tests**: Vitest
-- **CLI**: Commander.js
-- **DB**: better-sqlite3 (SQLite per module)
-- **Config**: YAML + JSON Schema (ajv)
-- **LLM**: Anthropic Claude (Haiku/Sonnet/Opus tiered routing)
-- **macOS**: Swift/AppKit menu bar + Tauri dashboard
-- **Docs**: Docusaurus
+## Clients
+
+All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./docs/notes/event-contract.md)):
+
+- **Web** — served at `GET /` (board, feed, chat, gate inbox).
+- **Apple** — [`ui/apple`](./ui/apple): a shared **FortKit** package reused by iOS,
+  macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
+  compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
+
+## What needs you
+
+- The execution plane spawns real agent CLIs (`claude`, `codex`, `hermes`;
+  `openclaw` pending install) with your provider keys — see `.env.example`.
+- CarPlay ships only with Apple's category-gated entitlement (see the TestFlight
+  note); the code compiles and runs in the simulator regardless.
+
+## Docs
+
+`Agent Ops Backlog/` (the plan), `docs/notes/` (recon, decisions, threat model,
+control-plane, event contract, distribution, TestFlight), `specs/` (specs).
 
 ## License
 
-[MIT](LICENSE)
+MIT © 2026 Tobias Gunn.

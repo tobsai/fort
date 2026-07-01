@@ -1,33 +1,63 @@
 # Fort — Claude Code Directives
 
 ## Project Overview
-Fort is a self-improving personal AI agent platform. A ground-up replacement for OpenClaw combining long-lived specialist agents, graph-based memory, deterministic workflows, and macOS native integration.
+Fort is deterministic agent orchestration: it routes a task to the right agent by
+fixed rules (no model in the routing path), runs it by spawning the agent CLIs
+natively, and sequences multi-step work as a DAG that pauses at human gates. One
+native **Go** binary, with a control plane driven from web / iOS / macOS /
+CarPlay / watch.
+
+> This Go build (`fort-native`) is the delivered project, built per the
+> `Agent Ops Backlog/` (rev. 2). The earlier TypeScript prototype was an
+> experiment and has been removed (recover from git history if ever needed).
+> Governing spec: `specs/021-fort-native.md`.
 
 ## Architecture
-- **Monorepo** with `packages/core` (TypeScript), `packages/cli` (TypeScript), `packages/swift-shell` (Swift), `packages/dashboard` (Tauri + React)
-- **Three languages**: TypeScript (core logic), Swift (macOS native), Python (MemU memory sidecar)
-- **Module Bus**: Event-driven backbone — all modules communicate via typed events
-- **Task Graph**: Every conversation creates a task. Tasks are the atomic unit of transparency
-- **Agent Registry**: Core agents (Orchestrator, Memory, Scheduler, Reflection) + specialist agents
+One Go module (`github.com/tobsai/fort`), hard module seams enforced by
+`core/arch_test.go`:
+- `core/` — deterministic orchestration: `rules`, `router`, `runtime` (the
+  executor interface), `store` (SQLite), `engine`, `graph` (DAG), `inbox`,
+  `flow`, `scheduler`, `server`, `config`.
+- `exec/` — native execution: `native.NativeRuntime` (spawns CLIs), `fake`
+  (tests), `gateway` (budgets/tracing/failover). Implements `core/runtime.Runtime`.
+- `ui/` — control-plane HTTP/SSE API + web board. Talks to the rest of Fort only
+  through ports (`Dispatcher`, `FlowRunner`); imports **none** of the
+  execution/deterministic packages.
+- `control/` — adapters that plug execution into the ui ports (or a queue-only
+  dispatcher for control-only mode).
+- `cmd/fort/` — the CLI (composition root; the only place that imports a concrete
+  runtime).
+- `rules/`, `flows/` — YAML ruleset + flow definitions. `ui/apple/` — FortKit +
+  the Apple clients.
+
+**Two planes:** the **control plane** (board, chat, scheduler, gate inbox, feed,
+clients) runs with no execution components (`fort control`); the **execution
+plane** (router + native runtime + DAG) plugs in for `fort serve`.
 
 ## Core Design Principles
 
-### Deterministic Tools
-Fort uses tools that are **powered by AI but deterministic at runtime**. The LLM decides *when* to use a tool, but the tool itself is a bounded, testable function with predictable behavior — same input, same output.
+### Deterministic by default
+Routing reads only deterministic signals on a task — **zero model calls in the
+routing path** (asserted in tests). Inference happens **only** at `task` nodes.
+Every state change is an append-only `event`; the board + feed are derived and
+replayable.
 
-Fort **never calls external tools directly**. Every capability goes through a Fort-owned tool that wraps the underlying industry tool and adds constraints. Example: Fort doesn't call Chrome MCP raw — it builds a `web-browse` tool that wraps Chrome MCP, adds an allowed-sites list, and exposes a predictable contract.
-
-**Tool creation hierarchy:**
-1. Check Fort's own ToolRegistry for an existing tool
-2. If building new: use industry tools (npm packages, CLIs, APIs) as the engine
-3. Fort owns the interface; industry tools provide the engine
-4. **New tool specs require Toby's approval before implementation**
+### Fort owns the interface; industry tools are the engine
+Fort never drives an external tool raw. Each agent CLI is reached through a
+`NativeRuntime` **provider** that fixes its argv, normalizes its output into
+`RunEvent`s, and adds constraints (scoped workdir, env allowlist, gateway spend
+caps). New capabilities wrap an industry CLI/library behind a bounded, testable
+Fort-owned contract. **New capability specs require Toby's approval before
+implementation.**
 
 ### Spec-Driven Development
-All development follows: spec → approve → implement → verify → merge/rollback. No code lands without a spec. Specs live in `specs/` as machine-readable markdown.
+Development follows: spec → approve → implement → verify → merge/rollback. Specs
+live in `specs/` as machine-readable markdown (goal, approach, affected files,
+test criteria, rollback).
 
 ## Behavioral Guidelines (Karpathy)
-Guidelines to reduce common LLM coding mistakes. They bias toward caution over speed — for trivial tasks, use judgment.
+Guidelines to reduce common LLM coding mistakes. They bias toward caution over
+speed — for trivial tasks, use judgment.
 
 ### 1. Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.** Before implementing:
@@ -65,31 +95,29 @@ For multi-step tasks, state a brief plan (`step → verify: check`). Strong succ
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 ## Development Rules
-1. **Spec-driven**: Before building any module, write a spec in `specs/`. Spec includes: goal, approach, affected files, test criteria, rollback plan. **Specs require approval before implementation begins.**
-2. **Test-first**: Every module needs tests. Use Vitest for TypeScript, pytest for Python
-3. **TypeScript strict return types**: `bus.subscribe()` callbacks must return `void`. Use `() => { array.push(x); }` not `() => array.push(x)` (the latter returns `number`, causing TS2322 in Docker builds)
-3. **Tool Registry is sacred**: Before building anything new, search Fort's own tools first. Only build new if nothing fits. New tools wrap industry tools with deterministic constraints.
-4. **Machine-readable everything**: Config has JSON Schema validation. Specs follow templates. Memory graph has defined schema
-5. **Git discipline**: Feature branches for non-trivial changes. Every meaningful change committed
-6. **Inspectability**: Every module exposes `diagnose()`. Every task has a log. Every decision has a rationale
+1. **Spec-driven**: Before building a module, write a spec in `specs/`. Specs require approval before implementation.
+2. **Test-first (TDD)**: `go test ./...` must stay green. Write the failing test first, watch it fail, then write minimal code to pass. Run the race detector (`go test -race ./...`) on anything concurrent.
+3. **Determinism is asserted**: the routing path takes zero model calls; only `task` nodes invoke the `Runtime`. Add tests that hold these invariants.
+4. **Respect the seams**: `core` must not import `ui` or a concrete `exec` package (only `runtime.Runtime`); `ui` must not import `engine`/`graph`/`router`/`native`. `core/arch_test.go` and `go list -deps` enforce this.
+5. **Git discipline**: feature branches for non-trivial work; every meaningful change committed. Commit/push only when asked.
+6. **Inspectability**: structured logs; the append-only `event` log + `route_decision` make every dispatch and decision traceable and replayable.
 
 ## Key Patterns
-- `ModuleBus` for all inter-module communication
-- `TaskGraph` tracks every operation — never do work without creating a task
-- `PermissionManager` enforces tiered action model (Tier 1: Auto, Tier 2: Draft, Tier 3: Approve, Tier 4: Never)
-- `ToolRegistry` enforces reuse-before-build
+- `runtime.Runtime` interface is the only path from `core` to execution; `cmd/fort` injects the concrete `exec/native` (or `exec/fake`) runtime.
+- Deterministic router: ordered YAML rules, first-match-wins + default; matchers on label/path/repo/@agent/size/time with any/all.
+- DAG executor: `task`/`gate`/`check`/`transform`/`fanout`/`fanin`, conditional edges, retry→escalate, resumable from persisted `node_run` state.
+- Control-plane ports: `ui.Dispatcher` + `ui.FlowRunner`; the `control` package supplies real (engine) or queue-only adapters.
 
 ## Tech Stack
-- Runtime: Node.js / TypeScript
-- Test: Vitest
-- CLI: Commander.js
-- DB: better-sqlite3
-- Config: YAML + JSON Schema (ajv)
-- Memory: MemU (Python sidecar) with SQLite fallback
-- macOS: Swift/AppKit (menu bar) + Tauri (dashboard)
+- Language: Go 1.22+ (single toolchain for core/exec/ui).
+- Test: standard `testing` + `go test -race`.
+- DB: SQLite via `modernc.org/sqlite` (pure Go, no cgo).
+- Config/flows/rules: YAML (`gopkg.in/yaml.v3`).
+- CLI: stdlib `flag`. Cron: `robfig/cron/v3`. Globs: `bmatcuk/doublestar`.
+- Clients: Swift / SwiftUI (FortKit) for iOS / macOS / CarPlay / watch; a served HTML board for web.
 
 ## File Naming
-- Modules: `packages/core/src/<module>/index.ts`
-- Tests: `packages/core/src/__tests__/<module>.test.ts`
-- CLI commands: `packages/cli/src/commands/<command>.ts`
-- Specs: `specs/<uuid>.md`
+- Packages: `core/<module>/`, `exec/<impl>/`, `ui/`, `control/`.
+- Tests: `*_test.go` beside the code (external `<pkg>_test` package when it must import adapters).
+- CLI: `cmd/fort/<command>.go`.
+- Rules/flows: `rules/*.yaml`, `flows/*.yaml`. Specs: `specs/<NNN>-<slug>.md`.

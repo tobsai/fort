@@ -53,11 +53,12 @@ gate on humans and retry deterministically.
 | 017 openclaw-import | OpenClaw as one-shot import | fort-native adds a **live inbound channel** (AO-036, `POST /api/openclaw`) |
 | 020 gated-model-choice | model-choice gate over WS | generalized to the **gate node** + gate-inbox contract (AO-023/031/035) |
 
-Legacy specs remain valid for the parallel TS product under `packages/`; they do
-not govern fort-native.
+Specs 001–020 describe the **retired v1 TypeScript prototype**, which has been
+removed from the tree (recover from git history if needed). They are kept as
+design history and do not govern fort-native.
 
 ## Rollback
-fort-native lives in new top-level dirs and a separate Go module; it does not
-touch `packages/`. Rollback = remove `core/ exec/ ui/ rules/ flows/ cmd/ go.mod
-go.sum` (or revert the `feat(fort-native)` commits). The legacy TS Fort is
-unaffected.
+fort-native is a self-contained Go module at the repo root. Rollback = revert the
+`feat(fort-native)` / `feat(control-plane)` commits (or the merge). The retired v1
+TypeScript prototype remains fully recoverable from git history (the commit that
+removed it).

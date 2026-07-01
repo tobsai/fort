@@ -1,16 +1,7 @@
-node_modules/
-dist/
-*.js.map
-*.d.ts.map
 .DS_Store
 .env
-.fort/data/
 *.sqlite
 *.sqlite-journal
-
-# Local agent identities (personal data — never commit)
-/agents/
-*.tsbuildinfo
 
 # Local Claude Code agent worktrees + session state
 .claude/
@@ -18,7 +9,7 @@ dist/
 # fort-native runtime data
 .fort-native/
 
-# build outputs
+# Go build outputs
 bin/
 dist/
 
