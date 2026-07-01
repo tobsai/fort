@@ -1,0 +1,94 @@
+# XcodeGen spec for the Fort Apple clients. Generate the project with:
+#   cd ui/apple && xcodegen generate
+# then open Fort.xcodeproj. The generated .xcodeproj is git-ignored (regenerable
+# from this spec). All targets depend on the local FortKit Swift package.
+name: Fort
+options:
+  bundleIdPrefix: io.mtree
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "16.0"
+    macOS: "13.0"
+    watchOS: "10.0" # widget-preview macros (#Preview(as:)) require watchOS 10
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    # For TestFlight: set DEVELOPMENT_TEAM here (or enable automatic signing per
+    # target in Xcode). Compile/CI verification passes CODE_SIGNING_ALLOWED=NO on
+    # the xcodebuild command line, so the project itself stays sign-able.
+    # DEVELOPMENT_TEAM: ABCDE12345
+
+packages:
+  FortKit:
+    path: FortKit
+
+targets:
+  # iOS app — Board / Gates / Feed tabs. Includes the CarPlay scene delegate
+  # (compiles as part of the app; running CarPlay needs Apple's entitlement).
+  Fort:
+    type: application
+    platform: iOS
+    sources:
+      - path: iOS
+        excludes: ["*.md"]
+      - path: CarPlay/FortCarPlaySceneDelegate.swift
+    dependencies:
+      - package: FortKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+
+  # macOS menu-bar app (LSUIElement — no dock icon).
+  FortMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: macOS
+        excludes: ["*.md"]
+    dependencies:
+      - package: FortKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.mac
+        INFOPLIST_KEY_LSUIElement: "YES"
+
+  # watchOS app — glance + gate quick-approve.
+  FortWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: watch/FortWatchApp.swift
+      - path: watch/GlanceView.swift
+    dependencies:
+      - package: FortKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.watch
+        INFOPLIST_KEY_WKApplication: "YES"
+
+  # watchOS WidgetKit complication (pending-gate count).
+  FortComplication:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: watch/FortComplication.swift
+      - path: Support/FortComplicationBundle.swift
+    dependencies:
+      - package: FortKit
+    info:
+      path: Support/Complication-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.watch.complication

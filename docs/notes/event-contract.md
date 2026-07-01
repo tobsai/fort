@@ -28,11 +28,19 @@ A single run is also fetchable whole (replay without streaming):
 | Method & path | Body | Result |
 |---|---|---|
 | `GET /api/board` | — | `{runs[], gates[]}` — live board (AO-032) |
+| `GET /api/summary` | — | `{total,running,queued,blocked,succeeded,failed,execution,gates[]}` — glanceable (watch/CarPlay) |
 | `GET /api/runs/{id}` | — | `{run, nodes[], events[]}` — replayable |
 | `GET /api/gates` | — | `[{run_id,node_id,input}]` — gate inbox |
-| `POST /api/gate` | `{run_id,node_id,decision:"approve"\|"reject",edit?}` | `{state,paused_node?}` (AO-035) |
-| `POST /api/chat` | `{text,agent?}` | `{kind:"task"\|"flow",run_id,route?,flow_id?,paused?}` (AO-034) |
-| `POST /api/openclaw` | `{from,text}` | `{kind:"task",run_id,route}` (AO-036) |
+| `POST /api/gate` | `{run_id,node_id,decision:"approve"\|"reject",edit?}` | `{state,paused_node?}` (AO-035) · **409** in control-only mode |
+| `POST /api/chat` | `{text,agent?}` | `{kind:"task"\|"flow",run_id,route?,queued?,flow_id?,paused?}` (AO-034) |
+| `POST /api/openclaw` | `{from,text}` | `{kind:"task",run_id,route?,queued?}` (AO-036) |
+
+### Control-only mode
+When Fort runs as a control plane with no execution plane (`fort control`), the
+same contract holds with graceful degradation: `Summary.execution=false`,
+`POST /api/chat` returns a boarded task (`queued:true`, no `route`, `"ship X"`
+does not start a flow), and `POST /api/gate` returns **HTTP 409**. All read
+endpoints work. See [`control-plane.md`](./control-plane.md).
 
 ### Chat → flow templates (deterministic, not an LLM planner)
 `POST /api/chat` with text matching a template trigger instantiates the flow:

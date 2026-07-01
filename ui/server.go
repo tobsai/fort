@@ -66,7 +66,9 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
-	b := Board{}
+	// Always emit [] (never null) for array fields so strictly-typed clients
+	// (the Swift surfaces via FortKit) decode cleanly.
+	b := Board{Runs: []RunSummary{}, Gates: []GateItem{}}
 	for _, r := range runs {
 		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Agent: r.Agent, Status: r.Status, FlowID: r.FlowID})
 	}
@@ -89,7 +91,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
-	sum := Summary{Total: len(runs), Execution: s.d.Runner != nil}
+	sum := Summary{Total: len(runs), Execution: s.d.Runner != nil, Gates: []GateItem{}}
 	for _, r := range runs {
 		switch r.Status {
 		case "running":
@@ -122,7 +124,11 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	nodes, _ := s.d.Store.NodeRuns(id)
 	evs, _ := s.d.Store.Events(id)
-	d := RunDetail{Run: RunSummary{ID: run.ID, Title: run.Title, Agent: run.Agent, Status: run.Status, FlowID: run.FlowID}}
+	d := RunDetail{
+		Run:    RunSummary{ID: run.ID, Title: run.Title, Agent: run.Agent, Status: run.Status, FlowID: run.FlowID},
+		Nodes:  []NodeSummary{},
+		Events: []Event{},
+	}
 	for _, n := range nodes {
 		d.Nodes = append(d.Nodes, NodeSummary{NodeID: n.NodeID, Type: n.Type, Status: n.Status, Attempts: n.Attempts})
 	}

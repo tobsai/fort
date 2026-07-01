@@ -1,4 +1,6 @@
-# Fort — Claude Code Directives
+# Fort — Codex / Agent Directives
+
+> This file mirrors `CLAUDE.md` for Codex and other coding agents. Keep the two in sync — when you change one, change the other.
 
 ## Project Overview
 Fort is a self-improving personal AI agent platform. A ground-up replacement for OpenClaw combining long-lived specialist agents, graph-based memory, deterministic workflows, and macOS native integration.

@@ -21,3 +21,9 @@ dist/
 # build outputs
 bin/
 dist/
+
+# swift / xcode build outputs
+ui/apple/**/.build/
+ui/apple/**/*.xcodeproj
+ui/apple/DerivedData/
+.swiftpm/

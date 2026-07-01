@@ -212,6 +212,18 @@ func TestControlOnlyBoardAndSummaryWork(t *testing.T) {
 	}
 }
 
+// Array fields must serialize as [] never null, so strictly-typed clients
+// (the Swift surfaces) decode cleanly. Regression: FortKit failed on gates:null.
+func TestArraysSerializeAsEmptyNotNull(t *testing.T) {
+	s, _ := newControlUI(t)
+	for _, path := range []string{"/api/summary", "/api/board"} {
+		body := do(t, s, "GET", path, nil).Body.String()
+		if strings.Contains(body, "null") {
+			t.Errorf("%s emitted null for an array (want []): %s", path, strings.TrimSpace(body))
+		}
+	}
+}
+
 // ---- shared ----
 
 func TestEventsSSEReplaysLog(t *testing.T) {
