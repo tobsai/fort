@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/tobsai/fort/core/inbox"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/task"
+	"github.com/tobsai/fort/exec/node"
 	"github.com/tobsai/fort/ui"
 )
 
@@ -44,7 +46,11 @@ usage:
 
 taskflags:
   --title S  --body S  --label L (repeatable)  --path P (repeatable)
-  --repo S   --agent S (force @agent)  --size S
+  --repo S   --agent S (force @agent)  --size S  --machine S (pin a host)
+
+multi-machine (spec 022): set FORT_MACHINES=machines.yaml to route across hosts,
+  FORT_NODE_NAME to identify this host, and FORT_NODE_TOKEN (shared) to accept
+  remote exec. Expose the API on the LAN with FORT_ADDR=0.0.0.0:4087.
 `
 
 func main() {
@@ -97,8 +103,8 @@ func (s *stringSlice) Set(v string) error {
 }
 
 type taskFlags struct {
-	title, body, repo, agent, size string
-	labels, paths                  stringSlice
+	title, body, repo, agent, size, machine string
+	labels, paths                           stringSlice
 }
 
 func addTaskFlags(fs *flag.FlagSet) *taskFlags {
@@ -108,6 +114,7 @@ func addTaskFlags(fs *flag.FlagSet) *taskFlags {
 	fs.StringVar(&tf.repo, "repo", "", "repo signal")
 	fs.StringVar(&tf.agent, "agent", "", "force @agent")
 	fs.StringVar(&tf.size, "size", "", "size: S|M|L|XL")
+	fs.StringVar(&tf.machine, "machine", "", "pin a target host (spec 022)")
 	fs.Var(&tf.labels, "label", "label (repeatable)")
 	fs.Var(&tf.paths, "path", "touched path (repeatable)")
 	return tf
@@ -131,6 +138,7 @@ func (tf *taskFlags) toTask(args []string) task.Task {
 		Repo:      tf.repo,
 		Agent:     tf.agent,
 		Size:      tf.size,
+		Machine:   tf.machine,
 		CreatedAt: time.Now(),
 	}
 }
@@ -166,16 +174,41 @@ func cmdServe(args []string) error {
 	for i, f := range flows {
 		ids[i] = f.ID
 	}
-	uiSrv := ui.New(ui.Deps{
+	deps := ui.Deps{
 		Dispatcher: control.NewEngineDispatcher(a.engine),
 		Runner:     control.NewFlowExecutor(graph.NewExecutor(a.rt, a.store), flows),
 		Store:      a.store,
 		FlowIDs:    ids,
-	})
+	}
+	// Multi-machine (spec 022): expose the peer roster + poll reachability.
+	if a.reg != nil {
+		roster := control.NewRoster(a.reg)
+		go roster.Poll(ctx, 10*time.Second)
+		deps.Machines = roster
+	}
+	uiSrv := ui.New(deps)
 
-	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: uiSrv.Register})
-	fmt.Printf("fort-core on http://%s  (runtime=%s)\n", a.cfg.Addr, a.rt.Name())
+	// Node exec endpoint: let peer Forts dispatch runs to this machine when a
+	// shared token is set. It serves the raw local runtime (never re-routes).
+	mount := uiSrv.Register
+	if a.cfg.NodeToken != "" {
+		nodeSrv := node.New(a.localRT, a.cfg.NodeToken)
+		mount = func(mux *http.ServeMux) {
+			uiSrv.Register(mux)
+			nodeSrv.Register(mux)
+		}
+	}
+
+	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
+	fmt.Printf("fort-core on http://%s  (runtime=%s · node=%s)\n", a.cfg.Addr, a.rt.Name(), a.cfg.NodeName)
 	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat · execution)\n", a.cfg.Addr)
+	if a.reg != nil {
+		exec := "off"
+		if a.cfg.NodeToken != "" {
+			exec = "on"
+		}
+		fmt.Printf("fort mesh : %d machines (%s) · accept remote exec: %s\n", len(a.reg.Machines), a.cfg.MachinesPath, exec)
+	}
 	return srv.Run(ctx)
 }
 

@@ -130,9 +130,10 @@ func TestImplementsRuntime(t *testing.T) {
 func TestDefaultProvidersArgv(t *testing.T) {
 	rt := New(t.TempDir(), DefaultProviders()...)
 	cases := map[string][]string{
-		"codex":  {"codex", "exec"},
-		"claude": {"claude", "-p"},
-		"hermes": {"hermes", "--oneshot"},
+		"codex":    {"codex", "exec"},
+		"claude":   {"claude", "-p"},
+		"hermes":   {"hermes", "--oneshot"},
+		"openclaw": {"openclaw", "run"}, // best-guess argv, spec 023
 	}
 	for agent, wantPrefix := range cases {
 		p, ok := rt.provider(agent)

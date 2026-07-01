@@ -7,10 +7,9 @@ import (
 )
 
 // DefaultProviders returns the built-in provider set encoding the AO-002 recon
-// contract (docs/notes/runtime-recon.md). openclaw is intentionally absent until
-// the CLI is installed and probed.
+// contract (docs/notes/runtime-recon.md) for all four agents.
 func DefaultProviders() []Provider {
-	return []Provider{claudeProvider(), codexProvider(), hermesProvider()}
+	return []Provider{claudeProvider(), codexProvider(), hermesProvider(), openclawProvider()}
 }
 
 // claude: headless print mode with a streaming JSON output format.
@@ -57,6 +56,26 @@ func hermesProvider() Provider {
 			}
 			return line, true
 		},
+	}
+}
+
+// openclaw: one-shot errand runner (spec 023). BEST GUESS — the openclaw CLI is
+// not yet installed here and docs/notes/runtime-recon.md §4 is still TODO, so the
+// argv mirrors the sibling providers and is isolated to this one line for easy
+// correction once probed (FORT_LIVE_CLI=openclaw FORT_LIVE_PROBE=1). If the CLI
+// is absent, dispatch fails at spawn time like any missing binary; multi-machine
+// placement (spec 022) keeps openclaw tasks on machines that list `openclaw`.
+//
+//	openclaw run "<prompt>" --headless --accept-hooks
+func openclawProvider() Provider {
+	return Provider{
+		Name: "openclaw",
+		Command: func(s runtime.RunSpec) []string {
+			return []string{"openclaw", "run", s.Prompt, "--headless", "--accept-hooks"}
+		},
+		// Lenient: extracts text from JSON output, else falls through to raw
+		// stdout — robust whether openclaw emits JSONL or plain text.
+		Parse: jsonTextParser,
 	}
 }
 

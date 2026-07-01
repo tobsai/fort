@@ -12,6 +12,7 @@ import (
 	"github.com/tobsai/fort/control"
 	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/inbox"
+	"github.com/tobsai/fort/core/machines"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
@@ -39,7 +40,23 @@ func cmdControl(args []string) error {
 
 	// Control-only: board tasks via the queue dispatcher, no execution plane.
 	dispatcher := control.NewQueueDispatcher(st)
-	uiSrv := ui.New(ui.Deps{Dispatcher: dispatcher, Runner: nil, Store: st})
+	deps := ui.Deps{Dispatcher: dispatcher, Runner: nil, Store: st}
+
+	// Multi-machine (spec 022): even without execution, show the machine roster
+	// so the control plane is aware of both hosts.
+	if cfg.MachinesPath != "" {
+		if cfg.NodeName == "" {
+			cfg.NodeName, _ = os.Hostname()
+		}
+		reg, err := machines.Load(cfg.MachinesPath, cfg.NodeName)
+		if err != nil {
+			return err
+		}
+		roster := control.NewRoster(reg)
+		go roster.Poll(ctx, 10*time.Second)
+		deps.Machines = roster
+	}
+	uiSrv := ui.New(deps)
 
 	in := inbox.NewDir(*inboxDir, queueInbox{dispatcher})
 	go func() {

@@ -4,7 +4,7 @@
 //
 // The executor is provider-agnostic: a Provider maps an agent name to argv and
 // an optional line parser. DefaultProviders() encodes the AO-002 recon contract
-// for claude/codex/hermes (openclaw pending install).
+// for claude/codex/hermes/openclaw (openclaw argv is a best guess — spec 023).
 package native
 
 import (
