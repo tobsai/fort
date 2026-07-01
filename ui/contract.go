@@ -88,7 +88,7 @@ type ChatRequest struct {
 
 // ChatResult is the response for chat/openclaw.
 type ChatResult struct {
-	Kind    string `json:"kind"`              // task | flow
+	Kind    string `json:"kind"` // task | flow
 	RunID   string `json:"run_id"`
 	Route   string `json:"route,omitempty"`   // agent, for task kind (execution plane)
 	Machine string `json:"machine,omitempty"` // resolved host (spec 022)

@@ -51,12 +51,16 @@ event** (the feed + board are derived, replayable).
 ## Quickstart
 
 ```sh
-# needs Go 1.22+ (brew install go)
-make build                       # -> ./bin/fort
-./bin/fort control               # control plane at http://127.0.0.1:4087/
+# install
+brew install tobsai/tap/fort     # or: make build -> ./bin/fort (needs Go 1.22+)
+
+fort control                     # control plane at http://127.0.0.1:4087/
 # or, with the execution plane + agent CLIs installed:
-./bin/fort serve
+fort serve
 ```
+
+The binary embeds a default ruleset, so `fort serve` works from any directory
+with no checked-out repo.
 
 Then open the board at `/`, or drive the API:
 
@@ -78,10 +82,39 @@ All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./doc
   macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
   compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
 
+## Multi-machine ([spec 022](./specs/022-multi-machine-orchestration.md))
+
+One control plane can orchestrate agents across several hosts (e.g. a Mac Mini +
+a MacBook Pro). Point Fort at a machine registry and it routes each task to the
+agent (deterministic, as always) and then to a **machine** that offers it — local
+or remote — streaming the run back to the board you're watching. Remote execution
+is just another `runtime.Runtime`, so the core is unchanged.
+
+```sh
+cp machines.example.yaml machines.yaml    # name + url + agents per host
+
+# on each host that runs agents (expose on the LAN, share one token):
+FORT_ADDR=0.0.0.0:4087 FORT_NODE_TOKEN=shared-secret fort serve
+
+# on the host you drive (also knows the registry):
+FORT_MACHINES=machines.yaml FORT_NODE_TOKEN=shared-secret \
+  FORT_NODE_NAME=mac-mini FORT_ADDR=0.0.0.0:4087 fort serve
+```
+
+The board shows every host (with reachability) and tags each run with the machine
+it ran on; chat and `fort task add --machine <host>` can pin a target. Placement
+is deterministic: an explicit pin, else the local host if it offers the agent,
+else the first host in the registry that does. Unset `FORT_MACHINES` ⇒ classic
+single-machine mode. Inter-host `/api/exec` is bearer-token authenticated; keep it
+on a trusted LAN.
+
 ## What needs you
 
-- The execution plane spawns real agent CLIs (`claude`, `codex`, `hermes`;
-  `openclaw` pending install) with your provider keys — see `.env.example`.
+- The execution plane spawns real agent CLIs (`claude`, `codex`, `hermes`,
+  `openclaw`) with your provider keys — see `.env.example`. The `openclaw`
+  invocation is a **best guess** ([spec 023](./specs/023-openclaw-provider.md))
+  until the CLI is installed and probed; correct one line in
+  `exec/native/providers.go` if it differs.
 - CarPlay ships only with Apple's category-gated entitlement (see the TestFlight
   note); the code compiles and runs in the simulator regardless.
 

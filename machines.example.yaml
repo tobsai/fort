@@ -1,0 +1,17 @@
+# Fort machine registry (spec 022). Copy to machines.yaml and point Fort at it
+# with FORT_MACHINES=machines.yaml to orchestrate across hosts. Absent this file
+# Fort is single-machine and runs everything locally.
+#
+# Each machine: a stable `name`, the base `url` of its Fort HTTP API (must be
+# LAN-reachable — run that host with FORT_ADDR=0.0.0.0:4087), and the `agents`
+# (providers) it can run. The local host is the entry whose name == FORT_NODE_NAME
+# (default: hostname). Every host that accepts remote work sets a shared
+# FORT_NODE_TOKEN.
+version: 1
+machines:
+  - name: mac-mini
+    url: http://mac-mini.local:4087
+    agents: [claude, codex, hermes, openclaw]
+  - name: macbook-pro
+    url: http://macbook-pro.local:4087
+    agents: [claude, codex]

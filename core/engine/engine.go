@@ -164,10 +164,10 @@ func (e *Engine) consume(run runtime.Run, runID string, done chan struct{}) {
 	defer close(done)
 	for ev := range run.Stream() {
 		_, _ = e.store.AppendEvent(store.Event{
-			RunID: runID,
-			Type:  string(ev.Type),
-			Data:  ev.Data,
-			Code:  ev.Code,
+			RunID:     runID,
+			Type:      string(ev.Type),
+			Data:      ev.Data,
+			Code:      ev.Code,
 			CreatedAt: ev.Time,
 		})
 	}

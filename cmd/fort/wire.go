@@ -49,7 +49,14 @@ func buildApp() (*app, error) {
 
 	data, err := os.ReadFile(cfg.RulesPath)
 	if err != nil {
-		return nil, fmt.Errorf("read ruleset %s: %w", cfg.RulesPath, err)
+		// Fall back to the embedded default ruleset only when the user did not
+		// override the path — a brew install ships no rules/ directory. An
+		// explicit FORT_RULES pointing at a missing file is still an error.
+		if os.IsNotExist(err) && cfg.RulesPath == config.Default().RulesPath {
+			data = defaultRulesYAML
+		} else {
+			return nil, fmt.Errorf("read ruleset %s: %w", cfg.RulesPath, err)
+		}
 	}
 	rs, err := rules.Parse(data)
 	if err != nil {

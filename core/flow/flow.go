@@ -38,9 +38,14 @@ func LoadFile(path string) (graph.Flow, error) {
 	return f, nil
 }
 
-// LoadDir loads every *.yaml/*.yml flow in dir, sorted by id.
+// LoadDir loads every *.yaml/*.yml flow in dir, sorted by id. A missing
+// directory yields no flows (not an error) so a bare `brew install` — which
+// ships no flows/ — still serves; flow templates simply degrade to tasks.
 func LoadDir(dir string) ([]graph.Flow, error) {
 	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
