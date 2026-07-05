@@ -190,13 +190,13 @@ func cmdServe(args []string) error {
 
 	// Node exec endpoint: let peer Forts dispatch runs to this machine when a
 	// shared token is set. It serves the raw local runtime (never re-routes).
-	mount := uiSrv.Register
-	if a.cfg.NodeToken != "" {
-		nodeSrv := node.New(a.localRT, a.cfg.NodeToken)
-		mount = func(mux *http.ServeMux) {
-			uiSrv.Register(mux)
-			nodeSrv.Register(mux)
-		}
+	// Always mounted: the token is read per-request, so a `mesh invite` minted
+	// after startup takes effect without a restart. An empty token still 403s
+	// every request (same "disabled" behavior as before).
+	nodeSrv := node.New(a.localRT, func() string { return a.cfg.NodeToken })
+	mount := func(mux *http.ServeMux) {
+		uiSrv.Register(mux)
+		nodeSrv.Register(mux)
 	}
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})

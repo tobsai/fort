@@ -17,7 +17,7 @@ import (
 func nodeServer(t *testing.T, f *fake.Runtime, token string) string {
 	t.Helper()
 	mux := http.NewServeMux()
-	node.New(f, token).Register(mux)
+	node.New(f, func() string { return token }).Register(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv.URL

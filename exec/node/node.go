@@ -28,15 +28,17 @@ import (
 // Server serves the inter-Fort execution endpoint over an injected runtime.
 type Server struct {
 	rt    runtime.Runtime
-	token string
+	token func() string
 
 	mu   sync.Mutex
 	runs map[string]runtime.Run // in-flight runs, for signal/cancel
 }
 
-// New builds a node server over rt. token must be non-empty for the endpoint to
-// accept any request.
-func New(rt runtime.Runtime, token string) *Server {
+// New builds a node server over rt. token is read fresh on every request, so
+// the endpoint accepts requests as soon as a token exists — even if it is
+// minted after the server is already mounted (e.g. a mesh invite writing the
+// token into a running daemon). An empty token disables the endpoint (403).
+func New(rt runtime.Runtime, token func() string) *Server {
 	return &Server{rt: rt, token: token, runs: map[string]runtime.Run{}}
 }
 
@@ -49,12 +51,13 @@ func (s *Server) Register(mux *http.ServeMux) {
 
 // authed reports whether the request carries the shared bearer token.
 func (s *Server) authed(w http.ResponseWriter, r *http.Request) bool {
-	if s.token == "" {
+	tok := s.token()
+	if tok == "" {
 		http.Error(w, "node: exec endpoint disabled (no FORT_NODE_TOKEN)", http.StatusForbidden)
 		return false
 	}
 	got := []byte(r.Header.Get("Authorization"))
-	want := []byte("Bearer " + s.token)
+	want := []byte("Bearer " + tok)
 	if subtle.ConstantTimeCompare(got, want) != 1 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return false
