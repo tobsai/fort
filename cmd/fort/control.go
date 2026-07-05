@@ -52,7 +52,10 @@ func cmdControl(args []string) error {
 		if err != nil {
 			return err
 		}
-		roster := control.NewRoster(reg)
+		// spec 024: Task 8 replaces this with the shared Live.
+		live := &machines.Live{}
+		live.Store(reg)
+		roster := control.NewRoster(live)
 		go roster.Poll(ctx, 10*time.Second)
 		deps.Machines = roster
 	}

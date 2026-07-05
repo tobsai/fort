@@ -17,6 +17,7 @@ import (
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
+	"github.com/tobsai/fort/core/machines"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/node"
@@ -182,7 +183,10 @@ func cmdServe(args []string) error {
 	}
 	// Multi-machine (spec 022): expose the peer roster + poll reachability.
 	if a.reg != nil {
-		roster := control.NewRoster(a.reg)
+		// spec 024: Task 8 replaces this with the shared Live.
+		live := &machines.Live{}
+		live.Store(a.reg)
+		roster := control.NewRoster(live)
 		go roster.Poll(ctx, 10*time.Second)
 		deps.Machines = roster
 	}

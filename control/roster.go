@@ -11,21 +11,24 @@ import (
 	"github.com/tobsai/fort/ui"
 )
 
-// Roster adapts a machine registry to ui.MachineLister and tracks peer
-// reachability by polling each machine's /health (spec 022). The local machine
-// is reachable by definition; peers start unreachable until first probed.
+// Roster adapts a live machine registry pointer to ui.MachineLister and tracks
+// peer reachability by polling each machine's /health (spec 022). It reads the
+// Live pointer on every call, so a registry installed after construction (e.g.
+// a mesh enrollment) is visible without a restart (spec 024). The local
+// machine is reachable by definition; peers start unreachable until first
+// probed.
 type Roster struct {
-	reg    *machines.Registry
+	live   *machines.Live
 	client *http.Client
 
 	mu        sync.Mutex
 	reachable map[string]bool
 }
 
-// NewRoster builds a roster over reg.
-func NewRoster(reg *machines.Registry) *Roster {
+// NewRoster builds a roster over live.
+func NewRoster(live *machines.Live) *Roster {
 	return &Roster{
-		reg:       reg,
+		live:      live,
 		client:    &http.Client{Timeout: 3 * time.Second},
 		reachable: map[string]bool{},
 	}
@@ -33,11 +36,17 @@ func NewRoster(reg *machines.Registry) *Roster {
 
 // Machines implements ui.MachineLister.
 func (r *Roster) Machines() []ui.MachineStatus {
+	reg := r.live.Load()
+	if reg == nil {
+		// Non-nil empty slice: /api/machines must emit [], never null, so
+		// strictly-typed clients (the Swift surfaces) decode cleanly.
+		return []ui.MachineStatus{}
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]ui.MachineStatus, 0, len(r.reg.Machines))
-	for _, m := range r.reg.Machines {
-		local := m.Name == r.reg.Local()
+	out := make([]ui.MachineStatus, 0, len(reg.Machines))
+	for _, m := range reg.Machines {
+		local := m.Name == reg.Local()
 		out = append(out, ui.MachineStatus{
 			Name:      m.Name,
 			URL:       m.URL,
@@ -66,8 +75,12 @@ func (r *Roster) Poll(ctx context.Context, interval time.Duration) {
 }
 
 func (r *Roster) probe(ctx context.Context) {
-	for _, m := range r.reg.Machines {
-		if m.Name == r.reg.Local() {
+	reg := r.live.Load()
+	if reg == nil {
+		return
+	}
+	for _, m := range reg.Machines {
+		if m.Name == reg.Local() {
 			continue
 		}
 		ok := r.ping(ctx, m.URL)
