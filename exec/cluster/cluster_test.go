@@ -85,7 +85,10 @@ func TestAddIsRaceSafe(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		wg.Add(2)
 		go func(i int) { defer wg.Done(); c.Add(fmt.Sprintf("m%d", i), fake.New()) }(i)
-		go func(i int) { defer wg.Done(); _, _ = c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r", Machine: fmt.Sprintf("m%d", i)}) }(i)
+		go func(i int) {
+			defer wg.Done()
+			_, _ = c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r", Machine: fmt.Sprintf("m%d", i)})
+		}(i)
 	}
 	wg.Wait()
 }
