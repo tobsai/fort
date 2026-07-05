@@ -82,13 +82,45 @@ All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./doc
   macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
   compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
 
-## Multi-machine ([spec 022](./specs/022-multi-machine-orchestration.md))
+## Multi-machine ([spec 022](./specs/022-multi-machine-orchestration.md), [spec 024](./specs/024-mesh-enrollment.md))
 
 One control plane can orchestrate agents across several hosts (e.g. a Mac Mini +
-a MacBook Pro). Point Fort at a machine registry and it routes each task to the
-agent (deterministic, as always) and then to a **machine** that offers it — local
-or remote — streaming the run back to the board you're watching. Remote execution
-is just another `runtime.Runtime`, so the core is unchanged.
+a MacBook Pro). Fort routes each task to the agent (deterministic, as always)
+and then to a **machine** that offers it — local or remote — streaming the run
+back to the board you're watching. Remote execution is just another
+`runtime.Runtime`, so the core is unchanged.
+
+The easy path is **`fort mesh`**: it mints and distributes the shared token and
+manages the registry for you — no file edits.
+
+```sh
+# hub (laptop)
+fort serve &
+fort mesh invite            # prints: fort mesh join http://100.x.y.z:4087 --code XXXX-XXXX
+
+# new machine (paste the printed line)
+fort mesh join http://100.x.y.z:4087 --code XXXX-XXXX
+fort serve
+```
+
+`fort mesh invite` mints the durable mesh token on first use (the hub then also
+accepts inbound mesh exec) and prints a paste-ready `fort mesh join` line good
+for one use within its TTL (`--ttl`, default 15m, capped at 1h). `fort mesh
+join` probes `$PATH` for agent CLIs (or takes `--agents a,b`), registers with
+the hub, and writes this machine's identity. `fort mesh remove <name>` drops a
+machine from the registry — see the token-rotation runbook in
+[`docs/notes/threat-model.md`](./docs/notes/threat-model.md) for what it does
+*not* do.
+
+The board shows every host (with reachability) and tags each run with the machine
+it ran on; chat and `fort task add --machine <host>` can pin a target. Placement
+is deterministic: an explicit pin, else the local host if it offers the agent,
+else the first host in the registry that does. Inter-host `/api/exec` is
+bearer-token authenticated; keep it on a trusted LAN.
+
+### Manual / hand-managed alternative
+
+You can still hand-manage the registry and token instead of `fort mesh`:
 
 ```sh
 cp machines.example.yaml machines.yaml    # name + url + agents per host
@@ -101,12 +133,8 @@ FORT_MACHINES=machines.yaml FORT_NODE_TOKEN=shared-secret \
   FORT_NODE_NAME=mac-mini FORT_ADDR=0.0.0.0:4087 fort serve
 ```
 
-The board shows every host (with reachability) and tags each run with the machine
-it ran on; chat and `fort task add --machine <host>` can pin a target. Placement
-is deterministic: an explicit pin, else the local host if it offers the agent,
-else the first host in the registry that does. Unset `FORT_MACHINES` ⇒ classic
-single-machine mode. Inter-host `/api/exec` is bearer-token authenticated; keep it
-on a trusted LAN.
+Unset `FORT_MACHINES` ⇒ classic single-machine mode. When `FORT_MACHINES` is
+set, `fort mesh` refuses to write to it (it only manages its own file).
 
 ## What needs you
 

@@ -1,6 +1,13 @@
-# Fort machine registry (spec 022). Copy to machines.yaml and point Fort at it
-# with FORT_MACHINES=machines.yaml to orchestrate across hosts. Absent this file
-# Fort is single-machine and runs everything locally.
+# Fort machine registry (spec 022) — hand-managed alternative. Copy to
+# machines.yaml and point Fort at it with FORT_MACHINES=machines.yaml to
+# orchestrate across hosts. Absent this file Fort is single-machine and runs
+# everything locally.
+#
+# You don't need to write this file by hand: `fort mesh invite` / `fort mesh
+# join` (spec 024) maintain an equivalent Fort-managed machines.yaml in
+# .fort-native/ automatically. Use this file only if you'd rather manage the
+# registry and token yourself; when FORT_MACHINES is set, `fort mesh` refuses
+# to write to it.
 #
 # Each machine: a stable `name`, the base `url` of its Fort HTTP API (must be
 # LAN-reachable — run that host with FORT_ADDR=0.0.0.0:4087), and the `agents`
