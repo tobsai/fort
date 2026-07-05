@@ -2,6 +2,8 @@ package cluster
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/tobsai/fort/core/runtime"
@@ -59,4 +61,31 @@ func TestUnknownMachineErrors(t *testing.T) {
 	if _, err := c.Dispatch(context.Background(), runtime.RunSpec{RunID: "z", Agent: "codex", Machine: "ghost"}); err == nil {
 		t.Fatal("expected error for unknown machine")
 	}
+}
+
+func TestHotAddRemove(t *testing.T) {
+	local := fake.New()
+	c := New("hub", local, nil)
+	if _, err := c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r1", Machine: "mini"}); err == nil {
+		t.Fatal("dispatch to unknown machine must fail")
+	}
+	c.Add("mini", fake.New())
+	if _, err := c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r2", Machine: "mini"}); err != nil {
+		t.Fatalf("dispatch after Add: %v", err)
+	}
+	c.Remove("mini")
+	if _, err := c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r3", Machine: "mini"}); err == nil {
+		t.Fatal("dispatch after Remove must fail")
+	}
+}
+
+func TestAddIsRaceSafe(t *testing.T) {
+	c := New("hub", fake.New(), nil)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(2)
+		go func(i int) { defer wg.Done(); c.Add(fmt.Sprintf("m%d", i), fake.New()) }(i)
+		go func(i int) { defer wg.Done(); _, _ = c.Dispatch(context.Background(), runtime.RunSpec{RunID: "r", Machine: fmt.Sprintf("m%d", i)}) }(i)
+	}
+	wg.Wait()
 }

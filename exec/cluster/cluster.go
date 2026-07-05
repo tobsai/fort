@@ -11,6 +11,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/tobsai/fort/core/runtime"
 )
@@ -19,6 +20,8 @@ import (
 type Runtime struct {
 	local   string
 	localRT runtime.Runtime
+
+	mu      sync.RWMutex
 	remotes map[string]runtime.Runtime
 }
 
@@ -40,9 +43,26 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	if spec.Machine == "" || spec.Machine == r.local {
 		return r.localRT.Dispatch(ctx, spec)
 	}
+	r.mu.RLock()
 	rt, ok := r.remotes[spec.Machine]
+	r.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("cluster %s: no route to machine %q", r.local, spec.Machine)
 	}
 	return rt.Dispatch(ctx, spec)
+}
+
+// Add installs (or replaces) the transport for a peer machine. Used by mesh
+// enrollment (spec 024) to apply a join without restarting the daemon.
+func (r *Runtime) Add(name string, rt runtime.Runtime) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.remotes[name] = rt
+}
+
+// Remove drops the transport for a peer machine.
+func (r *Runtime) Remove(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.remotes, name)
 }
