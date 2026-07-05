@@ -6,6 +6,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,9 +19,9 @@ import (
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
-	"github.com/tobsai/fort/core/machines"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/task"
+	"github.com/tobsai/fort/exec/meshjoin"
 	"github.com/tobsai/fort/exec/node"
 	"github.com/tobsai/fort/ui"
 )
@@ -43,15 +45,20 @@ usage:
   fort gate reject  <run> <node>   reject a paused gate
   fort flow run <name> [--input k=v]   run a flow
   fort flow list                   list available flows
+  fort mesh invite [--ttl 15m] [--advertise URL]   mint a join code (hub must be running)
+  fort mesh join <hub-url> --code C [--name N] [--port 4087] [--agents a,b] [--advertise URL]
+  fort mesh remove <name>          drop a machine from the mesh
   fort version
 
 taskflags:
   --title S  --body S  --label L (repeatable)  --path P (repeatable)
   --repo S   --agent S (force @agent)  --size S  --machine S (pin a host)
 
-multi-machine (spec 022): set FORT_MACHINES=machines.yaml to route across hosts,
-  FORT_NODE_NAME to identify this host, and FORT_NODE_TOKEN (shared) to accept
-  remote exec. Expose the API on the LAN with FORT_ADDR=0.0.0.0:4087.
+multi-machine (spec 024): the easy path is ` + "`fort mesh invite`" + ` on the hub, then
+  paste the printed ` + "`fort mesh join …`" + ` line on each new machine — Fort mints the
+  shared token and manages machines.yaml for you. Manual alternative (spec 022):
+  set FORT_MACHINES=machines.yaml, FORT_NODE_NAME, and FORT_NODE_TOKEN (shared)
+  yourself. Either way, expose the API on the LAN with FORT_ADDR=0.0.0.0:4087.
 `
 
 func main() {
@@ -79,6 +86,8 @@ func main() {
 		err = cmdFlow(os.Args[2:])
 	case "schedule":
 		err = cmdSchedule(os.Args[2:])
+	case "mesh":
+		err = cmdMesh(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("fort %s (fort-native)\n", version)
 	case "help", "-h", "--help":
@@ -181,40 +190,60 @@ func cmdServe(args []string) error {
 		Store:      a.store,
 		FlowIDs:    ids,
 	}
-	// Multi-machine (spec 022): expose the peer roster + poll reachability.
-	if a.reg != nil {
-		// spec 024: Task 8 replaces this with the shared Live.
-		live := &machines.Live{}
-		live.Store(a.reg)
-		roster := control.NewRoster(live)
-		go roster.Poll(ctx, 10*time.Second)
-		deps.Machines = roster
-	}
+	// Multi-machine (spec 022/024): expose the peer roster over the shared live
+	// registry + poll reachability. Always wired — an empty registry reports an
+	// empty roster, and hot joins/removes are reflected without a restart.
+	roster := control.NewRoster(a.live)
+	go roster.Poll(ctx, 10*time.Second)
+	deps.Machines = roster
 	uiSrv := ui.New(deps)
+
+	// Mesh enrollment (spec 024): the token store holds the durable mesh token
+	// (minted on first `mesh invite`, persisted to node.yaml) and feeds both the
+	// node exec endpoint and the join server's outbound transports.
+	tokens := meshjoin.NewTokenStore(a.cfg.NodeToken, a.cfg.DataDir(), a.cfg.NodeName, a.cfg.Addr)
+	_, port, err := net.SplitHostPort(a.cfg.Addr)
+	if err != nil {
+		return fmt.Errorf("serve: invalid bind address FORT_ADDR %q: %w", a.cfg.Addr, err)
+	}
+	meshSrv := &meshjoin.Server{
+		Live:         a.live,
+		RegistryPath: managedRegistryPath(a.cfg),
+		Managed:      a.cfg.MachinesManaged || a.cfg.MachinesPath == "",
+		Cluster:      a.clus,
+		Store:        a.store,
+		Tokens:       tokens,
+		NodeName:     a.cfg.NodeName,
+		Port:         port,
+		ProbeAgents:  probeAgents,
+		Now:          time.Now,
+		Log:          slog.Default(),
+	}
 
 	// Node exec endpoint: let peer Forts dispatch runs to this machine when a
 	// shared token is set. It serves the raw local runtime (never re-routes).
-	// Always mounted: the token is read per-request, so a `mesh invite` minted
-	// after startup takes effect without a restart. An empty token still 403s
-	// every request (same "disabled" behavior as before).
-	nodeSrv := node.New(a.localRT, func() string { return a.cfg.NodeToken })
+	// Always mounted; the token is read fresh per request via tokens.Get, so a
+	// `mesh invite` minted after startup takes effect without a restart. An empty
+	// token still 403s every request (same "disabled" behavior as before).
+	nodeSrv := node.New(a.localRT, tokens.Get)
 	mount := func(mux *http.ServeMux) {
 		uiSrv.Register(mux)
 		nodeSrv.Register(mux)
+		meshSrv.Register(mux)
 	}
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
 	fmt.Printf("fort-core on http://%s  (runtime=%s · node=%s)\n", a.cfg.Addr, a.rt.Name(), a.cfg.NodeName)
 	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat · execution)\n", a.cfg.Addr)
-	if a.reg != nil {
+	if reg := a.live.Load(); reg != nil {
 		exec := "off"
 		if a.cfg.NodeToken != "" {
 			exec = "on"
 		}
-		fmt.Printf("fort mesh : %d machines (%s) · accept remote exec: %s\n", len(a.reg.Machines), a.cfg.MachinesPath, exec)
+		fmt.Printf("fort mesh : %d machines (%s) · accept remote exec: %s\n", len(reg.Machines), a.cfg.MachinesPath, exec)
 		peers := 0
-		for _, m := range a.reg.Machines {
-			if m.Name != a.reg.Local() {
+		for _, m := range reg.Machines {
+			if m.Name != reg.Local() {
 				peers++
 			}
 		}

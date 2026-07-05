@@ -36,13 +36,23 @@ type app struct {
 	store   *store.Store
 	router  *router.Router
 	engine  *engine.Engine
-	rt      runtime.Runtime    // engine's runtime (cluster in multi-machine mode)
-	localRT runtime.Runtime    // raw local runtime, for the node exec endpoint
-	reg     *machines.Registry // nil in single-machine mode (spec 022)
+	rt      runtime.Runtime  // engine's runtime (cluster, wrapped by gateway if budgeted)
+	localRT runtime.Runtime  // raw local runtime, for the node exec endpoint
+	live    *machines.Live   // swappable registry (nil registry = single-machine)
+	clus    *cluster.Runtime // hot Add/Remove of peer transports (mesh enrollment)
+}
+
+// localName resolves the cluster's local identity: the registry's canonical
+// local name when a registry is installed, else the configured NodeName.
+func localName(l *machines.Live, cfg config.Config) string {
+	if r := l.Load(); r != nil {
+		return r.Local()
+	}
+	return cfg.NodeName
 }
 
 func buildApp() (*app, error) {
-	cfg := config.FromEnv(os.Getenv)
+	cfg := config.Load(os.Getenv)
 	if cfg.NodeName == "" {
 		cfg.NodeName, _ = os.Hostname()
 	}
@@ -75,27 +85,28 @@ func buildApp() (*app, error) {
 		localRT = native.New(cfg.WorkRoot, native.DefaultProviders()...)
 	}
 
-	// Multi-machine (spec 022): with a registry, the engine dispatches through a
-	// cluster runtime (local + remote peers) and places deterministically.
-	rt := localRT
-	var reg *machines.Registry
-	var placer engine.Placer
+	// Multi-machine (spec 022/024): the registry lives behind a Live pointer so
+	// mesh enrollment can swap it at runtime. The engine ALWAYS dispatches
+	// through a cluster runtime now — with zero remotes it is a pass-through to
+	// the local runtime, and enrollment can hot-add peers without re-wiring.
+	live := &machines.Live{}
 	if cfg.MachinesPath != "" {
 		r, err := machines.Load(cfg.MachinesPath, cfg.NodeName)
 		if err != nil {
 			return nil, err
 		}
-		reg = r
-		placer = r
-		remotes := map[string]runtime.Runtime{}
+		live.Store(r)
+	}
+	clus := cluster.New(localName(live, cfg), localRT, nil)
+	if r := live.Load(); r != nil {
 		for _, m := range r.Machines {
 			if m.Name == r.Local() {
 				continue
 			}
-			remotes[m.Name] = remote.New(m.Name, m.URL, cfg.NodeToken)
+			clus.Add(m.Name, remote.New(m.Name, m.URL, cfg.NodeToken))
 		}
-		rt = cluster.New(r.Local(), localRT, remotes)
 	}
+	var rt runtime.Runtime = clus
 
 	// Optional gateway: FORT_BUDGET caps spend per process and traces calls. It
 	// wraps the engine's runtime so budgets span local + remote dispatch.
@@ -107,9 +118,9 @@ func buildApp() (*app, error) {
 
 	r := router.New(rs)
 	eng := engine.New(r, rt, st, cfg.WorkRoot)
-	if placer != nil {
-		eng.UsePlacer(placer)
-	}
+	// The Live placer preserves single-machine semantics when no registry is
+	// installed (empty pin ⇒ "",nil), so this is safe to wire unconditionally.
+	eng.UsePlacer(live)
 	return &app{
 		cfg:     cfg,
 		store:   st,
@@ -117,6 +128,7 @@ func buildApp() (*app, error) {
 		engine:  eng,
 		rt:      rt,
 		localRT: localRT,
-		reg:     reg,
+		live:    live,
+		clus:    clus,
 	}, nil
 }

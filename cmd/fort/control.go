@@ -28,7 +28,7 @@ func cmdControl(args []string) error {
 	inboxDir := fs.String("inbox", ".fort-native/inbox", "task inbox directory to watch")
 	_ = fs.Parse(args)
 
-	cfg := config.FromEnv(os.Getenv)
+	cfg := config.Load(os.Getenv)
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {
 		return err
@@ -42,8 +42,9 @@ func cmdControl(args []string) error {
 	dispatcher := control.NewQueueDispatcher(st)
 	deps := ui.Deps{Dispatcher: dispatcher, Runner: nil, Store: st}
 
-	// Multi-machine (spec 022): even without execution, show the machine roster
-	// so the control plane is aware of both hosts.
+	// Multi-machine (spec 022/024): even without execution, show the machine
+	// roster so the control plane is aware of every host. The managed registry
+	// (spec 024) auto-loads via config.Load; a Live pointer keeps the roster live.
 	if cfg.MachinesPath != "" {
 		if cfg.NodeName == "" {
 			cfg.NodeName, _ = os.Hostname()
@@ -52,7 +53,6 @@ func cmdControl(args []string) error {
 		if err != nil {
 			return err
 		}
-		// spec 024: Task 8 replaces this with the shared Live.
 		live := &machines.Live{}
 		live.Store(reg)
 		roster := control.NewRoster(live)
