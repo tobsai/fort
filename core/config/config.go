@@ -14,6 +14,11 @@ type Config struct {
 	NodeName     string // this machine's identity in the registry (default: hostname)
 	MachinesPath string // path to machines.yaml ("" = single-machine)
 	NodeToken    string // shared bearer token for inter-Fort /api/exec calls
+
+	// MachinesManaged is true when MachinesPath points at the Fort-managed
+	// registry in the data dir (spec 024). Enrollment only ever writes the
+	// managed file; an operator-set FORT_MACHINES is never touched.
+	MachinesManaged bool
 }
 
 // Default returns the built-in configuration.
