@@ -1,55 +1,79 @@
 package ui
 
-// boardHTML is the web control-plane client served at GET / . It consumes
-// /api/summary, /api/board and the /api/events SSE stream, posts chat to
-// /api/chat, and posts gate decisions to /api/gate. It adapts to control-only
-// mode (execution:false) by badging the plane and surfacing the 409 on gates.
-// Brass-on-slate to match the Command Center theme.
+// boardHTML is the web control-plane client served at GET / . It renders an
+// interactive kanban (Backlog · Queued · Running · Blocked · Done) with a
+// persisted backlog lane and drag-to-dispatch, an agent picker, and light/dark
+// themes. It consumes /api/summary, /api/machines, /api/board and /api/backlog,
+// streams /api/events (SSE), posts chat to /api/chat, dispatches backlog items
+// via /api/backlog/{id}/dispatch, and posts gate decisions to /api/gate. It
+// adapts to control-only mode (execution:false) by badging the plane and
+// surfacing the 409 on gates.
 const boardHTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Fort — Command Center</title>
+<script>(function(){var s=localStorage.getItem('fort-theme');document.documentElement.setAttribute('data-theme',s||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));})();</script>
 <style>
-  :root{--slate:#10141b;--slate2:#171c26;--line:#26303f;--brass:#c8a45c;--brass2:#e3c785;--ink:#cdd6e3;--mut:#7f8da3;--ok:#5fb87a;--warn:#d8a657;--bad:#d2766a;}
+  :root{
+    --bg:#0b0e14;--panel:#12161f;--card:#12161f;--line:#212938;--line2:#1a212e;
+    --fg:#e6eaf2;--fg2:#b9c0ce;--mut:#5a6373;--brass:#c8a45c;--brass2:#e3c785;
+    --run:#e0a93b;--block:#5b9bf0;--ok:#4fb477;--fail:#e0655b;
+    --run-bg:#241c0e;--block-bg:#111c2e;
+  }
+  :root[data-theme=light]{
+    --bg:#f4f5f7;--panel:#ffffff;--card:#ffffff;--line:#e2e5ea;--line2:#edeff2;
+    --fg:#1b2230;--fg2:#3a4658;--mut:#8b94a7;--brass:#9a7b2e;--brass2:#7a5f16;
+    --run:#b07d10;--block:#2b6fd0;--ok:#2f8f5a;--fail:#c23b34;
+    --run-bg:#f7efdd;--block-bg:#e7f0fc;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--slate);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
-  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--slate2)}
-  header h1{margin:0;font-size:16px;letter-spacing:.18em;color:var(--brass2);text-transform:uppercase}
-  .plane{font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);border-radius:10px;padding:2px 8px;color:var(--mut)}
-  .plane.full{color:var(--ok);border-color:#2c5238}
-  .plane.control{color:var(--warn);border-color:#5a4a23}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;transition:background .15s,color .15s}
+  header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line2)}
+  header h1{margin:0;font-size:14px;letter-spacing:.18em;color:var(--brass2);text-transform:uppercase}
+  .plane{font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--brass)}
   .grow{flex:1}
-  .counts{display:flex;gap:10px;padding:8px 20px;border-bottom:1px solid var(--line);background:#0d1117;font-size:12px;flex-wrap:wrap}
-  .count{color:var(--mut)}.count b{color:var(--brass2)}
-  .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;padding:16px 20px}
-  .panel{background:var(--slate2);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
-  .panel h2{margin:0;padding:10px 14px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);border-bottom:1px solid var(--line)}
-  .rows{max-height:44vh;overflow:auto}
-  .row{display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #1d2531}
-  .row:last-child{border-bottom:0}
-  .id{color:var(--mut);font-size:11px}
-  .agent{color:var(--brass2)}
-  .badge{font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line);text-transform:uppercase;letter-spacing:.08em}
-  .s-succeeded{color:var(--ok);border-color:#2c5238}
-  .s-failed{color:var(--bad);border-color:#5a2f2a}
-  .s-running,.s-blocked{color:var(--warn);border-color:#5a4a23}
-  .s-queued{color:var(--mut)}
-  .mtag{font-size:10px;color:var(--mut);border:1px solid var(--line);border-radius:10px;padding:1px 6px}
-  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
-  .dot.up{background:var(--ok)}.dot.down{background:var(--bad)}
-  .chat select{background:#0d1117;border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 8px;font:inherit}
-  .feed{font-size:12px;max-height:26vh;overflow:auto;padding:6px 0}
-  .ev{padding:2px 14px;white-space:pre-wrap;word-break:break-word}
-  .ev .t{color:var(--mut)}
-  .gate{display:flex;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid #1d2531}
-  button{background:transparent;border:1px solid var(--brass);color:var(--brass2);border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit}
-  button.rej{border-color:#5a2f2a;color:var(--bad)}
-  button:hover{background:#1d2531}
-  .empty{padding:14px;color:var(--mut)}
-  .chat{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
-  .chat input{flex:1;background:#0d1117;border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 10px;font:inherit}
+  .counts{display:flex;gap:12px;font-size:12px;color:var(--mut)}
+  .counts b{color:var(--fg2)}
+  .iconbtn{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--fg2);padding:5px 9px;cursor:pointer;font:inherit}
+  .iconbtn:hover{background:var(--line2)}
+  .machines{display:flex;gap:14px;padding:8px 18px;font-size:11.5px;color:var(--mut);border-bottom:1px solid var(--line2);flex-wrap:wrap}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dot.up{background:var(--ok)}.dot.down{background:var(--fail)}
+  .board{display:grid;grid-template-columns:0.9fr 1fr 1fr 1fr 1fr;gap:11px;padding:14px 18px;align-items:start}
+  .col{display:flex;flex-direction:column;min-width:0}
+  .colhead{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.05em;color:var(--mut);margin-bottom:9px;text-transform:uppercase}
+  .colhead .n{background:var(--line2);border-radius:20px;padding:0 6px;min-width:18px;text-align:center}
+  .col.running .colhead{color:var(--run)} .col.running .n{background:var(--run-bg);color:var(--run)}
+  .col.blocked .colhead{color:var(--block)} .col.blocked .n{background:var(--block-bg);color:var(--block)}
+  .col-body{display:flex;flex-direction:column;gap:9px;min-height:60px;border-radius:8px;padding:2px;transition:background .12s}
+  .col.drop .col-body{background:var(--line2);outline:1px dashed var(--brass)}
+  .card{background:var(--card);border:1px solid var(--line);border-left:2px solid var(--edge,#3b4557);border-radius:8px;padding:9px 10px}
+  .card .title{font-size:12.5px;line-height:1.4;margin-bottom:7px;color:var(--fg)}
+  .card.done .title{color:var(--fg2)}
+  .meta{display:flex;align-items:center;gap:7px}
+  .meta .ag{font-size:10.5px;color:var(--brass2)}
+  .meta .mc{font-size:10.5px;color:var(--mut)}
+  .e-running{--edge:var(--run)} .e-blocked{--edge:var(--block)} .e-ok{--edge:var(--ok)} .e-fail{--edge:var(--fail)} .e-neutral{--edge:#3b4557}
+  .card.item{cursor:grab}
+  .card.item:active{cursor:grabbing}
+  .card.item .src{width:6px;height:6px;border-radius:50%;background:var(--mut);display:inline-block}
+  .card.item .src.agent{background:var(--brass)}
+  .gateact{display:flex;gap:6px;margin-top:8px}
+  .gateact button{font-size:10.5px;padding:1px 8px;border-radius:5px;background:transparent;border:1px solid var(--line);color:var(--fg2);cursor:pointer}
+  .gateact button.ok{color:var(--ok);border-color:var(--ok)}
+  .gateact button.no{color:var(--fail);border-color:var(--fail)}
+  .runbtn{margin-top:7px;font-size:10.5px;padding:1px 9px;border-radius:5px;background:transparent;border:1px solid var(--brass);color:var(--brass2);cursor:pointer}
+  .empty{color:var(--mut);font-size:11.5px;padding:8px 4px}
+  .compose{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line2)}
+  .compose select,.compose input{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px}
+  .compose input{flex:1}
+  .compose select{cursor:pointer}
+  .compose button{border-radius:7px;padding:7px 13px;font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--fg2)}
+  .compose button.run{border-color:#3a3320;color:var(--brass2);background:transparent}
+  .compose button:hover{background:var(--line2)}
+  a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,.card.item:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -57,79 +81,137 @@ const boardHTML = `<!doctype html>
   <h1>Fort</h1>
   <span class="plane" id="plane">…</span>
   <span class="grow"></span>
-  <span class="id" id="clock"></span>
+  <span class="counts" id="counts"></span>
+  <button class="iconbtn" id="theme" title="toggle theme" aria-label="toggle light/dark theme" onclick="toggleTheme()">◐</button>
+  <span class="counts" id="clock"></span>
 </header>
-<div class="counts" id="counts"></div>
-<div class="counts" id="machines" style="display:none"></div>
-<div class="wrap">
-  <section class="panel">
-    <h2>Runs</h2>
-    <div class="rows" id="runs"><div class="empty">loading…</div></div>
-  </section>
-  <section class="panel">
-    <h2>Gate inbox</h2>
-    <div id="gates"><div class="empty">no gates awaiting decision</div></div>
-    <h2 style="border-top:1px solid var(--line)">Live feed</h2>
-    <div class="feed" id="feed"></div>
-    <div class="chat">
-      <select id="machine" title="target machine"><option value="">any machine</option></select>
-      <input id="msg" placeholder="chat… (try: ship dark mode)" onkeydown="if(event.key==='Enter')send()"/>
-      <button onclick="send()">send</button>
-    </div>
-  </section>
+<div class="machines" id="machines" style="display:none"></div>
+<div class="board" id="board">
+  <div class="col" data-col="backlog"><div class="colhead"><span>Backlog</span><span class="n" id="n-backlog">0</span></div><div class="col-body" id="c-backlog"></div></div>
+  <div class="col" data-col="queued"><div class="colhead"><span>Queued</span><span class="n" id="n-queued">0</span></div><div class="col-body" id="c-queued"></div></div>
+  <div class="col running" data-col="running"><div class="colhead"><span>Running</span><span class="n" id="n-running">0</span></div><div class="col-body" id="c-running"></div></div>
+  <div class="col blocked" data-col="blocked"><div class="colhead"><span>Blocked</span><span class="n" id="n-blocked">0</span></div><div class="col-body" id="c-blocked"></div></div>
+  <div class="col" data-col="done"><div class="colhead"><span>Done</span><span class="n" id="n-done">0</span></div><div class="col-body" id="c-done"></div></div>
+</div>
+<div class="compose">
+  <select id="machine" title="target machine"><option value="">any machine</option></select>
+  <select id="agent" title="agent"><option value="">auto agent</option></select>
+  <input id="msg" placeholder="describe a task…" onkeydown="if(event.key==='Enter')runNow()"/>
+  <button class="run" onclick="runNow()">Run</button>
+  <button onclick="addToBacklog()">Add to backlog</button>
 </div>
 <script>
 const $=s=>document.querySelector(s);
-let hasExec=true;
-function badge(st){return '<span class="badge s-'+st+'">'+st+'</span>'}
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+let hasExec=true, machines=[];
+
+// ---- theme (init runs as a blocking <head> script to avoid FOUC) ----
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',cur);
+  localStorage.setItem('fort-theme',cur);
+}
+
+// ---- agent picker: union of agents, filtered by chosen machine ----
+function agentsFor(machineName){
+  let set=new Set();
+  machines.forEach(m=>{ if(!machineName||m.name===machineName)(m.agents||[]).forEach(a=>set.add(a)); });
+  return [...set].sort();
+}
+function syncAgentOptions(){
+  const asel=$('#agent'), cur=asel.value, opts=agentsFor($('#machine').value);
+  asel.innerHTML='<option value="">auto agent</option>'+opts.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
+  asel.value=opts.includes(cur)?cur:'';
+}
+
+// ---- rendering ----
+function edgeFor(status){return status==='succeeded'?'e-ok':status==='failed'?'e-fail':status==='running'?'e-running':status==='blocked'?'e-blocked':'e-neutral';}
+function runCard(r){
+  const done=(r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
+  return '<div class="card '+(done?'done ':'')+edgeFor(r.status)+'">'+
+    '<div class="title">'+esc(r.title||r.id)+'</div>'+
+    '<div class="meta"><span class="ag">'+esc(r.agent)+'</span>'+(r.machine?'<span class="mc">'+esc(r.machine)+'</span>':'')+'</div></div>';
+}
+function gateCard(g){
+  return '<div class="card e-blocked"><div class="title">'+esc(g.node_id)+'</div>'+
+    '<div class="meta"><span class="mc">gate · '+esc(g.run_id.slice(0,8))+'</span></div>'+
+    '<div class="gateact"><button class="ok" onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'approve\')">approve</button>'+
+    '<button class="no" onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'reject\')">reject</button></div></div>';
+}
+function backlogCard(b){
+  return '<div class="card item e-neutral" draggable="true" tabindex="0" data-id="'+b.id+'" ondragstart="onDrag(event,\''+b.id+'\')">'+
+    '<div class="title">'+esc(b.title)+'</div>'+
+    '<div class="meta"><span class="src '+(b.source==='agent'?'agent':'')+'"></span>'+
+    (b.agent?'<span class="ag">'+esc(b.agent)+'</span>':'')+(b.machine?'<span class="mc">'+esc(b.machine)+'</span>':'')+'</div>'+
+    '<button class="runbtn" onclick="dispatchItem(\''+b.id+'\')">run ▸</button></div>';
+}
+function fill(id,html,count){$('#'+id).innerHTML=html||'<div class="empty">—</div>';$('#n-'+id.slice(2)).textContent=count;}
+
 async function refresh(){
   const sum=await (await fetch('/api/summary')).json();
   hasExec=sum.execution;
   $('#plane').textContent=hasExec?'full plane':'control only';
-  $('#plane').className='plane '+(hasExec?'full':'control');
-  $('#counts').innerHTML=['running','queued','blocked','succeeded','failed']
-    .map(k=>'<span class="count">'+k+' <b>'+(sum[k]||0)+'</b></span>').join('')+
-    '<span class="count">total <b>'+sum.total+'</b></span>';
-  const ms=await (await fetch('/api/machines')).json();
+  $('#counts').innerHTML=['running','blocked','done'].map(k=>{
+    const v=k==='done'?(sum.succeeded+sum.failed):(sum[k]||0);
+    return '<span>'+k+' <b>'+v+'</b></span>';
+  }).join('');
+  machines=await (await fetch('/api/machines')).json()||[];
   const mbar=$('#machines');
-  if(ms&&ms.length){
+  if(machines.length){
     mbar.style.display='flex';
-    mbar.innerHTML='<span class="count">machines</span>'+ms.map(m=>
-      '<span class="count"><span class="dot '+(m.reachable?'up':'down')+'"></span>'+m.name+(m.local?' (local)':'')+
-      ' <b>'+(m.agents||[]).join(',')+'</b></span>').join('');
-    const sel=$('#machine');const cur=sel.value;
-    sel.innerHTML='<option value="">any machine</option>'+ms.map(m=>'<option value="'+m.name+'">'+m.name+'</option>').join('');
+    mbar.innerHTML=machines.map(m=>'<span><span class="dot '+(m.reachable?'up':'down')+'"></span>'+esc(m.name)+(m.local?' (local)':'')+' <b style="color:var(--fg2)">'+(m.agents||[]).map(esc).join(', ')+'</b></span>').join('');
+    const sel=$('#machine'),cur=sel.value;
+    sel.innerHTML='<option value="">any machine</option>'+machines.map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join('');
     sel.value=cur;
-  }else{mbar.style.display='none';}
+  }else mbar.style.display='none';
+  syncAgentOptions();
+
   const b=await (await fetch('/api/board')).json();
-  $('#runs').innerHTML=(b.runs&&b.runs.length)?b.runs.map(r=>
-    '<div class="row">'+badge(r.status)+'<span class="agent">'+r.agent+'</span>'+
-    (r.machine?'<span class="mtag">'+r.machine+'</span>':'')+
-    '<span class="grow">'+(r.title||r.id)+'</span><span class="id">'+r.id.slice(0,8)+'</span></div>').join(''):'<div class="empty">no runs yet</div>';
-  $('#gates').innerHTML=(b.gates&&b.gates.length)?b.gates.map(g=>
-    '<div class="gate"><span class="grow">'+g.node_id+'<span class="id"> · '+g.run_id.slice(0,8)+'</span></span>'+
-    '<button onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'approve\')">approve</button>'+
-    '<button class="rej" onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'reject\')">reject</button></div>').join(''):'<div class="empty">no gates awaiting decision</div>';
+  const runs=b.runs||[], gates=b.gates||[];
+  const by=s=>runs.filter(r=>r.status===s);
+  const done=runs.filter(r=>r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
+  fill('c-queued',by('queued').map(runCard).join(''),by('queued').length);
+  fill('c-running',by('running').map(runCard).join(''),by('running').length);
+  fill('c-blocked',(gates.map(gateCard).join('')||by('blocked').map(runCard).join('')),gates.length||by('blocked').length);
+  fill('c-done',done.map(runCard).join(''),done.length);
+
+  const items=await (await fetch('/api/backlog')).json()||[];
+  fill('c-backlog',items.map(backlogCard).join(''),items.length);
+}
+
+// ---- actions ----
+async function runNow(){
+  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
+  await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine:$('#machine').value,agent:$('#agent').value})});
+  refresh();
+}
+async function addToBacklog(){
+  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
+  await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:text,machine:$('#machine').value,agent:$('#agent').value})});
+  refresh();
+}
+async function dispatchItem(id){
+  await fetch('/api/backlog/'+id+'/dispatch',{method:'POST'});
+  refresh();
 }
 async function decide(run,node,decision){
   const r=await fetch('/api/gate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({run_id:run,node_id:node,decision})});
   if(r.status===409)alert('No execution plane — start fort serve to act on gates.');
   refresh();
 }
-async function send(){
-  const el=$('#msg');const text=el.value.trim();if(!text)return;el.value='';
-  const machine=$('#machine')?$('#machine').value:'';
-  await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine})});
-  refresh();
-}
+
+// ---- drag: backlog item -> board dispatches it ----
+function onDrag(e,id){e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}
+['queued','running','blocked','done'].forEach(c=>{
+  const col=document.querySelector('[data-col='+c+']');
+  col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drop');});
+  col.addEventListener('dragleave',()=>col.classList.remove('drop'));
+  col.addEventListener('drop',e=>{e.preventDefault();col.classList.remove('drop');const id=e.dataTransfer.getData('text/plain');if(id)dispatchItem(id);});
+});
+$('#machine').addEventListener('change',syncAgentOptions);
+
 const es=new EventSource('/api/events?since=0');
-es.onmessage=e=>{
-  const d=JSON.parse(e.data);
-  const el=document.createElement('div');el.className='ev';
-  el.innerHTML='<span class="t">'+d.type+'</span> '+(d.data||'').replace(/</g,'&lt;');
-  const f=$('#feed');f.prepend(el);while(f.childElementCount>200)f.lastChild.remove();
-  refresh();
-};
+es.onmessage=()=>refresh();
 setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString()},1000);
 setInterval(refresh,3000);
 refresh();
