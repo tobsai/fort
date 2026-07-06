@@ -115,6 +115,10 @@ CREATE INDEX IF NOT EXISTS idx_event_run ON event(run_id);
 CREATE TABLE IF NOT EXISTS invite (
   code_hash TEXT PRIMARY KEY, created_at TEXT, expires_at TEXT, used_at TEXT
 );
+CREATE TABLE IF NOT EXISTS backlog_item (
+  id TEXT PRIMARY KEY, title TEXT, body TEXT, agent TEXT, machine TEXT,
+  labels TEXT, source TEXT, created_at TEXT
+);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
