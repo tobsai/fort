@@ -34,12 +34,18 @@ ones you want onto the board to run. The backlog is the plan-approval surface.
 ### The planner (a visible run)
 The planner is a normal Fort run so you can watch it and read its output:
 - Agent = the request's `agent` if set, else `FORT_PLANNER` (default `claude` —
-  strongest at decomposition). Placed like any task (on the mesh, wherever claude
-  is offered).
+  strongest at decomposition). The run is built with `task.Agent = <planner>`.
+  **Precondition (D7):** forcing that agent relies on an `@agent` passthrough
+  rule existing for it in the active ruleset — `rules/v1.yaml` ships these for
+  `claude`/`codex`/`hermes`/`openclaw` (the router treats `Task.Agent` as a
+  *matcher*, not an override). With a custom ruleset that lacks a passthrough
+  rule for `FORT_PLANNER`, the planner routes per the rules instead. (This is the
+  same latent assumption that backs 025's "agent picker forces the agent".)
 - Prompt: the goal wrapped in a fixed planner instruction asking for a short
   (≈3–8) list of concrete, independently-runnable sub-tasks, output as **only** a
-  JSON array of `{"title": string, "agent"?: string, "machine"?: string}`, no
-  prose.
+  JSON array of `{"title": string, "agent"?: string, "machine"?: string}`, with
+  an explicit "no prose, no markdown code fences" instruction (extraction strips
+  fences defensively anyway — see below).
 - The run appears on the board (title `breakdown: <goal>`, agent = the planner)
   and moves Queued → Running → Done like any run.
 
@@ -47,14 +53,29 @@ The planner is a normal Fort run so you can watch it and read its output:
 `POST /api/breakdown` returns the planner **run id immediately**; the sub-tasks
 appear in the backlog when that run finishes:
 1. `control.Planner.Breakdown` dispatches the planner run via `engine.SubmitRef`
-   (returns the run id) and spawns a goroutine.
+   (returns the run id) and spawns a completion goroutine (bound to the server's
+   context; see the crash-window note under Failure handling).
 2. The goroutine `engine.Wait(runID)` (new exported wait — blocks until the run's
-   events are fully persisted), then `store.Events(runID)`.
-3. It extracts the plan: concatenate the run's `message` events (Fort's
-   normalized assistant output; fall back to `stdout` events), find the JSON
-   array (first `[` … last `]`), `json.Unmarshal` into `[]SubTask`.
-4. For each sub-task it calls `store.CreateBacklogItem` with `source="agent"`,
-   the sub-task title, and any suggested agent/machine.
+   events are fully persisted), then checks `store.GetRun(runID).Status`. **Only
+   a `succeeded` run proceeds**; a failed/canceled planner creates no items.
+3. It recovers the planner's **final answer text from a single authoritative
+   source**, not by concatenating normalized `message` events (claude runs with
+   `--include-partial-messages`, so each partial delta *and* the terminal line
+   both become `message` events — concatenating them doubles the array into
+   `[…][…]`, which is unparseable). Instead, from `store.Events(runID)` it takes
+   the raw `stdout` events and finds claude's terminal stream-json result line
+   (`{"type":"result","result":"…"}` — Fort stores it as a raw stdout event
+   because the message normalizer has no `"result"` key), `json.Unmarshal`s that
+   line, and reads its `result` string (correct escape handling; avoids the lossy
+   normalized-message path). Fallback for providers that emit plain final text
+   (e.g. hermes): the **last** `message` event's data.
+4. From that final text it extracts the plan: strip a ```json fence if present,
+   take the outermost balanced `[`…`]`, `json.Unmarshal` into `[]SubTask`, and
+   **validate** each element is an object with a non-empty `title` (a coincidental
+   bracketed substring that isn't an array-of-objects-with-title falls through to
+   the raw fallback, not a false success).
+5. For each valid sub-task it calls `store.CreateBacklogItem` with
+   `source="agent"`, the title, and any suggested agent/machine.
 On the next board refresh the items are in the Backlog.
 
 ### Determinism
@@ -64,12 +85,23 @@ sub-tasks stay model-free. The decomposition is the only model call; everything
 downstream (scheduling by drag, routing each sub-task) is deterministic.
 
 ### Failure handling
-- Planner run fails / is canceled: no backlog items created; the failed
-  `breakdown: <goal>` run is visible in Done (you see it failed) — retry.
-- Output has no parseable JSON array: create a **single** backlog item titled
-  `breakdown (unparsed): <goal>` whose body is the raw planner output, and log a
-  warning — so the work is never silently dropped and you can hand-edit.
-- Zero sub-tasks parsed: same single-item fallback.
+- Planner run fails / is canceled: no backlog items; the failed `breakdown:
+  <goal>` run is visible in Done — retry.
+- **Valid but empty** plan (`[]`): success with **zero items** (the planner
+  legitimately decided no breakdown is needed) — logged at info, no raw fallback.
+  This is deliberately distinct from garbage output.
+- **Unparseable** output (no balanced array, or the parsed value isn't an
+  array-of-objects-with-title): create a **single** backlog item titled
+  `breakdown (unparsed): <goal>` whose body is the raw final text, plus a logged
+  warning — never silently dropped; you hand-edit.
+- **Crash window (known limitation, v1):** the completion goroutine is the one
+  non-replayable step. If `fort serve` stops in the gap between the planner run
+  finishing and the goroutine writing items, the sub-tasks are not written (the
+  run still shows Done) — re-run the breakdown. The goroutine uses the server's
+  context and is abandoned on shutdown. A startup reconcile (re-extract from the
+  persisted events of a finished `breakdown:` run that produced no items) is
+  possible since extraction reads only durable state, but is **deferred** to keep
+  v1 focused.
 
 ### Architecture (respects the seams)
 - **`ui.Planner` port** (`ui/ports.go`), nil in control-only mode:
@@ -106,15 +138,26 @@ downstream (scheduling by drag, routing each sub-task) is deterministic.
   placement stay model-free; only the planner run infers.
 - **D5 — needs an execution plane.** Breakdown 409s in control-only mode, like
   gates — planning is a real agent invocation.
-- **D6 — never silently drop.** Unparseable/empty output becomes one raw-output
-  backlog item you can edit, plus a logged warning.
+- **D6 — never silently drop, but distinguish empty from garbage.** A valid empty
+  plan is success with zero items; only unparseable output becomes one
+  raw-output backlog item (+ logged warning). Extraction reads a single
+  authoritative result line (claude's stream-json `result`), not concatenated
+  normalized messages, and validates array-of-objects-with-title before
+  accepting — so a mis-extracted substring can't be a false success.
+- **D7 — planner-agent forcing is a ruleset precondition.** Forcing the planner
+  agent depends on an `@agent` passthrough rule in the active ruleset;
+  `rules/v1.yaml` ships them for the four known agents. Documented, and asserted
+  by a default-ruleset test. (Shared with 025's agent picker; not an
+  engine-level guarantee.)
 
 ## Affected files
 - `ui/ports.go` — `Planner` port + `SubTask` type.
 - `ui/server.go` — `POST /api/breakdown` handler + registration.
 - `ui/contract.go` — `BreakdownRequest` + `BreakdownResult` wire types.
-- `control/planner.go` (new) — `Planner` impl: prompt, dispatch, wait, extract,
-  create backlog items (+ `control/planner_test.go`).
+- `control/planner.go` (new) — `Planner` impl: prompt, dispatch, `Wait` +
+  status check, extract the plan from claude's terminal `result` stdout line
+  (small line struct decoded with `encoding/json`; fence-strip + balanced-array
+  + shape-validate helpers), create backlog items (+ `control/planner_test.go`).
 - `core/engine/engine.go` — exported `Wait(runID)`.
 - `cmd/fort/wire.go`, `cmd/fort/main.go` — `FORT_PLANNER` config, `Planner`
   injection (serve only), `fort task breakdown` command + usage.
@@ -122,18 +165,30 @@ downstream (scheduling by drag, routing each sub-task) is deterministic.
 - `docs/notes/*` / `README.md` — document breakdown + `FORT_PLANNER`.
 
 ## Test criteria
-- `core/engine`: `Wait(runID)` returns after a run's events are persisted (fake
-  runtime); returns immediately for an unknown/finished run.
-- `control/planner_test.go` (fake runtime whose output is a canned JSON plan):
-  `Breakdown` dispatches a run, and after it completes the store has one backlog
-  item per sub-task with `source="agent"` and the right titles/agents; an
-  unparseable output yields exactly one `breakdown (unparsed): …` item; a failed
-  planner run yields zero items.
+- `core/engine`: `Wait(runID)` blocks then returns after a run's events are
+  persisted (fake runtime, in-flight path); **and** returns immediately for an
+  already-finished run (complete a fake run, then call Wait) and for an unknown
+  id — pinning the guarantee against `consume`'s defer ordering.
+- Plan extraction (a `control` helper, unit-tested directly): a claude-shaped
+  terminal `{"type":"result","result":"[…]"}` stdout line yields the sub-tasks;
+  a ```json-fenced result with leading prose is stripped and parsed; a valid
+  empty array `[]` yields **zero** items (not a raw fallback); prose containing a
+  stray non-object bracketed list, or a non-array, yields the unparsed fallback;
+  the doubled `[…][…]` shape (proving we don't concatenate partials) is handled
+  by reading the single result line.
+- `control/planner_test.go` (fake runtime whose canned output is a claude-style
+  result line): `Breakdown` dispatches a run, and after it completes the store
+  has one `source="agent"` backlog item per sub-task with the right
+  titles/agents; unparseable output → exactly one `breakdown (unparsed): …` item;
+  empty array → zero items; a **failed** planner run → zero items (status checked
+  after `Wait`).
+- Default-ruleset agent forcing (D7): a router/engine test asserts a task with
+  `Agent=claude` under `rules/v1.yaml` routes to `claude` (the passthrough rule
+  the planner depends on exists).
 - `ui`: `POST /api/breakdown` 400s on blank text; 409 when `Planner` is nil
-  (control-only); returns `{run_id}` with a stub planner. `/api/backlog` then
-  lists the created items.
-- Determinism guard: `control/planner.go` makes exactly one agent dispatch;
-  no model call in the backlog-creation path.
+  (control-only); returns `{run_id}` with a stub planner.
+- Determinism guard: exactly one agent dispatch per breakdown; no model call in
+  the extraction/backlog-creation path.
 - `go test ./...` + `-race` on `control` + `core/engine` green; seams intact
   (`ui` imports no engine; `control` may).
 
