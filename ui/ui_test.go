@@ -253,6 +253,20 @@ func TestChatPinsMachine(t *testing.T) {
 	}
 }
 
+func TestChatForcesAgent(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "build it", Agent: "codex"})
+	res := decode[ui.ChatResult](t, rec)
+	if cd.last.Agent != "codex" {
+		t.Fatalf("task.Agent = %q, want codex", cd.last.Agent)
+	}
+	if res.Route != "codex" {
+		t.Fatalf("result.Route = %q, want codex", res.Route)
+	}
+}
+
 func TestMachinesEndpointReturnsRoster(t *testing.T) {
 	st := openStore(t)
 	roster := stubMachines{list: []ui.MachineStatus{
