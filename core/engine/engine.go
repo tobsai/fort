@@ -34,7 +34,14 @@ type Engine struct {
 	placer   Placer // nil => single-machine (no placement)
 
 	mu      sync.Mutex
-	waiters map[string]chan struct{} // runID -> done
+	running map[string]*runState // runID -> live run handle
+}
+
+// runState is a live run's handle: a done channel (closed when its events are
+// fully persisted) and a cancel func for its detached execution context.
+type runState struct {
+	done   chan struct{}
+	cancel context.CancelFunc
 }
 
 // New builds an engine.
@@ -45,7 +52,7 @@ func New(r *router.Router, rt runtime.Runtime, st *store.Store, workRoot string)
 		store:    st,
 		workRoot: workRoot,
 		newID:    uuid.NewString,
-		waiters:  map[string]chan struct{}{},
+		running:  map[string]*runState{},
 	}
 }
 
@@ -53,19 +60,28 @@ func New(r *router.Router, rt runtime.Runtime, st *store.Store, workRoot string)
 // the engine dispatches to the local runtime exactly as before.
 func (e *Engine) UsePlacer(p Placer) { e.placer = p }
 
-func (e *Engine) track(runID string, done chan struct{}) {
+func (e *Engine) track(runID string, rs *runState) {
 	e.mu.Lock()
-	e.waiters[runID] = done
+	e.running[runID] = rs
+	e.mu.Unlock()
+}
+
+func (e *Engine) lookup(runID string) *runState {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.running[runID]
+}
+
+func (e *Engine) untrack(runID string) {
+	e.mu.Lock()
+	delete(e.running, runID)
 	e.mu.Unlock()
 }
 
 // wait blocks until the run's consume goroutine has finished persisting.
 func (e *Engine) wait(runID string) {
-	e.mu.Lock()
-	done := e.waiters[runID]
-	e.mu.Unlock()
-	if done != nil {
-		<-done
+	if rs := e.lookup(runID); rs != nil {
+		<-rs.done
 	}
 }
 
@@ -136,16 +152,25 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 		Workdir: filepath.Join(e.workRoot, runID),
 		Machine: machine,
 	}
-	run, err := e.rt.Dispatch(ctx, spec)
+	// A submitted run is asynchronous: consume() drains it on a goroutine and it
+	// must outlive this call. A board chat submit is fire-and-forget — its HTTP
+	// request context ends the moment the handler returns — so the run executes
+	// on its own detached context, never the caller's ctx. (Previously the
+	// caller's ctx went straight to Dispatch, so a board-dispatched remote run
+	// was torn down the instant the request ended, surfacing as "remote stream
+	// error: context canceled".) The caller's ctx therefore bounds only this
+	// submission; SubmitAndWait bridges a caller cancel to the run explicitly.
+	runCtx, cancelRun := context.WithCancel(context.Background())
+	run, err := e.rt.Dispatch(runCtx, spec)
 	if err != nil {
+		cancelRun()
 		_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
 		return runID, machine, err
 	}
 
 	done := make(chan struct{})
-	go e.consume(run, runID, done)
-	// stash the done channel so SubmitAndWait can block on it
-	e.track(runID, done)
+	e.track(runID, &runState{done: done, cancel: cancelRun})
+	go e.consume(run, runID, done, cancelRun)
 	return runID, machine, nil
 }
 
@@ -156,11 +181,22 @@ func (e *Engine) SubmitAndWait(ctx context.Context, t task.Task) (store.Run, err
 	if err != nil {
 		return store.Run{}, err
 	}
-	e.wait(runID)
+	// The run is detached from ctx, so bridge a caller cancel (e.g. Ctrl-C on
+	// `fort task add`) through to the run instead of just abandoning the wait.
+	if rs := e.lookup(runID); rs != nil {
+		select {
+		case <-rs.done:
+		case <-ctx.Done():
+			rs.cancel()
+			<-rs.done
+		}
+	}
 	return e.store.GetRun(runID)
 }
 
-func (e *Engine) consume(run runtime.Run, runID string, done chan struct{}) {
+func (e *Engine) consume(run runtime.Run, runID string, done chan struct{}, cancel context.CancelFunc) {
+	defer e.untrack(runID) // drop the handle; runs after done is closed (LIFO)
+	defer cancel()         // release the run's detached context once it terminates
 	defer close(done)
 	for ev := range run.Stream() {
 		_, _ = e.store.AppendEvent(store.Event{
