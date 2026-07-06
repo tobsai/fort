@@ -51,8 +51,11 @@ Upload**. Repeat with the **FortMac** scheme (**My Mac**) and **FortWatch**.
 **CLI:**
 ```sh
 cd ui/apple
-xcodebuild -project Fort.xcodeproj -scheme Fort -sdk iphoneos -configuration Release \
-  -archivePath build/Fort.xcarchive archive DEVELOPMENT_TEAM=ABCDE12345
+xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
+  -configuration Release -archivePath build/Fort.xcarchive archive DEVELOPMENT_TEAM=ABCDE12345
+# NB: use -destination, NOT `-sdk iphoneos` — forcing the SDK poisons the
+# embedded watch targets (iOS DTPlatformName/UIDeviceFamily/arch → App Store
+# validation rejects the build).
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
   -exportPath build/export -exportOptionsPlist ExportOptions.plist
 # upload with an App Store Connect API key (Users and Access ▸ Keys):
