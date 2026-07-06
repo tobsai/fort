@@ -77,7 +77,10 @@ fort gate approve <run> plan_gate
 
 All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./docs/notes/event-contract.md)):
 
-- **Web** — served at `GET /` (board, feed, chat, gate inbox).
+- **Web** — served at `GET /`: a kanban board (Backlog · Queued · Running ·
+  Blocked · Done) with a backlog you drag onto the board to dispatch, an
+  agent/machine picker on the compose bar, gate approvals inline in Blocked, and
+  a light/dark theme toggle.
 - **Apple** — [`ui/apple`](./ui/apple): a shared **FortKit** package reused by iOS,
   macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
   compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
