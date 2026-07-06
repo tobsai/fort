@@ -50,6 +50,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/machines", s.handleMachines)
 	mux.HandleFunc("POST /api/gate", s.handleGate)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
+	mux.HandleFunc("GET /api/backlog", s.handleBacklogList)
+	mux.HandleFunc("POST /api/backlog", s.handleBacklogAdd)
+	mux.HandleFunc("POST /api/backlog/{id}/dispatch", s.handleBacklogDispatch)
+	mux.HandleFunc("DELETE /api/backlog/{id}", s.handleBacklogDelete)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 }
@@ -229,6 +233,75 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
+}
+
+func (s *Server) handleBacklogList(w http.ResponseWriter, _ *http.Request) {
+	items, err := s.d.Store.ListBacklog()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	out := []BacklogItem{}
+	for _, b := range items {
+		out = append(out, toBacklogItem(b))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleBacklogAdd(w http.ResponseWriter, r *http.Request) {
+	var req BacklogRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Title) == "" {
+		http.Error(w, "title is required", http.StatusBadRequest)
+		return
+	}
+	src := req.Source
+	if src == "" {
+		src = "user"
+	}
+	b := store.BacklogItem{
+		ID: uuid.NewString(), Title: req.Title, Body: req.Body,
+		Agent: req.Agent, Machine: req.Machine, Labels: req.Labels,
+		Source: src, CreatedAt: time.Now(),
+	}
+	if err := s.d.Store.CreateBacklogItem(b); err != nil {
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toBacklogItem(b))
+}
+
+func (s *Server) handleBacklogDispatch(w http.ResponseWriter, r *http.Request) {
+	b, err := s.d.Store.GetBacklogItem(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "backlog item not found", http.StatusNotFound)
+		return
+	}
+	t := task.Task{
+		ID: uuid.NewString(), Title: b.Title, Body: b.Body,
+		Labels: b.Labels, Agent: b.Agent, Machine: b.Machine, CreatedAt: time.Now(),
+	}
+	if t.Body == "" {
+		t.Body = b.Title
+	}
+	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	_ = s.d.Store.DeleteBacklogItem(b.ID)
+	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
+}
+
+func (s *Server) handleBacklogDelete(w http.ResponseWriter, r *http.Request) {
+	if err := s.d.Store.DeleteBacklogItem(r.PathValue("id")); err != nil {
+		httpError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func toBacklogItem(b store.BacklogItem) BacklogItem {
+	return BacklogItem{ID: b.ID, Title: b.Title, Body: b.Body, Agent: b.Agent, Machine: b.Machine, Labels: b.Labels, Source: b.Source}
 }
 
 // handleOpenClaw maps an inbound OpenClaw message to a Fort task (AO-036).

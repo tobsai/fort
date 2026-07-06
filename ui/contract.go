@@ -121,3 +121,24 @@ type ActionResult struct {
 	State      string `json:"state"`
 	PausedNode string `json:"paused_node,omitempty"`
 }
+
+// BacklogItem is a pending task queued on the board (spec 025).
+type BacklogItem struct {
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Body    string   `json:"body,omitempty"`
+	Agent   string   `json:"agent,omitempty"`
+	Machine string   `json:"machine,omitempty"`
+	Labels  []string `json:"labels,omitempty"`
+	Source  string   `json:"source"` // "user" | "agent"
+}
+
+// BacklogRequest is the command body for POST /api/backlog.
+type BacklogRequest struct {
+	Title   string   `json:"title"`
+	Body    string   `json:"body,omitempty"`
+	Agent   string   `json:"agent,omitempty"`
+	Machine string   `json:"machine,omitempty"`
+	Labels  []string `json:"labels,omitempty"`
+	Source  string   `json:"source,omitempty"` // defaults to "user"
+}

@@ -1,0 +1,58 @@
+package ui_test
+
+import (
+	"testing"
+
+	"github.com/tobsai/fort/ui"
+)
+
+func TestBacklogAddListDispatchDelete(t *testing.T) {
+	s, st := newFullUI(t)
+
+	add := do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "queue me", Agent: "codex", Machine: "mini"})
+	if add.Code != 200 {
+		t.Fatalf("add status = %d", add.Code)
+	}
+	item := decode[ui.BacklogItem](t, add)
+	if item.ID == "" || item.Title != "queue me" || item.Source != "user" {
+		t.Fatalf("added = %+v", item)
+	}
+
+	list := decode[[]ui.BacklogItem](t, do(t, s, "GET", "/api/backlog", nil))
+	if len(list) != 1 || list[0].ID != item.ID {
+		t.Fatalf("list = %+v", list)
+	}
+
+	disp := do(t, s, "POST", "/api/backlog/"+item.ID+"/dispatch", nil)
+	if disp.Code != 200 {
+		t.Fatalf("dispatch status = %d", disp.Code)
+	}
+	res := decode[ui.ChatResult](t, disp)
+	if res.RunID == "" {
+		t.Fatalf("dispatch produced no run: %+v", res)
+	}
+	if _, err := st.GetRun(res.RunID); err != nil {
+		t.Fatalf("run not persisted: %v", err)
+	}
+	if remaining := decode[[]ui.BacklogItem](t, do(t, s, "GET", "/api/backlog", nil)); len(remaining) != 0 {
+		t.Fatalf("backlog not emptied after dispatch: %+v", remaining)
+	}
+}
+
+func TestBacklogDeleteDiscards(t *testing.T) {
+	s, _ := newControlUI(t)
+	item := decode[ui.BacklogItem](t, do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "discard me"}))
+	if do(t, s, "DELETE", "/api/backlog/"+item.ID, nil).Code != 200 {
+		t.Fatal("delete failed")
+	}
+	if list := decode[[]ui.BacklogItem](t, do(t, s, "GET", "/api/backlog", nil)); len(list) != 0 {
+		t.Fatalf("still present: %+v", list)
+	}
+}
+
+func TestBacklogAddRequiresTitle(t *testing.T) {
+	s, _ := newControlUI(t)
+	if do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "   "}).Code != 400 {
+		t.Fatal("blank title should 400")
+	}
+}
