@@ -85,13 +85,52 @@ func TestParsePlanGarbageIsUnparsed(t *testing.T) {
 	}
 }
 
-func TestParsePlanIgnoresTrailingFencedExample(t *testing.T) {
-	// The model emitted the real array, then an illustrative fenced example. The
-	// example must NOT replace the real plan (spec-026 robustness: critical).
-	raw := "[{\"title\":\"write tests\"},{\"title\":\"ship it\"}]\nExample format: ```[{\"title\":\"...\"}]```"
+func TestParsePlanAmbiguousArraysAreUnparsed(t *testing.T) {
+	// An illustrative example array beside the real plan is ambiguous — we can't
+	// tell which is the plan — so it goes to the unparsed fallback rather than
+	// silently picking one (spec-026 D6: never a false success). Both directions.
+	trailing := "[{\"title\":\"write tests\"},{\"title\":\"ship it\"}]\nExample format: ```[{\"title\":\"...\"}]```"
+	if _, ok := parsePlan([]store.Event{resultEventRaw(trailing)}); ok {
+		t.Fatal("trailing example array should be ambiguous -> unparsed")
+	}
+	leading := "Example:\n[{\"title\":\"placeholder\"}]\nReal plan:\n[{\"title\":\"actual\"}]"
+	if _, ok := parsePlan([]store.Event{resultEventRaw(leading)}); ok {
+		t.Fatal("leading example array should be ambiguous -> unparsed")
+	}
+}
+
+func TestParsePlanProseBracketBeforeArray(t *testing.T) {
+	// A non-JSON bracket in the prose ([in priority order]) must not derail the
+	// scan: it isn't a decodable array, so the single real plan still wins.
+	raw := "Here are the tasks [in priority order]:\n[{\"title\":\"write tests\"},{\"title\":\"ship\"}]"
 	subs, ok := parsePlan([]store.Event{resultEventRaw(raw)})
-	if !ok || len(subs) != 2 || subs[0].Title != "write tests" || subs[1].Title != "ship it" {
-		t.Fatalf("trailing fenced example must not clobber the plan; got %+v ok=%v", subs, ok)
+	if !ok || len(subs) != 2 || subs[0].Title != "write tests" || subs[1].Title != "ship" {
+		t.Fatalf("a prose bracket before the array must not drop the plan; got %+v ok=%v", subs, ok)
+	}
+}
+
+func TestParsePlanObjectWrappedArrayIsUnparsed(t *testing.T) {
+	// claude refuses and wraps a *format example* array inside a JSON object.
+	// The array is an object field, not a top-level plan — it must NOT be
+	// mistaken for the plan (spec-026: important false-success guard).
+	raw := `{"decision":"This goal is already atomic; no breakdown needed.","example_format_for_reference":[{"title":"a sub-task title","agent":"claude"}]}`
+	if _, ok := parsePlan([]store.Event{resultEventRaw(raw)}); ok {
+		t.Fatal("an array nested in a JSON object must be unparsed, not the plan")
+	}
+	// A plausible {"tasks":[...]} wrapper is likewise not a bare array -> unparsed.
+	if _, ok := parsePlan([]store.Event{resultEventRaw(`{"tasks":[{"title":"a"},{"title":"b"}]}`)}); ok {
+		t.Fatal("object-wrapped plan should be unparsed (planner is asked for a bare array)")
+	}
+}
+
+func TestParsePlanTitlelessArrayIsUnparsed(t *testing.T) {
+	// An array of objects with no titles is shape-invalid — it must fall to the
+	// unparsed fallback, not vanish as a "valid empty plan" (spec-026: important).
+	if _, ok := parsePlan([]store.Event{resultEventRaw(`[{"foo":"bar"}]`)}); ok {
+		t.Fatal("titleless array should be unparsed, not a valid empty plan")
+	}
+	if _, ok := parsePlan([]store.Event{resultEventRaw(`[{"reason":"already atomic"}]`)}); ok {
+		t.Fatal("a refusal-as-JSON with no titles should be unparsed")
 	}
 }
 

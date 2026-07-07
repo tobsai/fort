@@ -89,9 +89,13 @@ func (p Planner) ingest(runID, goal string) {
 	subs, ok := parsePlan(evs)
 	if !ok {
 		p.log.Warn("planner: unparseable output", "run", runID)
+		body := finalText(evs)
+		if strings.TrimSpace(body) == "" {
+			body = "(planner produced no output)"
+		}
 		_ = p.s.CreateBacklogItem(store.BacklogItem{
 			ID: uuid.NewString(), Title: "breakdown (unparsed): " + goal,
-			Body: finalText(evs), Source: "agent", CreatedAt: time.Now(),
+			Body: body, Source: "agent", CreatedAt: time.Now(),
 		})
 		return
 	}
@@ -157,32 +161,66 @@ func parsePlan(evs []store.Event) ([]subTask, bool) {
 	return nil, false
 }
 
-// decodePlan extracts a JSON array of sub-tasks from a single final-answer text.
-// It decodes the FIRST complete JSON array starting at the first '[', using a
-// json.Decoder — which respects string literals (so brackets and ```fences``` in
-// a title are treated as content, not structure) and stops at the array's end
-// (so trailing prose or an illustrative fenced example is ignored). If a second
-// adjacent top-level array follows, the output is ambiguous (which is the
-// plan?), so it is rejected to the unparsed fallback rather than guessed.
+// decodePlan extracts the sub-task list from a single final-answer text. The
+// planner is instructed to output ONLY a JSON array, so decodePlan tolerates
+// minor deviations (leading prose, a ```json fence, trailing whitespace) but is
+// deliberately conservative about ambiguity: it scans for every TOP-LEVEL JSON
+// array that decodes as a plan — an empty array, or one with at least one
+// titled object — and accepts a result ONLY when exactly one exists. Zero plan
+// arrays -> unparsed (caller writes the raw fallback). Two or more (an
+// illustrative example beside the real plan, whether it leads or trails, or a
+// doubled array) -> ambiguous, also unparsed: never guess which is the plan.
+//
+// A json.Decoder respects string literals, so brackets and ```fences``` inside a
+// title are content, not structure. Two spans are skipped whole so their
+// contents can't be miscounted: a decoded plan array (its inner brackets), and
+// any JSON object — an array nested as an object field (e.g. claude refusing
+// with {"decision":"…","example":[…]}) is NOT the plan, so consuming the object
+// prevents that field array from being mistaken for a top-level plan.
 func decodePlan(text string) ([]subTask, bool) {
-	start := strings.Index(text, "[")
-	if start < 0 {
+	var found []subTask
+	count := 0
+	for i := 0; i < len(text); {
+		switch text[i] {
+		case '[':
+			dec := json.NewDecoder(strings.NewReader(text[i:]))
+			var raws []subTask
+			if dec.Decode(&raws) != nil {
+				i++ // this '[' doesn't begin a JSON array-of-objects
+				continue
+			}
+			if items := planItems(raws); len(raws) == 0 || len(items) > 0 {
+				count++ // plan-shaped: a valid empty array, or has titled objects
+				found = items
+			}
+			i += int(dec.InputOffset()) // skip past this array (its inner brackets)
+		case '{':
+			dec := json.NewDecoder(strings.NewReader(text[i:]))
+			var obj json.RawMessage
+			if dec.Decode(&obj) != nil {
+				i++ // not a JSON object; keep scanning
+				continue
+			}
+			i += int(dec.InputOffset()) // consume the object + any nested arrays
+		default:
+			i++
+		}
+	}
+	if count != 1 {
 		return nil, false
 	}
-	dec := json.NewDecoder(strings.NewReader(text[start:]))
-	var raws []subTask
-	if dec.Decode(&raws) != nil {
-		return nil, false // not a JSON array-of-objects (e.g. [1,2,3])
-	}
-	if rest := strings.TrimSpace(text[start+int(dec.InputOffset()):]); strings.HasPrefix(rest, "[") {
-		return nil, false // a second adjacent array -> ambiguous -> unparsed
-	}
+	return found, true // exactly one plan array; empty -> (nil, true) valid zero
+}
+
+// planItems returns the sub-tasks with a non-empty title (shape validation): an
+// array of titleless objects yields none, so decodePlan treats it as not
+// plan-shaped rather than a valid empty plan.
+func planItems(raws []subTask) []subTask {
 	var out []subTask
 	for _, r := range raws {
-		if strings.TrimSpace(r.Title) == "" {
-			continue // shape-validate: every sub-task needs a title
+		if strings.TrimSpace(r.Title) != "" {
+			out = append(out, r)
 		}
-		out = append(out, r)
 	}
-	return out, true // empty array -> (nil, true): valid, zero items
+	return out
 }
