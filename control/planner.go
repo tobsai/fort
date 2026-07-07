@@ -103,13 +103,13 @@ func (p Planner) ingest(runID, goal string) {
 	}
 }
 
-// finalText recovers the planner's final answer from a single authoritative
-// source: claude's terminal stream-json result line (stored as a raw stdout
-// event); falling back to the last normalized message event for plain-text
-// providers. It deliberately does NOT concatenate message events (claude emits
-// partial deltas AND a terminal line, which would double the array).
-func finalText(evs []store.Event) string {
-	var result, lastMsg string
+// finalOutputs scans a run's events for candidate final-answer texts. results
+// are claude's terminal stream-json result line(s) (stored as raw stdout
+// events), in order; lastMsg is the last normalized message event (plain-text
+// providers like hermes). It deliberately does NOT concatenate message events
+// (claude emits partial deltas AND a terminal line, which would double the
+// array — spec 026 D6).
+func finalOutputs(evs []store.Event) (results []string, lastMsg string) {
 	for _, e := range evs {
 		switch e.Type {
 		case "stdout":
@@ -118,29 +118,64 @@ func finalText(evs []store.Event) string {
 				Result string `json:"result"`
 			}
 			if json.Unmarshal([]byte(e.Data), &line) == nil && line.Type == "result" {
-				result = line.Result
+				results = append(results, line.Result)
 			}
 		case "message":
 			lastMsg = e.Data
 		}
 	}
-	if result != "" {
-		return result
+	return results, lastMsg
+}
+
+// finalText is the single best raw text for the unparsed-fallback body: claude's
+// terminal result line if present, else the last message event.
+func finalText(evs []store.Event) string {
+	results, lastMsg := finalOutputs(evs)
+	if len(results) > 0 {
+		return results[len(results)-1]
 	}
 	return lastMsg
 }
 
-// parsePlan extracts the sub-task list from a run's events. Returns ok=false for
-// unparseable output (caller writes the raw fallback); ok=true with zero items
-// for a valid empty plan.
+// parsePlan extracts the sub-task list from a run's events. It tries each
+// candidate final-answer text (result line(s), then the message fallback) and
+// returns the first that decodes to a valid plan — so a later non-plan result
+// (e.g. a failover retry emitting prose) can't clobber an earlier plan-bearing
+// one. Returns ok=false for unparseable output (caller writes the raw fallback);
+// ok=true with zero items for a valid empty plan.
 func parsePlan(evs []store.Event) ([]subTask, bool) {
-	arr, ok := extractArray(finalText(evs))
-	if !ok {
+	results, lastMsg := finalOutputs(evs)
+	candidates := results
+	if lastMsg != "" {
+		candidates = append(candidates, lastMsg)
+	}
+	for _, text := range candidates {
+		if subs, ok := decodePlan(text); ok {
+			return subs, true
+		}
+	}
+	return nil, false
+}
+
+// decodePlan extracts a JSON array of sub-tasks from a single final-answer text.
+// It decodes the FIRST complete JSON array starting at the first '[', using a
+// json.Decoder — which respects string literals (so brackets and ```fences``` in
+// a title are treated as content, not structure) and stops at the array's end
+// (so trailing prose or an illustrative fenced example is ignored). If a second
+// adjacent top-level array follows, the output is ambiguous (which is the
+// plan?), so it is rejected to the unparsed fallback rather than guessed.
+func decodePlan(text string) ([]subTask, bool) {
+	start := strings.Index(text, "[")
+	if start < 0 {
 		return nil, false
 	}
+	dec := json.NewDecoder(strings.NewReader(text[start:]))
 	var raws []subTask
-	if json.Unmarshal([]byte(arr), &raws) != nil {
-		return nil, false // not an array-of-objects (e.g. [1,2,3]) -> unparsed
+	if dec.Decode(&raws) != nil {
+		return nil, false // not a JSON array-of-objects (e.g. [1,2,3])
+	}
+	if rest := strings.TrimSpace(text[start+int(dec.InputOffset()):]); strings.HasPrefix(rest, "[") {
+		return nil, false // a second adjacent array -> ambiguous -> unparsed
 	}
 	var out []subTask
 	for _, r := range raws {
@@ -150,23 +185,4 @@ func parsePlan(evs []store.Event) ([]subTask, bool) {
 		out = append(out, r)
 	}
 	return out, true // empty array -> (nil, true): valid, zero items
-}
-
-// extractArray strips an optional ```json fence and returns the outermost
-// balanced [...] span, or ok=false if there is none.
-func extractArray(text string) (string, bool) {
-	s := strings.TrimSpace(text)
-	if i := strings.Index(s, "```"); i >= 0 {
-		s = s[i+3:]
-		s = strings.TrimPrefix(strings.TrimSpace(s), "json")
-		if j := strings.LastIndex(s, "```"); j >= 0 {
-			s = s[:j]
-		}
-	}
-	a := strings.Index(s, "[")
-	b := strings.LastIndex(s, "]")
-	if a < 0 || b <= a {
-		return "", false
-	}
-	return s[a : b+1], true
 }

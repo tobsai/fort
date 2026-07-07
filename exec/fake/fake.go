@@ -40,16 +40,22 @@ func (r *Runtime) Name() string { return "fake" }
 func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.Run, error) {
 	r.mu.Lock()
 	r.specs = append(r.specs, spec)
+	// Snapshot the config fields under the lock so execute (a goroutine) reads
+	// its own frozen copy, never racing a concurrent write to r.Block/Stdout/
+	// ExitCode.
+	run := &fakeRun{
+		parent:   r,
+		spec:     spec,
+		events:   make(chan runtime.RunEvent, 16),
+		done:     make(chan struct{}),
+		sigCh:    make(chan struct{}, 1),
+		status:   runtime.Status{State: runtime.StateRunning},
+		block:    r.Block,
+		stdout:   append([]string(nil), r.Stdout...),
+		exitCode: r.ExitCode,
+	}
 	r.mu.Unlock()
 
-	run := &fakeRun{
-		parent: r,
-		spec:   spec,
-		events: make(chan runtime.RunEvent, 16),
-		done:   make(chan struct{}),
-		sigCh:  make(chan struct{}, 1),
-		status: runtime.Status{State: runtime.StateRunning},
-	}
 	go run.execute(ctx)
 	return run, nil
 }
@@ -77,6 +83,12 @@ type fakeRun struct {
 	spec   runtime.RunSpec
 	events chan runtime.RunEvent
 
+	// config snapshot taken at Dispatch (under parent.mu); execute reads these,
+	// not parent.Block/Stdout/ExitCode, so it never races a concurrent write.
+	block    bool
+	stdout   []string
+	exitCode int
+
 	mu       sync.Mutex
 	status   runtime.Status
 	canceled bool
@@ -100,7 +112,7 @@ func (f *fakeRun) execute(ctx context.Context) {
 	f.emit(runtime.EventStarted, f.spec.Agent, 0)
 	f.emit(runtime.EventMessage, f.spec.Prompt, 0)
 
-	if f.parent.Block {
+	if f.block {
 		select {
 		case <-ctx.Done():
 			f.finish(runtime.StateCanceled, 0, ctx.Err().Error())
@@ -118,11 +130,11 @@ func (f *fakeRun) execute(ctx context.Context) {
 	default:
 	}
 
-	for _, line := range f.parent.Stdout {
+	for _, line := range f.stdout {
 		f.emit(runtime.EventStdout, line, 0)
 	}
 
-	code := f.parent.ExitCode
+	code := f.exitCode
 	if code == 0 {
 		f.emit(runtime.EventExited, "", 0)
 		f.finish(runtime.StateSucceeded, 0, "")

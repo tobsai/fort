@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,6 +31,16 @@ func planStore(t *testing.T) *store.Store {
 // resultEvent is a claude-style terminal stream-json result line (stored raw).
 func resultEvent(payload string) store.Event {
 	return store.Event{Type: "stdout", Data: `{"type":"result","subtype":"success","result":` + payload + `}`}
+}
+
+// resultEventRaw builds a result line whose "result" is the given raw text
+// (JSON-escaped for us), so tests can use literal backticks/quotes freely.
+func resultEventRaw(result string) store.Event {
+	b, _ := json.Marshal(struct {
+		Type   string `json:"type"`
+		Result string `json:"result"`
+	}{Type: "result", Result: result})
+	return store.Event{Type: "stdout", Data: string(b)}
 }
 
 func TestParsePlanFromClaudeResultLine(t *testing.T) {
@@ -71,6 +82,39 @@ func TestParsePlanGarbageIsUnparsed(t *testing.T) {
 	// doubled arrays (proving we don't accept a concatenation) -> unparsed
 	if _, ok := parsePlan([]store.Event{resultEvent(`"[{\"title\":\"a\"}][{\"title\":\"a\"}]"`)}); ok {
 		t.Fatal("doubled array should be unparsed")
+	}
+}
+
+func TestParsePlanIgnoresTrailingFencedExample(t *testing.T) {
+	// The model emitted the real array, then an illustrative fenced example. The
+	// example must NOT replace the real plan (spec-026 robustness: critical).
+	raw := "[{\"title\":\"write tests\"},{\"title\":\"ship it\"}]\nExample format: ```[{\"title\":\"...\"}]```"
+	subs, ok := parsePlan([]store.Event{resultEventRaw(raw)})
+	if !ok || len(subs) != 2 || subs[0].Title != "write tests" || subs[1].Title != "ship it" {
+		t.Fatalf("trailing fenced example must not clobber the plan; got %+v ok=%v", subs, ok)
+	}
+}
+
+func TestParsePlanTitleWithCodeFence(t *testing.T) {
+	// A sub-task title legitimately contains a ```json fence; backticks inside a
+	// JSON string are content, not structure (spec-026 robustness: important).
+	raw := "[{\"title\":\"emit ```json output\"},{\"title\":\"ship it\"}]"
+	subs, ok := parsePlan([]store.Event{resultEventRaw(raw)})
+	if !ok || len(subs) != 2 || subs[0].Title != "emit ```json output" || subs[1].Title != "ship it" {
+		t.Fatalf("a triple-backtick in a title must not break parsing; got %+v ok=%v", subs, ok)
+	}
+}
+
+func TestParsePlanPrefersPlanBearingResultLine(t *testing.T) {
+	// Two result lines (e.g. a gateway failover retry): the plan-bearing one must
+	// win over a later prose result, not be clobbered by last-wins (important).
+	evs := []store.Event{
+		resultEventRaw(`[{"title":"a"},{"title":"b"}]`),
+		resultEventRaw("Summary: I created a 2-step plan."),
+	}
+	subs, ok := parsePlan(evs)
+	if !ok || len(subs) != 2 || subs[0].Title != "a" || subs[1].Title != "b" {
+		t.Fatalf("a later prose result must not clobber the plan; got %+v ok=%v", subs, ok)
 	}
 }
 
