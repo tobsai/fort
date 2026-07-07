@@ -69,11 +69,19 @@ appear in the backlog when that run finishes:
    line, and reads its `result` string (correct escape handling; avoids the lossy
    normalized-message path). Fallback for providers that emit plain final text
    (e.g. hermes): the **last** `message` event's data.
-4. From that final text it extracts the plan: strip a ```json fence if present,
-   take the outermost balanced `[`…`]`, `json.Unmarshal` into `[]SubTask`, and
-   **validate** each element is an object with a non-empty `title` (a coincidental
-   bracketed substring that isn't an array-of-objects-with-title falls through to
-   the raw fallback, not a false success).
+4. From that final text it extracts the plan by scanning for every **top-level**
+   JSON array that decodes as `[]SubTask` and is *plan-shaped* (a valid empty
+   array, or one with ≥1 object bearing a non-empty `title`), and accepts a
+   result **only when exactly one** such array exists. A `json.Decoder` respects
+   string literals (brackets/fences inside a title are content), an enclosing
+   JSON object is consumed whole (so an array nested as an object *field* — e.g.
+   a `{"decision":…,"example":[…]}` refusal — is never mistaken for the plan),
+   and each decoded array's span is skipped so its inner brackets can't be
+   recounted. **Zero** plan arrays → raw fallback; **two or more** (an
+   illustrative example beside the real plan, whether it leads or trails; a
+   doubled array; an object-wrapped array) → ambiguous → raw fallback: never
+   guess which is the plan (D6: no false success). A titleless array is not
+   plan-shaped, so it is unparsed, not a valid-empty plan.
 5. For each valid sub-task it calls `store.CreateBacklogItem` with
    `source="agent"`, the title, and any suggested agent/machine.
 On the next board refresh the items are in the Backlog.
@@ -142,8 +150,12 @@ downstream (scheduling by drag, routing each sub-task) is deterministic.
   plan is success with zero items; only unparseable output becomes one
   raw-output backlog item (+ logged warning). Extraction reads a single
   authoritative result line (claude's stream-json `result`), not concatenated
-  normalized messages, and validates array-of-objects-with-title before
-  accepting — so a mis-extracted substring can't be a false success.
+  normalized messages, and accepts a plan **only when exactly one top-level
+  plan-shaped array exists** (see step 4): any ambiguity — an illustrative
+  example array beside the real plan, a doubled array, or an array nested inside
+  a JSON object — falls to the raw fallback rather than guessing, and a titleless
+  array is unparsed, not empty. So a mis-extracted substring can't be a false
+  success. (Hardened across three adversarial-review rounds.)
 - **D7 — planner-agent forcing is a ruleset precondition.** Forcing the planner
   agent depends on an `@agent` passthrough rule in the active ruleset;
   `rules/v1.yaml` ships them for the four known agents. Documented, and asserted
