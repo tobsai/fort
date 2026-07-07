@@ -88,6 +88,8 @@ All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./doc
   Blocked · Done) with a backlog you drag onto the board to dispatch, an
   agent/machine picker on the compose bar, gate approvals inline in Blocked, and
   a light/dark theme toggle.
+  Click any run to open a detail drawer: a flow shows its DAG steps and each
+  step's own live log; a single run shows its live log.
 - **Apple** — [`ui/apple`](./ui/apple): a shared **FortKit** package reused by iOS,
   macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
   compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
