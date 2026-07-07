@@ -242,3 +242,37 @@ func TestResumeAfterRestart(t *testing.T) {
 		t.Errorf("state = %q, want completed", res.State)
 	}
 }
+
+func TestTaskEventsCarryNodeID(t *testing.T) {
+	ex, st, _ := newExec(t)
+	f := Flow{
+		ID: "f-nid", Start: "k1",
+		Nodes: []Node{{ID: "k1", Type: Task, Agent: "codex", Prompt: "do work"}},
+	}
+	if _, err := ex.Start(context.Background(), f, "run-nid", "payload"); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	evs, _ := st.Events("run-nid")
+	if len(evs) == 0 {
+		t.Fatal("task node produced no events")
+	}
+	for _, e := range evs {
+		if e.NodeID != "k1" {
+			t.Errorf("event %q node_id=%q, want k1", e.Type, e.NodeID)
+		}
+	}
+}
+
+func TestTransformEventHasEmptyNodeID(t *testing.T) {
+	ex, st, _ := newExec(t)
+	f := Flow{ID: "f-tr", Start: "t0", Nodes: []Node{{ID: "t0", Type: Transform, Transform: &TransformSpec{Op: "upper"}}}}
+	if _, err := ex.Start(context.Background(), f, "run-tr", "abc"); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	evs, _ := st.Events("run-tr")
+	for _, e := range evs {
+		if e.Type == "transform" && e.NodeID != "" {
+			t.Errorf("run-level transform event node_id=%q, want empty", e.NodeID)
+		}
+	}
+}

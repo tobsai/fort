@@ -191,7 +191,7 @@ func (e *Executor) execTask(ctx context.Context, runID string, node Node, payloa
 		}
 		var msgs []string
 		for ev := range run.Stream() {
-			_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: string(ev.Type), Data: ev.Data, Code: ev.Code, CreatedAt: ev.Time})
+			_, _ = e.store.AppendEvent(store.Event{RunID: runID, NodeID: node.ID, Type: string(ev.Type), Data: ev.Data, Code: ev.Code, CreatedAt: ev.Time})
 			if ev.Type == runtime.EventMessage {
 				msgs = append(msgs, ev.Data)
 			}
