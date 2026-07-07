@@ -74,6 +74,25 @@ const boardHTML = `<!doctype html>
   .compose button.run{border-color:#3a3320;color:var(--brass2);background:transparent}
   .compose button:hover{background:var(--line2)}
   a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,.card.item:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+  .run-card{cursor:pointer}
+  .drawer[hidden]{display:none}
+  .drawer{position:fixed;inset:0;z-index:50}
+  .drawer-scrim{position:absolute;inset:0;background:rgba(0,0,0,.42)}
+  .drawer-panel{position:absolute;top:0;right:0;height:100%;width:min(560px,92vw);background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.35)}
+  .drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line2)}
+  .drawer-title{font-size:13px;color:var(--fg)}
+  .drawer-sub{font-size:11px;color:var(--mut);margin-top:3px}
+  .drawer-steps{padding:8px 10px;border-bottom:1px solid var(--line2);max-height:38%;overflow:auto;display:flex;flex-direction:column;gap:3px}
+  .step{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+  .step:hover{background:var(--line2)}
+  .step.sel{background:var(--line2);border-color:var(--line)}
+  .step .st{font-size:11px;width:14px;text-align:center;color:var(--mut)}
+  .step .nm{font-size:12px;color:var(--fg)}
+  .step .ty{font-size:10.5px;color:var(--mut);margin-left:auto}
+  .step.s-succeeded .st{color:var(--ok)} .step.s-running .st{color:var(--run)} .step.s-failed .st{color:var(--fail)} .step.s-waiting .st{color:var(--block)}
+  .drawer-log{flex:1;overflow:auto;padding:10px 14px;font-size:11.5px;line-height:1.55;white-space:pre-wrap;color:var(--fg2)}
+  .drawer-log .ev{padding:1px 0}
+  .drawer-log .ev .k{color:var(--mut)}
 </style>
 </head>
 <body>
@@ -100,6 +119,17 @@ const boardHTML = `<!doctype html>
   <button class="run" onclick="runNow()">Run</button>
   <button onclick="addToBacklog()">Add to backlog</button>
   <button onclick="breakdownTask()">Break down</button>
+</div>
+<div id="drawer" class="drawer" hidden>
+  <div class="drawer-scrim" onclick="closeDrawer()"></div>
+  <aside class="drawer-panel" role="dialog" aria-label="run detail">
+    <div class="drawer-head">
+      <div><div class="drawer-title" id="dw-title">—</div><div class="drawer-sub" id="dw-sub"></div></div>
+      <button class="iconbtn" onclick="closeDrawer()" aria-label="close">✕</button>
+    </div>
+    <div class="drawer-steps" id="dw-steps"></div>
+    <div class="drawer-log" id="dw-log"></div>
+  </aside>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -129,7 +159,7 @@ function syncAgentOptions(){
 function edgeFor(status){return status==='succeeded'?'e-ok':status==='failed'?'e-fail':status==='running'?'e-running':status==='blocked'?'e-blocked':'e-neutral';}
 function runCard(r){
   const done=(r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
-  return '<div class="card '+(done?'done ':'')+edgeFor(r.status)+'">'+
+  return '<div class="card run-card '+(done?'done ':'')+edgeFor(r.status)+'" tabindex="0" onclick="openDrawer(\''+r.id+'\')" onkeydown="if(event.key===\'Enter\')openDrawer(\''+r.id+'\')">'+
     '<div class="title">'+esc(r.title||r.id)+'</div>'+
     '<div class="meta"><span class="ag">'+esc(r.agent)+'</span>'+(r.machine?'<span class="mc">'+esc(r.machine)+'</span>':'')+'</div></div>';
 }
@@ -146,6 +176,40 @@ function backlogCard(b){
     (b.agent?'<span class="ag">'+esc(b.agent)+'</span>':'')+(b.machine?'<span class="mc">'+esc(b.machine)+'</span>':'')+'</div>'+
     '<button class="runbtn" onclick="dispatchItem(\''+b.id+'\')">run ▸</button></div>';
 }
+// ---- run drill-down drawer (spec 027) ----
+let dwRun=null, dwNode=null, dwNodes=[], dwEvents=[];
+function stepIcon(s){return s==='succeeded'?'✓':s==='failed'?'✕':s==='running'?'▸':s==='waiting'?'⏸':'▫';}
+async function openDrawer(runID){ dwRun=runID; dwNode=null; $('#drawer').hidden=false; await loadDrawer(); }
+function closeDrawer(){ dwRun=null; dwNode=null; $('#drawer').hidden=true; }
+async function loadDrawer(){
+  if(!dwRun) return;
+  const d=await (await fetch('/api/runs/'+encodeURIComponent(dwRun))).json();
+  dwNodes=d.nodes||[]; dwEvents=d.events||[];
+  $('#dw-title').textContent=d.run.title||d.run.id;
+  $('#dw-sub').textContent=[d.run.agent,d.run.status,d.run.machine].filter(Boolean).join(' · ');
+  renderSteps(); renderLog();
+}
+function renderSteps(){
+  const el=$('#dw-steps');
+  if(!dwNodes.length){ el.style.display='none'; return; }
+  el.style.display='flex';
+  el.innerHTML=dwNodes.map(n=>
+    '<div class="step s-'+esc(n.status)+(n.node_id===dwNode?' sel':'')+'" onclick="selectStep(\''+esc(n.node_id)+'\')">'+
+    '<span class="st">'+stepIcon(n.status)+'</span><span class="nm">'+esc(n.node_id)+'</span>'+
+    '<span class="ty">'+esc(n.type)+'</span></div>').join('');
+}
+function selectStep(nodeID){ dwNode=(dwNode===nodeID?null:nodeID); renderSteps(); renderLog(); }
+function renderLog(){
+  const log=$('#dw-log');
+  const evs=dwEvents.filter(e=>!dwNode||e.node_id===dwNode);
+  const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<24;
+  const prev=log.scrollTop;
+  if(!evs.length){ log.innerHTML='<div class="empty">waiting…</div>'; return; }
+  log.innerHTML=evs.map(e=>'<div class="ev"><span class="k">'+esc(e.type)+'</span> '+esc(e.data||'')+'</div>').join('');
+  log.scrollTop=atBottom?log.scrollHeight:prev;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+
 function fill(id,html,count){$('#'+id).innerHTML=html||'<div class="empty">—</div>';$('#n-'+id.slice(2)).textContent=count;}
 
 async function refresh(){
@@ -178,6 +242,7 @@ async function refresh(){
 
   const items=await (await fetch('/api/backlog')).json()||[];
   fill('c-backlog',items.map(backlogCard).join(''),items.length);
+  if(dwRun) loadDrawer();
 }
 
 // ---- actions ----
