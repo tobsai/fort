@@ -172,3 +172,29 @@ func TestNodeRunUpsert(t *testing.T) {
 		t.Errorf("node = %+v", got[0])
 	}
 }
+
+func TestEventNodeIDRoundTrip(t *testing.T) {
+	s := openTemp(t)
+	if err := s.CreateRun(Run{ID: "r1", Status: "running"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendEvent(Event{RunID: "r1", NodeID: "implement", Type: "message", Data: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendEvent(Event{RunID: "r1", Type: "stdout", Data: "raw"}); err != nil {
+		t.Fatal(err)
+	}
+	evs, err := s.Events("r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(evs) != 2 {
+		t.Fatalf("events = %d, want 2", len(evs))
+	}
+	if evs[0].NodeID != "implement" {
+		t.Errorf("evs[0].NodeID = %q, want implement", evs[0].NodeID)
+	}
+	if evs[1].NodeID != "" {
+		t.Errorf("evs[1].NodeID = %q, want empty (node-less event)", evs[1].NodeID)
+	}
+}

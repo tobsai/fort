@@ -61,6 +61,7 @@ type NodeRun struct {
 type Event struct {
 	ID        int64
 	RunID     string
+	NodeID    string // DAG step this event came from (spec 027); "" for run-level/single-run events
 	Type      string
 	Data      string
 	Code      int
@@ -108,7 +109,7 @@ CREATE TABLE IF NOT EXISTS node_run (
 );
 CREATE INDEX IF NOT EXISTS idx_node_run_run ON node_run(run_id);
 CREATE TABLE IF NOT EXISTS event (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, type TEXT, data TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, node_id TEXT, type TEXT, data TEXT,
   code INTEGER, created_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_event_run ON event(run_id);
@@ -127,6 +128,9 @@ CREATE TABLE IF NOT EXISTS backlog_item (
 	// idempotent (skipped when the column is already present).
 	if err := s.addColumn("run", "machine", "TEXT"); err != nil {
 		return fmt.Errorf("store: migrate run.machine: %w", err)
+	}
+	if err := s.addColumn("event", "node_id", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate event.node_id: %w", err)
 	}
 	return nil
 }
@@ -332,8 +336,8 @@ func (s *Store) WaitingGates() ([]NodeRun, error) {
 // AppendEvent appends an event (append-only) and returns its id.
 func (s *Store) AppendEvent(e Event) (int64, error) {
 	res, err := s.db.Exec(
-		`INSERT INTO event(run_id,type,data,code,created_at) VALUES(?,?,?,?,?)`,
-		e.RunID, e.Type, e.Data, e.Code, nowOr(e.CreatedAt))
+		`INSERT INTO event(run_id,node_id,type,data,code,created_at) VALUES(?,?,?,?,?,?)`,
+		e.RunID, e.NodeID, e.Type, e.Data, e.Code, nowOr(e.CreatedAt))
 	if err != nil {
 		return 0, err
 	}
@@ -342,12 +346,12 @@ func (s *Store) AppendEvent(e Event) (int64, error) {
 
 // Events returns all events for a run, in insertion order.
 func (s *Store) Events(runID string) ([]Event, error) {
-	return s.queryEvents(`SELECT id,run_id,type,data,code,created_at FROM event WHERE run_id=? ORDER BY id`, runID)
+	return s.queryEvents(`SELECT id,run_id,node_id,type,data,code,created_at FROM event WHERE run_id=? ORDER BY id`, runID)
 }
 
 // EventsSince returns events with id greater than the cursor (the UI feed tail).
 func (s *Store) EventsSince(cursor int64) ([]Event, error) {
-	return s.queryEvents(`SELECT id,run_id,type,data,code,created_at FROM event WHERE id>? ORDER BY id`, cursor)
+	return s.queryEvents(`SELECT id,run_id,node_id,type,data,code,created_at FROM event WHERE id>? ORDER BY id`, cursor)
 }
 
 func (s *Store) queryEvents(q string, arg any) ([]Event, error) {
@@ -360,9 +364,11 @@ func (s *Store) queryEvents(q string, arg any) ([]Event, error) {
 	for rows.Next() {
 		var e Event
 		var ts string
-		if err := rows.Scan(&e.ID, &e.RunID, &e.Type, &e.Data, &e.Code, &ts); err != nil {
+		var nodeID sql.NullString
+		if err := rows.Scan(&e.ID, &e.RunID, &nodeID, &e.Type, &e.Data, &e.Code, &ts); err != nil {
 			return nil, err
 		}
+		e.NodeID = nodeID.String
 		e.CreatedAt = parseTime(ts)
 		out = append(out, e)
 	}
