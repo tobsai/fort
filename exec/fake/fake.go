@@ -18,6 +18,10 @@ type Runtime struct {
 	// Block, when true, holds the run open (after the started event) until it
 	// is canceled or signaled — useful for exercising Signal/Cancel.
 	Block bool
+	// Stdout, when non-empty, is emitted as raw stdout lines (EventStdout) before
+	// the terminal exited event — lets a test feed a canned provider stream (e.g.
+	// claude's stream-json result line). Empty leaves behavior unchanged.
+	Stdout []string
 
 	mu      sync.Mutex
 	signals map[string][]string // runID -> injected inputs
@@ -112,6 +116,10 @@ func (f *fakeRun) execute(ctx context.Context) {
 		f.finish(runtime.StateCanceled, 0, ctx.Err().Error())
 		return
 	default:
+	}
+
+	for _, line := range f.parent.Stdout {
+		f.emit(runtime.EventStdout, line, 0)
 	}
 
 	code := f.parent.ExitCode
