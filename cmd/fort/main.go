@@ -38,6 +38,7 @@ usage:
                                    no agent CLIs needed; tasks are boarded as queued
   fort route --dry-run [taskflags] print the matched rule + target agent
   fort task add [taskflags]        route + dispatch a task natively
+  fort task breakdown "<goal>"     plan a goal into backlog sub-tasks (needs fort serve)
   fort runs list                   list runs
   fort run logs <run-id>           tail a run's event stream
   fort gate list                   list paused gates (flows)
@@ -190,6 +191,14 @@ func cmdServe(args []string) error {
 		Store:      a.store,
 		FlowIDs:    ids,
 	}
+	// Task breakdown (spec 026): a planner agent decomposes a goal into backlog
+	// sub-tasks. FORT_PLANNER selects the agent (default claude). Only wired in
+	// serve — breakdown is a real agent run, so it 409s in control-only mode.
+	planner := os.Getenv("FORT_PLANNER")
+	if planner == "" {
+		planner = "claude"
+	}
+	deps.Planner = control.NewPlanner(a.engine, a.store, planner)
 	// Multi-machine (spec 022/024): expose the peer roster over the shared live
 	// registry + poll reachability. Always wired — an empty registry reports an
 	// empty roster, and hot joins/removes are reflected without a restart.
@@ -287,8 +296,11 @@ func cmdRoute(args []string) error {
 // --- task add ---
 
 func cmdTask(args []string) error {
+	if len(args) > 0 && args[0] == "breakdown" {
+		return cmdTaskBreakdown(args[1:])
+	}
 	if len(args) == 0 || args[0] != "add" {
-		return fmt.Errorf("usage: fort task add [taskflags]")
+		return fmt.Errorf("usage: fort task <add|breakdown> ...")
 	}
 	fs := flag.NewFlagSet("task add", flag.ExitOnError)
 	tf := addTaskFlags(fs)
