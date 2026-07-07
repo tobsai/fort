@@ -183,7 +183,9 @@ async function openDrawer(runID){ dwRun=runID; dwNode=null; $('#drawer').hidden=
 function closeDrawer(){ dwRun=null; dwNode=null; $('#drawer').hidden=true; }
 async function loadDrawer(){
   if(!dwRun) return;
-  const d=await (await fetch('/api/runs/'+encodeURIComponent(dwRun))).json();
+  const id=dwRun;
+  const d=await (await fetch('/api/runs/'+encodeURIComponent(id))).json();
+  if(dwRun!==id) return; // a stale in-flight fetch: the drawer moved to another run
   dwNodes=d.nodes||[]; dwEvents=d.events||[];
   $('#dw-title').textContent=d.run.title||d.run.id;
   $('#dw-sub').textContent=[d.run.agent,d.run.status,d.run.machine].filter(Boolean).join(' · ');
