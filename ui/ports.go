@@ -47,3 +47,12 @@ type FlowRunner interface {
 	Reject(runID, nodeID string) error
 	ResumeFlow(ctx context.Context, flowID, runID string) (RunResult, error)
 }
+
+// Planner decomposes a goal into backlog sub-tasks by running a planner agent
+// (spec 026). It is nil in control-only mode (planning needs an execution
+// plane); the /api/breakdown endpoint 409s when it is nil. Breakdown returns the
+// planner run's id immediately; the sub-tasks land in the backlog asynchronously
+// when that run completes.
+type Planner interface {
+	Breakdown(ctx context.Context, goal, agent, machine string) (runID string, err error)
+}

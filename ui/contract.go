@@ -142,3 +142,16 @@ type BacklogRequest struct {
 	Labels  []string `json:"labels,omitempty"`
 	Source  string   `json:"source,omitempty"` // defaults to "user"
 }
+
+// BreakdownRequest is the command body for POST /api/breakdown.
+type BreakdownRequest struct {
+	Text    string `json:"text"`
+	Agent   string `json:"agent,omitempty"`
+	Machine string `json:"machine,omitempty"`
+}
+
+// BreakdownResult is the response for POST /api/breakdown: the visible planner
+// run's id. Sub-tasks appear in the backlog when that run completes.
+type BreakdownResult struct {
+	RunID string `json:"run_id"`
+}

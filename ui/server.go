@@ -23,6 +23,7 @@ type Deps struct {
 	Store      *store.Store  // required
 	FlowIDs    []string      // available flow ids (for chat templates); empty in control-only
 	Machines   MachineLister // nil in single-machine mode (spec 022)
+	Planner    Planner       // nil in control-only mode (spec 026)
 }
 
 // Server holds the ui handlers.
