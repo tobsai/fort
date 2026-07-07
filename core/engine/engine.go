@@ -85,6 +85,11 @@ func (e *Engine) wait(runID string) {
 	}
 }
 
+// Wait blocks until the run's events are fully persisted, then returns. It
+// returns immediately for an unknown or already-finished run. Exposed so
+// control.Planner can block on a planner run without polling (spec 026).
+func (e *Engine) Wait(runID string) { e.wait(runID) }
+
 // Route returns the routing decision for a task without dispatching it
 // (powers `fort route --dry-run`).
 func (e *Engine) Route(t task.Task) router.RouteDecision { return e.router.Route(t) }
