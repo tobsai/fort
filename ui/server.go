@@ -55,6 +55,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/backlog", s.handleBacklogAdd)
 	mux.HandleFunc("POST /api/backlog/{id}/dispatch", s.handleBacklogDispatch)
 	mux.HandleFunc("DELETE /api/backlog/{id}", s.handleBacklogDelete)
+	mux.HandleFunc("POST /api/breakdown", s.handleBreakdown)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 }
@@ -299,6 +300,28 @@ func (s *Server) handleBacklogDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// handleBreakdown runs a planner agent to decompose a goal into backlog
+// sub-tasks (spec 026). It returns the visible planner run id immediately; the
+// sub-tasks appear in the backlog when that run completes. 409s with no
+// execution plane (control-only mode), like gates.
+func (s *Server) handleBreakdown(w http.ResponseWriter, r *http.Request) {
+	if s.d.Planner == nil {
+		http.Error(w, "no execution plane: breakdown needs the engine", http.StatusConflict)
+		return
+	}
+	var req BreakdownRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Text) == "" {
+		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+	runID, err := s.d.Planner.Breakdown(r.Context(), req.Text, req.Agent, req.Machine)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, BreakdownResult{RunID: runID})
 }
 
 func toBacklogItem(b store.BacklogItem) BacklogItem {
