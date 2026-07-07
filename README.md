@@ -67,11 +67,18 @@ Then open the board at `/`, or drive the API:
 ```sh
 fort route --dry-run --label bug "null deref"      # -> codex
 fort task add --label research "read the repo"      # auto-route + run natively
+fort task breakdown "add search"                    # planner -> backlog sub-tasks
 fort flow run ship-feature --input "add search"     # DAG, pauses at gates
 fort gate approve <run> plan_gate
 ```
 
 `FORT_FAKE=1` runs a token-free fake runtime for demos/CI.
+
+Break a goal into backlog sub-tasks with the board's **Break down** button or
+`fort task breakdown "<goal>"` — a planner agent (`FORT_PLANNER`, default
+`claude`) decomposes it into `source=agent` items you curate and drag onto the
+board to run. It's a normal, visible run and needs the execution plane (`fort
+serve`); in control-only mode it 409s, like gates.
 
 ## Clients
 
