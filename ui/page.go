@@ -99,6 +99,7 @@ const boardHTML = `<!doctype html>
   <input id="msg" placeholder="describe a task…" onkeydown="if(event.key==='Enter')runNow()"/>
   <button class="run" onclick="runNow()">Run</button>
   <button onclick="addToBacklog()">Add to backlog</button>
+  <button onclick="breakdownTask()">Break down</button>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -188,6 +189,12 @@ async function runNow(){
 async function addToBacklog(){
   const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
   await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:text,machine:$('#machine').value,agent:$('#agent').value})});
+  refresh();
+}
+async function breakdownTask(){
+  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
+  const r=await fetch('/api/breakdown',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine:$('#machine').value,agent:$('#agent').value})});
+  if(r.status===409)alert('Breakdown needs an execution plane — start fort serve.');
   refresh();
 }
 async function dispatchItem(id){
