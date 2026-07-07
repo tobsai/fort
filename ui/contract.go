@@ -16,12 +16,13 @@ package ui
 
 // Event is the wire form of one append-only event-log row (the live-feed unit).
 type Event struct {
-	ID    int64  `json:"id"`
-	RunID string `json:"run_id"`
-	Type  string `json:"type"`
-	Data  string `json:"data,omitempty"`
-	Code  int    `json:"code,omitempty"`
-	Time  string `json:"time"`
+	ID     int64  `json:"id"`
+	RunID  string `json:"run_id"`
+	NodeID string `json:"node_id,omitempty"`
+	Type   string `json:"type"`
+	Data   string `json:"data,omitempty"`
+	Code   int    `json:"code,omitempty"`
+	Time   string `json:"time"`
 }
 
 // RunSummary is a board card.

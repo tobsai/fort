@@ -329,3 +329,22 @@ func TestEventsSSEReplaysLog(t *testing.T) {
 		t.Fatalf("SSE frames = %v", got)
 	}
 }
+
+func TestRunDetailIncludesNodeID(t *testing.T) {
+	s, st := newControlUI(t)
+	_ = st.CreateRun(store.Run{ID: "rd1", Agent: "codex", Status: "running"})
+	_, _ = st.AppendEvent(store.Event{RunID: "rd1", NodeID: "implement", Type: "message", Data: "hi"})
+	_, _ = st.AppendEvent(store.Event{RunID: "rd1", Type: "stdout", Data: "raw"})
+
+	rec := do(t, s, "GET", "/api/runs/rd1", nil)
+	if rec.Code != 200 {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	d := decode[ui.RunDetail](t, rec)
+	if len(d.Events) != 2 {
+		t.Fatalf("events = %d, want 2", len(d.Events))
+	}
+	if d.Events[0].NodeID != "implement" || d.Events[1].NodeID != "" {
+		t.Fatalf("node_ids = %q,%q want implement,\"\"", d.Events[0].NodeID, d.Events[1].NodeID)
+	}
+}

@@ -403,7 +403,7 @@ func matchFlow(text string, flowIDs map[string]bool) (flowID, input string, ok b
 }
 
 func toEvent(e store.Event) Event {
-	return Event{ID: e.ID, RunID: e.RunID, Type: e.Type, Data: e.Data, Code: e.Code, Time: e.CreatedAt.Format(time.RFC3339)}
+	return Event{ID: e.ID, RunID: e.RunID, NodeID: e.NodeID, Type: e.Type, Data: e.Data, Code: e.Code, Time: e.CreatedAt.Format(time.RFC3339)}
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
