@@ -1,13 +1,17 @@
 package ui
 
-// boardHTML is the web control-plane client served at GET / . It renders an
-// interactive kanban (Backlog · Queued · Running · Blocked · Done) with a
-// persisted backlog lane and drag-to-dispatch, an agent picker, and light/dark
-// themes. It consumes /api/summary, /api/machines, /api/board and /api/backlog,
-// streams /api/events (SSE), posts chat to /api/chat, dispatches backlog items
-// via /api/backlog/{id}/dispatch, and posts gate decisions to /api/gate. It
-// adapts to control-only mode (execution:false) by badging the plane and
-// surfacing the 409 on gates.
+// boardHTML is the web control-plane client served at GET / . It renders a
+// three-zone dashboard (Define · Ready · In progress) that replaces the
+// kanban (spec 031): a multiline markdown compose (first line = title) with
+// Run/Add-to-Ready/Break-down actions and a live preview, a Ready zone
+// merging backlog items and queued runs behind Start buttons, and an
+// In-progress zone for running/blocked runs with nested tool/subagent
+// activity (spec 030) and inline gate approvals, plus a collapsed Recent
+// strip for finished runs. It consumes /api/summary, /api/machines,
+// /api/board and /api/backlog, streams /api/events (SSE), posts chat to
+// /api/chat, dispatches backlog items via /api/backlog/{id}/dispatch, and
+// posts gate decisions to /api/gate. It adapts to control-only mode
+// (execution:false) by badging the plane and surfacing the 409 on gates.
 const boardHTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -41,14 +45,6 @@ const boardHTML = `<!doctype html>
   .machines{display:flex;gap:14px;padding:8px 18px;font-size:11.5px;color:var(--mut);border-bottom:1px solid var(--line2);flex-wrap:wrap}
   .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
   .dot.up{background:var(--ok)}.dot.down{background:var(--fail)}
-  .board{display:grid;grid-template-columns:0.9fr 1fr 1fr 1fr 1fr;gap:11px;padding:14px 18px;align-items:start}
-  .col{display:flex;flex-direction:column;min-width:0}
-  .colhead{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.05em;color:var(--mut);margin-bottom:9px;text-transform:uppercase}
-  .colhead .n{background:var(--line2);border-radius:20px;padding:0 6px;min-width:18px;text-align:center}
-  .col.running .colhead{color:var(--run)} .col.running .n{background:var(--run-bg);color:var(--run)}
-  .col.blocked .colhead{color:var(--block)} .col.blocked .n{background:var(--block-bg);color:var(--block)}
-  .col-body{display:flex;flex-direction:column;gap:9px;min-height:60px;border-radius:8px;padding:2px;transition:background .12s}
-  .col.drop .col-body{background:var(--line2);outline:1px dashed var(--brass)}
   .card{background:var(--card);border:1px solid var(--line);border-left:2px solid var(--edge,#3b4557);border-radius:8px;padding:9px 10px}
   .card .title{font-size:12.5px;line-height:1.4;margin-bottom:7px;color:var(--fg)}
   .card.done .title{color:var(--fg2)}
@@ -56,8 +52,6 @@ const boardHTML = `<!doctype html>
   .meta .ag{font-size:10.5px;color:var(--brass2)}
   .meta .mc{font-size:10.5px;color:var(--mut)}
   .e-running{--edge:var(--run)} .e-blocked{--edge:var(--block)} .e-ok{--edge:var(--ok)} .e-fail{--edge:var(--fail)} .e-neutral{--edge:#3b4557}
-  .card.item{cursor:grab}
-  .card.item:active{cursor:grabbing}
   .card.item .src{width:6px;height:6px;border-radius:50%;background:var(--mut);display:inline-block}
   .card.item .src.agent{background:var(--brass)}
   .gateact{display:flex;gap:6px;margin-top:8px}
@@ -66,14 +60,26 @@ const boardHTML = `<!doctype html>
   .gateact button.no{color:var(--fail);border-color:var(--fail)}
   .runbtn{margin-top:7px;font-size:10.5px;padding:1px 9px;border-radius:5px;background:transparent;border:1px solid var(--brass);color:var(--brass2);cursor:pointer}
   .empty{color:var(--mut);font-size:11.5px;padding:8px 4px}
-  .compose{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line2)}
-  .compose select,.compose input{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px}
-  .compose input{flex:1}
-  .compose select{cursor:pointer}
-  .compose button{border-radius:7px;padding:7px 13px;font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--fg2)}
-  .compose button.run{border-color:#3a3320;color:var(--brass2);background:transparent}
-  .compose button:hover{background:var(--line2)}
-  a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,.card.item:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+  a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.card.item:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+  .dash{max-width:900px;margin:0 auto;padding:14px 18px;display:flex;flex-direction:column;gap:20px}
+  .zonehead{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.05em;color:var(--mut);text-transform:uppercase;margin-bottom:9px}
+  .zonehead .n{background:var(--line2);border-radius:20px;padding:0 6px;min-width:18px;text-align:center}
+  .zone{display:flex;flex-direction:column;gap:9px}
+  textarea#msg{width:100%;resize:vertical;min-height:64px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:12.5px}
+  .preview{border:1px dashed var(--line);border-radius:8px;padding:8px 11px;max-height:140px;overflow:auto}
+  .define-actions{display:flex;gap:8px;margin-top:8px;align-items:center}
+  .define-actions select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px;cursor:pointer}
+  .define-actions button{border-radius:7px;padding:7px 13px;font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--fg2)}
+  .define-actions button.run{border-color:var(--brass);color:var(--brass2);background:transparent}
+  .define-actions button:hover{background:var(--line2)}
+  .startbtn{font-size:10.5px;padding:1px 9px;border-radius:5px;background:transparent;border:1px solid var(--brass);color:var(--brass2);cursor:pointer;margin-top:7px}
+  .queuedtag{font-size:10px;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:0 6px;margin-top:7px;display:inline-block}
+  .activity{margin-top:7px;display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--fg2)}
+  .activity .a-tool{color:var(--mut)}
+  .activity .a-sub{color:var(--block);padding-left:14px}
+  .activity .a-msg{color:var(--fg2)}
+  .recent summary{cursor:pointer;font-size:11px;letter-spacing:.05em;color:var(--mut);text-transform:uppercase;margin:4px 0 9px}
+  .recent .n{background:var(--line2);border-radius:20px;padding:0 6px}
   .mdbody{margin:2px 0 7px;font-size:11.5px;line-height:1.5;color:var(--fg2);max-height:76px;overflow:hidden}
   .mdbody h3,.mdbody h4,.mdbody h5,.mdbody h6{font-size:12px;margin:4px 0;color:var(--fg)}
   .mdbody p{margin:3px 0}
@@ -113,26 +119,35 @@ const boardHTML = `<!doctype html>
   <span class="counts" id="clock"></span>
 </header>
 <div class="machines" id="machines" style="display:none"></div>
-<div class="board" id="board">
-  <div class="col" data-col="backlog"><div class="colhead"><span>Backlog</span><span class="n" id="n-backlog">0</span></div><div class="col-body" id="c-backlog"></div></div>
-  <div class="col" data-col="queued"><div class="colhead"><span>Queued</span><span class="n" id="n-queued">0</span></div><div class="col-body" id="c-queued"></div></div>
-  <div class="col running" data-col="running"><div class="colhead"><span>Running</span><span class="n" id="n-running">0</span></div><div class="col-body" id="c-running"></div></div>
-  <div class="col blocked" data-col="blocked"><div class="colhead"><span>Blocked</span><span class="n" id="n-blocked">0</span></div><div class="col-body" id="c-blocked"></div></div>
-  <div class="col" data-col="done"><div class="colhead"><span>Done</span><span class="n" id="n-done">0</span></div><div class="col-body" id="c-done"></div></div>
-</div>
-<div class="compose">
-  <select id="machine" title="target machine"><option value="">any machine</option></select>
-  <select id="agent" title="agent"><option value="">auto agent</option></select>
-  <input id="msg" placeholder="describe a task…" onkeydown="if(event.key==='Enter')runNow()"/>
-  <button class="run" onclick="runNow()">Run</button>
-  <button onclick="addToBacklog()">Add to backlog</button>
-  <button onclick="breakdownTask()">Break down</button>
+<div class="dash">
+  <section>
+    <div class="zonehead"><span>Define</span></div>
+    <textarea id="msg" rows="3" placeholder="first line = title; the rest is the body (markdown)…"></textarea>
+    <div id="preview" class="mdbody preview" hidden></div>
+    <div class="define-actions">
+      <select id="machine" title="target machine"><option value="">any machine</option></select>
+      <select id="agent" title="agent"><option value="">auto agent</option></select>
+      <span class="grow"></span>
+      <button onclick="addToReady()">Add to Ready</button>
+      <button onclick="breakdownTask()">Break down</button>
+      <button class="run" onclick="runNow()">Run ▸</button>
+    </div>
+  </section>
+  <section>
+    <div class="zonehead"><span>Ready</span><span class="n" id="n-ready">0</span></div>
+    <div class="zone" id="z-ready"></div>
+  </section>
+  <section>
+    <div class="zonehead"><span>In progress</span><span class="n" id="n-progress">0</span></div>
+    <div class="zone" id="z-progress"></div>
+    <details class="recent"><summary>Recent <span class="n" id="n-recent">0</span></summary><div class="zone" id="z-recent"></div></details>
+  </section>
 </div>
 <div id="drawer" class="drawer" hidden>
   <div class="drawer-scrim" onclick="closeDrawer()"></div>
   <aside class="drawer-panel" role="dialog" aria-label="run detail">
     <div class="drawer-head">
-      <div><div class="drawer-title" id="dw-title">—</div><div class="drawer-sub" id="dw-sub"></div></div>
+      <div><div class="drawer-title" id="dw-title">—</div><div class="drawer-sub" id="dw-sub"></div><div class="mdbody" id="dw-body"></div></div>
       <button class="iconbtn" onclick="closeDrawer()" aria-label="close">✕</button>
     </div>
     <div class="drawer-steps" id="dw-steps"></div>
@@ -211,20 +226,58 @@ function runCard(r){
     '<div class="title">'+esc(r.title||r.id)+'</div>'+
     '<div class="meta"><span class="ag">'+esc(r.agent)+'</span>'+(r.machine?'<span class="mc">'+esc(r.machine)+'</span>':'')+'</div></div>';
 }
-function gateCard(g){
-  return '<div class="card e-blocked"><div class="title">'+esc(g.node_id)+'</div>'+
-    '<div class="meta"><span class="mc">gate · '+esc(g.run_id.slice(0,8))+'</span></div>'+
-    '<div class="gateact"><button class="ok" onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'approve\')">approve</button>'+
-    '<button class="no" onclick="decide(\''+g.run_id+'\',\''+g.node_id+'\',\'reject\')">reject</button></div></div>';
+// ---- live activity: per-run buffer fed by the SSE stream (spec 030) ----
+const ACT_MAX=6;
+let actByRun={};
+function trackEvent(e){
+  if(!e||!e.run_id)return;
+  if(e.type!=='tool'&&e.type!=='subagent'&&e.type!=='message')return;
+  const buf=actByRun[e.run_id]||(actByRun[e.run_id]=[]);
+  buf.push(e); if(buf.length>ACT_MAX)buf.shift();
 }
-function backlogCard(b){
-  return '<div class="card item e-neutral" draggable="true" tabindex="0" data-id="'+b.id+'" ondragstart="onDrag(event,\''+b.id+'\')">'+
+function activityLine(e){
+  if(e.type==='tool'){
+    let d={}; try{d=JSON.parse(e.data||'{}')}catch(err){}
+    return '<div class="a-tool">🔧 '+esc(d.name||'tool')+(d.summary?' · '+esc(d.summary):'')+'</div>';
+  }
+  if(e.type==='subagent'){
+    let d={}; try{d=JSON.parse(e.data||'{}')}catch(err){}
+    return '<div class="a-sub">🤖 subagent'+(d.agent?' ('+esc(d.agent)+')':'')+(d.description?' · '+esc(d.description):'')+'</div>';
+  }
+  const t=(e.data||'').split('\n')[0];
+  return t?'<div class="a-msg">💬 '+esc(t.length>120?t.slice(0,119)+'…':t)+'</div>':'';
+}
+
+// ---- zone renderers ----
+function readyItem(b){
+  return '<div class="card item e-neutral" tabindex="0" data-id="'+b.id+'">'+
     '<div class="title">'+esc(b.title)+'</div>'+
     (b.body?'<div class="mdbody">'+md(b.body)+'</div>':'')+
     '<div class="meta"><span class="src '+(b.source==='agent'?'agent':'')+'"></span>'+
     (b.agent?'<span class="ag">'+esc(b.agent)+'</span>':'')+(b.machine?'<span class="mc">'+esc(b.machine)+'</span>':'')+'</div>'+
-    '<button class="runbtn" onclick="dispatchItem(\''+b.id+'\')">run ▸</button></div>';
+    '<button class="startbtn" onclick="dispatchItem(\''+b.id+'\')">Start ▸</button></div>';
 }
+function queuedItem(r){
+  return '<div class="card run-card e-neutral" tabindex="0" onclick="openDrawer(\''+r.id+'\')" onkeydown="if(event.key===\'Enter\')openDrawer(\''+r.id+'\')">'+
+    '<div class="title">'+esc(r.title||r.id)+'</div>'+
+    '<div class="meta"><span class="ag">'+esc(r.agent)+'</span>'+(r.machine?'<span class="mc">'+esc(r.machine)+'</span>':'')+'</div>'+
+    '<span class="queuedtag">queued</span></div>';
+}
+function progressItem(r,gates){
+  const g=gates.filter(x=>x.run_id===r.id);
+  const acts=(actByRun[r.id]||[]).map(activityLine).join('');
+  return '<div class="card run-card '+edgeFor(r.status)+'" tabindex="0" onclick="openDrawer(\''+r.id+'\')" onkeydown="if(event.key===\'Enter\')openDrawer(\''+r.id+'\')">'+
+    '<div class="title">'+esc(r.title||r.id)+'</div>'+
+    (r.body?'<div class="mdbody">'+md(r.body)+'</div>':'')+
+    '<div class="meta"><span class="ag">'+esc(r.agent)+'</span>'+(r.machine?'<span class="mc">'+esc(r.machine)+'</span>':'')+
+    '<span class="mc">'+esc(r.status)+'</span></div>'+
+    (acts?'<div class="activity">'+acts+'</div>':'')+
+    g.map(x=>'<div class="gateact"><span class="mc">gate · '+esc(x.node_id)+'</span>'+
+      '<button class="ok" onclick="event.stopPropagation();decide(\''+x.run_id+'\',\''+esc(x.node_id)+'\',\'approve\')">approve</button>'+
+      '<button class="no" onclick="event.stopPropagation();decide(\''+x.run_id+'\',\''+esc(x.node_id)+'\',\'reject\')">reject</button></div>').join('')+
+    '</div>';
+}
+function zone(id,html,nid,count){$('#'+id).innerHTML=html||'<div class="empty">—</div>';$('#'+nid).textContent=count;}
 // ---- run drill-down drawer (spec 027) ----
 let dwRun=null, dwNode=null, dwNodes=[], dwEvents=[];
 function stepIcon(s){return s==='succeeded'?'✓':s==='failed'?'✕':s==='running'?'▸':s==='waiting'?'⏸':'▫';}
@@ -238,6 +291,7 @@ async function loadDrawer(){
   dwNodes=d.nodes||[]; dwEvents=d.events||[];
   $('#dw-title').textContent=d.run.title||d.run.id;
   $('#dw-sub').textContent=[d.run.agent,d.run.status,d.run.machine].filter(Boolean).join(' · ');
+  $('#dw-body').innerHTML=d.run.body?md(d.run.body):'';
   renderSteps(); renderLog();
 }
 function renderSteps(){
@@ -256,12 +310,13 @@ function renderLog(){
   const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<24;
   const prev=log.scrollTop;
   if(!evs.length){ log.innerHTML='<div class="empty">waiting…</div>'; return; }
-  log.innerHTML=evs.map(e=>'<div class="ev"><span class="k">'+esc(e.type)+'</span> '+esc(e.data||'')+'</div>').join('');
+  log.innerHTML=evs.map(e=>{
+    if(e.type==='tool'||e.type==='subagent')return '<div class="ev">'+activityLine(e)+'</div>';
+    return '<div class="ev"><span class="k">'+esc(e.type)+'</span> '+esc(e.data||'')+'</div>';
+  }).join('');
   log.scrollTop=atBottom?log.scrollHeight:prev;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
-
-function fill(id,html,count){$('#'+id).innerHTML=html||'<div class="empty">—</div>';$('#n-'+id.slice(2)).textContent=count;}
 
 async function refresh(){
   const sum=await (await fetch('/api/summary')).json();
@@ -284,35 +339,44 @@ async function refresh(){
 
   const b=await (await fetch('/api/board')).json();
   const runs=b.runs||[], gates=b.gates||[];
-  const by=s=>runs.filter(r=>r.status===s);
-  const done=runs.filter(r=>r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
-  fill('c-queued',by('queued').map(runCard).join(''),by('queued').length);
-  fill('c-running',by('running').map(runCard).join(''),by('running').length);
-  fill('c-blocked',(gates.map(gateCard).join('')||by('blocked').map(runCard).join('')),gates.length||by('blocked').length);
-  fill('c-done',done.map(runCard).join(''),done.length);
-
   const items=await (await fetch('/api/backlog')).json()||[];
-  fill('c-backlog',items.map(backlogCard).join(''),items.length);
+  const queued=runs.filter(r=>r.status==='queued');
+  const live=runs.filter(r=>r.status==='running'||r.status==='blocked');
+  const done=runs.filter(r=>r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
+  zone('z-ready',items.map(readyItem).join('')+queued.map(queuedItem).join(''),'n-ready',items.length+queued.length);
+  zone('z-progress',live.map(r=>progressItem(r,gates)).join(''),'n-progress',live.length);
+  zone('z-recent',done.map(runCard).join(''),'n-recent',done.length);
   if(dwRun) loadDrawer();
 }
 
 // ---- actions ----
+function splitMsg(){
+  const t=$('#msg').value; const i=t.indexOf('\n');
+  return i<0?{title:t.trim(),body:''}:{title:t.slice(0,i).trim(),body:t.slice(i+1).trim()};
+}
 async function runNow(){
-  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
+  const el=$('#msg'); if(!el.value.trim())return; const text=el.value; el.value=''; renderPreview();
   await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine:$('#machine').value,agent:$('#agent').value})});
   refresh();
 }
-async function addToBacklog(){
-  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
-  await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:text,machine:$('#machine').value,agent:$('#agent').value})});
+async function addToReady(){
+  const {title,body}=splitMsg(); if(!title)return; $('#msg').value=''; renderPreview();
+  await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title,body,machine:$('#machine').value,agent:$('#agent').value})});
   refresh();
 }
 async function breakdownTask(){
-  const el=$('#msg'),text=el.value.trim();if(!text)return;el.value='';
+  const el=$('#msg'); if(!el.value.trim())return; const text=el.value; el.value=''; renderPreview();
   const r=await fetch('/api/breakdown',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,machine:$('#machine').value,agent:$('#agent').value})});
   if(r.status===409)alert('Breakdown needs an execution plane — start fort serve.');
   refresh();
 }
+function renderPreview(){
+  const {title,body}=splitMsg(); const pv=$('#preview');
+  if(!body){pv.hidden=true;pv.innerHTML='';return;}
+  pv.hidden=false; pv.innerHTML='<strong>'+esc(title)+'</strong>'+md(body);
+}
+$('#msg').addEventListener('input',renderPreview);
+$('#msg').addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')runNow();});
 async function dispatchItem(id){
   await fetch('/api/backlog/'+id+'/dispatch',{method:'POST'});
   refresh();
@@ -323,18 +387,10 @@ async function decide(run,node,decision){
   refresh();
 }
 
-// ---- drag: backlog item -> board dispatches it ----
-function onDrag(e,id){e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}
-['queued','running','blocked','done'].forEach(c=>{
-  const col=document.querySelector('[data-col='+c+']');
-  col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drop');});
-  col.addEventListener('dragleave',()=>col.classList.remove('drop'));
-  col.addEventListener('drop',e=>{e.preventDefault();col.classList.remove('drop');const id=e.dataTransfer.getData('text/plain');if(id)dispatchItem(id);});
-});
 $('#machine').addEventListener('change',syncAgentOptions);
 
 const es=new EventSource('/api/events?since=0');
-es.onmessage=()=>refresh();
+es.onmessage=ev=>{try{trackEvent(JSON.parse(ev.data))}catch(err){} refresh();};
 setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString()},1000);
 setInterval(refresh,3000);
 refresh();
