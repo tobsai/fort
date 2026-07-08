@@ -69,6 +69,28 @@ func TestMdRendersSubset(t *testing.T) {
 	}
 }
 
+// TestMdPlaceholderEdges pins the sentinel placeholder scheme: the earlier
+// space-delimited integer placeholders collided with ordinary prose ("run 3
+// times" lost its 3) and lost their delimiting spaces to trim at
+// paragraph/list/heading edges (edge code spans rendered as literal indexes).
+func TestMdPlaceholderEdges(t *testing.T) {
+	md := mdFn(t)
+	cases := []struct{ name, in, want string }{
+		{"prose-int", "run 3 times", "run 3 times"},
+		{"prose-port", "port 8080 is open", "port 8080 is open"},
+		{"code-at-start", "`fort serve` starts the daemon", "<code>fort serve</code> starts the daemon"},
+		{"code-at-end", "run `make build`", "run <code>make build</code>"},
+		{"code-in-li", "- `x`", "<li><code>x</code></li>"},
+		{"code-in-heading", "# `x`", "<h3><code>x</code></h3>"},
+		{"fence-then-text", "```\ncode\n```\ntext", "<pre><code>"},
+	}
+	for _, c := range cases {
+		if got := md(c.in); !strings.Contains(got, c.want) {
+			t.Errorf("%s: md(%q) = %q, want contains %q", c.name, c.in, got, c.want)
+		}
+	}
+}
+
 func TestMdSecurityCorpus(t *testing.T) {
 	md := mdFn(t)
 	// every payload must render inert: no executable markup, no non-http(s) href
@@ -88,6 +110,7 @@ func TestMdSecurityCorpus(t *testing.T) {
 		`- <img src=x onerror=1>`,
 		" " + `0` + " ", // placeholder forgery
 		`[x](https://ok.dev" onmouseover="alert(1))`,
+		`[x](//evil.example)`, // protocol-relative: fails ^https?:// capture, stays literal
 	}
 	// NOTE (deviation from the plan's literal blocklist): the plan's inner loop
 	// also checked bare "onerror=", "onload=", "onmouseover=", "javascript:",
@@ -111,6 +134,18 @@ func TestMdSecurityCorpus(t *testing.T) {
 			if strings.Contains(lower, bad) {
 				t.Errorf("payload %q produced a live dangerous-scheme href: %q", p, out)
 			}
+		}
+		// every href in the output must be http(s): scan all occurrences
+		for idx := strings.Index(out, `href="`); idx >= 0; {
+			rest := out[idx+6:]
+			if !strings.HasPrefix(rest, "http") {
+				t.Errorf("payload %q produced a non-http href: %q", p, out)
+			}
+			next := strings.Index(rest, `href="`)
+			if next < 0 {
+				break
+			}
+			idx = idx + 6 + next
 		}
 	}
 	// the attribute-injection URL must not produce a second attribute:

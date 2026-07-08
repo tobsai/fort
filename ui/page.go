@@ -139,11 +139,15 @@ const $=s=>document.querySelector(s);
    escaped text — a mis-parse can only fail to format, never inject. */
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const BT=String.fromCharCode(96), FENCE=BT+BT+BT;
+/* placeholder sentinels: U+E000/U+E001 (private use) — can't collide with
+   prose (unlike space-delimited integers) and survive trim; if forged in
+   input they restore to held content or empty, both inert. */
+const S0=String.fromCharCode(57344), S1=String.fromCharCode(57345);
 function md(src){
   if(!src||!String(src).trim())return '';
   let s=esc(String(src)).replace(/\r\n?/g,'\n');
   const hold=[];
-  const stash=h=>{hold.push(h);return ' '+(hold.length-1)+' ';};
+  const stash=h=>{hold.push(h);return S0+(hold.length-1)+S1;};
   // fenced code first: hold escaped content out of all further formatting
   s=s.split(FENCE).map((seg,i)=>i%2?stash('<pre><code>'+seg.replace(/^[a-zA-Z0-9_-]*\n/,'')+'</code></pre>'):seg).join('');
   // inline code: same hold-out
@@ -157,17 +161,17 @@ function md(src){
   s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   s=s.replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
   s=s.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,;:!?])/gm,'$1<em>$2</em>');
-  // links: http(s) ONLY — anything else stays literal escaped text
-  s=s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" rel="noopener nofollow" target="_blank">$1</a>');
+  // links: http(s) ONLY — anything else stays literal escaped text. The URL
+  // class excludes S0 so held content can never be spliced into an href.
+  s=s.replace(new RegExp('\\[([^\\]\\n]+)\\]\\((https?://[^\\s)'+S0+']+)\\)','g'),'<a href="$2" rel="noopener nofollow" target="_blank">$1</a>');
   // paragraphs: block tags and held blocks stand alone; single \n -> <br>
   s=s.split(/\n{2,}/).map(p=>{
-    if(/^ \d+ $/.test(p))return p; // sole held-block placeholder: check before trim eats its delimiting spaces
     p=p.trim(); if(!p)return '';
-    if(/^<(h\d|ul|ol|pre)/.test(p))return p;
+    if(/^<(h\d|ul|ol|pre)/.test(p)||new RegExp('^'+S0+'\\d+'+S1+'$').test(p))return p;
     return '<p>'+p.replace(/\n/g,'<br>')+'</p>';
   }).join('');
   // restore held code (unknown indexes render empty, never 'undefined')
-  return s.replace(/ (\d+) /g,(m,i)=>hold[+i]!==undefined?hold[+i]:'');
+  return s.replace(new RegExp(S0+'(\\d+)'+S1,'g'),(m,i)=>hold[+i]!==undefined?hold[+i]:'');
 }
 /* md:end */
 let hasExec=true, machines=[];
