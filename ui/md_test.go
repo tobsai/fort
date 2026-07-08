@@ -68,3 +68,59 @@ func TestMdRendersSubset(t *testing.T) {
 		t.Errorf("blank body should render empty, got %q", got)
 	}
 }
+
+func TestMdSecurityCorpus(t *testing.T) {
+	md := mdFn(t)
+	// every payload must render inert: no executable markup, no non-http(s) href
+	payloads := []string{
+		`<script>alert(1)</script>`,
+		`<img src=x onerror=alert(1)>`,
+		`<svg onload=alert(1)>`,
+		`[x](javascript:alert(1))`,
+		`[x](data:text/html,<script>alert(1)</script>)`,
+		`[x](vbscript:msgbox)`,
+		`"><img src=x onerror=alert(1)>`,
+		`**<iframe src=//evil>**`,
+		"`</code><script>alert(1)</script>`",
+		"```\n</pre><script>alert(1)</script>\n```",
+		`[<script>x</script>](https://ok.dev)`,
+		`# <script>h</script>`,
+		`- <img src=x onerror=1>`,
+		" " + `0` + " ", // placeholder forgery
+		`[x](https://ok.dev" onmouseover="alert(1))`,
+	}
+	// NOTE (deviation from the plan's literal blocklist): the plan's inner loop
+	// also checked bare "onerror=", "onload=", "onmouseover=", "javascript:",
+	// "data:text", "vbscript:" with no requirement that they sit inside live
+	// markup. Those bare words are expected to survive as literal escaped text
+	// per the plan's own note ("javascript:/data: links ... stay literal
+	// escaped text") — checking for them unconditionally makes every such
+	// payload a false failure even though nothing executable renders (verified:
+	// no unescaped tag, no href starting with a dangerous scheme, no attribute
+	// breakout). Narrowed to the tag-prefixed markers, which do detect a real
+	// escaping failure, plus an explicit live-href-scheme check below.
+	for _, p := range payloads {
+		out := md(p)
+		lower := strings.ToLower(out)
+		for _, bad := range []string{"<script", "<img", "<svg", "<iframe"} {
+			if strings.Contains(lower, bad) {
+				t.Errorf("payload %q rendered executable content: %q", p, out)
+			}
+		}
+		for _, bad := range []string{`href="javascript`, `href="data`, `href="vbscript`} {
+			if strings.Contains(lower, bad) {
+				t.Errorf("payload %q produced a live dangerous-scheme href: %q", p, out)
+			}
+		}
+	}
+	// the attribute-injection URL must not produce a second attribute:
+	// esc() turned the quote into &quot; so the href stays one attribute.
+	out := md(`[x](https://ok.dev" onmouseover="alert(1))`)
+	if strings.Contains(out, `" onmouseover="`) {
+		t.Errorf("attribute breakout: %q", out)
+	}
+	// links that ARE allowed still work
+	if ok := md(`[t](https://x.dev)`); !strings.Contains(ok, `href="https://x.dev"`) {
+		t.Errorf("https link should render: %q", ok)
+	}
+}
