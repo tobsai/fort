@@ -84,9 +84,9 @@ serve`); in control-only mode it 409s, like gates.
 
 All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./docs/notes/event-contract.md)):
 
-- **Web** — served at `GET /`: a kanban board (Backlog · Queued · Running ·
-  Blocked · Done) with a backlog you drag onto the board to dispatch, an
-  agent/machine picker on the compose bar, gate approvals inline in Blocked, and
+- **Web** — served at `GET /`: a three-zone dashboard (Define · Ready · In
+  progress) — markdown compose with breakdown, Start buttons on ready work,
+  live runs with nested tool/subagent activity and inline gate approvals, plus
   a light/dark theme toggle.
   Click any run to open a detail drawer: a flow shows its DAG steps and each
   step's own live log; a single run shows its live log.

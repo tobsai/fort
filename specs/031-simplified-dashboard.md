@@ -17,8 +17,11 @@ including **subagent activity, shown as such**.
   per the approved decision — not kept behind a switch.
 - **No drag-and-drop.** "Start" buttons replace drag-to-dispatch (simpler, and
   works on touch/mobile-width).
-- **No new persistence.** Ready = existing backlog + queued runs; nothing new
-  stored.
+- **Minimal new persistence/plumbing.** One additive nullable run.body column
+  (+ its engine copy-through, RunSummary wire field, and the chat title/body
+  split) — required by this spec's own compose test criteria; everything else
+  reuses existing endpoints and tables. Ready = existing backlog + queued
+  runs; nothing new stored.
 
 ## Approach
 
@@ -78,7 +81,8 @@ unchanged. The removed kanban markup/CSS is deleted, not commented out.
   activity + inline gates, Recent strip. Removes the 5-column board markup/CSS
   and the drag handlers. Reuses `md()` (029) and renders `tool`/`subagent`
   events (030).
-- No `core`/`exec`/contract changes; no new endpoints.
+- No new endpoints; core changes limited to the additive run.body column +
+  engine copy-through (see Non-goals).
 
 ## Decisions
 - **D1 — three zones, replace kanban.** Define/Ready/In-progress mirrors the real
