@@ -290,6 +290,21 @@ func TestChatSingleLineHasNoBody(t *testing.T) {
 	}
 }
 
+func TestChatTitleSkipsLeadingBlankLines(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "\nDo the thing\ndetails"})
+	if rec.Code != 200 || cd.last.Title != "Do the thing" || cd.last.Body != "details" {
+		t.Fatalf("code=%d title=%q body=%q", rec.Code, cd.last.Title, cd.last.Body)
+	}
+	// A whitespace-only first line is skipped too.
+	rec = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "   \nDo the thing"})
+	if rec.Code != 200 || cd.last.Title != "Do the thing" || cd.last.Body != "" {
+		t.Fatalf("code=%d title=%q body=%q", rec.Code, cd.last.Title, cd.last.Body)
+	}
+}
+
 func TestMachinesEndpointReturnsRoster(t *testing.T) {
 	st := openStore(t)
 	roster := stubMachines{list: []ui.MachineStatus{

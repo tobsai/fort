@@ -136,14 +136,10 @@ func (tf *taskFlags) toTask(args []string) task.Task {
 	if title == "" && len(args) > 0 {
 		title = strings.Join(args, " ")
 	}
-	body := tf.body
-	if body == "" {
-		body = title
-	}
 	return task.Task{
 		ID:        fmt.Sprintf("t-%d", time.Now().UnixNano()),
 		Title:     title,
-		Body:      body,
+		Body:      tf.body,
 		Labels:    tf.labels,
 		Paths:     tf.paths,
 		Repo:      tf.repo,

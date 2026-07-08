@@ -189,6 +189,21 @@ func TestPromptCombinesTitleAndBody(t *testing.T) {
 	}
 }
 
+func TestBodylessTaskPromptIsTitleOnly(t *testing.T) {
+	e, _, rt := newEngine(t)
+	run, err := e.SubmitAndWait(context.Background(), task.Task{ID: "tt", Title: "fix it"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No body: the prompt is exactly the title — no "\n\n" separator glued on.
+	if d := rt.Dispatched(); len(d) != 1 || d[0].Prompt != "fix it" {
+		t.Fatalf("dispatched = %+v, want prompt exactly %q", d, "fix it")
+	}
+	if run.Body != "" {
+		t.Fatalf("run body = %q, want empty", run.Body)
+	}
+}
+
 func TestSubmitFailureRecordsFailedStatus(t *testing.T) {
 	e, _, rt := newEngine(t)
 	rt.ExitCode = 1

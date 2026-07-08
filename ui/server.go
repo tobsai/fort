@@ -215,9 +215,23 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "text is required", http.StatusBadRequest)
 		return
 	}
-	title, body := req.Text, ""
-	if i := strings.IndexByte(req.Text, '\n'); i >= 0 {
-		title, body = strings.TrimSpace(req.Text[:i]), strings.TrimSpace(req.Text[i+1:])
+	// The title is the first NON-EMPTY line: skip leading blank/whitespace-only
+	// lines so they can't produce an untitled run (the blank-text guard above
+	// already rejected fully-blank input).
+	text := req.Text
+	for {
+		i := strings.IndexByte(text, '\n')
+		if i < 0 {
+			break
+		}
+		if strings.TrimSpace(text[:i]) != "" {
+			break
+		}
+		text = text[i+1:]
+	}
+	title, body := text, ""
+	if i := strings.IndexByte(text, '\n'); i >= 0 {
+		title, body = strings.TrimSpace(text[:i]), strings.TrimSpace(text[i+1:])
 	}
 	// Flow templates require an execution plane.
 	if s.d.Runner != nil {
@@ -285,9 +299,6 @@ func (s *Server) handleBacklogDispatch(w http.ResponseWriter, r *http.Request) {
 	t := task.Task{
 		ID: uuid.NewString(), Title: b.Title, Body: b.Body,
 		Labels: b.Labels, Agent: b.Agent, Machine: b.Machine, CreatedAt: time.Now(),
-	}
-	if t.Body == "" {
-		t.Body = b.Title
 	}
 	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {

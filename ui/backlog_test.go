@@ -39,6 +39,21 @@ func TestBacklogAddListDispatchDelete(t *testing.T) {
 	}
 }
 
+func TestBacklogDispatchBodylessKeepsBodyEmpty(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	item := decode[ui.BacklogItem](t, do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "fix it"}))
+	if do(t, s, "POST", "/api/backlog/"+item.ID+"/dispatch", nil).Code != 200 {
+		t.Fatal("dispatch failed")
+	}
+	// No fabricated body: prompt() already falls back to the title, and the run
+	// row must not store a duplicate of it.
+	if cd.last.Title != "fix it" || cd.last.Body != "" {
+		t.Fatalf("title=%q body=%q, want body empty", cd.last.Title, cd.last.Body)
+	}
+}
+
 func TestBacklogDeleteDiscards(t *testing.T) {
 	s, _ := newControlUI(t)
 	item := decode[ui.BacklogItem](t, do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "discard me"}))
