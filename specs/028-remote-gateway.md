@@ -14,9 +14,13 @@ so anyone can stand up their **own** instance.
 ## Non-goals (v1 — YAGNI)
 - **No multi-tenant SaaS.** One gateway = one owner (an email allowlist). No
   org/team model, no billing, no per-user isolation beyond the allowlist.
-- **No end-to-end encryption** through the relay in v1. TLS terminates at each
-  hop; the tunnel broker sees plaintext frames. Documented in the threat model;
-  E2E is a noted hardening follow-on.
+- **E2E is in scope (see below), with one honest limit:** the browser web client
+  runs crypto in JS **served by the gateway origin**, so a malicious/compromised
+  gateway *web deploy* could serve backdoored client code. E2E fully protects
+  native clients (iOS/Mac ship their own crypto) and protects **all** clients
+  (web included) against the **tunnel broker** (Worker/DO) reading or altering
+  traffic. Hardening the web-origin trust (SRI/pinned bundle, or "native-only for
+  max assurance") is documented, not a v1 build item.
 - **No inbound-port / reverse-proxy mode here** — that path (LAN/mesh with a
   shared token) already exists (024). 028 is specifically the WAN/NAT-traversal,
   account-authenticated path.
@@ -59,11 +63,40 @@ so anyone can stand up their **own** instance.
 - `fort relay remove` (or the web **Revoke**) invalidates the device token; the
   daemon's socket is dropped and the machine goes offline.
 
+### End-to-end encryption (the client ↔ daemon payload is opaque to the gateway)
+The gateway (Vercel web + Cloudflare Worker/DO) is a **ciphertext-only relay**:
+it authenticates *who* may reach *which* machine (Google session + device token)
+and moves frames, but it cannot read or forge the proxied HTTP/SSE payload.
+- **Daemon static identity.** `fort serve` holds a long-term **X25519** keypair
+  in `relay.yaml` (0600), generated on first `fort relay join`. Its public-key
+  **fingerprint** is printed by `fort relay join` and shown on the web/app
+  machine list so the owner can verify it.
+- **Session handshake.** Each client session runs a **Noise (IK) handshake**
+  ([noiseprotocol.org]) over the tunnel — client ephemeral key ↔ daemon static
+  key — deriving a symmetric session key. The client **pins** the daemon static
+  key on first enroll (TOFU) and shows its fingerprint to compare; a changed key
+  warns loudly (defeats a gateway that swaps in its own key to MITM).
+- **Payload encryption.** Every proxied request/response and every SSE frame is
+  sealed with an **AEAD (XChaCha20-Poly1305)** under the session key before it
+  enters the tunnel. The Worker/DO sees only Noise handshake messages + opaque
+  ciphertext with routing headers (target machine id, stream id) — never the
+  board data, task bodies, logs, or tokens.
+- **Client auth to the daemon.** The daemon accepts a session only when the
+  gateway presents a valid **device-scoped relay token** *and* the Noise
+  handshake completes; the owner authorized the device at join time. (A
+  compromised gateway still cannot read traffic — that is the point of pinning
+  the daemon key.)
+- **Crypto lives in a Fort-owned unit** (`exec/relay/secure`), reused by the Go
+  daemon and mirrored in FortKit (Swift, via CryptoKit/libsodium) and the web
+  client (WebCrypto/`libsodium.js`) so all three speak the same handshake + AEAD.
+
 ### Request path
 `browser/app → gateway/web (Auth.js session) → Worker (validates session, selects
 machine DO) → machine DO ↔ daemon WebSocket → in-process ui/node mux → response
-back up the same path`. SSE (`/api/events`, the live board/drawer feed) is carried
-as a long-lived framed stream over the one socket — no per-event polling.
+back up the same path`. The **application payload is E2E-encrypted** end to end
+(client ↔ daemon); the Worker/DO relays only Noise/AEAD frames. SSE
+(`/api/events`, the live board/drawer feed) is carried as a long-lived framed —
+and encrypted — stream over the one socket, no per-event polling.
 
 ### Clients
 - **Web** = `gateway/web` itself.
@@ -115,8 +148,13 @@ separate deploy artifact (TypeScript), not part of the Go module.
 - **D4 — transport only, determinism preserved.** The gateway never routes or
   infers; it proxies bytes. Asserted by keeping `exec/relay` free of
   router/engine imports.
-- **D5 — no E2E in v1.** TLS per hop; broker sees plaintext. Documented;
-  revocable device tokens limit blast radius. E2E deferred.
+- **D5 — end-to-end encrypted payload; the gateway is a ciphertext relay.**
+  Noise IK (X25519) session handshake + XChaCha20-Poly1305 AEAD between client
+  and daemon; the daemon's static key is pinned by clients (TOFU + a visible
+  fingerprint) so a compromised broker can neither read nor MITM traffic.
+  Revocable device tokens still gate *who* may connect. Residual trust: the
+  browser web client's crypto is gateway-served JS (see Non-goals); native
+  clients are fully E2E. TLS per hop remains as defense in depth.
 - **D6 — TypeScript gateway is a separate artifact.** It is not in the Go module;
   `go build ./...` and the seams tests are unaffected.
 
@@ -125,20 +163,36 @@ separate deploy artifact (TypeScript), not part of the Go module.
 - `gateway/worker/**` (new) — Worker + Durable Object.
 - `gateway/SETUP.md` (new) — self-host guide.
 - `exec/relay/*.go` (new) — outbound relay transport.
-- `cmd/fort/relay.go` (new) — `fort relay` CLI; `cmd/fort/main.go` usage +
-  `fort serve` wiring (dial the relay when `relay.yaml` present).
-- `core/config/*.go` — `relay.yaml` load/precedence.
-- `ui/apple/FortKit/Sources/**` — `GatewayAccount`.
-- `docs/notes/threat-model.md` — relay trust boundary + token revocation.
+- `exec/relay/secure/*.go` (new) — the Fort-owned E2E unit: X25519 static key,
+  Noise IK handshake, XChaCha20-Poly1305 AEAD framing (Go).
+- `cmd/fort/relay.go` (new) — `fort relay` CLI (join/remove/status, prints the
+  daemon key fingerprint); `cmd/fort/main.go` usage + `fort serve` wiring (dial
+  the relay when `relay.yaml` present).
+- `core/config/*.go` — `relay.yaml` load/precedence (gateway URL, device token,
+  **X25519 static keypair**, 0600).
+- `ui/apple/FortKit/Sources/**` — `GatewayAccount` + the mirrored handshake/AEAD
+  (CryptoKit/libsodium) and daemon-key pinning UI (fingerprint compare).
+- `gateway/web` + `gateway/worker` — carry Noise/AEAD frames opaquely; the web
+  client bundles the WebCrypto/`libsodium.js` mirror of the handshake.
+- `docs/notes/threat-model.md` — E2E model, the ciphertext-relay boundary,
+  daemon-key pinning/TOFU, the web-origin residual trust, and token revocation.
 - `README.md` — remote-access section.
 
 ## Test criteria
 - `exec/relay`: with a fake Worker (in-process WebSocket test server), the
-  transport dials, authenticates with a device token, serves a proxied
-  `GET /api/summary` round-trip, and streams an SSE event end-to-end; reconnects
-  after a dropped socket (backoff).
-- `fort relay join`: exchanges a code for a token, writes `relay.yaml` 0600;
-  a reused code is rejected (single-use, atomic).
+  transport dials, authenticates with a device token, completes the Noise
+  handshake, serves an **AEAD-encrypted** proxied `GET /api/summary` round-trip,
+  and streams an encrypted SSE event end-to-end; reconnects after a dropped
+  socket (backoff).
+- `exec/relay/secure` (the E2E unit): a full handshake between two parties
+  derives matching session keys; an AEAD round-trip decrypts to the original
+  plaintext; a **tampered ciphertext frame is rejected** (auth-tag failure); a
+  handshake against a **wrong/rotated daemon static key is rejected** (pinning
+  works); a passive observer holding only the relayed frames **cannot recover
+  plaintext** (asserted by decrypting with the broker's view → failure).
+- `fort relay join`: exchanges a code for a token, generates + writes the X25519
+  keypair + token to `relay.yaml` 0600, and prints a stable key fingerprint; a
+  reused code is rejected (single-use, atomic).
 - Determinism guard: `go list -deps ./exec/relay` imports no
   `core/router|core/engine|core/graph`; the relay path makes zero model calls.
 - `gateway/worker`: unit tests (miniflare) — allowlisted session routes to the
@@ -149,7 +203,9 @@ separate deploy artifact (TypeScript), not part of the Go module.
   is unaffected by `gateway/`).
 
 ## Rollback
-Additive. Delete `relay.yaml` (daemon stops dialing; local + mesh unaffected).
-Revert `exec/relay` + `fort relay` + the FortKit account. The `gateway/` tree is
-a separate deploy — tearing down the Vercel/Cloudflare projects fully removes the
-remote path with no effect on the daemon.
+Additive. Delete `relay.yaml` (daemon stops dialing and discards its static key;
+local + mesh unaffected). Revert `exec/relay` (+ `exec/relay/secure`), `fort
+relay`, and the FortKit account/crypto. The `gateway/` tree is a separate
+deploy — tearing down the Vercel/Cloudflare projects fully removes the remote
+path with no effect on the daemon. No persisted app data is encrypted at rest by
+this spec (E2E is transport-only), so there is nothing to migrate on rollback.
