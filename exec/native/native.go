@@ -29,6 +29,16 @@ type Provider struct {
 	// Parse optionally normalizes a stdout line into a message. When ok is
 	// false the line is emitted as a raw EventStdout.
 	Parse func(line string) (msg string, ok bool)
+	// Classify optionally turns a stdout line into typed events (spec 030). A
+	// line may yield several (text + tool_use blocks). When set it supersedes
+	// Parse; ok=false falls through to a raw EventStdout.
+	Classify func(line string) ([]Classified, bool)
+}
+
+// Classified is one typed event extracted from a provider stdout line.
+type Classified struct {
+	Type runtime.EventType
+	Data string
 }
 
 // Runtime is the native executor.
@@ -120,13 +130,14 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	}
 
 	run := &nativeRun{
-		spec:   spec,
-		parse:  p.Parse,
-		events: make(chan runtime.RunEvent, 64),
-		done:   make(chan struct{}),
-		stdin:  stdin,
-		cancel: cancel,
-		status: runtime.Status{State: runtime.StateRunning},
+		spec:     spec,
+		parse:    p.Parse,
+		classify: p.Classify,
+		events:   make(chan runtime.RunEvent, 64),
+		done:     make(chan struct{}),
+		stdin:    stdin,
+		cancel:   cancel,
+		status:   runtime.Status{State: runtime.StateRunning},
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -139,9 +150,10 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 }
 
 type nativeRun struct {
-	spec   runtime.RunSpec
-	parse  func(string) (string, bool)
-	events chan runtime.RunEvent
+	spec     runtime.RunSpec
+	parse    func(string) (string, bool)
+	classify func(string) ([]Classified, bool)
+	events   chan runtime.RunEvent
 	done   chan struct{}
 	stdin  io.WriteCloser
 	cancel context.CancelFunc
@@ -201,6 +213,14 @@ func (n *nativeRun) scan(wg *sync.WaitGroup, r io.Reader, isErr bool) {
 		switch {
 		case isErr:
 			n.emit(runtime.EventStderr, line, 0)
+		case n.classify != nil:
+			if evs, ok := n.classify(line); ok && len(evs) > 0 {
+				for _, ce := range evs {
+					n.emit(ce.Type, ce.Data, 0)
+				}
+			} else {
+				n.emit(runtime.EventStdout, line, 0)
+			}
 		case n.parse != nil:
 			if msg, ok := n.parse(line); ok {
 				n.emit(runtime.EventMessage, msg, 0)

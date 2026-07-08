@@ -33,6 +33,12 @@ const (
 	EventMessage EventType = "message" // normalized assistant/output message
 	EventExited  EventType = "exited"  // process exited (Code set)
 	EventError   EventType = "error"   // runtime-level error (Data set)
+	// EventTool: the agent invoked a tool (spec 030). Data is a compact JSON
+	// object {"name":..., "summary":...}.
+	EventTool EventType = "tool"
+	// EventSubagent: the agent spawned a sub-task (spec 030; claude's Task
+	// tool). Data is {"description":..., "agent":...}.
+	EventSubagent EventType = "subagent"
 )
 
 // RunEvent is one normalized event in a run's stream.

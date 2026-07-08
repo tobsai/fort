@@ -162,3 +162,46 @@ func contains(ss []string, v string) bool {
 	}
 	return false
 }
+
+func TestClassifyEmitsTypedEvents(t *testing.T) {
+	// A provider with Classify turns one stdout line into N typed events;
+	// unclassified lines fall through to raw stdout.
+	p := Provider{
+		Name:    "clsfy",
+		Command: func(_ runtime.RunSpec) []string { return []string{"sh", "-c", `printf 'KNOWN\nnoise\n'`} },
+		Classify: func(line string) ([]Classified, bool) {
+			if line == "KNOWN" {
+				return []Classified{
+					{Type: runtime.EventTool, Data: `{"name":"Read"}`},
+					{Type: runtime.EventSubagent, Data: `{"description":"sub"}`},
+				}, true
+			}
+			return nil, false
+		},
+	}
+	rt := New(t.TempDir(), p)
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "c1", Agent: "clsfy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []runtime.RunEvent
+	for ev := range run.Stream() {
+		got = append(got, ev)
+	}
+	var tools, subs, stdouts int
+	for _, e := range got {
+		switch e.Type {
+		case runtime.EventTool:
+			tools++
+		case runtime.EventSubagent:
+			subs++
+		case runtime.EventStdout:
+			if e.Data == "noise" {
+				stdouts++
+			}
+		}
+	}
+	if tools != 1 || subs != 1 || stdouts != 1 {
+		t.Fatalf("tools=%d subs=%d stdouts=%d (want 1,1,1); events=%+v", tools, subs, stdouts, got)
+	}
+}
