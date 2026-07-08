@@ -90,6 +90,8 @@ All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./doc
   a light/dark theme toggle.
   Click any run to open a detail drawer: a flow shows its DAG steps and each
   step's own live log; a single run shows its live log.
+  Task and backlog bodies render a safe markdown subset (headings, emphasis,
+  code, lists, http(s) links).
 - **Apple** — [`ui/apple`](./ui/apple): a shared **FortKit** package reused by iOS,
   macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
   compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).

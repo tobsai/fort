@@ -74,6 +74,14 @@ const boardHTML = `<!doctype html>
   .compose button.run{border-color:#3a3320;color:var(--brass2);background:transparent}
   .compose button:hover{background:var(--line2)}
   a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,.card.item:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+  .mdbody{margin:2px 0 7px;font-size:11.5px;line-height:1.5;color:var(--fg2);max-height:76px;overflow:hidden}
+  .mdbody h3,.mdbody h4,.mdbody h5,.mdbody h6{font-size:12px;margin:4px 0;color:var(--fg)}
+  .mdbody p{margin:3px 0}
+  .mdbody ul,.mdbody ol{margin:3px 0;padding-left:16px}
+  .mdbody code{background:var(--line2);border-radius:3px;padding:0 3px}
+  .mdbody pre{background:var(--line2);border-radius:6px;padding:6px;overflow:auto;margin:4px 0}
+  .mdbody a{color:var(--brass2)}
+  .mdbody strong{color:var(--fg)}
   .run-card{cursor:pointer}
   .drawer[hidden]{display:none}
   .drawer{position:fixed;inset:0;z-index:50}
@@ -212,6 +220,7 @@ function gateCard(g){
 function backlogCard(b){
   return '<div class="card item e-neutral" draggable="true" tabindex="0" data-id="'+b.id+'" ondragstart="onDrag(event,\''+b.id+'\')">'+
     '<div class="title">'+esc(b.title)+'</div>'+
+    (b.body?'<div class="mdbody">'+md(b.body)+'</div>':'')+
     '<div class="meta"><span class="src '+(b.source==='agent'?'agent':'')+'"></span>'+
     (b.agent?'<span class="ag">'+esc(b.agent)+'</span>':'')+(b.machine?'<span class="mc">'+esc(b.machine)+'</span>':'')+'</div>'+
     '<button class="runbtn" onclick="dispatchItem(\''+b.id+'\')">run ▸</button></div>';
