@@ -155,6 +155,19 @@ func TestNoPlacerLeavesMachineEmpty(t *testing.T) {
 	}
 }
 
+func TestSubmitCopiesBodyToRun(t *testing.T) {
+	e, st, _ := newEngine(t)
+	runID, err := e.Submit(context.Background(), task.Task{ID: "tb", Title: "title line", Body: "body md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.Wait(runID)
+	r, _ := st.GetRun(runID)
+	if r.Body != "body md" {
+		t.Fatalf("run body = %q, want body md", r.Body)
+	}
+}
+
 func TestSubmitFailureRecordsFailedStatus(t *testing.T) {
 	e, _, rt := newEngine(t)
 	rt.ExitCode = 1

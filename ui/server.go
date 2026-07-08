@@ -78,7 +78,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 	// (the Swift surfaces via FortKit) decode cleanly.
 	b := Board{Runs: []RunSummary{}, Gates: []GateItem{}}
 	for _, r := range runs {
-		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Agent: r.Agent, Status: r.Status, Machine: r.Machine, FlowID: r.FlowID})
+		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Body: r.Body, Agent: r.Agent, Status: r.Status, Machine: r.Machine, FlowID: r.FlowID})
 	}
 	for _, g := range gates {
 		b.Gates = append(b.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
@@ -133,7 +133,7 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 	nodes, _ := s.d.Store.NodeRuns(id)
 	evs, _ := s.d.Store.Events(id)
 	d := RunDetail{
-		Run:    RunSummary{ID: run.ID, Title: run.Title, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID},
+		Run:    RunSummary{ID: run.ID, Title: run.Title, Body: run.Body, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID},
 		Nodes:  []NodeSummary{},
 		Events: []Event{},
 	}
@@ -215,9 +215,13 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "text is required", http.StatusBadRequest)
 		return
 	}
+	title, body := req.Text, ""
+	if i := strings.IndexByte(req.Text, '\n'); i >= 0 {
+		title, body = strings.TrimSpace(req.Text[:i]), strings.TrimSpace(req.Text[i+1:])
+	}
 	// Flow templates require an execution plane.
 	if s.d.Runner != nil {
-		if flowID, input, ok := matchFlow(req.Text, s.flowIDs); ok {
+		if flowID, input, ok := matchFlow(title, s.flowIDs); ok {
 			runID := uuid.NewString()
 			res, err := s.d.Runner.StartFlow(r.Context(), flowID, runID, input)
 			if err != nil {
@@ -228,7 +232,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	t := task.Task{ID: uuid.NewString(), Title: req.Text, Body: req.Text, Agent: req.Agent, Machine: req.Machine, CreatedAt: time.Now()}
+	t := task.Task{ID: uuid.NewString(), Title: title, Body: body, Agent: req.Agent, Machine: req.Machine, CreatedAt: time.Now()}
 	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {
 		httpError(w, err)

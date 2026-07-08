@@ -32,6 +32,7 @@ type RouteDecision struct {
 type Run struct {
 	ID          string
 	Title       string
+	Body        string // markdown body from a multiline compose (spec 031); "" if title-only
 	Agent       string
 	Status      string
 	MatchedRule string
@@ -99,7 +100,7 @@ CREATE TABLE IF NOT EXISTS route_decision (
 );
 CREATE INDEX IF NOT EXISTS idx_route_decision_task ON route_decision(task_id);
 CREATE TABLE IF NOT EXISTS run (
-  id TEXT PRIMARY KEY, title TEXT, agent TEXT, status TEXT, matched_rule TEXT,
+  id TEXT PRIMARY KEY, title TEXT, body TEXT, agent TEXT, status TEXT, matched_rule TEXT,
   machine TEXT, flow_id TEXT, exit_code INTEGER, error TEXT,
   created_at TEXT, updated_at TEXT
 );
@@ -131,6 +132,9 @@ CREATE TABLE IF NOT EXISTS backlog_item (
 	}
 	if err := s.addColumn("event", "node_id", "TEXT"); err != nil {
 		return fmt.Errorf("store: migrate event.node_id: %w", err)
+	}
+	if err := s.addColumn("run", "body", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate run.body: %w", err)
 	}
 	return nil
 }
@@ -211,9 +215,9 @@ func (s *Store) RouteDecisions(taskID string) ([]RouteDecision, error) {
 func (s *Store) CreateRun(r Run) error {
 	now := nowOr(r.CreatedAt)
 	_, err := s.db.Exec(
-		`INSERT INTO run(id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at)
-		 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-		r.ID, r.Title, r.Agent, r.Status, r.MatchedRule, r.Machine, r.FlowID, r.ExitCode, r.Error, now, now)
+		`INSERT INTO run(id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+		r.ID, r.Title, r.Body, r.Agent, r.Status, r.MatchedRule, r.Machine, r.FlowID, r.ExitCode, r.Error, now, now)
 	return err
 }
 
@@ -228,7 +232,7 @@ func (s *Store) UpdateRunStatus(id, status string, exitCode int, errMsg string) 
 // GetRun returns a run by id.
 func (s *Store) GetRun(id string) (Run, error) {
 	row := s.db.QueryRow(
-		`SELECT id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run WHERE id=?`, id)
 	return scanRun(row)
 }
@@ -236,7 +240,7 @@ func (s *Store) GetRun(id string) (Run, error) {
 // ListRuns returns all runs, newest first.
 func (s *Store) ListRuns() ([]Run, error) {
 	rows, err := s.db.Query(
-		`SELECT id,title,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -260,12 +264,13 @@ type scanner interface {
 func scanRun(row scanner) (Run, error) {
 	var r Run
 	var created, updated string
-	var machine sql.NullString
-	err := row.Scan(&r.ID, &r.Title, &r.Agent, &r.Status, &r.MatchedRule, &machine, &r.FlowID,
+	var body, machine sql.NullString
+	err := row.Scan(&r.ID, &r.Title, &body, &r.Agent, &r.Status, &r.MatchedRule, &machine, &r.FlowID,
 		&r.ExitCode, &r.Error, &created, &updated)
 	if err != nil {
 		return Run{}, err
 	}
+	r.Body = body.String       // NULL (pre-migration rows) -> ""
 	r.Machine = machine.String // NULL (pre-migration rows) -> ""
 	r.CreatedAt = parseTime(created)
 	r.UpdatedAt = parseTime(updated)

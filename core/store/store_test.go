@@ -173,6 +173,22 @@ func TestNodeRunUpsert(t *testing.T) {
 	}
 }
 
+func TestRunBodyRoundTrip(t *testing.T) {
+	s := openTemp(t)
+	if err := s.CreateRun(Run{ID: "rb1", Title: "t", Body: "# body\nline two", Status: "running"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetRun("rb1")
+	if err != nil || got.Body != "# body\nline two" {
+		t.Fatalf("body = %q err=%v", got.Body, err)
+	}
+	// runs created without a body read back empty (NULL-safe)
+	_ = s.CreateRun(Run{ID: "rb2", Title: "t2", Status: "queued"})
+	if got2, _ := s.GetRun("rb2"); got2.Body != "" {
+		t.Fatalf("empty body = %q", got2.Body)
+	}
+}
+
 func TestEventNodeIDRoundTrip(t *testing.T) {
 	s := openTemp(t)
 	if err := s.CreateRun(Run{ID: "r1", Status: "running"}); err != nil {

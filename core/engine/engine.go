@@ -142,6 +142,7 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 	if err := e.store.CreateRun(store.Run{
 		ID:          runID,
 		Title:       title,
+		Body:        t.Body,
 		Agent:       dec.Route,
 		Status:      "running",
 		MatchedRule: dec.MatchedRule,

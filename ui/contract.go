@@ -29,6 +29,7 @@ type Event struct {
 type RunSummary struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
+	Body    string `json:"body,omitempty"`
 	Agent   string `json:"agent"`
 	Status  string `json:"status"`
 	Machine string `json:"machine,omitempty"` // host the run is placed on (spec 022)

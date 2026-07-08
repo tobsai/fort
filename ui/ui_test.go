@@ -267,6 +267,29 @@ func TestChatForcesAgent(t *testing.T) {
 	}
 }
 
+func TestChatSplitsTitleAndBody(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "fix the header\n# Details\n- step one"})
+	if rec.Code != 200 {
+		t.Fatalf("status=%d", rec.Code)
+	}
+	if cd.last.Title != "fix the header" || cd.last.Body != "# Details\n- step one" {
+		t.Fatalf("title=%q body=%q", cd.last.Title, cd.last.Body)
+	}
+}
+
+func TestChatSingleLineHasNoBody(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "just a title"})
+	if rec.Code != 200 || cd.last.Title != "just a title" || cd.last.Body != "" {
+		t.Fatalf("code=%d title=%q body=%q", rec.Code, cd.last.Title, cd.last.Body)
+	}
+}
+
 func TestMachinesEndpointReturnsRoster(t *testing.T) {
 	st := openStore(t)
 	roster := stubMachines{list: []ui.MachineStatus{
