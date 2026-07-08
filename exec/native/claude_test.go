@@ -1,6 +1,7 @@
 package native
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -80,5 +81,41 @@ func TestClassifyClaudeSummaryTruncation(t *testing.T) {
 	_ = json.Unmarshal([]byte(evs[0].Data), &d)
 	if len(d["summary"]) > 160 {
 		t.Errorf("summary not truncated: %d chars", len(d["summary"]))
+	}
+}
+
+// TestClaudeProviderClassifiesEndToEnd drives a canned claude-shaped stream
+// through Dispatch using the real claude provider's Classify (argv swapped for
+// a script), proving the wire-up: typed events out, result line kept on stdout.
+func TestClaudeProviderClassifiesEndToEnd(t *testing.T) {
+	lines := `{"type":"system","subtype":"init"}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"probe","subagent_type":"explore"}}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"done"}]}}
+{"type":"result","subtype":"success","result":"final"}`
+	p := claudeProvider()
+	p.Command = func(_ runtime.RunSpec) []string {
+		return []string{"sh", "-c", "cat <<'EOF'\n" + lines + "\nEOF"}
+	}
+	rt := New(t.TempDir(), p)
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "e2e", Agent: "claude"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subs, msgs int
+	var resultOnStdout bool
+	for ev := range run.Stream() {
+		switch ev.Type {
+		case runtime.EventSubagent:
+			subs++
+		case runtime.EventMessage:
+			msgs++
+		case runtime.EventStdout:
+			if strings.Contains(ev.Data, `"type":"result"`) {
+				resultOnStdout = true
+			}
+		}
+	}
+	if subs != 1 || msgs != 1 || !resultOnStdout {
+		t.Fatalf("subs=%d msgs=%d resultOnStdout=%v", subs, msgs, resultOnStdout)
 	}
 }

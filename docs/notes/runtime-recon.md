@@ -45,6 +45,13 @@ The prompt may also be the trailing positional arg, or piped on stdin.
 
 **6. PTY note.** **No PTY required** for `-p/--print` — it explicitly detects a non-TTY stdout (pipe/redirect) and runs non-interactively. A plain pipe is sufficient and preferred. Reserve a PTY only if Fort ever drives the interactive TUI directly (not the plan).
 
+Event map (spec 030): complete assistant lines -> message (text blocks, joined)
++ tool per tool_use block (subagent when the tool is Task, data
+{"description","agent"}; tool data {"name","summary"}). user tool_result lines
+-> tool {"name":"tool_result","summary":<preview>}. The terminal result line,
+stream_event partials, and system lines stay raw stdout (the planner reads the
+result line from stdout — spec 026).
+
 ---
 
 ## 2. `codex` (Codex CLI)

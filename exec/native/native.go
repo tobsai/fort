@@ -154,10 +154,10 @@ type nativeRun struct {
 	parse    func(string) (string, bool)
 	classify func(string) ([]Classified, bool)
 	events   chan runtime.RunEvent
-	done   chan struct{}
-	stdin  io.WriteCloser
-	cancel context.CancelFunc
-	pgid   int // process group ID; set once before pump starts
+	done     chan struct{}
+	stdin    io.WriteCloser
+	cancel   context.CancelFunc
+	pgid     int // process group ID; set once before pump starts
 
 	mu       sync.Mutex
 	status   runtime.Status

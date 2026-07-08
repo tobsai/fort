@@ -22,6 +22,11 @@ func claudeProvider() Provider {
 			return []string{"claude", "-p", s.Prompt,
 				"--output-format", "stream-json", "--include-partial-messages", "--verbose"}
 		},
+		// Structured classification (spec 030): typed tool/subagent/message
+		// events; result/partials/system fall through to raw stdout (the
+		// planner's result-line contract, spec 026, is preserved).
+		Classify: classifyClaude,
+		// Parse retained as documentation of the legacy path; Classify wins.
 		Parse: jsonTextParser,
 	}
 }
