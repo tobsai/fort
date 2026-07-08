@@ -230,9 +230,16 @@ func statusString(s runtime.State) string {
 	}
 }
 
+// prompt builds the dispatched prompt: the task's full definition. With a
+// split compose (spec 031: title = first line, body = the rest) the agent
+// must still see the title line, so title and body are recombined.
 func prompt(t task.Task) string {
-	if t.Body != "" {
+	switch {
+	case t.Body != "" && t.Title != "":
+		return t.Title + "\n\n" + t.Body
+	case t.Body != "":
 		return t.Body
+	default:
+		return t.Title
 	}
-	return t.Title
 }

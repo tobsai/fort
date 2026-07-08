@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tobsai/fort/core/router"
@@ -61,9 +62,9 @@ func TestSubmitRoutesPersistsAndRuns(t *testing.T) {
 		t.Errorf("route decisions = %+v", decs)
 	}
 
-	// the dispatched spec carried the task body as prompt
+	// the dispatched spec carried the full task definition (title + body) as prompt
 	disp := rt.Dispatched()
-	if len(disp) != 1 || disp[0].Prompt != "do the thing" || disp[0].Agent != "codex" {
+	if len(disp) != 1 || disp[0].Prompt != "add feature\n\ndo the thing" || disp[0].Agent != "codex" {
 		t.Errorf("dispatched = %+v", disp)
 	}
 
@@ -165,6 +166,26 @@ func TestSubmitCopiesBodyToRun(t *testing.T) {
 	r, _ := st.GetRun(runID)
 	if r.Body != "body md" {
 		t.Fatalf("run body = %q, want body md", r.Body)
+	}
+}
+
+func TestPromptCombinesTitleAndBody(t *testing.T) {
+	e, st, _ := newEngine(t)
+	run, err := e.SubmitAndWait(context.Background(), task.Task{ID: "tp", Title: "do the thing", Body: "with details"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The fake echoes the dispatched prompt as a message event; the agent must
+	// see the full task definition (title line + body), not the body alone.
+	evs, _ := st.Events(run.ID)
+	var msg string
+	for _, ev := range evs {
+		if ev.Type == "message" {
+			msg = ev.Data
+		}
+	}
+	if !strings.Contains(msg, "do the thing") || !strings.Contains(msg, "with details") {
+		t.Fatalf("prompt message = %q, want both title and body", msg)
 	}
 }
 
