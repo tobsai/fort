@@ -21,6 +21,14 @@ export interface MachineSummary {
   name: string;
   fingerprint: string;
   online: boolean;
+  /**
+   * Daemon static X25519 public key, standard base64. Exposed so the browser
+   * client can run the Noise IK initiator (which requires the responder's
+   * static public key) and pin it (TOFU) against `fingerprint` (spec 028, D5).
+   * A public key, not a secret — only reachable behind the authenticated web
+   * app's server route.
+   */
+  public_key: string;
 }
 
 /** The stored registry record for a machine (public key kept, token hidden). */

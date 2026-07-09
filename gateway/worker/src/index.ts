@@ -141,6 +141,7 @@ async function handleMachines(request: Request, env: Env): Promise<Response> {
         name: m.name,
         fingerprint: fingerprint(decodeBase64(m.public_key)),
         online,
+        public_key: m.public_key,
       };
     }),
   );

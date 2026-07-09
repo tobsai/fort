@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fingerprint } from "@fort/gateway-shared";
-import { listMachines, mintAndJoin, newDaemonKey } from "./helpers";
+import { listMachines, mintAndJoin, newDaemonKey, pubB64 } from "./helpers";
 import type { MachineSummary } from "../src/types";
 
 describe("GET /api/relay/machines (internal)", () => {
@@ -25,6 +25,7 @@ describe("GET /api/relay/machines (internal)", () => {
     expect(mine).toBeDefined();
     expect(mine!.name).toBe("workstation");
     expect(mine!.fingerprint).toBe(fingerprint(kp.publicKey)); // derived, not stored
+    expect(mine!.public_key).toBe(pubB64(kp)); // raw key exposed for browser pin+handshake
     expect(mine!.online).toBe(false); // no daemon socket attached
   });
 });

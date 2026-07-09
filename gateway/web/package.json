@@ -1,0 +1,35 @@
+{
+  "name": "@fort/gateway-web",
+  "version": "0.1.0",
+  "description": "Fort spec-028 gateway web app: Auth.js Google sign-in + email allowlist, a machines list, an add-machine join flow, and a board reached over the E2E Noise tunnel. A thin authenticated proxy in front of the Cloudflare worker broker; the GATEWAY_SECRET stays server-side.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fort/gateway-shared": "file:../shared",
+    "@stablelib/blake2s": "2.0.1",
+    "@stablelib/chacha20poly1305": "2.0.1",
+    "@stablelib/hmac": "2.0.1",
+    "@stablelib/sha256": "2.0.1",
+    "@stablelib/x25519": "2.0.1",
+    "next": "14.2.35",
+    "next-auth": "5.0.0-beta.25",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}
