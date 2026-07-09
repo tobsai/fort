@@ -127,6 +127,28 @@ func TestImplementsRuntime(t *testing.T) {
 }
 
 // The built-in provider argv must match the AO-002 recon contract.
+// TestCodexArgvMatchesInstalledCLI pins the codex contract against the real CLI
+// (codex-cli 0.143.0, verified 2026-07-09 on a live run): `codex exec` REJECTS
+// --ask-for-approval ("unexpected argument"), and Fort runs agents in a scratch
+// workdir that is not a git repo, so --skip-git-repo-check is required.
+func TestCodexArgvMatchesInstalledCLI(t *testing.T) {
+	var codex Provider
+	for _, p := range DefaultProviders() {
+		if p.Name == "codex" {
+			codex = p
+		}
+	}
+	argv := strings.Join(codex.Command(runtime.RunSpec{Prompt: "x"}), " ")
+	for _, want := range []string{"codex exec", "--json", "--sandbox workspace-write", "--skip-git-repo-check"} {
+		if !strings.Contains(argv, want) {
+			t.Errorf("codex argv missing %q: %s", want, argv)
+		}
+	}
+	if strings.Contains(argv, "--ask-for-approval") {
+		t.Errorf("codex exec rejects --ask-for-approval; argv: %s", argv)
+	}
+}
+
 func TestDefaultProvidersArgv(t *testing.T) {
 	rt := New(t.TempDir(), DefaultProviders()...)
 	cases := map[string][]string{

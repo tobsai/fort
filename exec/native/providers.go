@@ -31,15 +31,20 @@ func claudeProvider() Provider {
 	}
 }
 
-// codex: non-interactive exec subcommand emitting JSONL events, no approvals.
+// codex: non-interactive exec subcommand emitting JSONL events.
 //
-//	codex exec "<prompt>" --json --ask-for-approval never --sandbox workspace-write
+//	codex exec "<prompt>" --json --sandbox workspace-write --skip-git-repo-check
+//
+// Verified against codex-cli 0.143.0 (2026-07-09, live run): `codex exec` has no
+// --ask-for-approval flag — exec is already non-interactive, and passing it
+// aborts with "unexpected argument". --skip-git-repo-check is required because
+// Fort runs each agent in a scratch workdir that is not a git repository.
 func codexProvider() Provider {
 	return Provider{
 		Name: "codex",
 		Command: func(s runtime.RunSpec) []string {
 			return []string{"codex", "exec", s.Prompt,
-				"--json", "--ask-for-approval", "never", "--sandbox", "workspace-write"}
+				"--json", "--sandbox", "workspace-write", "--skip-git-repo-check"}
 		},
 		Parse: jsonTextParser,
 	}
