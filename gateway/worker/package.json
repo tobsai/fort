@@ -1,0 +1,23 @@
+{
+  "name": "@fort/gateway-worker",
+  "version": "0.1.0",
+  "description": "Fort spec-028 gateway tunnel broker: a Cloudflare Worker + Durable Objects that holds the daemon's outbound WebSocket and relays opaque Noise/AEAD frames between browser sessions and the daemon. Ciphertext-only: the broker never holds the E2E keys.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@fort/gateway-shared": "file:../shared"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.8.55",
+    "@cloudflare/workers-types": "4.20250712.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.25.0"
+  }
+}

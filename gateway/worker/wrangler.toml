@@ -1,0 +1,30 @@
+name = "fort-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-07-12"
+compatibility_flags = ["nodejs_compat"]
+
+# The tunnel broker keeps two Durable Object classes:
+#   REGISTRY  — one singleton instance: join codes + the machine registry
+#               (device token <-> machine_id, static public key). Strongly
+#               consistent so a join code is consumed exactly once.
+#   TUNNEL    — one instance per machine_id: holds that machine's daemon
+#               WebSocket and multiplexes browser sessions onto it.
+[[durable_objects.bindings]]
+name = "REGISTRY"
+class_name = "RegistryDO"
+
+[[durable_objects.bindings]]
+name = "TUNNEL"
+class_name = "TunnelDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RegistryDO", "TunnelDO"]
+
+# GATEWAY_SECRET authenticates the web app (gateway/web) to the internal
+# broker endpoints (invite / machines list / proxy). In production set it with
+#   wrangler secret put GATEWAY_SECRET
+# The [vars] value below is only a local/dev placeholder; tests inject their own.
+[vars]
+GATEWAY_SECRET = "dev-placeholder-change-me"
+CODE_TTL_SECONDS = "900"
