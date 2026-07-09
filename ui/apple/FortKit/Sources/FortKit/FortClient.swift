@@ -83,6 +83,11 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return try await get("/api/runs/\(escaped)")
     }
 
+    /// `GET /api/backlog` — the pending-task backlog (spec 025).
+    public func backlog() async throws -> [BacklogItem] {
+        try await get("/api/backlog")
+    }
+
     // MARK: - Commands
 
     /// `POST /api/chat` — submit a chat turn. Returns the resulting route.
@@ -97,6 +102,22 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     public func openclaw(from: String, text: String) async throws -> ChatResult {
         let body = OpenClawMessage(from: from, text: text)
         return try await post("/api/openclaw", body: body)
+    }
+
+    /// `POST /api/backlog/{id}/dispatch` — promote a backlog item to a run
+    /// (spec 025). The body is empty; the item is identified by path.
+    @discardableResult
+    public func dispatchBacklog(_ id: String) async throws -> ChatResult {
+        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await post("/api/backlog/\(escaped)/dispatch", body: Optional<NoBody>.none)
+    }
+
+    /// `POST /api/breakdown` — ask the planner to decompose a goal into backlog
+    /// sub-tasks (spec 026). Returns the visible planner run's id.
+    @discardableResult
+    public func breakdown(_ text: String, agent: String? = nil) async throws -> BreakdownResult {
+        let body = BreakdownRequest(text: text, agent: agent)
+        return try await post("/api/breakdown", body: body)
     }
 
     /// `POST /api/gate` — decide a gate.

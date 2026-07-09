@@ -16,11 +16,15 @@ import Foundation
 
 /// The wire form of one append-only event-log row — the live-feed unit.
 ///
-/// Mirrors `ui.Event`. `Data` and `Code` are `omitempty` on the Go side, so
-/// they are Optionals here.
+/// Mirrors `ui.Event`. `NodeID` (spec 027), `Data`, and `Code` are `omitempty`
+/// on the Go side, so they are Optionals here. `type` carries the event kind as
+/// a raw string, so newer kinds — including the `"tool"` / `"subagent"` activity
+/// events (spec 030) — decode without any contract change.
 public struct Event: Codable, Sendable, Identifiable, Hashable {
     public let id: Int
     public let runID: String
+    /// The flow step this event is attributed to (spec 027); nil for run-level events.
+    public let nodeID: String?
     public let type: String
     public let data: String?
     public let code: Int?
@@ -29,6 +33,7 @@ public struct Event: Codable, Sendable, Identifiable, Hashable {
     public init(
         id: Int,
         runID: String,
+        nodeID: String? = nil,
         type: String,
         data: String? = nil,
         code: Int? = nil,
@@ -36,6 +41,7 @@ public struct Event: Codable, Sendable, Identifiable, Hashable {
     ) {
         self.id = id
         self.runID = runID
+        self.nodeID = nodeID
         self.type = type
         self.data = data
         self.code = code
@@ -45,6 +51,7 @@ public struct Event: Codable, Sendable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case runID = "run_id"
+        case nodeID = "node_id"
         case type
         case data
         case code
@@ -52,10 +59,12 @@ public struct Event: Codable, Sendable, Identifiable, Hashable {
     }
 }
 
-/// A board card. Mirrors `ui.RunSummary`. `flow_id` is `omitempty`.
+/// A board card. Mirrors `ui.RunSummary`. `body` and `flow_id` are `omitempty`.
 public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let title: String
+    /// The task body/details, when present (spec 031 compose keeps title+body).
+    public let body: String?
     public let agent: String
     public let status: String
     public let flowID: String?
@@ -63,12 +72,14 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     public init(
         id: String,
         title: String,
+        body: String? = nil,
         agent: String,
         status: String,
         flowID: String? = nil
     ) {
         self.id = id
         self.title = title
+        self.body = body
         self.agent = agent
         self.status = status
         self.flowID = flowID
@@ -77,6 +88,7 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case title
+        case body
         case agent
         case status
         case flowID = "flow_id"
@@ -339,5 +351,82 @@ public struct ActionResult: Codable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case state
         case pausedNode = "paused_node"
+    }
+}
+
+/// A pending task queued on the board (spec 025). Mirrors `ui.BacklogItem`.
+///
+/// `body`, `agent`, `machine`, and `labels` are `omitempty` on the Go side.
+/// `source` is `"user"` or `"agent"`.
+public struct BacklogItem: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let title: String
+    public let body: String?
+    public let agent: String?
+    public let machine: String?
+    public let labels: [String]?
+    public let source: String
+
+    public init(
+        id: String,
+        title: String,
+        body: String? = nil,
+        agent: String? = nil,
+        machine: String? = nil,
+        labels: [String]? = nil,
+        source: String
+    ) {
+        self.id = id
+        self.title = title
+        self.body = body
+        self.agent = agent
+        self.machine = machine
+        self.labels = labels
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case body
+        case agent
+        case machine
+        case labels
+        case source
+    }
+}
+
+/// The command body for `POST /api/breakdown` (spec 026). Mirrors
+/// `ui.BreakdownRequest`. `agent` and `machine` are `omitempty`.
+public struct BreakdownRequest: Codable, Sendable, Hashable {
+    public let text: String
+    public let agent: String?
+    public let machine: String?
+
+    public init(text: String, agent: String? = nil, machine: String? = nil) {
+        self.text = text
+        self.agent = agent
+        self.machine = machine
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case text
+        case agent
+        case machine
+    }
+}
+
+/// The response for `POST /api/breakdown` (spec 026): the visible planner run's
+/// id. Sub-tasks appear in the backlog when that run completes. Mirrors
+/// `ui.BreakdownResult`.
+public struct BreakdownResult: Codable, Sendable, Hashable {
+    public let runID: String
+
+    public init(runID: String) {
+        self.runID = runID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case runID = "run_id"
     }
 }
