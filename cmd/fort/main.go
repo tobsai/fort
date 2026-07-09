@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tobsai/fort/control"
+	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
@@ -23,6 +24,8 @@ import (
 	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/meshjoin"
 	"github.com/tobsai/fort/exec/node"
+	"github.com/tobsai/fort/exec/relay"
+	"github.com/tobsai/fort/exec/relay/secure"
 	"github.com/tobsai/fort/ui"
 )
 
@@ -49,6 +52,9 @@ usage:
   fort mesh invite [--ttl 15m] [--advertise URL]   mint a join code (hub must be running)
   fort mesh join <hub-url> --code C [--name N] [--port 4087] [--agents a,b] [--advertise URL]
   fort mesh remove <name>          drop a machine from the mesh
+  fort relay join <gateway-url> --code XXXX-XXXX [--name N]   tunnel this machine through a remote gateway (spec 028)
+  fort relay status                print the joined gateway + key fingerprint
+  fort relay remove                stop tunneling; delete relay.yaml (gateway revocation is authoritative)
   fort version
 
 taskflags:
@@ -89,6 +95,8 @@ func main() {
 		err = cmdSchedule(os.Args[2:])
 	case "mesh":
 		err = cmdMesh(os.Args[2:])
+	case "relay":
+		err = cmdRelay(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("fort %s (fort-native)\n", version)
 	case "help", "-h", "--help":
@@ -235,6 +243,24 @@ func cmdServe(args []string) error {
 		uiSrv.Register(mux)
 		nodeSrv.Register(mux)
 		meshSrv.Register(mux)
+	}
+
+	// Remote gateway (spec 028): when this machine has joined a gateway,
+	// maintain the outbound tunnel and serve the SAME mux through it — a fresh
+	// ServeMux with the identical mounts, since the transport moves bytes and
+	// never imports ui. cmd/fort is the composition root, so it (and only it)
+	// may import exec/relay.
+	if rc, err := config.LoadRelay(a.cfg.DataDir()); err == nil {
+		rmux := http.NewServeMux()
+		mount(rmux)
+		tr := relay.New(rmux, relay.Config{
+			URL:   rc.GatewayURL + "/tunnel",
+			Token: rc.DeviceToken,
+			Key:   secure.Keypair{Private: rc.PrivateKey, Public: rc.PublicKey},
+		})
+		go func() { _ = tr.Run(ctx) }()
+		fmt.Printf("fort relay: tunnel to %s (machine %s, fingerprint %s)\n",
+			rc.GatewayURL, rc.MachineID, secure.FingerprintOf(rc.PublicKey))
 	}
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
