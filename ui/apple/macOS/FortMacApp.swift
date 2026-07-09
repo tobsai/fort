@@ -2,12 +2,14 @@
 //  FortMacApp.swift
 //  FortMac
 //
-//  Fort's macOS surface: a menu-bar app built on `MenuBarExtra`. It holds the
-//  shared `FortClient` (from ../FortKit) at the app root, polls the control
-//  plane for a `Summary`, and renders the glanceable counts + gate inbox in the
-//  menu. The menu-bar title/badge shows the pending-gate count.
+//  Fort's macOS surface: a menu-bar app built on `MenuBarExtra` PLUS a full
+//  window (spec 032). It holds the shared `FortClient` (from ../FortKit) at the
+//  app root, polls the control plane for a `Summary`, and renders the glanceable
+//  counts + gate inbox in the menu. The menu-bar title/badge shows the
+//  pending-gate count.
 //
-//  There is no window: the whole app lives in the status bar.
+//  The `Window("Fort")` scene hosts `FortWindow` — a native mirror of the 031
+//  dashboard plus `fort service` daemon controls (via `ServiceController`).
 //
 
 import SwiftUI
@@ -15,15 +17,19 @@ import FortKit
 
 @main
 struct FortMacApp: App {
-    /// The single control-plane client, shared with `MenuContent` via the
-    /// environment. `FortClient` is an `ObservableObject`; hold it as
-    /// `@StateObject` so it lives for the app's lifetime.
+    /// The single control-plane client, shared with `MenuContent` and
+    /// `FortWindow` via the environment. `FortClient` is an `ObservableObject`;
+    /// hold it as `@StateObject` so it lives for the app's lifetime.
     @StateObject private var client = FortClient() // http://127.0.0.1:4087
 
     /// The latest control-plane snapshot, refreshed on a timer by `MenuContent`.
     /// Kept at the app root so the menu-bar label can badge the gate count even
     /// while the menu is closed.
     @StateObject private var model = MenuModel()
+
+    /// Drives the `fort service` launchd daemon (install/start/stop/restart).
+    /// Bound to the window's sidebar "Service" controls.
+    @StateObject private var service = ServiceController(fortBinaryURL: FortMacApp.bundledFort())
 
     var body: some Scene {
         MenuBarExtra {
@@ -42,6 +48,21 @@ struct FortMacApp: App {
             }
         }
         .menuBarExtraStyle(.window) // richer content (fields, buttons) than .menu
+
+        Window("Fort", id: "main") {
+            FortWindow()
+                .environmentObject(client)
+                .environmentObject(service)
+                .frame(minWidth: 720, minHeight: 480)
+        }
+    }
+
+    /// The `fort` binary the `ServiceController` shells out to: the copy bundled
+    /// in the app's `Contents/Resources` (see `make mac-dmg`), else a Homebrew
+    /// fallback so a dev build off the menu-bar app still works.
+    static func bundledFort() -> URL {
+        Bundle.main.url(forResource: "fort", withExtension: nil)
+            ?? URL(fileURLWithPath: "/opt/homebrew/bin/fort")
     }
 }
 

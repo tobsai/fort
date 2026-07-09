@@ -88,6 +88,12 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         try await get("/api/backlog")
     }
 
+    /// `GET /api/machines` — the machine roster + reachability (spec 022).
+    /// Empty in single-machine mode; the server always emits `[]`, never null.
+    public func machines() async throws -> [MachineSummary] {
+        try await get("/api/machines")
+    }
+
     // MARK: - Commands
 
     /// `POST /api/chat` — submit a chat turn. Returns the resulting route.
@@ -110,6 +116,19 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     public func dispatchBacklog(_ id: String) async throws -> ChatResult {
         let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
         return try await post("/api/backlog/\(escaped)/dispatch", body: Optional<NoBody>.none)
+    }
+
+    /// `POST /api/backlog` — add a task to Ready (spec 025). `title` is the
+    /// first line of the compose field; `body` the rest. Returns the created item.
+    @discardableResult
+    public func addBacklog(
+        title: String,
+        body: String? = nil,
+        agent: String? = nil,
+        machine: String? = nil
+    ) async throws -> BacklogItem {
+        let request = BacklogRequest(title: title, body: body, agent: agent, machine: machine)
+        return try await post("/api/backlog", body: request)
     }
 
     /// `POST /api/breakdown` — ask the planner to decompose a goal into backlog

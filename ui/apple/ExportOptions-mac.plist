@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Export options for the FortMac DMG (spec 032). Distinct from ExportOptions.plist,
+  which uploads the iOS app to App Store Connect. This one exports a signed
+  "Developer ID Application" .app for notarization + DMG distribution OUTSIDE the
+  Mac App Store. Requires the operator's Developer ID cert in the login keychain.
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>developer-id</string>
+	<key>teamID</key>
+	<string>T3JB5MYZ93</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

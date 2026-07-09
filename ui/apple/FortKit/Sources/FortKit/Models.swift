@@ -95,6 +95,42 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     }
 }
 
+/// One host in the machine roster. Mirrors `ui.MachineStatus`
+/// (`GET /api/machines`, spec 022). `url` is `omitempty`; `agents` may be
+/// absent/null for a host with no agents, so both are Optionals here.
+public struct MachineSummary: Codable, Sendable, Identifiable, Hashable {
+    public let name: String
+    public let url: String?
+    public let agents: [String]?
+    public let local: Bool
+    public let reachable: Bool
+
+    /// Stable identity for SwiftUI lists — a machine is unique by name.
+    public var id: String { name }
+
+    public init(
+        name: String,
+        url: String? = nil,
+        agents: [String]? = nil,
+        local: Bool,
+        reachable: Bool
+    ) {
+        self.name = name
+        self.url = url
+        self.agents = agents
+        self.local = local
+        self.reachable = reachable
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case url
+        case agents
+        case local
+        case reachable
+    }
+}
+
 /// A node's state within a run. Mirrors `ui.NodeSummary`. `attempts` is `omitempty`.
 public struct NodeSummary: Codable, Sendable, Identifiable, Hashable {
     public let nodeID: String
@@ -387,6 +423,42 @@ public struct BacklogItem: Codable, Sendable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case title
+        case body
+        case agent
+        case machine
+        case labels
+        case source
+    }
+}
+
+/// The command body for `POST /api/backlog` (spec 025) — add a task to Ready.
+/// Mirrors `ui.BacklogRequest`. Everything but `title` is `omitempty`.
+public struct BacklogRequest: Codable, Sendable, Hashable {
+    public let title: String
+    public let body: String?
+    public let agent: String?
+    public let machine: String?
+    public let labels: [String]?
+    public let source: String?
+
+    public init(
+        title: String,
+        body: String? = nil,
+        agent: String? = nil,
+        machine: String? = nil,
+        labels: [String]? = nil,
+        source: String? = nil
+    ) {
+        self.title = title
+        self.body = body
+        self.agent = agent
+        self.machine = machine
+        self.labels = labels
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
         case title
         case body
         case agent

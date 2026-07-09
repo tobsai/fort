@@ -2,7 +2,7 @@
 VERSION ?= 0.1.0
 PKG := ./...
 
-.PHONY: build test race vet install snapshot release clean
+.PHONY: build test race vet install snapshot release clean apple-project apple-build mac-dmg
 
 build: ## build the fort binary into ./bin
 	go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/fort ./cmd/fort
@@ -35,5 +35,45 @@ apple-build: apple-project ## compile-verify FortKit + all Apple client targets 
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortWatch -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortComplication -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
 
+# --- FortMac signed + notarized DMG (spec 032) ---------------------------------
+# Operator runbook-as-Makefile. This CANNOT run in CI: signing, notarization and
+# the Developer ID cert are the operator's credentialed steps. See
+# docs/notes/mac-app.md. Prereqs (once):
+#   * Xcode + a "Developer ID Application" cert (team T3JB5MYZ93) in the login keychain.
+#   * A notarytool keychain profile holding an app-specific password:
+#       xcrun notarytool store-credentials fort-notary \
+#         --apple-id <APPLE_ID> --team-id T3JB5MYZ93 --password <APP_SPECIFIC_PASSWORD>
+NOTARY_PROFILE ?= fort-notary
+MAC_ARCHIVE    := build/FortMac.xcarchive
+MAC_EXPORT     := build/FortMac-export
+MAC_DMG        := build/Fort.dmg
+
+mac-dmg: build apple-project ## archive → sign → notarize → staple → Fort.dmg (operator-only)
+	# 1. Bundle the daemon: copy the `make build` fort binary into the app so the
+	#    ServiceController can shell out to a co-located `fort` (Contents/Resources).
+	#    XcodeGen doesn't stage it, so we inject it into the archived app below.
+	# 2. Archive the FortMac scheme (uses the operator's Developer ID signing).
+	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortMac \
+		-configuration Release -destination 'platform=macOS' \
+		-archivePath ../../$(MAC_ARCHIVE) archive
+	# 3. Place the bundled daemon into the archived .app before export/sign so it
+	#    is covered by the app signature.
+	cp bin/fort $(MAC_ARCHIVE)/Products/Applications/FortMac.app/Contents/Resources/fort
+	# 4. Export a Developer ID–signed .app (needs the operator's cert + team).
+	cd ui/apple && xcodebuild -exportArchive \
+		-archivePath ../../$(MAC_ARCHIVE) \
+		-exportOptionsPlist ExportOptions-mac.plist \
+		-exportPath ../../$(MAC_EXPORT)
+	# 5. Build the DMG from the exported app (hdiutil; swap for create-dmg if
+	#    you want a styled background/volume icon).
+	rm -f $(MAC_DMG)
+	hdiutil create -volname Fort -srcfolder $(MAC_EXPORT)/FortMac.app \
+		-ov -format UDZO $(MAC_DMG)
+	# 6. Notarize the DMG (operator's Apple ID via the keychain profile above).
+	xcrun notarytool submit $(MAC_DMG) --keychain-profile $(NOTARY_PROFILE) --wait
+	# 7. Staple the notarization ticket so the DMG verifies offline.
+	xcrun stapler staple $(MAC_DMG)
+	@echo "Notarized DMG: $(MAC_DMG)"
+
 clean:
-	rm -rf bin dist .fort-native ui/apple/Fort.xcodeproj ui/apple/FortKit/.build
+	rm -rf bin dist build .fort-native ui/apple/Fort.xcodeproj ui/apple/FortKit/.build
