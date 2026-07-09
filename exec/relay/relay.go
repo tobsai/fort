@@ -171,6 +171,15 @@ func (c *conn) dispatch(f Frame) {
 // a client session and replies hs2. Handshake payloads are relayed opaquely by
 // the broker; we pass nil (never application data — IK msg1 is replayable).
 func (c *conn) handleHS1(f Frame) {
+	// Ignore a repeat hs1 for a stream that already has a live session: a
+	// well-behaved broker owns stream-id uniqueness, and refusing the overwrite
+	// keeps a buggy/hostile broker from silently replacing the real client's key.
+	c.mu.Lock()
+	_, exists := c.sessions[f.Stream]
+	c.mu.Unlock()
+	if exists {
+		return
+	}
 	raw, err := base64.StdEncoding.DecodeString(f.B64)
 	if err != nil {
 		return
@@ -264,6 +273,7 @@ func (c *conn) serveBuffered(stream string, sess *secure.Session, rp ReqPayload)
 // and each Flush emits a chunk; an "end" frame (or a socket drop) cancels the
 // request context, and a final chunk{End:true} closes the stream.
 func (c *conn) serveStream(stream string, sess *secure.Session, rp ReqPayload) {
+	defer c.wg.Done() // registered first so it runs last — even if a later defer panics
 	reqCtx, cancel := context.WithCancel(c.ctx)
 	key := stream + "|" + rp.ID
 	c.regCancel(key, cancel)
@@ -272,7 +282,6 @@ func (c *conn) serveStream(stream string, sess *secure.Session, rp ReqPayload) {
 		c.unregCancel(key)
 		cancel()
 		_ = c.sealSend(stream, "chunk", sess, mustJSON(ChunkPayload{ID: rp.ID, End: true}))
-		c.wg.Done()
 	}()
 	w := &streamWriter{c: c, stream: stream, sess: sess, id: rp.ID}
 	c.handler.ServeHTTP(w, buildRequest(reqCtx, rp))
