@@ -1,0 +1,29 @@
+{
+  "name": "@fort/gateway-shared",
+  "version": "0.1.0",
+  "description": "Fort spec-028 gateway shared crypto: a browser/edge mirror of the Go daemon's Noise IK relay (exec/relay/secure). Initiator + responder, ChaCha20-Poly1305 transport, and the relay frame wire types.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./noise": "./src/noise.ts",
+    "./frame": "./src/frame.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@stablelib/blake2s": "2.0.1",
+    "@stablelib/chacha20poly1305": "2.0.1",
+    "@stablelib/hmac": "2.0.1",
+    "@stablelib/sha256": "2.0.1",
+    "@stablelib/x25519": "2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
