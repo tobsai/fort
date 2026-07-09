@@ -55,6 +55,10 @@ usage:
   fort relay join <gateway-url> --code XXXX-XXXX [--name N]   tunnel this machine through a remote gateway (spec 028)
   fort relay status                print the joined gateway + key fingerprint
   fort relay remove                stop tunneling; delete relay.yaml (gateway revocation is authoritative)
+  fort service install             install + start the launchd user agent
+  fort service start|stop|restart  control the running daemon
+  fort service status              report running/stopped + address
+  fort service uninstall           stop + remove the launchd agent
   fort version
 
 taskflags:
@@ -97,6 +101,8 @@ func main() {
 		err = cmdMesh(os.Args[2:])
 	case "relay":
 		err = cmdRelay(os.Args[2:])
+	case "service":
+		err = cmdService(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("fort %s (fort-native)\n", version)
 	case "help", "-h", "--help":
