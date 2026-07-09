@@ -77,7 +77,7 @@ and moves frames, but it cannot read or forge the proxied HTTP/SSE payload.
   key on first enroll (TOFU) and shows its fingerprint to compare; a changed key
   warns loudly (defeats a gateway that swaps in its own key to MITM).
 - **Payload encryption.** Every proxied request/response and every SSE frame is
-  sealed with an **AEAD (XChaCha20-Poly1305)** under the session key before it
+  sealed with an **AEAD (ChaCha20-Poly1305)** under the session key before it
   enters the tunnel. The Worker/DO sees only Noise handshake messages + opaque
   ciphertext with routing headers (target machine id, stream id) — never the
   board data, task bodies, logs, or tokens.
@@ -149,7 +149,7 @@ separate deploy artifact (TypeScript), not part of the Go module.
   infers; it proxies bytes. Asserted by keeping `exec/relay` free of
   router/engine imports.
 - **D5 — end-to-end encrypted payload; the gateway is a ciphertext relay.**
-  Noise IK (X25519) session handshake + XChaCha20-Poly1305 AEAD between client
+  Noise IK (X25519) session handshake + ChaCha20-Poly1305 AEAD between client
   and daemon; the daemon's static key is pinned by clients (TOFU + a visible
   fingerprint) so a compromised broker can neither read nor MITM traffic.
   Revocable device tokens still gate *who* may connect. Residual trust: the
@@ -164,7 +164,7 @@ separate deploy artifact (TypeScript), not part of the Go module.
 - `gateway/SETUP.md` (new) — self-host guide.
 - `exec/relay/*.go` (new) — outbound relay transport.
 - `exec/relay/secure/*.go` (new) — the Fort-owned E2E unit: X25519 static key,
-  Noise IK handshake, XChaCha20-Poly1305 AEAD framing (Go).
+  Noise IK handshake, ChaCha20-Poly1305 AEAD framing (Go).
 - `cmd/fort/relay.go` (new) — `fort relay` CLI (join/remove/status, prints the
   daemon key fingerprint); `cmd/fort/main.go` usage + `fort serve` wiring (dial
   the relay when `relay.yaml` present).

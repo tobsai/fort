@@ -37,10 +37,12 @@ func GenerateKeypair() (Keypair, error) {
 // join` and on the gateway machine list; clients pin the key it names.
 func (k Keypair) Fingerprint() string { return FingerprintOf(k.Public) }
 
-// FingerprintOf fingerprints any public key.
+// FingerprintOf fingerprints any public key: base32 (no padding) of the first
+// 16 bytes of sha256(pub) — 128 bits, so grinding a second-preimage keypair to
+// match a pinned fingerprint at first contact is 2^128 work, not 2^80.
 func FingerprintOf(pub []byte) string {
 	sum := sha256.Sum256(pub)
-	s := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sum[:10])
+	s := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sum[:16])
 	// group as xxxx-xxxx-xxxx-xxxx for reading
 	out := make([]byte, 0, len(s)+3)
 	for i, c := range []byte(s) {
@@ -129,11 +131,16 @@ type Session struct {
 	dec *noise.CipherState
 }
 
-// Seal encrypts one frame.
+// Seal encrypts one frame. PRECONDITION: s came from Session() after a
+// completed handshake (never seal application data as a handshake payload —
+// IK's first message is replayable and not forward-secret). Panics on a nil
+// session (caller bug) or nonce exhaustion at 2^64 frames.
 func (s *Session) Seal(plaintext []byte) []byte {
+	if s == nil {
+		panic("secure: seal on nil session (handshake not complete)")
+	}
 	ct, err := s.enc.Encrypt(nil, nil, plaintext)
 	if err != nil {
-		// CipherState.Encrypt errs only on nonce exhaustion (2^64 frames).
 		panic("secure: seal: " + err.Error())
 	}
 	return ct

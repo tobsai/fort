@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The daemon side of the 028 gateway: an E2E crypto unit (Noise IK + XChaCha20-Poly1305), an outbound WebSocket relay transport that serves Fort's own HTTP/SSE mux through the tunnel, `fort relay join|status|remove`, and `relay.yaml` config — all fully testable against an in-process fake broker (no cloud deploy needed).
+**Goal:** The daemon side of the 028 gateway: an E2E crypto unit (Noise IK + ChaCha20-Poly1305), an outbound WebSocket relay transport that serves Fort's own HTTP/SSE mux through the tunnel, `fort relay join|status|remove`, and `relay.yaml` config — all fully testable against an in-process fake broker (no cloud deploy needed).
 
 **Architecture:** `exec/relay/secure` is the Fort-owned crypto contract (keys, fingerprints, handshake, AEAD framing) — both ends of every test use it, proving round-trip. `exec/relay` dials out (device-token auth), completes a Noise IK handshake per client session relayed opaquely by the broker, then serves sealed HTTP/SSE frames by invoking an injected `http.Handler` (the same in-process mux `fort serve` builds — the transport never imports `ui`). `cmd/fort` wires it when `relay.yaml` exists. Part 2 (separate plan) builds `gateway/worker` + `gateway/web`; the frame schema defined here IS the wire contract part 2 implements.
 
@@ -177,7 +177,7 @@ Run: `go test ./exec/relay/secure/` → FAIL (package missing).
 ```go
 // Package secure is Fort's E2E crypto contract for the relay (spec 028): a
 // Noise IK handshake (X25519) between a client and the daemon's pinned static
-// key, then XChaCha-family AEAD framing. The gateway broker relays these frames
+// key, then ChaCha20-Poly1305 AEAD framing. The gateway broker relays these frames
 // opaquely — it can neither read nor forge them. Both ends of Fort's tests use
 // this package, proving the contract round-trips.
 package secure
