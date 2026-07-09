@@ -96,6 +96,7 @@ const boardHTML = `<!doctype html>
   .drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line2)}
   .drawer-title{font-size:13px;color:var(--fg)}
   .drawer-sub{font-size:11px;color:var(--mut);margin-top:3px}
+  #dw-body{max-height:220px;overflow:auto}
   .drawer-steps{padding:8px 10px;border-bottom:1px solid var(--line2);max-height:38%;overflow:auto;display:flex;flex-direction:column;gap:3px}
   .step{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent}
   .step:hover{background:var(--line2)}
@@ -250,7 +251,7 @@ function activityLine(e){
 
 // ---- zone renderers ----
 function readyItem(b){
-  return '<div class="card item e-neutral" tabindex="0" data-id="'+b.id+'">'+
+  return '<div class="card item e-neutral" data-id="'+b.id+'">'+
     '<div class="title">'+esc(b.title)+'</div>'+
     (b.body?'<div class="mdbody">'+md(b.body)+'</div>':'')+
     '<div class="meta"><span class="src '+(b.source==='agent'?'agent':'')+'"></span>'+
@@ -343,6 +344,9 @@ async function refresh(){
   const queued=runs.filter(r=>r.status==='queued');
   const live=runs.filter(r=>r.status==='running'||r.status==='blocked');
   const done=runs.filter(r=>r.status==='succeeded'||r.status==='failed'||r.status==='canceled');
+  // prune activity buffers for runs that left In-progress (long-lived tabs)
+  const liveIds=new Set(live.map(r=>r.id));
+  Object.keys(actByRun).forEach(k=>{if(!liveIds.has(k))delete actByRun[k];});
   zone('z-ready',items.map(readyItem).join('')+queued.map(queuedItem).join(''),'n-ready',items.length+queued.length);
   zone('z-progress',live.map(r=>progressItem(r,gates)).join(''),'n-progress',live.length);
   zone('z-recent',done.map(runCard).join(''),'n-recent',done.length);
