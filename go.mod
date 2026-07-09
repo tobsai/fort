@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
+	github.com/coder/websocket v1.8.15
 	github.com/dop251/goja v0.0.0-20260701091749-b07b74453ea9
 	github.com/flynn/noise v1.1.0
 	github.com/google/uuid v1.6.0
