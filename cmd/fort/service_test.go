@@ -7,6 +7,32 @@ import (
 	"testing"
 )
 
+// TestPlistCarriesPATH pins the agent-discovery contract: launchd gives a bare
+// PATH (/usr/bin:/bin:/usr/sbin:/sbin), so without an explicit PATH the daemon
+// probes ZERO agent CLIs — brew binaries and ~/.local/bin ones are both invisible.
+// The installing shell's PATH is baked in so the daemon can run whatever the
+// operator can run.
+func TestPlistCarriesPATH(t *testing.T) {
+	sc := serviceConfig{
+		Label:   "io.tobsai.fort",
+		BinPath: "/opt/homebrew/bin/fort",
+		Args:    []string{"serve"},
+		Path:    "/Users/x/.local/bin:/opt/homebrew/bin:/usr/bin:/bin",
+	}
+	got := renderPlist(sc)
+	if !strings.Contains(got, "<key>PATH</key>") {
+		t.Fatalf("plist has no PATH key — the daemon would find no agent CLIs:\n%s", got)
+	}
+	if !strings.Contains(got, "<string>/Users/x/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>") {
+		t.Errorf("plist PATH value not carried through:\n%s", got)
+	}
+	// An empty Path must omit the key entirely rather than emit an empty string
+	// (an empty PATH is worse than none — it breaks exec lookup outright).
+	if strings.Contains(renderPlist(serviceConfig{Label: "l", BinPath: "/b"}), "<key>PATH</key>") {
+		t.Error("empty Path should omit the PATH key")
+	}
+}
+
 func TestPlistContentsAndPath(t *testing.T) {
 	sc := serviceConfig{
 		Label:   "io.tobsai.fort",

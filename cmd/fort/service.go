@@ -29,6 +29,13 @@ type serviceConfig struct {
 	Addr    string
 	DBPath  string
 	LogDir  string
+	// Path is baked into the agent's environment. launchd hands a process a bare
+	// PATH (/usr/bin:/bin:/usr/sbin:/sbin), which contains no agent CLI — neither
+	// Homebrew's /opt/homebrew/bin nor a user's ~/.local/bin. Without this the
+	// daemon probes zero agents and every dispatch fails placement. We inherit the
+	// PATH of the shell running `fort service install`, so the daemon can run
+	// exactly what the operator can.
+	Path string
 }
 
 func plistPath(home, label string) string {
@@ -49,6 +56,9 @@ func renderPlist(sc serviceConfig) string {
 	b.WriteString("  </array>\n")
 	// Environment
 	b.WriteString("  <key>EnvironmentVariables</key>\n  <dict>\n")
+	if sc.Path != "" {
+		b.WriteString("    <key>PATH</key>\n    <string>" + xmlEscape(sc.Path) + "</string>\n")
+	}
 	if sc.Addr != "" {
 		b.WriteString("    <key>FORT_ADDR</key>\n    <string>" + xmlEscape(sc.Addr) + "</string>\n")
 	}
@@ -109,6 +119,7 @@ func buildServiceConfig() (serviceConfig, error) {
 		Args:    []string{"serve"},
 		Addr:    cfg.Addr,
 		DBPath:  cfg.DBPath,
+		Path:    os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
 		LogDir:  filepath.Join(home, "Library", "Logs", "Fort"),
 	}, nil
 }
