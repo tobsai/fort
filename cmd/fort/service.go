@@ -29,6 +29,13 @@ type serviceConfig struct {
 	Addr    string
 	DBPath  string
 	LogDir  string
+	// WorkDir becomes the agent's WorkingDirectory. launchd starts a user agent
+	// with cwd "/" (read-only), so without this any relative config path makes
+	// the daemon die with "mkdir .fort-native: read-only file system".
+	WorkDir string
+	// WorkRoot is FORT_WORKROOT: the per-run scratch tree. Absolute, for the
+	// same reason as DBPath.
+	WorkRoot string
 	// Path is baked into the agent's environment. launchd hands a process a bare
 	// PATH (/usr/bin:/bin:/usr/sbin:/sbin), which contains no agent CLI — neither
 	// Homebrew's /opt/homebrew/bin nor a user's ~/.local/bin. Without this the
@@ -65,7 +72,13 @@ func renderPlist(sc serviceConfig) string {
 	if sc.DBPath != "" {
 		b.WriteString("    <key>FORT_DB</key>\n    <string>" + xmlEscape(sc.DBPath) + "</string>\n")
 	}
+	if sc.WorkRoot != "" {
+		b.WriteString("    <key>FORT_WORKROOT</key>\n    <string>" + xmlEscape(sc.WorkRoot) + "</string>\n")
+	}
 	b.WriteString("  </dict>\n")
+	if sc.WorkDir != "" {
+		b.WriteString("  <key>WorkingDirectory</key>\n  <string>" + xmlEscape(sc.WorkDir) + "</string>\n")
+	}
 	b.WriteString("  <key>RunAtLoad</key>\n  <true/>\n")
 	b.WriteString("  <key>KeepAlive</key>\n  <true/>\n")
 	if sc.LogDir != "" {
@@ -74,6 +87,15 @@ func renderPlist(sc serviceConfig) string {
 	}
 	b.WriteString("</dict>\n</plist>\n")
 	return b.String()
+}
+
+// absUnderHome anchors a relative config path to home. An already-absolute path
+// (or an empty one) passes through untouched.
+func absUnderHome(home, p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(home, p)
 }
 
 func xmlEscape(s string) string {
@@ -118,9 +140,13 @@ func buildServiceConfig() (serviceConfig, error) {
 		BinPath: bin,
 		Args:    []string{"serve"},
 		Addr:    cfg.Addr,
-		DBPath:  cfg.DBPath,
-		Path:    os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
-		LogDir:  filepath.Join(home, "Library", "Logs", "Fort"),
+		// Relative config paths resolve against launchd's read-only "/" cwd, so
+		// anchor them to $HOME and give the agent a writable WorkingDirectory.
+		DBPath:   absUnderHome(home, cfg.DBPath),
+		WorkRoot: absUnderHome(home, cfg.WorkRoot),
+		WorkDir:  home,
+		Path:     os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
+		LogDir:   filepath.Join(home, "Library", "Logs", "Fort"),
 	}, nil
 }
 
@@ -178,9 +204,19 @@ func svcStart(sc serviceConfig) error {
 	if runtime.GOOS != "darwin" {
 		return unsupportedOS("start")
 	}
+	// `stop` boots the agent OUT of the domain, so kickstart alone then fails with
+	// "Could not find service ... in domain". Re-bootstrap the plist first (a
+	// no-op when it is already loaded), then kickstart.
+	if home, err := os.UserHomeDir(); err == nil {
+		out, err := exec.Command("launchctl", "bootstrap", guiTarget(), plistPath(home, sc.Label)).CombinedOutput()
+		if err != nil && !strings.Contains(string(out), "already bootstrapped") && !strings.Contains(string(out), "Bootstrap failed: 37") {
+			// Not fatal: the agent may already be loaded. kickstart below decides.
+			_ = out
+		}
+	}
 	out, err := exec.Command("launchctl", "kickstart", guiLabelTarget(sc.Label)).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("service start: launchctl kickstart: %w: %s", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("service start: launchctl kickstart: %w: %s (is it installed? run `fort service install`)", err, strings.TrimSpace(string(out)))
 	}
 	fmt.Println("service start: started", sc.Label)
 	return nil

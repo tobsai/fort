@@ -33,6 +33,42 @@ func TestPlistCarriesPATH(t *testing.T) {
 	}
 }
 
+// TestPlistIsSelfContained pins the boot contract. launchd starts a user agent
+// with cwd "/" (read-only), so any RELATIVE path in the daemon's config — the
+// default DB (.fort-native/fort.db) and work root (.fort-native/work) — makes it
+// die with "mkdir .fort-native: read-only file system". The plist must therefore
+// set a writable WorkingDirectory AND absolute FORT_DB / FORT_WORKROOT.
+func TestPlistIsSelfContained(t *testing.T) {
+	sc := serviceConfig{
+		Label: "io.tobsai.fort", BinPath: "/opt/homebrew/bin/fort", Args: []string{"serve"},
+		WorkDir: "/Users/x", DBPath: "/Users/x/.fort-native/fort.db", WorkRoot: "/Users/x/.fort-native/work",
+	}
+	got := renderPlist(sc)
+	for _, want := range []string{
+		"<key>WorkingDirectory</key>", "<string>/Users/x</string>",
+		"<key>FORT_DB</key>", "<string>/Users/x/.fort-native/fort.db</string>",
+		"<key>FORT_WORKROOT</key>", "<string>/Users/x/.fort-native/work</string>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("plist missing %q\n%s", want, got)
+		}
+	}
+}
+
+// TestAbsUnderHome: relative config paths are anchored to a writable home, never
+// left relative (they would resolve against launchd's read-only "/").
+func TestAbsUnderHome(t *testing.T) {
+	if got := absUnderHome("/Users/x", ".fort-native/fort.db"); got != "/Users/x/.fort-native/fort.db" {
+		t.Errorf("relative: %q", got)
+	}
+	if got := absUnderHome("/Users/x", "/tmp/explicit.db"); got != "/tmp/explicit.db" {
+		t.Errorf("absolute must pass through unchanged: %q", got)
+	}
+	if got := absUnderHome("/Users/x", ""); got != "" {
+		t.Errorf("empty stays empty: %q", got)
+	}
+}
+
 func TestPlistContentsAndPath(t *testing.T) {
 	sc := serviceConfig{
 		Label:   "io.tobsai.fort",
