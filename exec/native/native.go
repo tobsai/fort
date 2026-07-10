@@ -33,6 +33,13 @@ type Provider struct {
 	// line may yield several (text + tool_use blocks). When set it supersedes
 	// Parse; ok=false falls through to a raw EventStdout.
 	Classify func(line string) ([]Classified, bool)
+	// Interactive opts the provider into a stdin PIPE so Signal can inject input
+	// mid-run (HITL). Default false: the child gets /dev/null and so an immediate
+	// EOF. This matters — a CLI that drains stdin (e.g. `codex exec`, which
+	// prints "Reading additional input from stdin...") hangs forever on an open
+	// pipe that is never written to nor closed. None of the shipped agent CLIs
+	// read their prompt from stdin; they take it as argv.
+	Interactive bool
 }
 
 // Classified is one typed event extracted from a provider stdout line.
@@ -113,10 +120,18 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	cmd.Env = r.scopedEnv(spec)
 	setProcGroup(cmd) // own process group so Cancel can kill the whole tree
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cancel()
-		return nil, err
+	// Only an Interactive provider gets a stdin pipe. Otherwise cmd.Stdin stays
+	// nil, so os/exec hands the child /dev/null and it sees EOF immediately —
+	// a CLI that drains stdin would otherwise block forever on a pipe nobody
+	// ever writes to or closes.
+	var stdin io.WriteCloser
+	if p.Interactive {
+		var err error
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			cancel()
+			return nil, err
+		}
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -234,6 +249,9 @@ func (n *nativeRun) scan(wg *sync.WaitGroup, r io.Reader, isErr bool) {
 }
 
 func (n *nativeRun) Signal(input string) error {
+	if n.stdin == nil {
+		return fmt.Errorf("native: provider %q is not interactive; it accepts no stdin", n.spec.Agent)
+	}
 	_, err := io.WriteString(n.stdin, input+"\n")
 	return err
 }

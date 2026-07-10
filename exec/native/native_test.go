@@ -84,8 +84,49 @@ func TestExecParseNormalizesMessages(t *testing.T) {
 	}
 }
 
+// TestNonInteractiveProviderGetsEOFOnStdin pins the hang fix. Fort used to hand
+// every child an open stdin pipe (for Signal) and never close it, so a CLI that
+// drains stdin blocked forever. Live symptom: `codex exec` printed "Reading
+// additional input from stdin..." and the run never terminated. A provider that
+// does not opt into Interactive must get /dev/null (immediate EOF).
+func TestNonInteractiveProviderGetsEOFOnStdin(t *testing.T) {
+	// `cat` reads stdin to EOF; with an open pipe it would hang until the test
+	// deadline, with /dev/null it exits at once.
+	rt := New(t.TempDir(), shProvider("drainer", "cat; echo drained"))
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "eof1", Agent: "drainer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan runtime.Status, 1)
+	go func() { _, st := collect(run); done <- st }()
+	select {
+	case st := <-done:
+		if st.State != runtime.StateSucceeded {
+			t.Fatalf("state = %v, want succeeded", st.State)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run hung: child never saw EOF on stdin")
+	}
+}
+
+// TestSignalOnNonInteractiveErrors: Signal is meaningful only for a provider that
+// asked for a stdin pipe; otherwise it must fail loudly rather than silently drop.
+func TestSignalOnNonInteractiveErrors(t *testing.T) {
+	rt := New(t.TempDir(), shProvider("quiet", "sleep 0.2"))
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "sig0", Agent: "quiet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Signal("yo"); err == nil {
+		t.Error("Signal on a non-interactive provider must return an error")
+	}
+	collect(run)
+}
+
 func TestSignalInjectsStdin(t *testing.T) {
-	rt := New(t.TempDir(), shProvider("reader", "read x; echo got:$x"))
+	p := shProvider("reader", "read x; echo got:$x")
+	p.Interactive = true // opt in to a stdin pipe (HITL)
+	rt := New(t.TempDir(), p)
 	run, _ := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "r4", Agent: "reader"})
 	// Give the process a moment to reach `read`, then inject.
 	time.Sleep(50 * time.Millisecond)
