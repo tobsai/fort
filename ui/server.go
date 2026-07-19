@@ -74,16 +74,67 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
+	nodesByRun := map[string][]store.NodeRun{}
+	if all, err := s.d.Store.AllNodeRuns(); err == nil {
+		for _, n := range all {
+			nodesByRun[n.RunID] = append(nodesByRun[n.RunID], n)
+		}
+	}
 	// Always emit [] (never null) for array fields so strictly-typed clients
 	// (the Swift surfaces via FortKit) decode cleanly.
 	b := Board{Runs: []RunSummary{}, Gates: []GateItem{}}
 	for _, r := range runs {
-		b.Runs = append(b.Runs, RunSummary{ID: r.ID, Title: r.Title, Body: r.Body, Agent: r.Agent, Status: r.Status, Machine: r.Machine, FlowID: r.FlowID})
+		b.Runs = append(b.Runs, RunSummary{
+			ID: r.ID, Title: r.Title, Body: r.Body, Agent: r.Agent, Status: r.Status,
+			Machine: r.Machine, FlowID: r.FlowID,
+			CreatedAt:   r.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:   r.UpdatedAt.UTC().Format(time.RFC3339),
+			Checkpoints: s.checkpoints(r.FlowID, nodesByRun[r.ID]),
+		})
 	}
 	for _, g := range gates {
-		b.Gates = append(b.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
+		b.Gates = append(b.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input,
+			Since: g.CreatedAt.UTC().Format(time.RFC3339)})
 	}
 	writeJSON(w, http.StatusOK, b)
+}
+
+// checkpoints summarizes a run's human-checkpoint progress (spec 033):
+// checkpoints are the flow's gate nodes. The plan (when a FlowRunner is wired
+// and knows the flow) supplies the total; otherwise only executed gates count.
+// Runs with neither a flow id nor node state have no checkpoints (nil).
+func (s *Server) checkpoints(flowID string, nodes []store.NodeRun) *CheckpointSummary {
+	if flowID == "" && len(nodes) == 0 {
+		return nil
+	}
+	c := &CheckpointSummary{}
+	seen := map[string]bool{}
+	for _, n := range nodes {
+		seen[n.NodeID] = true
+		if n.Type == "gate" {
+			c.Total++
+			switch n.Status {
+			case "approved":
+				c.Accepted++
+			case "waiting":
+				c.Waiting++
+			case "rejected":
+				c.Rejected++
+			}
+			continue
+		}
+		if n.Status == "succeeded" {
+			c.Done++
+		}
+	}
+	if s.d.Runner != nil && flowID != "" {
+		for _, n := range s.d.Runner.Plan(flowID) {
+			if n.Type == "gate" && !seen[n.ID] {
+				c.Total++
+			}
+		}
+	}
+	return c
 }
 
 // handleSummary is the glanceable payload for constrained surfaces (watch
@@ -133,7 +184,8 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 	nodes, _ := s.d.Store.NodeRuns(id)
 	evs, _ := s.d.Store.Events(id)
 	d := RunDetail{
-		Run:    RunSummary{ID: run.ID, Title: run.Title, Body: run.Body, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID},
+		Run: RunSummary{ID: run.ID, Title: run.Title, Body: run.Body, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID,
+			CreatedAt: run.CreatedAt.UTC().Format(time.RFC3339), UpdatedAt: run.UpdatedAt.UTC().Format(time.RFC3339)},
 		Nodes:  []NodeSummary{},
 		Events: []Event{},
 	}
@@ -164,7 +216,8 @@ func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {
 	}
 	out := []GateItem{}
 	for _, g := range gates {
-		out = append(out, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
+		out = append(out, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input,
+			Since: g.CreatedAt.UTC().Format(time.RFC3339)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

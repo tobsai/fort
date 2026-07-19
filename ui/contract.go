@@ -27,13 +27,27 @@ type Event struct {
 
 // RunSummary is a board card.
 type RunSummary struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Body    string `json:"body,omitempty"`
-	Agent   string `json:"agent"`
-	Status  string `json:"status"`
-	Machine string `json:"machine,omitempty"` // host the run is placed on (spec 022)
-	FlowID  string `json:"flow_id,omitempty"`
+	ID          string             `json:"id"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body,omitempty"`
+	Agent       string             `json:"agent"`
+	Status      string             `json:"status"`
+	Machine     string             `json:"machine,omitempty"` // host the run is placed on (spec 022)
+	FlowID      string             `json:"flow_id,omitempty"`
+	CreatedAt   string             `json:"created_at,omitempty"` // RFC3339 (spec 033)
+	UpdatedAt   string             `json:"updated_at,omitempty"` // RFC3339 (spec 033)
+	Checkpoints *CheckpointSummary `json:"checkpoints,omitempty"`
+}
+
+// CheckpointSummary is a run's human-checkpoint progress: checkpoints are the
+// flow's gate nodes — progress is what the human accepted, never an agent
+// estimate (spec 033).
+type CheckpointSummary struct {
+	Total    int `json:"total"`    // gate nodes in the plan (executed-only when no plan is known)
+	Accepted int `json:"accepted"` // approved gates
+	Waiting  int `json:"waiting"`  // gates awaiting sign-off
+	Rejected int `json:"rejected"` // rejected gates
+	Done     int `json:"done"`     // non-gate nodes finished (for in-progress inference)
 }
 
 // MachineStatus is one host in the roster (GET /api/machines, spec 022).
@@ -58,6 +72,7 @@ type GateItem struct {
 	RunID  string `json:"run_id"`
 	NodeID string `json:"node_id"`
 	Input  string `json:"input,omitempty"`
+	Since  string `json:"since,omitempty"` // RFC3339 — when the gate began waiting (spec 033)
 }
 
 // Board is the live board payload.
