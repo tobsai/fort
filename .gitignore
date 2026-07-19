@@ -24,3 +24,8 @@ ui/apple/build/
 
 # brainstorming visual-companion mockups
 .superpowers/
+gateway/**/node_modules/
+gateway/.vercel/
+gateway/**/.vercel/
+gateway/web/.next/
+gateway/**/package-lock.json

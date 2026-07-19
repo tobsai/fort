@@ -21,10 +21,10 @@ class_name = "TunnelDO"
 tag = "v1"
 new_sqlite_classes = ["RegistryDO", "TunnelDO"]
 
-# GATEWAY_SECRET authenticates the web app (gateway/web) to the internal
-# broker endpoints (invite / machines list / proxy). In production set it with
-#   wrangler secret put GATEWAY_SECRET
-# The [vars] value below is only a local/dev placeholder; tests inject their own.
+# GATEWAY_SECRET authenticates the web app (gateway/web) to the internal broker
+# endpoints (invite / machines list / proxy). It is a SECRET, set out-of-band with
+#   echo -n "<value>" | wrangler secret put GATEWAY_SECRET
+# and must NOT live in [vars] (that would ship it in the deploy config and shadow
+# the secret). Tests inject their own value via the vitest pool env.
 [vars]
-GATEWAY_SECRET = "dev-placeholder-change-me"
 CODE_TTL_SECONDS = "900"

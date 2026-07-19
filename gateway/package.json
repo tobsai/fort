@@ -1,0 +1,8 @@
+{
+  "name": "fort-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fort spec-028 gateway monorepo: shared crypto, Cloudflare Worker broker, Next.js web app.",
+  "license": "MIT",
+  "workspaces": ["shared", "web", "worker"]
+}
