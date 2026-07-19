@@ -117,6 +117,33 @@ notarytool submission talks to Apple's notary service with credentials that must
 not live in CI. This runbook is intentionally a Makefile target the operator runs
 locally; the compile gate (`CODE_SIGNING_ALLOWED=NO`) is the part CI verifies.
 
+## Run locally without notarization (own Mac, no Developer ID)
+
+Notarization (above) is only needed to distribute to *other* Macs. To run FortMac
+on the machine that builds it, an **Apple Development** cert is enough — no
+Developer ID, no notarytool. Verified 2026-07-12 on Xcode 26.6:
+
+```sh
+make build                                             # -> ./bin/fort
+cd ui/apple/FortKit && swift build && cd ..
+xcodegen generate
+xcodebuild -project Fort.xcodeproj -scheme FortMac -configuration Release \
+  -destination 'platform=macOS' -derivedDataPath build/mac-dd \
+  CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=T3JB5MYZ93 build
+
+APP=build/mac-dd/Build/Products/Release/FortMac.app
+ID=$(security find-identity -v -p codesigning | awk '/Apple Development/{print $2; exit}')
+mkdir -p "$APP/Contents/Resources" && cp ../../bin/fort "$APP/Contents/Resources/fort"
+codesign --force --options runtime --timestamp=none --sign "$ID" "$APP/Contents/Resources/fort"
+codesign --force --timestamp=none \
+  --entitlements <(codesign -d --entitlements :- "$APP" 2>/dev/null) --sign "$ID" "$APP"
+cp -R "$APP" /Applications/FortMac.app && open /Applications/FortMac.app
+```
+
+The daemon must be injected into `Contents/Resources/fort` and signed **before**
+the outer bundle is re-signed (adding a file invalidates the signature). FortMac
+is `LSUIElement` — it appears in the menu bar, not the Dock.
+
 ## Deferred (honest v1 boundary)
 
 In-app Google sign-in for the 028 gateway is scaffolded only

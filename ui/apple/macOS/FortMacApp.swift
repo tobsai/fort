@@ -32,6 +32,17 @@ struct FortMacApp: App {
     @StateObject private var service = ServiceController(fortBinaryURL: FortMacApp.bundledFort())
 
     var body: some Scene {
+        // Window FIRST so it opens on launch — SwiftUI treats the first scene as
+        // primary. (When MenuBarExtra was first, the app launched with no window,
+        // so double-clicking the app "did nothing".) The menu-bar item still
+        // appears via the MenuBarExtra scene below.
+        Window("Fort", id: "main") {
+            FortWindow()
+                .environmentObject(client)
+                .environmentObject(service)
+                .frame(minWidth: 720, minHeight: 480)
+        }
+
         MenuBarExtra {
             MenuContent()
                 .environmentObject(client)
@@ -48,13 +59,6 @@ struct FortMacApp: App {
             }
         }
         .menuBarExtraStyle(.window) // richer content (fields, buttons) than .menu
-
-        Window("Fort", id: "main") {
-            FortWindow()
-                .environmentObject(client)
-                .environmentObject(service)
-                .frame(minWidth: 720, minHeight: 480)
-        }
     }
 
     /// The `fort` binary the `ServiceController` shells out to: the copy bundled
