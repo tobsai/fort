@@ -5,11 +5,19 @@
 //
 // Contract summary (published for clients, incl. the iOS shell, AO-037):
 //
-//	GET  /api/board                 -> Board (runs + waiting gates)
+//	GET  /api/board                 -> Board (runs + waiting gates + checkpoints)
+//	GET  /api/summary               -> Summary (counts + pending gates)
 //	GET  /api/runs/{id}             -> RunDetail (run + nodes + events; replayable)
 //	GET  /api/gates                 -> []GateItem
-//	POST /api/gate                  <- GateDecision  -> ActionResult
+//	POST /api/gate                  <- GateDecision  -> ActionResult (reject may carry a note)
 //	POST /api/chat                  <- ChatRequest   -> ChatResult
+//	GET  /api/backlog               -> []BacklogItem
+//	POST /api/backlog               <- BacklogRequest -> BacklogItem
+//	PATCH /api/backlog/{id}         <- BacklogPatch  -> BacklogItem (reassign, spec 033)
+//	POST /api/backlog/{id}/dispatch -> ChatResult
+//	DELETE /api/backlog/{id}
+//	POST /api/breakdown             <- BreakdownRequest -> BreakdownResult
+//	GET  /api/metrics[?days=N&lane=L] -> MetricsResponse (spec 033)
 //	POST /api/openclaw              <- OpenClawMessage-> ChatResult
 //	GET  /api/events[?since=N]      -> text/event-stream of Event frames
 package ui

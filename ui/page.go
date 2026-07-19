@@ -665,6 +665,9 @@ function renderHeader(){
 let openNote=null; // gate key with an open note editor — skip re-render while typing
 function renderDeck(){
   if(openNote&&document.activeElement&&document.activeElement.tagName==='TEXTAREA')return;
+  // preserve an open (but unfocused) note draft across the re-render
+  var draft='';
+  if(openNote){var dEl=$('#note-'+cssKey(openNote));if(dEl)draft=dEl.querySelector('textarea').value;}
   var cards=[];
   model.gates.forEach(function(g){
     var r=runByID(g.run_id)||{};
@@ -676,13 +679,13 @@ function renderDeck(){
       '<div class="hd"><span class="t">'+esc(gateTitle(g.node_id))+'</span><span class="ago">'+esc(ago(g.since))+'</span></div>'+
       '<div class="bd">'+esc(agent)+' is waiting on <span class="proj">'+esc(r.title||g.run_id)+'</span>'+(excerpt?' — '+esc(excerpt):'')+'</div>'+
       '<div class="acts">'+
-        '<button class="btn btn-ok" onclick="decide(\''+g.run_id+'\',\''+esc(g.node_id)+'\',\'approve\')">Approve</button>'+
+        '<button class="btn btn-ok" onclick="decide(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\',\'approve\')">Approve</button>'+
         '<button class="btn btn-outline" onclick="toggleNote(\''+esc(key)+'\')">Request changes…</button>'+
         '<button class="btn btn-ghost" onclick="openDrawer(\''+g.run_id+'\')">View the plan</button>'+
       '</div>'+
       '<div class="notebox'+(openNote===key?' open':'')+'" id="note-'+cssKey(key)+'">'+
         '<textarea placeholder="What should change?" aria-label="redirect note"></textarea>'+
-        '<div style="display:flex;gap:8px"><button class="btn btn-outline" onclick="sendNote(\''+g.run_id+'\',\''+esc(g.node_id)+'\')">Send it back</button>'+
+        '<div style="display:flex;gap:8px"><button class="btn btn-outline" onclick="sendNote(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\')">Send it back</button>'+
         '<button class="btn btn-ghost" onclick="toggleNote(null)">Cancel</button></div>'+
       '</div>'+
     '</div>');
@@ -695,6 +698,7 @@ function renderDeck(){
     '</div>');
   });
   $('#needlist').innerHTML=cards.join('');
+  if(openNote){var rEl=$('#note-'+cssKey(openNote));if(rEl){rEl.classList.add('open');rEl.querySelector('textarea').value=draft;}else openNote=null;}
   var workers=agentSet().filter(function(a){return agentStatus(a).state==='working';}).length;
   var verb=workers===1?' is':'s are', need=workers===1?'doesn&#39;t':'don&#39;t';
   var msg;
@@ -729,6 +733,10 @@ function renderDeck(){
   }).join('')||'<div class="empty" style="padding:4px 0">No agents seen yet.</div>';
 }
 function cssKey(k){return k.replace(/[^a-zA-Z0-9_-]/g,'_');}
+// jsq escapes a value for use inside a single-quoted JS string that lives in an
+// HTML attribute: backslash-escape quotes BEFORE esc() entity-encodes them, so
+// the browser's attribute decode can't un-quote the JS string.
+function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function toggleNote(key){
   openNote=(openNote===key?null:key);
   document.querySelectorAll('.notebox').forEach(function(n){n.classList.remove('open');});
@@ -817,7 +825,7 @@ function renderAssign(){
     var cls=st.state==='need'?'need':st.state==='working'?'work':'idle';
     if(st.state==='idle'){
       return '<div class="roster idle"><div class="hd"><span class="nm">'+esc(dispName(a))+'</span><span class="pill pill-idle">idle</span>'+
-        '<button class="btn btn-brassline" style="margin-left:auto;font-size:12.5px;padding:5px 12px" onclick="pickAgent(\''+esc(a)+'\')">Assign work</button></div></div>';
+        '<button class="btn btn-brassline" style="margin-left:auto;font-size:12.5px;padding:5px 12px" onclick="pickAgent(\''+esc(jsq(a))+'\')">Assign work</button></div></div>';
     }
     var r=st.run;
     var pill=st.state==='need'?'<span class="pill pill-need">waiting on you</span>':
@@ -844,12 +852,12 @@ function pickMachine(m){selMachine=m;renderAssignControls();}
 function renderAssignControls(){
   var as=agentSet();
   $('#agentchips').innerHTML='<button class="chip'+(selAgent===''?' on':'')+'" onclick="pickAgent(\'\')">Fort decides</button>'+
-    as.map(function(a){return '<button class="chip'+(selAgent===a?' on':'')+'" onclick="pickAgent(\''+esc(a)+'\')">'+esc(dispName(a))+'</button>';}).join('');
+    as.map(function(a){return '<button class="chip'+(selAgent===a?' on':'')+'" onclick="pickAgent(\''+esc(jsq(a))+'\')">'+esc(dispName(a))+'</button>';}).join('');
   var ms=model.machines;
   $('#machinechips').hidden=ms.length<2;
   if(ms.length>=2){
     $('#machinechips').innerHTML='<button class="chip'+(selMachine===''?' on':'')+'" onclick="pickMachine(\'\')">any machine</button>'+
-      ms.map(function(m){return '<button class="chip'+(selMachine===m.name?' on':'')+'" onclick="pickMachine(\''+esc(m.name)+'\')">'+esc(m.name)+'</button>';}).join('');
+      ms.map(function(m){return '<button class="chip'+(selMachine===m.name?' on':'')+'" onclick="pickMachine(\''+esc(jsq(m.name))+'\')">'+esc(m.name)+'</button>';}).join('');
   }
   $('#plantoggle').classList.toggle('off',!planFirst);
 }
@@ -994,7 +1002,7 @@ function renderWeek(){
     });
     if(cells.length===0){
       cells.push(spacer(todayIdx));
-      cells.push('<div class="blk blk-idle" style="grid-column:span '+(7-todayIdx)+'" onclick="pickAgent(\''+esc(a)+'\');showView(\'assign\')">open capacity — assign work</div>');
+      cells.push('<div class="blk blk-idle" style="grid-column:span '+(7-todayIdx)+'" onclick="pickAgent(\''+esc(jsq(a))+'\');showView(\'assign\')">open capacity — assign work</div>');
       cur=7;
     }
     if(cur<7)cells.push(spacer(7-cur));
@@ -1006,7 +1014,7 @@ function renderWeek(){
 function wireDrag(){
   var dragId=null;
   document.querySelectorAll('#weekgrid .blk[draggable=true]').forEach(function(b){
-    b.addEventListener('dragstart',function(e){dragId=b.dataset.bid;e.dataTransfer.effectAllowed='move';});
+    b.addEventListener('dragstart',function(e){dragId=b.dataset.bid;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId);});
   });
   document.querySelectorAll('#weekgrid .rowlab').forEach(function(lab){
     lab.addEventListener('dragover',function(e){e.preventDefault();lab.classList.add('droprow');});
@@ -1096,7 +1104,7 @@ function renderToday(){
     if(cells.length===0){
       var start=colOf(now)+1;
       cells.push(spacer(start));
-      cells.push('<div class="blk blk-idle" style="grid-column:span '+(hours-start)+'" onclick="pickAgent(\''+esc(a)+'\');showView(\'assign\')">idle — assign work</div>');
+      cells.push('<div class="blk blk-idle" style="grid-column:span '+(hours-start)+'" onclick="pickAgent(\''+esc(jsq(a))+'\');showView(\'assign\')">idle — assign work</div>');
       cur=hours;
     }
     if(cur<hours)cells.push(spacer(hours-cur));
@@ -1144,8 +1152,8 @@ async function loadDrawer(){
     var g=gs[0];
     gb.hidden=false;
     gb.innerHTML='<div class="q">'+esc(gateTitle(g.node_id))+'</div>'+
-      '<div class="acts"><button class="btn btn-ok" onclick="decide(\''+g.run_id+'\',\''+esc(g.node_id)+'\',\'approve\')">Approve</button>'+
-      '<button class="btn btn-outline" onclick="drawerReject(\''+g.run_id+'\',\''+esc(g.node_id)+'\')">Request changes…</button></div>';
+      '<div class="acts"><button class="btn btn-ok" onclick="decide(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\',\'approve\')">Approve</button>'+
+      '<button class="btn btn-outline" onclick="drawerReject(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\')">Request changes…</button></div>';
   }else{gb.hidden=true;gb.innerHTML='';}
   renderSteps(); renderLog();
 }
@@ -1159,7 +1167,7 @@ function renderSteps(){
   if(!dwNodes.length){ el.style.display='none'; return; }
   el.style.display='flex';
   el.innerHTML=dwNodes.map(n=>
-    '<div class="step s-'+esc(n.status)+(n.node_id===dwNode?' sel':'')+'" onclick="selectStep(\''+esc(n.node_id)+'\')">'+
+    '<div class="step s-'+esc(n.status)+(n.node_id===dwNode?' sel':'')+'" onclick="selectStep(\''+esc(jsq(n.node_id))+'\')">'+
     '<span class="st">'+stepIcon(n.status)+'</span><span class="nm">'+esc(n.node_id)+'</span>'+
     '<span class="ty">'+esc(n.type==='gate'?'checkpoint':n.type)+'</span></div>').join('');
 }
