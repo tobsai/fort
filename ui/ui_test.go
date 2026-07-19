@@ -143,6 +143,28 @@ func TestGateDecisionResumesFlow(t *testing.T) {
 	}
 }
 
+func TestGateRejectRecordsNote(t *testing.T) {
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship a smaller thing"})
+	started := decode[ui.ChatResult](t, rec)
+
+	rec = do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "reject", Note: "smaller please"})
+	if rec.Code != 200 {
+		t.Fatalf("gate code %d: %s", rec.Code, rec.Body)
+	}
+	rec = do(t, s, "GET", "/api/runs/"+started.RunID, nil)
+	d := decode[ui.RunDetail](t, rec)
+	found := false
+	for _, e := range d.Events {
+		if e.Type == "gate" && e.NodeID == "plan_gate" && strings.Contains(e.Data, "smaller please") && strings.Contains(e.Data, `"rejected"`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no gate event with the redirect note in %+v", d.Events)
+	}
+}
+
 func TestBoardListsRunsAndGates(t *testing.T) {
 	s, _ := newFullUI(t)
 	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship something"})

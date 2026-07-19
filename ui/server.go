@@ -190,7 +190,7 @@ func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
 	case "approve":
 		err = s.d.Runner.Approve(dec.RunID, dec.NodeID, dec.Edit)
 	case "reject":
-		err = s.d.Runner.Reject(dec.RunID, dec.NodeID)
+		err = s.d.Runner.Reject(dec.RunID, dec.NodeID, dec.Note)
 	default:
 		http.Error(w, "decision must be approve|reject", http.StatusBadRequest)
 		return

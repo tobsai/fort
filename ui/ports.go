@@ -44,7 +44,7 @@ type RunResult struct {
 type FlowRunner interface {
 	StartFlow(ctx context.Context, flowID, runID, payload string) (RunResult, error)
 	Approve(runID, nodeID, edit string) error
-	Reject(runID, nodeID string) error
+	Reject(runID, nodeID, note string) error
 	ResumeFlow(ctx context.Context, flowID, runID string) (RunResult, error)
 }
 

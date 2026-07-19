@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tobsai/fort/core/store"
@@ -161,7 +162,7 @@ func TestGateRejectTakesRejectEdge(t *testing.T) {
 	ex, st, _ := newExec(t)
 	f := gateFlow()
 	_, _ = ex.Start(context.Background(), f, "run5", "")
-	if err := ex.Reject("run5", "g1"); err != nil {
+	if err := ex.Reject("run5", "g1", ""); err != nil {
 		t.Fatalf("reject: %v", err)
 	}
 	if _, err := ex.Resume(context.Background(), f, "run5"); err != nil {
@@ -169,6 +170,36 @@ func TestGateRejectTakesRejectEdge(t *testing.T) {
 	}
 	if s, _ := nodeStatus(t, st, "run5", "k2"); s != "succeeded" {
 		t.Errorf("rejected path k2 status=%q, want succeeded", s)
+	}
+}
+
+func TestGateDecisionsAppendEvents(t *testing.T) {
+	ex, st, _ := newExec(t)
+	f := gateFlow()
+	if _, err := ex.Start(context.Background(), f, "run9", ""); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := ex.Reject("run9", "g1", "tighten the scope"); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if err := ex.Approve("run9", "g1", "ship it smaller"); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	evs, _ := st.Events("run9")
+	var gates []store.Event
+	for _, e := range evs {
+		if e.Type == "gate" {
+			gates = append(gates, e)
+		}
+	}
+	if len(gates) != 2 {
+		t.Fatalf("want 2 gate events, got %d (%+v)", len(gates), evs)
+	}
+	if gates[0].NodeID != "g1" || !strings.Contains(gates[0].Data, `"rejected"`) || !strings.Contains(gates[0].Data, "tighten the scope") {
+		t.Fatalf("bad reject event: %+v", gates[0])
+	}
+	if gates[1].NodeID != "g1" || !strings.Contains(gates[1].Data, `"approved"`) || !strings.Contains(gates[1].Data, "ship it smaller") {
+		t.Fatalf("bad approve event: %+v", gates[1])
 	}
 }
 

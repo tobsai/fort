@@ -79,6 +79,7 @@ type GateDecision struct {
 	NodeID   string `json:"node_id"`
 	Decision string `json:"decision"` // approve | reject
 	Edit     string `json:"edit,omitempty"`
+	Note     string `json:"note,omitempty"` // redirect note on reject (spec 033)
 }
 
 // ChatRequest is the command body for POST /api/chat.
