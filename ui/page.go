@@ -790,7 +790,9 @@ function renderProjects(){
       if(r.status==='running')bits.push('<span class="work">1 in progress</span>');
       var left=c.total-c.accepted-c.waiting-c.rejected-(r.status==='running'?1:0);
       if(left>0)bits.push(left+' not started');
-      cap='<span class="barcap">'+(c.accepted===c.total?'All '+c.total+' checkpoints accepted':bits.join(' · '))+'</span>';
+      var capText=c.accepted===c.total?'All '+c.total+' checkpoints accepted':
+        (r.status==='succeeded'&&c.rejected>0)?'Closed after your redirect':bits.join(' · ');
+      cap='<span class="barcap">'+capText+'</span>';
     }
     var cta='';
     if(state==='need')cta='<button class="btn btn-amber cta" onclick="event.stopPropagation();openDrawer(\''+r.id+'\')">Review the plan</button>';
