@@ -5,11 +5,19 @@
 //
 // Contract summary (published for clients, incl. the iOS shell, AO-037):
 //
-//	GET  /api/board                 -> Board (runs + waiting gates)
+//	GET  /api/board                 -> Board (runs + waiting gates + checkpoints)
+//	GET  /api/summary               -> Summary (counts + pending gates)
 //	GET  /api/runs/{id}             -> RunDetail (run + nodes + events; replayable)
 //	GET  /api/gates                 -> []GateItem
-//	POST /api/gate                  <- GateDecision  -> ActionResult
+//	POST /api/gate                  <- GateDecision  -> ActionResult (reject may carry a note)
 //	POST /api/chat                  <- ChatRequest   -> ChatResult
+//	GET  /api/backlog               -> []BacklogItem
+//	POST /api/backlog               <- BacklogRequest -> BacklogItem
+//	PATCH /api/backlog/{id}         <- BacklogPatch  -> BacklogItem (reassign, spec 033)
+//	POST /api/backlog/{id}/dispatch -> ChatResult
+//	DELETE /api/backlog/{id}
+//	POST /api/breakdown             <- BreakdownRequest -> BreakdownResult
+//	GET  /api/metrics[?days=N&lane=L] -> MetricsResponse (spec 033)
 //	POST /api/openclaw              <- OpenClawMessage-> ChatResult
 //	GET  /api/events[?since=N]      -> text/event-stream of Event frames
 package ui
@@ -27,13 +35,27 @@ type Event struct {
 
 // RunSummary is a board card.
 type RunSummary struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Body    string `json:"body,omitempty"`
-	Agent   string `json:"agent"`
-	Status  string `json:"status"`
-	Machine string `json:"machine,omitempty"` // host the run is placed on (spec 022)
-	FlowID  string `json:"flow_id,omitempty"`
+	ID          string             `json:"id"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body,omitempty"`
+	Agent       string             `json:"agent"`
+	Status      string             `json:"status"`
+	Machine     string             `json:"machine,omitempty"` // host the run is placed on (spec 022)
+	FlowID      string             `json:"flow_id,omitempty"`
+	CreatedAt   string             `json:"created_at,omitempty"` // RFC3339 (spec 033)
+	UpdatedAt   string             `json:"updated_at,omitempty"` // RFC3339 (spec 033)
+	Checkpoints *CheckpointSummary `json:"checkpoints,omitempty"`
+}
+
+// CheckpointSummary is a run's human-checkpoint progress: checkpoints are the
+// flow's gate nodes — progress is what the human accepted, never an agent
+// estimate (spec 033).
+type CheckpointSummary struct {
+	Total    int `json:"total"`    // gate nodes in the plan (executed-only when no plan is known)
+	Accepted int `json:"accepted"` // approved gates
+	Waiting  int `json:"waiting"`  // gates awaiting sign-off
+	Rejected int `json:"rejected"` // rejected gates
+	Done     int `json:"done"`     // non-gate nodes finished (for in-progress inference)
 }
 
 // MachineStatus is one host in the roster (GET /api/machines, spec 022).
@@ -58,6 +80,7 @@ type GateItem struct {
 	RunID  string `json:"run_id"`
 	NodeID string `json:"node_id"`
 	Input  string `json:"input,omitempty"`
+	Since  string `json:"since,omitempty"` // RFC3339 — when the gate began waiting (spec 033)
 }
 
 // Board is the live board payload.
@@ -79,6 +102,7 @@ type GateDecision struct {
 	NodeID   string `json:"node_id"`
 	Decision string `json:"decision"` // approve | reject
 	Edit     string `json:"edit,omitempty"`
+	Note     string `json:"note,omitempty"` // redirect note on reject (spec 033)
 }
 
 // ChatRequest is the command body for POST /api/chat.
@@ -145,6 +169,12 @@ type BacklogRequest struct {
 	Source  string   `json:"source,omitempty"` // defaults to "user"
 }
 
+// BacklogPatch is the command body for PATCH /api/backlog/{id} (spec 033):
+// reassign an Up-next item to another agent ("" clears the pin).
+type BacklogPatch struct {
+	Agent string `json:"agent"`
+}
+
 // BreakdownRequest is the command body for POST /api/breakdown.
 type BreakdownRequest struct {
 	Text    string `json:"text"`
@@ -156,4 +186,35 @@ type BreakdownRequest struct {
 // run's id. Sub-tasks appear in the backlog when that run completes.
 type BreakdownResult struct {
 	RunID string `json:"run_id"`
+}
+
+// AgentMetrics is one agent's scorecard over the metrics window (spec 033).
+// Everything is derived from the append-only event log + run rows — sign-off
+// counts are human decisions, never agent estimates. Sample sizes (Assignments,
+// Decided) ship alongside every ratio because 30-day windows are small.
+type AgentMetrics struct {
+	Agent         string    `json:"agent"`
+	Assignments   int       `json:"assignments"`              // routed runs + flow task-node executions
+	Decided       int       `json:"decided"`                  // sign-offs that reached a decision
+	FirstPass     int       `json:"first_pass"`               // approved first try, no note
+	FirstPassPct  float64   `json:"first_pass_pct"`           // 0 when Decided==0
+	Accepted      int       `json:"accepted"`                 // finally-approved sign-offs
+	Redirects     int       `json:"redirects"`                // rejects + approves-with-edits
+	RedirectsPer  float64   `json:"redirects_per_assignment"` // 0 when Assignments==0
+	CostUSD       float64   `json:"cost_usd"`                 // parsed engine cost; 0 = unknown
+	CostPerAccept float64   `json:"cost_per_accepted"`        // 0 = unknown
+	CostKnown     bool      `json:"cost_known"`
+	Trend         string    `json:"trend"`       // improving | steady | slipping
+	TrendDelta    float64   `json:"trend_delta"` // pct-point change between window halves
+	Spark         []float64 `json:"spark"`       // 7 first-pass-% buckets, carried forward
+	Best          []string  `json:"best"`        // strongest routing lanes (≥3 terminal runs)
+	Weak          []string  `json:"weak"`
+}
+
+// MetricsResponse is the payload of GET /api/metrics (spec 033).
+type MetricsResponse struct {
+	WindowDays  int            `json:"window_days"`
+	Assignments int            `json:"assignments"`
+	Agents      []AgentMetrics `json:"agents"`
+	Lanes       []string       `json:"lanes"` // distinct matched_rule values seen in the window
 }

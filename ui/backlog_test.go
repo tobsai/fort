@@ -65,6 +65,25 @@ func TestBacklogDeleteDiscards(t *testing.T) {
 	}
 }
 
+func TestBacklogReassign(t *testing.T) {
+	s, _ := newControlUI(t)
+	item := decode[ui.BacklogItem](t, do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "move me", Agent: "claude"}))
+	rec := do(t, s, "PATCH", "/api/backlog/"+item.ID, ui.BacklogPatch{Agent: "codex"})
+	if rec.Code != 200 {
+		t.Fatalf("patch status = %d: %s", rec.Code, rec.Body)
+	}
+	if got := decode[ui.BacklogItem](t, rec); got.Agent != "codex" {
+		t.Fatalf("patched = %+v, want agent codex", got)
+	}
+	list := decode[[]ui.BacklogItem](t, do(t, s, "GET", "/api/backlog", nil))
+	if len(list) != 1 || list[0].Agent != "codex" {
+		t.Fatalf("list = %+v, want reassigned to codex", list)
+	}
+	if do(t, s, "PATCH", "/api/backlog/nope", ui.BacklogPatch{Agent: "codex"}).Code != 404 {
+		t.Fatal("unknown id should 404")
+	}
+}
+
 func TestBacklogAddRequiresTitle(t *testing.T) {
 	s, _ := newControlUI(t)
 	if do(t, s, "POST", "/api/backlog", ui.BacklogRequest{Title: "   "}).Code != 400 {

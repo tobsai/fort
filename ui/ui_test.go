@@ -143,6 +143,28 @@ func TestGateDecisionResumesFlow(t *testing.T) {
 	}
 }
 
+func TestGateRejectRecordsNote(t *testing.T) {
+	s, _ := newFullUI(t)
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship a smaller thing"})
+	started := decode[ui.ChatResult](t, rec)
+
+	rec = do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "reject", Note: "smaller please"})
+	if rec.Code != 200 {
+		t.Fatalf("gate code %d: %s", rec.Code, rec.Body)
+	}
+	rec = do(t, s, "GET", "/api/runs/"+started.RunID, nil)
+	d := decode[ui.RunDetail](t, rec)
+	found := false
+	for _, e := range d.Events {
+		if e.Type == "gate" && e.NodeID == "plan_gate" && strings.Contains(e.Data, "smaller please") && strings.Contains(e.Data, `"rejected"`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no gate event with the redirect note in %+v", d.Events)
+	}
+}
+
 func TestBoardListsRunsAndGates(t *testing.T) {
 	s, _ := newFullUI(t)
 	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship something"})
@@ -153,6 +175,33 @@ func TestBoardListsRunsAndGates(t *testing.T) {
 	}
 	if len(b.Gates) != 1 || b.Gates[0].NodeID != "plan_gate" {
 		t.Errorf("gates = %+v, want [plan_gate]", b.Gates)
+	}
+}
+
+func TestBoardCarriesTimestampsAndCheckpoints(t *testing.T) {
+	s, _ := newFullUI(t)
+	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship checkpoints"})
+	rec := do(t, s, "GET", "/api/board", nil)
+	if strings.Contains(rec.Body.String(), "null") {
+		t.Fatalf("board body contains null: %s", rec.Body)
+	}
+	b := decode[ui.Board](t, rec)
+	if len(b.Runs) != 1 {
+		t.Fatalf("runs = %d, want 1", len(b.Runs))
+	}
+	r := b.Runs[0]
+	if r.CreatedAt == "" || r.UpdatedAt == "" {
+		t.Errorf("run timestamps missing: %+v", r)
+	}
+	if r.Checkpoints == nil {
+		t.Fatalf("flow run has no checkpoint summary: %+v", r)
+	}
+	// ship-feature has gates plan_gate, merge_gate, escalate; one is waiting.
+	if r.Checkpoints.Total != 3 || r.Checkpoints.Waiting != 1 || r.Checkpoints.Accepted != 0 {
+		t.Errorf("checkpoints = %+v, want total 3 waiting 1", r.Checkpoints)
+	}
+	if len(b.Gates) != 1 || b.Gates[0].Since == "" {
+		t.Errorf("gate since missing: %+v", b.Gates)
 	}
 }
 

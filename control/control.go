@@ -108,7 +108,20 @@ func (f FlowExecutor) Approve(runID, nodeID, edit string) error {
 	return f.x.Approve(runID, nodeID, edit)
 }
 
-// Reject records a gate rejection.
-func (f FlowExecutor) Reject(runID, nodeID string) error {
-	return f.x.Reject(runID, nodeID)
+// Reject records a gate rejection with an optional redirect note.
+func (f FlowExecutor) Reject(runID, nodeID, note string) error {
+	return f.x.Reject(runID, nodeID, note)
+}
+
+// Plan exposes a flow's node list to the control plane (spec 033).
+func (f FlowExecutor) Plan(flowID string) []ui.FlowNode {
+	fl, ok := f.flows[flowID]
+	if !ok {
+		return nil
+	}
+	out := make([]ui.FlowNode, 0, len(fl.Nodes))
+	for _, n := range fl.Nodes {
+		out = append(out, ui.FlowNode{ID: n.ID, Type: string(n.Type)})
+	}
+	return out
 }

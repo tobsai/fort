@@ -214,3 +214,31 @@ func TestEventNodeIDRoundTrip(t *testing.T) {
 		t.Errorf("evs[1].NodeID = %q, want empty (node-less event)", evs[1].NodeID)
 	}
 }
+
+func TestAllNodeRuns(t *testing.T) {
+	s := openTemp(t)
+	for _, n := range []NodeRun{
+		{ID: "r2:b", RunID: "r2", NodeID: "b", Type: "gate", Status: "waiting"},
+		{ID: "r1:a", RunID: "r1", NodeID: "a", Type: "task", Status: "succeeded"},
+		{ID: "r1:g", RunID: "r1", NodeID: "g", Type: "gate", Status: "approved"},
+	} {
+		if err := s.UpsertNodeRun(n); err != nil {
+			t.Fatalf("upsert: %v", err)
+		}
+	}
+	got, err := s.AllNodeRuns()
+	if err != nil {
+		t.Fatalf("all: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len = %d, want 3", len(got))
+	}
+	// grouped by run: both r1 rows must be adjacent
+	var order []string
+	for _, n := range got {
+		order = append(order, n.RunID)
+	}
+	if !(order[0] == order[1] || order[1] == order[2]) {
+		t.Errorf("rows not grouped by run: %v", order)
+	}
+}

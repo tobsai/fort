@@ -39,13 +39,22 @@ type RunResult struct {
 	PausedNode string `json:"paused_node,omitempty"`
 }
 
+// FlowNode is one node of a flow plan as exposed to the control plane
+// (spec 033): just enough to know a run's checkpoint total.
+type FlowNode struct {
+	ID   string `json:"id"`
+	Type string `json:"type"` // task | gate | check | transform | fanout
+}
+
 // FlowRunner runs flows by id. It is nil in control-only mode (no DAG engine);
 // chat "ship X" then degrades to a boarded task and gate actions return 409.
 type FlowRunner interface {
 	StartFlow(ctx context.Context, flowID, runID, payload string) (RunResult, error)
 	Approve(runID, nodeID, edit string) error
-	Reject(runID, nodeID string) error
+	Reject(runID, nodeID, note string) error
 	ResumeFlow(ctx context.Context, flowID, runID string) (RunResult, error)
+	// Plan returns the flow's node list (nil for an unknown id).
+	Plan(flowID string) []FlowNode
 }
 
 // Planner decomposes a goal into backlog sub-tasks by running a planner agent

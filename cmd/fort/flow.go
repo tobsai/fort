@@ -112,7 +112,7 @@ func cmdGate(args []string) error {
 				return err
 			}
 		} else {
-			if err := ex.Reject(runID, nodeID); err != nil {
+			if err := ex.Reject(runID, nodeID, ""); err != nil {
 				return err
 			}
 		}

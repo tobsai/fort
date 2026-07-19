@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,15 +55,16 @@ func (e *Executor) Resume(ctx context.Context, f Flow, runID string) (Result, er
 // Approve records an approve decision on a waiting gate, optionally editing the
 // payload that flows downstream.
 func (e *Executor) Approve(runID, nodeID, edited string) error {
-	return e.decideGate(runID, nodeID, "approved", edited)
+	return e.decideGate(runID, nodeID, "approved", edited, edited)
 }
 
-// Reject records a reject decision on a waiting gate.
-func (e *Executor) Reject(runID, nodeID string) error {
-	return e.decideGate(runID, nodeID, "rejected", "")
+// Reject records a reject decision on a waiting gate. The note is the human's
+// redirect note ("" = none); it is recorded in the event log, not the payload.
+func (e *Executor) Reject(runID, nodeID, note string) error {
+	return e.decideGate(runID, nodeID, "rejected", "", note)
 }
 
-func (e *Executor) decideGate(runID, nodeID, status, edited string) error {
+func (e *Executor) decideGate(runID, nodeID, status, edited, note string) error {
 	nr, ok, err := e.nodeRun(runID, nodeID)
 	if err != nil {
 		return err
@@ -74,10 +76,17 @@ func (e *Executor) decideGate(runID, nodeID, status, edited string) error {
 	if edited != "" {
 		out = edited
 	}
-	return e.store.UpsertNodeRun(store.NodeRun{
+	if err := e.store.UpsertNodeRun(store.NodeRun{
 		ID: nrID(runID, nodeID), RunID: runID, NodeID: nodeID, Type: "gate",
 		Status: status, Input: nr.Input, Output: out,
-	})
+	}); err != nil {
+		return err
+	}
+	// Append-only decision record (spec 033): the node_run upsert keeps only the
+	// latest state, so the event row is what preserves decision history.
+	data, _ := json.Marshal(map[string]string{"decision": status, "note": note})
+	_, _ = e.store.AppendEvent(store.Event{RunID: runID, NodeID: nodeID, Type: "gate", Data: string(data)})
+	return nil
 }
 
 // walkFrom walks the graph from start, stopping (without executing) when it
