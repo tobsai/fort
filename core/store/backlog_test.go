@@ -50,3 +50,20 @@ func TestBacklogCRUD(t *testing.T) {
 		t.Fatalf("after delete = %+v", items)
 	}
 }
+
+func TestUpdateBacklogAgent(t *testing.T) {
+	s := openTemp(t)
+	if err := s.CreateBacklogItem(BacklogItem{ID: "b1", Title: "reassign me"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := s.UpdateBacklogAgent("b1", "codex"); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got, err := s.GetBacklogItem("b1")
+	if err != nil || got.Agent != "codex" {
+		t.Fatalf("got %+v err=%v, want agent codex", got, err)
+	}
+	if err := s.UpdateBacklogAgent("missing", "codex"); err == nil {
+		t.Fatal("want error for unknown id")
+	}
+}

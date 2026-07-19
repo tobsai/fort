@@ -54,6 +54,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/backlog", s.handleBacklogList)
 	mux.HandleFunc("POST /api/backlog", s.handleBacklogAdd)
 	mux.HandleFunc("POST /api/backlog/{id}/dispatch", s.handleBacklogDispatch)
+	mux.HandleFunc("PATCH /api/backlog/{id}", s.handleBacklogPatch)
 	mux.HandleFunc("DELETE /api/backlog/{id}", s.handleBacklogDelete)
 	mux.HandleFunc("POST /api/breakdown", s.handleBreakdown)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
@@ -360,6 +361,27 @@ func (s *Server) handleBacklogDispatch(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.d.Store.DeleteBacklogItem(b.ID)
 	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
+}
+
+// handleBacklogPatch reassigns an Up-next item to another agent (spec 033,
+// Week-view drag between rows).
+func (s *Server) handleBacklogPatch(w http.ResponseWriter, r *http.Request) {
+	var req BacklogPatch
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	id := r.PathValue("id")
+	if err := s.d.Store.UpdateBacklogAgent(id, req.Agent); err != nil {
+		http.Error(w, "backlog item not found", http.StatusNotFound)
+		return
+	}
+	b, err := s.d.Store.GetBacklogItem(id)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toBacklogItem(b))
 }
 
 func (s *Server) handleBacklogDelete(w http.ResponseWriter, r *http.Request) {

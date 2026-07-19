@@ -161,6 +161,12 @@ type BacklogRequest struct {
 	Source  string   `json:"source,omitempty"` // defaults to "user"
 }
 
+// BacklogPatch is the command body for PATCH /api/backlog/{id} (spec 033):
+// reassign an Up-next item to another agent ("" clears the pin).
+type BacklogPatch struct {
+	Agent string `json:"agent"`
+}
+
 // BreakdownRequest is the command body for POST /api/breakdown.
 type BreakdownRequest struct {
 	Text    string `json:"text"`

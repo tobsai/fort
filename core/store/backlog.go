@@ -61,6 +61,18 @@ func (s *Store) GetBacklogItem(id string) (BacklogItem, error) {
 	return scanBacklog(row)
 }
 
+// UpdateBacklogAgent reassigns an item to an agent ("" clears the pin, spec 033).
+func (s *Store) UpdateBacklogAgent(id, agent string) error {
+	res, err := s.db.Exec(`UPDATE backlog_item SET agent=? WHERE id=?`, agent, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("backlog item %s not found", id)
+	}
+	return nil
+}
+
 // DeleteBacklogItem removes an item (called after it is dispatched or discarded).
 func (s *Store) DeleteBacklogItem(id string) error {
 	_, err := s.db.Exec(`DELETE FROM backlog_item WHERE id=?`, id)
