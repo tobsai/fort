@@ -57,6 +57,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/backlog/{id}", s.handleBacklogPatch)
 	mux.HandleFunc("DELETE /api/backlog/{id}", s.handleBacklogDelete)
 	mux.HandleFunc("POST /api/breakdown", s.handleBreakdown)
+	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 }

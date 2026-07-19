@@ -179,3 +179,34 @@ type BreakdownRequest struct {
 type BreakdownResult struct {
 	RunID string `json:"run_id"`
 }
+
+// AgentMetrics is one agent's scorecard over the metrics window (spec 033).
+// Everything is derived from the append-only event log + run rows — sign-off
+// counts are human decisions, never agent estimates. Sample sizes (Assignments,
+// Decided) ship alongside every ratio because 30-day windows are small.
+type AgentMetrics struct {
+	Agent         string    `json:"agent"`
+	Assignments   int       `json:"assignments"`              // routed runs + flow task-node executions
+	Decided       int       `json:"decided"`                  // sign-offs that reached a decision
+	FirstPass     int       `json:"first_pass"`               // approved first try, no note
+	FirstPassPct  float64   `json:"first_pass_pct"`           // 0 when Decided==0
+	Accepted      int       `json:"accepted"`                 // finally-approved sign-offs
+	Redirects     int       `json:"redirects"`                // rejects + approves-with-edits
+	RedirectsPer  float64   `json:"redirects_per_assignment"` // 0 when Assignments==0
+	CostUSD       float64   `json:"cost_usd"`                 // parsed engine cost; 0 = unknown
+	CostPerAccept float64   `json:"cost_per_accepted"`        // 0 = unknown
+	CostKnown     bool      `json:"cost_known"`
+	Trend         string    `json:"trend"`       // improving | steady | slipping
+	TrendDelta    float64   `json:"trend_delta"` // pct-point change between window halves
+	Spark         []float64 `json:"spark"`       // 7 first-pass-% buckets, carried forward
+	Best          []string  `json:"best"`        // strongest routing lanes (≥3 terminal runs)
+	Weak          []string  `json:"weak"`
+}
+
+// MetricsResponse is the payload of GET /api/metrics (spec 033).
+type MetricsResponse struct {
+	WindowDays  int            `json:"window_days"`
+	Assignments int            `json:"assignments"`
+	Agents      []AgentMetrics `json:"agents"`
+	Lanes       []string       `json:"lanes"` // distinct matched_rule values seen in the window
+}
