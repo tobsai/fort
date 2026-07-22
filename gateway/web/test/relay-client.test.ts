@@ -131,6 +131,31 @@ describe("RelayClient over a fake Noise daemon", () => {
     expect(JSON.parse(utf8dec.decode(b.body!))).toEqual({ n: 2 });
   });
 
+  it("closes a Noise session with one fire-and-forget bye frame", async () => {
+    const daemonKey = generateKeypair();
+    const fake = makeFakeDaemon(daemonKey, { "/a": { n: 1 } });
+    const kinds: string[] = [];
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const { frame } = JSON.parse(String(init?.body)) as { frame: Frame };
+      kinds.push(frame.kind);
+      if (frame.kind === "bye") {
+        return new Response(JSON.stringify({ frames: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return fake(input, init);
+    });
+
+    const client = new RelayClient("machine-1", daemonKey.publicKey);
+    await client.connect();
+    await client.fetch("/a");
+    await client.close();
+    await client.close();
+
+    expect(kinds).toEqual(["hs1", "req", "bye"]);
+  });
+
   it("opens a sealed SSE stream to completion", async () => {
     const daemonKey = generateKeypair();
     vi.stubGlobal("fetch", makeFakeDaemon(daemonKey, {}));

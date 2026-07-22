@@ -22,8 +22,15 @@ export default async function MachinesPage() {
 
   return (
     <div>
-      <h1>Machines</h1>
-      <p className="subtitle">Forts registered to this gateway.</p>
+      <div className="page-heading">
+        <div>
+          <h1>Remote Command Deck</h1>
+          <p className="subtitle">Choose a Fort to see what needs you from anywhere.</p>
+        </div>
+        <Link href="/add" className="btn btn-secondary">
+          Add a Fort
+        </Link>
+      </div>
 
       {error ? (
         <div className="card">
@@ -35,32 +42,33 @@ export default async function MachinesPage() {
       ) : machines.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No machines yet. <Link href="/add">Add one</Link> to get a join code.
+            No Forts are connected yet. <Link href="/add">Add one</Link> to get a join code.
           </div>
         </div>
       ) : (
-        machines.map((m) => (
-          <div className="card" key={m.machine_id}>
-            <div className="machine-row">
-              <div className="machine-main">
-                <div className="machine-name">
-                  <Link href={`/m/${m.machine_id}`}>{m.name || m.machine_id}</Link>
-                </div>
+        <div className="machine-grid">
+          {machines.map((m) => (
+            <article className="machine-card" key={m.machine_id}>
+              <div className="machine-card-header">
+                <span className={`status-dot ${m.online ? "accepted" : "idle"}`} />
+                <strong>{m.name || m.machine_id}</strong>
+                <span className={`status-pill ${m.online ? "state-delivered" : "state-idle"}`}>
+                  {m.online ? "Online" : "Offline"}
+                </span>
+              </div>
+              <div>
+                <div className="hint">Daemon key fingerprint</div>
                 <div className="fingerprint">{m.fingerprint}</div>
               </div>
-              <div className="row">
-                <span>
-                  <span className={`dot ${m.online ? "online" : "offline"}`} />
-                  <span className="status-label">{m.online ? "online" : "offline"}</span>
-                </span>
-                <Link href={`/m/${m.machine_id}`} className="btn">
-                  Board
+              <div className="machine-card-actions">
+                <Link href={`/m/${m.machine_id}`} className="btn btn-primary">
+                  Open Command Deck
                 </Link>
                 <RevokeButton machineId={m.machine_id} name={m.name || m.machine_id} />
               </div>
-            </div>
-          </div>
-        ))
+            </article>
+          ))}
+        </div>
       )}
     </div>
   );
