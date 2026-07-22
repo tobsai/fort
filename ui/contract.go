@@ -18,6 +18,10 @@
 //	DELETE /api/backlog/{id}
 //	POST /api/breakdown             <- BreakdownRequest -> BreakdownResult
 //	GET  /api/metrics[?days=N&lane=L] -> MetricsResponse (spec 033)
+//	GET  /api/playbooks             -> []Playbook (latest immutable revisions)
+//	PUT  /api/playbooks             <- Playbook -> Playbook (new revision)
+//	POST /api/playbooks/{id}/duplicate -> Playbook
+//	POST /api/route                 <- RouteRequest -> RoutePreview (pure; spec 036)
 //	POST /api/openclaw              <- OpenClawMessage-> ChatResult
 //	GET  /api/events[?since=N]      -> text/event-stream of Event frames
 package ui
@@ -107,20 +111,98 @@ type GateDecision struct {
 
 // ChatRequest is the command body for POST /api/chat.
 type ChatRequest struct {
-	Text    string `json:"text"`
-	Agent   string `json:"agent,omitempty"`   // force a specific agent
-	Machine string `json:"machine,omitempty"` // pin a target host (spec 022)
+	Text             string `json:"text"`
+	Agent            string `json:"agent,omitempty"`             // force a specific agent
+	Machine          string `json:"machine,omitempty"`           // pin a target host (spec 022)
+	PlaybookID       string `json:"playbook_id,omitempty"`       // exact route override (spec 036)
+	PlaybookRevision int    `json:"playbook_revision,omitempty"` // immutable preview revision
+	TaskType         string `json:"task_type,omitempty"`         // explicit deterministic signal
+	PlanGate         *bool  `json:"plan_gate,omitempty"`         // per-handoff plan-gate override
 }
 
 // ChatResult is the response for chat/openclaw.
 type ChatResult struct {
-	Kind    string `json:"kind"` // task | flow
-	RunID   string `json:"run_id"`
-	Route   string `json:"route,omitempty"`   // agent, for task kind (execution plane)
-	Machine string `json:"machine,omitempty"` // resolved host (spec 022)
-	Queued  bool   `json:"queued,omitempty"`  // true when only boarded (control-only)
-	FlowID  string `json:"flow_id,omitempty"` // for flow kind
-	Paused  string `json:"paused,omitempty"`  // gate id if the flow paused
+	Kind             string `json:"kind"` // task | flow | answer
+	RunID            string `json:"run_id"`
+	Route            string `json:"route,omitempty"`       // agent, for task kind (execution plane)
+	Machine          string `json:"machine,omitempty"`     // resolved host (spec 022)
+	Queued           bool   `json:"queued,omitempty"`      // true when only boarded (control-only)
+	FlowID           string `json:"flow_id,omitempty"`     // for flow/playbook kind
+	Paused           string `json:"paused,omitempty"`      // gate id if the flow paused
+	Answer           string `json:"answer,omitempty"`      // inline Quick answer delivery
+	PlaybookID       string `json:"playbook_id,omitempty"` // executed immutable route
+	PlaybookRevision int    `json:"playbook_revision,omitempty"`
+}
+
+// PlaybookAssignment chooses the agent + model for a task-type branch. An
+// empty TaskType is the required default branch for that stage.
+type PlaybookAssignment struct {
+	TaskType string `json:"task_type,omitempty"`
+	Agent    string `json:"agent"`
+	Model    string `json:"model,omitempty"`
+}
+
+// PlaybookStage is one reusable pipeline stage.
+type PlaybookStage struct {
+	Order       int                  `json:"order"`
+	Name        string               `json:"name"`
+	Prompt      string               `json:"prompt,omitempty"`
+	Description string               `json:"description,omitempty"`
+	Assignments []PlaybookAssignment `json:"assignments"`
+	Memory      bool                 `json:"memory,omitempty"`
+}
+
+// PlaybookTrigger is a deterministic task-type binding. Enabled is exposed so
+// the Turn-4 shortcut toggles can be persisted without changing the route
+// grammar.
+type PlaybookTrigger struct {
+	Kind    string `json:"kind"` // question | bug | research | feature | manual
+	Enabled bool   `json:"enabled"`
+}
+
+// Playbook is the latest (or an explicitly requested immutable) revision of a
+// reusable agent/model pipeline.
+type Playbook struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Revision  int             `json:"revision"`
+	IsDefault bool            `json:"is_default,omitempty"`
+	PlanGate  bool            `json:"plan_gate,omitempty"`
+	Delivery  string          `json:"delivery"` // assignment | answer
+	Trigger   PlaybookTrigger `json:"trigger"`
+	Stages    []PlaybookStage `json:"stages"`
+}
+
+// RouteRequest asks Fort to resolve a route without dispatching. The result is
+// a pure function of this request and the immutable catalog revision.
+type RouteRequest struct {
+	Text             string `json:"text"`
+	PlaybookID       string `json:"playbook_id,omitempty"`
+	PlaybookRevision int    `json:"playbook_revision,omitempty"`
+	TaskType         string `json:"task_type,omitempty"`
+	PlanGate         *bool  `json:"plan_gate,omitempty"`
+}
+
+// ResolvedPlaybookStage is the one selected branch for a stage.
+type ResolvedPlaybookStage struct {
+	Order  int    `json:"order"`
+	Name   string `json:"name"`
+	Prompt string `json:"prompt,omitempty"`
+	Agent  string `json:"agent"`
+	Model  string `json:"model,omitempty"`
+	Memory bool   `json:"memory,omitempty"`
+}
+
+// RoutePreview is the immutable route card shown before handoff.
+type RoutePreview struct {
+	PlaybookID       string                  `json:"playbook_id"`
+	PlaybookRevision int                     `json:"playbook_revision"`
+	PlaybookName     string                  `json:"playbook_name"`
+	TaskType         string                  `json:"task_type"`
+	Source           string                  `json:"source"` // manual | trigger | default
+	PlanGate         bool                    `json:"plan_gate"`
+	Delivery         string                  `json:"delivery"` // assignment | answer
+	Stages           []ResolvedPlaybookStage `json:"stages"`
 }
 
 // Summary is the glanceable control-plane snapshot for constrained surfaces

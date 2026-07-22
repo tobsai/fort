@@ -2,7 +2,7 @@
 //  FeedView.swift
 //  Fort (iOS)
 //
-//  The Feed tab — the live event stream. Consumes client.events(since:) as an
+//  The Activity sheet — the live event stream. Consumes client.events(since:) as an
 //  AsyncThrowingStream and prepends each Event to a bounded, newest-first list.
 //  On transport/parse failure it reconnects with a short backoff, resuming from
 //  the highest event id seen so no frames are lost.

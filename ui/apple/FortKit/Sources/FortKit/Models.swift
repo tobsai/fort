@@ -67,7 +67,11 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     public let body: String?
     public let agent: String
     public let status: String
+    public let machine: String?
     public let flowID: String?
+    public let createdAt: String?
+    public let updatedAt: String?
+    public let checkpoints: CheckpointSummary?
 
     public init(
         id: String,
@@ -75,14 +79,22 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
         body: String? = nil,
         agent: String,
         status: String,
-        flowID: String? = nil
+        machine: String? = nil,
+        flowID: String? = nil,
+        createdAt: String? = nil,
+        updatedAt: String? = nil,
+        checkpoints: CheckpointSummary? = nil
     ) {
         self.id = id
         self.title = title
         self.body = body
         self.agent = agent
         self.status = status
+        self.machine = machine
         self.flowID = flowID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.checkpoints = checkpoints
     }
 
     enum CodingKeys: String, CodingKey {
@@ -91,7 +103,28 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
         case body
         case agent
         case status
+        case machine
         case flowID = "flow_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case checkpoints
+    }
+}
+
+/// Human-accepted checkpoint progress for an assignment.
+public struct CheckpointSummary: Codable, Sendable, Hashable {
+    public let total: Int
+    public let accepted: Int
+    public let waiting: Int
+    public let rejected: Int
+    public let done: Int
+
+    public init(total: Int, accepted: Int, waiting: Int, rejected: Int, done: Int) {
+        self.total = total
+        self.accepted = accepted
+        self.waiting = waiting
+        self.rejected = rejected
+        self.done = done
     }
 }
 
@@ -167,6 +200,7 @@ public struct GateItem: Codable, Sendable, Identifiable, Hashable {
     public let runID: String
     public let nodeID: String
     public let input: String?
+    public let since: String?
 
     /// Stable identity for SwiftUI lists — a gate is unique per (run, node).
     public var id: String { "\(runID)/\(nodeID)" }
@@ -174,17 +208,20 @@ public struct GateItem: Codable, Sendable, Identifiable, Hashable {
     public init(
         runID: String,
         nodeID: String,
-        input: String? = nil
+        input: String? = nil,
+        since: String? = nil
     ) {
         self.runID = runID
         self.nodeID = nodeID
         self.input = input
+        self.since = since
     }
 
     enum CodingKeys: String, CodingKey {
         case runID = "run_id"
         case nodeID = "node_id"
         case input
+        case since
     }
 }
 
@@ -231,17 +268,20 @@ public struct GateDecision: Codable, Sendable, Hashable {
     public let nodeID: String
     public let decision: String
     public let edit: String?
+    public let note: String?
 
     public init(
         runID: String,
         nodeID: String,
         decision: String,
-        edit: String? = nil
+        edit: String? = nil,
+        note: String? = nil
     ) {
         self.runID = runID
         self.nodeID = nodeID
         self.decision = decision
         self.edit = edit
+        self.note = note
     }
 
     enum CodingKeys: String, CodingKey {
@@ -249,6 +289,7 @@ public struct GateDecision: Codable, Sendable, Hashable {
         case nodeID = "node_id"
         case decision
         case edit
+        case note
     }
 }
 
@@ -258,53 +299,297 @@ public struct GateDecision: Codable, Sendable, Hashable {
 public struct ChatRequest: Codable, Sendable, Hashable {
     public let text: String
     public let agent: String?
+    public let machine: String?
+    public let playbookID: String?
+    public let playbookRevision: Int?
+    public let taskType: String?
+    public let planGate: Bool?
 
-    public init(text: String, agent: String? = nil) {
+    public init(
+        text: String,
+        agent: String? = nil,
+        machine: String? = nil,
+        playbookID: String? = nil,
+        playbookRevision: Int? = nil,
+        taskType: String? = nil,
+        planGate: Bool? = nil
+    ) {
         self.text = text
         self.agent = agent
+        self.machine = machine
+        self.playbookID = playbookID
+        self.playbookRevision = playbookRevision
+        self.taskType = taskType
+        self.planGate = planGate
     }
 
     enum CodingKeys: String, CodingKey {
         case text
         case agent
+        case machine
+        case playbookID = "playbook_id"
+        case playbookRevision = "playbook_revision"
+        case taskType = "task_type"
+        case planGate = "plan_gate"
     }
 }
 
 /// The response for chat/openclaw. Mirrors `ui.ChatResult`.
 ///
-/// `kind` is `"task"` or `"flow"`. `route`, `queued`, `flow_id`, and `paused`
-/// are all `omitempty`.
+/// `kind` is `"task"`, `"flow"`, or `"answer"`. Route metadata and inline
+/// answer text are `omitempty`.
 public struct ChatResult: Codable, Sendable, Hashable {
     public let kind: String
     public let runID: String
     public let route: String?
+    public let machine: String?
     public let queued: Bool?
     public let flowID: String?
     public let paused: String?
+    public let answer: String?
+    public let playbookID: String?
+    public let playbookRevision: Int?
 
     public init(
         kind: String,
         runID: String,
         route: String? = nil,
+        machine: String? = nil,
         queued: Bool? = nil,
         flowID: String? = nil,
-        paused: String? = nil
+        paused: String? = nil,
+        answer: String? = nil,
+        playbookID: String? = nil,
+        playbookRevision: Int? = nil
     ) {
         self.kind = kind
         self.runID = runID
         self.route = route
+        self.machine = machine
         self.queued = queued
         self.flowID = flowID
         self.paused = paused
+        self.answer = answer
+        self.playbookID = playbookID
+        self.playbookRevision = playbookRevision
     }
 
     enum CodingKeys: String, CodingKey {
         case kind
         case runID = "run_id"
         case route
+        case machine
         case queued
         case flowID = "flow_id"
         case paused
+        case answer
+        case playbookID = "playbook_id"
+        case playbookRevision = "playbook_revision"
+    }
+}
+
+/// One task-type branch within a playbook stage. Mirrors
+/// `ui.PlaybookAssignment`; an absent `task_type` is the required default.
+public struct PlaybookAssignment: Codable, Sendable, Hashable {
+    public let taskType: String?
+    public let agent: String
+    public let model: String?
+
+    public init(taskType: String? = nil, agent: String, model: String? = nil) {
+        self.taskType = taskType
+        self.agent = agent
+        self.model = model
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case taskType = "task_type"
+        case agent
+        case model
+    }
+}
+
+/// One reusable pipeline stage. `memory` is omitted when disabled by the Go
+/// contract, so nil and false both render as off while preserving wire intent.
+public struct PlaybookStage: Codable, Sendable, Identifiable, Hashable {
+    public let order: Int
+    public let name: String
+    public let prompt: String?
+    public let description: String?
+    public let assignments: [PlaybookAssignment]
+    public let memory: Bool?
+
+    public var id: Int { order }
+
+    public init(
+        order: Int,
+        name: String,
+        prompt: String? = nil,
+        description: String? = nil,
+        assignments: [PlaybookAssignment],
+        memory: Bool? = nil
+    ) {
+        self.order = order
+        self.name = name
+        self.prompt = prompt
+        self.description = description
+        self.assignments = assignments
+        self.memory = memory
+    }
+}
+
+/// Deterministic task-type binding for a playbook shortcut.
+public struct PlaybookTrigger: Codable, Sendable, Hashable {
+    public let kind: String
+    public let enabled: Bool
+
+    public init(kind: String, enabled: Bool) {
+        self.kind = kind
+        self.enabled = enabled
+    }
+}
+
+/// Latest or explicitly requested immutable playbook revision.
+public struct Playbook: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let name: String
+    public let revision: Int
+    public let isDefault: Bool?
+    public let planGate: Bool?
+    public let delivery: String
+    public let trigger: PlaybookTrigger
+    public let stages: [PlaybookStage]
+
+    public init(
+        id: String,
+        name: String,
+        revision: Int,
+        isDefault: Bool? = nil,
+        planGate: Bool? = nil,
+        delivery: String,
+        trigger: PlaybookTrigger,
+        stages: [PlaybookStage]
+    ) {
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.isDefault = isDefault
+        self.planGate = planGate
+        self.delivery = delivery
+        self.trigger = trigger
+        self.stages = stages
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case revision
+        case isDefault = "is_default"
+        case planGate = "plan_gate"
+        case delivery
+        case trigger
+        case stages
+    }
+}
+
+/// Pure route-resolution request for `POST /api/route`.
+public struct RouteRequest: Codable, Sendable, Hashable {
+    public let text: String
+    public let playbookID: String?
+    public let playbookRevision: Int?
+    public let taskType: String?
+    public let planGate: Bool?
+
+    public init(
+        text: String,
+        playbookID: String? = nil,
+        playbookRevision: Int? = nil,
+        taskType: String? = nil,
+        planGate: Bool? = nil
+    ) {
+        self.text = text
+        self.playbookID = playbookID
+        self.playbookRevision = playbookRevision
+        self.taskType = taskType
+        self.planGate = planGate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case text
+        case playbookID = "playbook_id"
+        case playbookRevision = "playbook_revision"
+        case taskType = "task_type"
+        case planGate = "plan_gate"
+    }
+}
+
+/// The selected assignment branch for a route-preview stage.
+public struct ResolvedPlaybookStage: Codable, Sendable, Identifiable, Hashable {
+    public let order: Int
+    public let name: String
+    public let prompt: String?
+    public let agent: String
+    public let model: String?
+    public let memory: Bool?
+
+    public var id: Int { order }
+
+    public init(
+        order: Int,
+        name: String,
+        prompt: String? = nil,
+        agent: String,
+        model: String? = nil,
+        memory: Bool? = nil
+    ) {
+        self.order = order
+        self.name = name
+        self.prompt = prompt
+        self.agent = agent
+        self.model = model
+        self.memory = memory
+    }
+}
+
+/// Immutable, side-effect-free result rendered before a handoff.
+public struct RoutePreview: Codable, Sendable, Hashable {
+    public let playbookID: String
+    public let playbookRevision: Int
+    public let playbookName: String
+    public let taskType: String
+    public let source: String
+    public let planGate: Bool
+    public let delivery: String
+    public let stages: [ResolvedPlaybookStage]
+
+    public init(
+        playbookID: String,
+        playbookRevision: Int,
+        playbookName: String,
+        taskType: String,
+        source: String,
+        planGate: Bool,
+        delivery: String,
+        stages: [ResolvedPlaybookStage]
+    ) {
+        self.playbookID = playbookID
+        self.playbookRevision = playbookRevision
+        self.playbookName = playbookName
+        self.taskType = taskType
+        self.source = source
+        self.planGate = planGate
+        self.delivery = delivery
+        self.stages = stages
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case playbookID = "playbook_id"
+        case playbookRevision = "playbook_revision"
+        case playbookName = "playbook_name"
+        case taskType = "task_type"
+        case source
+        case planGate = "plan_gate"
+        case delivery
+        case stages
     }
 }
 
@@ -500,5 +785,60 @@ public struct BreakdownResult: Codable, Sendable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case runID = "run_id"
+    }
+}
+
+/// The command body for `PATCH /api/backlog/{id}`.
+public struct BacklogPatch: Codable, Sendable, Hashable {
+    public let agent: String
+
+    public init(agent: String) {
+        self.agent = agent
+    }
+}
+
+/// One crew member's scorecard over a metrics window.
+public struct AgentMetrics: Codable, Sendable, Identifiable, Hashable {
+    public let agent: String
+    public let assignments: Int
+    public let decided: Int
+    public let firstPass: Int
+    public let firstPassPct: Double
+    public let accepted: Int
+    public let redirects: Int
+    public let redirectsPerAssignment: Double
+    public let costUSD: Double
+    public let costPerAccepted: Double
+    public let costKnown: Bool
+    public let trend: String
+    public let trendDelta: Double
+    public let spark: [Double]
+    public let best: [String]
+    public let weak: [String]
+
+    public var id: String { agent }
+
+    enum CodingKeys: String, CodingKey {
+        case agent, assignments, decided, accepted, redirects, trend, spark, best, weak
+        case firstPass = "first_pass"
+        case firstPassPct = "first_pass_pct"
+        case redirectsPerAssignment = "redirects_per_assignment"
+        case costUSD = "cost_usd"
+        case costPerAccepted = "cost_per_accepted"
+        case costKnown = "cost_known"
+        case trendDelta = "trend_delta"
+    }
+}
+
+/// Scorecards returned by `GET /api/metrics`.
+public struct MetricsResponse: Codable, Sendable, Hashable {
+    public let windowDays: Int
+    public let assignments: Int
+    public let agents: [AgentMetrics]
+    public let lanes: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case windowDays = "window_days"
+        case assignments, agents, lanes
     }
 }

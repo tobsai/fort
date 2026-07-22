@@ -18,5 +18,10 @@ let package = Package(
         .target(
             name: "FortKit"
         ),
+        .executableTarget(
+            name: "FortKitContractChecks",
+            dependencies: ["FortKit"],
+            path: "Tests/FortKitTests"
+        ),
     ]
 )

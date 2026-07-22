@@ -41,7 +41,11 @@ func isTerminal(status string) bool {
 
 // Start runs a flow from its start node with an initial payload.
 func (e *Executor) Start(ctx context.Context, f Flow, runID, payload string) (Result, error) {
-	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
+	body := ""
+	if usesPlaybookContext(f) {
+		body = payload
+	}
+	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Body: body, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
 	return e.walkFrom(ctx, f, runID, f.Start, payload, "")
 }
 
@@ -168,7 +172,7 @@ func (e *Executor) runFanout(ctx context.Context, f Flow, runID string, node Nod
 func (e *Executor) execute(ctx context.Context, f Flow, runID string, node Node, payload string) (Outcome, string, error) {
 	switch node.Type {
 	case Task:
-		return e.execTask(ctx, runID, node, payload)
+		return e.execTask(ctx, f, runID, node, payload)
 	case Check:
 		return e.execCheck(runID, node, payload)
 	case Transform:
@@ -181,20 +185,20 @@ func (e *Executor) execute(ctx context.Context, f Flow, runID string, node Node,
 	}
 }
 
-func (e *Executor) execTask(ctx context.Context, runID string, node Node, payload string) (Outcome, string, error) {
+func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node, payload string) (Outcome, string, error) {
 	max := 0
 	if node.Retry != nil {
 		max = node.Retry.Max
 	}
-	prompt := node.Prompt
-	if prompt == "" {
-		prompt = payload
+	prompt, err := e.taskPrompt(f, runID, node, payload)
+	if err != nil {
+		return "", payload, err
 	}
 	attempts := 0
 	var lastOut string
 	for {
 		attempts++
-		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{RunID: runID, Agent: node.Agent, Prompt: prompt})
+		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{RunID: runID, Agent: node.Agent, Model: node.Model, Prompt: prompt})
 		if err != nil {
 			return "", payload, err
 		}
@@ -217,6 +221,64 @@ func (e *Executor) execTask(ctx context.Context, runID string, node Node, payloa
 		}
 		// retry
 	}
+}
+
+func (e *Executor) taskPrompt(f Flow, runID string, node Node, payload string) (string, error) {
+	if node.Context != ContextPlaybook {
+		if node.Prompt != "" {
+			return node.Prompt, nil
+		}
+		return payload, nil
+	}
+
+	r, err := e.store.GetRun(runID)
+	if err != nil {
+		return "", fmt.Errorf("flow %s: load original direction: %w", f.ID, err)
+	}
+	parts := make([]string, 0, 4)
+	if node.Prompt != "" {
+		parts = append(parts, node.Prompt)
+	}
+	parts = append(parts,
+		"Original direction:\n"+r.Body,
+		"Current approved payload:\n"+payload,
+	)
+
+	nodeRuns, err := e.store.NodeRuns(runID)
+	if err != nil {
+		return "", fmt.Errorf("flow %s: load memory stages: %w", f.ID, err)
+	}
+	byID := make(map[string]store.NodeRun, len(nodeRuns))
+	for _, nr := range nodeRuns {
+		byID[nr.NodeID] = nr
+	}
+	var memories []string
+	for _, prior := range f.Nodes {
+		if prior.ID == node.ID {
+			break
+		}
+		if prior.Type != Task || !prior.Memory {
+			continue
+		}
+		nr, ok := byID[prior.ID]
+		if !ok || nr.Status != "succeeded" {
+			continue
+		}
+		memories = append(memories, "["+prior.ID+"]\n"+nr.Output)
+	}
+	if len(memories) > 0 {
+		parts = append(parts, "Prior memory stage outputs:\n"+strings.Join(memories, "\n\n"))
+	}
+	return strings.Join(parts, "\n\n"), nil
+}
+
+func usesPlaybookContext(f Flow) bool {
+	for _, node := range f.Nodes {
+		if node.Context == ContextPlaybook {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Executor) execCheck(runID string, node Node, payload string) (Outcome, string, error) {

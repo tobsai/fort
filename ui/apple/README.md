@@ -7,8 +7,8 @@ adapt to control-only mode (`Summary.execution == false`).
 ```
 ui/apple/
   FortKit/           shared Swift package — wire models + FortClient + SSE
-  iOS/               iPhone app: Board / Gates / Feed tabs
-  macOS/             menu-bar app (MenuBarExtra): summary + gate quick-approve
+  iOS/               iPhone app: five-tab Command Deck + Playbooks/Feed in More
+  macOS/             windowed Command Deck + Playbooks + MenuBarExtra inbox
   watch/             watchOS app (glance + approve) + WidgetKit complication
   CarPlay/           CPListTemplate scene: gates + status (driving-safe)
   Support/           complication @main bundle + generated Info.plist

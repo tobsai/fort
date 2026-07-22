@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -18,12 +19,14 @@ import (
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Dispatcher Dispatcher    // required
-	Runner     FlowRunner    // nil in control-only mode
-	Store      *store.Store  // required
-	FlowIDs    []string      // available flow ids (for chat templates); empty in control-only
-	Machines   MachineLister // nil in single-machine mode (spec 022)
-	Planner    Planner       // nil in control-only mode (spec 026)
+	Dispatcher     Dispatcher      // required
+	Runner         FlowRunner      // nil in control-only mode
+	Store          *store.Store    // required
+	FlowIDs        []string        // available flow ids (for chat templates); empty in control-only
+	Machines       MachineLister   // nil in single-machine mode (spec 022)
+	Planner        Planner         // nil in control-only mode (spec 026)
+	Playbooks      PlaybookCatalog // deterministic catalog + preview (spec 036)
+	PlaybookRunner PlaybookRunner  // nil in control-only mode
 }
 
 // Server holds the ui handlers.
@@ -58,6 +61,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/backlog/{id}", s.handleBacklogDelete)
 	mux.HandleFunc("POST /api/breakdown", s.handleBreakdown)
 	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
+	mux.HandleFunc("GET /api/playbooks", s.handlePlaybooksList)
+	mux.HandleFunc("PUT /api/playbooks", s.handlePlaybookSave)
+	mux.HandleFunc("POST /api/playbooks/{id}/duplicate", s.handlePlaybookDuplicate)
+	mux.HandleFunc("POST /api/route", s.handleRoute)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 }
@@ -76,6 +83,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
+	gates = assignmentGates(gates, runs)
 	nodesByRun := map[string][]store.NodeRun{}
 	if all, err := s.d.Store.AllNodeRuns(); err == nil {
 		for _, n := range all {
@@ -85,7 +93,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 	// Always emit [] (never null) for array fields so strictly-typed clients
 	// (the Swift surfaces via FortKit) decode cleanly.
 	b := Board{Runs: []RunSummary{}, Gates: []GateItem{}}
-	for _, r := range runs {
+	for _, r := range assignmentRuns(runs) {
 		b.Runs = append(b.Runs, RunSummary{
 			ID: r.ID, Title: r.Title, Body: r.Body, Agent: r.Agent, Status: r.Status,
 			Machine: r.Machine, FlowID: r.FlowID,
@@ -152,6 +160,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
+	gates = assignmentGates(gates, runs)
+	runs = assignmentRuns(runs)
 	sum := Summary{Total: len(runs), Execution: s.d.Runner != nil, Gates: []GateItem{}}
 	for _, r := range runs {
 		switch r.Status {
@@ -174,6 +184,40 @@ func (s *Server) handleSummary(w http.ResponseWriter, _ *http.Request) {
 		sum.Gates = append(sum.Gates, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input})
 	}
 	writeJSON(w, http.StatusOK, sum)
+}
+
+// assignmentRuns hides answer-delivery playbooks from operational surfaces.
+// Their run rows, node state, and events remain intact for direct history and
+// replay; the delivery marker is part of the immutable, resumable flow id.
+func assignmentRuns(runs []store.Run) []store.Run {
+	out := make([]store.Run, 0, len(runs))
+	for _, run := range runs {
+		if isAnswerRun(run) {
+			continue
+		}
+		out = append(out, run)
+	}
+	return out
+}
+
+func assignmentGates(gates []store.NodeRun, runs []store.Run) []store.NodeRun {
+	hidden := make(map[string]bool)
+	for _, run := range runs {
+		if isAnswerRun(run) {
+			hidden[run.ID] = true
+		}
+	}
+	out := make([]store.NodeRun, 0, len(gates))
+	for _, gate := range gates {
+		if !hidden[gate.RunID] {
+			out = append(out, gate)
+		}
+	}
+	return out
+}
+
+func isAnswerRun(run store.Run) bool {
+	return strings.HasPrefix(run.FlowID, "playbook:") && strings.HasSuffix(run.FlowID, ":answer")
 }
 
 func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
@@ -216,6 +260,12 @@ func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
+	runs, err := s.d.Store.ListRuns()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	gates = assignmentGates(gates, runs)
 	out := []GateItem{}
 	for _, g := range gates {
 		out = append(out, GateItem{RunID: g.RunID, NodeID: g.NodeID, Input: g.Input,
@@ -270,6 +320,10 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "text is required", http.StatusBadRequest)
 		return
 	}
+	if req.PlaybookID != "" || req.PlaybookRevision != 0 || req.TaskType != "" || req.PlanGate != nil {
+		s.handlePlaybookChat(w, r, req)
+		return
+	}
 	// The title is the first NON-EMPTY line: skip leading blank/whitespace-only
 	// lines so they can't produce an untitled run (the blank-text guard above
 	// already rejected fully-blank input).
@@ -308,6 +362,119 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ChatResult{Kind: "task", RunID: ref.RunID, Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued})
+}
+
+func (s *Server) handlePlaybookChat(w http.ResponseWriter, r *http.Request, req ChatRequest) {
+	if s.d.Playbooks == nil {
+		http.Error(w, "playbooks are not configured", http.StatusConflict)
+		return
+	}
+	preview, err := s.d.Playbooks.Route(r.Context(), RouteRequest{
+		Text: req.Text, PlaybookID: req.PlaybookID, PlaybookRevision: req.PlaybookRevision,
+		TaskType: req.TaskType, PlanGate: req.PlanGate,
+	})
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	if s.d.PlaybookRunner == nil {
+		http.Error(w, "no execution plane: playbook handoff needs the deterministic engine", http.StatusConflict)
+		return
+	}
+	runID := uuid.NewString()
+	res, err := s.d.PlaybookRunner.StartPlaybook(r.Context(), preview, runID, req.Text)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	kind := "flow"
+	if preview.Delivery == "answer" {
+		if res.State != "completed" {
+			httpError(w, fmt.Errorf("quick answer failed with state %q", res.State))
+			return
+		}
+		if strings.TrimSpace(res.Answer) == "" {
+			httpError(w, fmt.Errorf("quick answer completed without output"))
+			return
+		}
+		kind = "answer"
+	}
+	writeJSON(w, http.StatusOK, ChatResult{
+		Kind: kind, RunID: runID, FlowID: res.FlowID, Paused: res.PausedNode, Answer: res.Answer,
+		PlaybookID: preview.PlaybookID, PlaybookRevision: preview.PlaybookRevision,
+	})
+}
+
+func (s *Server) handlePlaybooksList(w http.ResponseWriter, r *http.Request) {
+	if s.d.Playbooks == nil {
+		writeJSON(w, http.StatusOK, []Playbook{})
+		return
+	}
+	items, err := s.d.Playbooks.List(r.Context())
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	if items == nil {
+		items = []Playbook{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handlePlaybookSave(w http.ResponseWriter, r *http.Request) {
+	if s.d.Playbooks == nil {
+		http.Error(w, "playbooks are not configured", http.StatusConflict)
+		return
+	}
+	var p Playbook
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	saved, err := s.d.Playbooks.Save(r.Context(), p)
+	if err != nil {
+		if errors.Is(err, store.ErrPlaybookRevisionStale) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, saved)
+}
+
+func (s *Server) handlePlaybookDuplicate(w http.ResponseWriter, r *http.Request) {
+	if s.d.Playbooks == nil {
+		http.Error(w, "playbooks are not configured", http.StatusConflict)
+		return
+	}
+	p, err := s.d.Playbooks.Duplicate(r.Context(), r.PathValue("id"))
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (s *Server) handleRoute(w http.ResponseWriter, r *http.Request) {
+	if s.d.Playbooks == nil {
+		http.Error(w, "playbooks are not configured", http.StatusConflict)
+		return
+	}
+	var req RouteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Text) == "" {
+		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+	preview, err := s.d.Playbooks.Route(r.Context(), req)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	if preview.Stages == nil {
+		preview.Stages = []ResolvedPlaybookStage{}
+	}
+	writeJSON(w, http.StatusOK, preview)
 }
 
 func (s *Server) handleBacklogList(w http.ResponseWriter, _ *http.Request) {

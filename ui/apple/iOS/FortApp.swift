@@ -2,10 +2,9 @@
 //  FortApp.swift
 //  Fort (iOS)
 //
-//  The iOS control-plane client for Fort. A three-tab surface over FortKit:
-//    • Board  — runs with status badges + a chat field (client.chat)
-//    • Gates  — the gate inbox with Approve/Reject (client.decideGate)
-//    • Feed   — the SSE live feed (client.events)
+//  The iOS control-plane client for Fort. The Command Deck folds sign-offs,
+//  projects, direction and Today into one thumb-reachable native surface;
+//  Playbooks, crew, week, activity, and settings remain available through More.
 //
 //  A single FortClient is held at the app root as a @StateObject and injected
 //  into the environment; every tab talks to Fort only through it.
@@ -24,52 +23,17 @@ struct FortApp: App {
         WindowGroup {
             RootTabView()
                 .environmentObject(client)
+                .tint(FortPalette.brass)
+                .preferredColorScheme(.dark)
         }
     }
 }
 
-/// The app's tab bar. Board / Gates / Feed, plus a lightweight Settings sheet
-/// for pointing the client at a different host.
+/// The Command Deck owns the canonical five-item mobile navigation. Keeping the
+/// root as one NavigationStack prevents a second, competing system tab bar.
 struct RootTabView: View {
-    @EnvironmentObject private var client: FortClient
-    @State private var showSettings = false
-
     var body: some View {
-        TabView {
-            NavigationStack {
-                BoardView()
-                    .toolbar { settingsButton }
-            }
-            .tabItem { Label("Board", systemImage: "square.stack.3d.up") }
-
-            NavigationStack {
-                GatesView()
-                    .toolbar { settingsButton }
-            }
-            .tabItem { Label("Gates", systemImage: "hand.raised") }
-
-            NavigationStack {
-                FeedView()
-                    .toolbar { settingsButton }
-            }
-            .tabItem { Label("Feed", systemImage: "dot.radiowaves.left.and.right") }
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(client)
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var settingsButton: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .accessibilityLabel("Settings")
-        }
+        NavigationStack { BoardView() }
     }
 }
 

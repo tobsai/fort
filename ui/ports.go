@@ -65,3 +65,28 @@ type FlowRunner interface {
 type Planner interface {
 	Breakdown(ctx context.Context, goal, agent, machine string) (runID string, err error)
 }
+
+// PlaybookCatalog owns immutable playbook revisions and deterministic route
+// resolution. It is available in both full and control-only modes; Route must
+// never invoke a model or dispatch runtime work.
+type PlaybookCatalog interface {
+	List(ctx context.Context) ([]Playbook, error)
+	Save(ctx context.Context, p Playbook) (Playbook, error)
+	Duplicate(ctx context.Context, id string) (Playbook, error)
+	Route(ctx context.Context, req RouteRequest) (RoutePreview, error)
+}
+
+// PlaybookRunResult is the synchronous Start result. Answer is populated only
+// by a delivery=answer playbook; its event history remains inspectable.
+type PlaybookRunResult struct {
+	State      string `json:"state"`
+	PausedNode string `json:"paused_node,omitempty"`
+	FlowID     string `json:"flow_id"`
+	Answer     string `json:"answer,omitempty"`
+}
+
+// PlaybookRunner compiles and executes an already-resolved immutable route.
+// It is nil in control-only mode.
+type PlaybookRunner interface {
+	StartPlaybook(ctx context.Context, route RoutePreview, runID, direction string) (PlaybookRunResult, error)
+}

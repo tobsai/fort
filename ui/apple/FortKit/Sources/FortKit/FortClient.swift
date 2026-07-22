@@ -43,16 +43,25 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     private let encoder: JSONEncoder
 
     /// Creates a client pointed at `baseURL` (default `http://127.0.0.1:4087`).
-    public init(baseURL: URL = URL(string: "http://127.0.0.1:4087")!) {
+    /// `session` is injectable for deterministic contract checks; apps use the
+    /// cache-free streaming configuration created here.
+    public init(
+        baseURL: URL = URL(string: "http://127.0.0.1:4087")!,
+        session: URLSession? = nil
+    ) {
         self.baseURL = baseURL
 
-        // SSE requires that responses are never coalesced or buffered by a
-        // cache, and that the connection stays open indefinitely.
-        let config = URLSessionConfiguration.default
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        config.urlCache = nil
-        config.timeoutIntervalForRequest = 0 // no per-request timeout: SSE is long-lived
-        self.session = URLSession(configuration: config)
+        if let session {
+            self.session = session
+        } else {
+            // SSE requires that responses are never coalesced or buffered by a
+            // cache, and that the connection stays open indefinitely.
+            let config = URLSessionConfiguration.default
+            config.requestCachePolicy = .reloadIgnoringLocalCacheData
+            config.urlCache = nil
+            config.timeoutIntervalForRequest = 0 // no per-request timeout: SSE is long-lived
+            self.session = URLSession(configuration: config)
+        }
 
         // Models carry explicit snake_case CodingKeys, so we do NOT apply a
         // key-decoding strategy (that would double-convert and fail).
@@ -94,13 +103,67 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         try await get("/api/machines")
     }
 
+    /// `GET /api/metrics` — human-decision scorecards for the crew.
+    public func metrics(days: Int = 30, lane: String? = nil) async throws -> MetricsResponse {
+        var path = "/api/metrics?days=\(days)"
+        if let lane, !lane.isEmpty {
+            let escaped = lane.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? lane
+            path += "&lane=\(escaped)"
+        }
+        return try await get(path)
+    }
+
+    /// `GET /api/playbooks` — latest immutable revision of every playbook.
+    public func playbooks() async throws -> [Playbook] {
+        try await get("/api/playbooks")
+    }
+
     // MARK: - Commands
 
     /// `POST /api/chat` — submit a chat turn. Returns the resulting route.
     @discardableResult
-    public func chat(_ text: String, agent: String? = nil) async throws -> ChatResult {
-        let body = ChatRequest(text: text, agent: agent)
-        return try await post("/api/chat", body: body)
+    public func chat(
+        _ text: String,
+        agent: String? = nil,
+        machine: String? = nil,
+        playbookID: String? = nil,
+        playbookRevision: Int? = nil,
+        taskType: String? = nil,
+        planGate: Bool? = nil
+    ) async throws -> ChatResult {
+        try await chat(ChatRequest(
+            text: text,
+            agent: agent,
+            machine: machine,
+            playbookID: playbookID,
+            playbookRevision: playbookRevision,
+            taskType: taskType,
+            planGate: planGate
+        ))
+    }
+
+    /// `POST /api/chat` — submit a fully resolved playbook handoff.
+    @discardableResult
+    public func chat(_ request: ChatRequest) async throws -> ChatResult {
+        try await post("/api/chat", body: request)
+    }
+
+    /// `POST /api/route` — resolve a route without dispatching or persisting.
+    public func route(_ request: RouteRequest) async throws -> RoutePreview {
+        try await post("/api/route", body: request)
+    }
+
+    /// `PUT /api/playbooks` — append a new immutable revision.
+    @discardableResult
+    public func savePlaybook(_ playbook: Playbook) async throws -> Playbook {
+        try await put("/api/playbooks", body: playbook)
+    }
+
+    /// `POST /api/playbooks/{id}/duplicate` — create an editable copy.
+    @discardableResult
+    public func duplicatePlaybook(_ id: String) async throws -> Playbook {
+        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await post("/api/playbooks/\(escaped)/duplicate", body: Optional<NoBody>.none)
     }
 
     /// `POST /api/openclaw` — deliver an inbound OpenClaw message.
@@ -131,6 +194,13 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return try await post("/api/backlog", body: request)
     }
 
+    /// `PATCH /api/backlog/{id}` — pin or reassign Up-next work.
+    @discardableResult
+    public func reassignBacklog(_ id: String, agent: String) async throws -> BacklogItem {
+        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await patch("/api/backlog/\(escaped)", body: BacklogPatch(agent: agent))
+    }
+
     /// `POST /api/breakdown` — ask the planner to decompose a goal into backlog
     /// sub-tasks (spec 026). Returns the visible planner run's id.
     @discardableResult
@@ -148,9 +218,10 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         run: String,
         node: String,
         decision: String,
-        edit: String? = nil
+        edit: String? = nil,
+        note: String? = nil
     ) async throws -> Bool {
-        let body = GateDecision(runID: run, nodeID: node, decision: decision, edit: edit)
+        let body = GateDecision(runID: run, nodeID: node, decision: decision, edit: edit, note: note)
         let request = try makeRequest(path: "/api/gate", method: "POST", jsonBody: body)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -283,6 +354,26 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return try decoder.decode(T.self, from: data)
     }
 
+    private func put<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
+        let request = try makeRequest(path: path, method: "PUT", jsonBody: body)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw FortClientError.nonHTTPResponse
+        }
+        try Self.throwIfNotOK(http, data: data)
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private func patch<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
+        let request = try makeRequest(path: path, method: "PATCH", jsonBody: body)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw FortClientError.nonHTTPResponse
+        }
+        try Self.throwIfNotOK(http, data: data)
+        return try decoder.decode(T.self, from: data)
+    }
+
     /// Builds a request. Pass `Optional<Never>.none` as `jsonBody` for no body.
     private func makeRequest<Body: Encodable>(
         path: String,
@@ -292,7 +383,12 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         // path begins with "/"; strip it so appendingPathComponent joins cleanly
         // regardless of whether baseURL has a trailing slash.
         let relative = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        let url = baseURL.appendingPathComponent(relative)
+        let pieces = relative.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        var url = baseURL.appendingPathComponent(String(pieces[0]))
+        if pieces.count == 2, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.percentEncodedQuery = String(pieces[1])
+            if let queryURL = components.url { url = queryURL }
+        }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")

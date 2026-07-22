@@ -121,7 +121,7 @@ func gateFlow() Flow {
 		ID: "g", Start: "g1",
 		Nodes: []Node{
 			{ID: "g1", Type: Gate, Edges: []Edge{{On: OutApprove, To: "k1"}, {On: OutReject, To: "k2"}}},
-			{ID: "k1", Type: Task, Agent: "codex"}, // approved path
+			{ID: "k1", Type: Task, Agent: "codex"},  // approved path
 			{ID: "k2", Type: Task, Agent: "claude"}, // rejected path
 		},
 	}
@@ -304,6 +304,81 @@ func TestTransformEventHasEmptyNodeID(t *testing.T) {
 	for _, e := range evs {
 		if e.Type == "transform" && e.NodeID != "" {
 			t.Errorf("run-level transform event node_id=%q, want empty", e.NodeID)
+		}
+	}
+}
+
+func TestOrdinaryTaskPromptBehaviorIsUnchanged(t *testing.T) {
+	ex, _, rt := newExec(t)
+	f := Flow{
+		ID: "ordinary-prompt", Start: "task",
+		Nodes: []Node{{ID: "task", Type: Task, Agent: "codex", Prompt: "fixed instruction"}},
+	}
+	if _, err := ex.Start(context.Background(), f, "ordinary-run", "incoming payload"); err != nil {
+		t.Fatal(err)
+	}
+	d := rt.Dispatched()
+	if len(d) != 1 || d[0].Prompt != "fixed instruction" {
+		t.Fatalf("ordinary prompt = %+v, want the node prompt unchanged", d)
+	}
+}
+
+func TestPlaybookContextCarriesDirectionApprovedPayloadAndMemory(t *testing.T) {
+	ex, _, rt := newExec(t)
+	f := Flow{
+		ID: "playbook-context", Name: "Playbook", Start: "plan",
+		Nodes: []Node{
+			{
+				ID: "plan", Type: Task, Agent: "hermes", Model: "planner-model",
+				Prompt: "Draft the plan.", Context: ContextPlaybook, Memory: true,
+				Edges: []Edge{{On: OutSuccess, To: "gate"}},
+			},
+			{ID: "gate", Type: Gate, Edges: []Edge{{On: OutApprove, To: "build"}}},
+			{
+				ID: "build", Type: Task, Agent: "codex", Model: "builder-model",
+				Prompt: "Implement the plan.", Context: ContextPlaybook,
+			},
+		},
+	}
+	res, err := ex.Start(context.Background(), f, "playbook-run", "ORIGINAL DIRECTION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "paused" || res.PausedNode != "gate" {
+		t.Fatalf("start = %+v", res)
+	}
+	d := rt.Dispatched()
+	if len(d) != 1 || d[0].Model != "planner-model" {
+		t.Fatalf("first dispatch = %+v", d)
+	}
+	firstPrompt := d[0].Prompt
+	for _, want := range []string{"Draft the plan.", "Original direction:\nORIGINAL DIRECTION", "Current approved payload:\nORIGINAL DIRECTION"} {
+		if !strings.Contains(firstPrompt, want) {
+			t.Errorf("first prompt missing %q:\n%s", want, firstPrompt)
+		}
+	}
+
+	if err := ex.Approve("playbook-run", "gate", "APPROVED PAYLOAD"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ex.Resume(context.Background(), f, "playbook-run"); err != nil {
+		t.Fatal(err)
+	}
+	d = rt.Dispatched()
+	if len(d) != 2 || d[1].Model != "builder-model" {
+		t.Fatalf("dispatches = %+v", d)
+	}
+	secondPrompt := d[1].Prompt
+	for _, want := range []string{
+		"Implement the plan.",
+		"Original direction:\nORIGINAL DIRECTION",
+		"Current approved payload:\nAPPROVED PAYLOAD",
+		"Prior memory stage outputs:",
+		"[plan]",
+		firstPrompt,
+	} {
+		if !strings.Contains(secondPrompt, want) {
+			t.Errorf("second prompt missing %q:\n%s", want, secondPrompt)
 		}
 	}
 }

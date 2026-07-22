@@ -31,7 +31,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	resp := computeMetrics(runs, s.d.Store.Events, time.Now().UTC(), days, lane)
+	resp := computeMetrics(assignmentRuns(runs), s.d.Store.Events, time.Now().UTC(), days, lane)
 	writeJSON(w, http.StatusOK, resp)
 }
 

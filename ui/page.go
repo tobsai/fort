@@ -164,7 +164,8 @@ const boardHTML = `<!doctype html>
   .chip{font-size:13px;padding:7px 14px;border-radius:20px;border:1px solid var(--outline);color:var(--body);background:transparent;cursor:pointer}
   .chip.on{font-weight:600;border:1.5px solid var(--brass);background:var(--tint-brass);color:var(--brass2)}
   .chips.machines .chip{font-family:var(--mono);font-size:12px;padding:5px 11px}
-  .toggle{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--body);cursor:pointer;user-select:none}
+  .toggle{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;text-align:left;font:13.5px var(--font);color:var(--body);cursor:pointer;user-select:none}
+  .toggle[hidden]{display:none}
   .track{width:34px;height:20px;border-radius:10px;background:var(--brass);position:relative;display:inline-block;flex:none;transition:background .15s}
   .track i{position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--bg);transition:right .15s}
   .toggle.off .track{background:var(--outline)}
@@ -208,6 +209,71 @@ const boardHTML = `<!doctype html>
   .tchips .poor{background:var(--line);color:var(--faint)}
   .scard .foot{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--mut)}
   select{background:var(--panel);color:var(--body);border:1px solid var(--outline);border-radius:8px;padding:6px 12px;font:13px var(--font);cursor:pointer}
+
+  /* ---- playbooks + route preview (Turn 4) ---- */
+  .mode-switch{display:inline-flex;align-self:flex-start;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+  .mode-switch button{border:0;background:transparent;color:var(--mut);font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer}
+  .mode-switch button.on{background:var(--raise);color:var(--fg);font-weight:600}
+  .routecard{background:var(--tint-work);border:1px solid var(--raise);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:9px}
+  .routecard .hd{display:flex;align-items:center;gap:8px}
+  .routecard .lb{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--work)}
+  .routecard .nm{font-size:13.5px;font-weight:600}
+  .routecard .change{margin-left:auto;border:0;background:none;padding:0;color:var(--brass2);font-size:12.5px;cursor:pointer}
+  .routechain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px}
+  .routechip{padding:4px 10px;border-radius:14px;background:var(--line);color:var(--body)}
+  .routechip .model{font:11px var(--mono);color:var(--mut)}
+  .routearrow{color:var(--sched)}
+  .routenote{font-size:12px;color:var(--mut)}
+  .routepicker{display:flex;gap:7px;flex-wrap:wrap;padding:9px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+  .routepicker[hidden]{display:none}
+  .routepicker button{background:transparent;border:1px solid var(--outline);border-radius:16px;color:var(--body);padding:5px 10px;font-size:12.5px;cursor:pointer}
+  .routepicker button.on{border-color:var(--brass);background:var(--tint-brass);color:var(--brass2);font-weight:600}
+  .quickanswer{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .quickanswer.fail{border-color:var(--bad)}
+  .quickanswer.fail .answerhead{color:var(--bad)}
+  .quickanswer[hidden]{display:none}
+  .quickanswer .answerhead{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--work);margin-bottom:6px}
+
+  .playbook-layout{display:flex;min-height:520px}
+  .playbook-rail{flex:none;width:250px;border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:8px}
+  .pbitem{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;text-align:left;color:var(--fg);cursor:pointer}
+  .pbitem:hover{border-color:var(--raise)}
+  .pbitem.on{border-color:var(--raise);border-left:3px solid var(--brass)}
+  .pbitem .name{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+  .pbitem .default{font-size:10.5px;padding:2px 7px;border-radius:10px;background:var(--tint-brass);color:var(--brass2)}
+  .pbitem .meta{font-size:12px;color:var(--mut)}
+  .playbook-main{flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
+  .pbeditor-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .pbeditor-head .title{font-size:17px;font-weight:600}
+  .pbeditor-head .trigger{font-size:12.5px;color:var(--mut)}
+  .pbeditor-head .gate-label{margin-left:auto}
+  .pbeditor-head .edit{border:0;background:none;padding:0;color:var(--brass2);cursor:pointer;font-size:12.5px}
+  .pbeditor-head .revision{margin-left:auto;font:11px var(--mono);color:var(--faint)}
+  .pipeline{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:4px}
+  .stagecard{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--raise);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+  .stagecard .hd{display:flex;align-items:center;gap:8px}
+  .stagecard .num{font:600 11px var(--mono);color:var(--faint)}
+  .stagecard .name{font-size:14px;font-weight:600}
+  .stagecard .badge{margin-left:auto;border:0;font:600 10.5px var(--font);padding:2px 8px;border-radius:10px;background:var(--line);color:var(--mut)}
+  .stagecard button.badge{cursor:pointer}
+  .stagecard .badge.memory{background:var(--tint-work);color:var(--work)}
+  .stagecard .assignment{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .stagecard .tasktype{font-size:11.5px;color:var(--faint);width:62px;flex:none}
+  .agentselect,.modelselect{appearance:auto;max-width:150px}
+  .agentselect{font-size:13.5px;font-weight:600;padding:5px 9px;border-radius:16px;background:transparent;color:var(--fg)}
+  .modelselect{font:11.5px var(--mono);padding:4px 7px;border:0;border-radius:6px;background:var(--line);color:var(--mut)}
+  .stagecard .desc{font-size:12px;color:var(--mut);line-height:1.45}
+  .pipearrow,.stageadd{flex:none;align-self:center;color:var(--sched);font-size:16px;padding:0 10px}
+  .stageadd{border:0;background:none;cursor:pointer;color:var(--brass2)}
+  .shortcuts{display:flex;flex-direction:column;gap:9px}
+  .shortcutrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 15px}
+  .shortcutrow .copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .shortcutrow .title{font-size:13.5px;font-weight:600}
+  .shortcutrow .summary{font-size:12px;color:var(--mut)}
+  .switchbtn{margin-left:auto;flex:none;width:34px;height:20px;border:0;border-radius:10px;background:var(--outline);position:relative;cursor:pointer;padding:0}
+  .switchbtn i{position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--bg);transition:left .15s}
+  .switchbtn.on{background:var(--brass)}
+  .switchbtn.on i{left:16px}
 
   /* ---- schedule grids (week + today) ---- */
   .schedwrap{position:relative;padding:20px 22px 8px}
@@ -271,6 +337,31 @@ const boardHTML = `<!doctype html>
   .drawer-log .ev{padding:1px 0}
   .drawer-log .ev .k{color:var(--faint)}
   .a-tool{color:var(--mut)} .a-sub{color:var(--work);padding-left:14px} .a-msg{color:var(--body)}
+  @media (max-width:900px){
+    header{flex-wrap:wrap;gap:10px;padding:12px 14px}
+    nav{order:3;width:100%;overflow-x:auto;padding-bottom:2px}
+    nav button{white-space:nowrap}
+    #machines{display:none!important}
+    .deck,.assign,.playbook-layout{flex-direction:column}
+    .deck-left,.assign-left{border-right:0;border-bottom:1px solid var(--line)}
+    .projgrid,.perfgrid{grid-template-columns:1fr;padding:14px}
+    .deck-left,.deck-right,.assign-left,.assign-right,.playbook-main{padding:16px}
+    .playbook-rail{width:auto;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+    .pipeline{gap:8px}
+    .pipearrow{display:none}
+    .subhead{padding:12px 14px;flex-wrap:wrap}
+    .legend{width:100%;overflow-x:auto}
+  }
+  @media (max-width:600px){
+    nav{scrollbar-width:none}
+    nav::-webkit-scrollbar{display:none}
+    .pipeline{flex-direction:column;overflow-x:visible}
+    .stagecard{min-width:0}
+    .stageadd{align-self:flex-start;padding:2px 0}
+    .pbeditor-head .revision{margin-left:0}
+    .pbeditor-head .gate-label{margin-left:0}
+    .shortcutrow{align-items:flex-start}
+  }
 </style>
 </head>
 <body>
@@ -283,6 +374,7 @@ const boardHTML = `<!doctype html>
     <button data-v="perf">Performance</button>
     <button data-v="week">Week</button>
     <button data-v="today">Today</button>
+    <button data-v="playbooks">Playbooks</button>
   </nav>
   <span class="needpill" id="needpill" hidden></span>
   <span class="grow"></span>
@@ -318,16 +410,18 @@ const boardHTML = `<!doctype html>
   <div class="assign">
     <div class="assign-left">
       <h2>Give direction</h2>
+      <div class="mode-switch" role="tablist" aria-label="direction type">
+        <button id="modeassignment" class="on" role="tab" aria-selected="true">Assignment</button>
+        <button id="modequick" role="tab" aria-selected="false">Quick question</button>
+      </div>
       <textarea id="brief" placeholder="Describe the outcome you want — like briefing an employee."></textarea>
       <div id="briefpv" class="mdbody preview" hidden></div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <span class="ulabel" style="letter-spacing:.08em">Assign to</span>
-        <div class="chips" id="agentchips"></div>
-        <div class="chips machines" id="machinechips" hidden></div>
-      </div>
-      <label class="toggle" id="plantoggle"><span class="track"><i></i></span>Propose a plan first — I&#39;ll sign off before work starts</label>
+      <div id="routepreview" class="routecard" hidden></div>
+      <div id="routepicker" class="routepicker" hidden></div>
+      <button type="button" class="toggle" id="plantoggle" aria-pressed="true"><span class="track"><i></i></span>Propose a plan first — I&#39;ll sign off before work starts</button>
       <button class="btn btn-brass handoff" id="handoff">Hand it off</button>
       <button class="orlink" id="tobacklog">or add to Up next ›</button>
+      <div id="quickanswer" class="quickanswer" hidden></div>
     </div>
     <div class="assign-right">
       <div class="ulabel">The roster</div>
@@ -354,6 +448,17 @@ const boardHTML = `<!doctype html>
   <div class="subhead"><span class="t">Today</span><span class="cm" id="todaydate"></span><span class="grow"></span><span class="c" id="daysum"></span></div>
   <div class="schedwrap" id="todaywrap"><div class="daygrid" id="daygrid"></div><div class="nowline" id="nowline" hidden></div><div class="nowlab" id="nowlab" hidden>NOW</div></div>
   <div class="gridfoot">Your row is derived, not planned: solid amber = a sign-off already waiting; dashed amber = a checkpoint an agent is on pace to reach. Answer them early and the crew&#39;s afternoon compresses left.</div>
+</section>
+
+<section class="view" id="v-playbooks" hidden>
+  <div class="subhead">
+    <span class="t">Playbooks</span><span class="c">who does what, with which model</span><span class="grow"></span>
+    <button class="btn btn-brassline" id="newplaybook">＋ New playbook</button>
+  </div>
+  <div class="playbook-layout">
+    <aside class="playbook-rail" id="playbooklist" aria-label="playbooks"></aside>
+    <main class="playbook-main" id="playbookeditor"></main>
+  </div>
 </section>
 
 <div id="drawer" class="drawer" hidden>
@@ -415,13 +520,18 @@ function md(src){
 
 // ---- state ----
 let hasExec=true;
-let model={sum:null,machines:[],runs:[],gates:[],backlog:[],metrics:null};
+let model={sum:null,machines:[],runs:[],gates:[],backlog:[],metrics:null,playbooks:[]};
 let agentOfRun={};       // flow run id -> agent of its latest started event
 let actByRun={};         // live activity buffers (spec 030)
 const ACT_MAX=6;
 let dwRun=null, dwNode=null, dwNodes=[], dwEvents=[];
 let assignCtx=null;      // {backlogId} when assigning an existing brief
-let selAgent='', selMachine='', planFirst=true;
+let assignMode='assignment';
+let planFirst=true;
+let routePreview=null, routeChoice=null, routePickerOpen=false, routeTimer=null, routeSerial=0;
+let quickAnswer='',quickAnswerError='';
+let playbooksLoaded=false,playbooksLoading=false;
+let selectedPlaybook=localStorage.getItem('fort-playbook')||'';
 let curView=localStorage.getItem('fort-view')||'deck';
 let perfLane='';
 
@@ -492,11 +602,19 @@ function showView(v){
   document.querySelectorAll('.view').forEach(function(s){s.hidden=('v-'+v!==s.id);});
   document.querySelectorAll('#nav button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});
   if(v==='perf')fetchMetrics();
+  if(v==='playbooks'&&!playbooksLoaded)fetchPlaybooks();
   render();
 }
 document.querySelectorAll('#nav button').forEach(function(b){b.addEventListener('click',function(){showView(b.dataset.v);});});
-$('#givedir').addEventListener('click',function(){assignCtx=null;showView('assign');$('#brief').focus();});
-$('#newbrief').addEventListener('click',function(){assignCtx=null;showView('assign');$('#brief').focus();});
+function beginDirection(){
+  assignCtx=null;assignMode='assignment';planFirst=true;routeChoice=null;routePreview=null;routePickerOpen=false;quickAnswer='';quickAnswerError='';
+  showView('assign');$('#brief').focus();
+}
+$('#givedir').addEventListener('click',beginDirection);
+$('#newbrief').addEventListener('click',beginDirection);
+$('#modeassignment').addEventListener('click',function(){setAssignMode('assignment');});
+$('#modequick').addEventListener('click',function(){setAssignMode('quick');});
+$('#newplaybook').addEventListener('click',duplicatePlaybook);
 
 // ---- SSE + activity buffers (spec 030) ----
 function trackEvent(e){
@@ -559,6 +677,22 @@ async function fetchMetrics(){
   try{model.metrics=await fetchJSON('/api/metrics'+(perfLane?'?lane='+encodeURIComponent(perfLane):''));}catch(err){return;}
   if(curView==='perf')renderPerf();
 }
+async function fetchPlaybooks(){
+  if(playbooksLoading)return;
+  playbooksLoading=true;
+  try{
+    var payload=await fetchJSON('/api/playbooks');
+    model.playbooks=Array.isArray(payload)?payload:((payload&&payload.playbooks)||[]);
+    playbooksLoaded=true;
+    if(!selectedPlaybook||!playbookByID(selectedPlaybook)){
+      var d=model.playbooks.find(function(p){return p.is_default;})||model.playbooks[0];
+      selectedPlaybook=d?d.id:'';
+    }
+  }catch(err){playbooksLoaded=true;model.playbooks=[];}
+  playbooksLoading=false;
+  if(curView==='playbooks')renderPlaybooks();
+  if(curView==='assign'){renderAssignControls();renderRoutePreview();}
+}
 
 // ---- derived model ----
 function runByID(id){for(var i=0;i<model.runs.length;i++)if(model.runs[i].id===id)return model.runs[i];return null;}
@@ -573,6 +707,7 @@ function agentSet(){
   model.machines.forEach(function(m){(m.agents||[]).forEach(function(a){s[a]=1;});});
   model.runs.forEach(function(r){var a=runAgent(r);if(a)s[a]=1;});
   if(model.metrics)(model.metrics.agents||[]).forEach(function(a){s[a.agent]=1;});
+  model.playbooks.forEach(function(p){(p.stages||[]).forEach(function(st){(st.assignments||[]).forEach(function(a){if(a.agent)s[a.agent]=1;});});});
   return Object.keys(s).sort();
 }
 function agentStatus(a){
@@ -651,6 +786,7 @@ function render(){
   if(curView==='perf')renderPerf();
   if(curView==='week')renderWeek();
   if(curView==='today')renderToday();
+  if(curView==='playbooks')renderPlaybooks();
 }
 function renderHeader(){
   var n=needCount();
@@ -753,11 +889,12 @@ function assignBrief(id){
   model.backlog.forEach(function(b){if(b.id===id)item=b;});
   if(!item)return;
   assignCtx={backlogId:id};
+  assignMode='assignment';planFirst=true;routeChoice=null;routePreview=null;routePickerOpen=false;quickAnswer='';quickAnswerError='';
   showView('assign');
   $('#brief').value=item.title+(item.body?'\n'+item.body:'');
-  selAgent=item.agent||'';
   renderAssignControls();
   renderBriefPreview();
+  queueRoutePreview();
 }
 
 // ---- Projects (1b) ----
@@ -825,7 +962,7 @@ function renderAssign(){
     var cls=st.state==='need'?'need':st.state==='working'?'work':'idle';
     if(st.state==='idle'){
       return '<div class="roster idle"><div class="hd"><span class="nm">'+esc(dispName(a))+'</span><span class="pill pill-idle">idle</span>'+
-        '<button class="btn btn-brassline" style="margin-left:auto;font-size:12.5px;padding:5px 12px" onclick="pickAgent(\''+esc(jsq(a))+'\')">Assign work</button></div></div>';
+        '<button class="btn btn-brassline" style="margin-left:auto;font-size:12.5px;padding:5px 12px" onclick="showView(\'assign\')">Assign work</button></div></div>';
     }
     var r=st.run;
     var pill=st.state==='need'?'<span class="pill pill-need">waiting on you</span>':
@@ -847,21 +984,33 @@ function renderAssign(){
       '<div class="sent">'+esc(sent)+'</div>'+dots+'</div>';
   }).join('')||'<div class="empty" style="padding:4px 0">No agents seen yet — they appear once work is routed.</div>';
 }
-function pickAgent(a){selAgent=a;renderAssignControls();$('#brief').focus();}
-function pickMachine(m){selMachine=m;renderAssignControls();}
-function renderAssignControls(){
-  var as=agentSet();
-  $('#agentchips').innerHTML='<button class="chip'+(selAgent===''?' on':'')+'" onclick="pickAgent(\'\')">Fort decides</button>'+
-    as.map(function(a){return '<button class="chip'+(selAgent===a?' on':'')+'" onclick="pickAgent(\''+esc(jsq(a))+'\')">'+esc(dispName(a))+'</button>';}).join('');
-  var ms=model.machines;
-  $('#machinechips').hidden=ms.length<2;
-  if(ms.length>=2){
-    $('#machinechips').innerHTML='<button class="chip'+(selMachine===''?' on':'')+'" onclick="pickMachine(\'\')">any machine</button>'+
-      ms.map(function(m){return '<button class="chip'+(selMachine===m.name?' on':'')+'" onclick="pickMachine(\''+esc(jsq(m.name))+'\')">'+esc(m.name)+'</button>';}).join('');
-  }
-  $('#plantoggle').classList.toggle('off',!planFirst);
+function setAssignMode(mode){
+  if(mode!=='quick')mode='assignment';
+  if(assignMode===mode)return;
+  assignMode=mode;routeChoice=null;routePreview=null;routePickerOpen=false;quickAnswer='';quickAnswerError='';
+  renderAssignControls();queueRoutePreview();$('#brief').focus();
 }
-$('#plantoggle').addEventListener('click',function(){planFirst=!planFirst;renderAssignControls();});
+function effectivePlanGate(){return assignMode!=='quick'&&planFirst;}
+function renderAssignControls(){
+  var quick=assignMode==='quick';
+  $('#modeassignment').classList.toggle('on',!quick);
+  $('#modeassignment').setAttribute('aria-selected',quick?'false':'true');
+  $('#modequick').classList.toggle('on',quick);
+  $('#modequick').setAttribute('aria-selected',quick?'true':'false');
+  $('#plantoggle').hidden=quick;
+  $('#plantoggle').classList.toggle('off',!effectivePlanGate());
+  $('#plantoggle').setAttribute('aria-pressed',effectivePlanGate()?'true':'false');
+  $('#tobacklog').hidden=quick;
+  $('#handoff').textContent=quick?'Ask Fort':'Hand it off';
+  $('#brief').placeholder=quick?'Ask a focused question — Fort will answer without creating an assignment.':'Describe the outcome you want — like briefing an employee.';
+  var qa=$('#quickanswer');
+  qa.hidden=!quickAnswer&&!quickAnswerError;
+  qa.classList.toggle('fail',!!quickAnswerError);
+  qa.innerHTML=quickAnswerError?'<div class="answerhead">Quick answer failed</div><div class="mdbody">'+md(quickAnswerError)+'</div>':
+    quickAnswer?'<div class="answerhead">Quick answer</div><div class="mdbody">'+md(quickAnswer)+'</div>':'';
+  renderRoutePreview();
+}
+$('#plantoggle').addEventListener('click',function(){planFirst=!planFirst;renderAssignControls();queueRoutePreview();});
 function renderBriefPreview(){
   var t=$('#brief').value,i=t.indexOf('\n');
   var body=i<0?'':t.slice(i+1).trim();
@@ -869,24 +1018,99 @@ function renderBriefPreview(){
   if(!body){pv.hidden=true;pv.innerHTML='';return;}
   pv.hidden=false;pv.innerHTML='<strong>'+esc(t.slice(0,i).trim())+'</strong>'+md(body);
 }
-$('#brief').addEventListener('input',renderBriefPreview);
+function queueRoutePreview(){
+  clearTimeout(routeTimer);routePreview=null;renderRoutePreview();
+  routeTimer=setTimeout(function(){previewRoute();},260);
+}
+async function previewRoute(){
+  clearTimeout(routeTimer);routeTimer=null;
+  var text=$('#brief').value.trim();
+  if(!text){routePreview=null;renderRoutePreview();return null;}
+  var seq=++routeSerial;
+  var body={text:text,task_type:assignMode==='quick'?'question':'',plan_gate:effectivePlanGate()};
+  if(routeChoice){
+    body.playbook_id=routeChoice.id;
+    body.playbook_revision=routeChoice.revision;
+  }else if(assignMode==='quick'){
+    var answer=availablePlaybooks()[0];
+    if(answer){body.playbook_id=answer.id;body.playbook_revision=answer.revision;}
+  }
+  try{
+    var resp=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    if(!resp.ok)throw new Error(await resp.text());
+    var resolved=await resp.json();
+    if(assignMode==='quick'&&resolved.delivery!=='answer')throw new Error('No answer playbook is available.');
+    if(seq!==routeSerial)return routePreview;
+    routePreview=resolved;renderRoutePreview();return resolved;
+  }catch(err){
+    if(seq!==routeSerial)return routePreview;
+    routePreview={error:String(err&&err.message||err)};renderRoutePreview();return null;
+  }
+}
+function renderRoutePreview(){
+  var el=$('#routepreview'),picker=$('#routepicker'),text=$('#brief').value.trim();
+  if(!text){el.hidden=true;picker.hidden=true;return;}
+  el.hidden=false;
+  if(!routePreview){
+    el.innerHTML='<div class="hd"><span class="lb">Route</span><span class="routenote">Choosing the best playbook…</span></div>';
+  }else if(routePreview.error){
+    el.innerHTML='<div class="hd"><span class="lb">Route</span><span class="nm">Preview unavailable</span></div><span class="routenote">'+esc(routePreview.error)+'</span>';
+  }else{
+    var pb=playbookByID(routePreview.playbook_id);
+    var name=routePreview.playbook_name||(pb&&pb.name)||routePreview.playbook_id||'Fort decides';
+    var stages=routePreview.stages||[];
+    var chain=stages.map(function(st,i){
+      var chip='<span class="routechip"><strong>'+esc(dispName(st.agent))+'</strong>'+(st.model?' · <span class="model">'+esc(st.model)+'</span>':'')+(st.memory?' · <span style="color:var(--work)">memory ●</span>':'')+'</span>';
+      return (i?'<span class="routearrow">→</span>':'')+chip;
+    }).join('');
+    var note=routePreview.delivery==='answer'?'Answering inline — no assignment, checkpoints, or schedule entry.':
+      routePreview.plan_gate?'Plan first — you sign off before build starts.':'Starts when you hand it off.';
+    if(routePreview.task_type)note+=' · '+String(routePreview.task_type).replace(/[-_]/g,' ');
+    el.innerHTML='<div class="hd"><span class="lb">Route</span><span class="nm">'+esc(name)+'</span><button id="routechange" class="change" onclick="toggleRoutePicker()">Change…</button></div>'+
+      '<div class="routechain">'+chain+'</div><span class="routenote">'+esc(note)+'</span>';
+  }
+  picker.hidden=!routePickerOpen;
+  if(routePickerOpen){
+    var auto='<button class="'+(routeChoice?'':'on')+'" onclick="chooseRoute(\'\')">Fort decides</button>';
+    picker.innerHTML=auto+availablePlaybooks().map(function(p){
+      return '<button class="'+(routeChoice&&routeChoice.id===p.id?'on':'')+'" onclick="chooseRoute(\''+esc(jsq(p.id))+'\')">'+esc(p.name)+'</button>';
+    }).join('');
+  }
+}
+function toggleRoutePicker(){routePickerOpen=!routePickerOpen;renderRoutePreview();}
+function chooseRoute(id){
+  var p=playbookByID(id);routeChoice=p?{id:p.id,revision:p.revision}:null;
+  routePickerOpen=false;routePreview=null;renderRoutePreview();previewRoute();
+}
+$('#brief').addEventListener('input',function(){quickAnswer='';quickAnswerError='';renderBriefPreview();queueRoutePreview();});
 $('#brief').addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='Enter')handoff();});
 async function handoff(){
   var text=$('#brief').value;
   if(!text.trim())return;
-  if(assignCtx&&assignCtx.backlogId){
-    await fetch('/api/backlog/'+assignCtx.backlogId,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({agent:selAgent})});
-    await fetch('/api/backlog/'+assignCtx.backlogId+'/dispatch',{method:'POST'});
-    assignCtx=null;$('#brief').value='';renderBriefPreview();showView('deck');refresh();
+  var resolved=await previewRoute();
+  if(!resolved){alert('Fort could not preview this route. Try again in a moment.');return;}
+  var request={text:text,task_type:resolved.task_type||'',plan_gate:!!resolved.plan_gate};
+  if(resolved.playbook_id)request.playbook_id=resolved.playbook_id;
+  if(resolved.playbook_revision!==undefined)request.playbook_revision=resolved.playbook_revision;
+  var r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request)});
+  if(!r.ok){
+    var failure=(await r.text()).trim()||'Fort could not answer this question.';
+    if(assignMode==='quick'){quickAnswer='';quickAnswerError=failure;renderAssignControls();return;}
+    if(r.status===409){alert('This route needs the execution plane — start fort serve, or choose a direct route.');return;}
+    alert(failure);return;
+  }
+  var result=await r.json();
+  if(assignMode==='quick'&&result.kind!=='answer'){
+    quickAnswer='';quickAnswerError='Fort returned an assignment instead of an answer.';renderAssignControls();return;
+  }
+  if(result.kind==='answer'){
+    quickAnswer=(result.answer||'').trim();quickAnswerError=quickAnswer?'':'Fort returned no answer text.';
+    renderAssignControls();
     return;
   }
-  if(planFirst){
-    var r=await fetch('/api/breakdown',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:text,agent:selAgent,machine:selMachine})});
-    if(r.status===409){alert('Drafting a plan needs the execution plane — start fort serve, or turn the toggle off to hand it off directly.');return;}
-  }else{
-    await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:text,agent:selAgent,machine:selMachine})});
-  }
-  $('#brief').value='';renderBriefPreview();showView('deck');refresh();
+  if(assignCtx&&assignCtx.backlogId)await fetch('/api/backlog/'+assignCtx.backlogId,{method:'DELETE'});
+  assignCtx=null;
+  $('#brief').value='';routePreview=null;routeChoice=null;quickAnswer='';quickAnswerError='';renderBriefPreview();showView('deck');refresh();
 }
 $('#handoff').addEventListener('click',handoff);
 $('#tobacklog').addEventListener('click',async function(){
@@ -894,9 +1118,158 @@ $('#tobacklog').addEventListener('click',async function(){
   var i=t.indexOf('\n');
   var title=i<0?t.trim():t.slice(0,i).trim();
   var body=i<0?'':t.slice(i+1).trim();
-  await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:title,body:body,agent:selAgent,machine:selMachine})});
+  await fetch('/api/backlog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:title,body:body})});
   $('#brief').value='';renderBriefPreview();refresh();
 });
+
+// ---- Playbooks (Turn 4) ----
+const PB_AGENTS=['hermes','openclaw','claude','codex'];
+const PB_MODELS={hermes:['Codex 5.6 Sol'],openclaw:['Fable'],claude:['Sonnet','Opus'],codex:['5.6 Sol']};
+function playbookByID(id){
+  for(var i=0;i<model.playbooks.length;i++)if(model.playbooks[i].id===id)return model.playbooks[i];
+  return null;
+}
+function availablePlaybooks(){
+  return model.playbooks.filter(function(p){return assignMode==='quick'?p.delivery==='answer':p.delivery!=='answer';});
+}
+function cloneData(v){return JSON.parse(JSON.stringify(v));}
+function stageAssignments(st){return (st.assignments&&st.assignments.length)?st.assignments:[];}
+function triggerKind(p){return p&&p.trigger&&p.trigger.kind?p.trigger.kind:'manual';}
+function triggerCopy(kind){
+  var copy={question:'I ask a question',bug:'direction is a bug report','bug report':'direction is a bug report',feature:'direction describes a new capability',research:'direction asks for research',manual:'I choose it manually'};
+  return copy[kind]||kind.replace(/[-_]/g,' ');
+}
+function playbookMeta(p){
+  var n=(p.stages||[]).length,stages=n+' stage'+(n===1?'':'s'),kind=triggerKind(p);
+  if(p.delivery==='answer')return stages+' · no checkpoints';
+  if(kind==='bug')return stages+' · skips design';
+  if(kind==='research')return stages+' · delivers a doc';
+  return stages+' · plan gate '+(p.plan_gate?'on':'off');
+}
+function branchLabel(p,a,branching){
+  if(!branching)return '';
+  if(a.task_type==='bug')return 'bug fixes';
+  if(a.task_type)return a.task_type.replace(/[-_]/g,' ');
+  return triggerKind(p)==='feature'?'features':'default';
+}
+function shortcutRank(p){
+  if(p.delivery==='answer')return 0;
+  if(triggerKind(p)==='bug')return 1;
+  if(triggerKind(p)==='research')return 2;
+  return 3;
+}
+function optionList(values,current,labeler){
+  var all=values.slice();if(current&&all.indexOf(current)<0)all.push(current);
+  return all.map(function(v){return '<option value="'+esc(v)+'"'+(v===current?' selected':'')+'>'+esc(labeler?labeler(v):v)+'</option>';}).join('');
+}
+function modelsFor(agent,current){
+  var seen={},out=[];
+  (PB_MODELS[agent]||[]).forEach(function(m){if(!seen[m]){seen[m]=1;out.push(m);}});
+  model.playbooks.forEach(function(p){(p.stages||[]).forEach(function(st){stageAssignments(st).forEach(function(a){if(a.agent===agent&&a.model&&!seen[a.model]){seen[a.model]=1;out.push(a.model);}});});});
+  if(current&&!seen[current])out.push(current);
+  return out;
+}
+function modelOptionList(agent,current){
+  return '<option value=""'+(current?'':' selected')+'>Provider default</option>'+optionList(modelsFor(agent,current),current);
+}
+function renderPlaybooks(){
+  var list=$('#playbooklist'),editor=$('#playbookeditor');
+  if(!playbooksLoaded){list.innerHTML='<div class="empty" style="padding:4px">Loading playbooks…</div>';editor.innerHTML='';return;}
+  if(!model.playbooks.length){list.innerHTML='<div class="empty" style="padding:4px">No playbooks configured.</div>';editor.innerHTML='<div class="empty" style="padding:0">Add a playbook through Fort&#39;s configuration, then edit it here.</div>';return;}
+  var pb=playbookByID(selectedPlaybook)||model.playbooks[0];
+  selectedPlaybook=pb.id;localStorage.setItem('fort-playbook',selectedPlaybook);
+  list.innerHTML=model.playbooks.map(function(p){
+    return '<button class="pbitem'+(p.id===pb.id?' on':'')+'" onclick="selectPlaybook(\''+esc(jsq(p.id))+'\')">'+
+      '<span class="name">'+esc(p.name)+(p.is_default?'<span class="default">default</span>':'')+'</span>'+
+      '<span class="meta">'+esc(playbookMeta(p))+'</span></button>';
+  }).join('');
+
+  var stages=(pb.stages||[]).slice().sort(function(a,b){return a.order-b.order;});
+  var pipeline=stages.map(function(st,si){
+    var stageIndex=(pb.stages||[]).indexOf(st);
+    var assignments=stageAssignments(st),branching=assignments.length>1;
+    var badge=st.memory?'<button class="badge memory" onclick="toggleStageMemory(\''+esc(jsq(pb.id))+'\','+stageIndex+')">memory ●</button>':
+      branching?'<span class="badge">by task type</span>':'<button class="badge" onclick="toggleStageMemory(\''+esc(jsq(pb.id))+'\','+stageIndex+')">memory off</button>';
+    var rows=assignments.map(function(a,ai){
+      var type=branchLabel(pb,a,branching);
+      return '<div class="assignment">'+(type?'<span class="tasktype">'+esc(type.replace(/[-_]/g,' '))+'</span>':'')+
+        '<select class="agentselect" aria-label="agent for '+esc(st.name)+'" onchange="editStageAssignment(\''+esc(jsq(pb.id))+'\','+stageIndex+','+ai+',\'agent\',this.value)">'+
+          optionList(PB_AGENTS,a.agent,dispName)+'</select>'+
+        '<select class="modelselect" aria-label="model for '+esc(st.name)+'" onchange="editStageAssignment(\''+esc(jsq(pb.id))+'\','+stageIndex+','+ai+',\'model\',this.value)">'+
+          modelOptionList(a.agent,a.model)+'</select></div>';
+    }).join('');
+    if(!rows)rows='<div class="routenote">No assignment configured.</div>';
+    var desc=st.description||st.prompt||('Runs the '+String(st.name||'stage').toLowerCase()+' stage with the selected agent and model.');
+    return (si?'<span class="pipearrow">→</span>':'')+'<div class="stagecard">'+
+      '<div class="hd"><span class="num">'+esc(String(st.order||si+1))+'</span><span class="name">'+esc(st.name||'Stage')+'</span>'+badge+'</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div><span class="desc">'+esc(desc)+'</span></div>';
+  }).join('');
+  if(pb.delivery!=='answer')pipeline+='<button class="stageadd" onclick="addPlaybookStage()" aria-label="add stage">＋</button>';
+
+  var shortcuts=model.playbooks.filter(function(p){return p.id!==pb.id&&triggerKind(p)!=='manual';}).sort(function(a,b){return shortcutRank(a)-shortcutRank(b)||a.name.localeCompare(b.name);});
+  var shortcutRows=shortcuts.map(function(p){
+    var tr=p.trigger||{},st=(p.stages||[])[0]||{},a=stageAssignments(st)[0]||{};
+    var title='When '+triggerCopy(triggerKind(p))+' → '+p.name;
+    var summary=(a.agent?dispName(a.agent)+(a.model?' · '+a.model:''):'Fort decides')+
+      (p.delivery==='answer'?' · replies inline · no checkpoints, nothing scheduled':(p.plan_gate?' · plan gate on':' · starts directly'));
+    return '<div class="shortcutrow"><span style="font-size:15px">'+(p.delivery==='answer'?'⚡':'↳')+'</span><div class="copy"><span class="title">'+esc(title)+'</span><span class="summary">'+esc(summary)+'</span></div>'+
+      '<button class="switchbtn'+(tr.enabled?' on':'')+'" aria-label="toggle '+esc(p.name)+' shortcut" aria-pressed="'+(tr.enabled?'true':'false')+'" onclick="toggleShortcut(\''+esc(jsq(p.id))+'\')"><i></i></button></div>';
+  }).join('')||'<div class="empty" style="padding:2px 0">No shortcut triggers configured.</div>';
+
+  var gateControl=pb.delivery==='answer'?'<span class="trigger" style="margin-left:auto">No checkpoints</span>':
+    '<span class="trigger gate-label">Plan gate</span><button class="switchbtn'+(pb.plan_gate?' on':'')+'" style="margin-left:0" aria-label="toggle plan gate" aria-pressed="'+(pb.plan_gate?'true':'false')+'" onclick="togglePlaybookPlanGate()"><i></i></button>';
+  editor.innerHTML='<div class="pbeditor-head"><span class="title">'+esc(pb.name)+'</span><span class="trigger">Trigger: '+esc(triggerCopy(triggerKind(pb)))+' · <button class="edit" onclick="editPlaybookTrigger()">edit</button></span>'+gateControl+
+    '<span class="revision">rev '+esc(String(pb.revision||1))+'</span></div>'+
+    '<div class="pipeline">'+pipeline+'</div><div class="shortcuts"><span class="ulabel">Shortcuts — triggers that skip the chain</span>'+shortcutRows+'</div>';
+}
+function selectPlaybook(id){selectedPlaybook=id;localStorage.setItem('fort-playbook',id);renderPlaybooks();}
+async function savePlaybook(next){
+  var resp=await fetch('/api/playbooks',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(next)});
+  if(!resp.ok){
+    var message=(await resp.text())||'Fort could not save this playbook.';
+    if(resp.status===409){await fetchPlaybooks();alert('This playbook changed in another edit. Fort reloaded the latest revision.');return null;}
+    alert(message);return null;
+  }
+  var saved=await resp.json(),found=false;
+  model.playbooks=model.playbooks.map(function(p){if(p.id===saved.id){found=true;return saved;}return p;});
+  if(!found)model.playbooks.push(saved);
+  selectedPlaybook=saved.id;localStorage.setItem('fort-playbook',saved.id);
+  if(routeChoice&&routeChoice.id===saved.id)routeChoice={id:saved.id,revision:saved.revision};
+  renderPlaybooks();return saved;
+}
+async function duplicatePlaybook(){
+  var pb=playbookByID(selectedPlaybook)||model.playbooks[0];
+  if(!pb){alert('There is no playbook to duplicate yet.');return;}
+  var resp=await fetch('/api/playbooks/'+encodeURIComponent(pb.id)+'/duplicate',{method:'POST'});
+  if(!resp.ok){alert((await resp.text())||'Fort could not duplicate this playbook.');return;}
+  var copy=await resp.json();model.playbooks.push(copy);selectedPlaybook=copy.id;localStorage.setItem('fort-playbook',copy.id);renderPlaybooks();
+}
+function editPlaybookTrigger(){
+  var pb=playbookByID(selectedPlaybook);if(!pb)return;
+  var kind=prompt('Trigger kind: question, bug, feature, research, or manual',triggerKind(pb));
+  if(kind===null)return;kind=kind.trim().toLowerCase();
+  if(['question','bug','feature','research','manual'].indexOf(kind)<0){alert('Use question, bug, feature, research, or manual.');return;}
+  var next=cloneData(pb);next.trigger=next.trigger||{};next.trigger.kind=kind;
+  if(kind==='manual')next.trigger.enabled=false;
+  savePlaybook(next);
+}
+function togglePlaybookPlanGate(){var pb=playbookByID(selectedPlaybook);if(!pb||pb.delivery==='answer')return;var next=cloneData(pb);next.plan_gate=!next.plan_gate;savePlaybook(next);}
+function toggleStageMemory(id,stageIndex){var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb);next.stages[stageIndex].memory=!next.stages[stageIndex].memory;savePlaybook(next);}
+function editStageAssignment(id,stageIndex,assignmentIndex,field,value){
+  var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb),a=next.stages[stageIndex].assignments[assignmentIndex];a[field]=value;
+  if(field==='agent'){var ms=PB_MODELS[value]||[];if(ms.length)a.model=ms[0];}
+  savePlaybook(next);
+}
+function addPlaybookStage(){
+  var pb=playbookByID(selectedPlaybook);if(!pb||pb.delivery==='answer')return;
+  var name=prompt('Stage name','New stage');if(name===null||!name.trim())return;
+  var next=cloneData(pb),prev=next.stages.length?next.stages[next.stages.length-1]:null,pa=prev&&stageAssignments(prev)[0];
+  next.stages.push({order:next.stages.length+1,name:name.trim(),assignments:[{agent:(pa&&pa.agent)||'codex',model:(pa&&pa.model)||'5.6 Sol'}],memory:false});
+  savePlaybook(next);
+}
+function toggleShortcut(id){
+  var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb);next.trigger=next.trigger||{kind:'manual'};next.trigger.enabled=!next.trigger.enabled;savePlaybook(next);
+}
 
 // ---- Performance (2a) ----
 $('#lanesel').addEventListener('change',function(){perfLane=this.value;fetchMetrics();});
@@ -1002,7 +1375,7 @@ function renderWeek(){
     });
     if(cells.length===0){
       cells.push(spacer(todayIdx));
-      cells.push('<div class="blk blk-idle" style="grid-column:span '+(7-todayIdx)+'" onclick="pickAgent(\''+esc(jsq(a))+'\');showView(\'assign\')">open capacity — assign work</div>');
+      cells.push('<div class="blk blk-idle" style="grid-column:span '+(7-todayIdx)+'" onclick="showView(\'assign\')">open capacity — assign work</div>');
       cur=7;
     }
     if(cur<7)cells.push(spacer(7-cur));
@@ -1104,7 +1477,7 @@ function renderToday(){
     if(cells.length===0){
       var start=colOf(now)+1;
       cells.push(spacer(start));
-      cells.push('<div class="blk blk-idle" style="grid-column:span '+(hours-start)+'" onclick="pickAgent(\''+esc(jsq(a))+'\');showView(\'assign\')">idle — assign work</div>');
+      cells.push('<div class="blk blk-idle" style="grid-column:span '+(hours-start)+'" onclick="showView(\'assign\')">idle — assign work</div>');
       cur=hours;
     }
     if(cur<hours)cells.push(spacer(hours-cur));
@@ -1205,6 +1578,7 @@ es.onmessage=ev=>{
 setInterval(refresh,3000);
 setInterval(fetchMetrics,60000);
 showView(curView);
+fetchPlaybooks();
 refresh();
 fetchMetrics();
 </script>

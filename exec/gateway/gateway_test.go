@@ -46,12 +46,16 @@ func TestPerFlowBudgetCapEnforced(t *testing.T) {
 
 func TestFailoverToFallbackAgent(t *testing.T) {
 	// underlying native runtime knows only "up"; "down" has no provider.
+	var fallbackSpec runtime.RunSpec
 	under := native.New(filepath.Join(t.TempDir()),
-		native.Provider{Name: "up", Command: func(_ runtime.RunSpec) []string { return []string{"sh", "-c", "echo ok"} }})
+		native.Provider{Name: "up", Command: func(spec runtime.RunSpec) []string {
+			fallbackSpec = spec
+			return []string{"sh", "-c", "echo ok"}
+		}})
 	tr := &recTracer{}
 	g := New(under, Options{DefaultCost: 0, Tracer: tr, Failover: map[string]string{"down": "up"}})
 
-	run, err := g.Dispatch(context.Background(), runtime.RunSpec{RunID: "r", Agent: "down"})
+	run, err := g.Dispatch(context.Background(), runtime.RunSpec{RunID: "r", Agent: "down", Model: "primary-only-model"})
 	if err != nil {
 		t.Fatalf("failover dispatch: %v", err)
 	}
@@ -62,6 +66,9 @@ func TestFailoverToFallbackAgent(t *testing.T) {
 	// traced the primary attempt and the failover
 	if len(tr.calls) < 2 || tr.calls[len(tr.calls)-1] != "up" {
 		t.Errorf("trace = %v, want a failover to up", tr.calls)
+	}
+	if fallbackSpec.Agent != "up" || fallbackSpec.Model != "" {
+		t.Errorf("fallback spec = %+v, want up with provider default model", fallbackSpec)
 	}
 }
 

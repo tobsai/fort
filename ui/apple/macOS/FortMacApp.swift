@@ -3,10 +3,8 @@
 //  FortMac
 //
 //  Fort's macOS surface: a menu-bar app built on `MenuBarExtra` PLUS a full
-//  window (spec 032). It holds the shared `FortClient` (from ../FortKit) at the
-//  app root, polls the control plane for a `Summary`, and renders the glanceable
-//  counts + gate inbox in the menu. The menu-bar title/badge shows the
-//  pending-gate count.
+//  window (specs 032/034). It holds the shared `FortClient` (from ../FortKit)
+//  and presents the native Command Deck plus a glanceable menu-bar inbox.
 //
 //  The `Window("Fort")` scene hosts `FortWindow` — a native mirror of the 031
 //  dashboard plus `fort service` daemon controls (via `ServiceController`).
@@ -40,8 +38,11 @@ struct FortMacApp: App {
             FortWindow()
                 .environmentObject(client)
                 .environmentObject(service)
-                .frame(minWidth: 720, minHeight: 480)
+                .frame(minWidth: 760, minHeight: 520)
+                .tint(FortPalette.brass)
+                .preferredColorScheme(.dark)
         }
+        .defaultSize(width: 1200, height: 800)
 
         MenuBarExtra {
             MenuContent()
