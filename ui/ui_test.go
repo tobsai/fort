@@ -105,6 +105,25 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 	return v
 }
 
+func TestWebIcon(t *testing.T) {
+	s, _ := newControlUI(t)
+	page := do(t, s, "GET", "/", nil)
+	if !strings.Contains(page.Body.String(), `href="/fort-icon.png"`) {
+		t.Fatal("page does not link the Fort icon")
+	}
+
+	icon := do(t, s, "GET", "/fort-icon.png", nil)
+	if icon.Code != http.StatusOK {
+		t.Fatalf("code %d, want %d", icon.Code, http.StatusOK)
+	}
+	if got := icon.Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("content type = %q, want image/png", got)
+	}
+	if !bytes.HasPrefix(icon.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
+		t.Fatal("response is not a PNG")
+	}
+}
+
 // ---- full mode ----
 
 func TestChatCreatesRoutedTask(t *testing.T) {

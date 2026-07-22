@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 )
+
+//go:embed fort-icon.png
+var fortIcon []byte
 
 // Deps are the control-plane collaborators — ports only. With no Runner and a
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
@@ -47,6 +51,7 @@ func New(d Deps) *Server {
 // Register mounts the ui routes onto mux.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", s.handlePage)
+	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
 	mux.HandleFunc("GET /api/board", s.handleBoard)
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRunDetail)
@@ -646,6 +651,11 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePage(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(boardHTML))
+}
+
+func (s *Server) handleIcon(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	_, _ = w.Write(fortIcon)
 }
 
 // matchFlow maps a chat message to a flow template (deterministic, not an LLM
