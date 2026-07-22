@@ -128,6 +128,23 @@ On the machine running `fort serve`:
 Revoke a machine any time with the **Revoke** button (or `fort relay remove` on
 the machine): the device token is invalidated and the tunnel drops.
 
+### Connect the native iOS app
+
+Build the iOS target with `FORT_GATEWAY_URL` set to the Vercel web origin, or
+enter that origin in the app's Connection Settings. **Sign in with Google**
+opens `<web-origin>/native` in an `ASWebAuthenticationSession`; after the normal
+allowlist check, the gateway returns a short-lived native bearer credential to
+the app's `fort://auth` callback. The app then:
+
+1. lists registered machines through the authenticated gateway API,
+2. asks you to compare and trust the daemon fingerprint,
+3. pins that X25519 public key, and
+4. sends all native FortKit API and SSE traffic through the Noise/AEAD relay.
+
+The app does not poll iPhone localhost while gateway setup or restoration is in
+progress. Direct-host mode remains available as an explicit LAN/simulator
+fallback.
+
 ---
 
 ## 5. Environment variables — complete list

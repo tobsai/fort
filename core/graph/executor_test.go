@@ -2,10 +2,12 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/exec/fake"
 )
@@ -121,7 +123,7 @@ func gateFlow() Flow {
 		ID: "g", Start: "g1",
 		Nodes: []Node{
 			{ID: "g1", Type: Gate, Edges: []Edge{{On: OutApprove, To: "k1"}, {On: OutReject, To: "k2"}}},
-			{ID: "k1", Type: Task, Agent: "codex"}, // approved path
+			{ID: "k1", Type: Task, Agent: "codex"},  // approved path
 			{ID: "k2", Type: Task, Agent: "claude"}, // rejected path
 		},
 	}
@@ -305,5 +307,292 @@ func TestTransformEventHasEmptyNodeID(t *testing.T) {
 		if e.Type == "transform" && e.NodeID != "" {
 			t.Errorf("run-level transform event node_id=%q, want empty", e.NodeID)
 		}
+	}
+}
+
+func TestOrdinaryTaskPromptBehaviorIsUnchanged(t *testing.T) {
+	ex, _, rt := newExec(t)
+	f := Flow{
+		ID: "ordinary-prompt", Start: "task",
+		Nodes: []Node{{ID: "task", Type: Task, Agent: "codex", Prompt: "fixed instruction"}},
+	}
+	if _, err := ex.Start(context.Background(), f, "ordinary-run", "incoming payload"); err != nil {
+		t.Fatal(err)
+	}
+	d := rt.Dispatched()
+	if len(d) != 1 || d[0].Prompt != "fixed instruction" {
+		t.Fatalf("ordinary prompt = %+v, want the node prompt unchanged", d)
+	}
+}
+
+func TestPlaybookContextCarriesDirectionApprovedPayloadAndMemory(t *testing.T) {
+	ex, _, rt := newExec(t)
+	f := Flow{
+		ID: "playbook-context", Name: "Playbook", Start: "plan",
+		Nodes: []Node{
+			{
+				ID: "plan", Type: Task, Agent: "hermes", Model: "planner-model",
+				Prompt: "Draft the plan.", Context: ContextPlaybook, Memory: true,
+				Edges: []Edge{{On: OutSuccess, To: "gate"}},
+			},
+			{ID: "gate", Type: Gate, Edges: []Edge{{On: OutApprove, To: "build"}}},
+			{
+				ID: "build", Type: Task, Agent: "codex", Model: "builder-model",
+				Prompt: "Implement the plan.", Context: ContextPlaybook,
+			},
+		},
+	}
+	res, err := ex.Start(context.Background(), f, "playbook-run", "ORIGINAL DIRECTION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "paused" || res.PausedNode != "gate" {
+		t.Fatalf("start = %+v", res)
+	}
+	d := rt.Dispatched()
+	if len(d) != 1 || d[0].Model != "planner-model" {
+		t.Fatalf("first dispatch = %+v", d)
+	}
+	firstPrompt := d[0].Prompt
+	for _, want := range []string{"Draft the plan.", "Original direction:\nORIGINAL DIRECTION", "Current approved payload:\nORIGINAL DIRECTION"} {
+		if !strings.Contains(firstPrompt, want) {
+			t.Errorf("first prompt missing %q:\n%s", want, firstPrompt)
+		}
+	}
+
+	if err := ex.Approve("playbook-run", "gate", "APPROVED PAYLOAD"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ex.Resume(context.Background(), f, "playbook-run"); err != nil {
+		t.Fatal(err)
+	}
+	d = rt.Dispatched()
+	if len(d) != 2 || d[1].Model != "builder-model" {
+		t.Fatalf("dispatches = %+v", d)
+	}
+	secondPrompt := d[1].Prompt
+	for _, want := range []string{
+		"Implement the plan.",
+		"Original direction:\nORIGINAL DIRECTION",
+		"Current approved payload:\nAPPROVED PAYLOAD",
+		"Prior memory stage outputs:",
+		"[plan]",
+		firstPrompt,
+	} {
+		if !strings.Contains(secondPrompt, want) {
+			t.Errorf("second prompt missing %q:\n%s", want, secondPrompt)
+		}
+	}
+}
+
+type recordingPlacer struct {
+	machines map[string]string
+	err      error
+	calls    []string
+}
+
+func (p *recordingPlacer) Place(agent, pin string) (string, error) {
+	p.calls = append(p.calls, agent+"@"+pin)
+	if p.err != nil {
+		return "", p.err
+	}
+	return p.machines[agent], nil
+}
+
+type dispatchErrorRuntime struct {
+	err   error
+	calls int
+}
+
+func (r *dispatchErrorRuntime) Name() string { return "dispatch-error" }
+
+func (r *dispatchErrorRuntime) Dispatch(context.Context, runtime.RunSpec) (runtime.Run, error) {
+	r.calls++
+	return nil, r.err
+}
+
+func TestPlaybookTaskUsesDeterministicPlacement(t *testing.T) {
+	ex, st, rt := newExec(t)
+	placer := &recordingPlacer{machines: map[string]string{"openclaw": "mac-mini"}}
+	ex.UsePlacer(placer)
+	f := Flow{
+		ID: "placed-playbook", Name: "Placed playbook", Start: "design",
+		Nodes: []Node{{
+			ID: "design", Type: Task, Agent: "openclaw", Context: ContextPlaybook,
+		}},
+	}
+
+	res, err := ex.Start(context.Background(), f, "placed-run", "direction")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "completed" {
+		t.Fatalf("result = %+v, want completed", res)
+	}
+	if len(placer.calls) != 1 || placer.calls[0] != "openclaw@" {
+		t.Fatalf("placement calls = %v, want [openclaw@]", placer.calls)
+	}
+	got := rt.Dispatched()
+	if len(got) != 1 || got[0].Machine != "mac-mini" {
+		t.Fatalf("dispatched = %+v, want machine mac-mini", got)
+	}
+	events, err := st.Events("placed-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var placements []store.Event
+	for _, event := range events {
+		if event.Type == "placement" {
+			placements = append(placements, event)
+		}
+	}
+	if len(placements) != 1 || placements[0].NodeID != "design" ||
+		!strings.Contains(placements[0].Data, `"agent":"openclaw"`) ||
+		!strings.Contains(placements[0].Data, `"machine":"mac-mini"`) {
+		t.Fatalf("placement events = %+v", placements)
+	}
+}
+
+func TestPlaybookPlacementHappensOnceAcrossRetries(t *testing.T) {
+	ex, st, rt := newExec(t)
+	rt.ExitCode = 1
+	placer := &recordingPlacer{machines: map[string]string{"hermes": "macbook-pro"}}
+	ex.UsePlacer(placer)
+	f := Flow{
+		ID: "retry-playbook", Start: "plan",
+		Nodes: []Node{{
+			ID: "plan", Type: Task, Agent: "hermes", Context: ContextPlaybook,
+			Retry: &Retry{Max: 2},
+		}},
+	}
+
+	res, err := ex.Start(context.Background(), f, "retry-placed-run", "direction")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "failed" {
+		t.Fatalf("result = %+v, want failed", res)
+	}
+	if len(placer.calls) != 1 {
+		t.Fatalf("placement called %d times, want once: %v", len(placer.calls), placer.calls)
+	}
+	got := rt.Dispatched()
+	if len(got) != 3 {
+		t.Fatalf("dispatches = %d, want 3", len(got))
+	}
+	for i, spec := range got {
+		if spec.Machine != "macbook-pro" {
+			t.Errorf("dispatch %d machine = %q, want macbook-pro", i, spec.Machine)
+		}
+	}
+	events, _ := st.Events("retry-placed-run")
+	placements := 0
+	for _, event := range events {
+		if event.Type == "placement" {
+			placements++
+		}
+	}
+	if placements != 1 {
+		t.Fatalf("placement events = %d, want 1 (%+v)", placements, events)
+	}
+}
+
+func TestStaticFlowStaysLocalWithPlacer(t *testing.T) {
+	ex, st, rt := newExec(t)
+	placer := &recordingPlacer{machines: map[string]string{"codex": "mac-mini"}}
+	ex.UsePlacer(placer)
+	f := Flow{
+		ID: "static-flow", Start: "build",
+		Nodes: []Node{{ID: "build", Type: Task, Agent: "codex"}},
+	}
+
+	if _, err := ex.Start(context.Background(), f, "static-run", "payload"); err != nil {
+		t.Fatal(err)
+	}
+	if len(placer.calls) != 0 {
+		t.Fatalf("static flow invoked placer: %v", placer.calls)
+	}
+	got := rt.Dispatched()
+	if len(got) != 1 || got[0].Machine != "" {
+		t.Fatalf("static dispatch = %+v, want local empty machine", got)
+	}
+	events, _ := st.Events("static-run")
+	for _, event := range events {
+		if event.Type == "placement" {
+			t.Fatalf("static flow emitted placement event: %+v", event)
+		}
+	}
+}
+
+func TestPlaybookPlacementAndDispatchErrorsAreTerminalAndInspectable(t *testing.T) {
+	t.Run("placement", func(t *testing.T) {
+		ex, st, rt := newExec(t)
+		ex.UsePlacer(&recordingPlacer{err: errors.New("no machine offers hermes")})
+		f := Flow{ID: "placement-error", Start: "plan", Nodes: []Node{{
+			ID: "plan", Type: Task, Agent: "hermes", Context: ContextPlaybook,
+		}}}
+
+		if _, err := ex.Start(context.Background(), f, "placement-error-run", "direction"); err == nil ||
+			!strings.Contains(err.Error(), "no machine offers hermes") {
+			t.Fatalf("start error = %v", err)
+		}
+		if len(rt.Dispatched()) != 0 {
+			t.Fatalf("placement failure dispatched runtime: %+v", rt.Dispatched())
+		}
+		assertTerminalGraphFailure(t, st, "placement-error-run", "plan", "no machine offers hermes")
+	})
+
+	t.Run("dispatch", func(t *testing.T) {
+		st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = st.Close() })
+		rt := &dispatchErrorRuntime{err: errors.New("remote node unavailable")}
+		ex := NewExecutor(rt, st)
+		ex.UsePlacer(&recordingPlacer{machines: map[string]string{"openclaw": "mac-mini"}})
+		f := Flow{ID: "dispatch-error", Start: "design", Nodes: []Node{{
+			ID: "design", Type: Task, Agent: "openclaw", Context: ContextPlaybook,
+		}}}
+
+		if _, err := ex.Start(context.Background(), f, "dispatch-error-run", "direction"); err == nil ||
+			!strings.Contains(err.Error(), "remote node unavailable") {
+			t.Fatalf("start error = %v", err)
+		}
+		if rt.calls != 1 {
+			t.Fatalf("runtime calls = %d, want 1", rt.calls)
+		}
+		assertTerminalGraphFailure(t, st, "dispatch-error-run", "design", "remote node unavailable")
+		events, _ := st.Events("dispatch-error-run")
+		if len(events) < 2 || events[0].Type != "placement" || events[0].NodeID != "design" {
+			t.Fatalf("dispatch failure events = %+v, want placement before error", events)
+		}
+	})
+}
+
+func assertTerminalGraphFailure(t *testing.T, st *store.Store, runID, nodeID, cause string) {
+	t.Helper()
+	if status, ok := nodeStatus(t, st, runID, nodeID); !ok || status != "failed" {
+		t.Fatalf("node status = %q ok=%v, want failed", status, ok)
+	}
+	run, err := st.GetRun(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "failed" || run.ExitCode != -1 || !strings.Contains(run.Error, cause) {
+		t.Fatalf("run = %+v, want failed/-1 error containing %q", run, cause)
+	}
+	events, err := st.Events(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, event := range events {
+		if event.Type == "error" && event.NodeID == nodeID && strings.Contains(event.Data, cause) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("events = %+v, want node-scoped error containing %q", events, cause)
 	}
 }

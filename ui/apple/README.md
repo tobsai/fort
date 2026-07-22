@@ -6,9 +6,9 @@ adapt to control-only mode (`Summary.execution == false`).
 
 ```
 ui/apple/
-  FortKit/           shared Swift package — wire models + FortClient + SSE
-  iOS/               iPhone app: Board / Gates / Feed tabs
-  macOS/             menu-bar app (MenuBarExtra): summary + gate quick-approve
+  FortKit/           shared Swift package — models + direct/pinned-relay client
+  iOS/               iPhone app: five-tab Command Deck + Playbooks/Feed in More
+  macOS/             windowed Command Deck + Playbooks + MenuBarExtra inbox
   watch/             watchOS app (glance + approve) + WidgetKit complication
   CarPlay/           CPListTemplate scene: gates + status (driving-safe)
   Support/           complication @main bundle + generated Info.plist
@@ -38,7 +38,10 @@ See [`docs/notes/testflight.md`](../../docs/notes/testflight.md). Note the CarPl
 entitlement is category-gated by Apple and unlikely for a control-plane app — the
 CarPlay code compiles and runs in the simulator but may not ship.
 
-## Point at a server
-Default base URL is `http://127.0.0.1:4087`. On device, set it (iOS Settings
-screen / `FortClient.baseURL`) to a reachable host running `fort control` or
-`fort serve`.
+## Connect iOS
+
+The iOS app starts in native connection setup, not against localhost. Set
+`FORT_GATEWAY_URL` for the build or enter the deployed gateway origin in the
+app, sign in with Google, choose a registered machine, and compare its
+fingerprint with `fort relay join` output. Direct LAN/simulator mode is an
+explicit fallback in Connection Settings.

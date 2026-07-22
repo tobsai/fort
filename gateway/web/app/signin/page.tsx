@@ -14,8 +14,11 @@ export default function SignInPage({
 
   return (
     <div className="signin-wrap">
-      <h1>Fort gateway</h1>
-      <p className="subtitle">Sign in with your allowlisted Google account.</p>
+      <div className="signin-wordmark">FORT</div>
+      <h1>Remote Command Deck</h1>
+      <p className="subtitle">
+        Sign in with your allowlisted Google account to reach your Forts end-to-end encrypted.
+      </p>
 
       {denied ? (
         <div className="warn-banner" role="alert">
@@ -34,7 +37,7 @@ export default function SignInPage({
         }}
       >
         <button type="submit" className="btn btn-primary">
-          Continue with Google
+          Enter with Google
         </button>
       </form>
     </div>

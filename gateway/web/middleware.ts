@@ -20,5 +20,7 @@ export default auth((req) => {
 export const config = {
   // Protect everything except: Auth.js endpoints, the sign-in page, and static
   // assets / the favicon.
-  matcher: ["/((?!api/auth|signin|_next/static|_next/image|favicon.ico).*)"],
+  // API routes authenticate themselves so native bearer credentials can use
+  // the same ciphertext-only relay endpoints without an Auth.js browser cookie.
+  matcher: ["/((?!api/|signin|_next/static|_next/image|favicon.ico).*)"],
 };

@@ -43,14 +43,14 @@ export default function AddMachinePage() {
 
   return (
     <div>
-      <h1>Add machine</h1>
+      <h1>Add a Fort</h1>
       <p className="subtitle">
-        Mint a single-use join code, then run the line below on the machine.
+        Mint a single-use join code, then run the line below on the Mac that will host it.
       </p>
 
       <div className="card">
         <button className="btn btn-primary" onClick={mint} disabled={busy}>
-          {busy ? "Minting…" : command ? "Mint another code" : "Generate join code"}
+          {busy ? "Minting…" : command ? "Mint another code" : "Generate secure join code"}
         </button>
         {err ? <p className="err">{err}</p> : null}
 
@@ -61,14 +61,14 @@ export default function AddMachinePage() {
             </p>
             <div className="mono-block">{command}</div>
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn" onClick={copy}>
-                {copied ? "Copied ✓" : "Copy"}
+              <button className="btn btn-secondary" onClick={copy}>
+                {copied ? "Copied" : "Copy"}
               </button>
-              {code ? <span className="pill">code {code}</span> : null}
+              {code ? <span className="pill code-pill">code {code}</span> : null}
             </div>
             <p className="hint" style={{ marginTop: 12 }}>
               After it joins, verify the printed fingerprint matches the one on the{" "}
-              <Link href="/">Machines</Link> page.
+              <Link href="/">Forts</Link> page.
             </p>
           </>
         ) : null}

@@ -1,23 +1,26 @@
 # Fort — iOS client
 
-The iOS control-plane surface for Fort. A SwiftUI `TabView` over
-[`../FortKit`](../FortKit): **Board** (runs + chat), **Gates** (the gate inbox),
-and **Feed** (the SSE live stream). It imports FortKit — it does **not**
-redefine the wire models or the client.
+The iOS control-plane surface for Fort. Its thumb-reachable navigation is
+**Deck, Direction, Projects, Today, More**. More keeps Playbooks, Crew, Week,
+the inspectable Feed, and Settings available without crowding the primary bar.
+It imports [`../FortKit`](../FortKit) and does **not** redefine the wire models
+or client.
 
 - **Platform:** iOS 16+ (matches FortKit's deployment floor)
-- **Depends on:** `../FortKit` (local Swift Package; Foundation only)
-- **Talks to:** Fort's control plane, default `http://127.0.0.1:4087`
-  (configurable in-app via the gear ▸ Settings sheet)
+- **Depends on:** `../FortKit` (local Swift Package; Foundation + CryptoKit)
+- **Talks to:** Fort's remote gateway through a pinned Noise/AEAD tunnel. A
+  direct LAN host remains an explicit fallback in Connection Settings.
+  (configurable in-app via More ▸ Settings)
 
 ## Files
 
 | File | Role |
 |------|------|
-| `FortApp.swift` | `@main` app entry; holds one `FortClient` as `@StateObject`, injects it into the environment; `RootTabView` (the tab bar) and a `SettingsView` host editor. |
-| `BoardView.swift` | Board tab: polls `/api/summary` + `/api/board` every ~2s, renders runs with `StatusBadge`, chat field calls `client.chat`. Also `RunDetailView`. |
-| `GatesView.swift` | Gates tab: polls `/api/gates`, Approve/Reject call `client.decideGate`; a `false` return (HTTP 409, control-only) raises a non-fatal alert. |
-| `FeedView.swift` | Feed tab: consumes `client.events(since:)` with resume-on-reconnect. Also hosts shared helpers `EventRow`, `errorText`, and `ContentUnavailableCompat`. |
+| `FortApp.swift` | `@main` app entry; holds one `FortClient`, blocks localhost polling until connection setup completes, and provides native connection settings. |
+| `GatewayCoordinator.swift` | Google web-auth handoff, persisted gateway session, machine discovery, fingerprint confirmation, and startup restoration. |
+| `BoardView.swift` | Command Deck: polls board, backlog, machines, metrics, and playbooks; owns the five-item navigation, route-preview handoff, secondary views, and `RunDetailView`. |
+| `GatesView.swift` | Legacy standalone sign-off list retained for source compatibility; the active mobile inbox is in the Deck. |
+| `FeedView.swift` | Activity sheet from More: consumes `client.events(since:)` with resume-on-reconnect. Also hosts shared helpers `EventRow`, `errorText`, and `ContentUnavailableCompat`. |
 
 These are **source-only** — there is no `.xcodeproj` here. Add them to an Xcode
 app target as described below.
@@ -32,7 +35,7 @@ app target as described below.
      exactly one `@main`.
 
 2. **Add these sources.** Drag `FortApp.swift`, `BoardView.swift`,
-   `GatesView.swift`, and `FeedView.swift` into the target (*Add Files…*,
+   `GatewayCoordinator.swift`, `GatesView.swift`, and `FeedView.swift` into the target (*Add Files…*,
    "Copy items if needed" **off** so they stay in-tree), and confirm target
    membership.
 
@@ -115,14 +118,16 @@ entitlement would be the place to start.
 
 ## How it behaves
 
-- **Polling + streaming together.** Board and Gates poll every ~2s for a
-  reliable snapshot; Feed holds the SSE stream open for low-latency events and
-  resumes from the last-seen id on reconnect. Both stop when you leave the tab
-  and restart if you change the host.
-- **Control-only mode.** When `Summary.execution == false`, the Board shows a
+- **Polling + streaming together.** The Deck polls every ~3s for a reliable
+  snapshot; Activity holds the SSE stream open while its sheet is visible and
+  resumes from the last-seen id on reconnect.
+- **Control-only mode.** When `Summary.execution == false`, the Deck shows a
   banner, and any gate decision returns `false` (HTTP 409) from
-  `decideGate` — the Gates tab surfaces a "no execution plane" alert instead of
+  `decideGate` — the Deck surfaces a "no execution plane" alert instead of
   treating it as an error.
-- **Configurable host.** The gear button opens Settings; editing the URL
-  re-points every tab because `FortClient.baseURL` is `@Published` and each
-  tab's `.task(id:)` is keyed on it.
+- **Native remote connection.** Connection Settings opens Google sign-in at the
+  configured gateway, lists registered machines, requires first-use fingerprint
+  confirmation, and restores the pinned machine on launch. All typed FortKit
+  reads, writes, and SSE events then cross the end-to-end encrypted relay.
+- **Explicit direct-host fallback.** A simulator or LAN build can still select a
+  direct URL. The app never silently treats iPhone localhost as the Mac.

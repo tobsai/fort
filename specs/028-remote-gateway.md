@@ -1,6 +1,6 @@
 # 028 — Remote gateway (Vercel + Cloudflare tunnel plane)
 
-**Status:** design approved in brainstorm (Toby, 2026-07-08) — pending written-spec review.
+**Status:** approved; web/worker/daemon delivered, native iOS client completed 2026-07-22.
 **New capability — approved before implementation** (adds a self-hostable gateway + an outbound relay transport in the daemon).
 **Governed by:** [021-fort-native](021-fort-native.md) · builds on the mesh ([024-mesh-enrollment](024-mesh-enrollment.md)).
 

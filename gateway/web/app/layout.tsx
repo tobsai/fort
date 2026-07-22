@@ -5,8 +5,8 @@ import "./globals.css";
 import { auth, signOut } from "@/auth";
 
 export const metadata: Metadata = {
-  title: "Fort gateway",
-  description: "Drive your Forts from anywhere — a self-hosted, E2E-encrypted gateway.",
+  title: "Fort — Remote Command Deck",
+  description: "Drive your Forts from anywhere through an end-to-end encrypted Command Deck.",
 };
 
 export default async function RootLayout({
@@ -20,12 +20,12 @@ export default async function RootLayout({
       <body>
         <header className="topbar">
           <Link href="/" className="brand">
-            fort<span className="brand-dim">·gateway</span>
+            FORT <span className="brand-context">REMOTE</span>
           </Link>
           {session?.user ? (
             <nav className="nav">
-              <Link href="/">Machines</Link>
-              <Link href="/add">Add machine</Link>
+              <Link href="/">Forts</Link>
+              <Link href="/add">Add a Fort</Link>
               <form
                 action={async () => {
                   "use server";
@@ -33,7 +33,7 @@ export default async function RootLayout({
                 }}
               >
                 <button type="submit" className="link-btn">
-                  Sign out{session.user.email ? ` (${session.user.email})` : ""}
+                  Sign out{session.user.email ? ` · ${session.user.email}` : ""}
                 </button>
               </form>
             </nav>

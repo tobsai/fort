@@ -1,10 +1,12 @@
-# FortMac — macOS menu-bar surface
+# FortMac — macOS Command Deck
 
-A menu-bar app (SwiftUI `MenuBarExtra`) for Fort's control plane. It lives
-entirely in the status bar — there is no window. The menu shows glanceable
-summary counts (running / queued / blocked), the pending **gate inbox** with
-inline **Approve / Reject**, and a **Chat…** field to file a quick task. The
-menu-bar icon badges the pending-gate count.
+A windowed SwiftUI Command Deck plus `MenuBarExtra` for Fort's control plane.
+The primary sidebar mirrors the web redesign's Command Deck, Projects, Today,
+Crew, and Playbooks destinations while retaining native service and machine
+controls. Give direction remains a top-bar action, and Week is reachable from
+Today. The
+menu leads with **Needs you**, supports **Accept / Request changes**, and keeps
+quick direction available. The menu-bar icon badges the pending sign-off count.
 
 All Fort I/O goes through the shared **[FortKit](../FortKit)** Swift package —
 this surface does **not** redefine the wire models or the HTTP/SSE client, it
@@ -12,8 +14,9 @@ imports them.
 
 ## Files
 
-- **`FortMacApp.swift`** — `@main` `App` with the `MenuBarExtra` scene. Owns the
-  shared `FortClient` and a `MenuModel` (badge state + transient notices).
+- **`FortMacApp.swift`** — `@main` `App` with a primary window and the
+  `MenuBarExtra` scene. Owns the shared clients and badge state.
+- **`FortWindow.swift`** — the native Command Deck, Playbooks pane, route-preview composer, and service sidebar.
 - **`MenuContent.swift`** — the popover body: counts, gate rows, chat field,
   status footer, and the poll/action logic.
 
@@ -31,24 +34,22 @@ There is no `.xcodeproj` checked in (source-only scaffold). To build and run:
    - Interface: **SwiftUI**, Life Cycle: **SwiftUI App**, Language: **Swift**
    - Minimum Deployment: **macOS 13.0** (matches FortKit).
 2. **Add these sources.** Delete the generated `ContentView.swift` and the
-   generated `<Name>App.swift`, then add `FortMacApp.swift` and
-   `MenuContent.swift` from this folder to the app target (drag them in, or
+   generated `<Name>App.swift`, then add `FortMacApp.swift`, `FortWindow.swift`,
+   and `MenuContent.swift` from this folder to the app target (drag them in, or
    *File ▸ Add Files…*). Keep "Copy items if needed" unchecked so they stay in
    place under version control.
 3. **Add the FortKit package.** *File ▸ Add Package Dependencies… ▸ Add Local…*
    and select `ui/apple/FortKit`. Link the **FortKit** library product to the
    `FortMac` target (Target ▸ General ▸ Frameworks, Libraries, and Embedded
    Content).
-4. **Build & run.** The app appears in the menu bar. Point it at a non-default
+4. **Build & run.** The app opens its window and appears in the menu bar. Point it at a non-default
    host by setting `client.baseURL` (default `http://127.0.0.1:4087`; the
    docs' control-only default is `http://127.0.0.1:4091`).
 
 ## Info.plist keys
 
-- **`LSUIElement` = `YES`** (Boolean). Makes it a menu-bar-only "agent" app: no
-  Dock icon, no main menu bar. This is the key setting for a `MenuBarExtra` app
-  with no window. In Xcode: target ▸ Info ▸ add *"Application is agent
-  (UIElement)"* = `YES`.
+- **`LSUIElement` = `NO`** (Boolean). FortMac is windowed and keeps its Dock
+  icon; the `MenuBarExtra` remains available for quick attention handling.
 - **`NSAppTransportSecurity`** — the control plane is plain **HTTP on
   localhost** (`http://127.0.0.1:…`), which App Transport Security blocks by
   default. Allow local networking:

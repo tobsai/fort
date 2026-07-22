@@ -18,6 +18,16 @@ const (
 	Fanin     NodeType = "fanin"     // joins branches
 )
 
+// ContextMode controls how a task prompt is assembled. The zero value keeps
+// the original graph behavior. ContextPlaybook adds the reusable-pipeline
+// context contract without changing ordinary flows.
+type ContextMode string
+
+const (
+	ContextDefault  ContextMode = ""
+	ContextPlaybook ContextMode = "playbook"
+)
+
 // Outcome is the result label a node produces; edges match on it.
 type Outcome string
 
@@ -58,15 +68,18 @@ type TransformSpec struct {
 
 // Node is one DAG node.
 type Node struct {
-	ID        string     `yaml:"id" json:"id"`
-	Type      NodeType   `yaml:"type" json:"type"`
-	Agent     string     `yaml:"agent,omitempty" json:"agent,omitempty"`         // task
-	Prompt    string     `yaml:"prompt,omitempty" json:"prompt,omitempty"`       // task
+	ID        string         `yaml:"id" json:"id"`
+	Type      NodeType       `yaml:"type" json:"type"`
+	Agent     string         `yaml:"agent,omitempty" json:"agent,omitempty"`         // task
+	Model     string         `yaml:"model,omitempty" json:"model,omitempty"`         // task
+	Prompt    string         `yaml:"prompt,omitempty" json:"prompt,omitempty"`       // task
+	Context   ContextMode    `yaml:"context,omitempty" json:"context,omitempty"`     // task
+	Memory    bool           `yaml:"memory,omitempty" json:"memory,omitempty"`       // task
 	Retry     *Retry         `yaml:"retry,omitempty" json:"retry,omitempty"`         // task
 	Check     *CheckSpec     `yaml:"check,omitempty" json:"check,omitempty"`         // check
 	Transform *TransformSpec `yaml:"transform,omitempty" json:"transform,omitempty"` // transform
-	FaninID   string     `yaml:"fanin,omitempty" json:"fanin,omitempty"`         // fanout -> join node
-	Edges     []Edge     `yaml:"edges,omitempty" json:"edges,omitempty"`
+	FaninID   string         `yaml:"fanin,omitempty" json:"fanin,omitempty"`         // fanout -> join node
+	Edges     []Edge         `yaml:"edges,omitempty" json:"edges,omitempty"`
 }
 
 // Flow is a named DAG.

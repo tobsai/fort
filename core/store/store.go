@@ -121,6 +121,11 @@ CREATE TABLE IF NOT EXISTS backlog_item (
   id TEXT PRIMARY KEY, title TEXT, body TEXT, agent TEXT, machine TEXT,
   labels TEXT, source TEXT, created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS playbook_revision (
+  id TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL, created_at TEXT,
+  PRIMARY KEY(id, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_playbook_revision_latest ON playbook_revision(id, revision DESC);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("store: migrate: %w", err)

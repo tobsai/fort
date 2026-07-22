@@ -15,14 +15,26 @@ import (
 
 // Executor runs flows deterministically. Only task nodes invoke the Runtime.
 type Executor struct {
-	rt    runtime.Runtime
-	store *store.Store
+	rt     runtime.Runtime
+	store  *store.Store
+	placer Placer
+}
+
+// Placer chooses the machine that will run a Playbook task stage (spec 038).
+// Like routing, placement is deterministic and must not invoke a model.
+type Placer interface {
+	Place(agent, pin string) (machine string, err error)
 }
 
 // NewExecutor builds an executor.
 func NewExecutor(rt runtime.Runtime, st *store.Store) *Executor {
 	return &Executor{rt: rt, store: st}
 }
+
+// UsePlacer enables deterministic placement for Playbook-context task nodes.
+// Ordinary graph flows intentionally stay local (spec 022); a nil placer keeps
+// the original single-machine behavior.
+func (e *Executor) UsePlacer(p Placer) { e.placer = p }
 
 // Result is the outcome of a Start/Resume call.
 type Result struct {
@@ -41,7 +53,11 @@ func isTerminal(status string) bool {
 
 // Start runs a flow from its start node with an initial payload.
 func (e *Executor) Start(ctx context.Context, f Flow, runID, payload string) (Result, error) {
-	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
+	body := ""
+	if usesPlaybookContext(f) {
+		body = payload
+	}
+	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Body: body, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
 	return e.walkFrom(ctx, f, runID, f.Start, payload, "")
 }
 
@@ -168,7 +184,7 @@ func (e *Executor) runFanout(ctx context.Context, f Flow, runID string, node Nod
 func (e *Executor) execute(ctx context.Context, f Flow, runID string, node Node, payload string) (Outcome, string, error) {
 	switch node.Type {
 	case Task:
-		return e.execTask(ctx, runID, node, payload)
+		return e.execTask(ctx, f, runID, node, payload)
 	case Check:
 		return e.execCheck(runID, node, payload)
 	case Transform:
@@ -181,21 +197,40 @@ func (e *Executor) execute(ctx context.Context, f Flow, runID string, node Node,
 	}
 }
 
-func (e *Executor) execTask(ctx context.Context, runID string, node Node, payload string) (Outcome, string, error) {
+func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node, payload string) (Outcome, string, error) {
 	max := 0
 	if node.Retry != nil {
 		max = node.Retry.Max
 	}
-	prompt := node.Prompt
-	if prompt == "" {
-		prompt = payload
+	prompt, err := e.taskPrompt(f, runID, node, payload)
+	if err != nil {
+		return "", payload, err
+	}
+	machine := ""
+	if node.Context == ContextPlaybook && e.placer != nil {
+		machine, err = e.placer.Place(node.Agent, "")
+		if err != nil {
+			err = fmt.Errorf("flow %s: place node %s: %w", f.ID, node.ID, err)
+			e.failTask(runID, node, payload, 0, err)
+			return "", payload, err
+		}
+		if machine != "" {
+			data, _ := json.Marshal(map[string]string{"agent": node.Agent, "machine": machine})
+			_, _ = e.store.AppendEvent(store.Event{
+				RunID: runID, NodeID: node.ID, Type: "placement", Data: string(data),
+			})
+		}
 	}
 	attempts := 0
 	var lastOut string
 	for {
 		attempts++
-		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{RunID: runID, Agent: node.Agent, Prompt: prompt})
+		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{
+			RunID: runID, Agent: node.Agent, Model: node.Model, Prompt: prompt, Machine: machine,
+		})
 		if err != nil {
+			err = fmt.Errorf("flow %s: dispatch node %s: %w", f.ID, node.ID, err)
+			e.failTask(runID, node, payload, attempts, err)
 			return "", payload, err
 		}
 		var msgs []string
@@ -217,6 +252,64 @@ func (e *Executor) execTask(ctx context.Context, runID string, node Node, payloa
 		}
 		// retry
 	}
+}
+
+func (e *Executor) taskPrompt(f Flow, runID string, node Node, payload string) (string, error) {
+	if node.Context != ContextPlaybook {
+		if node.Prompt != "" {
+			return node.Prompt, nil
+		}
+		return payload, nil
+	}
+
+	r, err := e.store.GetRun(runID)
+	if err != nil {
+		return "", fmt.Errorf("flow %s: load original direction: %w", f.ID, err)
+	}
+	parts := make([]string, 0, 4)
+	if node.Prompt != "" {
+		parts = append(parts, node.Prompt)
+	}
+	parts = append(parts,
+		"Original direction:\n"+r.Body,
+		"Current approved payload:\n"+payload,
+	)
+
+	nodeRuns, err := e.store.NodeRuns(runID)
+	if err != nil {
+		return "", fmt.Errorf("flow %s: load memory stages: %w", f.ID, err)
+	}
+	byID := make(map[string]store.NodeRun, len(nodeRuns))
+	for _, nr := range nodeRuns {
+		byID[nr.NodeID] = nr
+	}
+	var memories []string
+	for _, prior := range f.Nodes {
+		if prior.ID == node.ID {
+			break
+		}
+		if prior.Type != Task || !prior.Memory {
+			continue
+		}
+		nr, ok := byID[prior.ID]
+		if !ok || nr.Status != "succeeded" {
+			continue
+		}
+		memories = append(memories, "["+prior.ID+"]\n"+nr.Output)
+	}
+	if len(memories) > 0 {
+		parts = append(parts, "Prior memory stage outputs:\n"+strings.Join(memories, "\n\n"))
+	}
+	return strings.Join(parts, "\n\n"), nil
+}
+
+func usesPlaybookContext(f Flow) bool {
+	for _, node := range f.Nodes {
+		if node.Context == ContextPlaybook {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Executor) execCheck(runID string, node Node, payload string) (Outcome, string, error) {
@@ -276,6 +369,14 @@ func (e *Executor) persistNode(runID string, node Node, status, in, out string, 
 		ID: nrID(runID, node.ID), RunID: runID, NodeID: node.ID, Type: string(node.Type),
 		Status: status, Input: in, Output: out, Attempts: attempts,
 	})
+}
+
+func (e *Executor) failTask(runID string, node Node, payload string, attempts int, err error) {
+	e.persistNode(runID, node, "failed", payload, "", attempts)
+	_, _ = e.store.AppendEvent(store.Event{
+		RunID: runID, NodeID: node.ID, Type: "error", Data: err.Error(),
+	})
+	_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
 }
 
 func (e *Executor) finish(runID string, last Outcome) Result {

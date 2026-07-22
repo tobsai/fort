@@ -7,7 +7,7 @@ so no surface hand-rolls URLs, JSON shapes, or SSE parsing.
 
 - **Platforms:** iOS 16+, macOS 13+, watchOS 9+
 - **Tools:** swift-tools 5.9
-- **Dependencies:** none (Foundation only)
+- **Dependencies:** no external packages (Foundation + CryptoKit)
 
 The wire models mirror the authoritative Go source at
 [`ui/contract.go`](../../contract.go) exactly — field names, snake_case JSON
@@ -21,7 +21,14 @@ match.
   `ActionResult`, `ChatRequest`, `GateDecision`, `OpenClawMessage`. Each declares
   explicit `CodingKeys` for its snake_case JSON keys.
 - **`FortClient.swift`** — `FortClient`, an `ObservableObject` that performs the
-  reads, commands, and the SSE live feed.
+  reads, commands, and the SSE live feed over either a direct host or the native
+  encrypted gateway transport.
+- **`GatewayRelay.swift`** — authenticated gateway machine discovery and
+  fetch/SSE transport over sealed relay frames.
+- **`SecureRelay.swift`** — Fort's native Noise IK / ChaCha20-Poly1305 mirror,
+  byte-checked against the Go daemon vector.
+- **`GatewayAccount.swift`** — persisted gateway, native session, selected
+  machine, and TOFU public-key pins.
 
 ## Adding it to a surface
 
@@ -76,6 +83,12 @@ Point it at a different host by setting `baseURL` (it's `@Published`):
 ```swift
 client.baseURL = URL(string: "http://127.0.0.1:4091")!
 ```
+
+For remote access, discover a `GatewayMachine`, verify its displayed
+fingerprint against the host, persist its public key in `GatewayAccount`, then
+call `client.useGateway(account:machine:)`. The same typed methods below will
+use a fresh pinned Noise tunnel per operation; callers do not build relay
+frames themselves.
 
 ### Reads
 

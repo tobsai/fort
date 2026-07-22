@@ -15,7 +15,8 @@
 // One RelayClient == one stream id == one daemon-side session. Because the AEAD
 // nonce advances per direction, callers MUST NOT interleave concurrent requests
 // on the same client: fetch() is internally serialized, and a stream() should
-// own its own client. The BoardClient uses a fresh client per operation.
+// own its own client. The BoardClient uses a fresh client per operation and
+// closes it with a `bye` frame in `finally`.
 
 import {
   generateKeypair,
@@ -45,6 +46,8 @@ export class RelayClient {
   private session: Session | null = null;
   private readonly streamId = randHex();
   private queue: Promise<unknown> = Promise.resolve();
+  private closed = false;
+  private handshakeStarted = false;
 
   constructor(
     private readonly machineId: string,
@@ -68,6 +71,8 @@ export class RelayClient {
 
   /** connect runs the Noise IK handshake and stores the transport session. */
   async connect(): Promise<void> {
+    if (this.closed) throw new Error("relay: client is closed");
+    this.handshakeStarted = true;
     const kp = generateKeypair(); // fresh per-session client static key
     const hs = newInitiator(kp, this.daemonStatic);
     const msg1 = hs.writeMessage();
@@ -103,6 +108,16 @@ export class RelayClient {
       () => undefined,
     );
     return next;
+  }
+
+  /** Close this stream and release its daemon-side Noise session. */
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    await this.queue.catch(() => undefined);
+    if (!this.handshakeStarted) return;
+    this.session = null;
+    await this.postReq({ stream: this.streamId, kind: "bye" }).catch(() => undefined);
   }
 
   /**

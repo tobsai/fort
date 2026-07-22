@@ -14,6 +14,7 @@ import (
 type RunSpec struct {
 	RunID   string   // caller-assigned id, echoed back on the Run
 	Agent   string   // provider key: claude | codex | openclaw | hermes
+	Model   string   // optional provider-specific model override; empty uses provider default
 	Prompt  string   // the task body handed to the CLI
 	Workdir string   // scoped working directory
 	Env     []string // additional KEY=VALUE pairs

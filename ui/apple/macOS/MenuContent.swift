@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import Combine
 import FortKit
 
 struct MenuContent: View {
@@ -20,6 +21,7 @@ struct MenuContent: View {
     @State private var sendingChat = false
     /// Gate ids ("run/node") currently being decided, to disable their buttons.
     @State private var decidingGates: Set<String> = []
+    @State private var redirectGate: GateItem?
 
     /// Polls the summary on an interval; refreshed on appear and after actions.
     private let refresh = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
@@ -28,9 +30,9 @@ struct MenuContent: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             Divider()
-            counts
-            Divider()
             gatesSection
+            Divider()
+            counts
             Divider()
             chatField
             footer
@@ -39,16 +41,19 @@ struct MenuContent: View {
         .frame(width: 320)
         .task { await reload() }              // initial load
         .onReceive(refresh) { _ in Task { await reload() } }
+        .sheet(item: $redirectGate) { gate in
+            MenuRedirectSheet { note in Task { await decide(gate, "reject", note: note) } }
+        }
     }
 
     // MARK: - Sections
 
     private var header: some View {
         HStack {
-            Image(systemName: "shield.lefthalf.filled")
-                .foregroundStyle(.tint)
-            Text("Fort")
-                .font(.headline)
+            Text("FORT")
+                .font(.system(.callout, design: .monospaced).weight(.bold))
+                .tracking(3)
+                .foregroundStyle(FortPalette.brassBright)
             Spacer()
             if model.isControlOnly {
                 Label("Control-only", systemImage: "bolt.slash")
@@ -61,9 +66,9 @@ struct MenuContent: View {
 
     private var counts: some View {
         HStack(spacing: 16) {
-            countPill(model.summary?.running, "Running", .green)
-            countPill(model.summary?.queued, "Queued", .orange)
-            countPill(model.summary?.blocked, "Blocked", .red)
+            countPill(model.summary?.running, "Working", FortPalette.working)
+            countPill(model.summary?.queued, "Up next", FortPalette.muted)
+            countPill(model.summary?.blocked, "Needs you", FortPalette.needsYou)
         }
         .frame(maxWidth: .infinity)
     }
@@ -73,7 +78,7 @@ struct MenuContent: View {
         let gates = model.summary?.gates ?? []
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Gates")
+                Text("Needs you")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text("\(gates.count)")
@@ -82,7 +87,7 @@ struct MenuContent: View {
             }
 
             if gates.isEmpty {
-                Text("No gates awaiting a decision.")
+                Text("Everything is moving — no sign-offs waiting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -95,10 +100,10 @@ struct MenuContent: View {
 
     private var chatField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Chat")
+            Text("Give direction")
                 .font(.subheadline.weight(.semibold))
             HStack(spacing: 6) {
-                TextField("File a quick task…", text: $chatText)
+                TextField("What outcome do you want?", text: $chatText)
                     .textFieldStyle(.roundedBorder)
                     .disabled(sendingChat)
                     .onSubmit { Task { await sendChat() } }
@@ -133,7 +138,7 @@ struct MenuContent: View {
 
         HStack {
             if let total = model.summary?.total {
-                Text("\(total) run\(total == 1 ? "" : "s")")
+                Text("\(total) assignment\(total == 1 ? "" : "s")")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -165,7 +170,7 @@ struct MenuContent: View {
             Text(gate.nodeID)
                 .font(.callout.weight(.medium))
                 .lineLimit(1)
-            Text("run \(gate.runID)")
+            Text("assignment \(gate.runID)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -176,11 +181,11 @@ struct MenuContent: View {
                     .lineLimit(2)
             }
             HStack(spacing: 8) {
-                Button("Approve") { Task { await decide(gate, "approve") } }
+                Button("Accept") { Task { await decide(gate, "approve") } }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .tint(.green)
-                Button("Reject") { Task { await decide(gate, "reject") } }
+                Button("Request changes") { redirectGate = gate }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .tint(.red)
@@ -231,14 +236,15 @@ struct MenuContent: View {
 
     /// Decides a gate. `decideGate` returns `false` on HTTP 409 (no execution
     /// plane) — a non-fatal condition we surface as a notice rather than an error.
-    private func decide(_ gate: GateItem, _ decision: String) async {
+    private func decide(_ gate: GateItem, _ decision: String, note: String? = nil) async {
         decidingGates.insert(gate.id)
         defer { decidingGates.remove(gate.id) }
         do {
             let applied = try await client.decideGate(
                 run: gate.runID,
                 node: gate.nodeID,
-                decision: decision
+                decision: decision,
+                note: note
             )
             if applied {
                 model.flash("\(decision.capitalized)d \(gate.nodeID).")
@@ -265,5 +271,27 @@ struct MenuContent: View {
         default:
             return error.localizedDescription
         }
+    }
+}
+
+private struct MenuRedirectSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let submit: (String) -> Void
+    @State private var note = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Request changes").font(.headline)
+            TextField("What should change?", text: $note, axis: .vertical).lineLimit(3...6)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Send") { submit(note.trimmingCharacters(in: .whitespacesAndNewlines)); dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(16)
+        .frame(width: 360)
     }
 }

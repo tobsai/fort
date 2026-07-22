@@ -81,6 +81,10 @@ func (g *Gateway) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	if err != nil {
 		if fb, ok := g.opts.Failover[spec.Agent]; ok {
 			spec.Agent = fb
+			// Model identifiers are provider-specific. A failover mapping names
+			// only the fallback agent, so use that provider's configured default
+			// instead of forwarding an incompatible primary model.
+			spec.Model = ""
 			g.opts.Tracer.Dispatch(fb, spec.RunID, 0)
 			return g.under.Dispatch(ctx, spec)
 		}

@@ -19,8 +19,8 @@ func claudeProvider() Provider {
 	return Provider{
 		Name: "claude",
 		Command: func(s runtime.RunSpec) []string {
-			return []string{"claude", "-p", s.Prompt,
-				"--output-format", "stream-json", "--include-partial-messages", "--verbose"}
+			return withModel("claude", []string{"claude", "-p", s.Prompt,
+				"--output-format", "stream-json", "--include-partial-messages", "--verbose"}, s.Model)
 		},
 		// Structured classification (spec 030): typed tool/subagent/message
 		// events; result/partials/system fall through to raw stdout (the
@@ -43,8 +43,8 @@ func codexProvider() Provider {
 	return Provider{
 		Name: "codex",
 		Command: func(s runtime.RunSpec) []string {
-			return []string{"codex", "exec", s.Prompt,
-				"--json", "--sandbox", "workspace-write", "--skip-git-repo-check"}
+			return withModel("codex", []string{"codex", "exec", s.Prompt,
+				"--json", "--sandbox", "workspace-write", "--skip-git-repo-check"}, s.Model)
 		},
 		Parse: jsonTextParser,
 	}
@@ -57,7 +57,7 @@ func hermesProvider() Provider {
 	return Provider{
 		Name: "hermes",
 		Command: func(s runtime.RunSpec) []string {
-			return []string{"hermes", "--oneshot", s.Prompt, "--accept-hooks", "--yolo"}
+			return withModel("hermes", []string{"hermes", "--oneshot", s.Prompt, "--accept-hooks", "--yolo"}, s.Model)
 		},
 		// hermes --oneshot prints plain final text; treat every line as a message.
 		Parse: func(line string) (string, bool) {
@@ -81,11 +81,38 @@ func openclawProvider() Provider {
 	return Provider{
 		Name: "openclaw",
 		Command: func(s runtime.RunSpec) []string {
+			// The model-override syntax has not been verified for OpenClaw. Keep
+			// the requested model out of argv until recon establishes a contract.
 			return []string{"openclaw", "run", s.Prompt, "--headless", "--accept-hooks"}
 		},
 		// Lenient: extracts text from JSON output, else falls through to raw
 		// stdout — robust whether openclaw emits JSONL or plain text.
 		Parse: jsonTextParser,
+	}
+}
+
+func withModel(agent string, argv []string, model string) []string {
+	if model == "" {
+		return argv
+	}
+	return append(argv, "--model", providerModel(agent, model))
+}
+
+// providerModel translates the approved handoff's human-readable model labels
+// at the native-provider boundary. All other values are passed through so a
+// saved, provider-specific model identifier remains exact.
+func providerModel(agent, model string) string {
+	switch {
+	case agent == "claude" && model == "Sonnet":
+		return "sonnet"
+	case agent == "claude" && model == "Opus":
+		return "opus"
+	case agent == "codex" && model == "5.6 Sol":
+		return "gpt-5.6-sol"
+	case agent == "hermes" && model == "Codex 5.6 Sol":
+		return "openai-codex/gpt-5.6-sol"
+	default:
+		return model
 	}
 }
 

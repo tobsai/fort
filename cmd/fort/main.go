@@ -195,12 +195,14 @@ func cmdServe(args []string) error {
 	for i, f := range flows {
 		ids[i] = f.ID
 	}
-	deps := ui.Deps{
+	graphExecutor := graph.NewExecutor(a.rt, a.store)
+	graphExecutor.UsePlacer(a.live)
+	flowRunner := control.NewFlowExecutor(graphExecutor, flows)
+	deps := wirePlaybooks(ui.Deps{
 		Dispatcher: control.NewEngineDispatcher(a.engine),
-		Runner:     control.NewFlowExecutor(graph.NewExecutor(a.rt, a.store), flows),
 		Store:      a.store,
 		FlowIDs:    ids,
-	}
+	}, a.store, &flowRunner)
 	// Task breakdown (spec 026): a planner agent decomposes a goal into backlog
 	// sub-tasks. FORT_PLANNER selects the agent (default claude). Only wired in
 	// serve — breakdown is a real agent run, so it 409s in control-only mode.

@@ -9,7 +9,7 @@ import { requireSession } from "@/lib/session";
 import { relayReq } from "@/lib/worker";
 
 export async function POST(request: Request): Promise<Response> {
-  const unauth = await requireSession();
+  const unauth = await requireSession(request);
   if (unauth) return unauth;
 
   let body: { machine_id?: string; frame?: Frame };

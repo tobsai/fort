@@ -41,12 +41,7 @@ export default async function BoardPage({ params }: { params: { id: string } }) 
   return (
     <div>
       <p className="hint">
-        <Link href="/">← Machines</Link>
-      </p>
-      <h1>{machine.name || machine.machine_id}</h1>
-      <p className="subtitle">
-        <span className={`dot ${machine.online ? "online" : "offline"}`} />
-        {machine.online ? "online" : "offline"} · connected end-to-end over the tunnel
+        <Link href="/">Forts</Link> / Command Deck
       </p>
       <BoardClient
         machineId={machine.machine_id}

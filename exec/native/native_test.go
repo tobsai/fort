@@ -217,6 +217,74 @@ func TestDefaultProvidersArgv(t *testing.T) {
 	}
 }
 
+func TestVerifiedProvidersPassModelOverride(t *testing.T) {
+	for _, agent := range []string{"claude", "codex", "hermes"} {
+		t.Run(agent, func(t *testing.T) {
+			var p Provider
+			for _, candidate := range DefaultProviders() {
+				if candidate.Name == agent {
+					p = candidate
+					break
+				}
+			}
+			argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: "model-under-test"})
+			if !adjacent(argv, "--model", "model-under-test") {
+				t.Fatalf("%s argv = %v, want --model model-under-test", agent, argv)
+			}
+		})
+	}
+}
+
+func TestProvidersNormalizeDesignModelLabelsAtCLIContract(t *testing.T) {
+	for _, tc := range []struct {
+		agent string
+		label string
+		want  string
+	}{
+		{agent: "claude", label: "Sonnet", want: "sonnet"},
+		{agent: "claude", label: "Opus", want: "opus"},
+		{agent: "codex", label: "5.6 Sol", want: "gpt-5.6-sol"},
+		{agent: "hermes", label: "Codex 5.6 Sol", want: "openai-codex/gpt-5.6-sol"},
+	} {
+		t.Run(tc.agent, func(t *testing.T) {
+			var p Provider
+			for _, candidate := range DefaultProviders() {
+				if candidate.Name == tc.agent {
+					p = candidate
+					break
+				}
+			}
+			argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: tc.label})
+			if !adjacent(argv, "--model", tc.want) {
+				t.Fatalf("%s argv = %v, want normalized --model %s", tc.agent, argv, tc.want)
+			}
+		})
+	}
+}
+
+func TestOpenClawDoesNotInventModelFlag(t *testing.T) {
+	var p Provider
+	for _, candidate := range DefaultProviders() {
+		if candidate.Name == "openclaw" {
+			p = candidate
+			break
+		}
+	}
+	argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: "unknown-model"})
+	if contains(argv, "--model") || contains(argv, "unknown-model") {
+		t.Fatalf("openclaw model argv is unverified and must not be invented: %v", argv)
+	}
+}
+
+func adjacent(ss []string, a, b string) bool {
+	for i := 0; i+1 < len(ss); i++ {
+		if ss[i] == a && ss[i+1] == b {
+			return true
+		}
+	}
+	return false
+}
+
 func contains(ss []string, v string) bool {
 	for _, s := range ss {
 		if s == v {

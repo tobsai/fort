@@ -1,6 +1,6 @@
 # 034 — Mac app hosts the web board (delegation dashboard parity)
 
-**Status:** spec written on Toby's request (2026-07-19) — **awaiting approval before implementation.**
+**Status:** superseded by [035-apple-command-deck-redesign](035-apple-command-deck-redesign.md). The approved native design handoff replaced this unimplemented WebKit proposal.
 **Governed by:** [021-fort-native](021-fort-native.md) · aligns the Mac window with the 033 redesign ([033-dashboard-redesign](033-dashboard-redesign.md)) · extends the Mac app shell ([032-fort-for-mac](032-fort-for-mac.md)).
 
 ## Goal
