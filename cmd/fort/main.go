@@ -195,7 +195,9 @@ func cmdServe(args []string) error {
 	for i, f := range flows {
 		ids[i] = f.ID
 	}
-	flowRunner := control.NewFlowExecutor(graph.NewExecutor(a.rt, a.store), flows)
+	graphExecutor := graph.NewExecutor(a.rt, a.store)
+	graphExecutor.UsePlacer(a.live)
+	flowRunner := control.NewFlowExecutor(graphExecutor, flows)
 	deps := wirePlaybooks(ui.Deps{
 		Dispatcher: control.NewEngineDispatcher(a.engine),
 		Store:      a.store,

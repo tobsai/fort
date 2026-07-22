@@ -650,13 +650,11 @@ struct BoardView: View {
     }
 
     private var projectRuns: [RunSummary] {
-        board.runs.sorted { stateRank($0) < stateRank($1) }
+        FortProjectOrdering.sorted(board.runs, gates: board.gates)
     }
     private var workingRuns: [RunSummary] { board.runs.filter { $0.status == "running" } }
     private var failedRuns: [RunSummary] {
-        board.runs
-            .filter { ["failed", "error"].contains($0.status.lowercased()) }
-            .sorted { ($0.updatedAt ?? $0.createdAt ?? "") > ($1.updatedAt ?? $1.createdAt ?? "") }
+        FortAttention.recentFailures(in: board.runs, gates: board.gates)
     }
     private var attentionHeadline: String {
         if board.gates.isEmpty && failedRuns.isEmpty { return "Everything is moving." }
@@ -677,15 +675,6 @@ struct BoardView: View {
         let machineAgents = machines.flatMap { $0.agents ?? [] }
         return Array(Set(runAgents + machineAgents)).sorted()
     }
-    private func stateRank(_ run: RunSummary) -> Int {
-        switch FortProjectState.resolve(run: run, gates: board.gates) {
-        case .needsYou: return 0
-        case .failed: return 1
-        case .working: return 2
-        case .idle: return 3
-        case .delivered: return 4
-        }
-    }
     private func agentState(_ agent: String) -> FortProjectState {
         let runs = board.runs.filter { $0.agent == agent }
         if runs.contains(where: { run in board.gates.contains { $0.runID == run.id } }) { return .needsYou }
@@ -701,7 +690,7 @@ struct BoardView: View {
         case .needsYou: return "awaiting your sign-off"
         case .working: return "\(run.agent) working · \(FortTime.elapsed(run.createdAt))"
         case .delivered: return "all accepted"
-        case .failed: return "needs attention"
+        case .failed: return "failed"
         case .idle: return run.status == "queued" ? "up next" : "idle"
         }
     }

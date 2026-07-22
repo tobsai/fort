@@ -6,10 +6,14 @@ import { describe, expect, it } from "vitest";
 import {
   chatRequestForRoute,
   checkpointCaption,
+  crewFailureActivity,
   crewAssignments,
   DeckLoadGate,
   DeckOperationGate,
   latestRunByAgent,
+  meshReachability,
+  nextPlaybookStageOrder,
+  projectStateLabel,
   recentFailedRuns,
   relayIdentityTrusted,
   routePreviewMatchesDraft,
@@ -19,6 +23,7 @@ import {
   sortRunsForDeck,
   type DeckGate,
   type DeckMachine,
+  type DeckPlaybook,
   type DeckRoutePreview,
   type DeckRun,
 } from "@/lib/command-deck";
@@ -103,6 +108,31 @@ describe("gateway Command Deck presentation", () => {
     expect(ordered.map((item) => item.id)).toEqual(["waiting", "working", "delivered"]);
   });
 
+  it("keeps current work and outcomes ahead of historical failures", () => {
+    const now = Date.parse("2026-07-22T12:00:00Z");
+    const gates = [gate("waiting")];
+    const ordered = sortRunsForDeck(
+      [
+        run({ id: "old-failure", status: "failed", updated_at: "2026-07-10T12:00:00Z" }),
+        run({ id: "delivered", status: "succeeded", updated_at: "2026-07-22T10:00:00Z" }),
+        run({ id: "working", status: "running", updated_at: "2026-07-22T09:00:00Z" }),
+        run({ id: "recent-failure", status: "failed", updated_at: "2026-07-22T11:00:00Z" }),
+        run({ id: "waiting", status: "blocked", updated_at: "2026-07-20T12:00:00Z" }),
+      ],
+      gates,
+      now,
+    );
+    expect(ordered.map((item) => item.id)).toEqual([
+      "waiting",
+      "recent-failure",
+      "working",
+      "delivered",
+      "old-failure",
+    ]);
+    expect(projectStateLabel(ordered[1], gates, now)).toBe("Needs attention");
+    expect(projectStateLabel(ordered[4], gates, now)).toBe("Failed");
+  });
+
   it("only raises recent failed assignments in Needs you", () => {
     const now = Date.parse("2026-07-22T12:00:00Z");
     const failed = recentFailedRuns(
@@ -114,6 +144,63 @@ describe("gateway Command Deck presentation", () => {
       now,
     );
     expect(failed.map((item) => item.id)).toEqual(["recent"]);
+  });
+
+  it("keeps historical Crew failures truthful without raising attention forever", () => {
+    const now = Date.parse("2026-07-22T12:00:00Z");
+    expect(
+      crewFailureActivity(
+        run({ title: "Recent repair", status: "failed", updated_at: "2026-07-22T11:00:00Z" }),
+        [],
+        now,
+      ),
+    ).toBe("needs attention on Recent repair");
+    expect(
+      crewFailureActivity(
+        run({ title: "Old repair", status: "failed", updated_at: "2026-07-19T11:00:00Z" }),
+        [],
+        now,
+      ),
+    ).toBe("failed Old repair");
+  });
+
+  it("allocates a unique stage order for sparse immutable playbooks", () => {
+    expect(nextPlaybookStageOrder([])).toBe(1);
+    expect(nextPlaybookStageOrder([{ order: 1 }, { order: 3 }])).toBe(4);
+    expect(nextPlaybookStageOrder([{ order: 7 }, { order: 2 }])).toBe(8);
+  });
+
+  it("summarizes the all-machine roster without implying a task pin", () => {
+    const machines: DeckMachine[] = [
+      { name: "laptop", agents: ["claude"], local: true, reachable: true },
+      { name: "mini", agents: ["openclaw"], local: false, reachable: true },
+      { name: "studio", agents: ["codex"], local: false, reachable: false },
+    ];
+    expect(meshReachability(machines)).toBe("2 of 3 reachable");
+    expect(meshReachability([])).toBe("roster not loaded");
+  });
+
+  it("models the complete immutable playbook catalog contract", () => {
+    const playbook: DeckPlaybook = {
+      id: "feature-work",
+      name: "Feature work",
+      revision: 4,
+      is_default: true,
+      plan_gate: true,
+      delivery: "assignment",
+      trigger: { kind: "feature", enabled: true },
+      stages: [
+        {
+          order: 1,
+          name: "Break down",
+          description: "Produces the plan.",
+          assignments: [{ agent: "hermes", model: "Codex 5.6 Sol" }],
+          memory: true,
+        },
+      ],
+    };
+    expect(playbook.trigger.enabled).toBe(true);
+    expect(playbook.stages[0].assignments[0].agent).toBe("hermes");
   });
 
   it("fails closed when pin verification belongs to a previous machine identity", () => {
@@ -211,11 +298,24 @@ describe("gateway Command Deck presentation", () => {
     expect(shouldRefreshPlaybookCatalog(true, 0)).toBe(true);
   });
 
+  it("keeps the first-class playbook catalog loaded after a direction handoff", () => {
+    const root = fileURLToPath(new URL("..", import.meta.url));
+    const client = readFileSync(`${root}/components/board-client.tsx`, "utf8");
+    const handoff = client.slice(
+      client.indexOf("async function handOff()"),
+      client.indexOf("async function tailEvents()"),
+    );
+
+    expect(handoff).not.toContain("setPlaybooks([])");
+  });
+
   it("pins the approved visual and encrypted-load contracts in source", () => {
     const root = fileURLToPath(new URL("..", import.meta.url));
     const client = readFileSync(`${root}/components/board-client.tsx`, "utf8");
     const surface = readFileSync(`${root}/components/command-deck-surface.tsx`, "utf8");
-    const commandDeckSource = `${client}\n${surface}`;
+    const playbooks = readFileSync(`${root}/components/playbooks-surface.tsx`, "utf8");
+    const machinesPage = readFileSync(`${root}/app/page.tsx`, "utf8");
+    const commandDeckSource = `${client}\n${surface}\n${playbooks}`;
     const css = readFileSync(`${root}/app/globals.css`, "utf8");
 
     for (const endpoint of [
@@ -229,6 +329,35 @@ describe("gateway Command Deck presentation", () => {
     }
     for (const label of ["NEEDS YOU", "PROJECTS", "UP NEXT", "CREW", "Give direction"]) {
       expect(commandDeckSource).toContain(label);
+    }
+    for (const playbookContract of [
+      'view === "playbooks"',
+      "PlaybooksSurface",
+      'method: "PUT"',
+      "/duplicate",
+      "playbook.stages",
+      "assignment.task_type",
+      "assignment.model",
+      "stage.memory",
+      'stage.assignments.length > 1 ? "stage-assignment branching"',
+      "playbook.trigger",
+      "playbook.delivery",
+      "playbook.plan_gate",
+    ]) {
+      expect(commandDeckSource).toContain(playbookContract);
+    }
+    expect(playbooks).not.toContain('className="playbooks-heading-copy"');
+    expect(playbooks).not.toContain('<main className="playbook-editor">');
+    expect(playbooks).toContain('<section className="playbook-editor">');
+    expect(client).toContain("All machines");
+    expect(client).toContain("meshReachability(deck?.machines ?? [])");
+    expect(surface).toContain("projectStateLabel(run, gates)");
+    for (const entryPointCopy of [
+      "secure control-plane entry point",
+      "whole connected mesh",
+      "Open all-machine deck",
+    ]) {
+      expect(machinesPage).toContain(entryPointCopy);
     }
     for (const routeLabel of [
       "Preview route",
@@ -262,8 +391,26 @@ describe("gateway Command Deck presentation", () => {
       "--needs-you: #e0a458",
       "--working: #6fa8ff",
       "--accepted: #57b98a",
+      ".playbook-layout",
+      "grid-template-columns: 250px minmax(0, 1fr)",
+      "grid-template-columns: repeat(2, minmax(0, 1fr))",
     ]) {
       expect(css).toContain(token);
     }
+
+    const stageRule = css.match(/\.playbook-stage \{([^}]*)\}/)?.[1] ?? "";
+    expect(stageRule).toContain("flex: 1");
+    expect(stageRule).toContain("min-width: 220px");
+    expect(stageRule).not.toContain("width: 282px");
+
+    const stageWrapRule = css.match(/\.playbook-stage-wrap \{([^}]*)\}/)?.[1] ?? "";
+    expect(stageWrapRule).toContain("display: contents");
+    const assignmentRule = css.match(/\.stage-assignment \{([^}]*)\}/)?.[1] ?? "";
+    expect(assignmentRule).toContain("flex-direction: column");
+    const editorLeadRule = css.match(/\.playbook-editor-heading > div:first-child \{([^}]*)\}/)?.[1] ?? "";
+    expect(editorLeadRule).toContain("flex-direction: row");
+    const playbookToggleRule = css.match(/\.playbook-toggle input \{([^}]*)\}/)?.[1] ?? "";
+    expect(playbookToggleRule).toContain("appearance: none");
+    expect(playbookToggleRule).toContain("width: 34px");
   });
 });

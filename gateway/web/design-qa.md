@@ -64,4 +64,51 @@
 
 - Share the deterministic sigil renderer as an approved asset pipeline, then add real project marks without code-native approximations.
 
+Spec 037 result: passed
+
+---
+
+# Spec 038 Playbooks design QA — 2026-07-22
+
+**Findings**
+
+- No P0, P1, or P2 finding remains after the rendered comparison and interaction pass.
+- [Resolved P2] The first desktop capture let fixed-width stages overflow the Playbooks pipeline. Responsive equal-width stages with a `220px` minimum now retain the full chain inside the workspace.
+- [Resolved P2] Stage headings and branch assignments were vertically inconsistent with handoff view 4a. The desktop header was condensed and task-type branches now share the stage grid.
+- [Resolved P2] The phone catalog rail produced a horizontal scrollbar. At the phone breakpoint it now becomes a two-column catalog grid with no document overflow.
+- [Resolved P2] Native checkboxes did not match the approved control language. Plan-gate, memory, and shortcut controls now use the Fort switch treatment.
+
+## Evidence
+
+- Source visual truth: `/Users/tobiasgunn/dev/fort/design_handoff_fort_dashboard_redesign/Fort Redesign.dc.html#4a`
+- Source screenshot: `/private/tmp/fort-dashboard-preview-019f87bb/playbooks-source-final.png`
+- Desktop implementation screenshot: `/private/tmp/fort-038-gateway-desktop-final.png`
+- Phone implementation screenshot: `/private/tmp/fort-038-gateway-mobile-final.png`
+- Combined source/implementation comparison: `/private/tmp/fort-038-playbooks-comparison-final.png`
+- Desktop viewport: `1280 x 800`, device density `1x`.
+- Phone viewport: `390 x 844`, device density `1x`.
+- Phone overflow measurement: body and document `scrollWidth` both equal the `390px` viewport width.
+- Browser console: no errors on a clean Playbooks load.
+
+## Full-view and focused comparison
+
+- Full-view comparison: passed. The implementation retains the handoff's catalog/editor split, gold selection accent, compact stage chain, routing branches, and shortcut list while fitting Fort's existing all-machine shell.
+- Focused comparison: passed for catalog selection, immutable revision header, trigger and delivery controls, stage assignments, model selectors, memory switches, shortcuts, and the responsive phone stack.
+
+## Interaction and runtime checks
+
+- Browser checks passed for Playbooks tab load, catalog selection, trigger change, plan-gate toggle, agent/model assignment, memory toggle, shortcut toggle, immutable revision advancement, duplication, reload, and desktop/phone responsive behavior.
+- `Add stage` uses the native browser prompt. The in-app QA runtime does not implement `prompt()`, so this single automation path is covered by the source contract and test suite rather than the browser driver.
+- Production source check: the temporary `gateway/web/app/qa` route is absent and middleware protects all routes except the existing authentication/static exclusions.
+
+**Implementation Checklist**
+
+- [x] Add Playbooks as a first-class tab backed by the full sealed catalog.
+- [x] Preserve immutable revision semantics for save and duplicate operations.
+- [x] Retain the loaded catalog across direction handoff.
+- [x] Use the approved Fort tokens, typography, copy hierarchy, and responsive layout rules.
+- [x] Remove temporary QA route and middleware artifacts.
+- [x] Capture and compare desktop and phone Playbooks views in the in-app browser.
+- [x] Exercise the primary interactions and inspect the browser console.
+
 final result: passed

@@ -20,6 +20,10 @@ struct FortKitContractChecks {
         answerOutcomeSurfacesFailureStates()
         sigilIsDeterministicMirroredAndStable()
         projectStatePrioritizesHumanAttention()
+        recentFailuresStayActionableForFortyEightHours()
+        projectOrderingDemotesHistoricalFailures()
+        meshStatusUsesCrossMachineLanguage()
+        try macSidebarSelectionUsesNonOptionalTags()
         checkpointCaptionUsesAcceptedProgress()
         displayedWeekIsMondayThroughSunday()
         print("FortKit contract checks passed")
@@ -239,8 +243,8 @@ struct FortKitContractChecks {
         let failed = RunSummary(id: "f", title: "Failed", agent: "codex", status: "failed")
         expect(FortProjectState.resolve(run: failed, gates: []) == .failed, "failed must need attention")
         expect(
-            FortProjectState.resolve(run: failed, gates: [GateItem(runID: "f", nodeID: "review")]) == .failed,
-            "failure must not be disguised as a waiting sign-off"
+            FortProjectState.resolve(run: failed, gates: [GateItem(runID: "f", nodeID: "review")]) == .needsYou,
+            "a waiting gate must take priority over terminal failure history"
         )
         expect(FortProjectState.resolve(
             run: RunSummary(id: "i", title: "Idle", agent: "codex", status: "queued"), gates: []
@@ -255,6 +259,109 @@ struct FortKitContractChecks {
             ),
             gates: []
         ) == .idle, "a redirected run must not be delivered")
+    }
+
+    private static func recentFailuresStayActionableForFortyEightHours() {
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-07-22T12:00:00Z")!
+        let runs = [
+            RunSummary(
+                id: "recent", title: "Recent", agent: "codex", status: "failed",
+                createdAt: "2026-07-18T12:00:00Z", updatedAt: "2026-07-22T11:00:00Z"
+            ),
+            RunSummary(
+                id: "boundary", title: "Boundary", agent: "hermes", status: "error",
+                updatedAt: "2026-07-20T12:00:00Z"
+            ),
+            RunSummary(
+                id: "stale", title: "Stale", agent: "claude", status: "failed",
+                updatedAt: "2026-07-20T11:59:59Z"
+            ),
+            RunSummary(
+                id: "working", title: "Working", agent: "codex", status: "running",
+                updatedAt: "2026-07-22T11:30:00Z"
+            ),
+            RunSummary(
+                id: "gated", title: "Gated", agent: "hermes", status: "failed",
+                updatedAt: "2026-07-22T11:55:00Z"
+            ),
+            RunSummary(id: "undated", title: "Undated", agent: "codex", status: "failed"),
+        ]
+
+        let recent = FortAttention.recentFailures(
+            in: runs,
+            gates: [GateItem(runID: "gated", nodeID: "review")],
+            now: now
+        )
+        expect(recent.map(\.id) == ["recent", "boundary"], "recent failures must use an inclusive 48-hour window, exclude gated runs, and sort newest-first")
+        expect(FortProjectState.failed.label == "Failed", "historical project failure must be labeled Failed")
+    }
+
+    private static func projectOrderingDemotesHistoricalFailures() {
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-07-22T12:00:00Z")!
+        let runs = [
+            RunSummary(
+                id: "historical-failure", title: "Historical failure", agent: "codex", status: "failed",
+                updatedAt: "2026-07-20T11:59:59Z"
+            ),
+            RunSummary(
+                id: "new-success", title: "New success", agent: "hermes", status: "succeeded",
+                updatedAt: "2026-07-22T11:45:00Z"
+            ),
+            RunSummary(
+                id: "working", title: "Working", agent: "claude", status: "running",
+                updatedAt: "2026-07-22T11:30:00Z"
+            ),
+            RunSummary(
+                id: "recent-failure", title: "Recent failure", agent: "codex", status: "error",
+                updatedAt: "2026-07-22T11:00:00Z"
+            ),
+            RunSummary(
+                id: "waiting", title: "Waiting", agent: "hermes", status: "queued",
+                updatedAt: "2026-07-18T12:00:00Z"
+            ),
+        ]
+        let ordered = FortProjectOrdering.sorted(
+            runs,
+            gates: [GateItem(runID: "waiting", nodeID: "review")],
+            now: now
+        )
+
+        expect(
+            ordered.map(\.id) == ["waiting", "recent-failure", "working", "new-success", "historical-failure"],
+            "projects must rank gates, recent failures, active work, and newer terminal work ahead of historical failures"
+        )
+    }
+
+    private static func meshStatusUsesCrossMachineLanguage() {
+        let single = FortMeshSummary.resolve([])
+        expect(single.title == "This Mac", "single-machine mode must say This Mac")
+        expect(single.detail == nil, "single-machine mode must not invent a mesh count")
+
+        let mesh = FortMeshSummary.resolve([
+            MachineSummary(name: "mac-mini", local: true, reachable: true),
+            MachineSummary(name: "mbp", local: false, reachable: false),
+        ])
+        expect(mesh.title == "All machines", "configured mesh must not imply one selected machine")
+        expect(mesh.detail == "1/2 online", "mesh status must report reachable and total machines")
+        expect(mesh.reachable == 1 && mesh.total == 2, "mesh status counts drifted")
+    }
+
+    private static func macSidebarSelectionUsesNonOptionalTags() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: appleRoot.appendingPathComponent("macOS/FortWindow.swift"),
+            encoding: .utf8
+        )
+
+        expect(source.contains("List(selection: $route)"), "macOS sidebar selection contract disappeared")
+        expect(source.contains(".tag(item)"), "optional macOS sidebar tags do not update the nonoptional route selection")
+        expect(!source.contains(".tag(Optional(item))"), "macOS sidebar tags must match the nonoptional List selection value")
     }
 
     private static func checkpointCaptionUsesAcceptedProgress() {

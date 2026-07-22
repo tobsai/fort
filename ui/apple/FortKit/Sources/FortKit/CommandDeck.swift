@@ -10,8 +10,8 @@ public enum FortProjectState: String, Sendable, CaseIterable {
 
     public static func resolve(run: RunSummary, gates: [GateItem]) -> FortProjectState {
         let status = run.status.lowercased()
-        if ["failed", "error"].contains(status) { return .failed }
         if gates.contains(where: { $0.runID == run.id }) { return .needsYou }
+        if ["failed", "error"].contains(status) { return .failed }
         switch status {
         case "running": return .working
         case "succeeded", "done":
@@ -26,9 +26,122 @@ public enum FortProjectState: String, Sendable, CaseIterable {
         case .needsYou: return "Needs you"
         case .working: return "Working"
         case .delivered: return "Delivered"
-        case .failed: return "Needs attention"
+        case .failed: return "Failed"
         case .idle: return "Idle"
         }
+    }
+}
+
+/// Time-bounded work that still belongs in the Command Deck's attention inbox.
+/// Older failures remain visible in project history without staying actionable
+/// forever.
+public enum FortAttention {
+    public static let recentFailureWindow: TimeInterval = 48 * 60 * 60
+
+    public static func isRecentFailure(
+        _ run: RunSummary,
+        gates: [GateItem],
+        now: Date = Date()
+    ) -> Bool {
+        guard !gates.contains(where: { $0.runID == run.id }),
+              ["failed", "error"].contains(run.status.lowercased()),
+              let date = timestamp(for: run) else {
+            return false
+        }
+        return date >= now.addingTimeInterval(-recentFailureWindow)
+    }
+
+    public static func recentFailures(
+        in runs: [RunSummary],
+        gates: [GateItem],
+        now: Date = Date()
+    ) -> [RunSummary] {
+        let cutoff = now.addingTimeInterval(-recentFailureWindow)
+        let gatedRunIDs = Set(gates.map(\.runID))
+        return runs.compactMap { run -> (run: RunSummary, date: Date)? in
+            guard !gatedRunIDs.contains(run.id),
+                  ["failed", "error"].contains(run.status.lowercased()),
+                  let date = timestamp(for: run),
+                  date >= cutoff else {
+                return nil
+            }
+            return (run, date)
+        }
+        .sorted { $0.date > $1.date }
+        .map { $0.run }
+    }
+
+    fileprivate static func timestamp(for run: RunSummary) -> Date? {
+        guard let value = run.updatedAt ?? run.createdAt else { return nil }
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value)
+    }
+}
+
+/// Deterministic project ordering shared by the native Command Decks. Current
+/// human attention and active work stay prominent; failures older than the
+/// attention window remain visible as history after the other project states.
+public enum FortProjectOrdering {
+    public static func sorted(
+        _ runs: [RunSummary],
+        gates: [GateItem],
+        now: Date = Date()
+    ) -> [RunSummary] {
+        runs.enumerated().sorted { left, right in
+            let leftRank = rank(left.element, gates: gates, now: now)
+            let rightRank = rank(right.element, gates: gates, now: now)
+            if leftRank != rightRank { return leftRank < rightRank }
+
+            let leftDate = FortAttention.timestamp(for: left.element)
+            let rightDate = FortAttention.timestamp(for: right.element)
+            if leftDate != rightDate {
+                return (leftDate ?? .distantPast) > (rightDate ?? .distantPast)
+            }
+            if left.element.id != right.element.id {
+                return left.element.id < right.element.id
+            }
+            return left.offset < right.offset
+        }
+        .map(\.element)
+    }
+
+    private static func rank(
+        _ run: RunSummary,
+        gates: [GateItem],
+        now: Date
+    ) -> Int {
+        switch FortProjectState.resolve(run: run, gates: gates) {
+        case .needsYou: return 0
+        case .failed: return FortAttention.isRecentFailure(run, gates: gates, now: now) ? 1 : 5
+        case .working: return 2
+        case .idle: return 3
+        case .delivered: return 4
+        }
+    }
+}
+
+/// Cross-machine copy for the native clients. A non-empty roster is a mesh,
+/// never a selected execution target: placement remains Fort's deterministic
+/// responsibility.
+public struct FortMeshSummary: Equatable, Sendable {
+    public let title: String
+    public let detail: String?
+    public let reachable: Int
+    public let total: Int
+
+    public static func resolve(_ machines: [MachineSummary]) -> FortMeshSummary {
+        guard !machines.isEmpty else {
+            return FortMeshSummary(title: "This Mac", detail: nil, reachable: 1, total: 1)
+        }
+        let reachable = machines.filter(\.reachable).count
+        return FortMeshSummary(
+            title: "All machines",
+            detail: "\(reachable)/\(machines.count) online",
+            reachable: reachable,
+            total: machines.count
+        )
     }
 }
 

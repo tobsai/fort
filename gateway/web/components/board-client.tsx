@@ -8,11 +8,13 @@ import { decodeBase64, fingerprint } from "@fort/gateway-shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CommandDeckSurface } from "@/components/command-deck-surface";
+import { PlaybooksSurface } from "@/components/playbooks-surface";
 import {
   chatRequestForRoute,
   DeckLoadGate,
   DeckOperationGate,
   displayAgent,
+  meshReachability,
   relayIdentityTrusted,
   relativeAge,
   routePreviewMatchesDraft,
@@ -27,8 +29,8 @@ import {
 } from "@/lib/command-deck";
 import { RelayClient, type FetchOptions } from "@/lib/relay-client";
 
-type DeckView = "deck" | "snapshot" | "activity";
-type BusyState = "deck" | "snapshot" | "mutation" | "direction" | null;
+type DeckView = "deck" | "playbooks" | "snapshot" | "activity";
+type BusyState = "deck" | "playbooks" | "snapshot" | "mutation" | "direction" | null;
 type DeckLoadMode = "foreground" | "poll" | "force";
 
 interface PinVerification {
@@ -89,6 +91,8 @@ export default function BoardClient({
     planGate: boolean;
   } | null>(null);
   const [playbooks, setPlaybooks] = useState<DeckPlaybook[]>([]);
+  const [playbooksLoading, setPlaybooksLoading] = useState(false);
+  const [selectedPlaybookID, setSelectedPlaybookID] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const tailAbort = useRef<AbortController | null>(null);
   const autoLoaded = useRef("");
@@ -196,6 +200,8 @@ export default function BoardClient({
     setRoutePreviewDraft(null);
     directionRevision.current += 1;
     setPlaybooks([]);
+    setPlaybooksLoading(false);
+    setSelectedPlaybookID("");
     setLastLoaded(null);
     setSnapshotTime(null);
     setConnected(false);
@@ -266,6 +272,94 @@ export default function BoardClient({
       return response;
     } finally {
       await client.close();
+    }
+  }
+
+  function acceptPlaybookCatalog(items: DeckPlaybook[]) {
+    setPlaybooks(items);
+    setSelectedPlaybookID((current) => {
+      if (items.some((playbook) => playbook.id === current)) return current;
+      return items.find((playbook) => playbook.is_default)?.id ?? items[0]?.id ?? "";
+    });
+  }
+
+  async function loadPlaybooks() {
+    const operationLease = beginOperation("playbooks");
+    if (!operationLease) return;
+    const requestIdentity = identity;
+    setPlaybooksLoading(true);
+    setOperationError(null);
+    try {
+      const response = await sealedFetch("/api/playbooks");
+      ensureOK(response.status, "/api/playbooks");
+      if (trustedIdentity.current !== requestIdentity) return;
+      acceptPlaybookCatalog(decodeJSON<DeckPlaybook[]>(response.body));
+      setConnected(true);
+    } catch (cause) {
+      if (trustedIdentity.current === requestIdentity) setOperationError(message(cause));
+    } finally {
+      if (trustedIdentity.current === requestIdentity) setPlaybooksLoading(false);
+      endOperation(operationLease);
+    }
+  }
+
+  async function savePlaybook(playbook: DeckPlaybook) {
+    const operationLease = beginOperation("playbooks");
+    if (!operationLease) return;
+    const requestIdentity = identity;
+    setOperationError(null);
+    setNotice(null);
+    try {
+      const response = await sealedFetch("/api/playbooks", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: utf8enc.encode(JSON.stringify(playbook)),
+      });
+      if (response.status === 409) {
+        const latestResponse = await sealedFetch("/api/playbooks");
+        ensureOK(latestResponse.status, "/api/playbooks");
+        if (trustedIdentity.current === requestIdentity) {
+          acceptPlaybookCatalog(decodeJSON<DeckPlaybook[]>(latestResponse.body));
+        }
+        throw new Error("This playbook changed in another edit. Fort reloaded the latest revision.");
+      }
+      ensureOK(response.status, "/api/playbooks");
+      const saved = decodeJSON<DeckPlaybook>(response.body);
+      if (trustedIdentity.current !== requestIdentity) return;
+      setPlaybooks((current) => {
+        const found = current.some((item) => item.id === saved.id);
+        return found
+          ? current.map((item) => (item.id === saved.id ? saved : item))
+          : [...current, saved];
+      });
+      setSelectedPlaybookID((current) => current || saved.id);
+      setNotice(`${saved.name} saved as revision ${saved.revision}.`);
+    } catch (cause) {
+      if (trustedIdentity.current === requestIdentity) setOperationError(message(cause));
+    } finally {
+      endOperation(operationLease);
+    }
+  }
+
+  async function duplicatePlaybook(id: string) {
+    const operationLease = beginOperation("playbooks");
+    if (!operationLease) return;
+    const requestIdentity = identity;
+    setOperationError(null);
+    setNotice(null);
+    const path = `/api/playbooks/${encodeURIComponent(id)}/duplicate`;
+    try {
+      const response = await sealedFetch(path, { method: "POST" });
+      ensureOK(response.status, path);
+      const copy = decodeJSON<DeckPlaybook>(response.body);
+      if (trustedIdentity.current !== requestIdentity) return;
+      setPlaybooks((current) => [...current.filter((item) => item.id !== copy.id), copy]);
+      setSelectedPlaybookID(copy.id);
+      setNotice(`${copy.name} created.`);
+    } catch (cause) {
+      if (trustedIdentity.current === requestIdentity) setOperationError(message(cause));
+    } finally {
+      endOperation(operationLease);
     }
   }
 
@@ -372,7 +466,7 @@ export default function BoardClient({
       ) {
         setRoutePreview(decodeJSON<DeckRoutePreview>(routeResponse.body));
         setRoutePreviewDraft({ text, planGate: previewPlanGate });
-        setPlaybooks(nextPlaybooks);
+        acceptPlaybookCatalog(nextPlaybooks);
       }
     } catch (cause) {
       if (trustedIdentity.current === requestIdentity) setOperationError(message(cause));
@@ -412,7 +506,6 @@ export default function BoardClient({
       setDirection("");
       setRoutePreview(null);
       setRoutePreviewDraft(null);
-      setPlaybooks([]);
       setComposerOpen(false);
       setNotice(
         result.kind === "answer" && result.answer
@@ -480,10 +573,10 @@ export default function BoardClient({
         <div className="deck-machine">
           <span className={`status-dot ${connected ? "accepted" : "idle"}`} />
           <div>
-            <strong>{name}</strong>
+            <strong>All machines</strong>
             <span>
               {connected
-                ? "connected end-to-end"
+                ? meshReachability(deck?.machines ?? [])
                 : online
                   ? "broker online — verifying"
                   : "offline — retrying"}
@@ -499,6 +592,19 @@ export default function BoardClient({
             aria-selected={view === "deck"}
           >
             Deck
+          </button>
+          <button
+            className={view === "playbooks" ? "active" : ""}
+            onClick={() => {
+              if (busy) return;
+              setView("playbooks");
+              void loadPlaybooks();
+            }}
+            disabled={!!busy || !trusted}
+            role="tab"
+            aria-selected={view === "playbooks"}
+          >
+            Playbooks
           </button>
           <button
             className={view === "snapshot" ? "active" : ""}
@@ -525,7 +631,11 @@ export default function BoardClient({
         </nav>
         <div className="deck-toolbar-actions">
           {lastLoaded ? <span className="last-sync">synced {relativeAge(lastLoaded.toISOString())}</span> : null}
-          <button className="btn btn-secondary" onClick={() => void loadDeck()} disabled={!!busy || !trusted}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => void (view === "playbooks" ? loadPlaybooks() : loadDeck())}
+            disabled={!!busy || !trusted}
+          >
             Refresh
           </button>
           <button className="btn btn-primary" onClick={() => setComposerOpen((open) => !open)} disabled={!!busy || !trusted}>
@@ -726,6 +836,19 @@ export default function BoardClient({
         />
       ) : null}
 
+      {view === "playbooks" ? (
+        <PlaybooksSurface
+          playbooks={playbooks}
+          selectedID={selectedPlaybookID}
+          loading={playbooksLoading}
+          busy={!!busy}
+          onSelect={setSelectedPlaybookID}
+          onReload={() => void loadPlaybooks()}
+          onSave={(playbook) => void savePlaybook(playbook)}
+          onDuplicate={(id) => void duplicatePlaybook(id)}
+        />
+      ) : null}
+
       {view === "snapshot" ? (
         <div className="diagnostic-view">
           <div className="diagnostic-header">
@@ -777,14 +900,20 @@ export default function BoardClient({
       <details className="connection-details">
         <summary>Connection details</summary>
         <div>
+          <span>Relay daemon</span>
+          <code>{name}</code>
           <span>Daemon fingerprint</span>
           <code>{localFp}</code>
           <span>Gateway record</span>
           <code>{serverFingerprint}</code>
           <span>Pin state</span>
           <code>{pinState}</code>
-          <span>Inner machines</span>
-          <code>{deck?.machines.map((machine) => machine.name).join(", ") || "not loaded"}</code>
+          <span>Connected mesh</span>
+          <code>
+            {deck?.machines
+              .map((machine) => `${machine.name} (${machine.reachable ? "reachable" : "offline"})`)
+              .join(", ") || "not loaded"}
+          </code>
         </div>
       </details>
     </section>

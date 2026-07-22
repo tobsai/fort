@@ -3,7 +3,9 @@
 import {
   checkpointCaption,
   crewAssignments,
+  crewFailureActivity,
   displayAgent,
+  projectStateLabel,
   recentFailedRuns,
   relativeAge,
   runState,
@@ -181,14 +183,15 @@ export function CommandDeckSurface({
 
 function ProjectRow({ run, gates }: { run: DeckRun; gates: DeckGate[] }) {
   const state = runState(run, gates);
+  const label = projectStateLabel(run, gates);
   return (
     <article className="project-row">
-      <span className={`project-state state-${state}`} aria-label={stateLabel(state)} />
+      <span className={`project-state state-${state}`} aria-label={label} />
       <div>
         <strong>{run.title}</strong>
         <span>{checkpointCaption(run.checkpoints)}</span>
       </div>
-      <span className={`status-pill state-${state}`}>{stateLabel(state)}</span>
+      <span className={`status-pill state-${state}`}>{label}</span>
     </article>
   );
 }
@@ -213,7 +216,7 @@ function CrewRow({
       ? `${run.title} · ${relativeAge(run.updated_at ?? run.created_at)}`
       : "working",
     delivered: run ? `delivered ${run.title}` : "delivered",
-    failed: run ? `needs attention on ${run.title}` : "needs attention",
+    failed: run ? crewFailureActivity(run, gates) : "failed",
     idle: "open capacity — ready for an assignment",
   };
   return (
@@ -247,15 +250,4 @@ function EmptyRow({ text }: { text: string }) {
 function humanize(value: string): string {
   const text = value.replace(/[-_]+/g, " ").trim();
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Checkpoint review";
-}
-
-function stateLabel(state: DeckRunState): string {
-  const labels: Record<DeckRunState, string> = {
-    "needs-you": "Needs you",
-    working: "Working",
-    delivered: "Delivered",
-    failed: "Needs attention",
-    idle: "Idle",
-  };
-  return labels[state];
 }

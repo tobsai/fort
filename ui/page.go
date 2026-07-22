@@ -697,9 +697,14 @@ async function fetchPlaybooks(){
 // ---- derived model ----
 function runByID(id){for(var i=0;i<model.runs.length;i++)if(model.runs[i].id===id)return model.runs[i];return null;}
 function gatesFor(runID){return model.gates.filter(function(g){return g.run_id===runID;});}
-function recentFailed(){
+function hasGate(runID){return gatesFor(runID).length>0;}
+function failureIsRecent(r){
+  var status=(r.status||'').toLowerCase();
   var cut=Date.now()-48*3600*1000;
-  return model.runs.filter(function(r){return r.status==='failed'&&Date.parse(r.updated_at||r.created_at)>cut;});
+  return !hasGate(r.id)&&(status==='failed'||status==='error')&&Date.parse(r.updated_at||r.created_at)>=cut;
+}
+function recentFailed(){
+  return model.runs.filter(failureIsRecent);
 }
 function needCount(){return model.gates.length+recentFailed().length;}
 function agentSet(){
@@ -722,8 +727,8 @@ function agentStatus(a){
   return {state:'idle',run:null};
 }
 function projectState(r){
-  if(r.status==='failed')return 'failed';
-  if(gatesFor(r.id).length||r.status==='blocked')return 'need';
+  if(hasGate(r.id)||r.status==='blocked')return 'need';
+  if(r.status==='failed'||r.status==='error')return 'failed';
   if(r.status==='running')return 'working';
   // a run that finished down a rejected-gate path was closed by your redirect,
   // not delivered — never dress it in green
@@ -735,11 +740,18 @@ function projects(){
   var out=[];
   model.runs.forEach(function(r){
     var isFlow=r.agent&&r.agent.indexOf('flow:')===0;
-    if(isFlow||isLive(r)||r.status==='queued')out.push({kind:'run',run:r,state:projectState(r),t:Date.parse(r.created_at)||0});
+    if(isFlow||isLive(r)||r.status==='queued')out.push({kind:'run',run:r,state:projectState(r),t:Date.parse(r.updated_at||r.created_at)||0});
   });
   model.backlog.forEach(function(b){out.push({kind:'brief',item:b,state:'idle',t:0});});
-  var pri={need:0,failed:1,working:2,ok:3,idle:4};
-  out.sort(function(a,b){return (pri[a.state]-pri[b.state])||(b.t-a.t);});
+  function priority(p){
+    if(p.state==='need')return 0;
+    if(p.state==='failed')return failureIsRecent(p.run)?1:5;
+    if(p.state==='working')return 2;
+    if(p.state==='idle')return 3;
+    if(p.state==='ok')return 4;
+    return 6;
+  }
+  out.sort(function(a,b){return (priority(a)-priority(b))||(b.t-a.t);});
   return out;
 }
 function ckCaption(r){

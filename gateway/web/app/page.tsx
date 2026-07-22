@@ -1,7 +1,7 @@
-// / — Machines. A server component that lists registered machines directly
-// from the worker (server-side fetch with the shared secret). Each row shows
-// the name, the daemon key fingerprint (the string to verify against
-// `fort relay join` output), an online dot, a link to the board, and Revoke.
+// / — Secure control-plane entry points. A server component that lists relay
+// daemons directly from the worker (server-side fetch with the shared secret).
+// Opening any entry point reaches its authoritative all-machine Command Deck;
+// these records are not task-target pins.
 
 import Link from "next/link";
 
@@ -25,7 +25,9 @@ export default async function MachinesPage() {
       <div className="page-heading">
         <div>
           <h1>Remote Command Deck</h1>
-          <p className="subtitle">Choose a Fort to see what needs you from anywhere.</p>
+          <p className="subtitle">
+            Choose a secure control-plane entry point. Its deck operates the whole connected mesh.
+          </p>
         </div>
         <Link href="/add" className="btn btn-secondary">
           Add a Fort
@@ -42,7 +44,7 @@ export default async function MachinesPage() {
       ) : machines.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No Forts are connected yet. <Link href="/add">Add one</Link> to get a join code.
+            No secure entry points are connected yet. <Link href="/add">Add one</Link> to get a join code.
           </div>
         </div>
       ) : (
@@ -56,13 +58,16 @@ export default async function MachinesPage() {
                   {m.online ? "Online" : "Offline"}
                 </span>
               </div>
+              <p className="machine-entry-copy">
+                Secure relay entry point for one authoritative all-machine deck—not a task target.
+              </p>
               <div>
-                <div className="hint">Daemon key fingerprint</div>
+                <div className="hint">Relay daemon fingerprint</div>
                 <div className="fingerprint">{m.fingerprint}</div>
               </div>
               <div className="machine-card-actions">
                 <Link href={`/m/${m.machine_id}`} className="btn btn-primary">
-                  Open Command Deck
+                  Open all-machine deck
                 </Link>
                 <RevokeButton machineId={m.machine_id} name={m.name || m.machine_id} />
               </div>

@@ -145,3 +145,44 @@ func TestBoardHTMLQuickAnswerFailureRendersInline(t *testing.T) {
 		}
 	}
 }
+
+func TestBoardHTMLUsesTimeBoundedAttentionAcrossRunStates(t *testing.T) {
+	start := strings.Index(boardHTML, "// ---- derived model ----")
+	end := strings.Index(boardHTML, "// ---- render root ----")
+	if start < 0 || end <= start {
+		t.Fatal("boardHTML derived-model script markers missing")
+	}
+
+	vm := goja.New()
+	setup := `
+var model={
+  gates:[{run_id:'gated'}], machines:[], backlog:[], playbooks:[],
+  runs:[
+    {id:'gated',agent:'flow:gated',status:'failed',title:'Gated',created_at:'2026-07-22T11:55:00Z'},
+    {id:'recent',agent:'flow:recent',status:'failed',title:'Recent',created_at:'2026-07-22T11:00:00Z'},
+    {id:'boundary',agent:'flow:boundary',status:'error',title:'Boundary',created_at:'2026-07-20T12:00:00Z'},
+    {id:'working',agent:'flow:working',status:'running',title:'Working',created_at:'2026-07-22T10:00:00Z'},
+    {id:'delivered',agent:'flow:delivered',status:'succeeded',title:'Delivered',created_at:'2026-07-22T09:00:00Z'},
+    {id:'old',agent:'flow:old',status:'failed',title:'Old',created_at:'2026-07-19T11:00:00Z'}
+  ]
+};
+Date.now=function(){return Date.parse('2026-07-22T12:00:00Z');};
+function isLive(r){return r.status==='running'||r.status==='blocked';}
+function runAgent(r){return r.agent;}
+`
+	if _, err := vm.RunString(setup + boardHTML[start:end]); err != nil {
+		t.Fatalf("execute derived-model helpers: %v", err)
+	}
+	value, err := vm.RunString(`JSON.stringify({
+  needCount:needCount(),
+  gatedState:projectState(model.runs[0]),
+  projectIDs:projects().map(function(p){return p.run.id;})
+})`)
+	if err != nil {
+		t.Fatalf("evaluate attention model: %v", err)
+	}
+	const want = `{"needCount":3,"gatedState":"need","projectIDs":["gated","recent","boundary","working","delivered","old"]}`
+	if got := value.String(); got != want {
+		t.Fatalf("attention model = %s, want %s", got, want)
+	}
+}

@@ -84,6 +84,28 @@ export interface DeckPlaybook {
   is_default?: boolean;
   plan_gate?: boolean;
   delivery: "answer" | "assignment";
+  trigger: DeckPlaybookTrigger;
+  stages: DeckPlaybookStage[];
+}
+
+export interface DeckPlaybookTrigger {
+  kind: string;
+  enabled: boolean;
+}
+
+export interface DeckPlaybookAssignment {
+  task_type?: string;
+  agent: string;
+  model?: string;
+}
+
+export interface DeckPlaybookStage {
+  order: number;
+  name: string;
+  prompt?: string;
+  description?: string;
+  assignments: DeckPlaybookAssignment[];
+  memory?: boolean;
 }
 
 export interface DeckResolvedStage {
@@ -205,8 +227,8 @@ export function shouldRefreshPlaybookCatalog(
 
 export function runState(run: DeckRun, gates: DeckGate[]): DeckRunState {
   const status = run.status.toLowerCase();
-  if (status === "failed" || status === "error") return "failed";
   if (gates.some((gate) => gate.run_id === run.id)) return "needs-you";
+  if (status === "failed" || status === "error") return "failed";
   if (status === "running") return "working";
   if (status === "succeeded" || status === "done") {
     return (run.checkpoints?.rejected ?? 0) > 0 ? "idle" : "delivered";
@@ -291,18 +313,31 @@ export function crewAssignments(
   });
 }
 
-export function sortRunsForDeck(runs: DeckRun[], gates: DeckGate[]): DeckRun[] {
-  const priority: Record<DeckRunState, number> = {
-    "needs-you": 0,
-    failed: 1,
-    working: 2,
-    delivered: 3,
-    idle: 4,
+export function sortRunsForDeck(
+  runs: DeckRun[],
+  gates: DeckGate[],
+  now = Date.now(),
+): DeckRun[] {
+  const priority = (run: DeckRun): number => {
+    const state = runState(run, gates);
+    if (state === "needs-you") return 0;
+    if (state === "failed" && isRecentFailure(run, gates, now)) return 1;
+    if (state === "working") return 2;
+    return 3;
   };
   return [...runs].sort((left, right) => {
-    const stateDelta = priority[runState(left, gates)] - priority[runState(right, gates)];
+    const stateDelta = priority(left) - priority(right);
     return stateDelta || runTime(right) - runTime(left);
   });
+}
+
+export function isRecentFailure(
+  run: DeckRun,
+  gates: DeckGate[],
+  now = Date.now(),
+): boolean {
+  const cutoff = now - 48 * 60 * 60 * 1000;
+  return runState(run, gates) === "failed" && runTime(run) >= cutoff;
 }
 
 export function recentFailedRuns(
@@ -314,6 +349,39 @@ export function recentFailedRuns(
   return runs.filter(
     (run) => runState(run, gates) === "failed" && runTime(run) >= cutoff,
   );
+}
+
+export function crewFailureActivity(
+  run: DeckRun,
+  gates: DeckGate[],
+  now = Date.now(),
+): string {
+  return `${isRecentFailure(run, gates, now) ? "needs attention on" : "failed"} ${run.title}`;
+}
+
+export function nextPlaybookStageOrder(stages: Array<{ order: number }>): number {
+  return stages.reduce((maximum, stage) => Math.max(maximum, stage.order), 0) + 1;
+}
+
+export function projectStateLabel(
+  run: DeckRun,
+  gates: DeckGate[],
+  now = Date.now(),
+): string {
+  const state = runState(run, gates);
+  const labels: Record<DeckRunState, string> = {
+    "needs-you": "Needs you",
+    working: "Working",
+    delivered: "Delivered",
+    failed: isRecentFailure(run, gates, now) ? "Needs attention" : "Failed",
+    idle: "Idle",
+  };
+  return labels[state];
+}
+
+export function meshReachability(machines: DeckMachine[]): string {
+  if (machines.length === 0) return "roster not loaded";
+  return `${machines.filter((machine) => machine.reachable).length} of ${machines.length} reachable`;
 }
 
 export function displayAgent(agent: string): string {

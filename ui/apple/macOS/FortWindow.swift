@@ -86,7 +86,7 @@ struct FortWindow: View {
         List(selection: $route) {
             Section("Command") {
                 ForEach(MacDeckRoute.primary) { item in
-                    Label(item.title, systemImage: item.icon).tag(Optional(item))
+                    Label(item.title, systemImage: item.icon).tag(item)
                 }
             }
             Section("Service") {
@@ -102,28 +102,38 @@ struct FortWindow: View {
                 }
                 .controlSize(.mini)
             }
-            Section("Machines") {
-                if machines.isEmpty { Text("Single-machine mode").foregroundStyle(.secondary) }
+            Section("Execution mesh") {
+                if machines.isEmpty {
+                    Label("This Mac", systemImage: "desktopcomputer")
+                        .foregroundStyle(FortPalette.body)
+                }
                 ForEach(machines) { machine in
                     Label(machine.name, systemImage: machine.local ? "desktopcomputer" : "network")
                         .foregroundStyle(machine.reachable ? FortPalette.body : FortPalette.faint)
                 }
+                Text("Status only — Fort places work automatically.")
+                    .font(.caption2)
+                    .foregroundStyle(FortPalette.faint)
             }
         }
         .listStyle(.sidebar)
     }
 
     private var topBar: some View {
-        HStack(spacing: 14) {
+        let mesh = FortMeshSummary.resolve(machines)
+        return HStack(spacing: 14) {
             Text("FORT").font(.system(.callout, design: .monospaced).weight(.bold)).tracking(3.5).foregroundStyle(FortPalette.brassBright)
             if attentionCount > 0 {
                 Text("\(attentionCount) need you").font(.caption.weight(.semibold)).foregroundStyle(FortPalette.needsYou)
                     .padding(.horizontal, 10).padding(.vertical, 5).background(FortPalette.needsYou.opacity(0.14), in: Capsule())
             }
             Spacer()
-            if let local = machines.first(where: { $0.local }) {
-                Circle().fill(local.reachable ? FortPalette.accepted : FortPalette.failed).frame(width: 7, height: 7)
-                Text(local.name).font(.caption.monospaced()).foregroundStyle(FortPalette.muted)
+            Circle()
+                .fill(mesh.reachable == mesh.total ? FortPalette.accepted : (mesh.reachable == 0 ? FortPalette.failed : FortPalette.needsYou))
+                .frame(width: 7, height: 7)
+            Text(mesh.title).font(.caption.weight(.semibold)).foregroundStyle(FortPalette.body)
+            if let detail = mesh.detail {
+                Text(detail).font(.caption.monospaced()).foregroundStyle(FortPalette.muted)
             }
             Button("Give direction") { route = .assign }
                 .buttonStyle(.borderedProminent).tint(FortPalette.brass).foregroundStyle(FortPalette.page)
@@ -618,12 +628,12 @@ struct FortWindow: View {
             .overlay(Capsule().stroke(selectedAgent == agent ? FortPalette.brass : FortPalette.outline))
     }
 
-    private var projectRuns: [RunSummary] { board.runs.sorted { stateRank($0) < stateRank($1) } }
+    private var projectRuns: [RunSummary] {
+        FortProjectOrdering.sorted(board.runs, gates: board.gates)
+    }
     private var workingRuns: [RunSummary] { board.runs.filter { $0.status == "running" } }
     private var failedRuns: [RunSummary] {
-        board.runs
-            .filter { ["failed", "error"].contains($0.status.lowercased()) }
-            .sorted { ($0.updatedAt ?? $0.createdAt ?? "") > ($1.updatedAt ?? $1.createdAt ?? "") }
+        FortAttention.recentFailures(in: board.runs, gates: board.gates)
     }
     private var attentionCount: Int { board.gates.count + failedRuns.count }
     private var attentionEmptyMessage: String {
@@ -645,9 +655,6 @@ struct FortWindow: View {
         guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return false }
         return FortSchedule.isInDisplayedWeek(date)
     }
-    private func stateRank(_ run: RunSummary) -> Int {
-        switch FortProjectState.resolve(run: run, gates: board.gates) { case .needsYou: return 0; case .failed: return 1; case .working: return 2; case .idle: return 3; case .delivered: return 4 }
-    }
     private func agentState(_ agent: String) -> FortProjectState {
         let runs = board.runs.filter { $0.agent == agent }
         if runs.contains(where: { run in board.gates.contains { $0.runID == run.id } }) { return .needsYou }
@@ -661,7 +668,7 @@ struct FortWindow: View {
         case .needsYou: return "awaiting your sign-off"
         case .working: return "\(run.agent) working · \(FortTime.elapsed(run.createdAt))"
         case .delivered: return "all accepted"
-        case .failed: return "needs attention"
+        case .failed: return "failed"
         case .idle: return run.status == "queued" ? "up next" : "idle"
         }
     }
