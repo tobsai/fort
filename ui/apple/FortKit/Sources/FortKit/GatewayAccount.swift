@@ -5,10 +5,8 @@
 //  Where the client points itself: a gateway base URL (the 028 tunnel proxy or
 //  a local/mesh host) plus the machine the user has selected in the sidebar.
 //
-//  v1 boundary (honest): in-app Google sign-in for the 028 gateway is a DEFERRED
-//  follow-on — it needs the deployed gateway and an ASWebAuthenticationSession
-//  OAuth flow. For now this just lets the app aim `FortClient` at a base URL;
-//  local + mesh machines work fully without any auth.
+//  The iOS app obtains a short-lived bearer credential through Google sign-in.
+//  The selected daemon key is pinned here before FortKit opens its Noise tunnel.
 //
 
 import Foundation
@@ -21,15 +19,36 @@ public struct GatewayAccount: Codable, Sendable, Hashable {
     public var gatewayURL: URL?
     /// The machine id chosen in the sidebar, when set.
     public var selectedMachineID: String?
+    /// Short-lived native credential issued by the gateway after Google sign-in.
+    public var bearerToken: String?
+    /// TOFU pins, keyed by gateway machine id; values are base64 X25519 keys.
+    public var pinnedPublicKeys: [String: String]
 
-    public init(gatewayURL: URL? = nil, selectedMachineID: String? = nil) {
+    public init(
+        gatewayURL: URL? = nil,
+        selectedMachineID: String? = nil,
+        bearerToken: String? = nil,
+        pinnedPublicKeys: [String: String] = [:]
+    ) {
         self.gatewayURL = gatewayURL
         self.selectedMachineID = selectedMachineID
+        self.bearerToken = bearerToken
+        self.pinnedPublicKeys = pinnedPublicKeys
     }
 
     enum CodingKeys: String, CodingKey {
         case gatewayURL = "gateway_url"
         case selectedMachineID = "selected_machine_id"
+        case bearerToken = "bearer_token"
+        case pinnedPublicKeys = "pinned_public_keys"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        gatewayURL = try values.decodeIfPresent(URL.self, forKey: .gatewayURL)
+        selectedMachineID = try values.decodeIfPresent(String.self, forKey: .selectedMachineID)
+        bearerToken = try values.decodeIfPresent(String.self, forKey: .bearerToken)
+        pinnedPublicKeys = try values.decodeIfPresent([String: String].self, forKey: .pinnedPublicKeys) ?? [:]
     }
 
     /// The `UserDefaults` key the account is stored under.

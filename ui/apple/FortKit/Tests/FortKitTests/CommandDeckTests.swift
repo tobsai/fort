@@ -16,6 +16,8 @@ struct FortKitContractChecks {
         try routePreviewDecodesResolvedStages()
         try chatOverrideEncodesAndAnswerDecodes()
         try await clientUsesPlaybookEndpoints()
+        try gatewayAccountPersistsNativeSession()
+        try secureRelayMatchesGoNoiseVector()
         try quickModePinsAnswerPlaybookWhenTriggerIsDisabled()
         answerOutcomeSurfacesFailureStates()
         sigilIsDeterministicMirroredAndStable()
@@ -172,6 +174,47 @@ struct FortKitContractChecks {
             try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
         }
         expect(chatBody?["plan_gate"] as? Bool == false, "chat request lost false plan gate")
+    }
+
+    private static func gatewayAccountPersistsNativeSession() throws {
+        let suite = "FortKitContractChecks.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let account = GatewayAccount(
+            gatewayURL: URL(string: "https://fort.example")!,
+            selectedMachineID: "machine-1",
+            bearerToken: "native-token",
+            pinnedPublicKeys: ["machine-1": "86nFNj7PKVZC81MQ2j3/1YOsYiryw9jUK1csCZWnB3c="]
+        )
+        account.save(to: defaults)
+        expect(GatewayAccount.load(from: defaults) == account, "native gateway session did not persist")
+    }
+
+    private static func secureRelayMatchesGoNoiseVector() throws {
+        let initiatorStatic = try RelayKeypair(
+            privateKey: Data(base64Encoded: "lfM23kK1E/kHySaXdRbRpdh+Wf/4mbu7wJcIq34eHUE=")!
+        )
+        let initiatorEphemeral = try RelayKeypair(
+            privateKey: Data(base64Encoded: "BlmfkXmXtH/gYxqLYk1O2yUfA6K7M2eiFx8D6agjkXs=")!
+        )
+        let responderPublic = Data(base64Encoded: "86nFNj7PKVZC81MQ2j3/1YOsYiryw9jUK1csCZWnB3c=")!
+        let handshake = try RelayNoiseInitiator(
+            staticKeypair: initiatorStatic,
+            responderPublicKey: responderPublic,
+            ephemeralKeypair: initiatorEphemeral
+        )
+        let message1 = try handshake.writeMessage(Data("fort ik handshake payload one".utf8))
+        expect(
+            message1.base64EncodedString() == "3Ngz4RsEAJbFaKPfC78UHmXYfopX27T1c/YzzhtFimwbN4CCW7FVgyT0AXT/WZNHA8VJMe56k5XPw81eu0OOuyK8f/0kWAet1pU2E5K2BykL5N+ecUgldzTDB3JvsUlhaPAJ7BjU9iGf5+NZF/IlKWuCNP7R8DrUKVT9rtA=",
+            "Swift Noise IK message 1 drifted from Go: \(message1.base64EncodedString())"
+        )
+        _ = try handshake.readMessage(Data(base64Encoded: "akgBv7rKL76QfAvC8LhPmKQOMw0Yleh2pbyd11MoBxuzUU9gZfDWnogHx4GLQpBZSD0utIGG3OJQp87ViOrQe/Z+9+Lf/KTrmI+/nI4=")!)
+        let session = try handshake.session()
+        let sealed = try session.seal(Data("transport frame: initiator to responder".utf8))
+        expect(
+            sealed.base64EncodedString() == "a4n+3ewv7yRq+z+r3c0TQD2rTCE918BA03Hvb2Eue97JfHWzfpaY+rG8E9XPCPszhc/RWyGTzQ==",
+            "Swift Noise transport drifted from Go"
+        )
     }
 
     private static func quickModePinsAnswerPlaybookWhenTriggerIsDisabled() throws {

@@ -18,8 +18,11 @@ options:
 settings:
   base:
     MARKETING_VERSION: "1.0.1"
-    CURRENT_PROJECT_VERSION: "2607221"
+    CURRENT_PROJECT_VERSION: "2607222"
     SWIFT_VERSION: "5.0"
+    # Set to the deployed gateway origin for a pre-filled native sign-in URL.
+    # Users can still enter it in Connection Settings when this is empty.
+    FORT_GATEWAY_URL: ""
     # For TestFlight: set DEVELOPMENT_TEAM here (or enable automatic signing per
     # target in Xcode). Compile/CI verification passes CODE_SIGNING_ALLOWED=NO on
     # the xcodebuild command line, so the project itself stays sign-able.
@@ -53,6 +56,11 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false # standard networking only
+        FortGatewayURL: "$(FORT_GATEWAY_URL)"
+        CFBundleURLTypes:
+          - CFBundleURLName: io.mtree.fort.gateway-auth
+            CFBundleURLSchemes:
+              - fort
         # App Store validation: orientations are required (all four for iPad
         # multitasking).
         UISupportedInterfaceOrientations:
@@ -64,6 +72,7 @@ targets:
         # disabling ATS. Point the app at your host via the Settings screen.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: Fort connects to your Mac's control plane when you choose direct-host mode.
         # CarPlay scene. SwiftUI still provides the phone window scene; this only
         # adds the CarPlay role. Inert until the CarPlay entitlement is granted
         # (see docs/notes/testflight.md) — remove this block to ship without it.

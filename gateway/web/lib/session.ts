@@ -4,18 +4,37 @@
 // session. Every internal route calls requireSession() first.
 
 import { auth } from "@/auth";
+import { isAllowed } from "@/lib/allowlist";
+import { verifyNativeToken } from "@/lib/native-token";
 
 /**
  * requireSession returns null when the caller has a valid session, or a 401
  * Response to return immediately when they do not.
  */
-export async function requireSession(): Promise<Response | null> {
+export async function requireSession(request?: Request): Promise<Response | null> {
+  const authorization = request?.headers.get("authorization") ?? "";
+  if (authorization.startsWith("Bearer ")) {
+    try {
+      const identity = await verifyNativeToken(
+        authorization.slice("Bearer ".length),
+        process.env.AUTH_SECRET ?? "",
+      );
+      if (isAllowed(identity.email, process.env.FORT_ALLOWLIST)) return null;
+    } catch {
+      // Fall through to the same closed 401 used for an absent web session.
+    }
+    return unauthorized();
+  }
   const session = await auth();
   if (!session?.user) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    });
+    return unauthorized();
   }
   return null;
+}
+
+function unauthorized(): Response {
+  return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401,
+    headers: { "content-type": "application/json" },
+  });
 }

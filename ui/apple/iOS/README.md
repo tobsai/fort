@@ -7,15 +7,17 @@ It imports [`../FortKit`](../FortKit) and does **not** redefine the wire models
 or client.
 
 - **Platform:** iOS 16+ (matches FortKit's deployment floor)
-- **Depends on:** `../FortKit` (local Swift Package; Foundation only)
-- **Talks to:** Fort's control plane, default `http://127.0.0.1:4087`
+- **Depends on:** `../FortKit` (local Swift Package; Foundation + CryptoKit)
+- **Talks to:** Fort's remote gateway through a pinned Noise/AEAD tunnel. A
+  direct LAN host remains an explicit fallback in Connection Settings.
   (configurable in-app via More ▸ Settings)
 
 ## Files
 
 | File | Role |
 |------|------|
-| `FortApp.swift` | `@main` app entry; holds one `FortClient` as `@StateObject`, injects it into the environment, and provides the `SettingsView` host editor. |
+| `FortApp.swift` | `@main` app entry; holds one `FortClient`, blocks localhost polling until connection setup completes, and provides native connection settings. |
+| `GatewayCoordinator.swift` | Google web-auth handoff, persisted gateway session, machine discovery, fingerprint confirmation, and startup restoration. |
 | `BoardView.swift` | Command Deck: polls board, backlog, machines, metrics, and playbooks; owns the five-item navigation, route-preview handoff, secondary views, and `RunDetailView`. |
 | `GatesView.swift` | Legacy standalone sign-off list retained for source compatibility; the active mobile inbox is in the Deck. |
 | `FeedView.swift` | Activity sheet from More: consumes `client.events(since:)` with resume-on-reconnect. Also hosts shared helpers `EventRow`, `errorText`, and `ContentUnavailableCompat`. |
@@ -33,7 +35,7 @@ app target as described below.
      exactly one `@main`.
 
 2. **Add these sources.** Drag `FortApp.swift`, `BoardView.swift`,
-   `GatesView.swift`, and `FeedView.swift` into the target (*Add Files…*,
+   `GatewayCoordinator.swift`, `GatesView.swift`, and `FeedView.swift` into the target (*Add Files…*,
    "Copy items if needed" **off** so they stay in-tree), and confirm target
    membership.
 
@@ -123,5 +125,9 @@ entitlement would be the place to start.
   banner, and any gate decision returns `false` (HTTP 409) from
   `decideGate` — the Deck surfaces a "no execution plane" alert instead of
   treating it as an error.
-- **Configurable host.** More ▸ Settings edits the URL; `FortClient.baseURL` is
-  `@Published`, so the Deck's keyed task restarts against the new host.
+- **Native remote connection.** Connection Settings opens Google sign-in at the
+  configured gateway, lists registered machines, requires first-use fingerprint
+  confirmation, and restores the pinned machine on launch. All typed FortKit
+  reads, writes, and SSE events then cross the end-to-end encrypted relay.
+- **Explicit direct-host fallback.** A simulator or LAN build can still select a
+  direct URL. The app never silently treats iPhone localhost as the Mac.

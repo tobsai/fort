@@ -4,8 +4,8 @@
 import { requireSession } from "@/lib/session";
 import { listMachines } from "@/lib/worker";
 
-export async function GET(): Promise<Response> {
-  const unauth = await requireSession();
+export async function GET(request: Request): Promise<Response> {
+  const unauth = await requireSession(request);
   if (unauth) return unauth;
 
   try {
