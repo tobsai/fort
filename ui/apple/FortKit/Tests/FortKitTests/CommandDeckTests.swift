@@ -18,6 +18,7 @@ struct FortKitContractChecks {
         try await clientUsesPlaybookEndpoints()
         try gatewayAccountPersistsNativeSession()
         try gatewayAddressNormalizesProductionOrigin()
+        try await gatewayRelayRetriesHandshakeAndExplainsFailures()
         try secureRelayMatchesGoNoiseVector()
         try quickModePinsAnswerPlaybookWhenTriggerIsDisabled()
         answerOutcomeSurfacesFailureStates()
@@ -219,6 +220,41 @@ struct FortKitContractChecks {
                 // expected
             }
         }
+    }
+
+    private static func gatewayRelayRetriesHandshakeAndExplainsFailures() async throws {
+        var attempts = 0
+        let result = try await GatewayRelayRetry.handshake {
+            attempts += 1
+            if attempts == 1 {
+                throw GatewayRelayError.httpStatus(
+                    502,
+                    #"{"error":"worker req: 504 {\"error\":\"daemon did not respond\"}"}"#
+                )
+            }
+            return "connected"
+        }
+        expect(result == "connected", "transient relay handshake did not recover")
+        expect(attempts == 2, "transient relay handshake must retry exactly once")
+
+        attempts = 0
+        do {
+            _ = try await GatewayRelayRetry.handshake {
+                attempts += 1
+                throw GatewayRelayError.httpStatus(401, #"{"error":"unauthorized"}"#)
+            } as String
+            fatalError("non-transient relay failure unexpectedly succeeded")
+        } catch {
+            expect(attempts == 1, "non-transient relay failure must not retry")
+        }
+
+        let description = GatewayRelayError.httpStatus(
+            502,
+            #"{"error":"worker req: 504 {\"error\":\"daemon did not respond\"}"}"#
+        ).localizedDescription
+        expect(description.contains("502"), "relay failure description omitted the HTTP status")
+        expect(description.contains("daemon did not respond"), "relay failure description omitted gateway detail")
+        expect(!description.contains("GatewayRelayError error"), "relay failure leaked an opaque Swift enum code")
     }
 
     private static func secureRelayMatchesGoNoiseVector() throws {

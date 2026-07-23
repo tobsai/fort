@@ -18,7 +18,7 @@ options:
 settings:
   base:
     MARKETING_VERSION: "1.0.1"
-    CURRENT_PROJECT_VERSION: "2607231"
+    CURRENT_PROJECT_VERSION: "2607232"
     SWIFT_VERSION: "5.0"
     # Set to the deployed gateway origin for a pre-filled native sign-in URL.
     # Users can still enter it in Connection Settings when this is empty.

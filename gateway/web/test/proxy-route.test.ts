@@ -54,4 +54,23 @@ describe("POST /api/req", () => {
     expect(await res.json()).toEqual({ frames: [reply] });
     expect(mRelay).toHaveBeenCalledWith("m1", frame);
   });
+
+  it.each([503, 504])("preserves a worker %s so native clients can diagnose the relay", async (status) => {
+    mReq.mockResolvedValue(null);
+    mRelay.mockRejectedValue(Object.assign(new Error("daemon did not respond"), { status }));
+
+    const res = await POST(post({ machine_id: "m1", frame: { stream: "s", kind: "hs1" } }));
+
+    expect(res.status).toBe(status);
+    expect(await res.json()).toEqual({ error: "daemon did not respond" });
+  });
+
+  it("maps an unexpected worker failure to 502", async () => {
+    mReq.mockResolvedValue(null);
+    mRelay.mockRejectedValue(new Error("fetch failed"));
+
+    const res = await POST(post({ machine_id: "m1", frame: { stream: "s", kind: "hs1" } }));
+
+    expect(res.status).toBe(502);
+  });
 });

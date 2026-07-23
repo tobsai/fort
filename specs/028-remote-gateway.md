@@ -120,6 +120,15 @@ separate deploy artifact (TypeScript), not part of the Go module.
   reconnecting until re-joined.
 - Web session expired/not allowlisted → 401/403 at the Worker before any machine
   is touched.
+- The Vercel proxy preserves a Worker's 503 (machine offline) or 504 (relay
+  timeout) instead of collapsing either into an opaque 502.
+- A native client may retry one transient 502/503/504 only while establishing a
+  fresh Noise handshake. It must create a new stream and handshake for that
+  retry, and must never automatically replay an encrypted application request
+  because it may carry a non-idempotent command.
+- Native relay errors present the HTTP status and sanitized gateway detail to
+  the owner; raw Swift enum codes such as `GatewayRelayError error 1` are not an
+  acceptable user-facing failure.
 
 ## Architecture (respects the seams)
 - **`gateway/web/`** — Next.js + Auth.js (Google), allowlist, machines UI,
@@ -199,6 +208,11 @@ separate deploy artifact (TypeScript), not part of the Go module.
   right DO; non-allowlisted session → 403; join-code mint→consume is single-use.
 - `gateway/web`: an allowlisted vs non-allowlisted sign-in test (Auth.js
   callback returns/denies a session).
+- `gateway/web`: `/api/req` preserves Worker 503/504 responses; unexpected
+  failures remain 502.
+- `ui/apple/FortKit`: contract checks assert a transient handshake gets exactly
+  one retry, non-transient failures do not retry, and relay errors have
+  actionable localized descriptions.
 - `go test ./...` + `-race` on `exec/relay` green; Go seams intact (the Go build
   is unaffected by `gateway/`).
 
