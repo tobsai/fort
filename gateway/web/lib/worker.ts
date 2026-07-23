@@ -16,6 +16,16 @@ interface WorkerConfig {
   secret: string;
 }
 
+export class WorkerRelayError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "WorkerRelayError";
+  }
+}
+
 function config(): WorkerConfig {
   const url = process.env.WORKER_URL;
   const secret = process.env.GATEWAY_SECRET;
@@ -71,7 +81,7 @@ export async function relayReq(machineId: string, frame: Frame): Promise<Frame[]
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`worker req: ${res.status} ${text}`);
+    throw new WorkerRelayError(res.status, `worker req: ${res.status} ${text}`.trim());
   }
   const body = (await res.json()) as { frames: Frame[] };
   return body.frames;

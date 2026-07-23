@@ -26,6 +26,12 @@ export async function POST(request: Request): Promise<Response> {
     const frames = await relayReq(body.machine_id, body.frame);
     return Response.json({ frames });
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : "worker error" }, { status: 502 });
+    const upstreamStatus =
+      typeof e === "object" && e !== null && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 502;
+    const status = upstreamStatus === 503 || upstreamStatus === 504 ? upstreamStatus : 502;
+    console.error("relay proxy failed", e);
+    return Response.json({ error: e instanceof Error ? e.message : "worker error" }, { status });
   }
 }

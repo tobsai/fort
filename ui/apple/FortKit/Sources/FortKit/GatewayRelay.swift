@@ -31,6 +31,75 @@ public enum GatewayRelayError: Error, Sendable {
     case fingerprintChanged(expected: String, actual: String)
 }
 
+extension GatewayRelayError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidMachineKey:
+            return "The selected Fort has an invalid relay identity. Reconnect it from the gateway."
+        case .invalidGatewayResponse:
+            return "The gateway returned an invalid response. Try again."
+        case .missingFrame:
+            return "The encrypted relay returned an incomplete response. Try again."
+        case .wrongFrame(let expected, let actual):
+            return "The encrypted relay returned \(actual) instead of \(expected). Reconnect the selected Fort."
+        case .httpStatus(let status, let body):
+            if status == 401 {
+                return "Your gateway session expired. Sign in again."
+            }
+            if status == 403 {
+                return "This account is not allowed to use the Fort gateway."
+            }
+            let detail = gatewayErrorDetail(body)
+            let suffix = detail.isEmpty ? "" : " \(detail)"
+            if status == 502 || status == 503 || status == 504 {
+                return "The selected Fort is temporarily unavailable (gateway \(status)).\(suffix) Try again."
+            }
+            return "The Fort gateway returned HTTP \(status).\(suffix)"
+        case .fingerprintChanged:
+            return "The selected Fort's encrypted identity changed. Verify its fingerprint before reconnecting."
+        }
+    }
+}
+
+private func gatewayErrorDetail(_ body: String) -> String {
+    let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return "" }
+    if let data = trimmed.data(using: .utf8),
+       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let message = object["error"] as? String {
+        return String(message.prefix(300))
+    }
+    return String(trimmed.prefix(300))
+}
+
+/// Retries only the pre-command Noise handshake. Callers must create a fresh
+/// tunnel inside `operation`; encrypted application requests are never replayed.
+public enum GatewayRelayRetry {
+    public static func handshake<T>(_ operation: () async throws -> T) async throws -> T {
+        do {
+            return try await operation()
+        } catch {
+            guard isTransientHandshakeFailure(error) else { throw error }
+            try await Task.sleep(nanoseconds: 150_000_000)
+            return try await operation()
+        }
+    }
+
+    private static func isTransientHandshakeFailure(_ error: Error) -> Bool {
+        if case GatewayRelayError.httpStatus(let status, _) = error {
+            return status == 502 || status == 503 || status == 504
+        }
+        guard let urlError = error as? URLError else { return false }
+        return [
+            .timedOut,
+            .cannotFindHost,
+            .cannotConnectToHost,
+            .networkConnectionLost,
+            .notConnectedToInternet,
+        ].contains(urlError.code)
+    }
+}
+
 private struct GatewayMachinesResponse: Decodable { let machines: [GatewayMachine] }
 
 public enum GatewayService {
@@ -130,15 +199,8 @@ public final class GatewayRelayTransport: @unchecked Sendable {
         headers: [String: String]? = nil,
         body: Data? = nil
     ) async throws -> (data: Data, status: Int) {
-        let tunnel = RelayTunnel(
-            gatewayURL: gatewayURL,
-            bearerToken: bearerToken,
-            machineID: machineID,
-            machinePublicKey: machinePublicKey,
-            urlSession: session
-        )
+        let tunnel = try await connectedTunnel()
         do {
-            try await tunnel.connect()
             let response = try await tunnel.fetch(path: path, method: method, headers: headers, body: body)
             await tunnel.close()
             return (response.body ?? Data(), response.status)
@@ -151,27 +213,41 @@ public final class GatewayRelayTransport: @unchecked Sendable {
     public func events(path: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                let tunnel = RelayTunnel(
-                    gatewayURL: gatewayURL,
-                    bearerToken: bearerToken,
-                    machineID: machineID,
-                    machinePublicKey: machinePublicKey,
-                    urlSession: session
-                )
+                var tunnel: RelayTunnel?
                 do {
-                    try await tunnel.connect()
-                    try await tunnel.stream(path: path) { continuation.yield($0) }
-                    await tunnel.close()
+                    let connected = try await connectedTunnel()
+                    tunnel = connected
+                    try await connected.stream(path: path) { continuation.yield($0) }
+                    await connected.close()
                     continuation.finish()
                 } catch is CancellationError {
-                    await tunnel.close()
+                    if let tunnel { await tunnel.close() }
                     continuation.finish()
                 } catch {
-                    await tunnel.close()
+                    if let tunnel { await tunnel.close() }
                     continuation.finish(throwing: error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func connectedTunnel() async throws -> RelayTunnel {
+        try await GatewayRelayRetry.handshake {
+            let tunnel = RelayTunnel(
+                gatewayURL: gatewayURL,
+                bearerToken: bearerToken,
+                machineID: machineID,
+                machinePublicKey: machinePublicKey,
+                urlSession: session
+            )
+            do {
+                try await tunnel.connect()
+                return tunnel
+            } catch {
+                await tunnel.close()
+                throw error
+            }
         }
     }
 }
