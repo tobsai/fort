@@ -45,3 +45,9 @@ The iOS app starts in native connection setup, not against localhost. Set
 app, sign in with Google, choose a registered machine, and compare its
 fingerprint with `fort relay join` output. Direct LAN/simulator mode is an
 explicit fallback in Connection Settings.
+
+For the production app, enter the public web gateway origin
+`https://fort-gateway.vercel.app`. The app accepts an accidental trailing
+`/native` and canonicalizes it to the origin. Do not enter the daemon's
+Cloudflare relay address: that endpoint carries the machine tunnel and is not
+the iOS sign-in/API origin.

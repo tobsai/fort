@@ -53,11 +53,24 @@ app target as described below.
 
 ## Info.plist / entitlements
 
-### App Transport Security (required for HTTP)
+### Production address
 
-Fort's control plane is served over **plain HTTP** (`http://127.0.0.1:4087`).
-iOS ATS blocks cleartext HTTP by default, so the app **will not connect** until
-you add an ATS exception. Choose the narrowest one that fits your setup:
+Physical devices use the public HTTPS web gateway:
+
+```text
+https://fort-gateway.vercel.app
+```
+
+The native client signs in there, selects a machine, pins its fingerprint, and
+then carries Fort API requests through the encrypted relay. `127.0.0.1` on an
+iPhone is the iPhone itself. The Cloudflare worker URL belongs to the daemon
+tunnel and is not a mobile-app address.
+
+### App Transport Security (direct development only)
+
+The explicit simulator/LAN fallback may use Fort's plain HTTP control plane
+(`http://127.0.0.1:4087`). iOS ATS blocks cleartext HTTP by default, so a
+development build needs the narrowest exception that fits that setup:
 
 - **Simulator against `127.0.0.1` only** — allow local networking:
 

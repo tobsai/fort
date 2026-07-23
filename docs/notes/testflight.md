@@ -24,14 +24,18 @@ Or, in Xcode, enable **Automatically manage signing** per target and pick your
 team — Xcode registers the bundle IDs (`io.mtree.fort`, `.mac`, `.watch`,
 `.watch.complication`) for you. Change the `io.mtree` prefix if you don't own it.
 
-## 2 · Point the app at a reachable server
-The apps default to `http://127.0.0.1:4087`. **On a real device `127.0.0.1` is the
-device itself** — it can't see your Mac. So:
-- Run `fort control` (or `fort serve`) on a reachable host and set the app's
-  base URL (iOS **Settings** screen) to that host — your Mac's LAN IP
-  (`http://192.168.1.20:4091`), a Tailscale address, or a deployed box.
-- Plain **HTTP** to a LAN IP needs an **App Transport Security** exception. Add to
-  the app's Info.plist via `project.yml` (`info.properties`):
+## 2 · Production gateway and direct development
+
+Production iOS builds embed `https://fort-gateway.vercel.app`. The app signs in
+there, selects a registered machine, verifies its fingerprint, and carries API
+commands through the end-to-end encrypted relay. The Cloudflare worker address
+is daemon-only and must not be entered in the app.
+
+The explicit direct-host development fallback may point at a simulator or LAN
+host. **On a real device `127.0.0.1` is the device itself** — it cannot see your
+Mac. Plain **HTTP** to a LAN IP needs an **App Transport Security** exception.
+Add the narrowest appropriate exception to the app's Info.plist via
+`project.yml` (`info.properties`):
   ```yaml
   NSAppTransportSecurity:
     NSAllowsArbitraryLoads: true   # or a scoped NSExceptionDomains entry
@@ -39,7 +43,7 @@ device itself** — it can't see your Mac. So:
   App Review prefers a **scoped** exception (or HTTPS) with a justification.
 
 ## 3 · Version numbers
-`MARKETING_VERSION` (0.1.0) + `CURRENT_PROJECT_VERSION` (build). **Every upload
+`MARKETING_VERSION` + `CURRENT_PROJECT_VERSION` (build). **Every upload
 needs a higher build number** — bump `CURRENT_PROJECT_VERSION` in `project.yml`
 (or run `agvtool next-version -all`).
 

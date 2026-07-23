@@ -18,11 +18,14 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
 
     override init() {
         var saved = GatewayAccount.load()
+        if let savedURL = saved.gatewayURL {
+            saved.gatewayURL = try? GatewayAddress.normalize(savedURL)
+        }
         if saved.gatewayURL == nil,
            let configured = Bundle.main.object(forInfoDictionaryKey: "FortGatewayURL") as? String,
            !configured.isEmpty,
            !configured.contains("$(") {
-            saved.gatewayURL = URL(string: configured)
+            saved.gatewayURL = try? GatewayAddress.normalize(configured)
         }
         account = saved
         super.init()
@@ -42,9 +45,12 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
     }
 
     func signIn(gatewayURL: URL, client: FortClient) {
-        var normalized = gatewayURL
-        if normalized.path != "/" && !normalized.path.isEmpty {
-            normalized.deleteLastPathComponent()
+        let normalized: URL
+        do {
+            normalized = try GatewayAddress.normalize(gatewayURL)
+        } catch {
+            errorMessage = "Enter the public Fort gateway address, such as https://fort-gateway.vercel.app."
+            return
         }
         let signInURL = normalized.appendingPathComponent("native")
         let session = ASWebAuthenticationSession(url: signInURL, callbackURLScheme: "fort") { [weak self] callback, error in

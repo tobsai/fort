@@ -17,6 +17,7 @@ struct FortKitContractChecks {
         try chatOverrideEncodesAndAnswerDecodes()
         try await clientUsesPlaybookEndpoints()
         try gatewayAccountPersistsNativeSession()
+        try gatewayAddressNormalizesProductionOrigin()
         try secureRelayMatchesGoNoiseVector()
         try quickModePinsAnswerPlaybookWhenTriggerIsDisabled()
         answerOutcomeSurfacesFailureStates()
@@ -190,6 +191,36 @@ struct FortKitContractChecks {
         expect(GatewayAccount.load(from: defaults) == account, "native gateway session did not persist")
     }
 
+    private static func gatewayAddressNormalizesProductionOrigin() throws {
+        let expected = URL(string: "https://fort-gateway.vercel.app")!
+        for raw in [
+            "https://fort-gateway.vercel.app",
+            "https://fort-gateway.vercel.app/",
+            "https://fort-gateway.vercel.app/native",
+            "  https://fort-gateway.vercel.app/native?callback=stale#fragment  ",
+        ] {
+            let normalized = try GatewayAddress.normalize(raw)
+            expect(
+                normalized == expected,
+                "gateway address did not normalize \(raw)"
+            )
+        }
+        for invalid in [
+            "fort-gateway.vercel.app",
+            "ftp://fort-gateway.vercel.app",
+            "https://user:secret@fort-gateway.vercel.app",
+            "https://fort-gateway.vercel.app/not-native",
+            "https://fort-gateway.tobias-053.workers.dev",
+        ] {
+            do {
+                _ = try GatewayAddress.normalize(invalid)
+                fatalError("accepted invalid gateway address \(invalid)")
+            } catch is GatewayAddressError {
+                // expected
+            }
+        }
+    }
+
     private static func secureRelayMatchesGoNoiseVector() throws {
         let initiatorStatic = try RelayKeypair(
             privateKey: Data(base64Encoded: "lfM23kK1E/kHySaXdRbRpdh+Wf/4mbu7wJcIq34eHUE=")!
@@ -214,6 +245,11 @@ struct FortKitContractChecks {
         expect(
             sealed.base64EncodedString() == "a4n+3ewv7yRq+z+r3c0TQD2rTCE918BA03Hvb2Eue97JfHWzfpaY+rG8E9XPCPszhc/RWyGTzQ==",
             "Swift Noise transport drifted from Go"
+        )
+        let opened = try session.open(Data(base64Encoded: "89dlOS+4ArIFQZwq5otVTJJMfnR9z0CiRovKSqb9skHOZsyBhmfR0gCXqhuiALaQ9xeup+Z6dQ==")!)
+        expect(
+            opened == Data("transport frame: responder to initiator".utf8),
+            "Swift Noise response transport drifted from Go"
         )
     }
 

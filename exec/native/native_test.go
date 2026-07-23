@@ -2,6 +2,7 @@ package native
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -196,7 +197,7 @@ func TestDefaultProvidersArgv(t *testing.T) {
 		"codex":    {"codex", "exec"},
 		"claude":   {"claude", "-p"},
 		"hermes":   {"hermes", "--oneshot"},
-		"openclaw": {"openclaw", "run"}, // best-guess argv, spec 023
+		"openclaw": {"openclaw", "agent"},
 	}
 	for agent, wantPrefix := range cases {
 		p, ok := rt.provider(agent)
@@ -213,6 +214,63 @@ func TestDefaultProvidersArgv(t *testing.T) {
 		// the prompt must appear somewhere in argv
 		if !contains(argv, "do x") {
 			t.Errorf("%s argv = %v, missing prompt", agent, argv)
+		}
+	}
+}
+
+func TestOpenClawArgvMatchesInstalledCLIContract(t *testing.T) {
+	var p Provider
+	for _, candidate := range DefaultProviders() {
+		if candidate.Name == "openclaw" {
+			p = candidate
+			break
+		}
+	}
+	got := p.Command(runtime.RunSpec{Prompt: "do x"})
+	want := []string{"openclaw", "agent", "--local", "--agent", "main", "--message", "do x", "--json"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("openclaw argv = %v, want %v", got, want)
+	}
+	if !slices.Equal(p.Probe, []string{"openclaw", "agent", "--help"}) {
+		t.Fatalf("openclaw probe = %v, want agent --help contract probe", p.Probe)
+	}
+}
+
+func TestOpenClawParserExtractsPrettyPrintedJSONPayload(t *testing.T) {
+	line := `      "text": "openclaw-local-ok",`
+	got, ok := jsonTextParser(line)
+	if !ok || got != "openclaw-local-ok" {
+		t.Fatalf("jsonTextParser(%q) = %q, %v; want openclaw-local-ok, true", line, got, ok)
+	}
+}
+
+func TestDefaultProvidersDeclareNonInteractiveContractProbes(t *testing.T) {
+	for _, p := range DefaultProviders() {
+		if len(p.Probe) < 2 || p.Probe[0] != p.Name {
+			t.Errorf("%s probe = %v, want a provider-specific help command", p.Name, p.Probe)
+		}
+		if p.Probe[len(p.Probe)-1] != "--help" {
+			t.Errorf("%s probe = %v, want trailing --help", p.Name, p.Probe)
+		}
+	}
+}
+
+func TestDispatchFailsClosedWhenProviderCommandContractDrifts(t *testing.T) {
+	p := Provider{
+		Name:  "drifted",
+		Probe: []string{"sh", "-c", "echo removed-subcommand >&2; exit 2"},
+		Command: func(_ runtime.RunSpec) []string {
+			return []string{"sh", "-c", "echo task-should-not-run"}
+		},
+	}
+	rt := New(t.TempDir(), p)
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "drift", Agent: "drifted"})
+	if err == nil || run != nil {
+		t.Fatalf("Dispatch = (%v, %v), want preflight failure", run, err)
+	}
+	for _, want := range []string{`provider "drifted" command contract`, "removed-subcommand"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("Dispatch error = %q, want %q", err, want)
 		}
 	}
 }
@@ -270,9 +328,9 @@ func TestOpenClawDoesNotInventModelFlag(t *testing.T) {
 			break
 		}
 	}
-	argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: "unknown-model"})
-	if contains(argv, "--model") || contains(argv, "unknown-model") {
-		t.Fatalf("openclaw model argv is unverified and must not be invented: %v", argv)
+	argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: "Fable"})
+	if contains(argv, "--model") || contains(argv, "Fable") {
+		t.Fatalf("openclaw model label is not a verified CLI model id: %v", argv)
 	}
 }
 
