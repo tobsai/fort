@@ -17,7 +17,8 @@ func DefaultProviders() []Provider {
 //	claude -p "<prompt>" --output-format stream-json --include-partial-messages --verbose
 func claudeProvider() Provider {
 	return Provider{
-		Name: "claude",
+		Name:  "claude",
+		Probe: []string{"claude", "-p", "--help"},
 		Command: func(s runtime.RunSpec) []string {
 			return withModel("claude", []string{"claude", "-p", s.Prompt,
 				"--output-format", "stream-json", "--include-partial-messages", "--verbose"}, s.Model)
@@ -41,7 +42,8 @@ func claudeProvider() Provider {
 // Fort runs each agent in a scratch workdir that is not a git repository.
 func codexProvider() Provider {
 	return Provider{
-		Name: "codex",
+		Name:  "codex",
+		Probe: []string{"codex", "exec", "--help"},
 		Command: func(s runtime.RunSpec) []string {
 			return withModel("codex", []string{"codex", "exec", s.Prompt,
 				"--json", "--sandbox", "workspace-write", "--skip-git-repo-check"}, s.Model)
@@ -55,7 +57,8 @@ func codexProvider() Provider {
 //	hermes --oneshot "<prompt>" --accept-hooks --yolo
 func hermesProvider() Provider {
 	return Provider{
-		Name: "hermes",
+		Name:  "hermes",
+		Probe: []string{"hermes", "--help"},
 		Command: func(s runtime.RunSpec) []string {
 			return withModel("hermes", []string{"hermes", "--oneshot", s.Prompt, "--accept-hooks", "--yolo"}, s.Model)
 		},
@@ -69,21 +72,23 @@ func hermesProvider() Provider {
 	}
 }
 
-// openclaw: one-shot errand runner (spec 023). BEST GUESS — the openclaw CLI is
-// not yet installed here and docs/notes/runtime-recon.md §4 is still TODO, so the
-// argv mirrors the sibling providers and is isolated to this one line for easy
-// correction once probed (FORT_LIVE_CLI=openclaw FORT_LIVE_PROBE=1). If the CLI
-// is absent, dispatch fails at spawn time like any missing binary; multi-machine
-// placement (spec 022) keeps openclaw tasks on machines that list `openclaw`.
+// openclaw: one local, embedded agent turn (spec 023).
+// Verified against OpenClaw 2026.7.1-2 on the enrolled execution host
+// (2026-07-23). Local mode runs the configured agent without depending on the
+// separate OpenClaw gateway daemon. The explicit main-agent selector makes the
+// headless session deterministic; JSON reserves stdout for the structured
+// result.
 //
-//	openclaw run "<prompt>" --headless --accept-hooks
+//	openclaw agent --local --agent main --message "<prompt>" --json
 func openclawProvider() Provider {
 	return Provider{
-		Name: "openclaw",
+		Name:  "openclaw",
+		Probe: []string{"openclaw", "agent", "--help"},
 		Command: func(s runtime.RunSpec) []string {
-			// The model-override syntax has not been verified for OpenClaw. Keep
-			// the requested model out of argv until recon establishes a contract.
-			return []string{"openclaw", "run", s.Prompt, "--headless", "--accept-hooks"}
+			// Saved playbooks currently carry the design label "Fable", not an
+			// OpenClaw provider/model id. Let the configured main agent select
+			// its verified model until that label has an approved mapping.
+			return []string{"openclaw", "agent", "--local", "--agent", "main", "--message", s.Prompt, "--json"}
 		},
 		// Lenient: extracts text from JSON output, else falls through to raw
 		// stdout — robust whether openclaw emits JSONL or plain text.
@@ -121,7 +126,11 @@ func providerModel(agent, model string) string {
 // through to a raw stdout event.
 func jsonTextParser(line string) (string, bool) {
 	line = strings.TrimSpace(line)
-	if !strings.HasPrefix(line, "{") {
+	jsonLine := strings.HasPrefix(line, "{") ||
+		strings.HasPrefix(line, `"text":`) ||
+		strings.HasPrefix(line, `"message":`) ||
+		strings.HasPrefix(line, `"content":`)
+	if !jsonLine {
 		return "", false
 	}
 	// Cheap, dependency-free extraction of a top-level "text" or "message" value.

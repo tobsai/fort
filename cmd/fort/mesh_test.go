@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,6 +51,32 @@ func TestProbeAgentsSubsetOfProviders(t *testing.T) {
 		if !valid[name] {
 			t.Fatalf("probeAgents returned %q, not a known provider name", name)
 		}
+	}
+}
+
+func TestProbeAgentsRejectsInstalledCLIWithDriftedCommandContract(t *testing.T) {
+	providers := []native.Provider{
+		{Name: "valid", Probe: []string{"valid", "exec", "--help"}},
+		{Name: "drifted", Probe: []string{"drifted", "run", "--help"}},
+		{Name: "missing", Probe: []string{"missing", "--help"}},
+	}
+	got := probeAgentProviders(
+		providers,
+		func(name string) (string, error) {
+			if name == "missing" {
+				return "", errors.New("not found")
+			}
+			return "/bin/" + name, nil
+		},
+		func(p native.Provider) error {
+			if p.Name == "drifted" {
+				return errors.New("unknown command run")
+			}
+			return nil
+		},
+	)
+	if len(got) != 1 || got[0] != "valid" {
+		t.Fatalf("probeAgentProviders = %v, want [valid]", got)
 	}
 }
 

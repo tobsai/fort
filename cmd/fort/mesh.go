@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -41,11 +42,27 @@ func managedRegistryPath(cfg config.Config) string {
 // canonical provider order. This is both the hub's self-entry agent list (at
 // invite time) and the worker's default offered-agents list (at join time).
 func probeAgents() []string {
+	return probeAgentProviders(native.DefaultProviders(), exec.LookPath, func(p native.Provider) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return native.CheckProvider(ctx, p)
+	})
+}
+
+func probeAgentProviders(
+	providers []native.Provider,
+	lookPath func(string) (string, error),
+	probe func(native.Provider) error,
+) []string {
 	var out []string
-	for _, p := range native.DefaultProviders() {
-		if _, err := exec.LookPath(p.Name); err == nil {
-			out = append(out, p.Name)
+	for _, p := range providers {
+		if _, err := lookPath(p.Name); err != nil {
+			continue
 		}
+		if err := probe(p); err != nil {
+			continue
+		}
+		out = append(out, p.Name)
 	}
 	return out
 }

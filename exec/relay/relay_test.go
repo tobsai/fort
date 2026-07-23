@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -290,6 +291,71 @@ func TestDialAuthAndProxyRoundTrip(t *testing.T) {
 
 	// The broker never saw the plaintext: only ciphertext was relayed.
 	b.assertNoPlaintext(t, "execution")
+
+	cancel()
+	<-runDone
+}
+
+// TestCommandPostRoundTrip pins the native command path, not just read-only
+// snapshots: method, JSON body, and content type must survive the sealed relay
+// and the command response must return through the reverse cipher direction.
+func TestCommandPostRoundTrip(t *testing.T) {
+	daemonKey, _ := secure.GenerateKeypair()
+	clientKey, _ := secure.GenerateKeypair()
+	const command = `{"text":"repair the provider","task_type":"bug","plan_gate":false}`
+	const result = `{"kind":"assignment","run_id":"run-command"}`
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/chat", func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != command {
+			t.Errorf("command body = %q, want %q", body, command)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(result))
+	})
+
+	b := newBroker(t, "command-token")
+	tr := relay.New(mux, relay.Config{
+		URL: b.url(), Token: "command-token", Key: daemonKey, MinBackoff: 50 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+	b.waitAttach(t)
+
+	cl := b.newClient("command-stream")
+	if err := cl.handshake(ctx, clientKey, daemonKey.Public); err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	req := mustJSON(relay.ReqPayload{
+		ID: "command-1", Method: "POST", Path: "/api/chat",
+		Headers: map[string]string{"Content-Type": "application/json"},
+		Body:    []byte(command),
+	})
+	if err := cl.sendSealed(ctx, "req", req); err != nil {
+		t.Fatalf("send command: %v", err)
+	}
+	frame, err := cl.recv(ctx)
+	if err != nil {
+		t.Fatalf("receive command response: %v", err)
+	}
+	plaintext, err := cl.open(frame)
+	if err != nil {
+		t.Fatalf("open command response: %v", err)
+	}
+	var response relay.ResPayload
+	if err := json.Unmarshal(plaintext, &response); err != nil {
+		t.Fatalf("decode command response: %v", err)
+	}
+	if response.Status != http.StatusOK || string(response.Body) != result {
+		t.Fatalf("command response = status %d body %q", response.Status, response.Body)
+	}
+	b.assertNoPlaintext(t, "repair the provider")
 
 	cancel()
 	<-runDone

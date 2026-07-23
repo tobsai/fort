@@ -1,71 +1,75 @@
 # 023 — OpenClaw native provider
 
-**Status:** proposed · **New capability — requires Toby's approval before merge.**
-**Governed by:** [021-fort-native](021-fort-native.md) · **Relates to:** [017-openclaw-import](017-openclaw-import.md)
-
-> Author's note: implemented under Toby's "take your best guess" authorization.
-> The exact `openclaw` CLI contract is **unverified** — the binary is not
-> installed on this machine and `docs/notes/runtime-recon.md §4` still marks it
-> TODO. The argv below is a best guess mirroring the sibling providers and is
-> isolated to one function + one comment so it is a one-line fix once probed.
+**Status:** implemented and verified
+**Governed by:** [021-fort-native](021-fort-native.md)
+**Relates to:** [017-openclaw-import](017-openclaw-import.md)
 
 ## Goal
-Complete "a control plane for Hermes, OpenClaw, Claude Code, and Codex" by giving
-Fort a fourth `native` provider so the existing `openclaw` routing rules
-(`explicit-openclaw`, `errand-lane`) actually dispatch instead of failing with
-"no provider registered".
 
-## Approach (as built)
-Add `openclawProvider()` to `exec/native/providers.go` and include it in
-`DefaultProviders()`, mirroring the claude/codex/hermes pattern:
+Give Fort a native OpenClaw provider so the existing `explicit-openclaw` and
+`errand-lane` rules dispatch to an installed OpenClaw agent instead of
+dead-ending at provider lookup or an interactive CLI.
 
-```go
-// openclaw: one-shot errand runner. BEST GUESS — verify against the real CLI
-// (docs/notes/runtime-recon.md §4). If the binary is absent, dispatch fails at
-// spawn time exactly like any missing CLI; multi-machine placement (spec 022)
-// keeps openclaw tasks on machines whose machines.yaml lists `openclaw`.
-//
-//	openclaw run "<prompt>" --headless --accept-hooks
-func openclawProvider() Provider {
-    return Provider{
-        Name: "openclaw",
-        Command: func(s runtime.RunSpec) []string {
-            return []string{"openclaw", "run", s.Prompt, "--headless", "--accept-hooks"}
-        },
-        Parse: jsonTextParser, // lenient: extracts text from JSON, else raw stdout
-    }
-}
+## Verified command contract
+
+Fort invokes the installed CLI through OpenClaw's explicit embedded,
+non-interactive agent path:
+
+```sh
+openclaw agent --local --agent main --message "<prompt>" --json
 ```
 
-`jsonTextParser` is the safe parser choice: if `openclaw` emits JSON it extracts
-the text field; if it emits plain text the line falls through to a raw stdout
-event, so output is never dropped regardless of format.
+This contract was verified on the enrolled execution host against OpenClaw
+2026.7.1-2 on 2026-07-23:
 
-## Decisions (best-guess; correct on review)
-- **Binary `openclaw`** — HIGH confidence (all rules/docs use it).
-- **`run "<prompt>" --headless --accept-hooks`** — MEDIUM/LOW; sibling-pattern
-  guess. Alternatives if `run` is wrong: `--print` (claude-like) or `--oneshot`
-  (hermes-like). Isolated to one line.
-- **`jsonTextParser`** — robust to either JSON or plain-text output.
-- **Kept in `DefaultProviders`** even though the CLI may be absent: this is the
-  explicit ask ("control plane for … OpenClaw"). A missing binary fails the run
-  cleanly, same as any provider; it does not affect the other three.
+- `agent` is the supported one-shot subcommand; `run` is not a command.
+- `--local` runs the configured agent directly and does not require the
+  separate OpenClaw gateway daemon to be healthy.
+- `--agent main` selects a deterministic configured agent.
+- `--message` carries the Fort prompt without stdin or a PTY.
+- `--json` reserves stdout for the structured result.
 
-## Affected files
-- Changed: `exec/native/providers.go` (add `openclawProvider`, register it),
-  `exec/native/native.go` (docstring: openclaw now included),
-  `exec/native/native_test.go` (provider registered + argv shape),
-  `.env.example` (uncomment the `openclaw` block guidance).
-- Verification: `exec/native/native_live_test.go` already supports
-  `FORT_LIVE_CLI=openclaw FORT_LIVE_PROBE=1` to probe the real binary.
+The playbook label `Fable` is intentionally not passed as `--model`: it is a
+Fort design label, not a verified OpenClaw `provider/model` identifier. The
+configured `main` agent owns model selection until an explicit mapping is
+approved.
 
-## Test criteria (`go test ./...`)
-- `DefaultProviders()` includes `openclaw`; its `Command` yields the expected
-  argv for a sample `RunSpec` (guards accidental argv drift).
-- Dispatching `openclaw` through `exec/fake` (token-free) still routes/records —
-  the errand lane no longer dead-ends.
-- Live probe (opt-in) documents how to confirm the real argv once installed.
+## Runtime safety
+
+The provider declares a token-free contract probe:
+
+```sh
+openclaw agent --help
+```
+
+`NativeRuntime` runs the probe before every dispatch. If an installed CLI
+removes or renames the required subcommand, dispatch fails before consuming
+tokens and reports that the provider command contract is unavailable.
+
+Machine capability advertisement uses the same probe. Merely finding an
+`openclaw` executable on `PATH` is insufficient: a machine only advertises the
+provider when the non-interactive contract is callable.
+
+`jsonTextParser` extracts response text from JSON and retains raw stdout for
+unrecognized output, so a CLI output-shape addition does not silently discard
+the result.
+
+## Test criteria
+
+`go test ./...` must cover:
+
+- `DefaultProviders()` includes `openclaw`.
+- OpenClaw argv exactly matches the verified local one-shot contract.
+- All default providers declare a token-free, provider-specific help probe.
+- Dispatch fails closed when an installed provider's command contract drifts.
+- Machine capability discovery excludes an installed-but-incompatible CLI.
+- OpenClaw does not invent a model flag from an unmapped Fort label.
+
+The relay suite separately proves an encrypted mobile `POST /api/chat`
+round-trip preserves method, content type, and body through the broker and
+decrypts the daemon response.
 
 ## Rollback
-Revert the `openclawProvider` addition; `DefaultProviders()` returns to the
-three-provider set and the `openclaw` rules fail-closed as before.
+
+Revert the `openclawProvider` registration. OpenClaw routes then fail closed
+with no registered provider; no other native provider is affected.

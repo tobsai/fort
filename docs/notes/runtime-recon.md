@@ -1,7 +1,11 @@
 # Runtime Recon — how `fort-exec` drives each agent CLI headless
 
 **Spike:** AO-002 (Phase 0). **Feeds:** AO-014 (`Runtime` interface + `NativeRuntime` PTY executor).
-**Probed on:** macOS (Darwin 25.6.0), 2026-06-30. **Method:** safe probes only — `--version`, `--help`, and subcommand help. No real task was executed; no tokens burned; no provider network calls. Reproduce with `scripts/recon/recon-{claude,codex,hermes}.sh`.
+**Probed on:** macOS (Darwin 25.6.0), 2026-06-30; OpenClaw refreshed
+2026-07-23 on the enrolled execution host. **Method:** token-free help probes
+for every CLI plus one explicit OpenClaw local one-shot contract check.
+Reproduce the original probes with
+`scripts/recon/recon-{claude,codex,hermes}.sh`.
 
 ## Target CLIs
 
@@ -10,9 +14,11 @@
 | `claude` | `/Users/tobiasgunn/.local/bin/claude` | installed | 2.1.158 (Claude Code) |
 | `codex` | `/opt/homebrew/bin/codex` | installed | codex-cli 0.128.0 |
 | `hermes` | `/Users/tobiasgunn/.local/bin/hermes` | installed | Hermes Agent v0.15.1 (2026.5.29) |
-| `openclaw` | — | **NOT INSTALLED** | — (contract inferred — see below, marked TODO) |
+| `openclaw` | `/opt/homebrew/bin/openclaw` | installed on enrolled host | 2026.7.1-2 |
 
-All three installed CLIs default to an **interactive TUI** when run with no flags/subcommand, and all three expose an explicit **non-interactive / headless** path. The headless paths below are what `NativeRuntime` should use.
+Each installed CLI defaults to an interactive surface when run without its
+headless entry point. The explicit non-interactive paths below are what
+`NativeRuntime` uses.
 
 ---
 
@@ -114,25 +120,52 @@ hermes --oneshot "<task prompt>" \
 
 ---
 
-## 4. `openclaw` — NOT INSTALLED (contract inferred — **TODO: verify when installed**)
+## 4. `openclaw`
 
-`openclaw` is **not present on this machine** (`which openclaw` → not found), so the following is the **expected contract inferred** from its peers and from in-repo signals, not verified:
+> `openclaw agent` is the supported one-shot entry point. The old Fort
+> assumption `openclaw run` was invalid.
 
-- Both `hermes` (`hermes claw — OpenClaw migration tools`) and `codex`-adjacent tooling reference OpenClaw, and Fort itself "replaces OpenClaw" — so OpenClaw is an agent CLI in the same family as the three above.
-- **Expected headless invocation (TODO verify):** a one-shot/print flag analogous to `claude -p` / `hermes --oneshot` / `codex exec` — likely something like `openclaw run "<prompt>"` or `openclaw --print/-p "<prompt>"`, or a `headless`/`exec` subcommand. **Discover the real flag from `openclaw --help` once installed.**
-- **Streaming (TODO):** assume an opt-in JSON/JSONL stream flag (`--json` / `--output-format`) like its peers; fall back to line-buffered text otherwise.
-- **stdin / signal (TODO):** assume `--resume`/session id for turn continuity; check for a stream-json stdin or ACP/JSON-RPC mode for live injection.
-- **Exit codes (TODO):** assume `0` success / non-zero failure.
-- **Auth / env (TODO):** assume a `~/.openclaw` config dir and provider keys via env (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`) — confirm names from its docs.
-- **PTY (TODO):** assume same shape — headless path on a plain pipe; PTY only for its TUI.
+**1. Headless invocation**
 
-**Action:** install `openclaw`, run `scripts/recon/recon-openclaw.sh` (to be written, mirroring the others), and replace this section with probed facts before AO-014 is closed. Phase 0's exit gate ("run all four CLIs headless") is **not met** until then.
+```sh
+openclaw agent --local --agent main --message "<task prompt>" --json
+```
+
+`--local` selects the embedded agent runner, avoiding a dependency on the
+separate OpenClaw gateway service. `--agent main` selects the configured
+default agent. The enrolled host completed this exact shape successfully
+against OpenClaw 2026.7.1-2.
+
+**2. Output.** `--json` emits a final JSON result with response payloads and
+run metadata. It is a one-shot result, not a documented JSONL token stream.
+Fort's lenient JSON parser extracts recognized response text and retains
+unrecognized lines as raw stdout.
+
+**3. stdin / signal path.** The one-shot prompt is supplied by `--message` or
+`--message-file`. `--session-id` and `--session-key` can target explicit
+session continuity, but Fort does not yet map its signal channel onto an
+OpenClaw session.
+
+**4. Exit codes.** `0` on the verified successful local turn; treat any
+non-zero result as failure.
+
+**5. Auth / configuration.** Configuration and auth profiles live under
+`~/.openclaw`. Local mode uses the configured agent's auth profile on the
+enrolled host. Fort passes no provider secret and does not synthesize a model
+identifier.
+
+**6. PTY note.** No PTY is required. `agent --local --message ... --json`
+runs correctly over ordinary pipes.
 
 ---
 
 ## Implications for AO-014 (`NativeRuntime`)
 
-**PTY vs pipe.** None of the three installed CLIs *require* a PTY for their headless path — `claude -p`, `codex exec`, and `hermes --oneshot` all run correctly on a **plain pipe**, which is the default `NativeRuntime` transport. A **PTY is only needed for the interactive variants**: live approval prompts (`codex --ask-for-approval on-request`, hermes hook/`--yolo` prompts without `--accept-hooks`) or driving a bare TUI. Recommendation: implement `NativeRuntime` with **pipe transport as the default** and a **PTY mode as an opt-in per provider** (the README already frames this as a PTY executor, so keep the `pty.StartWithAttrs` path, but prefer pipe + non-interactive flags so most runs never need it). `openclaw` PTY-ness is TODO. Note: AO-014's acceptance ("`signal` injects input into a running *interactive* task") implies at least one provider must be exercised in PTY/interactive mode — Claude's `--input-format stream-json` (pipe, not PTY) is the cleanest way to satisfy "inject input into a running task" without a PTY at all.
+**PTY vs pipe.** None of the four installed CLI headless paths require a PTY:
+`claude -p`, `codex exec`, `hermes --oneshot`, and
+`openclaw agent --local` all run correctly on a plain pipe. A PTY is only
+needed for interactive variants, such as live approval prompts. Keep pipe
+transport as the default and PTY mode as an explicit provider option.
 
 **Normalizing stdout → `RunEvent`s.** Tiered by how structured each CLI's stream is:
 - **Structured JSONL (preferred):** `claude --output-format stream-json` and `codex exec --json` emit one JSON object/event per line. Parse line-delimited JSON → typed `RunEvent`s (turn-start, partial token, tool-call, tool-result, final, error). `claude --include-partial-messages` gives token-level granularity; `codex -o/--output-last-message` gives a clean final-result file alongside the stream.
@@ -145,6 +178,9 @@ hermes --oneshot "<task prompt>" \
 | `claude` | Write a JSON user message to **stdin** with `--input-format stream-json` (+ `--output-format stream-json`). | First-class realtime injection; no PTY. `--replay-user-messages` to confirm receipt. Best fit for Fort's gate-inbox → `signal()`. |
 | `codex` | **Resume** (`codex exec resume <id> "<follow-up>"`) for turn-based; for a *live* pause, answer the **approval prompt** over a PTY (`--ask-for-approval on-request`). | No stream-json stdin; injection is resume- or approval-shaped. |
 | `hermes` | Run **`hermes acp`** and send follow-ups over stdio JSON-RPC; or turn-based via `--resume`/`--continue`. | `--oneshot` itself is one-shot — no mid-turn injection. |
-| `openclaw` | **TODO** — assume resume/session id; check for stream-json stdin or ACP. | Verify on install. |
+| `openclaw` | Turn-based targeting via `--session-id` or `--session-key`; no live Fort signal mapping yet. | The verified `--local` command is one-shot. |
 
-**Net:** standardize on **pipe + non-interactive flags + JSONL parsing** for the common path; keep an opt-in **PTY** lane for interactive approvals; model `signal` per-CLI as (a) stream-json stdin (Claude), (b) resume/approval (Codex), (c) ACP/resume (Hermes), (d) TODO (OpenClaw). Re-estimate AO-014 noting Claude/Codex give structured streams cheaply while Hermes needs ACP for parity and OpenClaw is still unprobed.
+**Net:** standardize on **pipe + non-interactive flags** for the common path;
+keep an opt-in **PTY** lane for interactive approvals; model `signal` per-CLI
+as (a) stream-json stdin (Claude), (b) resume/approval (Codex), (c) ACP/resume
+(Hermes), and (d) explicit session targeting for a future OpenClaw adapter.

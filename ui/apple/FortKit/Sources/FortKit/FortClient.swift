@@ -73,10 +73,11 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     /// Routes all typed Fort API calls through the selected gateway machine's
     /// pinned, end-to-end encrypted relay instead of connecting to localhost.
     public func useGateway(account: GatewayAccount, machine: GatewayMachine) throws {
-        guard let gatewayURL = account.gatewayURL,
+        guard let configuredGatewayURL = account.gatewayURL,
               let bearerToken = account.bearerToken,
               let publicKey = Data(base64Encoded: machine.publicKey)
         else { throw GatewayRelayError.invalidMachineKey }
+        let gatewayURL = try GatewayAddress.normalize(configuredGatewayURL)
         if let pinned = account.pinnedPublicKeys[machine.machineID], pinned != machine.publicKey {
             throw GatewayRelayError.fingerprintChanged(expected: pinned, actual: machine.publicKey)
         }

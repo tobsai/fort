@@ -4,7 +4,8 @@
 //
 // The executor is provider-agnostic: a Provider maps an agent name to argv and
 // an optional line parser. DefaultProviders() encodes the AO-002 recon contract
-// for claude/codex/hermes/openclaw (openclaw argv is a best guess — spec 023).
+// for claude/codex/hermes/openclaw (including the verified OpenClaw contract in
+// spec 023).
 package native
 
 import (
@@ -24,6 +25,10 @@ import (
 // Provider describes how to launch one agent CLI headless.
 type Provider struct {
 	Name string
+	// Probe is a token-free command that proves the provider's non-interactive
+	// entry point still exists in the installed CLI. Dispatch fails closed when
+	// it exits non-zero, preventing a removed subcommand from accepting work.
+	Probe []string
 	// Command builds the argv for a run (argv[0] is the binary).
 	Command func(spec runtime.RunSpec) []string
 	// Parse optionally normalizes a stdout line into a message. When ok is
@@ -99,6 +104,9 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	if !ok {
 		return nil, fmt.Errorf("native: no provider registered for agent %q", spec.Agent)
 	}
+	if err := checkProvider(ctx, p, r.scopedEnv(spec)); err != nil {
+		return nil, err
+	}
 	workdir := spec.Workdir
 	if workdir == "" {
 		workdir = r.workRoot
@@ -162,6 +170,39 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	run.pgid = cmd.Process.Pid // == the new process group's ID (Setpgid)
 	go run.pump(cmd, stdout, stderr)
 	return run, nil
+}
+
+const providerProbeTimeout = 5 * time.Second
+
+// CheckProvider runs a provider's token-free CLI contract probe. It is public
+// so mesh enrollment advertises only providers whose installed command surface
+// is compatible with this Fort binary.
+func CheckProvider(ctx context.Context, p Provider) error {
+	return checkProvider(ctx, p, nil)
+}
+
+func checkProvider(ctx context.Context, p Provider, env []string) error {
+	if len(p.Probe) == 0 {
+		return nil
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, providerProbeTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(probeCtx, p.Probe[0], p.Probe[1:]...)
+	if env != nil {
+		cmd.Env = env
+	}
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	detail := strings.TrimSpace(string(output))
+	if len(detail) > 1_024 {
+		detail = detail[:1_024]
+	}
+	if detail != "" {
+		return fmt.Errorf("native: provider %q command contract unavailable: %s: %w", p.Name, detail, err)
+	}
+	return fmt.Errorf("native: provider %q command contract unavailable: %w", p.Name, err)
 }
 
 type nativeRun struct {
