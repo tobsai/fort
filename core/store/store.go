@@ -234,6 +234,63 @@ func (s *Store) UpdateRunStatus(id, status string, exitCode int, errMsg string) 
 	return err
 }
 
+// FailInterruptedDirectRuns reconciles direct tasks left running by an earlier
+// daemon lifetime. Flow runs are intentionally excluded: their durable
+// node_run state is the input to graph.Resume after a restart.
+func (s *Store) FailInterruptedDirectRuns(reason string) (int, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(
+		`SELECT id FROM run
+		 WHERE status='running' AND (flow_id IS NULL OR flow_id='')`,
+	)
+	if err != nil {
+		return 0, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	now := nowOr(time.Time{})
+	for _, id := range ids {
+		if _, err := tx.Exec(
+			`UPDATE run SET status='failed', exit_code=-1, error=?, updated_at=?
+			 WHERE id=? AND status='running'`,
+			reason, now, id,
+		); err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO event(run_id,node_id,type,data,code,created_at)
+			 VALUES(?,NULL,'error',?,-1,?)`,
+			id, reason, now,
+		); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(ids), nil
+}
+
 // GetRun returns a run by id.
 func (s *Store) GetRun(id string) (Run, error) {
 	row := s.db.QueryRow(

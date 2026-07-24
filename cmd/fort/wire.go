@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/engine"
@@ -18,7 +19,10 @@ import (
 	"github.com/tobsai/fort/exec/gateway"
 	"github.com/tobsai/fort/exec/native"
 	"github.com/tobsai/fort/exec/remote"
+	"github.com/tobsai/fort/exec/watchdog"
 )
+
+const runtimeSilenceTimeout = 10 * time.Minute
 
 // logTracer is the default gateway Tracer — structured logs per model call.
 // Swap for an OpenTelemetry adapter in production.
@@ -115,6 +119,7 @@ func buildApp() (*app, error) {
 			rt = gateway.New(rt, gateway.Options{Limit: limit, DefaultCost: 1, Tracer: logTracer{}})
 		}
 	}
+	rt = watchdog.New(rt, runtimeSilenceTimeout)
 
 	r := router.New(rs)
 	eng := engine.New(r, rt, st, cfg.WorkRoot)

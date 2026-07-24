@@ -176,6 +176,12 @@ func cmdServe(args []string) error {
 		return err
 	}
 	defer a.store.Close()
+	const interruptedRunReason = "interrupted when the Fort daemon stopped"
+	if reconciled, err := a.store.FailInterruptedDirectRuns(interruptedRunReason); err != nil {
+		return fmt.Errorf("reconcile interrupted runs: %w", err)
+	} else if reconciled > 0 {
+		slog.Warn("reconciled interrupted direct runs", "count", reconciled)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
