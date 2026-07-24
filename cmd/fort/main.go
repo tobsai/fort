@@ -346,11 +346,19 @@ func cmdTask(args []string) error {
 	d := a.router.Route(t)
 	fmt.Printf("routing %q -> %s (%s)\n", t.Title, d.Route, ruleLabel(d))
 
-	runID, err := a.engine.Submit(context.Background(), t)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	// Restore default handling immediately after the first signal so a second
+	// Ctrl-C can force-exit if a provider refuses its cancellation contract.
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	runID, err := a.engine.Submit(ctx, t)
 	if err != nil {
 		return err
 	}
-	return streamRun(a, runID)
+	return streamRunCancelable(ctx, a, runID)
 }
 
 // --- runs list / run logs ---

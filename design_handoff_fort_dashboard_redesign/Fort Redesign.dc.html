@@ -32,6 +32,119 @@ a{color:#c9a35c;text-decoration:none}a:hover{color:#dcb877}
 </style>
 </helmet>
 
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Playbooks — route each part of the toolchain to a chosen agent + model</span></div>
+
+<div style="max-width:1100px;margin:0 0 30px;background:#0b0e14;border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:18px 20px">
+  <div style="font:600 11px 'Spline Sans Mono',monospace;letter-spacing:.1em;color:#c9a35c;text-transform:uppercase;margin-bottom:10px">Design position</div>
+  <div style="font-size:13.5px;line-height:1.6;color:#b8bfce">A <strong style="color:#e8ebf2">playbook</strong> is a reusable pipeline: each stage names <strong style="color:#e8ebf2">who</strong> (agent) and <strong style="color:#e8ebf2">with what</strong> (model), and what carries forward in shared memory. A <strong style="color:#e8ebf2">trigger</strong> routes incoming direction to a playbook automatically — a question never spins up the full chain. You confirm the route on every handoff (one tap to change it), and stage cards keep the checkpoint contract: sign-offs still land in Needs you.</div>
+</div>
+
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+<div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Playbook editor — the "Feature work" chain: break down → design → build, agent + model per stage</div>
+<div class="dv-card" style="width:1120px">
+  <div style="display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid #1a212e">
+    <span style="font:700 15px 'Spline Sans Mono',monospace;letter-spacing:.22em;color:#dcb877">FORT</span>
+    <span style="font-size:14px;font-weight:600">Playbooks</span>
+    <span style="font-size:12.5px;color:#687183">who does what, with which model</span>
+    <span style="flex:1"></span>
+    <button style="font:600 13px 'Instrument Sans',sans-serif;padding:7px 16px;border-radius:8px;border:1px solid #c9a35c;background:transparent;color:#dcb877;cursor:pointer">＋ New playbook</button>
+  </div>
+  <div style="display:flex">
+    <div style="flex:none;width:250px;border-right:1px solid #1a212e;padding:16px 14px;display:flex;flex-direction:column;gap:8px">
+      <div style="background:#12161f;border:1px solid #26314a;border-left:3px solid #c9a35c;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600">Feature work</span><span style="font-size:10.5px;padding:2px 7px;border-radius:10px;background:rgba(201,163,92,.16);color:#dcb877;font-weight:600">default</span></div>
+        <span style="font-size:12px;color:#8b93a5">3 stages · plan gate on</span>
+      </div>
+      <div style="background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:14px;font-weight:600">Bug fix</span>
+        <span style="font-size:12px;color:#8b93a5">2 stages · skips design</span>
+      </div>
+      <div style="background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600">⚡ Quick answer</span></div>
+        <span style="font-size:12px;color:#8b93a5">1 stage · no checkpoints</span>
+      </div>
+      <div style="background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:14px;font-weight:600">Research</span>
+        <span style="font-size:12px;color:#8b93a5">2 stages · delivers a doc</span>
+      </div>
+    </div>
+    <div style="flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span style="font-size:17px;font-weight:600">Feature work</span>
+        <span style="font-size:12.5px;color:#8b93a5">Trigger: direction that describes a new capability · <a href="#4a">edit</a></span>
+      </div>
+      <div style="display:flex;align-items:stretch;gap:0">
+        <div style="flex:1;background:#12161f;border:1px solid #26314a;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:600 11px 'Spline Sans Mono',monospace;color:#687183">1</span><span style="font-size:14px;font-weight:600">Break down</span><span style="margin-left:auto;font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(111,168,255,.14);color:#6fa8ff;font-weight:600">memory ●</span></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13.5px;font-weight:600;padding:5px 11px;border-radius:16px;border:1px solid #303848;color:#e8ebf2">Hermes ▾</span><span style="font:11.5px 'Spline Sans Mono',monospace;padding:4px 9px;border-radius:6px;background:#1a212e;color:#8b93a5">Codex 5.6 Sol ▾</span></div>
+          <span style="font-size:12px;color:#8b93a5;line-height:1.45">Turns your brief into a checkpoint plan; the plan stays in shared memory for later stages.</span>
+        </div>
+        <span style="flex:none;align-self:center;padding:0 10px;color:#56617a;font-size:16px">→</span>
+        <div style="flex:1;background:#12161f;border:1px solid #26314a;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:600 11px 'Spline Sans Mono',monospace;color:#687183">2</span><span style="font-size:14px;font-weight:600">Design</span></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13.5px;font-weight:600;padding:5px 11px;border-radius:16px;border:1px solid #303848;color:#e8ebf2">OpenClaw ▾</span><span style="font:11.5px 'Spline Sans Mono',monospace;padding:4px 9px;border-radius:6px;background:#1a212e;color:#8b93a5">Fable ▾</span></div>
+          <span style="font-size:12px;color:#8b93a5;line-height:1.45">Produces the design from the plan in memory. Skipped when the plan has no UI work.</span>
+        </div>
+        <span style="flex:none;align-self:center;padding:0 10px;color:#56617a;font-size:16px">→</span>
+        <div style="flex:1.15;background:#12161f;border:1px solid #26314a;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:600 11px 'Spline Sans Mono',monospace;color:#687183">3</span><span style="font-size:14px;font-weight:600">Build</span><span style="margin-left:auto;font-size:10.5px;padding:2px 8px;border-radius:10px;background:#1a212e;color:#8b93a5;font-weight:600">by task type</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11.5px;color:#687183;width:62px;flex:none">features</span><span style="font-size:13.5px;font-weight:600;padding:5px 11px;border-radius:16px;border:1px solid #303848;color:#e8ebf2">Claude Code ▾</span><span style="font:11.5px 'Spline Sans Mono',monospace;padding:4px 9px;border-radius:6px;background:#1a212e;color:#8b93a5">Sonnet ▾</span></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11.5px;color:#687183;width:62px;flex:none">bug fixes</span><span style="font-size:13.5px;font-weight:600;padding:5px 11px;border-radius:16px;border:1px solid #303848;color:#e8ebf2">Codex ▾</span><span style="font:11.5px 'Spline Sans Mono',monospace;padding:4px 9px;border-radius:6px;background:#1a212e;color:#8b93a5">5.6 Sol ▾</span></div>
+          </div>
+          <span style="font-size:12px;color:#8b93a5;line-height:1.45">Each checkpoint still needs your acceptance.</span>
+        </div>
+        <span style="flex:none;align-self:center;padding:0 10px;color:#56617a;font-size:16px">＋</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <span style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8b93a5">Shortcuts — triggers that skip the chain</span>
+        <div style="display:flex;align-items:center;gap:12px;background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:12px 15px">
+          <span style="font-size:15px">⚡</span>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13.5px;font-weight:600">When I ask a question → Quick answer</span><span style="font-size:12px;color:#8b93a5"><strong style="color:#b8bfce">Hermes</strong> answers with <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px">Codex 5.6 Sol</span> · replies in chat · no checkpoints, nothing scheduled</span></div>
+          <span style="margin-left:auto;flex:none;width:34px;height:20px;border-radius:10px;background:#c9a35c;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#0b0e14"></span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:12px 15px">
+          <span style="font-size:15px">🪲</span>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13.5px;font-weight:600">When it's a bug report → Bug fix</span><span style="font-size:12px;color:#8b93a5">Skips Design · <strong style="color:#b8bfce">Codex</strong> patches with <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px">5.6 Sol</span> · one checkpoint: the fix</span></div>
+          <span style="margin-left:auto;flex:none;width:34px;height:20px;border-radius:10px;background:#c9a35c;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#0b0e14"></span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="4b">
+<div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Route preview on handoff — Fort picks the playbook, you confirm in one glance</div>
+<div class="dv-card" style="width:560px">
+  <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+    <div style="background:#12161f;border:1px solid #26314a;border-radius:10px;padding:13px 15px;font-size:14.5px;line-height:1.55;color:#e8ebf2">Add CSV export to the reports page — same filters as the on-screen table.</div>
+    <div style="background:rgba(111,168,255,.07);border:1px solid #26314a;border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6fa8ff">Route</span><span style="font-size:13.5px;font-weight:600">Feature work</span><a href="#4b" style="margin-left:auto;font-size:12.5px">Change…</a></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px">
+        <span style="padding:4px 10px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Hermes</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span></span><span style="color:#56617a">→</span>
+        <span style="padding:4px 10px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>OpenClaw</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Fable</span></span><span style="color:#56617a">→</span>
+        <span style="padding:4px 10px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Claude Code</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Sonnet</span></span>
+      </div>
+      <span style="font-size:12px;color:#8b93a5">Plan first — you sign off before build starts.</span>
+    </div>
+    <button style="font:600 14.5px 'Instrument Sans',sans-serif;padding:11px 0;border-radius:9px;border:none;background:#c9a35c;color:#0b0e14;cursor:pointer">Hand it off</button>
+    <div style="border-top:1px solid #1a212e;padding-top:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="background:#12161f;border:1px solid #26314a;border-radius:10px;padding:13px 15px;font-size:14.5px;color:#e8ebf2">Why did the nightly QA sweep skip Saturday?</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#8b93a5"><span>⚡</span><span><strong style="color:#b8bfce">Quick answer</strong> · Hermes · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span> — answering now, no checkpoints</span></div>
+      <div style="background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:13px 15px;font-size:13.5px;line-height:1.55;color:#b8bfce">The Saturday run was skipped because mac-mini was offline 2:00–4:30am — the scheduler's retry window closed before it came back. Next sweep is tonight at 2am.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Mobile + Mac versions are in <strong>Fort Mobile and Mac.dc.html</strong>; full spec in the handoff bundle (SPEC-playbooks.md). Try next: "add a cost guardrail per playbook" · "let a stage run two agents in parallel".</p>
+</section>
+
 <section class="dv-turn" id="t3">
 <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Today — the day's schedule, including when you'll be needed</span></div>
 <div class="dv-opts">

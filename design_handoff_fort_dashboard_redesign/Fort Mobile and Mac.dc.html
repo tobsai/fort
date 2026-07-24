@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Spline+Sans+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07090e;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2}
+a{color:#c9a35c;text-decoration:none}a:hover{color:#dcb877}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.07);scroll-margin-top:16px;background:#07090e}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px 'Spline Sans Mono',monospace;padding:3px 7px;background:#c9a35c;color:#0b0e14;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 14px/1.2 'Instrument Sans',sans-serif;color:#e8ebf2}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px 'Spline Sans Mono',monospace;padding:3px 7px;background:rgba(201,163,92,.16);color:#dcb877;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 'Instrument Sans',sans-serif;color:#8b93a5}
+.dv-opt:target .dv-oid{background:#c9a35c;color:#0b0e14}
+@keyframes spinrace{to{transform:rotate(360deg)}}
+@keyframes dotpulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Playbooks on mobile + Mac — route work to chosen agents + models</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>iPhone — handoff with route preview: Fort picks the playbook, one tap to change</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="390px,844px">
+<div style="height:100%;background:#0b0e14;display:flex;flex-direction:column;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2">
+  <div style="display:flex;align-items:center;gap:10px;padding:64px 18px 12px">
+    <span style="font-size:14px;color:#6fa8ff">‹ Deck</span>
+    <span style="flex:1;text-align:center;font-size:15px;font-weight:600;margin-left:-44px">Give direction</span>
+  </div>
+  <div style="flex:1;padding:6px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+    <div style="display:flex;background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:3px">
+      <span style="flex:1;text-align:center;font-size:13.5px;font-weight:600;padding:8px 0;border-radius:8px;background:#26314a;color:#e8ebf2">Assignment</span>
+      <span style="flex:1;text-align:center;font-size:13.5px;padding:8px 0;color:#8b93a5">⚡ Quick question</span>
+    </div>
+    <div style="background:#12161f;border:1px solid #26314a;border-radius:12px;padding:14px 15px;font-size:15px;line-height:1.55;color:#e8ebf2">Add CSV export to the reports page — same filters as the on-screen table.</div>
+    <div style="background:rgba(111,168,255,.07);border:1px solid #26314a;border-radius:12px;padding:14px 15px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6fa8ff">Route</span><span style="font-size:14px;font-weight:600">Feature work</span><span style="margin-left:auto;font-size:13px;color:#dcb877">Change…</span></div>
+      <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 10.5px 'Spline Sans Mono',monospace;color:#687183;width:10px">1</span><span style="color:#b8bfce"><strong style="color:#e8ebf2">Hermes</strong> breaks it down · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span></span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 10.5px 'Spline Sans Mono',monospace;color:#687183;width:10px">2</span><span style="color:#b8bfce"><strong style="color:#e8ebf2">OpenClaw</strong> designs · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Fable</span></span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 10.5px 'Spline Sans Mono',monospace;color:#687183;width:10px">3</span><span style="color:#b8bfce"><strong style="color:#e8ebf2">Claude Code</strong> builds · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Sonnet</span></span></div>
+      </div>
+      <span style="font-size:12px;color:#8b93a5">Plan first — you sign off before build starts.</span>
+    </div>
+  </div>
+  <div style="flex:none;padding:12px 16px 10px">
+    <button style="width:100%;font:600 16px 'Instrument Sans',sans-serif;padding:15px 0;border-radius:12px;border:none;background:#c9a35c;color:#0b0e14">Hand it off</button>
+  </div>
+</div>
+</x-import>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Mac app — Playbooks pane: pipeline per playbook, shortcut triggers below</div>
+<div style="width:1180px;height:740px;border-radius:14px;overflow:hidden;background:#0b0e14;box-shadow:0 0 0 1px rgba(0,0,0,.45),0 16px 48px rgba(0,0,0,.5);display:flex;flex-direction:column;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2">
+<div style="flex:none;height:42px;display:flex;align-items:center;gap:9px;padding:0 16px;background:#12161f;border-bottom:1px solid #1a212e">
+  <span style="width:13px;height:13px;border-radius:50%;background:#ff736a;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="width:13px;height:13px;border-radius:50%;background:#febc2e;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="width:13px;height:13px;border-radius:50%;background:#19c332;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="flex:1;text-align:center;font-size:13px;font-weight:600;color:#8b93a5;margin-left:-55px">Fort</span>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+  <div style="flex:none;width:210px;border-right:1px solid #1a212e;display:flex;flex-direction:column;gap:2px;padding:12px 10px">
+    <div style="font:700 14px 'Spline Sans Mono',monospace;letter-spacing:.22em;color:#dcb877;padding:6px 10px 14px">FORT</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">◉</span>Command Deck<span style="margin-left:auto;font-size:11px;padding:1px 7px;border-radius:10px;background:#e0a458;color:#12100a;font-weight:700">2</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">▦</span>Projects</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">◔</span>Today</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">⚉</span>Crew</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:rgba(201,163,92,.12);color:#dcb877;font-size:13.5px;font-weight:600"><span>⛓</span>Playbooks</div>
+    <div style="flex:1"></div>
+    <button style="font:600 13px 'Instrument Sans',sans-serif;margin:4px 6px 2px;padding:9px 0;border-radius:9px;border:none;background:#c9a35c;color:#0b0e14;cursor:pointer">＋ Give direction</button>
+  </div>
+  <div style="flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:14px;min-width:0;overflow:hidden">
+    <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:17px;font-weight:600">Playbooks</span><span style="font-size:12.5px;color:#687183">who does what, with which model</span><button style="margin-left:auto;font:600 12.5px 'Instrument Sans',sans-serif;padding:6px 13px;border-radius:7px;border:1px solid #c9a35c;background:transparent;color:#dcb877;cursor:pointer">＋ New playbook</button></div>
+    <div style="background:#12161f;border:1px solid #26314a;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="font-size:15px;font-weight:600">Feature work</span><span style="font-size:10.5px;padding:2px 7px;border-radius:10px;background:rgba(201,163,92,.16);color:#dcb877;font-weight:600">default</span><span style="margin-left:auto;font-size:12px;color:#687183">plan gate on</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Hermes</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span> <span style="color:#6fa8ff">· memory ●</span></span><span style="color:#56617a">→</span>
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>OpenClaw</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Fable</span></span><span style="color:#56617a">→</span>
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Claude Code</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Sonnet</span> <span style="color:#687183">/ Codex on bug-type tasks</span></span>
+      </div>
+    </div>
+    <div style="background:#12161f;border:1px solid #1a212e;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="font-size:15px;font-weight:600">Bug fix</span><span style="margin-left:auto;font-size:12px;color:#687183">skips design · one checkpoint</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Hermes</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span></span><span style="color:#56617a">→</span>
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Codex</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">5.6 Sol</span></span>
+      </div>
+    </div>
+    <div style="background:#12161f;border:1px solid #1a212e;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="font-size:15px;font-weight:600">⚡ Quick answer</span><span style="margin-left:auto;font-size:12px;color:#687183">no checkpoints · replies in chat</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+        <span style="padding:5px 11px;border-radius:14px;background:#1a212e;color:#b8bfce"><strong>Hermes</strong> · <span style="font-family:'Spline Sans Mono',monospace;font-size:11px">Codex 5.6 Sol</span></span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
+      <span style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8b93a5">Shortcuts</span>
+      <div style="display:flex;align-items:center;gap:11px;background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:11px 14px">
+        <span style="font-size:14px">⚡</span><span style="font-size:13px;color:#b8bfce">When I ask a question → <strong style="color:#e8ebf2">Quick answer</strong></span>
+        <span style="margin-left:auto;flex:none;width:34px;height:20px;border-radius:10px;background:#c9a35c;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#0b0e14"></span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:11px;background:#12161f;border:1px solid #1a212e;border-radius:10px;padding:11px 14px">
+        <span style="font-size:14px">🪲</span><span style="font-size:13px;color:#b8bfce">When it's a bug report → <strong style="color:#e8ebf2">Bug fix</strong></span>
+        <span style="margin-left:auto;flex:none;width:34px;height:20px;border-radius:10px;background:#c9a35c;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#0b0e14"></span></span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p style="margin:22px 0 0;font:12.5px/1.5 'Instrument Sans',sans-serif;color:#8b93a5">Web playbook editor is turn 4 in <strong>Fort Redesign.dc.html</strong>; spec in the handoff bundle (SPEC-playbooks.md).</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Fort — mobile + Mac app form factors</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iPhone — Command Deck: "Needs you" first, one thumb</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="390px,844px">
+<div style="height:100%;background:#0b0e14;display:flex;flex-direction:column;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2">
+  <div style="display:flex;align-items:center;gap:10px;padding:64px 18px 12px">
+    <span style="font:700 15px 'Spline Sans Mono',monospace;letter-spacing:.22em;color:#dcb877">FORT</span>
+    <span style="font-size:12px;padding:3px 10px;border-radius:20px;background:rgba(224,164,88,.14);color:#e0a458;font-weight:600">2 need you</span>
+    <span style="flex:1"></span>
+    <span style="display:flex;align-items:center;gap:5px;font:11.5px 'Spline Sans Mono',monospace;color:#8b93a5"><span style="width:6px;height:6px;border-radius:50%;background:#57b98a"></span>2 machines</span>
+  </div>
+  <div style="flex:1;overflow:hidden;padding:6px 16px 0;display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#e0a458">Needs you</div>
+    <div style="background:#12161f;border:1px solid #26314a;border-left:3px solid #e0a458;border-radius:12px;padding:15px 16px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="font-size:15.5px;font-weight:600;line-height:1.3">Sign off on the rollout plan</span><span style="font:11px 'Spline Sans Mono',monospace;color:#687183;margin-left:auto;flex:none">4m</span></div>
+      <div style="font-size:13.5px;color:#b8bfce;line-height:1.5">Hermes drafted a 4-step deployment plan for <strong style="color:#dcb877">Checkout Rework</strong>.</div>
+      <div style="display:flex;gap:8px">
+        <button style="flex:1;font:600 14px 'Instrument Sans',sans-serif;padding:11px 0;border-radius:10px;border:none;background:#57b98a;color:#07120c">Approve</button>
+        <button style="flex:1;font:600 14px 'Instrument Sans',sans-serif;padding:11px 0;border-radius:10px;border:1px solid #303848;background:transparent;color:#e8ebf2">Redirect…</button>
+      </div>
+      <span style="font-size:13px;color:#8b93a5;text-align:center;padding:2px 0">View the plan</span>
+    </div>
+    <div style="background:#12161f;border:1px solid #26314a;border-left:3px solid #e0a458;border-radius:12px;padding:15px 16px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="font-size:15.5px;font-weight:600;line-height:1.3">Review checkpoint 2 — indexer PR</span><span style="font:11px 'Spline Sans Mono',monospace;color:#687183;margin-left:auto;flex:none">18m</span></div>
+      <div style="font-size:13.5px;color:#b8bfce;line-height:1.5">Claude Code finished the draft for <strong style="color:#dcb877">Search Indexing</strong>. 14 files, tests green.</div>
+      <div style="display:flex;gap:8px">
+        <button style="flex:1;font:600 14px 'Instrument Sans',sans-serif;padding:11px 0;border-radius:10px;border:none;background:#57b98a;color:#07120c">Accept</button>
+        <button style="flex:1;font:600 14px 'Instrument Sans',sans-serif;padding:11px 0;border-radius:10px;border:1px solid #303848;background:transparent;color:#e8ebf2">Changes…</button>
+      </div>
+    </div>
+    <div style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8b93a5;margin-top:4px">Projects</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;background:#12161f;border:1px solid #1a212e;border-radius:12px">
+      <div style="flex:none;position:relative;padding:7px;border-radius:50%;border:2px solid #e0a458">{{ sigCheckoutM }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14.5px;font-weight:600">Checkout Rework</span><span style="font-size:12px;color:#8b93a5">3 of 5 accepted · 1 awaiting sign-off</span></div>
+      <span style="margin-left:auto;color:#4a5262;font-size:16px">›</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;background:#12161f;border:1px solid #1a212e;border-radius:12px">
+      <div style="flex:none;position:relative;padding:7px;border-radius:50%;border:2px solid #6fa8ff"><div style="position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(rgba(255,255,255,0) 0 70%,#ffffff 82%,rgba(255,255,255,0) 94%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));animation:spinrace 2.2s linear infinite"></div>{{ sigSearchM }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14.5px;font-weight:600">Search Indexing</span><span style="font-size:12px;color:#8b93a5">1 of 4 accepted · Claude Code drafting</span></div>
+      <span style="margin-left:auto;color:#4a5262;font-size:16px">›</span>
+    </div>
+  </div>
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-around;padding:10px 8px 6px;border-top:1px solid #1a212e;background:#0b0e14">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px"><span style="font-size:17px;color:#dcb877">◉</span><span style="font-size:10.5px;font-weight:600;color:#dcb877">Deck</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px"><span style="font-size:17px;color:#687183">▦</span><span style="font-size:10.5px;color:#687183">Projects</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px"><span style="width:34px;height:34px;border-radius:50%;background:#c9a35c;color:#0b0e14;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;margin-top:-14px">＋</span><span style="font-size:10.5px;color:#dcb877;font-weight:600">Direct</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px"><span style="font-size:17px;color:#687183">◔</span><span style="font-size:10.5px;color:#687183">Today</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px"><span style="font-size:17px;color:#687183">⚉</span><span style="font-size:10.5px;color:#687183">Crew</span></div>
+  </div>
+</div>
+</x-import>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iPhone — Give direction: brief like a message, plan gate on</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="390px,844px">
+<div style="height:100%;background:#0b0e14;display:flex;flex-direction:column;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2">
+  <div style="display:flex;align-items:center;gap:10px;padding:64px 18px 12px">
+    <span style="font-size:14px;color:#6fa8ff">‹ Deck</span>
+    <span style="flex:1;text-align:center;font-size:15px;font-weight:600;margin-left:-44px">Give direction</span>
+  </div>
+  <div style="flex:1;padding:10px 16px;display:flex;flex-direction:column;gap:16px">
+    <div style="background:#12161f;border:1px solid #26314a;border-radius:12px;padding:14px 15px;min-height:130px;font-size:15px;line-height:1.6;color:#687183">Describe the outcome you want — like briefing an employee.<br><br><span style="color:#4a5262">"Rework mobile onboarding so a new user reaches value in under 60s. Keep the existing auth flow."</span></div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <span style="font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b93a5">Assign to</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:22px;border:1.5px solid #c9a35c;background:rgba(201,163,92,.12);color:#dcb877">Fort decides</span>
+        <span style="font-size:13.5px;padding:9px 16px;border-radius:22px;border:1px solid #303848;color:#b8bfce">Claude Code</span>
+        <span style="font-size:13.5px;padding:9px 16px;border-radius:22px;border:1px solid #303848;color:#b8bfce">Hermes</span>
+        <span style="font-size:13.5px;padding:9px 16px;border-radius:22px;border:1px solid #303848;color:#b8bfce">Codex</span>
+        <span style="font-size:13.5px;padding:9px 16px;border-radius:22px;border:1px solid #303848;color:#b8bfce">OpenClaw</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:#12161f;border:1px solid #1a212e;border-radius:12px;padding:13px 15px">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:14px;font-weight:600">Propose a plan first</span><span style="font-size:12px;color:#8b93a5">You sign off before work starts</span></div>
+      <span style="flex:none;width:44px;height:26px;border-radius:13px;background:#c9a35c;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:22px;height:22px;border-radius:50%;background:#0b0e14"></span></span>
+    </div>
+  </div>
+  <div style="flex:none;padding:12px 16px 10px">
+    <button style="width:100%;font:600 16px 'Instrument Sans',sans-serif;padding:15px 0;border-radius:12px;border:none;background:#c9a35c;color:#0b0e14">Hand it off</button>
+  </div>
+</div>
+</x-import>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Mac app — Command Deck with sidebar: Deck / Projects / Today / Crew</div>
+<div style="width:1180px;height:740px;border-radius:14px;overflow:hidden;background:#0b0e14;box-shadow:0 0 0 1px rgba(0,0,0,.45),0 16px 48px rgba(0,0,0,.5);display:flex;flex-direction:column">
+<div style="flex:none;height:42px;display:flex;align-items:center;gap:9px;padding:0 16px;background:#12161f;border-bottom:1px solid #1a212e">
+  <span style="width:13px;height:13px;border-radius:50%;background:#ff736a;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="width:13px;height:13px;border-radius:50%;background:#febc2e;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="width:13px;height:13px;border-radius:50%;background:#19c332;border:.5px solid rgba(0,0,0,.2)"></span>
+  <span style="flex:1;text-align:center;font-size:13px;font-weight:600;color:#8b93a5;margin-left:-55px">Fort</span>
+</div>
+<div style="display:flex;flex:1;min-height:0;background:#0b0e14;font-family:'Instrument Sans',system-ui,sans-serif;color:#e8ebf2">
+  <div style="flex:none;width:210px;background:#0b0e14;border-right:1px solid #1a212e;display:flex;flex-direction:column;gap:2px;padding:12px 10px">
+    <div style="font:700 14px 'Spline Sans Mono',monospace;letter-spacing:.22em;color:#dcb877;padding:6px 10px 14px">FORT</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:rgba(201,163,92,.12);color:#dcb877;font-size:13.5px;font-weight:600"><span>◉</span>Command Deck<span style="margin-left:auto;font-size:11px;padding:1px 7px;border-radius:10px;background:#e0a458;color:#12100a;font-weight:700">2</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">▦</span>Projects</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">◔</span>Today</div>
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:#b8bfce;font-size:13.5px"><span style="color:#687183">⚉</span>Crew</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;flex-direction:column;gap:7px;padding:10px;border-top:1px solid #1a212e">
+      <span style="font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#687183">Machines</span>
+      <span style="display:flex;align-items:center;gap:7px;font:12px 'Spline Sans Mono',monospace;color:#8b93a5"><span style="width:7px;height:7px;border-radius:50%;background:#57b98a"></span>mac-mini</span>
+      <span style="display:flex;align-items:center;gap:7px;font:12px 'Spline Sans Mono',monospace;color:#8b93a5"><span style="width:7px;height:7px;border-radius:50%;background:#57b98a"></span>mbp</span>
+    </div>
+    <button style="font:600 13px 'Instrument Sans',sans-serif;margin:4px 6px 2px;padding:9px 0;border-radius:9px;border:none;background:#c9a35c;color:#0b0e14;cursor:pointer">＋ Give direction</button>
+  </div>
+  <div style="flex:1.5;padding:20px 22px;display:flex;flex-direction:column;gap:13px;border-right:1px solid #1a212e;min-width:0">
+    <div style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#e0a458">Needs you</div>
+    <div style="background:#12161f;border:1px solid #26314a;border-left:3px solid #e0a458;border-radius:10px;padding:15px 17px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:15.5px;font-weight:600">Sign off on the rollout plan</span><span style="font:11.5px 'Spline Sans Mono',monospace;color:#687183;margin-left:auto">4m ago</span></div>
+      <div style="font-size:13.5px;color:#b8bfce;line-height:1.55">Hermes drafted a 4-step deployment plan for <strong style="color:#dcb877">Checkout Rework</strong> — canary, then staged rollout with two rollback points.</div>
+      <div style="display:flex;gap:8px">
+        <button style="font:600 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:none;background:#57b98a;color:#07120c;cursor:pointer">Approve</button>
+        <button style="font:600 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:1px solid #303848;background:transparent;color:#e8ebf2;cursor:pointer">Redirect…</button>
+        <button style="font:500 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:none;background:transparent;color:#8b93a5;cursor:pointer">View the plan</button>
+      </div>
+    </div>
+    <div style="background:#12161f;border:1px solid #26314a;border-left:3px solid #e0a458;border-radius:10px;padding:15px 17px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:15.5px;font-weight:600">Review checkpoint 2 — search indexing PR</span><span style="font:11.5px 'Spline Sans Mono',monospace;color:#687183;margin-left:auto">18m ago</span></div>
+      <div style="font-size:13.5px;color:#b8bfce;line-height:1.55">Claude Code finished the indexer draft for <strong style="color:#dcb877">Search Indexing</strong>. 14 files, tests passing on mbp.</div>
+      <div style="display:flex;gap:8px">
+        <button style="font:600 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:none;background:#57b98a;color:#07120c;cursor:pointer">Accept checkpoint</button>
+        <button style="font:600 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:1px solid #303848;background:transparent;color:#e8ebf2;cursor:pointer">Request changes…</button>
+        <button style="font:500 13px 'Instrument Sans',sans-serif;padding:7px 14px;border-radius:8px;border:none;background:transparent;color:#8b93a5;cursor:pointer">Open the diff</button>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:#687183;padding:2px 2px">That's everything — 3 agents are working and don't need you.</div>
+  </div>
+  <div style="flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:12px;min-width:0">
+    <div style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8b93a5">Projects</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#12161f;border:1px solid #1a212e;border-radius:10px">
+      <div style="flex:none;position:relative;padding:6px;border-radius:50%;border:2px solid #e0a458">{{ sigCheckoutD }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">Checkout Rework</span><span style="font-size:12px;color:#8b93a5">3 of 5 accepted · 1 awaiting sign-off</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#12161f;border:1px solid #1a212e;border-radius:10px">
+      <div style="flex:none;position:relative;padding:6px;border-radius:50%;border:2px solid #6fa8ff"><div style="position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(rgba(255,255,255,0) 0 70%,#ffffff 82%,rgba(255,255,255,0) 94%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));animation:spinrace 2.2s linear infinite"></div>{{ sigSearchD }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">Search Indexing</span><span style="font-size:12px;color:#8b93a5">1 of 4 accepted · Claude Code drafting</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#12161f;border:1px solid #1a212e;border-radius:10px">
+      <div style="flex:none;position:relative;padding:6px;border-radius:50%;border:2px solid #56617a">{{ sigMobileD }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">Mobile Onboarding</span><span style="font-size:12px;color:#687183">Not started · brief drafted</span></div>
+    </div>
+    <div style="font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8b93a5;margin-top:8px">Crew</div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+      <div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:50%;background:#6fa8ff;animation:dotpulse 1.6s infinite"></span><strong>Claude Code</strong><span style="color:#8b93a5">drafting the indexer · 12m</span></div>
+      <div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:50%;background:#e0a458"></span><strong>Hermes</strong><span style="color:#8b93a5">waiting on your sign-off</span></div>
+      <div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:50%;background:#6fa8ff;animation:dotpulse 1.6s infinite"></span><strong>OpenClaw</strong><span style="color:#8b93a5">running browser tests · 3m</span></div>
+      <div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:50%;background:#303848"></span><strong>Codex</strong><span style="color:#687183">idle</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p style="margin:22px 0 0;font:12.5px/1.5 'Instrument Sans',sans-serif;color:#8b93a5">Same grammar as the web deck: amber = needs you, blue + racing white arc = running, green = accepted, grey = not started. Mobile is triage-only (approve / redirect / brief); the Mac app is the full deck. Try next: "mobile Today view" · "Mac Crew scorecards" · "menu-bar dropdown widget".</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  sigil(name, size, color) {
+    let h = 2166136261;
+    for (const ch of name) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    const rand = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    const cells = [];
+    for (let x = 0; x < 3; x++) for (let y = 0; y < 5; y++) {
+      if (rand() > 0.55) { cells.push([x, y]); if (x < 2) cells.push([4 - x, y]); }
+    }
+    const u = size / 5;
+    return React.createElement('svg', { width: size, height: size, viewBox: '0 0 ' + size + ' ' + size, style: { display: 'block' } },
+      cells.map(([x, y], i) => React.createElement('rect', { key: i, x: x * u + u * 0.04, y: y * u + u * 0.04, width: u * 0.88, height: u * 0.88, rx: u * 0.2, fill: color || '#6fa8ff' })));
+  }
+  renderVals() {
+    return {
+      sigCheckoutM: this.sigil('Checkout Rework', 26, '#e0a458'), sigSearchM: this.sigil('Search Indexing', 26, '#6fa8ff'),
+      sigCheckoutD: this.sigil('Checkout Rework', 28, '#e0a458'), sigSearchD: this.sigil('Search Indexing', 28, '#6fa8ff'),
+      sigMobileD: this.sigil('Mobile Onboarding', 28, '#56617a')
+    };
+  }
+}
+</script>
+</body>
+</html>

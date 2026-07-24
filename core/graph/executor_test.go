@@ -258,6 +258,186 @@ func TestRetryThenEscalateToGate(t *testing.T) {
 	}
 }
 
+func TestTaskInvocationsUseDeterministicNodeAttemptRunIDs(t *testing.T) {
+	t.Run("stages", func(t *testing.T) {
+		ex, st, rt := newExec(t)
+		f := Flow{
+			ID: "invocation-stages", Start: "plan",
+			Nodes: []Node{
+				{
+					ID: "plan", Type: Task, Agent: "openclaw",
+					Edges: []Edge{{On: OutSuccess, To: "build"}},
+				},
+				{ID: "build", Type: Task, Agent: "openclaw"},
+			},
+		}
+
+		if _, err := ex.Start(context.Background(), f, "parent-run", "direction"); err != nil {
+			t.Fatal(err)
+		}
+		got := rt.Dispatched()
+		if len(got) != 2 {
+			t.Fatalf("dispatches = %d, want 2", len(got))
+		}
+		if got[0].RunID != "parent-run:plan:1" || got[1].RunID != "parent-run:build:1" {
+			t.Fatalf("invocation run ids = [%q %q], want node-scoped ids", got[0].RunID, got[1].RunID)
+		}
+		assertEventsRetainParentRunID(t, st, "parent-run")
+	})
+
+	t.Run("retries", func(t *testing.T) {
+		ex, st, rt := newExec(t)
+		rt.ExitCode = 1
+		f := Flow{
+			ID: "invocation-retries", Start: "work",
+			Nodes: []Node{{
+				ID: "work", Type: Task, Agent: "openclaw", Retry: &Retry{Max: 2},
+			}},
+		}
+
+		if _, err := ex.Start(context.Background(), f, "retry-parent", "direction"); err != nil {
+			t.Fatal(err)
+		}
+		got := rt.Dispatched()
+		if len(got) != 3 {
+			t.Fatalf("dispatches = %d, want 3", len(got))
+		}
+		for i, want := range []string{
+			"retry-parent:work:1",
+			"retry-parent:work:2",
+			"retry-parent:work:3",
+		} {
+			if got[i].RunID != want {
+				t.Errorf("dispatch %d run id = %q, want %q", i, got[i].RunID, want)
+			}
+		}
+		assertEventsRetainParentRunID(t, st, "retry-parent")
+	})
+}
+
+func TestTaskAttemptIsPersistedBeforeDispatch(t *testing.T) {
+	ex, _, rt := newExec(t)
+	var observed store.NodeRun
+	var observedOK bool
+	var observedErr error
+	var dispatched runtime.RunSpec
+	ex.rt = &beforeDispatchRuntime{
+		delegate: rt,
+		before: func(spec runtime.RunSpec) {
+			dispatched = spec
+			observed, observedOK, observedErr = ex.nodeRun("claim-parent", "work")
+		},
+	}
+	f := Flow{
+		ID: "claim-before-dispatch", Start: "work",
+		Nodes: []Node{{
+			ID: "work", Type: Task, Agent: "openclaw", Prompt: "do work",
+		}},
+	}
+
+	if _, err := ex.Start(context.Background(), f, "claim-parent", "direction"); err != nil {
+		t.Fatal(err)
+	}
+	if observedErr != nil {
+		t.Fatal(observedErr)
+	}
+	if !observedOK {
+		t.Fatal("node attempt was not persisted before runtime dispatch")
+	}
+	if observed.Status != "running" || observed.Attempts != 1 {
+		t.Fatalf("node during dispatch = %+v, want running attempt 1", observed)
+	}
+	if dispatched.RunID != "claim-parent:work:1" {
+		t.Fatalf("dispatch run id = %q, want claim-parent:work:1", dispatched.RunID)
+	}
+}
+
+func TestResumeAdvancesFromPersistedRunningTaskAttempt(t *testing.T) {
+	ex, st, rt := newExec(t)
+	f := Flow{
+		ID: "resume-running-attempt", Start: "work",
+		Nodes: []Node{{
+			ID: "work", Type: Task, Agent: "openclaw",
+		}},
+	}
+	if err := st.CreateRun(store.Run{
+		ID: "crash-parent", Title: f.Name, Agent: "flow:" + f.ID,
+		Status: "running", FlowID: f.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertNodeRun(store.NodeRun{
+		ID: nrID("crash-parent", "work"), RunID: "crash-parent",
+		NodeID: "work", Type: string(Task), Status: "running",
+		Input: "direction", Attempts: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ex.Resume(context.Background(), f, "crash-parent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "completed" {
+		t.Fatalf("state = %q, want completed", res.State)
+	}
+	got := rt.Dispatched()
+	if len(got) != 1 {
+		t.Fatalf("dispatches = %d, want 1", len(got))
+	}
+	if got[0].RunID != "crash-parent:work:2" {
+		t.Fatalf("dispatch run id = %q, want crash-parent:work:2", got[0].RunID)
+	}
+	if got[0].Prompt != "direction" {
+		t.Fatalf("dispatch prompt = %q, want persisted input direction", got[0].Prompt)
+	}
+	runs := mustNodeRuns(t, st, "crash-parent")
+	if len(runs) != 1 || runs[0].Status != "succeeded" || runs[0].Attempts != 2 {
+		t.Fatalf("resumed node = %+v, want succeeded attempt 2", runs)
+	}
+}
+
+func TestTaskDispatchFailsClosedWhenAttemptCannotBePersisted(t *testing.T) {
+	ex, st, rt := newExec(t)
+	ex.UsePlacer(&closeStorePlacer{store: st})
+	f := Flow{
+		ID: "attempt-persist-failure", Start: "work",
+		Nodes: []Node{{
+			ID: "work", Type: Task, Agent: "openclaw", Context: ContextPlaybook,
+		}},
+	}
+
+	_, err := ex.Start(context.Background(), f, "persist-failure-parent", "direction")
+	if err == nil {
+		t.Fatal("start succeeded after the attempt store was closed")
+	}
+	if !strings.Contains(err.Error(), "persist") {
+		t.Fatalf("error = %q, want attempt persistence context", err)
+	}
+	if got := rt.Dispatched(); len(got) != 0 {
+		t.Fatalf("dispatches = %d, want 0 when the attempt claim is not durable", len(got))
+	}
+}
+
+func assertEventsRetainParentRunID(t *testing.T, st *store.Store, parentRunID string) {
+	t.Helper()
+	events, err := st.Events(parentRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) == 0 {
+		t.Fatal("parent run has no persisted events")
+	}
+	for _, event := range events {
+		if event.RunID != parentRunID {
+			t.Fatalf("persisted event run id = %q, want parent %q", event.RunID, parentRunID)
+		}
+	}
+	if run, err := st.GetRun(parentRunID); err != nil || run.ID != parentRunID {
+		t.Fatalf("parent run = %+v, %v", run, err)
+	}
+}
+
 func TestResumeAfterRestart(t *testing.T) {
 	ex, st, rt := newExec(t)
 	f := gateFlow()
@@ -399,6 +579,14 @@ func (p *recordingPlacer) Place(agent, pin string) (string, error) {
 	return p.machines[agent], nil
 }
 
+type closeStorePlacer struct {
+	store *store.Store
+}
+
+func (p *closeStorePlacer) Place(string, string) (string, error) {
+	return "", p.store.Close()
+}
+
 type dispatchErrorRuntime struct {
 	err   error
 	calls int
@@ -410,6 +598,48 @@ func (r *dispatchErrorRuntime) Dispatch(context.Context, runtime.RunSpec) (runti
 	r.calls++
 	return nil, r.err
 }
+
+type completedRuntime struct {
+	events []runtime.RunEvent
+	status runtime.Status
+}
+
+type beforeDispatchRuntime struct {
+	delegate runtime.Runtime
+	before   func(runtime.RunSpec)
+}
+
+func (r *beforeDispatchRuntime) Name() string { return "before-dispatch" }
+
+func (r *beforeDispatchRuntime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.Run, error) {
+	r.before(spec)
+	return r.delegate.Dispatch(ctx, spec)
+}
+
+func (r *completedRuntime) Name() string { return "completed" }
+
+func (r *completedRuntime) Dispatch(_ context.Context, spec runtime.RunSpec) (runtime.Run, error) {
+	ch := make(chan runtime.RunEvent, len(r.events))
+	for _, event := range r.events {
+		event.RunID = spec.RunID
+		ch <- event
+	}
+	close(ch)
+	return &completedRun{id: spec.RunID, events: ch, status: r.status}, nil
+}
+
+type completedRun struct {
+	id     string
+	events <-chan runtime.RunEvent
+	status runtime.Status
+}
+
+func (r *completedRun) ID() string                      { return r.id }
+func (r *completedRun) Stream() <-chan runtime.RunEvent { return r.events }
+func (r *completedRun) Signal(string) error             { return nil }
+func (r *completedRun) Cancel() error                   { return nil }
+func (r *completedRun) Status() runtime.Status          { return r.status }
+func (r *completedRun) Wait() runtime.Status            { return r.status }
 
 func TestPlaybookTaskUsesDeterministicPlacement(t *testing.T) {
 	ex, st, rt := newExec(t)
@@ -494,6 +724,128 @@ func TestPlaybookPlacementHappensOnceAcrossRetries(t *testing.T) {
 	}
 	if placements != 1 {
 		t.Fatalf("placement events = %d, want 1 (%+v)", placements, events)
+	}
+}
+
+func TestTerminalTaskFailurePersistsCauseOnParentRun(t *testing.T) {
+	ex, st, rt := newExec(t)
+	rt.ExitCode = 9
+	f := Flow{
+		ID: "terminal-failure", Start: "build",
+		Nodes: []Node{{
+			ID: "build", Type: Task, Agent: "codex", Context: ContextPlaybook,
+		}},
+	}
+
+	res, err := ex.Start(context.Background(), f, "terminal-failure-run", "direction")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "failed" {
+		t.Fatalf("result = %+v, want failed", res)
+	}
+	run, err := st.GetRun("terminal-failure-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "failed" || run.ExitCode != 9 ||
+		!strings.Contains(run.Error, `agent "codex" exited with code 9`) {
+		t.Fatalf("run = %+v, want failed/9 with the terminal task cause", run)
+	}
+	events, err := st.Events(run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		if event.NodeID == "build" && event.Type == "error" &&
+			strings.Contains(event.Data, `agent "codex" exited with code 9`) {
+			return
+		}
+	}
+	t.Fatalf("events = %+v, want a node-scoped terminal failure", events)
+}
+
+func TestProviderErrorIsNotDuplicatedByGraph(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	rt := &completedRuntime{
+		events: []runtime.RunEvent{
+			{Type: runtime.EventStarted, Data: "codex"},
+			{Type: runtime.EventError, Data: "provider model unavailable"},
+			{Type: runtime.EventExited, Code: 7},
+		},
+		status: runtime.Status{State: runtime.StateFailed, ExitCode: 7, Err: "provider model unavailable"},
+	}
+	ex := NewExecutor(rt, st)
+	f := Flow{
+		ID: "provider-failure", Start: "work",
+		Nodes: []Node{{ID: "work", Type: Task, Agent: "codex"}},
+	}
+
+	if _, err := ex.Start(context.Background(), f, "provider-failure-run", "direction"); err != nil {
+		t.Fatal(err)
+	}
+	run, err := st.GetRun("provider-failure-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.ExitCode != 7 || !strings.Contains(run.Error, "provider model unavailable") {
+		t.Fatalf("run = %+v, want failed/7 with provider cause", run)
+	}
+	events, err := st.Events(run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errors int
+	for _, event := range events {
+		if event.NodeID == "work" && event.Type == "error" {
+			errors++
+		}
+	}
+	if errors != 1 {
+		t.Fatalf("error events = %d (%+v), want the provider's single error event", errors, events)
+	}
+}
+
+func TestRecoverableTaskFailureDoesNotPoisonLaterTerminalFailure(t *testing.T) {
+	ex, st, rt := newExec(t)
+	rt.ExitCode = 9
+	f := Flow{
+		ID: "recovery", Start: "work",
+		Nodes: []Node{
+			{
+				ID: "work", Type: Task, Agent: "codex",
+				Edges: []Edge{{On: OutFail, To: "verify"}},
+			},
+			{
+				ID: "verify", Type: Check,
+				Check: &CheckSpec{Command: []string{"sh", "-c", "exit 1"}},
+			},
+		},
+	}
+
+	if _, err := ex.Start(context.Background(), f, "recovery-run", "direction"); err != nil {
+		t.Fatal(err)
+	}
+	run, err := st.GetRun("recovery-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.ExitCode != 1 || strings.Contains(run.Error, `agent "codex"`) {
+		t.Fatalf("run = %+v, want the terminal check failure, not the recovered task failure", run)
+	}
+}
+
+func TestTerminalStderrIsBounded(t *testing.T) {
+	got := retainTerminalStderr("", strings.Repeat("x", terminalStderrLimit+100))
+	if len(got) != terminalStderrLimit {
+		t.Fatalf("retained stderr bytes = %d, want %d", len(got), terminalStderrLimit)
+	}
+	if next := retainTerminalStderr(got, "last meaningful line"); next != "last meaningful line" {
+		t.Fatalf("next stderr = %q, want last meaningful line", next)
 	}
 }
 

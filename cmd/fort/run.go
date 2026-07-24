@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -40,6 +41,24 @@ func streamRun(a *app, runID string) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// streamRunCancelable preserves task-add's live output while bridging an
+// operator interrupt to the engine's explicit runtime cancellation contract.
+// Plain `run logs` intentionally keeps using streamRun: stopping a log tail
+// must not cancel the work being observed.
+func streamRunCancelable(ctx context.Context, a *app, runID string) error {
+	watchDone := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = a.engine.Cancel(runID)
+		case <-watchDone:
+		}
+	}()
+	err := streamRun(a, runID)
+	close(watchDone)
+	return err
 }
 
 // tailRun prints existing events then follows new ones until the run finishes.

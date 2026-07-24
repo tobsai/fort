@@ -37,11 +37,23 @@ type Engine struct {
 	running map[string]*runState // runID -> live run handle
 }
 
-// runState is a live run's handle: a done channel (closed when its events are
-// fully persisted) and a cancel func for its detached execution context.
+// runState is a live run's handle: the runtime contract, a done channel (closed
+// when its events are fully persisted), and its detached execution context.
 type runState struct {
-	done   chan struct{}
-	cancel context.CancelFunc
+	done       chan struct{}
+	run        runtime.Run
+	cancel     context.CancelFunc
+	cancelOnce sync.Once
+	cancelErr  error
+}
+
+func (rs *runState) stop() error {
+	rs.cancelOnce.Do(func() {
+		rs.cancelErr = rs.run.Cancel()
+		rs.cancel()
+	})
+	<-rs.done
+	return rs.cancelErr
 }
 
 // New builds an engine.
@@ -89,6 +101,22 @@ func (e *Engine) wait(runID string) {
 // returns immediately for an unknown or already-finished run. Exposed so
 // control.Planner can block on a planner run without polling (spec 026).
 func (e *Engine) Wait(runID string) { e.wait(runID) }
+
+// Cancel stops a live run through the runtime contract and waits until its
+// terminal state and events are persisted. Unknown/already-finished runs are a
+// no-op so a completion racing an operator interrupt remains harmless.
+func (e *Engine) Cancel(runID string) error {
+	rs := e.lookup(runID)
+	if rs == nil {
+		return nil
+	}
+	select {
+	case <-rs.done:
+		return nil
+	default:
+	}
+	return rs.stop()
+}
 
 // Route returns the routing decision for a task without dispatching it
 // (powers `fort route --dry-run`).
@@ -167,7 +195,23 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 	// error: context canceled".) The caller's ctx therefore bounds only this
 	// submission; SubmitAndWait bridges a caller cancel to the run explicitly.
 	runCtx, cancelRun := context.WithCancel(context.Background())
+	// A provider preflight or remote response-header wait can block inside
+	// Dispatch before a runtime.Run exists. Bridge the caller only across that
+	// synchronous window; once Dispatch returns, the run remains detached.
+	var dispatchMu sync.Mutex
+	dispatching := true
+	stopDispatchBridge := context.AfterFunc(ctx, func() {
+		dispatchMu.Lock()
+		defer dispatchMu.Unlock()
+		if dispatching {
+			cancelRun()
+		}
+	})
 	run, err := e.rt.Dispatch(runCtx, spec)
+	dispatchMu.Lock()
+	dispatching = false
+	dispatchMu.Unlock()
+	stopDispatchBridge()
 	if err != nil {
 		cancelRun()
 		_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
@@ -175,7 +219,7 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 	}
 
 	done := make(chan struct{})
-	e.track(runID, &runState{done: done, cancel: cancelRun})
+	e.track(runID, &runState{done: done, run: run, cancel: cancelRun})
 	go e.consume(run, runID, done, cancelRun)
 	return runID, machine, nil
 }
@@ -193,8 +237,7 @@ func (e *Engine) SubmitAndWait(ctx context.Context, t task.Task) (store.Run, err
 		select {
 		case <-rs.done:
 		case <-ctx.Done():
-			rs.cancel()
-			<-rs.done
+			_ = e.Cancel(runID)
 		}
 	}
 	return e.store.GetRun(runID)

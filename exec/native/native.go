@@ -31,6 +31,10 @@ type Provider struct {
 	Probe []string
 	// Command builds the argv for a run (argv[0] is the binary).
 	Command func(spec runtime.RunSpec) []string
+	// Failure recognizes a terminal provider error written to stdout. Some
+	// agent CLIs report retry exhaustion or API rejection but still exit zero;
+	// those lines must fail the run rather than produce a false success.
+	Failure func(line string) (message string, ok bool)
 	// Parse optionally normalizes a stdout line into a message. When ok is
 	// false the line is emitted as a raw EventStdout.
 	Parse func(line string) (msg string, ok bool)
@@ -153,21 +157,36 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	}
 
 	run := &nativeRun{
-		spec:     spec,
-		parse:    p.Parse,
-		classify: p.Classify,
-		events:   make(chan runtime.RunEvent, 64),
-		done:     make(chan struct{}),
-		stdin:    stdin,
-		cancel:   cancel,
-		status:   runtime.Status{State: runtime.StateRunning},
+		spec:             spec,
+		parse:            p.Parse,
+		classify:         p.Classify,
+		failure:          p.Failure,
+		events:           make(chan runtime.RunEvent, 64),
+		done:             make(chan struct{}),
+		streamsEOF:       make(chan struct{}),
+		stdin:            stdin,
+		cancel:           cancel,
+		killProcessGroup: killProcGroup,
+		status:           runtime.Status{State: runtime.StateRunning},
 	}
 
 	if err := cmd.Start(); err != nil {
 		cancel()
 		return nil, fmt.Errorf("native: start %s: %w", argv[0], err)
 	}
-	run.pgid = cmd.Process.Pid // == the new process group's ID (Setpgid)
+	pgid := cmd.Process.Pid // == the new process group's ID (Setpgid)
+	exitWatcher, err := newLeaderExitWatcher(pgid)
+	if err != nil {
+		// The child has not been reaped, so its group identity cannot have been
+		// reused. Fail closed and clean it up rather than run without a safe
+		// non-reaping lifecycle boundary.
+		killProcGroup(pgid)
+		cancel()
+		_ = cmd.Wait()
+		return nil, fmt.Errorf("native: watch process exit: %w", err)
+	}
+	run.pgid = pgid
+	run.leaderExit = exitWatcher
 	go run.pump(cmd, stdout, stderr)
 	return run, nil
 }
@@ -205,19 +224,36 @@ func checkProvider(ctx context.Context, p Provider, env []string) error {
 	return fmt.Errorf("native: provider %q command contract unavailable: %w", p.Name, err)
 }
 
+type commandWaiter interface {
+	Wait() error
+}
+
+type leaderExitWatcher interface {
+	Wait() error
+	Close() error
+}
+
 type nativeRun struct {
-	spec     runtime.RunSpec
-	parse    func(string) (string, bool)
-	classify func(string) ([]Classified, bool)
-	events   chan runtime.RunEvent
-	done     chan struct{}
-	stdin    io.WriteCloser
-	cancel   context.CancelFunc
-	pgid     int // process group ID; set once before pump starts
+	spec       runtime.RunSpec
+	parse      func(string) (string, bool)
+	classify   func(string) ([]Classified, bool)
+	failure    func(string) (string, bool)
+	events     chan runtime.RunEvent
+	done       chan struct{}
+	streamsEOF chan struct{}
+	stdin      io.WriteCloser
+	cancel     context.CancelFunc
+	leaderExit leaderExitWatcher
+	// pgid is a protected ownership token for signaling the process group.
+	// It remains live until the non-reaping watcher confirms leader exit, then
+	// pump cleans remaining descendants and retires it before calling Wait.
+	pgid             int
+	killProcessGroup func(int)
 
 	mu       sync.Mutex
 	status   runtime.Status
 	canceled bool
+	fatal    string
 }
 
 func (n *nativeRun) ID() string                      { return n.spec.RunID }
@@ -227,7 +263,7 @@ func (n *nativeRun) emit(t runtime.EventType, data string, code int) {
 	n.events <- runtime.RunEvent{RunID: n.spec.RunID, Type: t, Time: time.Now(), Data: data, Code: code}
 }
 
-func (n *nativeRun) pump(cmd *exec.Cmd, stdout, stderr io.Reader) {
+func (n *nativeRun) pump(cmd commandWaiter, stdout, stderr io.Reader) {
 	defer close(n.events)
 	defer close(n.done)
 	defer n.cancel()
@@ -238,25 +274,60 @@ func (n *nativeRun) pump(cmd *exec.Cmd, stdout, stderr io.Reader) {
 	wg.Add(2)
 	go n.scan(&wg, stdout, false)
 	go n.scan(&wg, stderr, true)
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		close(n.streamsEOF)
+	}()
 
+	watchErr := n.leaderExit.Wait()
+	_ = n.leaderExit.Close()
+
+	// The watcher does not reap: the exited leader still pins its PID/PGID, so
+	// the numeric group identity cannot be reused. Clean any remaining
+	// descendants while holding the same lock used by Cancel, then retire the
+	// PGID before draining pipes and allowing cmd.Wait to reap the leader.
+	n.mu.Lock()
+	if n.pgid > 0 {
+		n.killProcessGroup(n.pgid)
+	}
+	n.pgid = 0
+	if watchErr != nil && n.fatal == "" {
+		n.fatal = fmt.Sprintf("native: watch process exit: %v", watchErr)
+	}
+	n.mu.Unlock()
+
+	<-n.streamsEOF
 	err := cmd.Wait()
 	code := exitCode(err)
 
 	n.mu.Lock()
 	canceled := n.canceled
+	fatal := n.fatal
+	switch {
+	case canceled:
+		n.status = runtime.Status{State: runtime.StateCanceled, ExitCode: code, Err: "canceled"}
+	case fatal != "":
+		if code == 0 {
+			code = 1
+		}
+		n.status = runtime.Status{State: runtime.StateFailed, ExitCode: code, Err: fatal}
+	case err == nil:
+		n.status = runtime.Status{State: runtime.StateSucceeded}
+	default:
+		n.status = runtime.Status{State: runtime.StateFailed, ExitCode: code, Err: err.Error()}
+	}
 	n.mu.Unlock()
 
 	switch {
 	case canceled:
 		n.emit(runtime.EventExited, "", code)
-		n.setStatus(runtime.StateCanceled, code, "canceled")
+	case fatal != "":
+		n.emit(runtime.EventError, fatal, 0)
+		n.emit(runtime.EventExited, "", code)
 	case err == nil:
 		n.emit(runtime.EventExited, "", 0)
-		n.setStatus(runtime.StateSucceeded, 0, "")
 	default:
 		n.emit(runtime.EventExited, "", code)
-		n.setStatus(runtime.StateFailed, code, err.Error())
 	}
 }
 
@@ -266,6 +337,15 @@ func (n *nativeRun) scan(wg *sync.WaitGroup, r io.Reader, isErr bool) {
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for sc.Scan() {
 		line := sc.Text()
+		if !isErr && n.failure != nil {
+			if message, ok := n.failure(line); ok {
+				n.mu.Lock()
+				if n.fatal == "" {
+					n.fatal = message
+				}
+				n.mu.Unlock()
+			}
+		}
 		switch {
 		case isErr:
 			n.emit(runtime.EventStderr, line, 0)
@@ -299,14 +379,28 @@ func (n *nativeRun) Signal(input string) error {
 
 func (n *nativeRun) Cancel() error {
 	n.mu.Lock()
+	if n.status.Terminal() || n.canceled {
+		n.mu.Unlock()
+		return nil
+	}
 	n.canceled = true
-	n.mu.Unlock()
+	pgid := n.pgid
+	cancel := n.cancel
 	// Kill the whole process group first: a grandchild the CLI backgrounded may
 	// hold the stdout/stderr pipes open, which would block the scanner
 	// goroutines on Scan() and stall teardown. Cancelling the context alone only
-	// SIGKILLs the direct child. Then cancel to reap it and free resources.
-	killProcGroup(n.pgid)
-	n.cancel()
+	// SIGKILLs the direct child. The signal remains under mu so pump cannot
+	// observe leader exit, clean descendants, and retire the group between this
+	// ownership decision and kill. Pump retains the PGID for final cleanup.
+	if pgid > 0 {
+		kill := n.killProcessGroup
+		if kill == nil {
+			kill = killProcGroup
+		}
+		kill(pgid)
+	}
+	cancel()
+	n.mu.Unlock()
 	return nil
 }
 
@@ -314,12 +408,6 @@ func (n *nativeRun) Status() runtime.Status {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return n.status
-}
-
-func (n *nativeRun) setStatus(state runtime.State, code int, errMsg string) {
-	n.mu.Lock()
-	n.status = runtime.Status{State: state, ExitCode: code, Err: errMsg}
-	n.mu.Unlock()
 }
 
 func (n *nativeRun) Wait() runtime.Status {

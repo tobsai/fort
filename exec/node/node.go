@@ -31,7 +31,28 @@ type Server struct {
 	token func() string
 
 	mu   sync.Mutex
-	runs map[string]runtime.Run // in-flight runs, for signal/cancel
+	runs map[string]*runHandle // in-flight runs, for signal/cancel
+}
+
+type runHandle struct {
+	run runtime.Run
+
+	once      sync.Once
+	cancelErr error
+}
+
+func (h *runHandle) cancel() error {
+	h.once.Do(func() {
+		if h.run.Status().Terminal() {
+			return
+		}
+		h.cancelErr = h.run.Cancel()
+	})
+	return h.cancelErr
+}
+
+func (h *runHandle) complete() {
+	h.once.Do(func() {})
 }
 
 // New builds a node server over rt. token is read fresh on every request, so
@@ -39,7 +60,7 @@ type Server struct {
 // minted after the server is already mounted (e.g. a mesh invite writing the
 // token into a running daemon). An empty token disables the endpoint (403).
 func New(rt runtime.Runtime, token func() string) *Server {
-	return &Server{rt: rt, token: token, runs: map[string]runtime.Run{}}
+	return &Server{rt: rt, token: token, runs: map[string]*runHandle{}}
 }
 
 // Register mounts the exec routes onto mux.
@@ -65,10 +86,12 @@ func (s *Server) authed(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (s *Server) track(id string, run runtime.Run) {
+func (s *Server) track(id string, run runtime.Run) *runHandle {
+	handle := &runHandle{run: run}
 	s.mu.Lock()
-	s.runs[id] = run
+	s.runs[id] = handle
 	s.mu.Unlock()
+	return handle
 }
 
 func (s *Server) untrack(id string) {
@@ -77,11 +100,11 @@ func (s *Server) untrack(id string) {
 	s.mu.Unlock()
 }
 
-func (s *Server) lookup(id string) (runtime.Run, bool) {
+func (s *Server) lookup(id string) (*runHandle, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	run, ok := s.runs[id]
-	return run, ok
+	handle, ok := s.runs[id]
+	return handle, ok
 }
 
 // handleExec dispatches a RunSpec on the local runtime and streams its events
@@ -115,8 +138,23 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 		return
 	}
-	s.track(spec.RunID, run)
-	defer s.untrack(spec.RunID)
+	handle := s.track(spec.RunID, run)
+	requestDone := make(chan struct{})
+	defer func() {
+		handle.complete()
+		close(requestDone)
+		s.untrack(spec.RunID)
+	}()
+	go func() {
+		select {
+		case <-r.Context().Done():
+			// A silent provider may never emit another frame, so waiting for an
+			// Encode error is insufficient to notice a vanished client. Invoke
+			// the runtime contract explicitly so native process groups die too.
+			_ = handle.cancel()
+		case <-requestDone:
+		}
+	}()
 
 	for ev := range run.Stream() {
 		if err := enc.Encode(ev); err != nil {
@@ -126,7 +164,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 			// producer goroutines on a full-channel send (Cancel kills the
 			// process but cannot unblock a goroutine parked on a send). Draining
 			// lets them finish and the run terminate instead of leaking.
-			_ = run.Cancel()
+			_ = handle.cancel()
 			go drain(run)
 			return
 		}
@@ -146,13 +184,13 @@ func (s *Server) handleSignal(w http.ResponseWriter, r *http.Request) {
 	if !s.authed(w, r) {
 		return
 	}
-	run, ok := s.lookup(r.PathValue("id"))
+	handle, ok := s.lookup(r.PathValue("id"))
 	if !ok {
 		http.Error(w, "run not found", http.StatusNotFound)
 		return
 	}
 	body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	if err := run.Signal(string(body)); err != nil {
+	if err := handle.run.Signal(string(body)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -164,11 +202,11 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 	if !s.authed(w, r) {
 		return
 	}
-	run, ok := s.lookup(r.PathValue("id"))
+	handle, ok := s.lookup(r.PathValue("id"))
 	if !ok {
 		http.Error(w, "run not found", http.StatusNotFound)
 		return
 	}
-	_ = run.Cancel()
+	_ = handle.cancel()
 	w.WriteHeader(http.StatusNoContent)
 }
