@@ -202,6 +202,20 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 	if node.Retry != nil {
 		max = node.Retry.Max
 	}
+	attempts := 0
+	var lastOut string
+	prior, exists, err := e.nodeRun(runID, node.ID)
+	if err != nil {
+		return "", payload, fmt.Errorf("flow %s: load node %s attempt state: %w", f.ID, node.ID, err)
+	}
+	if exists && !isTerminal(prior.Status) {
+		// Resume replays the exact input claimed by the interrupted task and
+		// advances from its durable attempt count. Reusing the old count would
+		// also reuse provider session identities such as OpenClaw session IDs.
+		payload = prior.Input
+		lastOut = prior.Output
+		attempts = prior.Attempts
+	}
 	prompt, err := e.taskPrompt(f, runID, node, payload)
 	if err != nil {
 		return "", payload, err
@@ -211,7 +225,7 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 		machine, err = e.placer.Place(node.Agent, "")
 		if err != nil {
 			err = fmt.Errorf("flow %s: place node %s: %w", f.ID, node.ID, err)
-			e.failTask(runID, node, payload, 0, err)
+			e.failTask(runID, node, payload, attempts, err)
 			return "", payload, err
 		}
 		if machine != "" {
@@ -221,23 +235,37 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 			})
 		}
 	}
-	attempts := 0
-	var lastOut string
 	for {
 		attempts++
+		if err := e.store.UpsertNodeRun(store.NodeRun{
+			ID: nrID(runID, node.ID), RunID: runID, NodeID: node.ID, Type: string(node.Type),
+			Status: "running", Input: payload, Output: lastOut, Attempts: attempts,
+		}); err != nil {
+			return "", payload, fmt.Errorf(
+				"flow %s: persist running node %s attempt %d: %w",
+				f.ID, node.ID, attempts, err,
+			)
+		}
 		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{
-			RunID: runID, Agent: node.Agent, Model: node.Model, Prompt: prompt, Machine: machine,
+			RunID: taskInvocationRunID(runID, node.ID, attempts),
+			Agent: node.Agent, Model: node.Model, Prompt: prompt, Machine: machine,
 		})
 		if err != nil {
 			err = fmt.Errorf("flow %s: dispatch node %s: %w", f.ID, node.ID, err)
 			e.failTask(runID, node, payload, attempts, err)
 			return "", payload, err
 		}
-		var msgs []string
+		var msgs, runtimeErrors []string
+		var terminalStderr string
 		for ev := range run.Stream() {
 			_, _ = e.store.AppendEvent(store.Event{RunID: runID, NodeID: node.ID, Type: string(ev.Type), Data: ev.Data, Code: ev.Code, CreatedAt: ev.Time})
-			if ev.Type == runtime.EventMessage {
+			switch ev.Type {
+			case runtime.EventMessage:
 				msgs = append(msgs, ev.Data)
+			case runtime.EventError:
+				runtimeErrors = append(runtimeErrors, ev.Data)
+			case runtime.EventStderr:
+				terminalStderr = retainTerminalStderr(terminalStderr, ev.Data)
 			}
 		}
 		st := run.Wait()
@@ -248,10 +276,71 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 		}
 		if attempts > max {
 			e.persistNode(runID, node, "failed", payload, lastOut, attempts)
+			detail := terminalTaskFailure(node.Agent, st, runtimeErrors, terminalStderr)
+			code := st.ExitCode
+			if code == 0 {
+				code = 1
+			}
+			if !hasRuntimeError(runtimeErrors) {
+				_, _ = e.store.AppendEvent(store.Event{
+					RunID: runID, NodeID: node.ID, Type: string(runtime.EventError),
+					Data: detail, Code: code,
+				})
+			}
+			// A fail edge is recovery/escalation, not a terminal parent failure.
+			// Persist the parent cause only when this node actually ends the flow.
+			if len(node.next(OutFail)) == 0 {
+				_ = e.store.UpdateRunStatus(runID, "failed", code, detail)
+			}
 			return OutFail, lastOut, nil
 		}
 		// retry
 	}
+}
+
+// taskInvocationRunID identifies one concrete runtime invocation while runID
+// remains the parent Fort run used by node state and persisted events. A graph
+// stage can invoke the same provider more than once (retry), so the node and
+// one-based attempt are both part of the provider/session identity.
+func taskInvocationRunID(runID, nodeID string, attempt int) string {
+	return fmt.Sprintf("%s:%s:%d", runID, nodeID, attempt)
+}
+
+func terminalTaskFailure(agent string, status runtime.Status, runtimeErrors []string, stderr string) string {
+	for i := len(runtimeErrors) - 1; i >= 0; i-- {
+		if detail := strings.TrimSpace(runtimeErrors[i]); detail != "" {
+			return fmt.Sprintf("agent %q failed: %s", agent, detail)
+		}
+	}
+	if detail := strings.TrimSpace(stderr); detail != "" {
+		return fmt.Sprintf("agent %q failed: %s", agent, detail)
+	}
+	if detail := strings.TrimSpace(status.Err); detail != "" {
+		return fmt.Sprintf("agent %q failed: %s", agent, detail)
+	}
+	return fmt.Sprintf("agent %q exited with code %d", agent, status.ExitCode)
+}
+
+func hasRuntimeError(runtimeErrors []string) bool {
+	for _, detail := range runtimeErrors {
+		if strings.TrimSpace(detail) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+const terminalStderrLimit = 4 * 1024
+
+func retainTerminalStderr(current, line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return current
+	}
+	if len(line) <= terminalStderrLimit {
+		return line
+	}
+	return line[len(line)-terminalStderrLimit:]
 }
 
 func (e *Executor) taskPrompt(f Flow, runID string, node Node, payload string) (string, error) {
@@ -381,7 +470,14 @@ func (e *Executor) failTask(runID string, node Node, payload string, attempts in
 
 func (e *Executor) finish(runID string, last Outcome) Result {
 	if last == OutFail || last == OutReject {
-		_ = e.store.UpdateRunStatus(runID, "failed", 1, "")
+		code, detail := 1, ""
+		if run, err := e.store.GetRun(runID); err == nil {
+			if run.ExitCode != 0 {
+				code = run.ExitCode
+			}
+			detail = run.Error
+		}
+		_ = e.store.UpdateRunStatus(runID, "failed", code, detail)
 		return Result{State: "failed"}
 	}
 	_ = e.store.UpdateRunStatus(runID, "succeeded", 0, "")

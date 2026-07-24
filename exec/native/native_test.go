@@ -2,8 +2,15 @@ package native
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -63,6 +70,31 @@ func TestExecNonZeroExitFails(t *testing.T) {
 	_, st := collect(run)
 	if st.State != runtime.StateFailed || st.ExitCode != 3 {
 		t.Errorf("status = %+v, want failed/3", st)
+	}
+}
+
+func TestProviderFatalOutputFailsEvenWhenProcessExitsZero(t *testing.T) {
+	p := shProvider("false-success", "echo 'API call failed after 3 retries: timed out'")
+	p.Failure = func(line string) (string, bool) {
+		return line, strings.HasPrefix(line, "API call failed after ")
+	}
+	rt := New(t.TempDir(), p)
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "fatal-output", Agent: p.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evs, st := collect(run)
+	if st.State != runtime.StateFailed || st.ExitCode != 1 ||
+		!strings.Contains(st.Err, "API call failed after 3 retries") {
+		t.Fatalf("status = %+v, want failed/1 with the provider failure", st)
+	}
+	if got := lines(evs, runtime.EventError); len(got) != 1 ||
+		!strings.Contains(got[0], "API call failed after 3 retries") {
+		t.Fatalf("error events = %v, want the provider failure", got)
+	}
+	last := evs[len(evs)-1]
+	if last.Type != runtime.EventExited || last.Code != 1 {
+		t.Fatalf("last event = %+v, want exited/1", last)
 	}
 }
 
@@ -156,6 +188,195 @@ func TestCancelTerminatesRun(t *testing.T) {
 	}
 }
 
+func TestCancelKillsDetachedDescendantAfterBothStreamsClose(t *testing.T) {
+	stateDir := t.TempDir()
+	childPIDPath := filepath.Join(stateDir, "child.pid")
+	script := fmt.Sprintf(
+		`(exec >/dev/null 2>&1; sleep 30) & child=$!; printf '%%s\n' "$child" > %q; exec >/dev/null 2>&1; sleep 30`,
+		childPIDPath,
+	)
+	rt := New(t.TempDir(), shProvider("detached-descendant", script))
+	run, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "detached", Agent: "detached-descendant"})
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	native := run.(*nativeRun)
+
+	var childPID int
+	deadline := time.Now().Add(2 * time.Second)
+	for childPID == 0 {
+		data, readErr := os.ReadFile(childPIDPath)
+		if readErr == nil {
+			childPID, err = strconv.Atoi(strings.TrimSpace(string(data)))
+			if err != nil {
+				t.Fatalf("parse child pid %q: %v", data, err)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("descendant pid was not published: %v", readErr)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Cleanup(func() { _ = syscall.Kill(childPID, syscall.SIGKILL) })
+
+	native.mu.Lock()
+	leaderPGID := native.pgid
+	native.mu.Unlock()
+	if got, getErr := syscall.Getpgid(childPID); getErr != nil || got != leaderPGID {
+		t.Fatalf("descendant pgid = %d, %v; want leader group %d", got, getErr, leaderPGID)
+	}
+
+	select {
+	case <-native.streamsEOF:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stdout/stderr did not both reach EOF after the leader redirected them")
+	}
+	if err := run.Cancel(); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if st := run.Wait(); st.State != runtime.StateCanceled {
+		t.Fatalf("status = %+v, want canceled", st)
+	}
+
+	deadline = time.Now().Add(2 * time.Second)
+	for {
+		err := syscall.Kill(childPID, 0)
+		if err == syscall.ESRCH {
+			break
+		}
+		if err != nil {
+			t.Fatalf("probe descendant %d: %v", childPID, err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("detached descendant %d survived cancellation after stream EOF", childPID)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestCancelIsIdempotent(t *testing.T) {
+	var calls atomic.Int32
+	run := &nativeRun{
+		cancel: func() { calls.Add(1) },
+		pgid:   -1,
+		status: runtime.Status{State: runtime.StateRunning},
+	}
+
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := run.Cancel(); err != nil {
+				t.Errorf("Cancel: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("underlying cancel calls = %d, want 1", got)
+	}
+}
+
+func TestCancelAfterTerminalStatusIsNoOp(t *testing.T) {
+	var calls atomic.Int32
+	run := &nativeRun{
+		cancel: func() { calls.Add(1) },
+		pgid:   -1,
+		status: runtime.Status{State: runtime.StateSucceeded},
+	}
+
+	if err := run.Cancel(); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("underlying cancel calls = %d, want 0 for terminal run", got)
+	}
+	if run.canceled {
+		t.Fatal("terminal run was marked canceled")
+	}
+}
+
+type waitFunc func() error
+
+func (f waitFunc) Wait() error { return f() }
+
+type leaderExitWatcherFunc struct {
+	wait  func() error
+	close func() error
+}
+
+func (w leaderExitWatcherFunc) Wait() error  { return w.wait() }
+func (w leaderExitWatcherFunc) Close() error { return w.close() }
+
+func TestPumpCleansProcessGroupBeforeReapingLeader(t *testing.T) {
+	leaderExitEntered := make(chan struct{})
+	releaseLeaderExit := make(chan struct{})
+	waitEntered := make(chan struct{})
+	releaseWait := make(chan struct{})
+	var killCalls atomic.Int32
+	run := &nativeRun{
+		spec:       runtime.RunSpec{RunID: "cleanup-before-reap", Agent: "test"},
+		events:     make(chan runtime.RunEvent, 4),
+		done:       make(chan struct{}),
+		streamsEOF: make(chan struct{}),
+		cancel:     func() {},
+		leaderExit: leaderExitWatcherFunc{
+			wait: func() error {
+				close(leaderExitEntered)
+				<-releaseLeaderExit
+				return nil
+			},
+			close: func() error { return nil },
+		},
+		pgid: 4242,
+		killProcessGroup: func(int) {
+			killCalls.Add(1)
+		},
+		status: runtime.Status{State: runtime.StateRunning},
+	}
+	waiter := waitFunc(func() error {
+		close(waitEntered)
+		<-releaseWait
+		return nil
+	})
+
+	go run.pump(waiter, strings.NewReader(""), strings.NewReader(""))
+	select {
+	case <-leaderExitEntered:
+	case <-time.After(time.Second):
+		t.Fatal("pump did not start the non-reaping leader-exit watch")
+	}
+	select {
+	case <-run.streamsEOF:
+	case <-time.After(time.Second):
+		t.Fatal("empty output streams did not reach EOF")
+	}
+	select {
+	case <-waitEntered:
+		t.Fatal("cmd.Wait began before leader exit was observed")
+	default:
+	}
+
+	close(releaseLeaderExit)
+	select {
+	case <-waitEntered:
+	case <-time.After(time.Second):
+		t.Fatal("pump did not proceed to cmd.Wait after leader exit")
+	}
+	if got := killCalls.Load(); got != 1 {
+		t.Fatalf("process-group cleanup calls = %d, want 1 before cmd.Wait", got)
+	}
+
+	close(releaseWait)
+	for range run.Stream() {
+	}
+	if st := run.Wait(); st.State != runtime.StateSucceeded {
+		t.Fatalf("status = %+v, want succeeded", st)
+	}
+}
+
 func TestUnknownAgentErrors(t *testing.T) {
 	rt := New(t.TempDir())
 	_, err := rt.Dispatch(context.Background(), runtime.RunSpec{RunID: "r6", Agent: "nope"})
@@ -226,8 +447,12 @@ func TestOpenClawArgvMatchesInstalledCLIContract(t *testing.T) {
 			break
 		}
 	}
-	got := p.Command(runtime.RunSpec{Prompt: "do x"})
-	want := []string{"openclaw", "agent", "--local", "--agent", "main", "--message", "do x", "--json"}
+	got := p.Command(runtime.RunSpec{RunID: "parent-run:design:2", Prompt: "do x"})
+	want := []string{
+		"openclaw", "agent", "--local", "--agent", "main",
+		"--session-id", "parent-run:design:2", "--message", "do x",
+		"--thinking", "off", "--timeout", "60", "--json",
+	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("openclaw argv = %v, want %v", got, want)
 	}
@@ -331,6 +556,41 @@ func TestOpenClawDoesNotInventModelFlag(t *testing.T) {
 	argv := p.Command(runtime.RunSpec{Prompt: "do x", Model: "Fable"})
 	if contains(argv, "--model") || contains(argv, "Fable") {
 		t.Fatalf("openclaw model label is not a verified CLI model id: %v", argv)
+	}
+}
+
+func TestBuiltInProvidersRecognizeObservedTerminalFailures(t *testing.T) {
+	cases := []struct {
+		agent string
+		line  string
+		want  string
+	}{
+		{
+			agent: "hermes",
+			line:  "API call failed after 3 retries: Non-streaming API call timed out after 90s",
+			want:  "API call failed after 3 retries",
+		},
+		{
+			agent: "codex",
+			line:  `{"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The requested model requires a newer version of Codex."}}`,
+			want:  "The requested model requires a newer version of Codex.",
+		},
+	}
+	providers := map[string]Provider{}
+	for _, p := range DefaultProviders() {
+		providers[p.Name] = p
+	}
+	for _, tc := range cases {
+		t.Run(tc.agent, func(t *testing.T) {
+			p := providers[tc.agent]
+			if p.Failure == nil {
+				t.Fatalf("%s has no terminal failure recognizer", tc.agent)
+			}
+			got, ok := p.Failure(tc.line)
+			if !ok || !strings.Contains(got, tc.want) {
+				t.Fatalf("Failure(%q) = %q, %v; want text containing %q", tc.line, got, ok, tc.want)
+			}
+		})
 	}
 }
 

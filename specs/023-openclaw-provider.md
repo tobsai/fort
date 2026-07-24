@@ -16,7 +16,7 @@ Fort invokes the installed CLI through OpenClaw's explicit embedded,
 non-interactive agent path:
 
 ```sh
-openclaw agent --local --agent main --message "<prompt>" --json
+openclaw agent --local --agent main --session-id "<fort-invocation-id>" --message "<prompt>" --thinking off --timeout 60 --json
 ```
 
 This contract was verified on the enrolled execution host against OpenClaw
@@ -26,8 +26,27 @@ This contract was verified on the enrolled execution host against OpenClaw
 - `--local` runs the configured agent directly and does not require the
   separate OpenClaw gateway daemon to be healthy.
 - `--agent main` selects a deterministic configured agent.
+- `--session-id <fort-invocation-id>` isolates each concrete Fort invocation
+  from OpenClaw's shared `agent:main:main` session. Direct assignments use their
+  Fort run ID. Graph task nodes use the deterministic
+  `<parent-run-id>:<node-id>:<one-based-attempt>` form, so separate stages and
+  retries cannot contend on or inherit one another's OpenClaw session. Before
+  dispatch, Fort durably records the running node attempt and its input. A
+  crash/resume advances from that stored attempt and reuses the stored input,
+  so it cannot reuse an already-dispatched OpenClaw session ID.
 - `--message` carries the Fort prompt without stdin or a PTY.
+- `--thinking off` uses the bounded, verified execution profile instead of
+  leaving extended thinking to the agent's ambient configuration.
+- `--timeout 60` gives OpenClaw a provider-side 60-second deadline.
 - `--json` reserves stdout for the structured result.
+
+The isolated-session contract was added after a live Fort smoke assignment
+entered the shared main session and emitted no output for several minutes. A
+later deployed smoke using an isolated session but not the bounded execution
+flags still produced no result within 60 seconds; cancellation completed and
+left no orphan. On the enrolled execution host, OpenClaw 2026.7.1-2 completed a
+direct probe with an explicit unique session ID, `--thinking off`, and
+`--timeout 60` in under 10 seconds.
 
 The playbook label `Fable` is intentionally not passed as `--model`: it is a
 Fort design label, not a verified OpenClaw `provider/model` identifier. The
@@ -60,6 +79,12 @@ the result.
 
 - `DefaultProviders()` includes `openclaw`.
 - OpenClaw argv exactly matches the verified local one-shot contract.
+- OpenClaw uses the runtime invocation ID as an isolated session ID.
+- OpenClaw disables thinking and sets the verified 60-second provider timeout.
+- Graph stages and retries derive distinct deterministic invocation IDs while
+  their events and node state remain attached to the parent Fort run.
+- Graph attempts are durably claimed before dispatch; claim failure prevents
+  dispatch, and crash/resume advances the stored attempt and input.
 - All default providers declare a token-free, provider-specific help probe.
 - Dispatch fails closed when an installed provider's command contract drifts.
 - Machine capability discovery excludes an installed-but-incompatible CLI.

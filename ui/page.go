@@ -21,6 +21,8 @@ const boardHTML = `<!doctype html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Fort — Command Deck</title>
+<link rel="icon" type="image/png" href="/fort-icon.png"/>
+<link rel="apple-touch-icon" href="/fort-icon.png"/>
 <script>(function(){var s=localStorage.getItem('fort-theme');document.documentElement.setAttribute('data-theme',s||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,6 +60,7 @@ const boardHTML = `<!doctype html>
 
   /* ---- top bar ---- */
   header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
+  .brand-icon{width:28px;height:28px;border-radius:7px;display:block}
   .wordmark{font:700 15px var(--mono);letter-spacing:.22em;color:var(--brass2)}
   nav{display:flex;gap:2px}
   nav button{font-size:13px;color:var(--mut);background:none;border:none;padding:5px 10px;border-radius:7px;cursor:pointer}
@@ -366,6 +369,7 @@ const boardHTML = `<!doctype html>
 </head>
 <body>
 <header>
+  <img class="brand-icon" src="/fort-icon.png" alt=""/>
   <span class="wordmark">FORT</span>
   <nav id="nav" aria-label="views">
     <button data-v="deck">Deck</button>

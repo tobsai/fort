@@ -18,8 +18,9 @@ func setProcGroup(cmd *exec.Cmd) {
 }
 
 // killProcGroup SIGKILLs every process in the group led by pgid. A negative pid
-// targets the whole process group (kill(2)). A missing group (already reaped)
-// is not an error worth surfacing.
+// targets the whole process group (kill(2)). Callers hold nativeRun.mu while
+// the unreaped leader pins this numeric identity; a missing group is not an
+// error worth surfacing.
 func killProcGroup(pgid int) {
 	if pgid <= 0 {
 		return

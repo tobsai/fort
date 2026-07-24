@@ -1,6 +1,7 @@
 package native
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/tobsai/fort/core/runtime"
@@ -48,7 +49,8 @@ func codexProvider() Provider {
 			return withModel("codex", []string{"codex", "exec", s.Prompt,
 				"--json", "--sandbox", "workspace-write", "--skip-git-repo-check"}, s.Model)
 		},
-		Parse: jsonTextParser,
+		Failure: codexFailure,
+		Parse:   jsonTextParser,
 	}
 }
 
@@ -62,6 +64,7 @@ func hermesProvider() Provider {
 		Command: func(s runtime.RunSpec) []string {
 			return withModel("hermes", []string{"hermes", "--oneshot", s.Prompt, "--accept-hooks", "--yolo"}, s.Model)
 		},
+		Failure: prefixedFailure("API call failed after "),
 		// hermes --oneshot prints plain final text; treat every line as a message.
 		Parse: func(line string) (string, bool) {
 			if strings.TrimSpace(line) == "" {
@@ -79,7 +82,7 @@ func hermesProvider() Provider {
 // headless session deterministic; JSON reserves stdout for the structured
 // result.
 //
-//	openclaw agent --local --agent main --message "<prompt>" --json
+//	openclaw agent --local --agent main --session-id "<fort-invocation-id>" --message "<prompt>" --thinking off --timeout 60 --json
 func openclawProvider() Provider {
 	return Provider{
 		Name:  "openclaw",
@@ -88,12 +91,39 @@ func openclawProvider() Provider {
 			// Saved playbooks currently carry the design label "Fable", not an
 			// OpenClaw provider/model id. Let the configured main agent select
 			// its verified model until that label has an approved mapping.
-			return []string{"openclaw", "agent", "--local", "--agent", "main", "--message", s.Prompt, "--json"}
+			return []string{
+				"openclaw", "agent", "--local", "--agent", "main",
+				"--session-id", s.RunID, "--message", s.Prompt,
+				"--thinking", "off", "--timeout", "60", "--json",
+			}
 		},
 		// Lenient: extracts text from JSON output, else falls through to raw
 		// stdout — robust whether openclaw emits JSONL or plain text.
 		Parse: jsonTextParser,
 	}
+}
+
+func prefixedFailure(prefix string) func(string) (string, bool) {
+	return func(line string) (string, bool) {
+		line = strings.TrimSpace(line)
+		return line, strings.HasPrefix(line, prefix)
+	}
+}
+
+func codexFailure(line string) (string, bool) {
+	var event struct {
+		Type  string `json:"type"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal([]byte(line), &event) != nil || event.Type != "error" {
+		return "", false
+	}
+	if message := strings.TrimSpace(event.Error.Message); message != "" {
+		return message, true
+	}
+	return strings.TrimSpace(line), true
 }
 
 func withModel(agent string, argv []string, model string) []string {

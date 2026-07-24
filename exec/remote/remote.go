@@ -110,6 +110,8 @@ func (rr *remoteRun) pump() {
 	sc := bufio.NewScanner(rr.body)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	sawTerminal := false
+	sawError := false
+	fatalErr := ""
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 {
@@ -122,14 +124,22 @@ func (rr *remoteRun) pump() {
 		switch ev.Type {
 		case runtime.EventExited:
 			sawTerminal = true
-			if ev.Code == 0 {
+			if ev.Code == 0 && !sawError {
 				rr.setStatus(runtime.StateSucceeded, 0, "")
 			} else {
-				rr.setStatus(runtime.StateFailed, ev.Code, "")
+				code := ev.Code
+				if code == 0 {
+					code = -1
+				}
+				rr.setStatus(runtime.StateFailed, code, fatalErr)
 			}
 		case runtime.EventError:
 			sawTerminal = true
-			rr.setStatus(runtime.StateFailed, -1, ev.Data)
+			sawError = true
+			if ev.Data != "" {
+				fatalErr = ev.Data
+			}
+			rr.setStatus(runtime.StateFailed, -1, fatalErr)
 		}
 		rr.events <- ev
 	}
@@ -170,6 +180,10 @@ func (rr *remoteRun) Signal(input string) error {
 // tears down the streaming connection.
 func (rr *remoteRun) Cancel() error {
 	rr.mu.Lock()
+	if rr.canceled || rr.status.Terminal() {
+		rr.mu.Unlock()
+		return nil
+	}
 	rr.canceled = true
 	rr.mu.Unlock()
 	err := rr.post("/api/exec/"+rr.id+"/cancel", nil)

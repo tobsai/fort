@@ -71,6 +71,7 @@ function sigil(name, size) {
 - Theme: existing light/dark CSS-variable system; these mocks show dark. Map colors to variables.
 
 ## Design Tokens
+Canonical reference: `DESIGN-SYSTEM.md` (tokens, status grammar, sigils, components, form-factor rules). Summary:
 - Background #07090e (canvas) / #0b0e14 (page) · panel/card #12161f · lines #1a212e, #212938 · raised border #26314a · outline #303848
 - Text: primary #e8ebf2 · body #b8bfce · muted #8b93a5 · faint #687183 · disabled #4a5262
 - Brass (brand/identity/CTA): #c9a35c, hover/bright #dcb877
@@ -83,6 +84,12 @@ function sigil(name, size) {
 ## Assets
 None required. Sigils are generated at runtime (code above). The brass FORT wordmark is styled text; the existing logo asset (`assets/fort-logo.png`) is unused in these mocks.
 
+## Playbooks (agent + model routing)
+See `SPEC-playbooks.md` — playbook pipelines (per-stage agent + model, shared memory, task-type branching), triggers, shortcuts (Quick answer), and the route preview on handoff. Mocks: web turn 4 (4a editor, 4b route preview); mobile/Mac in `Fort Mobile and Mac.dc.html` turn 2.
+
 ## Files
 - `Fort Redesign.dc.html` — all mockups (open in a browser; canvas with turns 3/2/1 top-to-bottom)
-- `support.js` — render runtime for the mockup file only; not part of the design
+- `Fort Mobile and Mac.dc.html` — iPhone + Mac app form factors (turn 2 playbooks, turn 1 command deck / give direction)
+- `SPEC-playbooks.md` — playbooks/routing spec
+- `DESIGN-SYSTEM.md` — canonical design system (tokens, grammar, components)
+- `support.js`, `ios-frame.jsx` — render runtime for the mockups only; not part of the design

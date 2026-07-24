@@ -2,22 +2,31 @@ package remote
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/tobsai/fort/core/engine"
+	"github.com/tobsai/fort/core/router"
+	"github.com/tobsai/fort/core/rules"
 	"github.com/tobsai/fort/core/runtime"
+	"github.com/tobsai/fort/core/store"
+	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/exec/node"
 )
 
-// nodeServer wires a fake runtime behind the node exec endpoint on an httptest
-// server and returns the base URL plus the underlying fake (for assertions).
-func nodeServer(t *testing.T, f *fake.Runtime, token string) string {
+// nodeServer wires a runtime behind the node exec endpoint on an httptest
+// server and returns its base URL.
+func nodeServer(t *testing.T, rt runtime.Runtime, token string) string {
 	t.Helper()
 	mux := http.NewServeMux()
-	node.New(f, func() string { return token }).Register(mux)
+	node.New(rt, func() string { return token }).Register(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv.URL
@@ -88,6 +97,57 @@ func TestNonZeroExitFails(t *testing.T) {
 	}
 }
 
+type fatalRuntime struct{}
+
+func (fatalRuntime) Name() string { return "fatal" }
+
+func (fatalRuntime) Dispatch(_ context.Context, spec runtime.RunSpec) (runtime.Run, error) {
+	events := make(chan runtime.RunEvent, 2)
+	events <- runtime.RunEvent{RunID: spec.RunID, Type: runtime.EventError, Time: time.Now(), Data: "provider exhausted retries"}
+	events <- runtime.RunEvent{RunID: spec.RunID, Type: runtime.EventExited, Time: time.Now(), Code: 7}
+	close(events)
+	return &fatalRun{id: spec.RunID, events: events}, nil
+}
+
+type fatalRun struct {
+	id     string
+	events chan runtime.RunEvent
+}
+
+func (r *fatalRun) ID() string                      { return r.id }
+func (r *fatalRun) Stream() <-chan runtime.RunEvent { return r.events }
+func (r *fatalRun) Signal(string) error             { return nil }
+func (r *fatalRun) Cancel() error                   { return nil }
+func (r *fatalRun) Status() runtime.Status {
+	return runtime.Status{State: runtime.StateFailed, ExitCode: 7, Err: "provider exhausted retries"}
+}
+func (r *fatalRun) Wait() runtime.Status { return r.Status() }
+
+func TestFatalErrorAndExitPersistThroughNodeRemoteAndEngine(t *testing.T) {
+	const fatal = "provider exhausted retries"
+	base := nodeServer(t, fatalRuntime{}, "tok")
+	rt := New("mini", base, "tok")
+
+	rs, err := rules.Parse([]byte("version: 1\ndefaults:\n  route: hermes\n"))
+	if err != nil {
+		t.Fatalf("rules: %v", err)
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	e := engine.New(router.New(rs), rt, st, t.TempDir())
+
+	got, err := e.SubmitAndWait(context.Background(), task.Task{ID: "fatal-remote", Title: "diagnose"})
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if got.Status != "failed" || got.ExitCode != 7 || got.Error != fatal {
+		t.Fatalf("persisted run = %+v, want failed/7 with error %q", got, fatal)
+	}
+}
+
 func TestAuthRejectsBadToken(t *testing.T) {
 	base := nodeServer(t, fake.New(), "right")
 	rt := New("mini", base, "wrong")
@@ -126,6 +186,62 @@ func TestCancelStopsRun(t *testing.T) {
 	st := run.Wait()
 	if st.State != runtime.StateCanceled {
 		t.Fatalf("status = %+v, want canceled", st)
+	}
+}
+
+func TestCancelAfterTerminalEventIsIdempotentAndPreservesResult(t *testing.T) {
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseStream := func() { releaseOnce.Do(func() { close(release) }) }
+	var cancelRequests atomic.Int32
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/exec", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(runtime.RunEvent{RunID: "terminal", Type: runtime.EventStarted, Time: time.Now()})
+		_ = enc.Encode(runtime.RunEvent{RunID: "terminal", Type: runtime.EventExited, Time: time.Now()})
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	})
+	mux.HandleFunc("POST /api/exec/terminal/cancel", func(w http.ResponseWriter, _ *http.Request) {
+		cancelRequests.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Cleanup(releaseStream)
+
+	run, err := New("mini", srv.URL, "tok").Dispatch(
+		context.Background(),
+		runtime.RunSpec{RunID: "terminal", Agent: "codex"},
+	)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	for ev := range run.Stream() {
+		if ev.Type == runtime.EventExited {
+			break
+		}
+	}
+
+	if err := run.Cancel(); err != nil {
+		t.Fatalf("first cancel: %v", err)
+	}
+	if err := run.Cancel(); err != nil {
+		t.Fatalf("second cancel: %v", err)
+	}
+	if got := cancelRequests.Load(); got != 0 {
+		t.Fatalf("remote cancel requests = %d, want 0 after terminal event", got)
+	}
+
+	releaseStream()
+	for range run.Stream() {
+	}
+	if st := run.Wait(); st.State != runtime.StateSucceeded || st.ExitCode != 0 || st.Err != "" {
+		t.Fatalf("status = %+v, want succeeded/0 after late repeated cancel", st)
 	}
 }
 
