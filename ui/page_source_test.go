@@ -138,6 +138,39 @@ func TestBoardHTMLAnswerPlaybookCannotEnablePlanGate(t *testing.T) {
 	}
 }
 
+func TestBoardHTMLAddedStageInheritsProviderDefault(t *testing.T) {
+	profileStart := strings.Index(boardHTML, "const PB_PROFILE_IDS=")
+	profileEnd := strings.Index(boardHTML[profileStart:], "function playbookByID")
+	stageStart := strings.Index(boardHTML, "function addPlaybookStage(){")
+	stageEnd := strings.Index(boardHTML[stageStart:], "function toggleShortcut")
+	if profileStart < 0 || profileEnd < 0 || stageStart < 0 || stageEnd < 0 {
+		t.Fatal("boardHTML playbook assignment helpers missing")
+	}
+
+	vm := goja.New()
+	script := `
+var model={playbooks:[{id:'inherited',delivery:'assignment',stages:[
+  {order:1,name:'Prior',assignments:[{agent:'claude',model:''}]}
+]}]};
+var selectedPlaybook='inherited',saved=null;
+function playbookByID(id){return model.playbooks[0];}
+function cloneData(v){return JSON.parse(JSON.stringify(v));}
+function stageAssignments(st){return st.assignments||[];}
+function prompt(){return 'Inherited';}
+function savePlaybook(next){saved=next;}
+` + boardHTML[profileStart:profileStart+profileEnd] +
+		boardHTML[stageStart:stageStart+stageEnd] +
+		`addPlaybookStage();JSON.stringify(saved.stages[1].assignments[0]);`
+	value, err := vm.RunString(script)
+	if err != nil {
+		t.Fatalf("execute add-stage helper: %v", err)
+	}
+	const want = `{"agent":"claude","model":"","profile":"claude:configured-default"}`
+	if got := value.String(); got != want {
+		t.Fatalf("inherited assignment = %s, want %s", got, want)
+	}
+}
+
 func TestBoardHTMLQuickAnswerFailureRendersInline(t *testing.T) {
 	for _, want := range []string{`quickAnswerError`, `Quick answer failed`, `if(assignMode==='quick'){`} {
 		if !strings.Contains(boardHTML, want) {

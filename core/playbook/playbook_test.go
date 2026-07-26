@@ -1,6 +1,7 @@
 package playbook_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -244,9 +245,23 @@ func TestDefaultCatalogIsValidAndCoversEveryTaskType(t *testing.T) {
 		t.Fatalf("DefaultCatalog: %v", err)
 	}
 	for _, typ := range []playbook.TaskType{playbook.TaskQuestion, playbook.TaskBug, playbook.TaskResearch, playbook.TaskFeature} {
-		r, err := c.Resolve(playbook.RouteRequest{TaskType: typ})
-		if err != nil || len(r.Stages) == 0 {
-			t.Errorf("Resolve(%s) = %+v, %v", typ, r, err)
+		first, err := c.Resolve(playbook.RouteRequest{TaskType: typ})
+		if err != nil || len(first.Stages) == 0 {
+			t.Errorf("Resolve(%s) = %+v, %v", typ, first, err)
+			continue
+		}
+		second, err := c.Resolve(playbook.RouteRequest{TaskType: typ})
+		if err != nil || !reflect.DeepEqual(first, second) {
+			t.Errorf("Resolve(%s) is not deterministic: first=%+v second=%+v err=%v", typ, first, second, err)
+		}
+	}
+	for _, definition := range c.Playbooks {
+		for _, stage := range definition.Stages {
+			for _, assignment := range stage.Assignments {
+				if assignment.Agent == "codex" && assignment.Profile != "codex:gpt-5.5" {
+					t.Errorf("%s/%s codex assignment profile = %q, want approved codex:gpt-5.5: %+v", definition.ID, stage.Name, assignment.Profile, assignment)
+				}
+			}
 		}
 	}
 	var feature playbook.Playbook
@@ -259,18 +274,34 @@ func TestDefaultCatalogIsValidAndCoversEveryTaskType(t *testing.T) {
 	if feature.ID != "feature-work" || feature.Name != "Feature work" || len(feature.Stages) != 3 {
 		t.Fatalf("design default = %+v, want Feature work with three stages", feature)
 	}
-	if got := feature.Stages[0].Assignments[0]; got.Agent != "hermes" || got.Model != "Codex 5.6 Sol" {
+	if got := feature.Stages[0].Assignments[0]; got.Profile != "codex:gpt-5.5" || got.Agent != "codex" || got.Model != "gpt-5.5" {
 		t.Fatalf("breakdown assignment = %+v", got)
 	}
 	if got := feature.Stages[1].Assignments[0]; got.Agent != "openclaw" || got.Model != "Fable" {
 		t.Fatalf("design assignment = %+v", got)
 	}
 	buildAssignments := feature.Stages[2].Assignments
-	if len(buildAssignments) != 2 || buildAssignments[0].TaskType != "" || buildAssignments[0].Agent != "claude" || buildAssignments[1].TaskType != playbook.TaskBug || buildAssignments[1].Agent != "codex" {
+	if len(buildAssignments) != 2 || buildAssignments[0].TaskType != "" || buildAssignments[0].Agent != "claude" || buildAssignments[1].TaskType != playbook.TaskBug || buildAssignments[1].Profile != "codex:gpt-5.5" || buildAssignments[1].Agent != "codex" || buildAssignments[1].Model != "gpt-5.5" {
 		t.Fatalf("build assignments = %+v, want features/default before bug fixes", buildAssignments)
 	}
 	if feature.Stages[0].Description == "" || feature.Stages[1].Description == "" || feature.Stages[2].Description == "" {
 		t.Fatalf("source-design stage descriptions missing: %+v", feature.Stages)
+	}
+}
+
+func TestLegacyDefaultCatalogRevision1MatchesShippedAssignments(t *testing.T) {
+	catalog := playbook.LegacyDefaultCatalogRevision1()
+	byID := make(map[string]playbook.Playbook, len(catalog.Playbooks))
+	for _, definition := range catalog.Playbooks {
+		byID[definition.ID] = definition
+	}
+	bug := byID["bug-fix"]
+	if got := bug.Stages[1].Assignments[0]; got.Agent != "codex" || got.Model != "5.6 Sol" {
+		t.Fatalf("legacy bug build = %+v", got)
+	}
+	feature := byID["feature-work"]
+	if got := feature.Stages[2].Assignments[1]; got.TaskType != playbook.TaskBug || got.Agent != "codex" || got.Model != "5.6 Sol" {
+		t.Fatalf("legacy feature bug branch = %+v", got)
 	}
 }
 
@@ -281,7 +312,7 @@ func TestCompileBuildsVersionedPlaybookFlow(t *testing.T) {
 		Source: playbook.SourceManual, Delivery: playbook.DeliveryAssignment, PlanGate: true,
 		Stages: []playbook.ResolvedStage{
 			{Order: 1, Name: "Plan", Prompt: "Make a plan.", Agent: "hermes", Model: "planner-model", Memory: true},
-			{Order: 2, Name: "Build", Prompt: "Build it.", Agent: "codex", Model: "builder-model"},
+			{Order: 2, Name: "Build", Prompt: "Build it.", Profile: "codex:gpt-5.5", Agent: "codex", Model: "gpt-5.5"},
 		},
 	}
 	f := playbook.Compile(r)
@@ -298,7 +329,29 @@ func TestCompileBuildsVersionedPlaybookFlow(t *testing.T) {
 	if gate.ID != "plan-gate" || gate.Type != graph.Gate || len(gate.Edges) != 1 || gate.Edges[0].To != "stage-2" {
 		t.Fatalf("gate node = %+v", gate)
 	}
-	if build.ID != "stage-2" || build.Agent != "codex" || build.Model != "builder-model" || build.Context != graph.ContextPlaybook {
+	if build.ID != "stage-2" || build.Profile != "codex:gpt-5.5" || build.Agent != "codex" || build.Model != "gpt-5.5" || build.Context != graph.ContextPlaybook {
 		t.Fatalf("build node = %+v", build)
+	}
+}
+
+func TestValidateRejectsUnknownOrMismatchedExecutionProfile(t *testing.T) {
+	for name, assignment := range map[string]playbook.Assignment{
+		"unknown":     {Profile: "codex:invented", Agent: "codex", Model: "gpt-5.5"},
+		"agent":       {Profile: "codex:gpt-5.5", Agent: "hermes", Model: "gpt-5.5"},
+		"model":       {Profile: "codex:gpt-5.5", Agent: "codex", Model: "gpt-5.6-sol"},
+		"missing":     {Agent: "codex", Model: "gpt-5.5"},
+		"valid exact": {Profile: "codex:gpt-5.5", Agent: "codex", Model: "gpt-5.5"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := testCatalog()
+			c.Playbooks[0].Stages[0].Assignments[0] = assignment
+			err := playbook.Validate(c)
+			if name == "valid exact" && err != nil {
+				t.Fatalf("Validate exact profile: %v", err)
+			}
+			if name != "valid exact" && (err == nil || !strings.Contains(err.Error(), "profile")) {
+				t.Fatalf("Validate error = %v, want profile rejection", err)
+			}
+		})
 	}
 }

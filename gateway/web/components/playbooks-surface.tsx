@@ -4,6 +4,7 @@ import {
   displayAgent,
   nextPlaybookStageOrder,
   type DeckPlaybook,
+  type DeckPlaybookAssignment,
   type DeckPlaybookStage,
 } from "@/lib/command-deck";
 
@@ -12,8 +13,33 @@ const models: Record<string, string[]> = {
   hermes: ["Codex 5.6 Sol"],
   openclaw: ["Fable"],
   claude: ["Sonnet", "Opus"],
-  codex: ["5.6 Sol"],
+  codex: ["gpt-5.5"],
 };
+const profiles: Record<string, string> = {
+  "claude\u0000": "claude:configured-default",
+  "claude\u0000Sonnet": "claude:sonnet",
+  "claude\u0000Opus": "claude:opus",
+  "codex\u0000": "codex:configured-default",
+  "codex\u0000gpt-5.5": "codex:gpt-5.5",
+  "codex\u00005.6 Sol": "codex:gpt-5.6-sol",
+  "hermes\u0000": "hermes:configured-default",
+  "hermes\u0000Codex 5.6 Sol": "hermes:openai-codex/gpt-5.6-sol",
+  "openclaw\u0000": "openclaw:main",
+  "openclaw\u0000Fable": "openclaw:main",
+};
+
+function withExactProfile(assignment: DeckPlaybookAssignment): DeckPlaybookAssignment {
+  const { profile: _stale, ...rest } = assignment;
+  const profile = profiles[`${rest.agent}\u0000${rest.model ?? ""}`];
+  return profile ? { ...rest, profile } : rest;
+}
+
+export function assignmentForAddedStage(prior?: DeckPlaybookAssignment): DeckPlaybookAssignment {
+  return withExactProfile({
+    agent: prior?.agent ?? "codex",
+    model: prior ? prior.model ?? "" : "gpt-5.5",
+  });
+}
 const triggerKinds = ["question", "bug", "feature", "research", "manual"];
 
 export function PlaybooksSurface({
@@ -71,12 +97,7 @@ export function PlaybooksSurface({
         {
           order: nextPlaybookStageOrder(playbook.stages),
           name,
-          assignments: [
-            {
-              agent: prior?.agent ?? "codex",
-              model: prior?.model ?? "5.6 Sol",
-            },
-          ],
+          assignments: [assignmentForAddedStage(prior)],
           memory: false,
         },
       ],
@@ -200,7 +221,7 @@ export function PlaybooksSurface({
                                 const agent = event.target.value;
                                 const nextAssignments = stage.assignments.map((item, index) =>
                                   index === assignmentIndex
-                                    ? { ...item, agent, model: models[agent]?.[0] ?? "" }
+                                    ? withExactProfile({ ...item, agent, model: models[agent]?.[0] ?? "" })
                                     : item,
                                 );
                                 saveStage(stageIndex, { ...stage, assignments: nextAssignments });
@@ -219,7 +240,7 @@ export function PlaybooksSurface({
                               disabled={busy}
                               onChange={(event) => {
                                 const nextAssignments = stage.assignments.map((item, index) =>
-                                  index === assignmentIndex ? { ...item, model: event.target.value } : item,
+                                  index === assignmentIndex ? withExactProfile({ ...item, model: event.target.value }) : item,
                                 );
                                 saveStage(stageIndex, { ...stage, assignments: nextAssignments });
                               }}

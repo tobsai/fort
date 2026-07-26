@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tobsai/fort/control"
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/engine"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
@@ -394,6 +395,64 @@ func TestMachinesEmptyWhenSingleMachine(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "null") {
 		t.Errorf("machines emitted null (want []): %s", strings.TrimSpace(rec.Body.String()))
+	}
+}
+
+type stubCapabilities struct {
+	snapshot   corecap.Snapshot
+	generation uint64
+}
+
+func (s stubCapabilities) Capabilities() (corecap.Snapshot, uint64) {
+	return s.snapshot, s.generation
+}
+
+func TestCapabilitiesEndpointReturnsCurrentSecretFreeSnapshot(t *testing.T) {
+	st := openStore(t)
+	snapshot := corecap.Snapshot{
+		CatalogVersion: 1, ProfileMappingVersion: 1, LocalMachine: "laptop",
+		Revision: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Machines: []corecap.MachineInventory{{
+			Name: "laptop", Local: true, Reachable: true, State: corecap.MachinePartial,
+			Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
+			Bindings: []corecap.ExecutionBindingOffer{},
+		}},
+	}
+	s := ui.New(ui.Deps{
+		Dispatcher: control.NewQueueDispatcher(st), Store: st,
+		Capabilities: stubCapabilities{snapshot: snapshot, generation: 7},
+	})
+	rec := do(t, s, http.MethodGet, "/api/capabilities", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	got := decode[ui.CapabilitiesResponse](t, rec)
+	if got.Generation != 7 || got.Snapshot.LocalMachine != "laptop" || got.Snapshot.Machines == nil {
+		t.Fatalf("capabilities=%+v", got)
+	}
+}
+
+func TestCapabilitiesEndpointFailsClosedWhenNotWired(t *testing.T) {
+	s, _ := newControlUI(t)
+	rec := do(t, s, http.MethodGet, "/api/capabilities", nil)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d, want 503", rec.Code)
+	}
+}
+
+func TestCapabilitiesEndpointFailsClosedWhileInitialInventoryRefreshes(t *testing.T) {
+	st := openStore(t)
+	s := ui.New(ui.Deps{
+		Dispatcher:   control.NewQueueDispatcher(st),
+		Store:        st,
+		Capabilities: stubCapabilities{},
+	})
+	rec := do(t, s, http.MethodGet, "/api/capabilities", nil)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d body=%s, want 503", rec.Code, rec.Body.String())
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != "capability inventory initializing" {
+		t.Fatalf("body=%q, want explicit initialization state", got)
 	}
 }
 

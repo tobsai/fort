@@ -3,7 +3,9 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -158,15 +160,15 @@ func (c *PlaybookCatalog) Route(ctx context.Context, request ui.RouteRequest) (u
 func (c *PlaybookCatalog) initialize() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defaults := playbook.DefaultCatalog()
+	if err := playbook.Validate(defaults); err != nil {
+		return fmt.Errorf("control: invalid default playbook catalog: %w", err)
+	}
 	rows, err := c.store.LatestPlaybookRevisions()
 	if err != nil {
 		return err
 	}
 	if len(rows) == 0 {
-		defaults := playbook.DefaultCatalog()
-		if err := playbook.Validate(defaults); err != nil {
-			return fmt.Errorf("control: invalid default playbook catalog: %w", err)
-		}
 		seed := make([]store.PlaybookRevision, 0, len(defaults.Playbooks))
 		for _, definition := range defaults.Playbooks {
 			wire := toUIPlaybook(definition)
@@ -186,6 +188,72 @@ func (c *PlaybookCatalog) initialize() error {
 	}
 	if err := playbook.Validate(toCoreCatalog(items)); err != nil {
 		return fmt.Errorf("control: invalid persisted playbook catalog: %w", err)
+	}
+	if err := c.migrateLegacyDefaults(items); err != nil {
+		return err
+	}
+	items, err = c.latestLocked()
+	if err != nil {
+		return err
+	}
+	if err := playbook.Validate(toCoreCatalog(items)); err != nil {
+		return fmt.Errorf("control: invalid migrated playbook catalog: %w", err)
+	}
+	return nil
+}
+
+func (c *PlaybookCatalog) migrateLegacyDefaults(items []ui.Playbook) error {
+	legacy := make(map[string]ui.Playbook)
+	for _, definition := range playbook.LegacyDefaultCatalogRevision1().Playbooks {
+		legacy[definition.ID] = toUIPlaybook(definition)
+	}
+	interim := make(map[string]ui.Playbook)
+	for _, definition := range playbook.InterimConfiguredDefaultCatalog().Playbooks {
+		interim[definition.ID] = toUIPlaybook(definition)
+	}
+	current := make(map[string]ui.Playbook)
+	for _, definition := range playbook.DefaultCatalog().Playbooks {
+		current[definition.ID] = toUIPlaybook(definition)
+	}
+
+	for _, item := range items {
+		after, currentKnown := current[item.ID]
+		if !currentKnown {
+			continue
+		}
+		currentAtLatest := after
+		currentAtLatest.Revision = item.Revision
+		if reflect.DeepEqual(item, currentAtLatest) {
+			continue
+		}
+
+		knownPredecessor := false
+		if item.Revision == 1 {
+			before := legacy[item.ID]
+			knownPredecessor = reflect.DeepEqual(item, before)
+		}
+		if !knownPredecessor && (item.Revision == 1 || item.Revision == 2) {
+			before := interim[item.ID]
+			before.Revision = item.Revision
+			knownPredecessor = reflect.DeepEqual(item, before)
+		}
+		if !knownPredecessor {
+			continue
+		}
+
+		after.Revision = item.Revision + 1
+		data, err := json.Marshal(after)
+		if err != nil {
+			return err
+		}
+		if _, err := c.store.SavePlaybookRevisionIfLatest(item.ID, item.Revision, string(data)); err != nil {
+			// Another catalog instance or an editor may have appended first. In
+			// either case the immutable user/newer revision wins.
+			if errors.Is(err, store.ErrPlaybookRevisionStale) {
+				continue
+			}
+			return fmt.Errorf("control: migrate default playbook %q: %w", item.ID, err)
+		}
 	}
 	return nil
 }
@@ -296,7 +364,7 @@ func toCorePlaybook(in ui.Playbook) playbook.Playbook {
 		}
 		for _, assignment := range stage.Assignments {
 			converted.Assignments = append(converted.Assignments, playbook.Assignment{
-				TaskType: playbook.TaskType(assignment.TaskType), Agent: assignment.Agent, Model: assignment.Model,
+				TaskType: playbook.TaskType(assignment.TaskType), Profile: assignment.Profile, Agent: assignment.Agent, Model: assignment.Model,
 			})
 		}
 		out.Stages = append(out.Stages, converted)
@@ -319,7 +387,7 @@ func toUIPlaybook(in playbook.Playbook) ui.Playbook {
 		}
 		for _, assignment := range stage.Assignments {
 			converted.Assignments = append(converted.Assignments, ui.PlaybookAssignment{
-				TaskType: string(assignment.TaskType), Agent: assignment.Agent, Model: assignment.Model,
+				TaskType: string(assignment.TaskType), Profile: assignment.Profile, Agent: assignment.Agent, Model: assignment.Model,
 			})
 		}
 		out.Stages = append(out.Stages, converted)
@@ -337,7 +405,7 @@ func toUIRoute(in playbook.ResolvedRoute) ui.RoutePreview {
 	for _, stage := range in.Stages {
 		out.Stages = append(out.Stages, ui.ResolvedPlaybookStage{
 			Order: stage.Order, Name: stage.Name, Prompt: stage.Prompt,
-			Agent: stage.Agent, Model: stage.Model, Memory: stage.Memory,
+			Profile: stage.Profile, Agent: stage.Agent, Model: stage.Model, Memory: stage.Memory,
 		})
 	}
 	return out

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 )
@@ -23,14 +24,15 @@ var fortIcon []byte
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Dispatcher     Dispatcher      // required
-	Runner         FlowRunner      // nil in control-only mode
-	Store          *store.Store    // required
-	FlowIDs        []string        // available flow ids (for chat templates); empty in control-only
-	Machines       MachineLister   // nil in single-machine mode (spec 022)
-	Planner        Planner         // nil in control-only mode (spec 026)
-	Playbooks      PlaybookCatalog // deterministic catalog + preview (spec 036)
-	PlaybookRunner PlaybookRunner  // nil in control-only mode
+	Dispatcher     Dispatcher       // required
+	Runner         FlowRunner       // nil in control-only mode
+	Store          *store.Store     // required
+	FlowIDs        []string         // available flow ids (for chat templates); empty in control-only
+	Machines       MachineLister    // nil in single-machine mode (spec 022)
+	Capabilities   CapabilityLister // nil until capability inventory is wired (spec 039)
+	Planner        Planner          // nil in control-only mode (spec 026)
+	Playbooks      PlaybookCatalog  // deterministic catalog + preview (spec 036)
+	PlaybookRunner PlaybookRunner   // nil in control-only mode
 }
 
 // Server holds the ui handlers.
@@ -57,6 +59,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRunDetail)
 	mux.HandleFunc("GET /api/gates", s.handleGates)
 	mux.HandleFunc("GET /api/machines", s.handleMachines)
+	mux.HandleFunc("GET /api/capabilities", s.handleCapabilities)
 	mux.HandleFunc("POST /api/gate", s.handleGate)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/backlog", s.handleBacklogList)
@@ -257,6 +260,22 @@ func (s *Server) handleMachines(w http.ResponseWriter, _ *http.Request) {
 		out = s.d.Machines.Machines()
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleCapabilities(w http.ResponseWriter, _ *http.Request) {
+	if s.d.Capabilities == nil {
+		http.Error(w, "capability inventory unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	snapshot, generation := s.d.Capabilities.Capabilities()
+	if generation == 0 {
+		http.Error(w, "capability inventory initializing", http.StatusServiceUnavailable)
+		return
+	}
+	if snapshot.Machines == nil {
+		snapshot.Machines = []corecap.MachineInventory{}
+	}
+	writeJSON(w, http.StatusOK, CapabilitiesResponse{Generation: generation, Snapshot: snapshot})
 }
 
 func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {

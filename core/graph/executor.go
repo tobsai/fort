@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
 )
@@ -58,6 +59,10 @@ func (e *Executor) Start(ctx context.Context, f Flow, runID, payload string) (Re
 		body = payload
 	}
 	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Body: body, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
+	if requestID := requestid.From(ctx); requestID != "" {
+		data, _ := json.Marshal(map[string]string{"request_id": requestID})
+		_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: "ingress", Data: string(data)})
+	}
 	return e.walkFrom(ctx, f, runID, f.Start, payload, "")
 }
 
@@ -247,8 +252,8 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 			)
 		}
 		run, err := e.rt.Dispatch(ctx, runtime.RunSpec{
-			RunID: taskInvocationRunID(runID, node.ID, attempts),
-			Agent: node.Agent, Model: node.Model, Prompt: prompt, Machine: machine,
+			RunID:   taskInvocationRunID(runID, node.ID, attempts),
+			Profile: node.Profile, Agent: node.Agent, Model: node.Model, Prompt: prompt, Machine: machine,
 		})
 		if err != nil {
 			err = fmt.Errorf("flow %s: dispatch node %s: %w", f.ID, node.ID, err)

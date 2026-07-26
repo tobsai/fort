@@ -57,10 +57,19 @@ type Classified struct {
 	Data string
 }
 
+// VerifiedExecutableResolver returns an immutable executable path only when
+// the command's current PATH target still matches bytes authorized by the
+// capability probe. Implementations must fail closed without exposing paths or
+// digests in their errors.
+type VerifiedExecutableResolver interface {
+	ResolveVerifiedExecutable(name string) (string, error)
+}
+
 // Runtime is the native executor.
 type Runtime struct {
-	providers map[string]Provider
-	workRoot  string
+	providers           map[string]Provider
+	workRoot            string
+	verifiedExecutables VerifiedExecutableResolver
 	// EnvAllow, when non-empty, restricts which host environment variables are
 	// passed to spawned CLIs (least privilege, AO-041). Empty = pass the full
 	// environment (the relaxed default; providers need their own auth keys).
@@ -74,6 +83,14 @@ func New(workRoot string, providers ...Provider) *Runtime {
 		r.providers[p.Name] = p
 	}
 	return r
+}
+
+// UseVerifiedExecutables binds future provider probes and starts to executable
+// bytes authorized by capability discovery. Leaving it unset preserves the
+// legacy PATH-resolved runtime used when capability planning is disabled.
+// Configure it before the runtime is published to concurrent callers.
+func (r *Runtime) UseVerifiedExecutables(resolver VerifiedExecutableResolver) {
+	r.verifiedExecutables = resolver
 }
 
 // Name implements runtime.Runtime.
@@ -108,6 +125,38 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 	if !ok {
 		return nil, fmt.Errorf("native: no provider registered for agent %q", spec.Agent)
 	}
+	argv := p.Command(spec)
+	if len(argv) == 0 {
+		return nil, fmt.Errorf("native: provider %q produced empty argv", spec.Agent)
+	}
+	if r.verifiedExecutables != nil {
+		resolved := map[string]string{}
+		resolve := func(name string) (string, error) {
+			if path := resolved[name]; path != "" {
+				return path, nil
+			}
+			path, err := r.verifiedExecutables.ResolveVerifiedExecutable(name)
+			if err != nil {
+				return "", fmt.Errorf("native: provider %q executable identity unavailable", spec.Agent)
+			}
+			resolved[name] = path
+			return path, nil
+		}
+		executable, err := resolve(argv[0])
+		if err != nil {
+			return nil, err
+		}
+		argv = append([]string(nil), argv...)
+		argv[0] = executable
+		if len(p.Probe) > 0 {
+			probeExecutable, err := resolve(p.Probe[0])
+			if err != nil {
+				return nil, err
+			}
+			p.Probe = append([]string(nil), p.Probe...)
+			p.Probe[0] = probeExecutable
+		}
+	}
 	if err := checkProvider(ctx, p, r.scopedEnv(spec)); err != nil {
 		return nil, err
 	}
@@ -119,11 +168,6 @@ func (r *Runtime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.R
 		if err := os.MkdirAll(workdir, 0o755); err != nil {
 			return nil, fmt.Errorf("native: workdir: %w", err)
 		}
-	}
-
-	argv := p.Command(spec)
-	if len(argv) == 0 {
-		return nil, fmt.Errorf("native: provider %q produced empty argv", spec.Agent)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)

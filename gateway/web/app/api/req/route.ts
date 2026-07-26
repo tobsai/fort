@@ -7,31 +7,36 @@ import type { Frame } from "@fort/gateway-shared";
 
 import { requireSession } from "@/lib/session";
 import { relayReq } from "@/lib/worker";
+import { correlatedJSON, FORT_REQUEST_ID_HEADER, requestIDFrom } from "@/lib/request-id";
 
 export async function POST(request: Request): Promise<Response> {
+  const requestID = requestIDFrom(request);
   const unauth = await requireSession(request);
-  if (unauth) return unauth;
+  if (unauth) {
+    unauth.headers.set(FORT_REQUEST_ID_HEADER, requestID);
+    return unauth;
+  }
 
   let body: { machine_id?: string; frame?: Frame };
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return Response.json({ error: "invalid json" }, { status: 400 });
+    return correlatedJSON({ error: "invalid json", request_id: requestID }, 400, requestID);
   }
   if (!body.machine_id || !body.frame) {
-    return Response.json({ error: "machine_id and frame required" }, { status: 400 });
+    return correlatedJSON({ error: "machine_id and frame required", request_id: requestID }, 400, requestID);
   }
 
   try {
-    const frames = await relayReq(body.machine_id, body.frame);
-    return Response.json({ frames });
+    const frames = await relayReq(body.machine_id, body.frame, requestID);
+    return correlatedJSON({ frames }, 200, requestID);
   } catch (e) {
     const upstreamStatus =
       typeof e === "object" && e !== null && "status" in e && typeof e.status === "number"
         ? e.status
         : 502;
     const status = upstreamStatus === 503 || upstreamStatus === 504 ? upstreamStatus : 502;
-    console.error("relay proxy failed", e);
-    return Response.json({ error: e instanceof Error ? e.message : "worker error" }, { status });
+    console.error("relay proxy failed", { request_id: requestID, status });
+    return correlatedJSON({ error: "relay request failed", request_id: requestID }, status, requestID);
   }
 }

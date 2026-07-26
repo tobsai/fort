@@ -29,6 +29,8 @@ import {
 } from "@fort/gateway-shared";
 import type { ChunkPayload, Frame, ResPayload, Session } from "@fort/gateway-shared";
 
+import { FORT_REQUEST_ID_HEADER, newRequestID } from "./request-id";
+
 /** randHex returns 16 random bytes as hex — a stream or request id. */
 function randHex(): string {
   const b = new Uint8Array(16);
@@ -42,12 +44,41 @@ export interface FetchOptions {
   body?: Uint8Array;
 }
 
+type RelayOperation = "handshake" | "request" | "stream";
+
+export class RelayRequestError extends Error {
+  constructor(
+    readonly requestID: string,
+    readonly status: number | null,
+    operation: RelayOperation,
+  ) {
+    super(`relay ${operation} failed (${status === null ? "network" : status}; request ${requestID})`);
+    this.name = "RelayRequestError";
+  }
+}
+
+function requestHeaders(source: Record<string, string> | undefined, requestID: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [name, value] of Object.entries(source ?? {})) {
+    if (name.toLowerCase() !== FORT_REQUEST_ID_HEADER.toLowerCase()) result[name] = value;
+  }
+  result[FORT_REQUEST_ID_HEADER] = requestID;
+  return result;
+}
+
+function isTransientHandshakeFailure(cause: unknown): boolean {
+  return (
+    cause instanceof RelayRequestError &&
+    (cause.status === null || cause.status === 502 || cause.status === 503 || cause.status === 504)
+  );
+}
+
 export class RelayClient {
   private session: Session | null = null;
-  private readonly streamId = randHex();
+  private streamId = "";
+  private readonly startedStreams = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
   private closed = false;
-  private handshakeStarted = false;
 
   constructor(
     private readonly machineId: string,
@@ -55,31 +86,60 @@ export class RelayClient {
   ) {}
 
   /** postReq forwards one frame through the buffered proxy, returning replies. */
-  private async postReq(frame: Frame): Promise<Frame[]> {
-    const res = await fetch("/api/req", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ machine_id: this.machineId, frame }),
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      throw new Error(`relay req failed (${res.status})${t ? ": " + t : ""}`);
+  private async postReq(frame: Frame, requestID: string): Promise<Frame[]> {
+    const operation: RelayOperation = frame.kind === "hs1" ? "handshake" : "request";
+    let res: Response;
+    try {
+      res = await fetch("/api/req", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          [FORT_REQUEST_ID_HEADER]: requestID,
+        },
+        body: JSON.stringify({ machine_id: this.machineId, frame }),
+      });
+    } catch {
+      throw new RelayRequestError(requestID, null, operation);
     }
-    const body = (await res.json()) as { frames: Frame[] };
-    return body.frames;
+    if (!res.ok) {
+      throw new RelayRequestError(requestID, res.status, operation);
+    }
+    try {
+      const body = (await res.json()) as { frames: Frame[] };
+      if (!Array.isArray(body.frames)) throw new Error("invalid relay response");
+      return body.frames;
+    } catch {
+      throw new RelayRequestError(requestID, 502, operation);
+    }
   }
 
-  /** connect runs the Noise IK handshake and stores the transport session. */
+  /** connect runs the Noise IK handshake, retrying only that handshake once. */
   async connect(): Promise<void> {
     if (this.closed) throw new Error("relay: client is closed");
-    this.handshakeStarted = true;
+    const requestID = newRequestID();
+    try {
+      await this.connectOnce(requestID);
+    } catch (cause) {
+      if (!isTransientHandshakeFailure(cause)) throw cause;
+      await this.connectOnce(requestID);
+    }
+  }
+
+  private async connectOnce(requestID: string): Promise<void> {
+    this.session = null;
+    this.streamId = randHex();
+    this.startedStreams.add(this.streamId);
     const kp = generateKeypair(); // fresh per-session client static key
     const hs = newInitiator(kp, this.daemonStatic);
     const msg1 = hs.writeMessage();
-    const frames = await this.postReq(hs1Frame(this.streamId, msg1));
+    const frames = await this.postReq(hs1Frame(this.streamId, msg1), requestID);
     const hs2 = frames[0];
-    if (!hs2) throw new Error("handshake: daemon sent no hs2 (machine offline?)");
-    this.session = readHS2(hs, hs2);
+    if (!hs2) throw new RelayRequestError(requestID, 502, "handshake");
+    try {
+      this.session = readHS2(hs, hs2);
+    } catch {
+      throw new RelayRequestError(requestID, 400, "handshake");
+    }
   }
 
   /**
@@ -87,20 +147,33 @@ export class RelayClient {
    * serialized on this client so the per-session AEAD nonce order is preserved.
    */
   fetch(path: string, opts: FetchOptions = {}): Promise<ResPayload> {
+    const requestID = newRequestID();
     const run = async (): Promise<ResPayload> => {
-      if (!this.session) throw new Error("relay: not connected");
+      if (!this.session) throw new RelayRequestError(requestID, null, "request");
       const rp = {
-        id: randHex(),
+        id: requestID,
         method: opts.method ?? "GET",
         path,
-        ...(opts.headers ? { headers: opts.headers } : {}),
+        headers: requestHeaders(opts.headers, requestID),
         ...(opts.body ? { body: opts.body } : {}),
       };
-      const frame = sealReq(this.session, this.streamId, rp);
-      const frames = await this.postReq(frame);
+      let frame: Frame;
+      try {
+        frame = sealReq(this.session, this.streamId, rp);
+      } catch {
+        throw new RelayRequestError(requestID, 502, "request");
+      }
+      const frames = await this.postReq(frame, requestID);
       const res = frames[0];
-      if (!res) throw new Error("relay: no response frame (machine offline?)");
-      return openRes(this.session, res);
+      if (!res) throw new RelayRequestError(requestID, 502, "request");
+      let opened: ResPayload;
+      try {
+        opened = openRes(this.session, res);
+      } catch {
+        throw new RelayRequestError(requestID, 502, "request");
+      }
+      if (opened.id !== requestID) throw new RelayRequestError(requestID, 502, "request");
+      return opened;
     };
     const next = this.queue.then(run, run);
     this.queue = next.then(
@@ -115,9 +188,12 @@ export class RelayClient {
     if (this.closed) return;
     this.closed = true;
     await this.queue.catch(() => undefined);
-    if (!this.handshakeStarted) return;
     this.session = null;
-    await this.postReq({ stream: this.streamId, kind: "bye" }).catch(() => undefined);
+    const streams = [...this.startedStreams];
+    this.startedStreams.clear();
+    for (const stream of streams) {
+      await this.postReq({ stream, kind: "bye" }, newRequestID()).catch(() => undefined);
+    }
   }
 
   /**
@@ -130,23 +206,52 @@ export class RelayClient {
     onChunk: (chunk: ChunkPayload) => void,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (!this.session) throw new Error("relay: not connected");
+    const requestID = newRequestID();
+    if (!this.session) throw new RelayRequestError(requestID, null, "stream");
+    const session = this.session;
     const rp = {
-      id: randHex(),
+      id: requestID,
       method: "GET",
       path,
-      headers: { Accept: "text/event-stream" },
+      headers: requestHeaders({ Accept: "text/event-stream" }, requestID),
     };
-    const frame = sealReq(this.session, this.streamId, rp);
-    const res = await fetch("/api/sse", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ machine_id: this.machineId, frame }),
-      ...(signal ? { signal } : {}),
-    });
-    if (!res.ok || !res.body) throw new Error(`relay sse failed (${res.status})`);
+    let frame: Frame;
+    try {
+      frame = sealReq(session, this.streamId, rp);
+    } catch {
+      throw new RelayRequestError(requestID, 502, "stream");
+    }
+    let res: Response;
+    try {
+      res = await fetch("/api/sse", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          [FORT_REQUEST_ID_HEADER]: requestID,
+        },
+        body: JSON.stringify({ machine_id: this.machineId, frame }),
+        ...(signal ? { signal } : {}),
+      });
+    } catch {
+      throw new RelayRequestError(requestID, null, "stream");
+    }
+    if (!res.ok || !res.body) throw new RelayRequestError(requestID, res.status, "stream");
 
-    const reader = res.body.getReader();
+    try {
+      await this.consumeStream(res.body, session, requestID, onChunk);
+    } catch (cause) {
+      if (cause instanceof RelayRequestError) throw cause;
+      throw new RelayRequestError(requestID, 502, "stream");
+    }
+  }
+
+  private async consumeStream(
+    body: ReadableStream<Uint8Array>,
+    session: Session,
+    requestID: string,
+    onChunk: (chunk: ChunkPayload) => void,
+  ): Promise<void> {
+    const reader = body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
     for (;;) {
@@ -162,11 +267,13 @@ export class RelayClient {
         // The first frame is the sealed `res` header (stream:true); opening it
         // advances the receive nonce in lock-step with the daemon. Chunks follow.
         if (f.kind === "res") {
-          openRes(this.session, f);
+          const opened = openRes(session, f);
+          if (opened.id !== requestID) throw new RelayRequestError(requestID, 502, "stream");
           continue;
         }
         if (f.kind === "chunk") {
-          const chunk = openChunk(this.session, f);
+          const chunk = openChunk(session, f);
+          if (chunk.id !== requestID) throw new RelayRequestError(requestID, 502, "stream");
           onChunk(chunk);
           if (chunk.end) return;
         }

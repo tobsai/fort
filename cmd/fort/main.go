@@ -176,6 +176,12 @@ func cmdServe(args []string) error {
 		return err
 	}
 	defer a.store.Close()
+	const interruptedRunReason = "interrupted when the Fort daemon stopped"
+	if reconciled, err := a.store.FailInterruptedDirectRuns(interruptedRunReason); err != nil {
+		return fmt.Errorf("reconcile interrupted runs: %w", err)
+	} else if reconciled > 0 {
+		slog.Warn("reconciled interrupted direct runs", "count", reconciled)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -217,12 +223,16 @@ func cmdServe(args []string) error {
 	roster := control.NewRoster(a.live)
 	go roster.Poll(ctx, 10*time.Second)
 	deps.Machines = roster
+	if a.caps != nil {
+		deps.Capabilities = a.caps.coordinator
+		a.caps.start(ctx, time.Minute)
+	}
 	uiSrv := ui.New(deps)
 
 	// Mesh enrollment (spec 024): the token store holds the durable mesh token
 	// (minted on first `mesh invite`, persisted to node.yaml) and feeds both the
 	// node exec endpoint and the join server's outbound transports.
-	tokens := meshjoin.NewTokenStore(a.cfg.NodeToken, a.cfg.DataDir(), a.cfg.NodeName, a.cfg.Addr)
+	tokens := a.tokens
 	_, port, err := net.SplitHostPort(a.cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("serve: invalid bind address FORT_ADDR %q: %w", a.cfg.Addr, err)
@@ -247,6 +257,9 @@ func cmdServe(args []string) error {
 	// `mesh invite` minted after startup takes effect without a restart. An empty
 	// token still 403s every request (same "disabled" behavior as before).
 	nodeSrv := node.New(a.localRT, tokens.Get)
+	if a.caps != nil {
+		nodeSrv.UseCapabilities(a.caps.local)
+	}
 	mount := func(mux *http.ServeMux) {
 		uiSrv.Register(mux)
 		nodeSrv.Register(mux)
@@ -261,10 +274,24 @@ func cmdServe(args []string) error {
 	if rc, err := config.LoadRelay(a.cfg.DataDir()); err == nil {
 		rmux := http.NewServeMux()
 		mount(rmux)
-		tr := relay.New(rmux, relay.Config{
+		relayHandler := server.ObserveRequests(rmux, func(event server.RequestEvent) {
+			slog.Info("fort relay request", "request_id", event.ID, "method", event.Method,
+				"path", event.Path, "status", event.Status, "duration", event.Duration)
+		})
+		tr := relay.New(relayHandler, relay.Config{
 			URL:   rc.GatewayURL + "/tunnel",
 			Token: rc.DeviceToken,
 			Key:   secure.Keypair{Private: rc.PrivateKey, Public: rc.PublicKey},
+			OnConnectionEvent: func(event relay.ConnectionEvent) {
+				attributes := []any{"state", event.State}
+				if event.Err != nil {
+					attributes = append(attributes, "error", event.Err)
+				}
+				if event.RetryIn > 0 {
+					attributes = append(attributes, "retry_in", event.RetryIn)
+				}
+				slog.Info("fort relay connection", attributes...)
+			},
 		})
 		go func() { _ = tr.Run(ctx) }()
 		fmt.Printf("fort relay: tunnel to %s (machine %s, fingerprint %s)\n",

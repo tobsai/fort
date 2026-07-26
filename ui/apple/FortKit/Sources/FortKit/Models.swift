@@ -392,17 +392,20 @@ public struct ChatResult: Codable, Sendable, Hashable {
 /// `ui.PlaybookAssignment`; an absent `task_type` is the required default.
 public struct PlaybookAssignment: Codable, Sendable, Hashable {
     public let taskType: String?
+    public let profile: String?
     public let agent: String
     public let model: String?
 
-    public init(taskType: String? = nil, agent: String, model: String? = nil) {
+    public init(taskType: String? = nil, profile: String? = nil, agent: String, model: String? = nil) {
         self.taskType = taskType
+        self.profile = profile
         self.agent = agent
         self.model = model
     }
 
     enum CodingKeys: String, CodingKey {
         case taskType = "task_type"
+        case profile
         case agent
         case model
     }
@@ -527,6 +530,7 @@ public struct ResolvedPlaybookStage: Codable, Sendable, Identifiable, Hashable {
     public let order: Int
     public let name: String
     public let prompt: String?
+    public let profile: String?
     public let agent: String
     public let model: String?
     public let memory: Bool?
@@ -537,6 +541,7 @@ public struct ResolvedPlaybookStage: Codable, Sendable, Identifiable, Hashable {
         order: Int,
         name: String,
         prompt: String? = nil,
+        profile: String? = nil,
         agent: String,
         model: String? = nil,
         memory: Bool? = nil
@@ -544,6 +549,7 @@ public struct ResolvedPlaybookStage: Codable, Sendable, Identifiable, Hashable {
         self.order = order
         self.name = name
         self.prompt = prompt
+        self.profile = profile
         self.agent = agent
         self.model = model
         self.memory = memory

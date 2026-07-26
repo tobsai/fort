@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestPlistCarriesPATH pins the agent-discovery contract: launchd gives a bare
@@ -30,6 +33,24 @@ func TestPlistCarriesPATH(t *testing.T) {
 	// (an empty PATH is worse than none — it breaks exec lookup outright).
 	if strings.Contains(renderPlist(serviceConfig{Label: "l", BinPath: "/b"}), "<key>PATH</key>") {
 		t.Error("empty Path should omit the PATH key")
+	}
+}
+
+func TestPlistCarriesCapabilityPlanningRollback(t *testing.T) {
+	sc := serviceConfig{
+		Label: "io.tobsai.fort", BinPath: "/opt/homebrew/bin/fort",
+		Args: []string{"serve"}, CapabilityPlanning: "0",
+	}
+	got := renderPlist(sc)
+	for _, want := range []string{
+		"<key>FORT_CAPABILITY_PLANNING</key>", "<string>0</string>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("plist missing %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(renderPlist(serviceConfig{Label: "l", BinPath: "/b"}), "<key>FORT_CAPABILITY_PLANNING</key>") {
+		t.Error("unset capability planning flag should use the binary default")
 	}
 }
 
@@ -120,4 +141,63 @@ func TestInstallWritesPlistUninstallRemoves(t *testing.T) {
 		t.Fatalf("second remove: %v", err)
 	}
 	_ = filepath.Join // keep import if unused after edits
+}
+
+func TestPrepareServiceRestartRewritesRollbackFlag(t *testing.T) {
+	home := t.TempDir()
+	sc := serviceConfig{
+		Label: "io.tobsai.fort.test", BinPath: "/bin/fort", Args: []string{"serve"},
+		CapabilityPlanning: "0",
+	}
+	if err := prepareServiceRestart(home, sc); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(plistPath(home, sc.Label))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "<key>FORT_CAPABILITY_PLANNING</key>\n    <string>0</string>") {
+		t.Fatalf("restart plist did not carry rollback flag:\n%s", raw)
+	}
+}
+
+func TestServiceRestartReloadsLaunchdDefinition(t *testing.T) {
+	sc := serviceConfig{Label: "io.tobsai.fort"}
+	got := serviceRestartCommands("/Users/x", sc)
+	want := [][]string{
+		{"launchctl", "bootout", guiLabelTarget(sc.Label)},
+		{"launchctl", "bootstrap", guiTarget(), "/Users/x/Library/LaunchAgents/io.tobsai.fort.plist"},
+		{"launchctl", "kickstart", guiLabelTarget(sc.Label)},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("restart commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestRunServiceRestartRetriesTransientBootstrapError(t *testing.T) {
+	sc := serviceConfig{Label: "io.tobsai.fort"}
+	bootstrapAttempts := 0
+	var delays []time.Duration
+	run := func(command []string) ([]byte, error) {
+		if len(command) > 1 && command[1] == "bootstrap" {
+			bootstrapAttempts++
+			if bootstrapAttempts == 1 {
+				return []byte("Bootstrap failed: 5: Input/output error"), errors.New("exit status 5")
+			}
+		}
+		return nil, nil
+	}
+
+	err := runServiceRestart("/Users/x", sc, run, func(delay time.Duration) {
+		delays = append(delays, delay)
+	})
+	if err != nil {
+		t.Fatalf("restart returned transient bootstrap failure: %v", err)
+	}
+	if bootstrapAttempts != 2 {
+		t.Fatalf("bootstrap attempts = %d, want 2", bootstrapAttempts)
+	}
+	if !reflect.DeepEqual(delays, []time.Duration{serviceRestartRetryDelay}) {
+		t.Fatalf("retry delays = %v, want [%v]", delays, serviceRestartRetryDelay)
+	}
 }

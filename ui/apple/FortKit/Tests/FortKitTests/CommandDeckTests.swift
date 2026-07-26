@@ -16,8 +16,10 @@ struct FortKitContractChecks {
         try routePreviewDecodesResolvedStages()
         try chatOverrideEncodesAndAnswerDecodes()
         try await clientUsesPlaybookEndpoints()
+        try await clientSurfacesRequestIDOnHTTPFailure()
         try gatewayAccountPersistsNativeSession()
         try gatewayAddressNormalizesProductionOrigin()
+        try await gatewayRequestsCarryCanonicalCorrelationIDs()
         try await gatewayRelayRetriesHandshakeAndExplainsFailures()
         try secureRelayMatchesGoNoiseVector()
         try quickModePinsAnswerPlaybookWhenTriggerIsDisabled()
@@ -70,27 +72,31 @@ struct FortKitContractChecks {
     }
 
     private static func playbookCatalogDecodesWireContract() throws {
-        let json = #"[{"id":"feature-work","name":"Feature work","revision":3,"is_default":true,"plan_gate":true,"delivery":"assignment","trigger":{"kind":"feature","enabled":true},"stages":[{"order":1,"name":"Research","prompt":"Map the surface","description":"Inspect the existing system","assignments":[{"agent":"claude","model":"opus"},{"task_type":"bug","agent":"codex","model":"gpt-5.4"}],"memory":true},{"order":2,"name":"Build","assignments":[{"agent":"codex"}]}]},{"id":"quick-answer","name":"Quick answer","revision":1,"delivery":"answer","trigger":{"kind":"question","enabled":true},"stages":[{"order":1,"name":"Answer","assignments":[{"agent":"claude"}]}]}]"#
+        let json = #"[{"id":"feature-work","name":"Feature work","revision":3,"is_default":true,"plan_gate":true,"delivery":"assignment","trigger":{"kind":"feature","enabled":true},"stages":[{"order":1,"name":"Research","prompt":"Map the surface","description":"Inspect the existing system","assignments":[{"agent":"claude","model":"opus"},{"task_type":"bug","profile":"codex:gpt-5.5","agent":"codex","model":"gpt-5.5"}],"memory":true},{"order":2,"name":"Build","assignments":[{"agent":"codex"}]}]},{"id":"quick-answer","name":"Quick answer","revision":1,"delivery":"answer","trigger":{"kind":"question","enabled":true},"stages":[{"order":1,"name":"Answer","assignments":[{"agent":"claude"}]}]}]"#
         let playbooks = try JSONDecoder().decode([Playbook].self, from: Data(json.utf8))
 
         expect(playbooks.count == 2, "playbook catalog did not decode")
         expect(playbooks[0].isDefault == true, "is_default did not decode")
         expect(playbooks[0].planGate == true, "plan_gate did not decode")
         expect(playbooks[0].stages[0].assignments[1].taskType == "bug", "task_type branch did not decode")
+        expect(playbooks[0].stages[0].assignments[1].profile == "codex:gpt-5.5", "profile did not decode")
         expect(playbooks[0].stages[0].memory == true, "stage memory did not decode")
         expect(playbooks[1].delivery == "answer", "answer delivery did not decode")
         expect(playbooks[1].isDefault == nil, "omitted is_default must stay omitted")
         expect(playbooks[1].planGate == nil, "omitted plan_gate must stay omitted")
+        let encoded = try JSONEncoder().encode(playbooks[0])
+        expect(String(decoding: encoded, as: UTF8.self).contains(#""profile":"codex:gpt-5.5""#), "profile did not survive encode")
     }
 
     private static func routePreviewDecodesResolvedStages() throws {
-        let json = #"{"playbook_id":"feature-work","playbook_revision":3,"playbook_name":"Feature work","task_type":"feature","source":"default","plan_gate":true,"delivery":"assignment","stages":[{"order":1,"name":"Research","prompt":"Map the surface","agent":"claude","model":"opus","memory":true},{"order":2,"name":"Build","agent":"codex"}]}"#
+        let json = #"{"playbook_id":"feature-work","playbook_revision":3,"playbook_name":"Feature work","task_type":"feature","source":"default","plan_gate":true,"delivery":"assignment","stages":[{"order":1,"name":"Research","prompt":"Map the surface","agent":"claude","model":"opus","memory":true},{"order":2,"name":"Build","profile":"codex:gpt-5.5","agent":"codex","model":"gpt-5.5"}]}"#
         let preview = try JSONDecoder().decode(RoutePreview.self, from: Data(json.utf8))
 
         expect(preview.playbookID == "feature-work", "route playbook_id did not decode")
         expect(preview.playbookRevision == 3, "route revision did not decode")
         expect(preview.stages[0].agent == "claude", "resolved stage agent did not decode")
-        expect(preview.stages[1].model == nil, "omitted resolved model must stay omitted")
+        expect(preview.stages[1].profile == "codex:gpt-5.5", "resolved stage profile did not decode")
+        expect(preview.stages[1].model == "gpt-5.5", "resolved stage model did not decode")
     }
 
     private static func chatOverrideEncodesAndAnswerDecodes() throws {
@@ -168,6 +174,15 @@ struct FortKitContractChecks {
             "POST /api/chat",
         ], "FortClient playbook endpoint surface drifted: \(signatures)")
 
+        let requestIDs = StubURLProtocol.requests.compactMap {
+            $0.value(forHTTPHeaderField: "X-Fort-Request-ID")
+        }
+        expect(requestIDs.count == StubURLProtocol.requests.count, "a Fort request omitted its correlation ID")
+        expect(Set(requestIDs).count == requestIDs.count, "separate logical requests reused a correlation ID")
+        for requestID in requestIDs {
+            expectCanonicalRequestID(requestID, "FortClient request")
+        }
+
         let routeBody = StubURLProtocol.bodies[3].flatMap {
             try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
         }
@@ -176,6 +191,42 @@ struct FortKitContractChecks {
             try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
         }
         expect(chatBody?["plan_gate"] as? Bool == false, "chat request lost false plan gate")
+    }
+
+    private static func clientSurfacesRequestIDOnHTTPFailure() async throws {
+        StubURLProtocol.requests = []
+        StubURLProtocol.bodies = []
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 503, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"error":"not ready"}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let client = FortClient(
+            baseURL: URL(string: "https://fort.test")!,
+            session: URLSession(configuration: configuration)
+        )
+
+        do {
+            _ = try await client.playbooks()
+            fatalError("failed Fort response unexpectedly decoded")
+        } catch let error as FortClientError {
+            guard case let .httpStatus(status, _, requestID) = error else {
+                fatalError("unexpected Fort client error: \(error)")
+            }
+            expect(status == 503, "Fort response diagnostic lost its status")
+            expectCanonicalRequestID(requestID, "Fort response diagnostic")
+            let sentRequestID = StubURLProtocol.requests.first?
+                .value(forHTTPHeaderField: "X-Fort-Request-ID")
+            expect(requestID == sentRequestID, "Fort response diagnostic changed the request ID")
+            if let requestID {
+                expect(error.localizedDescription.contains(requestID), "Fort response diagnostic omitted the request ID")
+            }
+        }
     }
 
     private static func gatewayAccountPersistsNativeSession() throws {
@@ -255,6 +306,78 @@ struct FortKitContractChecks {
         expect(description.contains("502"), "relay failure description omitted the HTTP status")
         expect(description.contains("daemon did not respond"), "relay failure description omitted gateway detail")
         expect(!description.contains("GatewayRelayError error"), "relay failure leaked an opaque Swift enum code")
+    }
+
+    private static func gatewayRequestsCarryCanonicalCorrelationIDs() async throws {
+        StubURLProtocol.requests = []
+        StubURLProtocol.bodies = []
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"machines":[]}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        _ = try await GatewayService.machines(
+            at: URL(string: "https://fort-gateway.test")!,
+            bearerToken: "machine-list-secret",
+            session: session
+        )
+
+        let machineRequestID = StubURLProtocol.requests.last?
+            .value(forHTTPHeaderField: "X-Fort-Request-ID")
+        expectCanonicalRequestID(machineRequestID, "machine discovery")
+
+        StubURLProtocol.requests = []
+        StubURLProtocol.bodies = []
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 502, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"error":"relay unavailable"}"#.utf8))
+        }
+
+        let relay = try GatewayRelayTransport(
+            gatewayURL: URL(string: "https://fort-gateway.test")!,
+            bearerToken: "relay-secret",
+            machineID: "machine-1",
+            machinePublicKey: Data(repeating: 7, count: 32),
+            session: session
+        )
+        do {
+            _ = try await relay.request(path: "/api/summary")
+            fatalError("unavailable relay unexpectedly accepted the request")
+        } catch {
+            let requestIDs = StubURLProtocol.requests.compactMap {
+                $0.value(forHTTPHeaderField: "X-Fort-Request-ID")
+            }
+            expect(requestIDs.count >= 2, "each handshake attempt must carry a request ID")
+            expect(
+                requestIDs.count == StubURLProtocol.requests.count,
+                "a relay frame omitted the logical request ID"
+            )
+            expect(Set(requestIDs).count == 1, "handshake retry changed the logical request ID")
+            expectCanonicalRequestID(requestIDs.first, "relay handshake")
+            if let requestID = requestIDs.first {
+                expect(error.localizedDescription.contains(requestID), "relay diagnostic omitted the request ID")
+            }
+            expect(!error.localizedDescription.contains("relay-secret"), "relay diagnostic exposed authorization material")
+        }
+    }
+
+    private static func expectCanonicalRequestID(_ requestID: String?, _ context: String) {
+        guard let requestID, let uuid = UUID(uuidString: requestID) else {
+            fatalError("\(context) omitted a canonical X-Fort-Request-ID")
+        }
+        expect(
+            uuid.uuidString.lowercased() == requestID,
+            "\(context) emitted a non-canonical X-Fort-Request-ID: \(requestID)"
+        )
     }
 
     private static func secureRelayMatchesGoNoiseVector() throws {

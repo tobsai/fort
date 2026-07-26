@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/task"
 )
 
@@ -31,6 +32,12 @@ type Dispatcher interface {
 // the endpoint returns an empty roster. Implemented by package control.
 type MachineLister interface {
 	Machines() []MachineStatus
+}
+
+// CapabilityLister returns the latest immutable, secret-free capability
+// snapshot. Refresh and probing stay behind control/exec adapters.
+type CapabilityLister interface {
+	Capabilities() (corecap.Snapshot, uint64)
 }
 
 // RunResult is a flow run's state after a Start/Resume.

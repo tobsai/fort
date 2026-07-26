@@ -15,13 +15,17 @@
 package node
 
 import (
+	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/runtime"
 )
 
@@ -29,9 +33,18 @@ import (
 type Server struct {
 	rt    runtime.Runtime
 	token func() string
+	caps  CapabilityRegistry
 
 	mu   sync.Mutex
 	runs map[string]*runHandle // in-flight runs, for signal/cancel
+}
+
+// CapabilityRegistry is the bounded discovery seam mounted only by a
+// capability-aware node. Its absence intentionally leaves the new routes 404,
+// so a coordinator can distinguish an old node from an empty inventory.
+type CapabilityRegistry interface {
+	Current() corecap.NodeInventory
+	Refresh(context.Context, corecap.RecheckRequest) (corecap.NodeInventory, error)
 }
 
 type runHandle struct {
@@ -63,11 +76,21 @@ func New(rt runtime.Runtime, token func() string) *Server {
 	return &Server{rt: rt, token: token, runs: map[string]*runHandle{}}
 }
 
+// UseCapabilities enables the versioned mesh capability endpoints. Call it
+// before Register.
+func (s *Server) UseCapabilities(registry CapabilityRegistry) {
+	s.caps = registry
+}
+
 // Register mounts the exec routes onto mux.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/exec", s.handleExec)
 	mux.HandleFunc("POST /api/exec/{id}/signal", s.handleSignal)
 	mux.HandleFunc("POST /api/exec/{id}/cancel", s.handleCancel)
+	// Always own the versioned capability paths so the UI's GET / fallback
+	// cannot disguise an old node as a successful HTML response.
+	mux.HandleFunc("GET /api/node/capabilities", s.handleCapabilities)
+	mux.HandleFunc("POST /api/node/capabilities/recheck", s.handleCapabilityRecheck)
 }
 
 // authed reports whether the request carries the shared bearer token.
@@ -209,4 +232,68 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = handle.cancel()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
+	if s.caps == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if !s.authed(w, r) {
+		return
+	}
+	writeBoundedJSON(w, s.caps.Current())
+}
+
+func (s *Server) handleCapabilityRecheck(w http.ResponseWriter, r *http.Request) {
+	if s.caps == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if !s.authed(w, r) {
+		return
+	}
+	var request corecap.RecheckRequest
+	if err := decodeStrictBounded(r.Body, 64*1024, &request); err != nil {
+		http.Error(w, "bad capability recheck request", http.StatusBadRequest)
+		return
+	}
+	inventory, err := s.caps.Refresh(r.Context(), request)
+	if err != nil {
+		http.Error(w, "bad capability recheck request", http.StatusBadRequest)
+		return
+	}
+	writeBoundedJSON(w, inventory)
+}
+
+func decodeStrictBounded(body io.Reader, maximum int64, target any) error {
+	limited := io.LimitReader(body, maximum+1)
+	raw, err := io.ReadAll(limited)
+	if err != nil {
+		return err
+	}
+	if int64(len(raw)) > maximum {
+		return fmt.Errorf("request exceeds %d bytes", maximum)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("request contains trailing JSON")
+	}
+	return nil
+}
+
+func writeBoundedJSON(w http.ResponseWriter, value any) {
+	encoded, err := json.Marshal(value)
+	if err != nil || len(encoded) > 512*1024 {
+		http.Error(w, "capability response unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(encoded)
 }

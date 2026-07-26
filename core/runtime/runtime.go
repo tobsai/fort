@@ -13,6 +13,7 @@ import (
 // RunSpec describes one agent invocation.
 type RunSpec struct {
 	RunID   string   // caller-assigned id, echoed back on the Run
+	Profile string   `json:"-"` // exact Fort-owned profile, lowered before local/remote transport
 	Agent   string   // provider key: claude | codex | openclaw | hermes
 	Model   string   // optional provider-specific model override; empty uses provider default
 	Prompt  string   // the task body handed to the CLI

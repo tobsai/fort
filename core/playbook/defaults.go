@@ -3,6 +3,53 @@ package playbook
 // DefaultCatalog returns a fresh, valid starter catalog matching the approved
 // Feature work, Bug fix, Quick answer, and Research handoff designs.
 func DefaultCatalog() Catalog {
+	catalog := interimConfiguredDefaultCatalog()
+	for i := range catalog.Playbooks {
+		for j := range catalog.Playbooks[i].Stages {
+			for k := range catalog.Playbooks[i].Stages[j].Assignments {
+				assignment := &catalog.Playbooks[i].Stages[j].Assignments[k]
+				if assignment.Agent == "codex" {
+					assignment.Profile = "codex:gpt-5.5"
+					assignment.Model = "gpt-5.5"
+				}
+			}
+		}
+	}
+	return catalog
+}
+
+// LegacyDefaultCatalogRevision1 returns the exact built-in definitions that
+// shipped before 5.6 work was assigned directly to Codex. It exists only so
+// the control adapter can recognize untouched persisted defaults and append a
+// corrected immutable revision without mistaking user edits for defaults.
+func LegacyDefaultCatalogRevision1() Catalog {
+	return legacyDefaultCatalogRevision1()
+}
+
+// InterimConfiguredDefaultCatalog returns the exact correction deployed before
+// GPT-5.5 was explicitly approved. It is migration input only.
+func InterimConfiguredDefaultCatalog() Catalog {
+	return interimConfiguredDefaultCatalog()
+}
+
+func interimConfiguredDefaultCatalog() Catalog {
+	catalog := legacyDefaultCatalogRevision1()
+	for i := range catalog.Playbooks {
+		for j := range catalog.Playbooks[i].Stages {
+			for k := range catalog.Playbooks[i].Stages[j].Assignments {
+				assignment := &catalog.Playbooks[i].Stages[j].Assignments[k]
+				if (assignment.Agent == "hermes" && assignment.Model == "Codex 5.6 Sol") ||
+					(assignment.Agent == "codex" && assignment.Model == "5.6 Sol") {
+					assignment.Agent = "codex"
+					assignment.Model = ""
+				}
+			}
+		}
+	}
+	return catalog
+}
+
+func legacyDefaultCatalogRevision1() Catalog {
 	def := func(agent, model string) []Assignment {
 		return []Assignment{{Agent: agent, Model: model}}
 	}

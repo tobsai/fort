@@ -35,8 +35,21 @@ interface ReqPayload {
   headers?: Record<string, string>;
 }
 
+interface ObservedRelay {
+  kind: string;
+  stream: string;
+  outerRequestID: string | null;
+  inner?: ReqPayload;
+}
+
+const canonicalRequestID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** A fake daemon: one Noise responder session per stream, plus a route table. */
-function makeFakeDaemon(daemonKey: KeyPair, routes: Record<string, unknown>) {
+function makeFakeDaemon(
+  daemonKey: KeyPair,
+  routes: Record<string, unknown>,
+  observe?: (request: ObservedRelay) => void,
+) {
   const sessions = new Map<string, Session>();
 
   function sealRes(session: Session, obj: unknown): Frame["b64"] {
@@ -44,8 +57,9 @@ function makeFakeDaemon(daemonKey: KeyPair, routes: Record<string, unknown>) {
   }
 
   // Handle a buffered /api/req frame, returning the daemon's reply frame.
-  function handleReq(frame: Frame): Frame {
+  function handleReq(frame: Frame, outerRequestID: string | null): Frame {
     if (frame.kind === "hs1") {
+      observe?.({ kind: frame.kind, stream: frame.stream, outerRequestID });
       const hs = newResponder(daemonKey);
       hs.readMessage(decodeBase64(frame.b64!));
       const m2 = hs.writeMessage();
@@ -57,6 +71,7 @@ function makeFakeDaemon(daemonKey: KeyPair, routes: Record<string, unknown>) {
     if (frame.kind === "req") {
       const session = sessions.get(frame.stream)!;
       const rp = JSON.parse(utf8dec.decode(openFrame(session, frame, "req"))) as ReqPayload;
+      observe?.({ kind: frame.kind, stream: frame.stream, outerRequestID, inner: rp });
       const body = routes[rp.path];
       const bodyBytes = utf8enc.encode(JSON.stringify(body ?? { path: rp.path }));
       const res = {
@@ -70,9 +85,10 @@ function makeFakeDaemon(daemonKey: KeyPair, routes: Record<string, unknown>) {
   }
 
   // Handle an /api/sse frame: return an NDJSON stream of res + chunk frames.
-  function handleSse(frame: Frame): Response {
+  function handleSse(frame: Frame, outerRequestID: string | null): Response {
     const session = sessions.get(frame.stream)!;
     const rp = JSON.parse(utf8dec.decode(openFrame(session, frame, "req"))) as ReqPayload;
+    observe?.({ kind: frame.kind, stream: frame.stream, outerRequestID, inner: rp });
     const lines: Frame[] = [
       { stream: frame.stream, kind: "res", b64: sealRes(session, { id: rp.id, status: 200, stream: true }) },
       { stream: frame.stream, kind: "chunk", b64: sealRes(session, { id: rp.id, data: encodeBase64(utf8enc.encode("event: hello\n\n")) }) },
@@ -89,8 +105,9 @@ function makeFakeDaemon(daemonKey: KeyPair, routes: Record<string, unknown>) {
   // The stub global fetch: dispatch by the app route the RelayClient calls.
   return async function fakeFetch(input: string, init?: RequestInit): Promise<Response> {
     const { frame } = JSON.parse(String(init?.body)) as { machine_id: string; frame: Frame };
-    if (input.includes("/api/sse")) return handleSse(frame);
-    const reply = handleReq(frame);
+    const outerRequestID = new Headers(init?.headers).get("X-Fort-Request-ID");
+    if (input.includes("/api/sse")) return handleSse(frame, outerRequestID);
+    const reply = handleReq(frame, outerRequestID);
     return new Response(JSON.stringify({ frames: [reply] }), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -131,6 +148,84 @@ describe("RelayClient over a fake Noise daemon", () => {
     expect(JSON.parse(utf8dec.decode(b.body!))).toEqual({ n: 2 });
   });
 
+  it("uses one canonical request ID in the outer POST and sealed inner request", async () => {
+    const daemonKey = generateKeypair();
+    const observed: ObservedRelay[] = [];
+    vi.stubGlobal("fetch", makeFakeDaemon(daemonKey, { "/trace": { ok: true } }, (item) => observed.push(item)));
+
+    const client = new RelayClient("machine-1", daemonKey.publicKey);
+    await client.connect();
+    await client.fetch("/trace", {
+      headers: { "x-fort-request-id": "caller-controlled", "x-test": "preserved" },
+    });
+
+    const application = observed.find((item) => item.inner?.path === "/trace")!;
+    expect(application.outerRequestID).toMatch(canonicalRequestID);
+    expect(application.inner?.id).toBe(application.outerRequestID);
+    expect(application.inner?.headers?.["X-Fort-Request-ID"]).toBe(application.outerRequestID);
+    expect(application.inner?.headers?.["x-fort-request-id"]).toBeUndefined();
+    expect(application.inner?.headers?.["x-test"]).toBe("preserved");
+  });
+
+  it("preserves one request ID across the handshake-only retry on a fresh stream", async () => {
+    const daemonKey = generateKeypair();
+    const daemon = makeFakeDaemon(daemonKey, {});
+    const ids: Array<string | null> = [];
+    const streams: string[] = [];
+    let attempts = 0;
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const { frame } = JSON.parse(String(init?.body)) as { frame: Frame };
+      if (frame.kind === "hs1") {
+        attempts++;
+        ids.push(new Headers(init?.headers).get("X-Fort-Request-ID"));
+        streams.push(frame.stream);
+        if (attempts === 1) {
+          return Response.json({ error: "temporarily unavailable" }, { status: 503 });
+        }
+      }
+      return daemon(input, init);
+    });
+
+    const client = new RelayClient("machine-1", daemonKey.publicKey);
+    await client.connect();
+
+    expect(attempts).toBe(2);
+    expect(ids[0]).toMatch(canonicalRequestID);
+    expect(ids[1]).toBe(ids[0]);
+    expect(streams[1]).not.toBe(streams[0]);
+  });
+
+  it("never replays a sealed application request and reports only its bounded request ID", async () => {
+    const daemonKey = generateKeypair();
+    const daemon = makeFakeDaemon(daemonKey, {});
+    let applicationAttempts = 0;
+    let requestID: string | null = null;
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const { frame } = JSON.parse(String(init?.body)) as { frame: Frame };
+      if (frame.kind === "req") {
+        applicationAttempts++;
+        requestID = new Headers(init?.headers).get("X-Fort-Request-ID");
+        return Response.json(
+          { error: "secret upstream body that must not be surfaced", ciphertext: "AAAA" },
+          { status: 503 },
+        );
+      }
+      return daemon(input, init);
+    });
+
+    const client = new RelayClient("machine-1", daemonKey.publicKey);
+    await client.connect();
+    const error = await client.fetch("/mutate", { method: "POST" }).catch((cause: unknown) => cause);
+
+    expect(applicationAttempts).toBe(1);
+    expect(requestID).toMatch(canonicalRequestID);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain(requestID);
+    expect((error as Error).message).not.toContain("secret upstream body");
+    expect((error as Error).message).not.toContain("AAAA");
+    expect((error as Error).message.length).toBeLessThan(160);
+  });
+
   it("closes a Noise session with one fire-and-forget bye frame", async () => {
     const daemonKey = generateKeypair();
     const fake = makeFakeDaemon(daemonKey, { "/a": { n: 1 } });
@@ -158,7 +253,8 @@ describe("RelayClient over a fake Noise daemon", () => {
 
   it("opens a sealed SSE stream to completion", async () => {
     const daemonKey = generateKeypair();
-    vi.stubGlobal("fetch", makeFakeDaemon(daemonKey, {}));
+    const observed: ObservedRelay[] = [];
+    vi.stubGlobal("fetch", makeFakeDaemon(daemonKey, {}, (item) => observed.push(item)));
 
     const client = new RelayClient("machine-1", daemonKey.publicKey);
     await client.connect();
@@ -169,6 +265,10 @@ describe("RelayClient over a fake Noise daemon", () => {
     });
 
     expect(chunks).toEqual(["event: hello\n\n", "event: world\n\n"]);
+    const request = observed.find((item) => item.inner?.path === "/api/events?since=0")!;
+    expect(request.outerRequestID).toMatch(canonicalRequestID);
+    expect(request.inner?.id).toBe(request.outerRequestID);
+    expect(request.inner?.headers?.["X-Fort-Request-ID"]).toBe(request.outerRequestID);
   });
 
   it("rejects a handshake against the wrong pinned key (MITM defense)", async () => {

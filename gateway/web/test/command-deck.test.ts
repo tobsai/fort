@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { assignmentForAddedStage } from "@/components/playbooks-surface";
 import {
   chatRequestForRoute,
   checkpointCaption,
@@ -170,6 +171,24 @@ describe("gateway Command Deck presentation", () => {
     expect(nextPlaybookStageOrder([{ order: 7 }, { order: 2 }])).toBe(8);
   });
 
+  it("keeps an inherited provider default compatible when adding a stage", () => {
+    expect(assignmentForAddedStage({ agent: "claude" })).toEqual({
+      agent: "claude",
+      model: "",
+      profile: "claude:configured-default",
+    });
+    expect(assignmentForAddedStage({ agent: "claude", model: "" })).toEqual({
+      agent: "claude",
+      model: "",
+      profile: "claude:configured-default",
+    });
+    expect(assignmentForAddedStage()).toEqual({
+      agent: "codex",
+      model: "gpt-5.5",
+      profile: "codex:gpt-5.5",
+    });
+  });
+
   it("summarizes the all-machine roster without implying a task pin", () => {
     const machines: DeckMachine[] = [
       { name: "laptop", agents: ["claude"], local: true, reachable: true },
@@ -194,13 +213,17 @@ describe("gateway Command Deck presentation", () => {
           order: 1,
           name: "Break down",
           description: "Produces the plan.",
-          assignments: [{ agent: "hermes", model: "Codex 5.6 Sol" }],
+          assignments: [{ profile: "codex:gpt-5.5", agent: "codex", model: "gpt-5.5" }],
           memory: true,
         },
       ],
     };
     expect(playbook.trigger.enabled).toBe(true);
-    expect(playbook.stages[0].assignments[0].agent).toBe("hermes");
+    expect(playbook.stages[0].assignments[0]).toEqual({
+      profile: "codex:gpt-5.5",
+      agent: "codex",
+      model: "gpt-5.5",
+    });
   });
 
   it("fails closed when pin verification belongs to a previous machine identity", () => {
@@ -258,7 +281,16 @@ describe("gateway Command Deck presentation", () => {
       source: "trigger",
       plan_gate: false,
       delivery: "answer",
-      stages: [{ order: 1, name: "Answer", agent: "hermes", model: "Codex 5.6 Sol", memory: false }],
+      stages: [
+        {
+          order: 1,
+          name: "Answer",
+          profile: "codex:gpt-5.5",
+          agent: "codex",
+          model: "gpt-5.5",
+          memory: false,
+        },
+      ],
     };
     expect(chatRequestForRoute("Why was the sweep skipped?", answer, true)).toEqual({
       text: "Why was the sweep skipped?",

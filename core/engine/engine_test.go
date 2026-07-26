@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/router"
 	"github.com/tobsai/fort/core/rules"
 	"github.com/tobsai/fort/core/store"
@@ -38,6 +39,22 @@ func newEngine(t *testing.T) (*Engine, *store.Store, *fake.Runtime) {
 	rt := fake.New()
 	e := New(router.New(rs), rt, st, t.TempDir())
 	return e, st, rt
+}
+
+func TestSubmitPersistsIngressRequestIDBeforeDispatch(t *testing.T) {
+	e, st, _ := newEngine(t)
+	const id = "018f3f1c-7d3a-7c1d-a176-9c52c606c6e4"
+	run, err := e.SubmitAndWait(requestid.With(context.Background(), id), task.Task{ID: "trace", Title: "trace"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := st.Events(run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) == 0 || events[0].Type != "ingress" || events[0].Data != `{"request_id":"`+id+`"}` {
+		t.Fatalf("events=%+v", events)
+	}
 }
 
 func TestSubmitRoutesPersistsAndRuns(t *testing.T) {

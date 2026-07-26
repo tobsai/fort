@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	goruntime "runtime"
 	"strconv"
+	"time"
 
 	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/engine"
@@ -16,9 +18,13 @@ import (
 	"github.com/tobsai/fort/exec/cluster"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/exec/gateway"
+	"github.com/tobsai/fort/exec/meshjoin"
 	"github.com/tobsai/fort/exec/native"
 	"github.com/tobsai/fort/exec/remote"
+	"github.com/tobsai/fort/exec/watchdog"
 )
+
+const runtimeSilenceTimeout = 10 * time.Minute
 
 // logTracer is the default gateway Tracer — structured logs per model call.
 // Swap for an OpenTelemetry adapter in production.
@@ -40,6 +46,8 @@ type app struct {
 	localRT runtime.Runtime  // raw local runtime, for the node exec endpoint
 	live    *machines.Live   // swappable registry (nil registry = single-machine)
 	clus    *cluster.Runtime // hot Add/Remove of peer transports (mesh enrollment)
+	caps    *capabilitySubsystem
+	tokens  *meshjoin.TokenStore
 }
 
 // localName resolves the cluster's local identity: the registry's canonical
@@ -56,6 +64,7 @@ func buildApp() (*app, error) {
 	if cfg.NodeName == "" {
 		cfg.NodeName, _ = os.Hostname()
 	}
+	tokens := meshjoin.NewTokenStore(cfg.NodeToken, cfg.DataDir(), cfg.NodeName, cfg.Addr)
 
 	data, err := os.ReadFile(cfg.RulesPath)
 	if err != nil {
@@ -79,10 +88,12 @@ func buildApp() (*app, error) {
 
 	// The local execution runtime spawns CLIs on this machine.
 	var localRT runtime.Runtime
+	var localNative *native.Runtime
 	if os.Getenv("FORT_FAKE") == "1" {
 		localRT = fake.New() // token-free mode for demos/CI
 	} else {
-		localRT = native.New(cfg.WorkRoot, native.DefaultProviders()...)
+		localNative = native.New(cfg.WorkRoot, native.DefaultProviders()...)
+		localRT = localNative
 	}
 
 	// Multi-machine (spec 022/024): the registry lives behind a Live pointer so
@@ -115,6 +126,23 @@ func buildApp() (*app, error) {
 			rt = gateway.New(rt, gateway.Options{Limit: limit, DefaultCost: 1, Tracer: logTracer{}})
 		}
 	}
+	rt = watchdog.New(rt, runtimeSilenceTimeout)
+	var caps *capabilitySubsystem
+	if capabilityPlanningEnabled(os.Getenv) {
+		revisionKey, err := config.LoadOrCreateCapabilityKey(cfg.DataDir())
+		if err != nil {
+			return nil, err
+		}
+		caps, err = buildCapabilitySubsystem(
+			cfg, live, rt, revisionKey, os.Environ(),
+			goruntime.GOOS+"/"+goruntime.GOARCH, tokens.Get,
+		)
+		if err != nil {
+			return nil, err
+		}
+		localNative.UseVerifiedExecutables(caps.executables)
+		rt = caps.runtime
+	}
 
 	r := router.New(rs)
 	eng := engine.New(r, rt, st, cfg.WorkRoot)
@@ -130,5 +158,7 @@ func buildApp() (*app, error) {
 		localRT: localRT,
 		live:    live,
 		clus:    clus,
+		caps:    caps,
+		tokens:  tokens,
 	}, nil
 }

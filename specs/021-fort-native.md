@@ -24,8 +24,13 @@ gate on humans and retry deterministically.
   matchers (label/path/repo/@agent/size/time + any/all). **Zero model calls.**
 - **Execution (AO-014):** `runtime.Runtime` interface; `exec/native` spawns CLIs
   and normalizes stdout → events; `exec/fake` for tests; `exec/gateway` adds
-  budgets/tracing/failover.
-- **State (AO-016):** SQLite `run`/`node_run`/`route_decision`/append-only `event`.
+  budgets/tracing/failover. The composed execution runtime cancels and fails an
+  invocation after 10 minutes with no emitted event, preventing a silent
+  provider or descendant tool from holding a run forever.
+- **State (AO-016):** SQLite `run`/`node_run`/`route_decision`/append-only
+  `event`. At daemon startup, direct-task rows left `running` by an earlier
+  daemon lifetime are atomically failed with an interruption event. Flow rows
+  retain their durable node state for explicit resume.
 - **Graph (AO-021–028):** node types task/gate/check/transform/fanout/fanin,
   conditional edges, retry→escalate, resumable; cron/once scheduler.
 - **Interface (AO-031–037):** event/command contract, SSE live-feed, board,
@@ -42,6 +47,10 @@ gate on humans and retry deterministically.
 - Only `task` nodes invoke the runtime; flows resume after restart: `core/graph`.
 - `ship-feature` runs unattended except at two gates: `core/flow`.
 - Native runtime streams a real binary's output; signal/cancel work: `exec/native`.
+- Silent runtime invocations are canceled and failed; activity resets the
+  silence deadline.
+- Startup reconciles interrupted direct-task `running` rows exactly once
+  without changing resumable flow rows.
 - Per-flow spend cap enforced; UI contract round-trips: `exec/gateway`, `ui`.
 
 ## Reconciliation (backlog vs legacy TS specs)

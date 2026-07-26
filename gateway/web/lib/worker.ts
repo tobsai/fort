@@ -10,6 +10,7 @@ import "server-only";
 import type { Frame } from "@fort/gateway-shared";
 
 import type { MachineSummary } from "./types";
+import { FORT_REQUEST_ID_HEADER } from "./request-id";
 
 interface WorkerConfig {
   url: string;
@@ -19,9 +20,9 @@ interface WorkerConfig {
 export class WorkerRelayError extends Error {
   constructor(
     readonly status: number,
-    message: string,
+    readonly requestID: string,
   ) {
-    super(message);
+    super(`worker relay failed (${status}; request ${requestID})`);
     this.name = "WorkerRelayError";
   }
 }
@@ -71,17 +72,19 @@ export async function invite(): Promise<string> {
 }
 
 /** relayReq forwards one buffered browser frame to a machine, returning replies. */
-export async function relayReq(machineId: string, frame: Frame): Promise<Frame[]> {
+export async function relayReq(machineId: string, frame: Frame, requestID: string): Promise<Frame[]> {
   const cfg = config();
   const res = await fetch(`${cfg.url}/api/relay/req`, {
     method: "POST",
-    headers: headers(cfg, { "content-type": "application/json" }),
+    headers: headers(cfg, {
+      "content-type": "application/json",
+      [FORT_REQUEST_ID_HEADER]: requestID,
+    }),
     body: JSON.stringify({ machine_id: machineId, frame }),
     cache: "no-store",
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new WorkerRelayError(res.status, `worker req: ${res.status} ${text}`.trim());
+    throw new WorkerRelayError(res.status, requestID);
   }
   const body = (await res.json()) as { frames: Frame[] };
   return body.frames;
@@ -92,11 +95,14 @@ export async function relayReq(machineId: string, frame: Frame): Promise<Frame[]
  * worker's streamed (application/x-ndjson) Response so the caller can pipe the
  * body straight back to the browser without buffering.
  */
-export async function relaySse(machineId: string, frame: Frame): Promise<Response> {
+export async function relaySse(machineId: string, frame: Frame, requestID: string): Promise<Response> {
   const cfg = config();
   return fetch(`${cfg.url}/api/relay/sse`, {
     method: "POST",
-    headers: headers(cfg, { "content-type": "application/json" }),
+    headers: headers(cfg, {
+      "content-type": "application/json",
+      [FORT_REQUEST_ID_HEADER]: requestID,
+    }),
     body: JSON.stringify({ machine_id: machineId, frame }),
     cache: "no-store",
   });

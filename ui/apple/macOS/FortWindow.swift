@@ -844,7 +844,9 @@ struct FortWindow: View {
 
     private func friendly(_ error: Error) -> String {
         switch error {
-        case FortClientError.httpStatus(let status, _): return "Server error (\(status))."
+        case FortClientError.httpStatus(let status, _, let requestID):
+            let correlation = requestID.map { " Request ID \($0)." } ?? ""
+            return "Server error (\(status)).\(correlation)"
         case FortClientError.nonHTTPResponse: return "Unexpected response."
         case let url as URLError where [.cannotConnectToHost, .cannotFindHost, .networkConnectionLost].contains(url.code): return "Fort not reachable — is the service running?"
         default: return error.localizedDescription
