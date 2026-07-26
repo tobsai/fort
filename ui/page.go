@@ -1140,7 +1140,14 @@ $('#tobacklog').addEventListener('click',async function(){
 
 // ---- Playbooks (Turn 4) ----
 const PB_AGENTS=['hermes','openclaw','claude','codex'];
-const PB_MODELS={hermes:['Codex 5.6 Sol'],openclaw:['Fable'],claude:['Sonnet','Opus'],codex:['5.6 Sol']};
+const PB_MODELS={hermes:['Codex 5.6 Sol'],openclaw:['Fable'],claude:['Sonnet','Opus'],codex:['gpt-5.5']};
+const PB_PROFILE_IDS={
+  'claude\u0000':'claude:configured-default','claude\u0000Sonnet':'claude:sonnet','claude\u0000Opus':'claude:opus',
+  'codex\u0000':'codex:configured-default','codex\u0000gpt-5.5':'codex:gpt-5.5','codex\u00005.6 Sol':'codex:gpt-5.6-sol',
+  'hermes\u0000':'hermes:configured-default','hermes\u0000Codex 5.6 Sol':'hermes:openai-codex/gpt-5.6-sol',
+  'openclaw\u0000':'openclaw:main','openclaw\u0000Fable':'openclaw:main'
+};
+function syncAssignmentProfile(a){var id=PB_PROFILE_IDS[(a.agent||'')+'\u0000'+(a.model||'')];if(id)a.profile=id;else delete a.profile;}
 function playbookByID(id){
   for(var i=0;i<model.playbooks.length;i++)if(model.playbooks[i].id===id)return model.playbooks[i];
   return null;
@@ -1274,13 +1281,15 @@ function toggleStageMemory(id,stageIndex){var pb=playbookByID(id);if(!pb)return;
 function editStageAssignment(id,stageIndex,assignmentIndex,field,value){
   var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb),a=next.stages[stageIndex].assignments[assignmentIndex];a[field]=value;
   if(field==='agent'){var ms=PB_MODELS[value]||[];if(ms.length)a.model=ms[0];}
+  syncAssignmentProfile(a);
   savePlaybook(next);
 }
 function addPlaybookStage(){
   var pb=playbookByID(selectedPlaybook);if(!pb||pb.delivery==='answer')return;
   var name=prompt('Stage name','New stage');if(name===null||!name.trim())return;
   var next=cloneData(pb),prev=next.stages.length?next.stages[next.stages.length-1]:null,pa=prev&&stageAssignments(prev)[0];
-  next.stages.push({order:next.stages.length+1,name:name.trim(),assignments:[{agent:(pa&&pa.agent)||'codex',model:(pa&&pa.model)||'5.6 Sol'}],memory:false});
+  var assignment={agent:(pa&&pa.agent)||'codex',model:pa?(pa.model||''):'gpt-5.5'};syncAssignmentProfile(assignment);
+  next.stages.push({order:next.stages.length+1,name:name.trim(),assignments:[assignment],memory:false});
   savePlaybook(next);
 }
 function toggleShortcut(id){

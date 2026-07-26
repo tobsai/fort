@@ -1,7 +1,12 @@
 # Spec 039 — Capability-aware planning and cross-machine execution
 
-**Status:** proposed — new capability; requires Toby's approval before
-implementation.
+**Status:** approved by Toby on 2026-07-24 — implementation in progress; the
+full capability-planning lifecycle is not implemented.
+
+**Accepted milestone:** profile-readiness recovery approved by Toby on
+2026-07-25 and accepted live on 2026-07-26. Current Codex defaults select the
+exact ready `codex:gpt-5.5` profile, while stale or unavailable profiles fail
+before a provider starts.
 
 **Governed by:** [021-fort-native](021-fort-native.md),
 [022-multi-machine-orchestration](022-multi-machine-orchestration.md),
@@ -25,8 +30,8 @@ A Supabase diagnosis received by email exposed several distinct failures:
 
 The provider-status, error-propagation, cancellation, process-group, graph
 attempt, and OpenClaw session bugs in items 2–5 are repaired separately. The
-remaining product gap is live, functional, agent-scoped capability discovery
-and deterministic plan placement.
+remaining product gap is generalized logical-capability discovery and
+deterministic capability-aware plan placement.
 
 Safe live evidence gathered for this spec on 2026-07-23:
 
@@ -43,6 +48,125 @@ Safe live evidence gathered for this spec on 2026-07-23:
 
 No project names, references, mailbox data, credentials, executable paths, or
 probe output belong in Fort's public capability data.
+
+## Approved profile-readiness recovery milestone
+
+The first production milestone is a deliberately narrow vertical slice. It
+does not claim that generated capability plans, logical-capability brokers, or
+cross-machine handoffs are complete.
+
+Before enabling any broader capability-planning lifecycle, this milestone:
+
+1. attaches one safe correlation ID to each control request and exposes relay
+   connection transitions plus bounded failure reasons without logging request
+   bodies, credentials, Noise material, or provider output;
+2. inventories the exact execution profiles that each enrolled node can run
+   under the daemon's execution identity, including provider contract,
+   authentication, and exact model readiness;
+3. serves authenticated, secret-free node inventory and a control-plane
+   aggregate while preserving an explicit old-node result rather than the web
+   UI fallback page;
+4. checks the selected execution profile immediately before legacy playbook
+   dispatch and blocks with a closed reason when it is unavailable;
+5. corrects reusable default playbooks through an explicit new revision so a
+   5.6 Codex assignment is never sent to Hermes, without overwriting a
+   user-edited playbook; and
+6. deploys the same inventory protocol to both nodes before the inventory is
+   allowed to influence placement.
+
+This milestone retains deterministic routing and single-host placement. It
+does not generate a plan, infer a machine from model output, install or
+authenticate tools, substitute a model, split work, or expose Gmail/Supabase
+as ready. Logical Gmail/Supabase adapters, durable typed setup-versus-split
+decisions, guarded remote execution, and bounded handoff receipts remain later
+milestones and keep all acceptance criteria below.
+
+The profile-readiness milestone is accepted only when:
+
+- a request can be followed by one correlation ID from the client-facing HTTP
+  boundary to durable run creation or one bounded failure response;
+- both nodes return authenticated capability JSON, and an old node returns an
+  explicit old-node response rather than dashboard HTML;
+- unavailable authentication or an unavailable exact model produces zero
+  provider starts;
+- current default Quick Answer and planning stages select a ready exact
+  profile without silent substitution; and
+- focused race tests, the full Go suite, and live read-only two-node inventory
+  checks pass before restart or rollout.
+
+### Live acceptance findings — 2026-07-26
+
+- The control plane now follows one request ID into durable run creation. A
+  laptop-pinned `claude:configured-default` acceptance command completed with
+  `FORT_OK` and a terminal `succeeded` run.
+- Codex `model/list.isDefault` is the catalog default, not the effective
+  `config.toml` override. The inspector now reads typed `config/read` first.
+  The laptop's `codex:configured-default` therefore correctly reports
+  `model_unavailable`, and preflight rejects it with zero provider starts;
+  `codex:gpt-5.5` remains independently ready.
+- OpenClaw 2026.7.1-2 deliberately respawns non-help commands with
+  `detached: true`. Its config/model readiness commands can consequently leave
+  re-parented `openclaw-config` processes in new process groups that Fort
+  cannot safely own. The milestone quarantines `openclaw:main` as
+  `command_contract_changed` and does not execute that readiness probe until a
+  process-private contract exists. Ordinary probe descendants are still
+  bounded and process-group terminated.
+- The same inventory protocol is running on both enrolled Macs, and the laptop
+  now receives protocol-v1 JSON from the Mini rather than `old_node` HTML.
+- Fort 0.12.7 is running from the same verified arm64 artifact on both Macs.
+  Executable hashing, cached-stage verification, and cache-miss staging now
+  stream through a fixed 64 KiB buffer while retaining the 384 MiB hard cap,
+  source snapshots, no-follow destination verification, and immutable 0500
+  stage mode. After multiple settled refreshes, the laptop daemon's physical
+  footprint was 17.3 MiB (21.5 MiB peak) and the Mini's was 15.9 MiB (16.5 MiB
+  peak), replacing the 2.0–2.4 GiB whole-file-buffer baseline.
+- A laptop-pinned 0.12.7 `hermes:configured-default` command reached a terminal
+  `succeeded` run and persisted the exact `FORT-HERMES-OK` response.
+- The Mini's Hermes state now resides in the internal
+  `/Users/talos/.hermes` directory. Its launchd-owned
+  `hermes:configured-default` profile reports ready, and a Mini-local Fort
+  command reached a terminal `succeeded` run with the exact
+  `FORT-MINI-HERMES-OK` response. The former external-volume tree remains an
+  untouched rollback source.
+- Default migration appended immutable GPT-5.5 revisions without changing old
+  rows or user edits. The accepted live heads are Bug fix revision 2, Feature
+  work revision 2, and Quick answer revision 3; Research remains revision 1.
+  Repeated daemon restarts appended no further revisions.
+- Quick answer revision 3 routed an exact `codex:gpt-5.5` request and persisted
+  `FORT-CODEX-55-OK`. Explicitly replaying its unavailable configured-default
+  predecessor failed with `model_unavailable` and zero provider starts,
+  proving that the profile gate does not substitute silently.
+- The profile-preserving gateway was promoted as deployment
+  `dpl_5tDm5YkGbYuNHxFTNyLswDKc9hxw`. Authenticated production smoke checks
+  returned the expected 405 for `GET /api/req` and 401 for an unauthenticated
+  `POST`; the subsequent error and 5xx log queries were empty.
+- The profile-preserving Apple client was archived as Fort 1.0.1 build
+  `2607262`, passed nested code-sign verification, and was uploaded to App Store
+  Connect without warnings or errors. Apple's receipt records the upload as
+  successful and processing for TestFlight.
+
+These results accept the bounded profile-readiness milestone. They do not
+accept the full spec: Feature work can still be vetoed at its quarantined
+OpenClaw design stage, and inventory still does not perform capability-aware
+placement.
+
+### Current implementation boundary
+
+Production wiring currently covers correlation IDs, local and authenticated
+peer inventory, normalized aggregate snapshots, exact-profile preflight, and
+bounded streaming, content-addressed executable staging and binding. The pure
+plan decoder, deterministic solver, setup solver, and placement-proof builders
+exist under `core/capability`, but have no production coordinator or handler
+callers.
+
+The following full-spec layers remain absent: durable capability-plan,
+decision, outbox, dispatch, and handoff records; capability-aware placement;
+typed setup-versus-split and sign-off clients; guarded capability execution and
+handoff receipts; Gmail/Supabase brokers; and the specified inner control
+authority/JWS/CSRF protocol. Static `machines.yaml` claims still choose a host,
+and profile readiness can only veto that already-selected host. Inventory must
+not be described as full capability-aware planning until those layers are
+wired and accepted.
 
 ## Required outcome
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/tobsai/fort/core/capability"
 )
 
 // TaskType is the deterministic classification signal used by triggers and
@@ -50,6 +52,7 @@ type Trigger struct {
 // TaskType is the required default branch for its stage.
 type Assignment struct {
 	TaskType TaskType `json:"task_type,omitempty" yaml:"task_type,omitempty"`
+	Profile  string   `json:"profile,omitempty" yaml:"profile,omitempty"`
 	Agent    string   `json:"agent" yaml:"agent"`
 	Model    string   `json:"model,omitempty" yaml:"model,omitempty"`
 }
@@ -92,12 +95,13 @@ type RouteRequest struct {
 
 // ResolvedStage is a stage with its task-type branch selected.
 type ResolvedStage struct {
-	Order  int    `json:"order"`
-	Name   string `json:"name"`
-	Prompt string `json:"prompt,omitempty"`
-	Agent  string `json:"agent"`
-	Model  string `json:"model,omitempty"`
-	Memory bool   `json:"memory"`
+	Order   int    `json:"order"`
+	Name    string `json:"name"`
+	Prompt  string `json:"prompt,omitempty"`
+	Profile string `json:"profile,omitempty"`
+	Agent   string `json:"agent"`
+	Model   string `json:"model,omitempty"`
+	Memory  bool   `json:"memory"`
 }
 
 // ResolvedRoute is an immutable execution snapshot suitable for previewing or
@@ -176,6 +180,25 @@ func Validate(c Catalog) error {
 			for _, a := range s.Assignments {
 				if strings.TrimSpace(a.Agent) == "" {
 					return fmt.Errorf("playbook %q: stage %d assignment agent is required", who, s.Order)
+				}
+				if a.Profile != "" {
+					agent, model, ok := capability.CatalogV1().RuntimeSelection(a.Profile)
+					if !ok {
+						return fmt.Errorf("playbook %q: stage %d assignment profile %q is unknown", who, s.Order, a.Profile)
+					}
+					if a.Agent != agent || a.Model != model {
+						return fmt.Errorf("playbook %q: stage %d assignment profile %q does not match agent/model", who, s.Order, a.Profile)
+					}
+				} else {
+					catalog := capability.CatalogV1()
+					for _, profile := range catalog.Profiles {
+						agent, model, ok := catalog.RuntimeSelection(profile.ID)
+						if ok && a.Agent == agent && a.Model == model {
+							if _, legacy := catalog.MapLegacyProfile(a.Agent, a.Model); !legacy {
+								return fmt.Errorf("playbook %q: stage %d assignment profile is required for %s", who, s.Order, profile.ID)
+							}
+						}
+					}
 				}
 				if a.TaskType == "" {
 					defaultsInStage++
@@ -262,7 +285,7 @@ func (c Catalog) Resolve(req RouteRequest) (ResolvedRoute, error) {
 		}
 		resolved = append(resolved, ResolvedStage{
 			Order: s.Order, Name: s.Name, Prompt: s.Prompt,
-			Agent: chosen.Agent, Model: chosen.Model, Memory: s.Memory,
+			Profile: chosen.Profile, Agent: chosen.Agent, Model: chosen.Model, Memory: s.Memory,
 		})
 	}
 	return ResolvedRoute{

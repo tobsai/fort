@@ -27,7 +27,7 @@ func Compile(r ResolvedRoute) graph.Flow {
 	for i, stage := range stages {
 		node := graph.Node{
 			ID: stageID(stage.Order), Type: graph.Task,
-			Agent: stage.Agent, Model: stage.Model, Prompt: stage.Prompt,
+			Profile: stage.Profile, Agent: stage.Agent, Model: stage.Model, Prompt: stage.Prompt,
 			Context: graph.ContextPlaybook, Memory: stage.Memory,
 		}
 		next := ""

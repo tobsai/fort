@@ -158,9 +158,10 @@ struct EventRow: View {
 /// A human-readable message for an error thrown by FortKit or URLSession.
 func errorText(_ error: Error) -> String {
     switch error {
-    case let FortClientError.httpStatus(status, body):
+    case let FortClientError.httpStatus(status, body, requestID):
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "HTTP \(status)" : "HTTP \(status): \(trimmed)"
+        let message = trimmed.isEmpty ? "HTTP \(status)" : "HTTP \(status): \(trimmed)"
+        return requestID.map { "\(message) · Request ID \($0)" } ?? message
     case FortClientError.nonHTTPResponse:
         return "Unexpected non-HTTP response."
     case let urlError as URLError:

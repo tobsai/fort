@@ -24,9 +24,21 @@ import Combine
 public enum FortClientError: Error, Sendable {
     /// The server returned a non-2xx status for a request where that is fatal.
     /// `status` is the HTTP status code; `body` is the (possibly empty) response body.
-    case httpStatus(status: Int, body: String)
+    case httpStatus(status: Int, body: String, requestID: String? = nil)
     /// The response was not an `HTTPURLResponse` (should not happen over HTTP(S)).
     case nonHTTPResponse
+}
+
+extension FortClientError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .httpStatus(let status, _, let requestID):
+            let correlation = requestID.map { " Request ID: \($0)." } ?? ""
+            return "Fort returned HTTP \(status).\(correlation)"
+        case .nonHTTPResponse:
+            return "Fort returned an unexpected non-HTTP response."
+        }
+    }
 }
 
 /// The control-plane client. One instance per base URL; safe to share and
@@ -257,7 +269,11 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         if response.status == 409 {
             return false // no execution plane; caller shows "no execution plane"
         }
-        try Self.throwIfNotOK(status: response.status, data: response.data)
+        try Self.throwIfNotOK(
+            status: response.status,
+            data: response.data,
+            requestID: response.requestID
+        )
         return true
     }
 
@@ -283,6 +299,7 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         let base = baseURL
         let session = self.session
         let decoder = self.decoder
+        let requestID = FortRequestID.make()
 
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -300,12 +317,17 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
                     var request = URLRequest(url: url)
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+                    request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
 
                     let (bytes, response) = try await session.bytes(for: request)
                     if let http = response as? HTTPURLResponse,
                        !(200...299).contains(http.statusCode) {
                         continuation.finish(
-                            throwing: FortClientError.httpStatus(status: http.statusCode, body: "")
+                            throwing: FortClientError.httpStatus(
+                                status: http.statusCode,
+                                body: "",
+                                requestID: requestID
+                            )
                         )
                         return
                     }
@@ -365,44 +387,60 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
         let response = try await perform(path: path, method: "GET", body: nil)
-        try Self.throwIfNotOK(status: response.status, data: response.data)
+        try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
         return try decoder.decode(T.self, from: response.data)
     }
 
     private func post<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
         let response = try await perform(path: path, method: "POST", body: try encoder.encode(body))
-        try Self.throwIfNotOK(status: response.status, data: response.data)
+        try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
         return try decoder.decode(T.self, from: response.data)
     }
 
     private func put<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
         let response = try await perform(path: path, method: "PUT", body: try encoder.encode(body))
-        try Self.throwIfNotOK(status: response.status, data: response.data)
+        try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
         return try decoder.decode(T.self, from: response.data)
     }
 
     private func patch<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
         let response = try await perform(path: path, method: "PATCH", body: try encoder.encode(body))
-        try Self.throwIfNotOK(status: response.status, data: response.data)
+        try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
         return try decoder.decode(T.self, from: response.data)
     }
 
-    private func perform(path: String, method: String, body: Data?) async throws -> (data: Data, status: Int) {
+    private func perform(
+        path: String,
+        method: String,
+        body: Data?
+    ) async throws -> (data: Data, status: Int, requestID: String) {
+        let requestID = FortRequestID.make()
         if let relayTransport {
             return try await relayTransport.request(
                 path: path,
                 method: method,
                 headers: body == nil ? nil : ["Content-Type": "application/json"],
-                body: body
+                body: body,
+                requestID: requestID
             )
         }
-        let request = try makeRequest(path: path, method: method, rawBody: body)
+        let request = try makeRequest(
+            path: path,
+            method: method,
+            rawBody: body,
+            requestID: requestID
+        )
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw FortClientError.nonHTTPResponse }
-        return (data, http.statusCode)
+        return (data, http.statusCode, requestID)
     }
 
-    private func makeRequest(path: String, method: String, rawBody: Data?) throws -> URLRequest {
+    private func makeRequest(
+        path: String,
+        method: String,
+        rawBody: Data?,
+        requestID: String
+    ) throws -> URLRequest {
         // path begins with "/"; strip it so appendingPathComponent joins cleanly
         // regardless of whether baseURL has a trailing slash.
         let relative = path.hasPrefix("/") ? String(path.dropFirst()) : path
@@ -415,6 +453,7 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
         if let rawBody {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = rawBody
@@ -422,10 +461,10 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return request
     }
 
-    private static func throwIfNotOK(status: Int, data: Data) throws {
+    private static func throwIfNotOK(status: Int, data: Data, requestID: String) throws {
         guard (200...299).contains(status) else {
             let body = String(data: data, encoding: .utf8) ?? ""
-            throw FortClientError.httpStatus(status: status, body: body)
+            throw FortClientError.httpStatus(status: status, body: body, requestID: requestID)
         }
     }
 

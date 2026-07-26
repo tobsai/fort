@@ -95,11 +95,11 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
         do {
             machines = try await GatewayService.machines(at: gatewayURL, bearerToken: token)
             errorMessage = nil
-        } catch GatewayRelayError.httpStatus(401, _) {
+        } catch let error as GatewayRelayError where error.statusCode == 401 {
             account.bearerToken = nil
             account.save()
             machines = []
-            errorMessage = "Your gateway session expired. Sign in again."
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }

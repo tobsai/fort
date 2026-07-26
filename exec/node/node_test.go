@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/exec/fake"
 )
@@ -302,5 +304,101 @@ func TestRequestCancellationDoesNotCancelTerminalRun(t *testing.T) {
 	case <-requestDone:
 	case <-time.After(time.Second):
 		t.Fatal("node handler did not return after the terminal stream closed")
+	}
+}
+
+type fakeCapabilityRegistry struct {
+	current       corecap.NodeInventory
+	refreshResult corecap.NodeInventory
+	refreshCalls  int
+}
+
+func (f *fakeCapabilityRegistry) Current() corecap.NodeInventory { return f.current }
+func (f *fakeCapabilityRegistry) Refresh(_ context.Context, request corecap.RecheckRequest) (corecap.NodeInventory, error) {
+	f.refreshCalls++
+	if request.ProtocolVersion != 1 {
+		return corecap.NodeInventory{}, context.Canceled
+	}
+	return f.refreshResult, nil
+}
+
+func TestCapabilityRoutesAreAbsentUnlessRegistryIsWired(t *testing.T) {
+	srv := New(fake.New(), func() string { return "token" })
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("dashboard"))
+	})
+	srv.Register(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/node/capabilities", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want old-node 404", rec.Code)
+	}
+}
+
+func TestCapabilityInventoryAndRecheckRequireMeshAuth(t *testing.T) {
+	inventory := corecap.NodeInventory{
+		ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+		NodeID: "node-1", ObservedAt: time.Unix(1, 0).UTC(),
+		State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
+		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
+		Bindings: []corecap.ExecutionBindingOffer{},
+	}
+	registry := &fakeCapabilityRegistry{current: inventory, refreshResult: inventory}
+	srv := New(fake.New(), func() string { return "token" })
+	srv.UseCapabilities(registry)
+	mux := http.NewServeMux()
+	srv.Register(mux)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/node/capabilities", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated GET = %d, want 401", rec.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/node/capabilities", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d: %s", rec.Code, rec.Body.String())
+	}
+	var got corecap.NodeInventory
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.NodeID != "node-1" || got.Profiles == nil || got.Offers == nil || got.Bindings == nil {
+		t.Fatalf("inventory = %#v", got)
+	}
+
+	body := `{"protocol_version":1,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"]}`
+	req = httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer token")
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || registry.refreshCalls != 1 {
+		t.Fatalf("POST = %d calls=%d body=%s", rec.Code, registry.refreshCalls, rec.Body.String())
+	}
+}
+
+func TestCapabilityRecheckRejectsUnknownFieldsBeforeProbe(t *testing.T) {
+	registry := &fakeCapabilityRegistry{}
+	srv := New(fake.New(), func() string { return "token" })
+	srv.UseCapabilities(registry)
+	mux := http.NewServeMux()
+	srv.Register(mux)
+
+	body := `{"protocol_version":1,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"],"shell":"please"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest || registry.refreshCalls != 0 {
+		t.Fatalf("status=%d calls=%d body=%s", rec.Code, registry.refreshCalls, rec.Body.String())
 	}
 }

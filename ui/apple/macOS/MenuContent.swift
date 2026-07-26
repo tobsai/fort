@@ -260,8 +260,9 @@ struct MenuContent: View {
     /// Turns a `FortClient` error into a short, human line for the footer.
     private func friendly(_ error: Error) -> String {
         switch error {
-        case FortClientError.httpStatus(let status, _):
-            return "Server error (\(status))."
+        case FortClientError.httpStatus(let status, _, let requestID):
+            let correlation = requestID.map { " Request ID \($0)." } ?? ""
+            return "Server error (\(status)).\(correlation)"
         case FortClientError.nonHTTPResponse:
             return "Unexpected response."
         case let urlError as URLError where urlError.code == .cannotConnectToHost

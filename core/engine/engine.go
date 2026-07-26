@@ -6,10 +6,12 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/router"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
@@ -177,6 +179,10 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 		Machine:     machine,
 	}); err != nil {
 		return "", "", err
+	}
+	if requestID := requestid.From(ctx); requestID != "" {
+		data, _ := json.Marshal(map[string]string{"request_id": requestID})
+		_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: "ingress", Data: string(data)})
 	}
 
 	spec := runtime.RunSpec{

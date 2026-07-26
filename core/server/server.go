@@ -12,16 +12,30 @@ import (
 
 	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/engine"
+	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/store"
 )
+
+// RequestEvent is the payload-free ingress trace emitted after one HTTP
+// request. Path excludes the query string.
+type RequestEvent struct {
+	ID       string
+	Method   string
+	Path     string
+	Status   int
+	Duration time.Duration
+}
+
+type RequestObserver func(RequestEvent)
 
 // Deps are the server's collaborators. All are optional for the bare /health
 // server; richer routes require engine + store.
 type Deps struct {
-	Config config.Config
-	Engine *engine.Engine
-	Store  *store.Store
-	Logger *slog.Logger
+	Config          config.Config
+	Engine          *engine.Engine
+	Store           *store.Store
+	Logger          *slog.Logger
+	RequestObserver RequestObserver
 	// Mount optionally adds extra routes (the fort-ui module, wired in by
 	// cmd/fort). core never imports ui — the closure is provided from outside,
 	// preserving the core !-> ui seam.
@@ -50,8 +64,70 @@ func (s *Server) Handler() http.Handler {
 	if s.deps.Mount != nil {
 		s.deps.Mount(mux) // fort-ui routes, injected by cmd/fort
 	}
-	return mux
+	observer := s.deps.RequestObserver
+	if observer == nil {
+		observer = func(event RequestEvent) {
+			s.log.Info("fort request", "request_id", event.ID, "method", event.Method,
+				"path", event.Path, "status", event.Status, "duration", event.Duration)
+		}
+	}
+	return ObserveRequests(mux, observer)
 }
+
+// ObserveRequests adds one canonical correlation ID and emits a payload-free
+// completion event. It is shared by the local listener and the relay mux.
+func ObserveRequests(next http.Handler, observer RequestObserver) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.Header.Get(requestid.Header)
+		if !requestid.Valid(id) {
+			id = requestid.New()
+		}
+		w.Header().Set(requestid.Header, id)
+		wrapped := &requestWriter{ResponseWriter: w}
+		started := time.Now()
+		next.ServeHTTP(wrapped, r.WithContext(requestid.With(r.Context(), id)))
+		status := wrapped.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		if observer != nil {
+			observer(RequestEvent{
+				ID: id, Method: r.Method, Path: r.URL.Path,
+				Status: status, Duration: time.Since(started),
+			})
+		}
+	})
+}
+
+type requestWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *requestWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *requestWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *requestWriter) Flush() {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *requestWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{

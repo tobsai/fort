@@ -527,6 +527,94 @@ func TestWrongTokenRejected(t *testing.T) {
 	}
 }
 
+func TestConnectionObserverReportsDialFailure(t *testing.T) {
+	daemonKey, _ := secure.GenerateKeypair()
+
+	b := newBroker(t, "correct-token")
+	events := make(chan relay.ConnectionEvent, 16)
+	tr := relay.New(http.NewServeMux(), relay.Config{
+		URL: b.url(), Token: "wrong-token", Key: daemonKey, MinBackoff: 20 * time.Millisecond,
+		OnConnectionEvent: func(event relay.ConnectionEvent) { events <- event },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+
+	dialing := waitConnectionEvent(t, events, relay.ConnectionDialing)
+	if dialing.Err != nil || dialing.RetryIn != 0 {
+		t.Fatalf("dialing event = %#v, want no error or retry delay", dialing)
+	}
+	failed := waitConnectionEvent(t, events, relay.ConnectionDialFailed)
+	if failed.Err == nil {
+		t.Fatal("dial failure event has nil error")
+	}
+	if failed.RetryIn <= 0 {
+		t.Fatalf("dial failure retry = %s, want positive", failed.RetryIn)
+	}
+	if strings.Contains(failed.Err.Error(), "wrong-token") {
+		t.Fatal("dial failure exposed the device token")
+	}
+
+	cancel()
+	select {
+	case <-runDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after ctx cancel")
+	}
+}
+
+func TestConnectionObserverReportsConnectedThenDisconnected(t *testing.T) {
+	daemonKey, _ := secure.GenerateKeypair()
+
+	b := newBroker(t, "tok")
+	events := make(chan relay.ConnectionEvent, 16)
+	tr := relay.New(http.NewServeMux(), relay.Config{
+		URL: b.url(), Token: "tok", Key: daemonKey, MinBackoff: 20 * time.Millisecond,
+		OnConnectionEvent: func(event relay.ConnectionEvent) { events <- event },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+
+	b.waitAttach(t)
+	connected := waitConnectionEvent(t, events, relay.ConnectionConnected)
+	if connected.Err != nil || connected.RetryIn != 0 {
+		t.Fatalf("connected event = %#v, want no error or retry delay", connected)
+	}
+
+	b.dropDaemon()
+	disconnected := waitConnectionEvent(t, events, relay.ConnectionDisconnected)
+	if disconnected.Err == nil {
+		t.Fatal("disconnect event has nil error")
+	}
+	if disconnected.RetryIn <= 0 {
+		t.Fatalf("disconnect retry = %s, want positive", disconnected.RetryIn)
+	}
+
+	cancel()
+	select {
+	case <-runDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after ctx cancel")
+	}
+}
+
+func waitConnectionEvent(t *testing.T, events <-chan relay.ConnectionEvent, want relay.ConnectionState) relay.ConnectionEvent {
+	t.Helper()
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case event := <-events:
+			if event.State == want {
+				return event
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for relay connection state %q", want)
+		}
+	}
+}
+
 func roundTrip(t *testing.T, ctx context.Context, b *broker, stream string, key secure.Keypair, daemonPub []byte) {
 	t.Helper()
 	cl := b.newClient(stream)

@@ -21,6 +21,11 @@ import (
 // defaultServiceLabel is the launchd label for the Fort daemon user agent.
 const defaultServiceLabel = "io.tobsai.fort"
 
+const (
+	serviceRestartBootstrapAttempts = 5
+	serviceRestartRetryDelay        = 250 * time.Millisecond
+)
+
 // serviceConfig is the launchd user-agent definition for the Fort daemon.
 type serviceConfig struct {
 	Label   string
@@ -43,6 +48,9 @@ type serviceConfig struct {
 	// PATH of the shell running `fort service install`, so the daemon can run
 	// exactly what the operator can.
 	Path string
+	// CapabilityPlanning preserves an explicit rollout override in launchd.
+	// Empty means use the binary default; "0" is the one-step rollback.
+	CapabilityPlanning string
 }
 
 func plistPath(home, label string) string {
@@ -74,6 +82,9 @@ func renderPlist(sc serviceConfig) string {
 	}
 	if sc.WorkRoot != "" {
 		b.WriteString("    <key>FORT_WORKROOT</key>\n    <string>" + xmlEscape(sc.WorkRoot) + "</string>\n")
+	}
+	if sc.CapabilityPlanning != "" {
+		b.WriteString("    <key>FORT_CAPABILITY_PLANNING</key>\n    <string>" + xmlEscape(sc.CapabilityPlanning) + "</string>\n")
 	}
 	b.WriteString("  </dict>\n")
 	if sc.WorkDir != "" {
@@ -142,11 +153,12 @@ func buildServiceConfig() (serviceConfig, error) {
 		Addr:    cfg.Addr,
 		// Relative config paths resolve against launchd's read-only "/" cwd, so
 		// anchor them to $HOME and give the agent a writable WorkingDirectory.
-		DBPath:   absUnderHome(home, cfg.DBPath),
-		WorkRoot: absUnderHome(home, cfg.WorkRoot),
-		WorkDir:  home,
-		Path:     os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
-		LogDir:   filepath.Join(home, "Library", "Logs", "Fort"),
+		DBPath:             absUnderHome(home, cfg.DBPath),
+		WorkRoot:           absUnderHome(home, cfg.WorkRoot),
+		WorkDir:            home,
+		Path:               os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
+		CapabilityPlanning: os.Getenv("FORT_CAPABILITY_PLANNING"),
+		LogDir:             filepath.Join(home, "Library", "Logs", "Fort"),
 	}, nil
 }
 
@@ -174,7 +186,12 @@ func cmdService(args []string) error {
 	case "stop":
 		return svcStop(sc)
 	case "restart":
-		return svcRestart(sc)
+		if runtime.GOOS == "darwin" {
+			if err := prepareServiceRestart(home, sc); err != nil {
+				return err
+			}
+		}
+		return svcRestart(home, sc)
 	case "status":
 		return svcStatus(sc)
 	case "uninstall":
@@ -182,6 +199,16 @@ func cmdService(args []string) error {
 	default:
 		return fmt.Errorf("usage: fort service <install|start|stop|restart|status|uninstall>; unknown subcommand %q", args[0])
 	}
+}
+
+// prepareServiceRestart refreshes the installed definition before kickstart.
+// This makes an explicit environment rollback take effect on restart instead
+// of silently reusing a stale launchd plist.
+func prepareServiceRestart(home string, sc serviceConfig) error {
+	if err := writePlist(home, sc); err != nil {
+		return fmt.Errorf("service restart: refreshing plist: %w", err)
+	}
+	return nil
 }
 
 func svcInstall(home string, sc serviceConfig) error {
@@ -234,13 +261,50 @@ func svcStop(sc serviceConfig) error {
 	return nil
 }
 
-func svcRestart(sc serviceConfig) error {
+func serviceRestartCommands(home string, sc serviceConfig) [][]string {
+	return [][]string{
+		{"launchctl", "bootout", guiLabelTarget(sc.Label)},
+		{"launchctl", "bootstrap", guiTarget(), plistPath(home, sc.Label)},
+		{"launchctl", "kickstart", guiLabelTarget(sc.Label)},
+	}
+}
+
+type serviceCommandRunner func(command []string) ([]byte, error)
+
+// runServiceRestart tolerates launchd's short teardown window after bootout.
+// On macOS, an immediate bootstrap can transiently fail with errno 5 while the
+// previous job is still leaving the GUI domain. Only that exact bootstrap
+// failure is retried; every other launchctl error still fails closed.
+func runServiceRestart(home string, sc serviceConfig, run serviceCommandRunner, wait func(time.Duration)) error {
+	for index, command := range serviceRestartCommands(home, sc) {
+		for attempt := 1; ; attempt++ {
+			out, err := run(command)
+			if index == 0 && err != nil && (strings.Contains(string(out), "not loaded") || strings.Contains(string(out), "Could not find")) {
+				break
+			}
+			if err == nil {
+				break
+			}
+			if index == 1 &&
+				strings.Contains(string(out), "Bootstrap failed: 5: Input/output error") &&
+				attempt < serviceRestartBootstrapAttempts {
+				wait(serviceRestartRetryDelay)
+				continue
+			}
+			return fmt.Errorf("service restart: %s: %w: %s", strings.Join(command, " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+func svcRestart(home string, sc serviceConfig) error {
 	if runtime.GOOS != "darwin" {
 		return unsupportedOS("restart")
 	}
-	out, err := exec.Command("launchctl", "kickstart", "-k", guiLabelTarget(sc.Label)).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("service restart: launchctl kickstart -k: %w: %s", err, strings.TrimSpace(string(out)))
+	if err := runServiceRestart(home, sc, func(command []string) ([]byte, error) {
+		return exec.Command(command[0], command[1:]...).CombinedOutput()
+	}, time.Sleep); err != nil {
+		return err
 	}
 	fmt.Println("service restart: restarted", sc.Label)
 	return nil

@@ -95,6 +95,7 @@ export interface DeckPlaybookTrigger {
 
 export interface DeckPlaybookAssignment {
   task_type?: string;
+  profile?: string;
   agent: string;
   model?: string;
 }
@@ -112,6 +113,7 @@ export interface DeckResolvedStage {
   order: number;
   name: string;
   prompt?: string;
+  profile?: string;
   agent: string;
   model?: string;
   memory?: boolean;

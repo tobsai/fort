@@ -287,7 +287,7 @@ func toCoreResolvedRoute(in ui.RoutePreview) playbook.ResolvedRoute {
 	for _, stage := range in.Stages {
 		out.Stages = append(out.Stages, playbook.ResolvedStage{
 			Order: stage.Order, Name: stage.Name, Prompt: stage.Prompt,
-			Agent: stage.Agent, Model: stage.Model, Memory: stage.Memory,
+			Profile: stage.Profile, Agent: stage.Agent, Model: stage.Model, Memory: stage.Memory,
 		})
 	}
 	return out

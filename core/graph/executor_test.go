@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/exec/fake"
@@ -21,6 +22,25 @@ func newExec(t *testing.T) (*Executor, *store.Store, *fake.Runtime) {
 	t.Cleanup(func() { st.Close() })
 	rt := fake.New()
 	return NewExecutor(rt, st), st, rt
+}
+
+func TestStartPersistsIngressRequestIDBeforeFlowWork(t *testing.T) {
+	ex, st, _ := newExec(t)
+	const id = "018f3f1c-7d3a-7c1d-a176-9c52c606c6e4"
+	ctx := requestid.With(context.Background(), id)
+	_, err := ex.Start(ctx, Flow{ID: "trace", Start: "step", Nodes: []Node{{
+		ID: "step", Type: Transform, Transform: &TransformSpec{Op: "identity"},
+	}}}, "trace-run", "payload")
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := st.Events("trace-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) == 0 || events[0].Type != "ingress" || events[0].Data != `{"request_id":"`+id+`"}` {
+		t.Fatalf("events=%+v", events)
+	}
 }
 
 func nodeStatus(t *testing.T, st *store.Store, runID, nodeID string) (string, bool) {
@@ -648,7 +668,7 @@ func TestPlaybookTaskUsesDeterministicPlacement(t *testing.T) {
 	f := Flow{
 		ID: "placed-playbook", Name: "Placed playbook", Start: "design",
 		Nodes: []Node{{
-			ID: "design", Type: Task, Agent: "openclaw", Context: ContextPlaybook,
+			ID: "design", Type: Task, Profile: "openclaw:main", Agent: "openclaw", Context: ContextPlaybook,
 		}},
 	}
 
@@ -663,8 +683,8 @@ func TestPlaybookTaskUsesDeterministicPlacement(t *testing.T) {
 		t.Fatalf("placement calls = %v, want [openclaw@]", placer.calls)
 	}
 	got := rt.Dispatched()
-	if len(got) != 1 || got[0].Machine != "mac-mini" {
-		t.Fatalf("dispatched = %+v, want machine mac-mini", got)
+	if len(got) != 1 || got[0].Profile != "openclaw:main" || got[0].Machine != "mac-mini" {
+		t.Fatalf("dispatched = %+v, want exact profile on machine mac-mini", got)
 	}
 	events, err := st.Events("placed-run")
 	if err != nil {

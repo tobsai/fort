@@ -2,12 +2,17 @@ package control
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/tobsai/fort/core/graph"
+	"github.com/tobsai/fort/core/playbook"
 	"github.com/tobsai/fort/core/runtime"
+	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/ui"
 )
@@ -21,6 +26,199 @@ func playbookByID(t *testing.T, items []ui.Playbook, id string) ui.Playbook {
 	}
 	t.Fatalf("playbook %q not found in %+v", id, items)
 	return ui.Playbook{}
+}
+
+func legacyDefaultPlaybooks(t *testing.T) []ui.Playbook {
+	t.Helper()
+	definitions := playbook.LegacyDefaultCatalogRevision1().Playbooks
+	items := make([]ui.Playbook, 0, len(definitions))
+	for _, definition := range definitions {
+		items = append(items, toUIPlaybook(definition))
+	}
+	return items
+}
+
+func interimDefaultPlaybooks(t *testing.T) []ui.Playbook {
+	t.Helper()
+	definitions := playbook.InterimConfiguredDefaultCatalog().Playbooks
+	items := make([]ui.Playbook, 0, len(definitions))
+	for _, definition := range definitions {
+		items = append(items, toUIPlaybook(definition))
+	}
+	return items
+}
+
+func seedPlaybookDefinitions(t *testing.T, st *store.Store, items []ui.Playbook) {
+	t.Helper()
+	rows := make([]store.PlaybookRevision, 0, len(items))
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows = append(rows, store.PlaybookRevision{ID: item.ID, Revision: item.Revision, Data: string(data)})
+	}
+	if err := st.SeedPlaybookRevisions(rows); err != nil {
+		t.Fatalf("seed legacy defaults: %v", err)
+	}
+}
+
+func TestPlaybookCatalogMigratesUntouchedLegacyDefaultsOnce(t *testing.T) {
+	st := newStore(t)
+	seedPlaybookDefinitions(t, st, legacyDefaultPlaybooks(t))
+	interimQuick := playbookByID(t, interimDefaultPlaybooks(t), "quick-answer")
+	interimQuick.Revision = 2
+	data, err := json.Marshal(interimQuick)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.SavePlaybookRevisionIfLatest(interimQuick.ID, 1, string(data)); err != nil {
+		t.Fatalf("append interim quick answer: %v", err)
+	}
+	originalRows := map[string]string{}
+	for _, key := range []struct {
+		id       string
+		revision int
+	}{
+		{"quick-answer", 1}, {"quick-answer", 2}, {"bug-fix", 1}, {"feature-work", 1}, {"research", 1},
+	} {
+		row, err := st.PlaybookRevision(key.id, key.revision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		originalRows[fmt.Sprintf("%s/%d", key.id, key.revision)] = row.Data
+	}
+
+	cat := NewPlaybookCatalog(st)
+	items, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatalf("list migrated defaults: %v", err)
+	}
+	for _, id := range []string{"quick-answer", "bug-fix", "feature-work"} {
+		item := playbookByID(t, items, id)
+		wantRevision := 2
+		if id == "quick-answer" {
+			wantRevision = 3
+		}
+		if item.Revision != wantRevision {
+			t.Errorf("%s revision = %d, want deliberate revision %d", id, item.Revision, wantRevision)
+		}
+		got := item.Stages[0].Assignments[0]
+		if got.Profile != "codex:gpt-5.5" || got.Agent != "codex" || got.Model != "gpt-5.5" {
+			t.Errorf("%s migrated assignment = %+v, want exact codex:gpt-5.5", id, got)
+		}
+		prior, err := st.PlaybookRevision(id, 1)
+		if err != nil {
+			t.Fatalf("load %s revision 1: %v", id, err)
+		}
+		legacy, err := decodePlaybookRevision(prior)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := legacy.Stages[0].Assignments[0]; got.Agent != "hermes" || got.Model != "Codex 5.6 Sol" {
+			t.Errorf("%s immutable revision 1 = %+v", id, got)
+		}
+	}
+	interimRow, err := st.PlaybookRevision("quick-answer", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	interim, err := decodePlaybookRevision(interimRow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := interim.Stages[0].Assignments[0]; got.Profile != "" || got.Agent != "codex" || got.Model != "" {
+		t.Errorf("immutable quick-answer revision 2 = %+v", got)
+	}
+	if got := playbookByID(t, items, "research"); got.Revision != 1 {
+		t.Errorf("unchanged research revision = %d, want 1", got.Revision)
+	}
+	for key, want := range originalRows {
+		parts := strings.Split(key, "/")
+		revision, err := strconv.Atoi(parts[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		row, err := st.PlaybookRevision(parts[0], revision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if row.Data != want {
+			t.Errorf("immutable row %s changed", key)
+		}
+	}
+
+	beforeRestart, err := st.LatestPlaybookRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted := NewPlaybookCatalog(st)
+	if _, err := restarted.List(context.Background()); err != nil {
+		t.Fatalf("list after restart: %v", err)
+	}
+	afterRestart, err := st.LatestPlaybookRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(beforeRestart, afterRestart) {
+		t.Fatalf("migration was not idempotent:\nbefore=%+v\nafter=%+v", beforeRestart, afterRestart)
+	}
+}
+
+func TestPlaybookCatalogMigratesInterimRevisionOneDefaults(t *testing.T) {
+	st := newStore(t)
+	seedPlaybookDefinitions(t, st, interimDefaultPlaybooks(t))
+
+	items, err := NewPlaybookCatalog(st).List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"quick-answer", "bug-fix", "feature-work"} {
+		got := playbookByID(t, items, id)
+		if got.Revision != 2 || got.Stages[0].Assignments[0].Profile != "codex:gpt-5.5" {
+			t.Errorf("%s interim migration = %+v", id, got)
+		}
+	}
+	if got := playbookByID(t, items, "research"); got.Revision != 1 {
+		t.Errorf("research revision = %d, want 1", got.Revision)
+	}
+}
+
+func TestPlaybookCatalogMigrationPreservesUserEditedDefaults(t *testing.T) {
+	st := newStore(t)
+	legacy := legacyDefaultPlaybooks(t)
+	for i := range legacy {
+		if legacy[i].ID == "bug-fix" {
+			legacy[i].Name = "My bug workflow"
+		}
+	}
+	seedPlaybookDefinitions(t, st, legacy)
+
+	quick := playbookByID(t, legacy, "quick-answer")
+	quick.Name = "My quick answers"
+	quick.Revision = 2
+	data, err := json.Marshal(quick)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.SavePlaybookRevisionIfLatest(quick.ID, 1, string(data)); err != nil {
+		t.Fatalf("append user revision: %v", err)
+	}
+
+	cat := NewPlaybookCatalog(st)
+	items, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got := playbookByID(t, items, "quick-answer"); got.Revision != 2 || got.Name != "My quick answers" || got.Stages[0].Assignments[0].Agent != "hermes" {
+		t.Errorf("user revision 2 was overwritten: %+v", got)
+	}
+	if got := playbookByID(t, items, "bug-fix"); got.Revision != 1 || got.Name != "My bug workflow" || got.Stages[0].Assignments[0].Agent != "hermes" {
+		t.Errorf("edited revision 1 was overwritten: %+v", got)
+	}
+	if got := playbookByID(t, items, "feature-work"); got.Revision != 2 || got.Stages[0].Assignments[0].Profile != "codex:gpt-5.5" {
+		t.Errorf("untouched legacy default was not migrated: %+v", got)
+	}
 }
 
 func TestPlaybookCatalogSeedsImmutableDefaultsAndPreservesDescriptions(t *testing.T) {
@@ -88,6 +286,27 @@ func TestPlaybookCatalogValidatesBeforeAppending(t *testing.T) {
 	}
 }
 
+func TestPlaybookCatalogRejectsClientThatDropsFirstClassProfile(t *testing.T) {
+	st := newStore(t)
+	cat := NewPlaybookCatalog(st)
+	items, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	quick := playbookByID(t, items, "quick-answer")
+	quick.Stages[0].Assignments[0].Profile = ""
+	if _, err := cat.Save(context.Background(), quick); err == nil || !strings.Contains(err.Error(), "profile is required") {
+		t.Fatalf("lossy client save error = %v", err)
+	}
+	latest, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := playbookByID(t, latest, "quick-answer"); got.Revision != 1 {
+		t.Fatalf("lossy client appended revision %d", got.Revision)
+	}
+}
+
 func TestPlaybookCatalogRejectsStaleWholeDocumentSave(t *testing.T) {
 	cat := NewPlaybookCatalog(newStore(t))
 	items, err := cat.List(context.Background())
@@ -142,6 +361,7 @@ func TestPlaybookCatalogRoutesExactRevisionWithPlanGateOverride(t *testing.T) {
 	}
 	updated := playbookByID(t, items, "feature-work")
 	updated.Name = "Changed later"
+	updated.Stages[0].Assignments[0].Profile = ""
 	updated.Stages[0].Assignments[0].Model = "new-model"
 	if _, err := cat.Save(context.Background(), updated); err != nil {
 		t.Fatalf("save revision 2: %v", err)
@@ -165,8 +385,8 @@ func TestPlaybookCatalogRoutesExactRevisionWithPlanGateOverride(t *testing.T) {
 	if first.PlaybookRevision != 1 || first.PlaybookName != "Feature work" || first.TaskType != "bug" || first.Source != "manual" || first.PlanGate {
 		t.Fatalf("route = %+v", first)
 	}
-	if first.Stages[0].Model != "Codex 5.6 Sol" {
-		t.Fatalf("route used edited revision model %q", first.Stages[0].Model)
+	if first.Stages[0].Profile != "codex:gpt-5.5" || first.Stages[0].Agent != "codex" || first.Stages[0].Model != "gpt-5.5" {
+		t.Fatalf("route used edited revision assignment %+v", first.Stages[0])
 	}
 	latest, err := st.LatestPlaybookRevisions()
 	if err != nil {

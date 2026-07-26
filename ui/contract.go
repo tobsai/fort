@@ -26,6 +26,8 @@
 //	GET  /api/events[?since=N]      -> text/event-stream of Event frames
 package ui
 
+import corecap "github.com/tobsai/fort/core/capability"
+
 // Event is the wire form of one append-only event-log row (the live-feed unit).
 type Event struct {
 	ID     int64  `json:"id"`
@@ -69,6 +71,13 @@ type MachineStatus struct {
 	Agents    []string `json:"agents"`
 	Local     bool     `json:"local"`
 	Reachable bool     `json:"reachable"`
+}
+
+// CapabilitiesResponse is the current capability inventory generation. The
+// snapshot contains only the closed public projection defined by spec 039.
+type CapabilitiesResponse struct {
+	Generation uint64           `json:"generation"`
+	Snapshot   corecap.Snapshot `json:"snapshot"`
 }
 
 // NodeSummary is a node's state within a run.
@@ -134,10 +143,12 @@ type ChatResult struct {
 	PlaybookRevision int    `json:"playbook_revision,omitempty"`
 }
 
-// PlaybookAssignment chooses the agent + model for a task-type branch. An
-// empty TaskType is the required default branch for that stage.
+// PlaybookAssignment chooses an exact Fort-owned profile for a task-type
+// branch. Agent/model remain as derived wire fields and preserve legacy saved
+// revisions. An empty TaskType is the required default branch for that stage.
 type PlaybookAssignment struct {
 	TaskType string `json:"task_type,omitempty"`
+	Profile  string `json:"profile,omitempty"`
 	Agent    string `json:"agent"`
 	Model    string `json:"model,omitempty"`
 }
@@ -185,12 +196,13 @@ type RouteRequest struct {
 
 // ResolvedPlaybookStage is the one selected branch for a stage.
 type ResolvedPlaybookStage struct {
-	Order  int    `json:"order"`
-	Name   string `json:"name"`
-	Prompt string `json:"prompt,omitempty"`
-	Agent  string `json:"agent"`
-	Model  string `json:"model,omitempty"`
-	Memory bool   `json:"memory,omitempty"`
+	Order   int    `json:"order"`
+	Name    string `json:"name"`
+	Prompt  string `json:"prompt,omitempty"`
+	Profile string `json:"profile,omitempty"`
+	Agent   string `json:"agent"`
+	Model   string `json:"model,omitempty"`
+	Memory  bool   `json:"memory,omitempty"`
 }
 
 // RoutePreview is the immutable route card shown before handoff.

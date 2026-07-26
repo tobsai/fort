@@ -3,7 +3,8 @@
 // (exec/relay/secure), and sealed HTTP/SSE service against an injected
 // http.Handler — the transport never imports ui (seam: it moves bytes).
 //
-// Config{URL, Token, Key, MinBackoff}; New(handler, cfg) *Transport;
+// Config{URL, Token, Key, MinBackoff, OnConnectionEvent};
+// New(handler, cfg) *Transport;
 // (t *Transport) Run(ctx) error — reconnect loop with exponential backoff
 // (MinBackoff..30s, jittered) until ctx is done.
 //
@@ -46,10 +47,30 @@ import (
 
 // Config configures the outbound tunnel.
 type Config struct {
-	URL        string         // broker WebSocket URL (e.g. wss://gw/tunnel)
-	Token      string         // device token, sent as Authorization: Bearer
-	Key        secure.Keypair // this daemon's pinned static identity
-	MinBackoff time.Duration  // reconnect backoff floor (default 1s)
+	URL               string         // broker WebSocket URL (e.g. wss://gw/tunnel)
+	Token             string         // device token, sent as Authorization: Bearer
+	Key               secure.Keypair // this daemon's pinned static identity
+	MinBackoff        time.Duration  // reconnect backoff floor (default 1s)
+	OnConnectionEvent func(ConnectionEvent)
+}
+
+// ConnectionState is one observable transition in the outbound relay socket.
+type ConnectionState string
+
+const (
+	ConnectionDialing      ConnectionState = "dialing"
+	ConnectionConnected    ConnectionState = "connected"
+	ConnectionDialFailed   ConnectionState = "dial_failed"
+	ConnectionDisconnected ConnectionState = "disconnected"
+)
+
+// ConnectionEvent reports connection lifecycle without exposing the relay URL,
+// device token, or application payloads. RetryIn is set only for failures that
+// will be retried. The callback runs synchronously and should return quickly.
+type ConnectionEvent struct {
+	State   ConnectionState
+	Err     error
+	RetryIn time.Duration
 }
 
 // Transport maintains one outbound WebSocket, serving handler through it.
@@ -77,17 +98,24 @@ func (t *Transport) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		connected, _ := t.dialAndServe(ctx)
+		t.observe(ConnectionEvent{State: ConnectionDialing})
+		connected, err := t.dialAndServe(ctx)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		if connected {
 			backoff = min // a real connection resets the schedule
 		}
+		retryIn := jitter(backoff)
+		state := ConnectionDialFailed
+		if connected {
+			state = ConnectionDisconnected
+		}
+		t.observe(ConnectionEvent{State: state, Err: err, RetryIn: retryIn})
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(jitter(backoff)):
+		case <-time.After(retryIn):
 		}
 		if backoff < maxBackoff {
 			backoff *= 2
@@ -108,6 +136,7 @@ func (t *Transport) dialAndServe(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	ws.SetReadLimit(1 << 22) // 4 MiB frames
+	t.observe(ConnectionEvent{State: ConnectionConnected})
 
 	connCtx, cancel := context.WithCancel(ctx)
 	c := &conn{
@@ -124,6 +153,12 @@ func (t *Transport) dialAndServe(ctx context.Context) (bool, error) {
 	ws.CloseNow()    // unblock any pending socket writes
 	c.wg.Wait()      // let handler goroutines finish before we return
 	return true, err // established, so caller resets backoff
+}
+
+func (t *Transport) observe(event ConnectionEvent) {
+	if t.cfg.OnConnectionEvent != nil {
+		t.cfg.OnConnectionEvent(event)
+	}
 }
 
 // conn is the per-socket state: sessions, request cancels, serialized writes.

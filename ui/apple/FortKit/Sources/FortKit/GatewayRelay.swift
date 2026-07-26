@@ -22,13 +22,77 @@ public struct GatewayMachine: Codable, Sendable, Identifiable, Hashable {
     }
 }
 
+/// Correlation identifiers shared by direct and gateway-backed Fort requests.
+/// UUID strings are normalized before use so the Go ingress accepts them as
+/// canonical request IDs rather than replacing them at the server boundary.
+public enum FortRequestID {
+    public static let header = "X-Fort-Request-ID"
+
+    public static func make() -> String {
+        UUID().uuidString.lowercased()
+    }
+
+    public static func canonical(_ candidate: String? = nil) -> String {
+        guard let candidate, let uuid = UUID(uuidString: candidate) else { return make() }
+        return uuid.uuidString.lowercased()
+    }
+}
+
 public enum GatewayRelayError: Error, Sendable {
     case invalidMachineKey
     case invalidGatewayResponse
     case missingFrame
     case wrongFrame(expected: String, actual: String)
     case httpStatus(Int, String)
+    case requestFailed(requestID: String, status: Int?, message: String)
     case fingerprintChanged(expected: String, actual: String)
+
+    public var statusCode: Int? {
+        switch self {
+        case .httpStatus(let status, _):
+            return status
+        case .requestFailed(_, let status, _):
+            return status
+        default:
+            return nil
+        }
+    }
+
+    fileprivate static func correlated(_ error: Error, requestID: String) -> GatewayRelayError {
+        if let gatewayError = error as? GatewayRelayError {
+            if case let .requestFailed(_, status, message) = gatewayError {
+                return .requestFailed(requestID: requestID, status: status, message: message)
+            }
+            let message: String
+            switch gatewayError {
+            case .httpStatus(let status, _):
+                if status == 401 {
+                    message = "Your gateway session expired. Sign in again."
+                } else if status == 403 {
+                    message = "This account is not allowed to use the Fort gateway."
+                } else if status == 502 || status == 503 || status == 504 {
+                    message = "The selected Fort is temporarily unavailable (gateway \(status)). Try again."
+                } else {
+                    message = "The Fort gateway returned HTTP \(status)."
+                }
+            default:
+                message = gatewayError.localizedDescription
+            }
+            return .requestFailed(requestID: requestID, status: gatewayError.statusCode, message: message)
+        }
+        if let urlError = error as? URLError {
+            return .requestFailed(
+                requestID: requestID,
+                status: nil,
+                message: "The Fort gateway request failed (network error \(urlError.code.rawValue))."
+            )
+        }
+        return .requestFailed(
+            requestID: requestID,
+            status: nil,
+            message: "The Fort gateway request failed."
+        )
+    }
 }
 
 extension GatewayRelayError: LocalizedError {
@@ -55,6 +119,8 @@ extension GatewayRelayError: LocalizedError {
                 return "The selected Fort is temporarily unavailable (gateway \(status)).\(suffix) Try again."
             }
             return "The Fort gateway returned HTTP \(status).\(suffix)"
+        case .requestFailed(let requestID, _, let message):
+            return "\(message) Request ID: \(requestID)."
         case .fingerprintChanged:
             return "The selected Fort's encrypted identity changed. Verify its fingerprint before reconnecting."
         }
@@ -108,15 +174,23 @@ public enum GatewayService {
         bearerToken: String,
         session: URLSession = .shared
     ) async throws -> [GatewayMachine] {
+        let requestID = FortRequestID.make()
         var request = URLRequest(url: gatewayURL.appendingPathComponent("api/machines"))
         request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw GatewayRelayError.invalidGatewayResponse }
-        guard (200...299).contains(http.statusCode) else {
-            throw GatewayRelayError.httpStatus(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw GatewayRelayError.invalidGatewayResponse }
+            guard (200...299).contains(http.statusCode) else {
+                throw GatewayRelayError.httpStatus(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+            }
+            return try JSONDecoder().decode(GatewayMachinesResponse.self, from: data).machines
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw GatewayRelayError.correlated(error, requestID: requestID)
         }
-        return try JSONDecoder().decode(GatewayMachinesResponse.self, from: data).machines
     }
 }
 
@@ -197,25 +271,36 @@ public final class GatewayRelayTransport: @unchecked Sendable {
         path: String,
         method: String = "GET",
         headers: [String: String]? = nil,
-        body: Data? = nil
-    ) async throws -> (data: Data, status: Int) {
-        let tunnel = try await connectedTunnel()
+        body: Data? = nil,
+        requestID: String = FortRequestID.make()
+    ) async throws -> (data: Data, status: Int, requestID: String) {
+        let requestID = FortRequestID.canonical(requestID)
+        var tunnel: RelayTunnel?
         do {
-            let response = try await tunnel.fetch(path: path, method: method, headers: headers, body: body)
-            await tunnel.close()
-            return (response.body ?? Data(), response.status)
+            let connected = try await connectedTunnel(requestID: requestID)
+            tunnel = connected
+            let response = try await connected.fetch(path: path, method: method, headers: headers, body: body)
+            await connected.close()
+            return (response.body ?? Data(), response.status, requestID)
+        } catch is CancellationError {
+            if let tunnel { await tunnel.close() }
+            throw CancellationError()
         } catch {
-            await tunnel.close()
-            throw error
+            if let tunnel { await tunnel.close() }
+            throw GatewayRelayError.correlated(error, requestID: requestID)
         }
     }
 
-    public func events(path: String) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { continuation in
+    public func events(
+        path: String,
+        requestID: String = FortRequestID.make()
+    ) -> AsyncThrowingStream<Data, Error> {
+        let requestID = FortRequestID.canonical(requestID)
+        return AsyncThrowingStream { continuation in
             let task = Task {
                 var tunnel: RelayTunnel?
                 do {
-                    let connected = try await connectedTunnel()
+                    let connected = try await connectedTunnel(requestID: requestID)
                     tunnel = connected
                     try await connected.stream(path: path) { continuation.yield($0) }
                     await connected.close()
@@ -225,21 +310,24 @@ public final class GatewayRelayTransport: @unchecked Sendable {
                     continuation.finish()
                 } catch {
                     if let tunnel { await tunnel.close() }
-                    continuation.finish(throwing: error)
+                    continuation.finish(
+                        throwing: GatewayRelayError.correlated(error, requestID: requestID)
+                    )
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
-    private func connectedTunnel() async throws -> RelayTunnel {
+    private func connectedTunnel(requestID: String) async throws -> RelayTunnel {
         try await GatewayRelayRetry.handshake {
             let tunnel = RelayTunnel(
                 gatewayURL: gatewayURL,
                 bearerToken: bearerToken,
                 machineID: machineID,
                 machinePublicKey: machinePublicKey,
-                urlSession: session
+                urlSession: session,
+                requestID: requestID
             )
             do {
                 try await tunnel.connect()
@@ -258,17 +346,26 @@ private final class RelayTunnel: @unchecked Sendable {
     private let machineID: String
     private let machinePublicKey: Data
     private let urlSession: URLSession
+    private let requestID: String
     private let streamID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     private var noise: RelayNoiseInitiator?
     private var transport: RelayNoiseSession?
     private var started = false
 
-    init(gatewayURL: URL, bearerToken: String, machineID: String, machinePublicKey: Data, urlSession: URLSession) {
+    init(
+        gatewayURL: URL,
+        bearerToken: String,
+        machineID: String,
+        machinePublicKey: Data,
+        urlSession: URLSession,
+        requestID: String
+    ) {
         self.gatewayURL = gatewayURL
         self.bearerToken = bearerToken
         self.machineID = machineID
         self.machinePublicKey = machinePublicKey
         self.urlSession = urlSession
+        self.requestID = requestID
     }
 
     func connect() async throws {
@@ -285,7 +382,11 @@ private final class RelayTunnel: @unchecked Sendable {
 
     func fetch(path: String, method: String, headers: [String: String]?, body: Data?) async throws -> RelayResponsePayload {
         guard let transport else { throw RelaySecurityError.handshakeIncomplete }
-        let payload = RelayRequestPayload(id: randomID(), method: method, path: path, headers: headers, body: body)
+        var requestHeaders = headers ?? [:]
+        requestHeaders[FortRequestID.header] = requestID
+        let payload = RelayRequestPayload(
+            id: randomID(), method: method, path: path, headers: requestHeaders, body: body
+        )
         let plaintext = try JSONEncoder().encode(payload)
         let replies = try await post(frame: GatewayFrame(stream: streamID, kind: "req", data: try transport.seal(plaintext)))
         guard let reply = replies.first else { throw GatewayRelayError.missingFrame }
@@ -296,7 +397,11 @@ private final class RelayTunnel: @unchecked Sendable {
         guard let transport else { throw RelaySecurityError.handshakeIncomplete }
         let payload = RelayRequestPayload(
             id: randomID(), method: "GET", path: path,
-            headers: ["Accept": "text/event-stream"], body: nil
+            headers: [
+                "Accept": "text/event-stream",
+                FortRequestID.header: requestID,
+            ],
+            body: nil
         )
         let frame = GatewayFrame(stream: streamID, kind: "req", data: try transport.seal(JSONEncoder().encode(payload)))
         var request = try gatewayRequest(path: "api/sse", frame: frame)
@@ -348,6 +453,7 @@ private final class RelayTunnel: @unchecked Sendable {
         request.httpMethod = "POST"
         request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
         request.httpBody = try JSONEncoder().encode(GatewayFrameRequest(machineID: machineID, frame: frame))
         return request
     }

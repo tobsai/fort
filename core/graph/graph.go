@@ -70,6 +70,7 @@ type TransformSpec struct {
 type Node struct {
 	ID        string         `yaml:"id" json:"id"`
 	Type      NodeType       `yaml:"type" json:"type"`
+	Profile   string         `yaml:"profile,omitempty" json:"profile,omitempty"`     // task
 	Agent     string         `yaml:"agent,omitempty" json:"agent,omitempty"`         // task
 	Model     string         `yaml:"model,omitempty" json:"model,omitempty"`         // task
 	Prompt    string         `yaml:"prompt,omitempty" json:"prompt,omitempty"`       // task
