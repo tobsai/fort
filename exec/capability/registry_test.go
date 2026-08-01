@@ -155,7 +155,7 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(inventory.Profiles) != 9 || len(inventory.Offers) != 2 || len(inventory.Bindings) != 15 {
+	if len(inventory.Profiles) != 11 || len(inventory.Offers) != 2 || len(inventory.Bindings) != 21 {
 		t.Fatalf("inventory sizes = profiles:%d offers:%d bindings:%d", len(inventory.Profiles), len(inventory.Offers), len(inventory.Bindings))
 	}
 	if inventory.State != corecap.MachineReady || inventory.Reason != "" {
@@ -164,7 +164,7 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 	if prober.maxActive > 2 {
 		t.Fatalf("max concurrent probes = %d, want <=2", prober.maxActive)
 	}
-	for _, adapter := range allAdapterIDs(corecap.CatalogV1()) {
+	for _, adapter := range allAdapterIDs(corecap.CatalogV2()) {
 		if got := prober.maximumForAdapter(adapter); got > 1 {
 			t.Fatalf("adapter %s ran %d probes concurrently, want <=1", adapter, got)
 		}

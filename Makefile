@@ -30,10 +30,10 @@ apple-project: ## generate ui/apple/Fort.xcodeproj from project.yml (needs xcode
 
 apple-build: apple-project ## compile-verify FortKit + all Apple client targets (unsigned)
 	cd ui/apple/FortKit && swift build
-	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme Fort -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
+	# Do not force an iOS SDK: Fort embeds watchOS targets, so Xcode must select
+	# the matching simulator SDK for each dependency from the destination.
+	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortMac -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO | tail -1
-	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortWatch -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
-	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortComplication -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
 
 # --- FortMac signed + notarized DMG (spec 032) ---------------------------------
 # Operator runbook-as-Makefile. This CANNOT run in CI: signing, notarization and

@@ -81,3 +81,15 @@ func TestLiveSwapAndNilPlace(t *testing.T) {
 		t.Fatal("Load lost registry")
 	}
 }
+
+func TestLiveAcceptsExplicitLocalPinWithoutRegistry(t *testing.T) {
+	var l Live
+	l.SetLocal("tobiass.macbook.pro.lan")
+	got, err := l.Place("codex", "TOBIASS.MACBOOK.PRO.LAN")
+	if err != nil || got != "tobiass.macbook.pro.lan" {
+		t.Fatalf("local pin = %q, %v", got, err)
+	}
+	if _, err := l.Place("codex", "some-other-machine"); err == nil {
+		t.Fatal("non-local pin with no registry must still error")
+	}
+}

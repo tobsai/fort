@@ -76,14 +76,14 @@ type codexSchemaExpectation struct {
 	experimental codexBundleExpectation
 }
 
-var codexSchemaV1Expectation = codexSchemaExpectation{
+var codexSchemaV2Expectation = codexSchemaExpectation{
 	normal: codexBundleExpectation{
 		digest: codexNormalSchemaDigest,
-		files:  267,
+		files:  273,
 	},
 	experimental: codexBundleExpectation{
 		digest: codexExperimentalSchemaDigest,
-		files:  337,
+		files:  347,
 	},
 }
 
@@ -92,11 +92,11 @@ type CodexSchemaContractVerifier struct {
 	expectation codexSchemaExpectation
 }
 
-// NewCodexSchemaContractVerifier constructs the catalog-v1 production
+// NewCodexSchemaContractVerifier constructs the catalog-v2 production
 // verifier. Verify must succeed before its contract is supplied to the live
 // app-server inspector.
 func NewCodexSchemaContractVerifier(resolver *CommandResolver) *CodexSchemaContractVerifier {
-	return newCodexSchemaContractVerifier(ResolverCodexSchemaGenerator{Resolver: resolver}, codexSchemaV1Expectation)
+	return newCodexSchemaContractVerifier(ResolverCodexSchemaGenerator{Resolver: resolver}, codexSchemaV2Expectation)
 }
 
 func newCodexSchemaContractVerifier(generator CodexSchemaGenerator, expectation codexSchemaExpectation) *CodexSchemaContractVerifier {

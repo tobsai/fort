@@ -2,9 +2,14 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	corecap "github.com/tobsai/fort/core/capability"
+	"github.com/tobsai/fort/core/conversation"
+	"github.com/tobsai/fort/core/scheduler"
+	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
+	coretoday "github.com/tobsai/fort/core/today"
 )
 
 // The ui module talks to the rest of Fort only through these ports. This is
@@ -27,6 +32,13 @@ type Dispatcher interface {
 	Submit(ctx context.Context, t task.Task) (RunRef, error)
 }
 
+// AcceptedDispatcher durably boards a routed run before provider startup and
+// returns without waiting for Dispatch. HTTP handlers prefer this optional seam
+// so slow provider preflight cannot hold a gateway request open.
+type AcceptedDispatcher interface {
+	Accept(ctx context.Context, t task.Task) (RunRef, error)
+}
+
 // MachineLister reports the machine roster + reachability for the control plane
 // (GET /api/machines, spec 022). It is nil in single-machine mode, in which case
 // the endpoint returns an empty roster. Implemented by package control.
@@ -38,6 +50,34 @@ type MachineLister interface {
 // snapshot. Refresh and probing stay behind control/exec adapters.
 type CapabilityLister interface {
 	Capabilities() (corecap.Snapshot, uint64)
+}
+
+type ConversationPort interface {
+	ConversationSeats(context.Context) ([]conversation.Seat, error)
+	ListProjects(context.Context) ([]conversation.Project, error)
+	CreateProject(context.Context, string) (conversation.Project, error)
+	RenameProject(context.Context, string, string) error
+	DeleteProject(context.Context, string) error
+	ListConversations(context.Context, string) ([]conversation.Conversation, error)
+	GetConversation(context.Context, string) (store.ConversationDetail, error)
+	CreateConversation(context.Context, string, string, []string) (store.ConversationDetail, error)
+	AddConversationParticipant(context.Context, string, string) (conversation.Participant, error)
+	MoveConversation(context.Context, string, string) error
+	RenameConversation(context.Context, string, string) error
+	SetConversationState(context.Context, string, conversation.ConversationState) error
+	DeleteConversation(context.Context, string) error
+	RemoveConversationParticipant(context.Context, string, string) error
+	PostTurn(context.Context, string, string, string, []string) (conversation.TurnResult, error)
+	RetryTarget(context.Context, string) (conversation.Target, error)
+	CancelTarget(context.Context, string) error
+}
+
+type TodayPort interface {
+	Today(context.Context, time.Time, *time.Location) (coretoday.View, error)
+}
+
+type SchedulePort interface {
+	Create(context.Context, scheduler.Definition) error
 }
 
 // RunResult is a flow run's state after a Start/Resume.
@@ -64,6 +104,14 @@ type FlowRunner interface {
 	Plan(flowID string) []FlowNode
 }
 
+// AcceptedFlowRunner is the asynchronous HTTP seam for flows. Start persists
+// the run before returning; Resume validates the existing run before scheduling
+// exactly one detached continuation.
+type AcceptedFlowRunner interface {
+	StartFlowAsync(ctx context.Context, flowID, runID, payload string) (RunResult, error)
+	ResumeFlowAsync(ctx context.Context, flowID, runID string) error
+}
+
 // Planner decomposes a goal into backlog sub-tasks by running a planner agent
 // (spec 026). It is nil in control-only mode (planning needs an execution
 // plane); the /api/breakdown endpoint 409s when it is nil. Breakdown returns the
@@ -83,8 +131,9 @@ type PlaybookCatalog interface {
 	Route(ctx context.Context, req RouteRequest) (RoutePreview, error)
 }
 
-// PlaybookRunResult is the synchronous Start result. Answer is populated only
-// by a delivery=answer playbook; its event history remains inspectable.
+// PlaybookRunResult is a Start result. Async starts return accepted without an
+// inline Answer; synchronous delivery=answer starts populate Answer. Either
+// form retains inspectable event history.
 type PlaybookRunResult struct {
 	State      string `json:"state"`
 	PausedNode string `json:"paused_node,omitempty"`
@@ -96,4 +145,10 @@ type PlaybookRunResult struct {
 // It is nil in control-only mode.
 type PlaybookRunner interface {
 	StartPlaybook(ctx context.Context, route RoutePreview, runID, direction string) (PlaybookRunResult, error)
+}
+
+// AcceptedPlaybookRunner persists the exact immutable playbook run and returns
+// its canonical flow identity before any provider stage completes.
+type AcceptedPlaybookRunner interface {
+	StartPlaybookAsync(ctx context.Context, route RoutePreview, runID, direction string) (PlaybookRunResult, error)
 }

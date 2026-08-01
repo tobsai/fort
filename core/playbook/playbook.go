@@ -182,7 +182,7 @@ func Validate(c Catalog) error {
 					return fmt.Errorf("playbook %q: stage %d assignment agent is required", who, s.Order)
 				}
 				if a.Profile != "" {
-					agent, model, ok := capability.CatalogV1().RuntimeSelection(a.Profile)
+					agent, model, ok := capability.CatalogV2().RuntimeSelection(a.Profile)
 					if !ok {
 						return fmt.Errorf("playbook %q: stage %d assignment profile %q is unknown", who, s.Order, a.Profile)
 					}
@@ -190,7 +190,7 @@ func Validate(c Catalog) error {
 						return fmt.Errorf("playbook %q: stage %d assignment profile %q does not match agent/model", who, s.Order, a.Profile)
 					}
 				} else {
-					catalog := capability.CatalogV1()
+					catalog := capability.CatalogV2()
 					for _, profile := range catalog.Profiles {
 						agent, model, ok := catalog.RuntimeSelection(profile.ID)
 						if ok && a.Agent == agent && a.Model == model {

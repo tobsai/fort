@@ -391,7 +391,7 @@ func TestImplementsRuntime(t *testing.T) {
 
 // The built-in provider argv must match the AO-002 recon contract.
 // TestCodexArgvMatchesInstalledCLI pins the codex contract against the real CLI
-// (codex-cli 0.143.0, verified 2026-07-09 on a live run): `codex exec` REJECTS
+// (catalog-v2 codex-cli 0.146.0-alpha.3.1, verified 2026-07-27): `codex exec` REJECTS
 // --ask-for-approval ("unexpected argument"), and Fort runs agents in a scratch
 // workdir that is not a git repo, so --skip-git-repo-check is required.
 func TestCodexArgvMatchesInstalledCLI(t *testing.T) {

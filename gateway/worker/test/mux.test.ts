@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Frame } from "@fort/gateway-shared";
-import { Multiplexer, OfflineError, TimeoutError, replyExpected } from "../src/mux";
+import { Multiplexer, OfflineError, TimeoutError, relayTimeoutMs, replyExpected } from "../src/mux";
 
 const f = (stream: string, kind: string, b64 = "x"): Frame => ({ stream, kind, b64 });
 
@@ -107,5 +107,11 @@ describe("replyExpected", () => {
     expect(replyExpected("end")).toBe(false);
     expect(replyExpected("bye")).toBe(false);
     expect(replyExpected("hs2")).toBe(false);
+  });
+
+  it("keeps handshakes bounded while allowing a durable application ack to clear cold-start work", () => {
+    expect(relayTimeoutMs("hs1")).toBe(10_000);
+    expect(relayTimeoutMs("req")).toBe(30_000);
+    expect(relayTimeoutMs("bye")).toBe(10_000);
   });
 });

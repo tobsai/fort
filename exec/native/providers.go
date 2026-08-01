@@ -37,7 +37,8 @@ func claudeProvider() Provider {
 //
 //	codex exec "<prompt>" --json --sandbox workspace-write --skip-git-repo-check
 //
-// Verified against codex-cli 0.143.0 (2026-07-09, live run): `codex exec` has no
+// Verified against the catalog-v2 codex-cli 0.146.0-alpha.3.1 (2026-07-27):
+// `codex exec` has no
 // --ask-for-approval flag — exec is already non-interactive, and passing it
 // aborts with "unexpected argument". --skip-git-repo-check is required because
 // Fort runs each agent in a scratch workdir that is not a git repository.

@@ -35,7 +35,7 @@ const validGeneratedPlan = `{
 }`
 
 func TestDecodeGeneratedPlanAcceptsStrictSequentialPlan(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), []string{"codex:gpt-5.5"})
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), []string{"codex:gpt-5.5"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,21 +51,21 @@ func TestDecodeGeneratedPlanAcceptsStrictSequentialPlan(t *testing.T) {
 
 func TestDecodeGeneratedPlanRejectsModelMachineAuthority(t *testing.T) {
 	raw := strings.Replace(validGeneratedPlan, `"profile": "codex:gpt-5.5",`, `"profile": "codex:gpt-5.5", "machine": "mini",`, 1)
-	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV1(), []string{"codex:gpt-5.5"}); err == nil {
+	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV2(), []string{"codex:gpt-5.5"}); err == nil {
 		t.Fatal("expected unknown machine field to fail")
 	}
 }
 
 func TestDecodeGeneratedPlanRejectsNonChainInput(t *testing.T) {
 	raw := strings.Replace(validGeneratedPlan, `"input_from": ["incident_evidence"]`, `"input_from": []`, 1)
-	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV1(), []string{"codex:gpt-5.5"}); err == nil {
+	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV2(), []string{"codex:gpt-5.5"}); err == nil {
 		t.Fatal("expected missing chain input to fail")
 	}
 }
 
 func TestDecodeGeneratedPlanRejectsUnmappedProfile(t *testing.T) {
 	raw := strings.Replace(validGeneratedPlan, `"codex:gpt-5.5"`, `"codex:made-up"`, 1)
-	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV1(), nil); err == nil {
+	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV2(), nil); err == nil {
 		t.Fatal("expected unknown profile to fail")
 	}
 }
@@ -74,7 +74,7 @@ func TestDecodeGeneratedPlanRejectsUncatalogedCoUse(t *testing.T) {
 	raw := strings.Replace(validGeneratedPlan,
 		`"requires": ["email.gmail.read"]`,
 		`"requires": ["email.gmail.read", "database.supabase.inspect"]`, 1)
-	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV1(), nil); err == nil {
+	if _, err := DecodeGeneratedPlan([]byte(raw), CatalogV2(), nil); err == nil {
 		t.Fatal("expected uncataloged capability combination to fail")
 	}
 }

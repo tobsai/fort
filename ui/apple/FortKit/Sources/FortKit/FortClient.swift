@@ -145,6 +145,12 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         try await get("/api/machines")
     }
 
+    /// `GET /api/profiles` — closed Fort-owned profile choices with current
+    /// readiness and the machines that can execute each exact profile.
+    public func profiles() async throws -> [ProfileOption] {
+        try await get("/api/profiles")
+    }
+
     /// `GET /api/metrics` — human-decision scorecards for the crew.
     public func metrics(days: Int = 30, lane: String? = nil) async throws -> MetricsResponse {
         var path = "/api/metrics?days=\(days)"
@@ -167,6 +173,7 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     public func chat(
         _ text: String,
         agent: String? = nil,
+        profile: String? = nil,
         machine: String? = nil,
         playbookID: String? = nil,
         playbookRevision: Int? = nil,
@@ -176,6 +183,7 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         try await chat(ChatRequest(
             text: text,
             agent: agent,
+            profile: profile,
             machine: machine,
             playbookID: playbookID,
             playbookRevision: playbookRevision,

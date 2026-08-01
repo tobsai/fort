@@ -342,7 +342,7 @@ func TestCapabilityRoutesAreAbsentUnlessRegistryIsWired(t *testing.T) {
 
 func TestCapabilityInventoryAndRecheckRequireMeshAuth(t *testing.T) {
 	inventory := corecap.NodeInventory{
-		ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 		NodeID: "node-1", ObservedAt: time.Unix(1, 0).UTC(),
 		State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},

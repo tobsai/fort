@@ -67,6 +67,24 @@ func TestRunMachineRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRunProfileAndModelRoundTrip(t *testing.T) {
+	s := openTemp(t)
+	want := Run{
+		ID: "profiled", Title: "t", Agent: "codex", Status: "running",
+		Profile: "codex:gpt-5.6-sol", Model: "gpt-5.6-sol",
+	}
+	if err := s.CreateRun(want); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := s.GetRun(want.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Profile != want.Profile || got.Model != want.Model {
+		t.Fatalf("profile/model = %q/%q, want %q/%q", got.Profile, got.Model, want.Profile, want.Model)
+	}
+}
+
 // TestMachineColumnMigratesOldDB proves the additive migration is idempotent:
 // a DB whose run table predates the machine column gains it on Open, and rows
 // written before the column read back with an empty machine.
@@ -100,8 +118,8 @@ func TestMachineColumnMigratesOldDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get legacy: %v", err)
 	}
-	if got.Title != "old run" || got.Machine != "" {
-		t.Errorf("legacy row = %+v, want title 'old run' + empty machine", got)
+	if got.Title != "old run" || got.Machine != "" || got.Profile != "" || got.Model != "" {
+		t.Errorf("legacy row = %+v, want title 'old run' + empty machine/profile/model", got)
 	}
 	// A second Open must be a no-op (idempotent) and still succeed.
 	s2, err := Open(path)
@@ -149,6 +167,32 @@ func TestWaitingGates(t *testing.T) {
 	}
 	if len(gates) != 1 || gates[0].NodeID != "g1" {
 		t.Fatalf("waiting gates = %+v, want [g1]", gates)
+	}
+}
+
+func TestDecideWaitingGateIsSingleFlight(t *testing.T) {
+	s := openTemp(t)
+	if err := s.CreateRun(Run{ID: "single-flight", Status: "blocked"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertNodeRun(NodeRun{
+		ID: "single-flight:plan", RunID: "single-flight", NodeID: "plan", Type: "gate",
+		Status: "waiting", Input: "draft",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	accepted, err := s.DecideWaitingGate("single-flight:plan", "approved", "approved draft")
+	if err != nil || !accepted {
+		t.Fatalf("first decision = %v, %v", accepted, err)
+	}
+	accepted, err = s.DecideWaitingGate("single-flight:plan", "approved", "duplicate")
+	if err != nil || accepted {
+		t.Fatalf("duplicate decision = %v, %v", accepted, err)
+	}
+	nodes, err := s.NodeRuns("single-flight")
+	if err != nil || len(nodes) != 1 || nodes[0].Status != "approved" || nodes[0].Output != "approved draft" {
+		t.Fatalf("node after decisions = %+v, %v", nodes, err)
 	}
 }
 

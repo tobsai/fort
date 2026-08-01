@@ -34,6 +34,8 @@ type Run struct {
 	Title       string
 	Body        string // markdown body from a multiline compose (spec 031); "" if title-only
 	Agent       string
+	Profile     string // exact Fort-owned profile requested for a direct run
+	Model       string // provider model derived from Profile; empty means configured default
 	Status      string
 	MatchedRule string
 	Machine     string // resolved target host (spec 022); "" = local/single-machine
@@ -94,13 +96,14 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) migrate() error {
 	const schema = `
+PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS route_decision (
   id TEXT PRIMARY KEY, task_id TEXT, route TEXT, matched_rule TEXT,
   is_default INTEGER, reason TEXT, created_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_route_decision_task ON route_decision(task_id);
 CREATE TABLE IF NOT EXISTS run (
-  id TEXT PRIMARY KEY, title TEXT, body TEXT, agent TEXT, status TEXT, matched_rule TEXT,
+	  id TEXT PRIMARY KEY, title TEXT, body TEXT, agent TEXT, profile TEXT, model TEXT, status TEXT, matched_rule TEXT,
   machine TEXT, flow_id TEXT, exit_code INTEGER, error TEXT,
   created_at TEXT, updated_at TEXT
 );
@@ -126,6 +129,66 @@ CREATE TABLE IF NOT EXISTS playbook_revision (
   PRIMARY KEY(id, revision)
 );
 CREATE INDEX IF NOT EXISTS idx_playbook_revision_latest ON playbook_revision(id, revision DESC);
+CREATE TABLE IF NOT EXISTS project (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_name_unique ON project(name COLLATE NOCASE);
+CREATE TABLE IF NOT EXISTS conversation (
+  id TEXT PRIMARY KEY, project_id TEXT, title TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  FOREIGN KEY(project_id) REFERENCES project(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_project ON conversation(project_id, updated_at DESC);
+CREATE TABLE IF NOT EXISTS conversation_participant (
+  id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, seat_id TEXT NOT NULL,
+  profile TEXT NOT NULL, agent TEXT NOT NULL, model TEXT, machine TEXT NOT NULL,
+  display_name TEXT NOT NULL, position INTEGER NOT NULL, state TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL, removed_at TEXT,
+  FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
+  UNIQUE(conversation_id, seat_id)
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_participant_conversation
+  ON conversation_participant(conversation_id, position);
+CREATE TABLE IF NOT EXISTS conversation_message (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, turn_id TEXT,
+  target_id TEXT, author_kind TEXT NOT NULL, author_id TEXT NOT NULL,
+  body TEXT NOT NULL, created_at TEXT NOT NULL,
+  FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_message_conversation
+  ON conversation_message(conversation_id, id);
+CREATE TABLE IF NOT EXISTS conversation_turn (
+  id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, client_turn_id TEXT NOT NULL,
+  prompt_message_id INTEGER NOT NULL,
+  through_message_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+  FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
+  FOREIGN KEY(prompt_message_id) REFERENCES conversation_message(id)
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_turn_conversation
+  ON conversation_turn(conversation_id, created_at);
+CREATE TABLE IF NOT EXISTS conversation_target (
+  id TEXT PRIMARY KEY, turn_id TEXT NOT NULL, participant_id TEXT NOT NULL,
+  run_id TEXT NOT NULL UNIQUE, attempt INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL,
+  error_code TEXT, error TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  FOREIGN KEY(turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE,
+  FOREIGN KEY(participant_id) REFERENCES conversation_participant(id)
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_target_turn ON conversation_target(turn_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_target_state ON conversation_target(state, updated_at DESC);
+CREATE TABLE IF NOT EXISTS schedule (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL, expression TEXT NOT NULL, flow_id TEXT NOT NULL,
+  timezone TEXT NOT NULL, enabled INTEGER NOT NULL, next_fire_at TEXT, last_fire_at TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schedule_occurrence (
+  id TEXT PRIMARY KEY, schedule_id TEXT NOT NULL, run_id TEXT,
+  scheduled_for TEXT NOT NULL, state TEXT NOT NULL, error TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  FOREIGN KEY(schedule_id) REFERENCES schedule(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_occurrence_day
+  ON schedule_occurrence(scheduled_for, state);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
@@ -140,6 +203,49 @@ CREATE INDEX IF NOT EXISTS idx_playbook_revision_latest ON playbook_revision(id,
 	}
 	if err := s.addColumn("run", "body", "TEXT"); err != nil {
 		return fmt.Errorf("store: migrate run.body: %w", err)
+	}
+	if err := s.addColumn("run", "profile", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate run.profile: %w", err)
+	}
+	if err := s.addColumn("run", "model", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate run.model: %w", err)
+	}
+	if err := s.addColumn("conversation", "state", "TEXT NOT NULL DEFAULT 'open'"); err != nil {
+		return fmt.Errorf("store: migrate conversation.state: %w", err)
+	}
+	if err := s.addColumn("conversation_participant", "state", "TEXT NOT NULL DEFAULT 'active'"); err != nil {
+		return fmt.Errorf("store: migrate conversation_participant.state: %w", err)
+	}
+	if err := s.addColumn("conversation_participant", "removed_at", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate conversation_participant.removed_at: %w", err)
+	}
+	if err := s.addColumn("conversation_turn", "client_turn_id", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate conversation_turn.client_turn_id: %w", err)
+	}
+	if err := s.addColumn("conversation_target", "attempt", "INTEGER NOT NULL DEFAULT 1"); err != nil {
+		return fmt.Errorf("store: migrate conversation_target.attempt: %w", err)
+	}
+	if err := s.addColumn("conversation_target", "error_code", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate conversation_target.error_code: %w", err)
+	}
+	if err := s.addColumn("schedule", "title", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("store: migrate schedule.title: %w", err)
+	}
+	if err := s.addColumn("schedule", "next_fire_at", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate schedule.next_fire_at: %w", err)
+	}
+	if err := s.addColumn("schedule", "last_fire_at", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate schedule.last_fire_at: %w", err)
+	}
+	if _, err := s.db.Exec(`
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_turn_client
+  ON conversation_turn(conversation_id, client_turn_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_target_attempt
+  ON conversation_target(turn_id, participant_id, attempt);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_occurrence_unique
+  ON schedule_occurrence(schedule_id, scheduled_for);
+`); err != nil {
+		return fmt.Errorf("store: migrate conversation indexes: %w", err)
 	}
 	return nil
 }
@@ -220,9 +326,9 @@ func (s *Store) RouteDecisions(taskID string) ([]RouteDecision, error) {
 func (s *Store) CreateRun(r Run) error {
 	now := nowOr(r.CreatedAt)
 	_, err := s.db.Exec(
-		`INSERT INTO run(id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at)
-		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
-		r.ID, r.Title, r.Body, r.Agent, r.Status, r.MatchedRule, r.Machine, r.FlowID, r.ExitCode, r.Error, now, now)
+		`INSERT INTO run(id,title,body,agent,profile,model,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		r.ID, r.Title, r.Body, r.Agent, r.Profile, r.Model, r.Status, r.MatchedRule, r.Machine, r.FlowID, r.ExitCode, r.Error, now, now)
 	return err
 }
 
@@ -294,7 +400,7 @@ func (s *Store) FailInterruptedDirectRuns(reason string) (int, error) {
 // GetRun returns a run by id.
 func (s *Store) GetRun(id string) (Run, error) {
 	row := s.db.QueryRow(
-		`SELECT id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,body,agent,profile,model,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run WHERE id=?`, id)
 	return scanRun(row)
 }
@@ -302,7 +408,7 @@ func (s *Store) GetRun(id string) (Run, error) {
 // ListRuns returns all runs, newest first.
 func (s *Store) ListRuns() ([]Run, error) {
 	rows, err := s.db.Query(
-		`SELECT id,title,body,agent,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
+		`SELECT id,title,body,agent,profile,model,status,matched_rule,machine,flow_id,exit_code,error,created_at,updated_at
 		 FROM run ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -326,13 +432,15 @@ type scanner interface {
 func scanRun(row scanner) (Run, error) {
 	var r Run
 	var created, updated string
-	var body, machine sql.NullString
-	err := row.Scan(&r.ID, &r.Title, &body, &r.Agent, &r.Status, &r.MatchedRule, &machine, &r.FlowID,
+	var body, profile, model, machine sql.NullString
+	err := row.Scan(&r.ID, &r.Title, &body, &r.Agent, &profile, &model, &r.Status, &r.MatchedRule, &machine, &r.FlowID,
 		&r.ExitCode, &r.Error, &created, &updated)
 	if err != nil {
 		return Run{}, err
 	}
 	r.Body = body.String       // NULL (pre-migration rows) -> ""
+	r.Profile = profile.String // NULL (pre-migration rows) -> ""
+	r.Model = model.String     // NULL (pre-migration rows) -> ""
 	r.Machine = machine.String // NULL (pre-migration rows) -> ""
 	r.CreatedAt = parseTime(created)
 	r.UpdatedAt = parseTime(updated)
@@ -349,6 +457,20 @@ func (s *Store) UpsertNodeRun(n NodeRun) error {
 		   output=excluded.output, attempts=excluded.attempts, updated_at=excluded.updated_at`,
 		n.ID, n.RunID, n.NodeID, n.Type, n.Status, n.Input, n.Output, n.Attempts, now, now)
 	return err
+}
+
+// DecideWaitingGate atomically changes one waiting gate to a terminal decision.
+// The false result means another caller already decided or reset that gate.
+func (s *Store) DecideWaitingGate(id, status, output string) (bool, error) {
+	result, err := s.db.Exec(
+		`UPDATE node_run SET status=?, output=?, updated_at=? WHERE id=? AND status='waiting'`,
+		status, output, nowOr(time.Time{}), id,
+	)
+	if err != nil {
+		return false, err
+	}
+	changed, err := result.RowsAffected()
+	return changed == 1, err
 }
 
 // NodeRuns returns the node runs for a run, in creation order.

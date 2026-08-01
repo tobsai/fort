@@ -2,16 +2,17 @@ import SwiftUI
 import FortKit
 
 private enum MobileDeckView: String, CaseIterable, Identifiable {
-    case deck, assign, projects, today, more, playbooks, performance, week
+    case deck, newConversation, conversation, assign, today, more, playbooks, performance, week
 
-    static let primary: [MobileDeckView] = [.deck, .assign, .projects, .today, .more]
+    static let primary: [MobileDeckView] = [.deck, .newConversation, .assign, .today, .more]
 
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .deck: return "Deck"
-        case .projects: return "Projects"
-        case .assign: return "Direction"
+        case .deck: return "Chats"
+        case .newConversation: return "New"
+        case .conversation: return "Conversation"
+        case .assign: return "Assign"
         case .performance: return "Crew"
         case .week: return "Week"
         case .today: return "Today"
@@ -21,9 +22,10 @@ private enum MobileDeckView: String, CaseIterable, Identifiable {
     }
     var icon: String {
         switch self {
-        case .deck: return "rectangle.3.group"
+        case .deck: return "bubble.left.and.bubble.right"
+        case .newConversation: return "plus"
+        case .conversation: return "bubble.left"
         case .assign: return "paperplane.fill"
-        case .projects: return "square.grid.2x2"
         case .today: return "clock"
         case .more: return "ellipsis"
         case .playbooks: return "link"
@@ -33,7 +35,8 @@ private enum MobileDeckView: String, CaseIterable, Identifiable {
     }
 
     var primarySelection: MobileDeckView {
-        MobileDeckView.primary.contains(self) ? self : .more
+        if self == .conversation { return .deck }
+        return MobileDeckView.primary.contains(self) ? self : .more
     }
 }
 
@@ -53,6 +56,7 @@ struct BoardView: View {
     @State private var board = Board(runs: [], gates: [])
     @State private var backlog: [BacklogItem] = []
     @State private var machines: [MachineSummary] = []
+    @State private var profiles: [ProfileOption] = []
     @State private var metrics: MetricsResponse?
     @State private var playbooks: [Playbook] = []
     @State private var selected: MobileDeckView = .deck
@@ -60,36 +64,66 @@ struct BoardView: View {
     @State private var deciding: Set<String> = []
     @State private var redirectGate: GateItem?
     @State private var draft = ""
+    @State private var conversationDraft = ""
     @State private var selectedAgent = ""
+    @State private var selectedProfileID = ""
+    @State private var selectedMachine = ""
     @State private var proposePlan = true
     @State private var handoffMode: MobileHandoffMode = .assignment
     @State private var routePreview: RoutePreview?
     @State private var selectedPlaybookID: String?
     @State private var inlineAnswer: String?
+    @State private var conversationAnswer: String?
+    @State private var conversationStatus: String?
+    @State private var selectedConversationID = ""
+    @State private var conversationEvents: [Event] = []
+    @State private var conversationEventCursor = 0
+    @State private var directSending = false
+    @State private var showConversationHistory = false
     @State private var showPlaybookPicker = false
     @State private var showFeed = false
     @State private var showSettings = false
     @State private var sending = false
     @State private var notice: String?
 
+    private let newConversationID = "__new_conversation__"
+
     var body: some View {
         ZStack {
             FortPalette.page.ignoresSafeArea()
             VStack(spacing: 0) {
-                ScrollView {
-                    content
-                        .padding(16)
+                if isConversationScreen {
+                    conversationHeader
+                    ScrollView {
+                        conversationThread
+                            .padding(16)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    if let gate = selectedConversationGate {
+                        conversationGateDock(gate)
+                    } else {
+                        conversationComposer
+                    }
+                } else {
+                    ScrollView {
+                        content
+                            .padding(16)
+                    }
+                    .refreshable { await reload() }
+                    if selected == .assign { assignmentButton }
                 }
-                .refreshable { await reload() }
-                if selected == .assign { handoffButton }
                 primaryTabBar
             }
         }
         .foregroundStyle(FortPalette.primary)
-        .navigationTitle(selected == .deck ? "FORT" : selected.title)
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: String.self) { RunDetailView(runID: $0) }
+        .toolbar(mainNavigationHidden ? .hidden : .visible, for: .navigationBar)
         .task(id: client.baseURL) { await runLoop() }
+        .task(id: client.baseURL) { await consumeConversationEvents() }
+        .task(id: selectedConversation?.id) {
+            if let run = selectedConversation { await loadConversationEvents(for: run) }
+        }
         .task(id: routePreviewKey) { await refreshRoutePreview() }
         .sheet(item: $redirectGate) { gate in
             RedirectSheet(gate: gate) { note in
@@ -98,6 +132,7 @@ struct BoardView: View {
             .presentationDetents([.medium])
         }
         .sheet(isPresented: $showPlaybookPicker) { playbookPicker }
+        .sheet(isPresented: $showConversationHistory) { conversationHistorySheet }
         .sheet(isPresented: $showFeed) {
             NavigationStack { FeedView() }.environmentObject(client)
         }
@@ -113,7 +148,7 @@ struct BoardView: View {
     @ViewBuilder private var content: some View {
         switch selected {
         case .deck: deckView
-        case .projects: projectsView
+        case .newConversation, .conversation: EmptyView()
         case .assign: assignView
         case .performance: performanceView
         case .week: weekView
@@ -125,6 +160,20 @@ struct BoardView: View {
 
     private var deckView: some View {
         VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 12) {
+                FortAgentOrbView(name: "Fort", state: fortOrbState, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("FORT").font(.headline.weight(.bold)).tracking(4)
+                    Text(fortOrbState == .working ? "Crew activity is live" : "Conversation command center")
+                        .font(.caption).foregroundStyle(FortPalette.muted)
+                }
+                Spacer()
+                if !board.gates.isEmpty {
+                    Text("\(board.gates.count) needs you")
+                        .deckChip(color: FortPalette.needsYou)
+                }
+            }
+
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("WHAT NEEDS YOU").sectionLabel(color: FortPalette.needsYou)
@@ -148,8 +197,8 @@ struct BoardView: View {
                 ForEach(failedRuns.prefix(3)) { failedRunCard($0) }
             }
 
-            sectionTitle("PROJECTS", count: projectRuns.count)
-            ForEach(projectRuns.prefix(5)) { compactProject($0) }
+            sectionTitle("CONVERSATIONS", count: conversationRuns.count)
+            ForEach(conversationRuns) { conversationRow($0) }
 
             if !backlog.isEmpty {
                 sectionTitle("UP NEXT", count: backlog.count)
@@ -160,20 +209,6 @@ struct BoardView: View {
             ForEach(crewNames, id: \.self) { crewRow($0) }
 
             if let loadError { errorCard(loadError) }
-        }
-    }
-
-    private var projectsView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("PROJECT ROOMS").sectionLabel()
-            ForEach(projectRuns) { run in
-                NavigationLink(value: run.id) {
-                    projectCard(run)
-                }
-                .buttonStyle(.plain)
-            }
-            ForEach(backlog) { upNextCard($0) }
-            if projectRuns.isEmpty { emptyCard("No projects yet", "Give Fort direction to start one.") }
         }
     }
 
@@ -194,7 +229,7 @@ struct BoardView: View {
                         }
                         .font(.callout.weight(handoffMode == mode ? .semibold : .regular))
                         .foregroundStyle(handoffMode == mode ? FortPalette.primary : FortPalette.muted)
-                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .background(handoffMode == mode ? FortPalette.raised : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
@@ -205,6 +240,7 @@ struct BoardView: View {
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(FortPalette.line))
 
             TextEditor(text: $draft)
+                .accessibilityLabel("Assignment")
                 .scrollContentBackground(.hidden)
                 .foregroundStyle(FortPalette.primary)
                 .frame(minHeight: 130)
@@ -252,6 +288,251 @@ struct BoardView: View {
                 }
             }
         }
+    }
+
+    private var conversationHeader: some View {
+        HStack(spacing: 10) {
+            Button { showConversationHistory = true } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open conversations")
+
+            if let run = selectedConversation {
+                FortAgentOrbView(name: conversationAgent(run), state: conversationActivity(run).projectState, size: 30)
+            } else {
+                FortAgentOrbView(name: "Fort", state: .idle, size: 30)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(selectedConversation.map(title) ?? "New conversation")
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                if let run = selectedConversation {
+                    Text(conversationActivity(run) == .pausedForReview ? "Needs approval" : conversationActivity(run).label)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(conversationActivity(run).projectState.color)
+                } else {
+                    Text("Choose who should respond")
+                        .font(.caption2).foregroundStyle(FortPalette.muted)
+                }
+            }
+            Spacer()
+            Button { beginNewConversation() } label: {
+                Image(systemName: "square.and.pencil")
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("New conversation")
+        }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 52)
+        .background(FortPalette.canvas)
+        .overlay(alignment: .bottom) { Rectangle().fill(FortPalette.line).frame(height: 1) }
+    }
+
+    @ViewBuilder private var conversationThread: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let run = selectedConversation {
+                conversationMessage(
+                    name: "You",
+                    detail: FortTime.relative(run.createdAt),
+                    body: conversationPrompt(run),
+                    state: .idle,
+                    role: .human
+                )
+                conversationMessage(
+                    name: conversationAgent(run),
+                    detail: FortTime.relative(run.updatedAt ?? run.createdAt),
+                    body: conversationResponse(run),
+                    model: run.model,
+                    state: conversationActivity(run).projectState,
+                    role: .agent
+                )
+
+                ForEach(gatesForConversation(run)) { gate in
+                    conversationGateCard(gate)
+                }
+
+                if FortConversationPromotion.isEligible(run, gates: board.gates) {
+                    promotionCard(run)
+                }
+
+                conversationProgress(run)
+                conversationActivityTimeline(run)
+            } else {
+                conversationMessage(
+                    name: "Fort",
+                    detail: "ready",
+                    body: "Choose an agent, an exact model, and an eligible machine — or let Fort decide — then send your first message.",
+                    state: .idle,
+                    role: .agent
+                )
+            }
+
+            if let conversationAnswer, !conversationAnswer.isEmpty {
+                conversationMessage(
+                    name: selectedProfile?.agent.capitalized ?? "Fort",
+                    detail: "just now",
+                    body: conversationAnswer,
+                    model: selectedProfile?.model,
+                    state: .delivered,
+                    role: .agent
+                )
+            }
+
+            if let conversationStatus, !conversationStatus.isEmpty, !directSending {
+                FortDeckCard(accent: FortPalette.failed) {
+                    Label(conversationStatus, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout).foregroundStyle(FortPalette.failed)
+                        .textSelection(.enabled)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var conversationComposer: some View {
+        VStack(spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                if conversationDraft.isEmpty {
+                    Text("Message Fort…")
+                        .font(.callout).foregroundStyle(FortPalette.faint)
+                        .padding(.horizontal, 15).padding(.vertical, 14)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $conversationDraft)
+                    .accessibilityLabel("Message Fort")
+                    .font(.callout)
+                    .scrollContentBackground(.hidden)
+                    .foregroundStyle(FortPalette.primary)
+                    .frame(minHeight: 58, maxHeight: 92)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+            }
+            .background(FortPalette.panel, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(FortPalette.raised))
+
+            HStack(spacing: 6) {
+                Picker("Agent", selection: $selectedAgent) {
+                    Text("Agent").tag("")
+                    ForEach(availableAgents, id: \.self) { agent in
+                        Text(agent.capitalized).tag(agent)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(FortPalette.panel, in: RoundedRectangle(cornerRadius: 9))
+                .onChange(of: selectedAgent) { _ in selectDefaultProfileForAgent() }
+
+                Picker("Model", selection: $selectedProfileID) {
+                    Text("Model").tag("")
+                    ForEach(profilesForSelectedAgent) { profile in
+                        Text(modelOptionLabel(profile)).tag(profile.id)
+                            .disabled(!profileIsReady(profile))
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(FortPalette.panel, in: RoundedRectangle(cornerRadius: 9))
+                .onChange(of: selectedProfileID) { _ in profileSelectionChanged() }
+
+                Picker("Machine", selection: $selectedMachine) {
+                    Text("Machine").tag("")
+                    ForEach(availableMachineNames, id: \.self) { machine in
+                        Text(machine).tag(machine)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(FortPalette.panel, in: RoundedRectangle(cornerRadius: 9))
+            }
+
+            if selectedProfileIsUnavailable {
+                Text("That exact model is not ready. Choose a ready model before sending.")
+                    .font(.caption).foregroundStyle(FortPalette.failed)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                if directSending {
+                    FortAgentOrbView(name: "Fort", state: .idle, size: 22)
+                    Text("Submitting to Fort…")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FortPalette.working)
+                        .accessibilityLabel("Submitting to Fort")
+                } else {
+                    Text(selectedProfile?.displayName ?? "Fort will choose a ready profile")
+                        .font(.caption).foregroundStyle(FortPalette.muted).lineLimit(1)
+                }
+                Spacer()
+                Button { beginConversationSend() } label: {
+                    Label("Send", systemImage: "paperplane.fill")
+                        .font(.callout.weight(.semibold))
+                        .frame(minWidth: 76, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FortPalette.working)
+                .disabled(
+                    directSending || composerSelectionIsInvalid ||
+                    conversationDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 9)
+        .background(FortPalette.canvas)
+        .overlay(alignment: .top) { Rectangle().fill(FortPalette.line).frame(height: 1) }
+    }
+
+    private var conversationHistorySheet: some View {
+        NavigationStack {
+            ZStack {
+                FortPalette.page.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Button { showConversationHistory = false; beginNewConversation() } label: {
+                            Label("New conversation", systemImage: "plus")
+                                .font(.callout.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(FortPalette.working)
+
+                        if !board.gates.isEmpty {
+                            sectionTitle("NEEDS YOU", count: board.gates.count)
+                            ForEach(board.gates) { gate in
+                                if let run = board.runs.first(where: { $0.id == gate.runID }) {
+                                    conversationRow(run)
+                                }
+                            }
+                        }
+
+                        sectionTitle("CONVERSATIONS", count: conversationRuns.count)
+                        ForEach(conversationRuns) { conversationRow($0) }
+                    }
+                    .padding(16)
+                }
+            }
+            .foregroundStyle(FortPalette.primary)
+            .navigationTitle("Conversations")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showConversationHistory = false }
+                }
+            }
+        }
+        .presentationDetents([.large])
     }
 
     private var performanceView: some View {
@@ -316,7 +597,7 @@ struct BoardView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("WHO DOES WHAT, WITH WHICH MODEL")
                 .sectionLabel(color: FortPalette.working)
-            Text("Switch a route from Give direction. Editing stays on desktop.")
+            Text("Choose a route from Assign. Editing stays on desktop.")
                 .font(.callout).foregroundStyle(FortPalette.muted)
             if playbooks.isEmpty {
                 emptyCard("No playbooks available", "Fort has not returned a route catalog yet.")
@@ -330,10 +611,10 @@ struct BoardView: View {
         HStack(alignment: .bottom, spacing: 0) {
             ForEach(MobileDeckView.primary) { item in
                 Button {
-                    withAnimation(.easeOut(duration: 0.18)) { selected = item }
+                    selectPrimary(item)
                 } label: {
                     VStack(spacing: 4) {
-                        if item == .assign {
+                        if item == .newConversation {
                             ZStack {
                                 Circle().fill(FortPalette.brass).frame(width: 46, height: 46)
                                 Image(systemName: item.icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(FortPalette.page)
@@ -362,11 +643,11 @@ struct BoardView: View {
         .overlay(alignment: .top) { Rectangle().fill(FortPalette.line).frame(height: 1) }
     }
 
-    private var handoffButton: some View {
-        Button { Task { await handOff() } } label: {
+    private var assignmentButton: some View {
+        Button { beginAssignment() } label: {
             HStack {
                 if sending { ProgressView().tint(FortPalette.page) }
-                Text("Hand it off").font(.body.weight(.semibold))
+                Text(sending ? "Starting assignment…" : "Start assignment").font(.body.weight(.semibold))
             }
             .frame(maxWidth: .infinity, minHeight: 50)
         }
@@ -445,10 +726,12 @@ struct BoardView: View {
                 }
                 Text(gate.input?.isEmpty == false ? gate.input! : "\(run?.title ?? gate.runID) reached a checkpoint and needs your sign-off.")
                     .font(.callout).foregroundStyle(FortPalette.body)
-                    .lineLimit(5)
-                HStack(spacing: 8) {
+                    .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 8) {
                     Button { Task { await decide(gate, decision: "approve") } } label: {
-                        Text("Accept").frame(maxWidth: .infinity, minHeight: 44)
+                        Text("Approve & continue")
+                            .foregroundStyle(FortPalette.page)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                         .buttonStyle(.borderedProminent).tint(FortPalette.accepted)
                     Button { redirectGate = gate } label: {
@@ -471,9 +754,9 @@ struct BoardView: View {
                     Text(FortTime.relative(run.updatedAt ?? run.createdAt))
                         .font(.caption.monospaced()).foregroundStyle(FortPalette.faint)
                 }
-                Text("\(run.agent) stopped. Open the assignment to see what happened and give direction.")
+                Text("\(run.agent) stopped. Open the conversation to see what happened and choose the next step.")
                     .font(.callout).foregroundStyle(FortPalette.body)
-                NavigationLink(value: run.id) {
+                Button { selectConversation(run) } label: {
                     Text("View what happened").frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered)
@@ -482,46 +765,24 @@ struct BoardView: View {
         }
     }
 
-    private func compactProject(_ run: RunSummary) -> some View {
-        let state = FortProjectState.resolve(run: run, gates: board.gates)
-        return NavigationLink(value: run.id) {
+    private func conversationRow(_ run: RunSummary) -> some View {
+        let activity = conversationActivity(run)
+        return Button { selectConversation(run) } label: {
             HStack(spacing: 12) {
-                FortSigilView(name: title(run), state: state, size: 36)
+                FortAgentOrbView(name: conversationAgent(run), state: activity.projectState, size: 36)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title(run)).font(.callout.weight(.semibold)).foregroundStyle(FortPalette.primary).lineLimit(1)
-                    Text(run.checkpoints?.deckCaption ?? activityLine(run))
+                    Text(conversationTimestamp(run))
                         .font(.caption).foregroundStyle(FortPalette.muted).lineLimit(1)
                 }
                 Spacer()
+                Text(activity == .pausedForReview ? "Needs approval" : activity.label)
+                    .deckChip(color: activity.projectState.color)
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(FortPalette.faint)
             }
             .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
-    }
-
-    private func projectCard(_ run: RunSummary) -> some View {
-        let state = FortProjectState.resolve(run: run, gates: board.gates)
-        return FortDeckCard(accent: state == .needsYou ? state.color : nil) {
-            VStack(alignment: .leading, spacing: 13) {
-                HStack(spacing: 12) {
-                    FortSigilView(name: title(run), state: state, size: 46)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title(run)).font(.headline).foregroundStyle(FortPalette.primary)
-                        Text([run.agent, run.machine].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.caption).foregroundStyle(FortPalette.muted)
-                    }
-                    Spacer()
-                    FortStatusPill(state)
-                }
-                FortCheckpointBar(run.checkpoints)
-                Text(run.checkpoints?.deckCaption ?? activityLine(run))
-                    .font(.caption).foregroundStyle(FortPalette.muted)
-                if let body = run.body, !body.isEmpty {
-                    Text(body).font(.callout).foregroundStyle(FortPalette.body).lineLimit(3)
-                }
-            }
-        }
     }
 
     private func upNextRow(_ item: BacklogItem) -> some View {
@@ -649,10 +910,206 @@ struct BoardView: View {
         }
     }
 
-    private var projectRuns: [RunSummary] {
-        FortProjectOrdering.sorted(board.runs, gates: board.gates)
+    private func conversationMessage(
+        name: String,
+        detail: String,
+        body: String,
+        model: String? = nil,
+        state: FortProjectState,
+        role: ConversationMessageRole
+    ) -> some View {
+        HStack(alignment: .top, spacing: 11) {
+            if role == .human {
+                HumanConversationAvatar(size: 34)
+            } else {
+                FortAgentOrbView(name: name, state: state, size: 34)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 7) {
+                    Text(name).font(.caption.weight(.semibold))
+                    if let model, !model.isEmpty {
+                        Text(model)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(FortPalette.muted)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(FortPalette.raised.opacity(0.35), in: Capsule())
+                    }
+                    Text(detail).font(.caption2.monospaced()).foregroundStyle(FortPalette.faint)
+                }
+                Text(body)
+                    .font(.callout)
+                    .foregroundStyle(FortPalette.body)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+        }
     }
-    private var workingRuns: [RunSummary] { board.runs.filter { $0.status == "running" } }
+
+    private func conversationGateCard(_ gate: GateItem) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Work is paused until you approve")
+                    .font(.callout.weight(.semibold))
+                Spacer()
+            }
+            .foregroundStyle(FortPalette.needsYou)
+
+            Text("Needs approval")
+                .deckChip(color: FortPalette.needsYou)
+
+            Text(gate.input?.isEmpty == false ? gate.input! : "Review this checkpoint, then approve it or request a specific change.")
+                .font(.callout).foregroundStyle(FortPalette.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .background(FortPalette.needsYou.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(FortPalette.needsYou.opacity(0.7)))
+    }
+
+    private func conversationGateDock(_ gate: GateItem) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text(deciding.contains(gate.id) ? "Recording your decision…" : "Your sign-off is required")
+                    .font(.caption.weight(.semibold))
+                Spacer(minLength: 0)
+                Text("Paused").deckChip(color: FortPalette.needsYou)
+            }
+            .foregroundStyle(FortPalette.needsYou)
+
+            Button { Task { await decide(gate, decision: "approve") } } label: {
+                Text("Approve & continue")
+                    .foregroundStyle(FortPalette.page)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent).tint(FortPalette.accepted)
+
+            Button { redirectGate = gate } label: {
+                Text("Request changes").frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered).tint(FortPalette.needsYou)
+        }
+        .disabled(deciding.contains(gate.id))
+        .padding(.horizontal, 10).padding(.vertical, 9)
+        .background(FortPalette.canvas)
+        .overlay(alignment: .top) { Rectangle().fill(FortPalette.needsYou.opacity(0.65)).frame(height: 1) }
+    }
+
+    private func promotionCard(_ run: RunSummary) -> some View {
+        FortDeckCard(accent: FortPalette.working) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    FortAgentOrbView(name: "Fort", state: .idle, size: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Turn this into work").font(.callout.weight(.semibold)).foregroundStyle(FortPalette.working)
+                        Text("Create one routed assignment from this finished conversation.")
+                            .font(.caption).foregroundStyle(FortPalette.muted)
+                    }
+                }
+                Button { promoteConversation(run) } label: {
+                    Label("Assign work", systemImage: "arrow.right.circle.fill")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered).tint(FortPalette.working)
+            }
+        }
+    }
+
+    private func conversationProgress(_ run: RunSummary) -> some View {
+        let activity = conversationActivity(run)
+        return FortDeckCard {
+            VStack(alignment: .leading, spacing: 11) {
+                HStack {
+                    Text("ASSIGNMENT").sectionLabel(color: FortPalette.faint)
+                    Spacer()
+                    Text(activity.label).deckChip(color: activity.projectState.color)
+                }
+                FortCheckpointBar(run.checkpoints)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
+                    progressDatum("Agent", conversationAgent(run))
+                    progressDatum("Model", run.model?.isEmpty == false ? run.model! : "Configured default")
+                    progressDatum("Machine", run.machine ?? "Fort placed")
+                    progressDatum("Elapsed", FortTime.elapsed(run.createdAt))
+                }
+            }
+        }
+    }
+
+    private func progressDatum(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(FortPalette.faint)
+            Text(value).font(.caption.weight(.medium)).foregroundStyle(FortPalette.body).lineLimit(2)
+        }
+    }
+
+    private func conversationActivityTimeline(_ run: RunSummary) -> some View {
+        let events = meaningfulConversationEvents(for: run)
+        let activity = conversationActivity(run)
+        return FortDeckCard {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Text("ACTIVITY").sectionLabel(color: FortPalette.faint)
+                    Spacer()
+                    Text("durable event log").font(.caption2).foregroundStyle(FortPalette.faint)
+                }
+                if events.isEmpty {
+                    HStack(spacing: 8) {
+                        Circle().stroke(activity.projectState.color, lineWidth: 1.3).frame(width: 9, height: 9)
+                        Text(activity.label).font(.caption.weight(.semibold)).foregroundStyle(activity.projectState.color)
+                        Text("No execution evidence yet.").font(.caption).foregroundStyle(FortPalette.faint)
+                    }
+                } else {
+                    ForEach(Array(events.suffix(8))) { event in
+                        conversationTimelineRow(event)
+                    }
+                }
+            }
+        }
+    }
+
+    private func conversationTimelineRow(_ event: Event) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: timelineIcon(event))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(timelineColor(event))
+                .frame(width: 17, height: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(timelineCopy(event))
+                    .font(.caption).foregroundStyle(event.type.lowercased() == "error" ? FortPalette.failed : FortPalette.body)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                Text(FortTime.relative(event.time))
+                    .font(.caption2.monospaced()).foregroundStyle(FortPalette.faint)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var conversationRuns: [RunSummary] {
+        FortConversationOrdering.newestFirst(board.runs, gates: board.gates, events: conversationEvents)
+    }
+    private var selectedConversation: RunSummary? {
+        guard !selectedConversationID.isEmpty, selectedConversationID != newConversationID else { return nil }
+        return board.runs.first { $0.id == selectedConversationID }
+    }
+    private var selectedConversationGate: GateItem? {
+        guard let run = selectedConversation else { return nil }
+        return board.gates.first { $0.runID == run.id }
+    }
+    private var isConversationScreen: Bool {
+        selected == .newConversation || selected == .conversation
+    }
+    private var mainNavigationHidden: Bool {
+        selected == .deck || isConversationScreen
+    }
+    private var navigationTitle: String {
+        if isConversationScreen { return selectedConversation.map(title) ?? "New conversation" }
+        return selected == .deck ? "FORT" : selected.title
+    }
+    private var workingRuns: [RunSummary] {
+        board.runs.filter { conversationActivity($0) == .working }
+    }
     private var failedRuns: [RunSummary] {
         FortAttention.recentFailures(in: board.runs, gates: board.gates)
     }
@@ -671,28 +1128,241 @@ struct BoardView: View {
         return "That's everything — \(workingRuns.count) crew member\(workingRuns.count == 1 ? " is" : "s are") working and \(workingRuns.count == 1 ? "doesn't" : "don't") need you."
     }
     private var crewNames: [String] {
-        let runAgents = board.runs.map(\.agent).filter { !$0.isEmpty }
+        let runAgents = board.runs.map(\.agent).filter { !$0.isEmpty && !$0.hasPrefix("flow:") }
         let machineAgents = machines.flatMap { $0.agents ?? [] }
         return Array(Set(runAgents + machineAgents)).sorted()
+    }
+    private var availableAgents: [String] {
+        Array(Set(profiles.map(\.agent).filter { !$0.isEmpty })).sorted()
+    }
+    private var profilesForSelectedAgent: [ProfileOption] {
+        let filtered = selectedAgent.isEmpty ? profiles : profiles.filter { $0.agent == selectedAgent }
+        return filtered.sorted {
+            if profileIsReady($0) != profileIsReady($1) { return profileIsReady($0) }
+            return $0.displayName < $1.displayName
+        }
+    }
+    private var selectedProfile: ProfileOption? {
+        profiles.first { $0.id == selectedProfileID }
+    }
+    private var selectedProfileIsUnavailable: Bool {
+        !selectedProfileID.isEmpty && selectedProfile.map(profileIsReady) != true
+    }
+    private var composerSelectionIsInvalid: Bool {
+        selectedProfileIsUnavailable || (!selectedAgent.isEmpty && selectedProfile == nil)
+    }
+    private var profileMachineNames: [String] {
+        if let selectedProfile, profileIsReady(selectedProfile) {
+            return selectedProfile.machines.sorted()
+        }
+        return machines.filter(\.reachable).map(\.name).sorted()
+    }
+    private var availableMachineNames: [String] {
+        var names = profileMachineNames
+        if !selectedMachine.isEmpty && !names.contains(selectedMachine) { names.append(selectedMachine) }
+        return names
+    }
+    private var fortOrbState: FortProjectState {
+        workingRuns.isEmpty ? .idle : .working
     }
     private func agentState(_ agent: String) -> FortProjectState {
         let runs = board.runs.filter { $0.agent == agent }
         if runs.contains(where: { run in board.gates.contains { $0.runID == run.id } }) { return .needsYou }
-        if runs.contains(where: { $0.status == "running" }) { return .working }
+        if runs.contains(where: { conversationActivity($0) == .working }) { return .working }
         return .idle
     }
     private func title(_ run: RunSummary) -> String { run.title.isEmpty ? run.id : run.title }
+    private func conversationAgent(_ run: RunSummary) -> String {
+        run.agent.hasPrefix("flow:") ? "Fort" : (run.agent.isEmpty ? "Fort" : run.agent.capitalized)
+    }
     private func gateTitle(_ gate: GateItem) -> String {
         gate.nodeID.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ").capitalized
     }
     private func activityLine(_ run: RunSummary) -> String {
-        switch FortProjectState.resolve(run: run, gates: board.gates) {
-        case .needsYou: return "awaiting your sign-off"
-        case .working: return "\(run.agent) working · \(FortTime.elapsed(run.createdAt))"
-        case .delivered: return "all accepted"
-        case .failed: return "failed"
-        case .idle: return run.status == "queued" ? "up next" : "idle"
+        conversationActivity(run).label
+    }
+    private func conversationActivity(_ run: RunSummary) -> FortConversationActivity {
+        FortConversationActivity.resolve(run: run, gates: board.gates, events: conversationEvents)
+    }
+    private func conversationTimestamp(_ run: RunSummary) -> String {
+        var candidates = [run.updatedAt, run.createdAt].compactMap { $0 }
+        candidates.append(contentsOf: conversationEvents.lazy.filter { $0.runID == run.id }.map(\.time))
+        candidates.append(contentsOf: board.gates.lazy.filter { $0.runID == run.id }.compactMap(\.since))
+        let latest = candidates.max { parseEventDate($0) < parseEventDate($1) }
+        return FortTime.relative(latest)
+    }
+    private func gatesForConversation(_ run: RunSummary) -> [GateItem] {
+        board.gates.filter { $0.runID == run.id }
+    }
+    private func conversationPrompt(_ run: RunSummary) -> String {
+        let body = run.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return body.isEmpty ? title(run) : body
+    }
+    private func conversationResponse(_ run: RunSummary) -> String {
+        if let failure = exactFailureReason(for: run) { return failure }
+        if let message = meaningfulConversationEvents(for: run)
+            .last(where: { $0.type.lowercased() == "message" })?.data?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
+            return embeddedErrorMessage(message) ?? message
         }
+        switch conversationActivity(run) {
+        case .starting: return "Fort accepted this conversation and is waiting for the first execution event."
+        case .working: return "Work is active. The persisted activity below shows what is happening."
+        case .pausedForReview: return "Work is paused at a checkpoint and needs your decision below."
+        case .paused: return "This conversation is paused."
+        case .finished: return "This conversation finished. Its durable activity is below."
+        case .failed: return "This conversation failed. Open the latest activity for the recorded reason."
+        case .canceled: return "This conversation was canceled."
+        case .ready: return "This conversation is ready."
+        }
+    }
+    private func profileIsReady(_ profile: ProfileOption) -> Bool { profile.state == "ready" }
+    private func modelOptionLabel(_ profile: ProfileOption) -> String {
+        let model = profile.model?.isEmpty == false ? profile.model! : "Configured default"
+        guard !profileIsReady(profile) else { return model }
+        let reason = profile.reason?.isEmpty == false ? profile.reason! : profile.state
+        return "\(model) — \(reason.replacingOccurrences(of: "_", with: " "))"
+    }
+    private func selectDefaultProfileForAgent() {
+        guard !selectedAgent.isEmpty else {
+            selectedProfileID = ""
+            selectedMachine = ""
+            return
+        }
+        if let selectedProfile, selectedProfile.agent == selectedAgent, profileIsReady(selectedProfile) { return }
+        selectedProfileID = profiles.first { $0.agent == selectedAgent && profileIsReady($0) }?.id ?? ""
+        if !profileMachineNames.contains(selectedMachine) { selectedMachine = "" }
+    }
+    private func profileSelectionChanged() {
+        if let selectedProfile {
+            selectedAgent = selectedProfile.agent
+            if !selectedProfile.machines.contains(selectedMachine) { selectedMachine = "" }
+        } else if selectedProfileID.isEmpty {
+            selectedMachine = ""
+        }
+    }
+    private func applyConversationSelection(_ run: RunSummary) {
+        selectedAgent = run.agent.hasPrefix("flow:") ? "" : run.agent
+        selectedMachine = run.machine ?? ""
+        if let profile = run.profile, profiles.contains(where: { $0.id == profile }) {
+            selectedProfileID = profile
+            selectedAgent = profiles.first(where: { $0.id == profile })?.agent ?? selectedAgent
+            return
+        }
+        let exact = profiles.first {
+            $0.agent == run.agent && ($0.model ?? "") == (run.model ?? "") && profileIsReady($0)
+        }
+        selectedProfileID = exact?.id ?? ""
+    }
+    private func meaningfulConversationEvents(for run: RunSummary) -> [Event] {
+        conversationEvents
+            .filter { event in
+                guard event.runID == run.id else { return false }
+                switch event.type.lowercased() {
+                case "placement", "started", "stderr", "tool", "subagent", "message", "gate", "error", "exited":
+                    return true
+                case "stdout":
+                    return structuredStdoutType(event.data) != nil
+                default:
+                    return false
+                }
+            }
+            .sorted {
+                let left = parseEventDate($0.time)
+                let right = parseEventDate($1.time)
+                return left == right ? $0.id < $1.id : left < right
+            }
+    }
+    private func structuredStdoutType(_ data: String?) -> String? {
+        guard let type = jsonObject(data)?["type"] as? String,
+              ["turn.started", "turn.completed"].contains(type) else { return nil }
+        return type
+    }
+    private func timelineCopy(_ event: Event) -> String {
+        let kind = event.type.lowercased()
+        let object = jsonObject(event.data)
+        let data = event.data?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        switch kind {
+        case "placement":
+            let agent = object?["agent"] as? String
+            let machine = object?["machine"] as? String
+            if let agent, let machine { return "Placed \(agent) on \(machine)" }
+            if let machine { return "Placed on \(machine)" }
+            return data.isEmpty ? "Placement resolved" : data
+        case "started": return data.isEmpty ? "Execution started" : "\(data.capitalized) started"
+        case "stdout": return structuredStdoutType(event.data) == "turn.completed" ? "Turn completed" : "Turn started"
+        case "stderr": return data.isEmpty ? "Provider diagnostic output" : data
+        case "tool":
+            let name = (object?["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let summary = (object?["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let name, !name.isEmpty, let summary, !summary.isEmpty { return "\(name) — \(summary)" }
+            return name?.isEmpty == false ? name! : (data.isEmpty ? "Tool activity" : data)
+        case "subagent": return data.isEmpty ? "Subagent activity" : data
+        case "message": return embeddedErrorMessage(event.data) ?? (data.isEmpty ? "Agent message" : data)
+        case "gate":
+            let decision = (object?["decision"] as? String)?.lowercased()
+            let note = (object?["note"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if decision == "approved" { return "Review approved" }
+            if decision == "rejected", let note, !note.isEmpty { return "Changes requested — \(note)" }
+            if decision == "rejected" { return "Changes requested" }
+            return data.isEmpty ? "Review checkpoint" : data
+        case "error": return data.isEmpty ? "Execution failed without a recorded reason" : data
+        case "exited": return (event.code ?? 0) == 0 ? "Execution exited successfully" : "Execution exited with code \(event.code ?? 0)"
+        default: return data.isEmpty ? event.type : data
+        }
+    }
+    private func timelineIcon(_ event: Event) -> String {
+        switch event.type.lowercased() {
+        case "placement": return "desktopcomputer"
+        case "started": return "play.fill"
+        case "stdout": return structuredStdoutType(event.data) == "turn.completed" ? "checkmark.circle.fill" : "sparkles"
+        case "stderr": return "waveform.path.ecg"
+        case "tool": return "wrench.and.screwdriver.fill"
+        case "subagent": return "person.2.fill"
+        case "message": return embeddedErrorMessage(event.data) == nil ? "text.bubble.fill" : "exclamationmark.triangle.fill"
+        case "gate": return "checkmark.seal.fill"
+        case "error": return "exclamationmark.triangle.fill"
+        case "exited": return (event.code ?? 0) == 0 ? "checkmark.circle.fill" : "xmark.circle.fill"
+        default: return "circle.fill"
+        }
+    }
+    private func timelineColor(_ event: Event) -> Color {
+        switch event.type.lowercased() {
+        case "error", "message" where embeddedErrorMessage(event.data) != nil: return FortPalette.failed
+        case "stderr", "gate": return FortPalette.needsYou
+        case "exited" where (event.code ?? 0) != 0: return FortPalette.failed
+        case "exited": return FortPalette.accepted
+        case "stdout" where structuredStdoutType(event.data) == "turn.completed": return FortPalette.accepted
+        default: return FortPalette.working
+        }
+    }
+    private func exactFailureReason(for run: RunSummary) -> String? {
+        let events = meaningfulConversationEvents(for: run)
+        for event in events.reversed() {
+            let data = event.data?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if event.type.lowercased() == "error", !data.isEmpty { return data }
+            if event.type.lowercased() == "message", let message = embeddedErrorMessage(event.data) { return message }
+        }
+        return nil
+    }
+    private func embeddedErrorMessage(_ data: String?) -> String? {
+        guard let object = jsonObject(data), (object["type"] as? String)?.lowercased() == "error" else { return nil }
+        if let error = object["error"] as? [String: Any],
+           let message = error["message"] as? String,
+           !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return message }
+        if let message = object["message"] as? String,
+           !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return message }
+        return nil
+    }
+    private func jsonObject(_ data: String?) -> [String: Any]? {
+        guard let data, let bytes = data.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: bytes) as? [String: Any]
+    }
+    private func parseEventDate(_ value: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? .distantPast
     }
     private func trendColor(_ trend: String) -> Color {
         trend == "improving" ? FortPalette.accepted : (trend == "slipping" ? FortPalette.failed : FortPalette.muted)
@@ -747,6 +1417,135 @@ struct BoardView: View {
         catch { routePreview = nil }
     }
 
+    private func selectPrimary(_ item: MobileDeckView) {
+        if item == .newConversation {
+            beginNewConversation()
+            return
+        }
+        withAnimation(.easeOut(duration: 0.18)) { selected = item }
+    }
+
+    private func beginNewConversation() {
+        selectedConversationID = newConversationID
+        selected = .newConversation
+        conversationDraft = ""
+        conversationAnswer = nil
+        conversationStatus = nil
+        selectedAgent = ""
+        selectedProfileID = ""
+        selectedMachine = ""
+    }
+
+    private func selectConversation(_ run: RunSummary) {
+        selectedConversationID = run.id
+        selected = .conversation
+        conversationAnswer = nil
+        conversationStatus = nil
+        applyConversationSelection(run)
+        showConversationHistory = false
+    }
+
+    private func promoteConversation(_ run: RunSummary) {
+        guard FortConversationPromotion.isEligible(run, gates: board.gates) else { return }
+        draft = [title(run), run.body ?? ""]
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: "\n")
+        handoffMode = .assignment
+        selectedPlaybookID = FortPlaybookRouting.defaultAssignment(in: playbooks)?.id
+        routePreview = nil
+        inlineAnswer = nil
+        selected = .assign
+    }
+
+    private func beginConversationSend() {
+        let text = conversationDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !directSending, !text.isEmpty, !composerSelectionIsInvalid else { return }
+        directSending = true
+        conversationStatus = "Submitting to Fort…"
+        Task { await sendConversation(text) }
+    }
+
+    private func beginAssignment() {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sending, !text.isEmpty, !quickModeUnavailable else { return }
+        sending = true
+        notice = nil
+        Task { await handOff(text) }
+    }
+
+    private func sendConversation(_ text: String) async {
+        defer { directSending = false }
+        do {
+            let profile = selectedProfile
+            let result = try await client.chat(ChatRequest(
+                text: text,
+                agent: profile?.agent,
+                profile: profile?.id,
+                machine: selectedMachine.isEmpty ? nil : selectedMachine
+            ))
+            conversationDraft = ""
+            conversationStatus = nil
+            switch result.handoffOutcome {
+            case .answer(let answer):
+                conversationAnswer = answer
+                selectedConversationID = result.runID
+                await reload()
+                if let run = conversationRuns.first(where: { $0.id == result.runID }) {
+                    selectConversation(run)
+                }
+            case .failure(let message):
+                conversationAnswer = nil
+                conversationStatus = message
+            case .assignment:
+                conversationAnswer = nil
+                selectedConversationID = result.runID
+                selected = .conversation
+                await reload()
+                if let run = conversationRuns.first(where: { $0.id == result.runID }) {
+                    selectConversation(run)
+                    await loadConversationEvents(for: run)
+                } else {
+                    conversationStatus = "Fort accepted run \(result.runID). Waiting for it to appear in the event log."
+                }
+            }
+        } catch {
+            conversationStatus = errorText(error)
+        }
+    }
+
+    private func consumeConversationEvents() async {
+        conversationEvents = []
+        conversationEventCursor = 0
+        while !Task.isCancelled {
+            do {
+                for try await event in client.events(since: conversationEventCursor) {
+                    guard !Task.isCancelled else { return }
+                    conversationEventCursor = max(conversationEventCursor, event.id)
+                    guard !conversationEvents.contains(where: { $0.id == event.id }) else { continue }
+                    conversationEvents.append(event)
+                    conversationEvents.sort { $0.id < $1.id }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                // Reconnect from the durable cursor; no command is retried.
+            }
+            do { try await Task.sleep(nanoseconds: 750_000_000) } catch { return }
+        }
+    }
+
+    private func loadConversationEvents(for run: RunSummary) async {
+        do {
+            let detail = try await client.runDetail(run.id)
+            var byID = Dictionary(uniqueKeysWithValues: conversationEvents.map { ($0.id, $0) })
+            for event in detail.events { byID[event.id] = event }
+            conversationEvents = byID.values.sorted { $0.id < $1.id }
+            conversationEventCursor = max(conversationEventCursor, conversationEvents.last?.id ?? 0)
+        } catch {
+            // The SSE stream remains authoritative; detail is replay recovery.
+        }
+    }
+
     private func runLoop() async {
         await reload()
         while !Task.isCancelled {
@@ -763,16 +1562,39 @@ struct BoardView: View {
             async let nextMachines = client.machines()
             async let nextMetrics = client.metrics()
             async let nextPlaybooks = client.playbooks()
+            async let nextProfiles = client.profiles()
+            let firstProfileLoad = profiles.isEmpty
             summary = try await nextSummary
             board = try await nextBoard
             backlog = try await nextBacklog
             machines = try await nextMachines
             metrics = try await nextMetrics
             playbooks = try await nextPlaybooks
+            profiles = (try? await nextProfiles) ?? []
+            if firstProfileLoad, let run = selectedConversation {
+                applyConversationSelection(run)
+            }
             if handoffMode == .quickQuestion {
                 let currentIsAnswer = playbooks.contains { $0.id == selectedPlaybookID && $0.delivery == "answer" }
                 if !currentIsAnswer { selectedPlaybookID = FortPlaybookRouting.quickAnswer(in: playbooks)?.id }
             }
+#if targetEnvironment(simulator)
+            if selectedConversationID.isEmpty {
+                switch ProcessInfo.processInfo.environment["FORT_QA_SCREEN"] {
+                case "new":
+                    beginNewConversation()
+                case "approval":
+                    if let gate = board.gates.first,
+                       let run = board.runs.first(where: { $0.id == gate.runID }) {
+                        selectConversation(run)
+                    }
+                case "conversation":
+                    if let run = conversationRuns.first { selectConversation(run) }
+                default:
+                    break
+                }
+            }
+#endif
             loadError = nil
         } catch { loadError = errorText(error) }
     }
@@ -781,19 +1603,21 @@ struct BoardView: View {
         deciding.insert(gate.id); defer { deciding.remove(gate.id) }
         do {
             let applied = try await client.decideGate(run: gate.runID, node: gate.nodeID, decision: decision, note: note)
-            if !applied { notice = "No execution plane is attached, so this sign-off cannot be applied yet." }
+            if !applied {
+                let message = "No execution plane is attached, so this sign-off cannot be applied yet."
+                if isConversationScreen { conversationStatus = message } else { notice = message }
+            } else if isConversationScreen {
+                conversationStatus = nil
+            }
             await reload()
-        } catch { notice = errorText(error) }
+        } catch {
+            if isConversationScreen { conversationStatus = errorText(error) }
+            else { notice = errorText(error) }
+        }
     }
 
-    private func handOff() async {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        guard !quickModeUnavailable else {
-            notice = "Quick question needs an answer playbook before Fort can hand it off."
-            return
-        }
-        sending = true; defer { sending = false }
+    private func handOff(_ text: String) async {
+        defer { sending = false }
         do {
             let resolved = try await client.route(routeRequest(for: text))
             let result = try await client.chat(ChatRequest(
@@ -810,23 +1634,47 @@ struct BoardView: View {
             case .failure(let message):
                 inlineAnswer = nil
                 notice = message
-            case .assignment where handoffMode == .quickQuestion || resolved.delivery == "answer":
-                inlineAnswer = nil
-                notice = "Quick answer did not return an inline answer. Check run \(result.runID) for the failure."
             case .assignment:
                 draft = ""
                 routePreview = nil
                 inlineAnswer = nil
-                notice = resolved.planGate ? "Fort is drafting the project plan." : "The assignment is underway."
-                selected = .deck
+                selectedConversationID = result.runID
+                selected = .conversation
             }
             await reload()
+            if let run = conversationRuns.first(where: { $0.id == result.runID }) {
+                selectConversation(run)
+                await loadConversationEvents(for: run)
+            } else if result.handoffOutcome == .assignment {
+                conversationStatus = "Fort accepted run \(result.runID). Waiting for its first durable event."
+            }
         } catch { notice = errorText(error) }
     }
 
     private func dispatch(_ item: BacklogItem) async {
         do { _ = try await client.dispatchBacklog(item.id); await reload() }
         catch { notice = errorText(error) }
+    }
+}
+
+private enum ConversationMessageRole {
+    case human
+    case agent
+}
+
+private struct HumanConversationAvatar: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle().fill(FortPalette.raised.opacity(0.4))
+            Circle().stroke(FortPalette.outline, lineWidth: 1.4)
+            Image(systemName: "person.fill")
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(FortPalette.body)
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("You")
     }
 }
 
@@ -841,6 +1689,7 @@ private struct RedirectSheet: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Tell the crew member what should change before the next sign-off.").font(.callout).foregroundStyle(.secondary)
                 TextEditor(text: $note).frame(minHeight: 130).padding(8)
+                    .accessibilityLabel("Requested changes")
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                 Spacer()
             }

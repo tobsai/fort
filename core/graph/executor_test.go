@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/runtime"
@@ -195,6 +196,54 @@ func TestGateRejectTakesRejectEdge(t *testing.T) {
 	}
 }
 
+func TestGateWithoutRejectEdgeReturnsToWaitingAfterRequestChanges(t *testing.T) {
+	ex, st, _ := newExec(t)
+	f := Flow{
+		ID: "revision", Start: "plan",
+		Nodes: []Node{
+			{ID: "plan", Type: Gate, Edges: []Edge{{On: OutApprove, To: "build"}}},
+			{ID: "build", Type: Task, Agent: "codex"},
+		},
+	}
+	if _, err := ex.Start(context.Background(), f, "revision-run", "draft plan"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.Reject("revision-run", "plan", "tighten the scope"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := ex.Resume(context.Background(), f, "revision-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.State != "paused" || res.PausedNode != "plan" {
+		t.Fatalf("resume after request changes = %+v, want same paused gate", res)
+	}
+	if status, _ := nodeStatus(t, st, "revision-run", "plan"); status != "waiting" {
+		t.Fatalf("gate status = %q, want waiting", status)
+	}
+	run, err := st.GetRun("revision-run")
+	if err != nil || run.Status != "blocked" {
+		t.Fatalf("run after request changes = %+v, %v", run, err)
+	}
+	if _, ok := nodeStatus(t, st, "revision-run", "build"); ok {
+		t.Fatal("request changes executed the approve-only downstream task")
+	}
+}
+
+func TestGateDecisionRequiresWaitingState(t *testing.T) {
+	ex, _, _ := newExec(t)
+	f := gateFlow()
+	if _, err := ex.Start(context.Background(), f, "single-decision", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.Approve("single-decision", "g1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.Approve("single-decision", "g1", ""); err == nil {
+		t.Fatal("duplicate gate approval was accepted")
+	}
+}
+
 func TestGateDecisionsAppendEvents(t *testing.T) {
 	ex, st, _ := newExec(t)
 	f := gateFlow()
@@ -204,10 +253,18 @@ func TestGateDecisionsAppendEvents(t *testing.T) {
 	if err := ex.Reject("run9", "g1", "tighten the scope"); err != nil {
 		t.Fatalf("reject: %v", err)
 	}
-	if err := ex.Approve("run9", "g1", "ship it smaller"); err != nil {
+	if _, err := ex.Resume(context.Background(), f, "run9"); err != nil {
+		t.Fatalf("resume rejected edge: %v", err)
+	}
+	// Start a second gate instance to prove both decision records remain
+	// append-only now that duplicate decisions are rejected.
+	if _, err := ex.Start(context.Background(), f, "run10", ""); err != nil {
+		t.Fatalf("start second gate: %v", err)
+	}
+	if err := ex.Approve("run10", "g1", "ship it smaller"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
-	evs, _ := st.Events("run9")
+	evs, _ := st.EventsSince(0)
 	var gates []store.Event
 	for _, e := range evs {
 		if e.Type == "gate" {
@@ -220,8 +277,78 @@ func TestGateDecisionsAppendEvents(t *testing.T) {
 	if gates[0].NodeID != "g1" || !strings.Contains(gates[0].Data, `"rejected"`) || !strings.Contains(gates[0].Data, "tighten the scope") {
 		t.Fatalf("bad reject event: %+v", gates[0])
 	}
-	if gates[1].NodeID != "g1" || !strings.Contains(gates[1].Data, `"approved"`) || !strings.Contains(gates[1].Data, "ship it smaller") {
+	if gates[1].RunID != "run10" || gates[1].NodeID != "g1" || !strings.Contains(gates[1].Data, `"approved"`) || !strings.Contains(gates[1].Data, "ship it smaller") {
 		t.Fatalf("bad approve event: %+v", gates[1])
+	}
+}
+
+type blockingGraphDispatch struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (r *blockingGraphDispatch) Name() string { return "blocking-graph-dispatch" }
+
+func (r *blockingGraphDispatch) Dispatch(ctx context.Context, _ runtime.RunSpec) (runtime.Run, error) {
+	close(r.started)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-r.release:
+		return nil, errors.New("released dispatch failure")
+	}
+}
+
+func TestStartAsyncPersistsRunBeforeBlockedProviderReturns(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	rt := &blockingGraphDispatch{started: make(chan struct{}), release: make(chan struct{})}
+	ex := NewExecutor(rt, st)
+	f := Flow{ID: "accepted-flow", Name: "Accepted flow", Start: "work", Nodes: []Node{{
+		ID: "work", Type: Task, Agent: "codex",
+	}}}
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := ex.StartAsync(context.Background(), f, "accepted-flow-run", "payload")
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		close(rt.release)
+		t.Fatal("StartAsync waited for blocked provider dispatch")
+	}
+	run, err := st.GetRun("accepted-flow-run")
+	if err != nil || run.Status != "running" || run.FlowID != "accepted-flow" {
+		t.Fatalf("accepted flow run = %+v, %v", run, err)
+	}
+	select {
+	case <-rt.started:
+	case <-time.After(time.Second):
+		t.Fatal("accepted flow never dispatched")
+	}
+	waited := make(chan struct{})
+	go func() {
+		ex.Wait()
+		close(waited)
+	}()
+	select {
+	case <-waited:
+		t.Fatal("Wait returned while the asynchronous walk was still running")
+	case <-time.After(25 * time.Millisecond):
+	}
+	close(rt.release)
+	select {
+	case <-waited:
+	case <-time.After(time.Second):
+		t.Fatal("Wait did not join the asynchronous walk")
 	}
 }
 
@@ -493,6 +620,42 @@ func TestTaskEventsCarryNodeID(t *testing.T) {
 		if e.NodeID != "k1" {
 			t.Errorf("event %q node_id=%q, want k1", e.Type, e.NodeID)
 		}
+	}
+}
+
+func TestTaskOutputUsesTerminalMessageWhilePreservingActivity(t *testing.T) {
+	ex, st, _ := newExec(t)
+	ex.rt = &completedRuntime{
+		events: []runtime.RunEvent{
+			{Type: runtime.EventMessage, Data: "startup warning"},
+			{Type: runtime.EventMessage, Data: "OK"},
+		},
+		status: runtime.Status{State: runtime.StateSucceeded},
+	}
+	f := Flow{
+		ID: "terminal-message-output", Start: "answer",
+		Nodes: []Node{{ID: "answer", Type: Task, Agent: "codex", Prompt: "Reply with exactly OK"}},
+	}
+
+	if _, err := ex.Start(context.Background(), f, "terminal-message-run", ""); err != nil {
+		t.Fatal(err)
+	}
+	nodes := mustNodeRuns(t, st, "terminal-message-run")
+	if len(nodes) != 1 || nodes[0].Output != "OK" {
+		t.Fatalf("node output = %+v, want only terminal message OK", nodes)
+	}
+	events, err := st.Events("terminal-message-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var messages []string
+	for _, event := range events {
+		if event.Type == string(runtime.EventMessage) {
+			messages = append(messages, event.Data)
+		}
+	}
+	if len(messages) != 2 || messages[0] != "startup warning" || messages[1] != "OK" {
+		t.Fatalf("message events = %q, want preserved activity followed by final answer", messages)
 	}
 }
 

@@ -34,6 +34,10 @@ func TestBacklogAddListDispatchDelete(t *testing.T) {
 	if _, err := st.GetRun(res.RunID); err != nil {
 		t.Fatalf("run not persisted: %v", err)
 	}
+	// Backlog dispatch preserves its synchronous acceptance contract, but the
+	// engine still drains runtime events asynchronously. Let that goroutine
+	// finish before TempDir cleanup removes its work root under -race.
+	waitForRunStatus(t, st, res.RunID, "succeeded", "failed", "canceled")
 	if remaining := decode[[]ui.BacklogItem](t, do(t, s, "GET", "/api/backlog", nil)); len(remaining) != 0 {
 		t.Fatalf("backlog not emptied after dispatch: %+v", remaining)
 	}

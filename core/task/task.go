@@ -14,6 +14,8 @@ type Task struct {
 	Paths     []string  `json:"paths,omitempty"` // files the task touches
 	Repo      string    `json:"repo,omitempty"`
 	Agent     string    `json:"agent,omitempty"`   // explicit @agent override
+	Profile   string    `json:"profile,omitempty"` // exact Fort-owned execution profile
+	Model     string    `json:"model,omitempty"`   // profile-derived provider model; never free-form at the UI boundary
 	Size      string    `json:"size,omitempty"`    // S | M | L | XL
 	Machine   string    `json:"machine,omitempty"` // explicit host pin (spec 022)
 	CreatedAt time.Time `json:"created_at"`

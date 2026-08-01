@@ -101,6 +101,7 @@ func buildApp() (*app, error) {
 	// through a cluster runtime now — with zero remotes it is a pass-through to
 	// the local runtime, and enrollment can hot-add peers without re-wiring.
 	live := &machines.Live{}
+	live.SetLocal(cfg.NodeName)
 	if cfg.MachinesPath != "" {
 		r, err := machines.Load(cfg.MachinesPath, cfg.NodeName)
 		if err != nil {

@@ -66,6 +66,8 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
     /// The task body/details, when present (spec 031 compose keeps title+body).
     public let body: String?
     public let agent: String
+    public let profile: String?
+    public let model: String?
     public let status: String
     public let machine: String?
     public let flowID: String?
@@ -78,6 +80,8 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
         title: String,
         body: String? = nil,
         agent: String,
+        profile: String? = nil,
+        model: String? = nil,
         status: String,
         machine: String? = nil,
         flowID: String? = nil,
@@ -89,6 +93,8 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
         self.title = title
         self.body = body
         self.agent = agent
+        self.profile = profile
+        self.model = model
         self.status = status
         self.machine = machine
         self.flowID = flowID
@@ -102,12 +108,55 @@ public struct RunSummary: Codable, Sendable, Identifiable, Hashable {
         case title
         case body
         case agent
+        case profile
+        case model
         case status
         case machine
         case flowID = "flow_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case checkpoints
+    }
+}
+
+/// One closed, Fort-owned agent/model choice for a direct conversation turn.
+/// Non-ready choices remain visible with a closed reason and are never silently
+/// substituted at dispatch.
+public struct ProfileOption: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let agent: String
+    public let model: String?
+    public let displayName: String
+    public let state: String
+    public let reason: String?
+    public let machines: [String]
+
+    public init(
+        id: String,
+        agent: String,
+        model: String? = nil,
+        displayName: String,
+        state: String,
+        reason: String? = nil,
+        machines: [String]
+    ) {
+        self.id = id
+        self.agent = agent
+        self.model = model
+        self.displayName = displayName
+        self.state = state
+        self.reason = reason
+        self.machines = machines
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case agent
+        case model
+        case displayName = "display_name"
+        case state
+        case reason
+        case machines
     }
 }
 
@@ -299,6 +348,7 @@ public struct GateDecision: Codable, Sendable, Hashable {
 public struct ChatRequest: Codable, Sendable, Hashable {
     public let text: String
     public let agent: String?
+    public let profile: String?
     public let machine: String?
     public let playbookID: String?
     public let playbookRevision: Int?
@@ -308,6 +358,7 @@ public struct ChatRequest: Codable, Sendable, Hashable {
     public init(
         text: String,
         agent: String? = nil,
+        profile: String? = nil,
         machine: String? = nil,
         playbookID: String? = nil,
         playbookRevision: Int? = nil,
@@ -316,6 +367,7 @@ public struct ChatRequest: Codable, Sendable, Hashable {
     ) {
         self.text = text
         self.agent = agent
+        self.profile = profile
         self.machine = machine
         self.playbookID = playbookID
         self.playbookRevision = playbookRevision
@@ -326,6 +378,7 @@ public struct ChatRequest: Codable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case text
         case agent
+        case profile
         case machine
         case playbookID = "playbook_id"
         case playbookRevision = "playbook_revision"
@@ -349,6 +402,11 @@ public struct ChatResult: Codable, Sendable, Hashable {
     public let answer: String?
     public let playbookID: String?
     public let playbookRevision: Int?
+    /// True when Fort durably persisted the run and returned HTTP 202 before
+    /// provider execution completed. The client follows `runID` for output.
+    public let accepted: Bool?
+    /// The resolved presentation contract for an accepted run.
+    public let delivery: String?
 
     public init(
         kind: String,
@@ -360,7 +418,9 @@ public struct ChatResult: Codable, Sendable, Hashable {
         paused: String? = nil,
         answer: String? = nil,
         playbookID: String? = nil,
-        playbookRevision: Int? = nil
+        playbookRevision: Int? = nil,
+        accepted: Bool? = nil,
+        delivery: String? = nil
     ) {
         self.kind = kind
         self.runID = runID
@@ -372,6 +432,8 @@ public struct ChatResult: Codable, Sendable, Hashable {
         self.answer = answer
         self.playbookID = playbookID
         self.playbookRevision = playbookRevision
+        self.accepted = accepted
+        self.delivery = delivery
     }
 
     enum CodingKeys: String, CodingKey {
@@ -385,6 +447,8 @@ public struct ChatResult: Codable, Sendable, Hashable {
         case answer
         case playbookID = "playbook_id"
         case playbookRevision = "playbook_revision"
+        case accepted
+        case delivery
     }
 }
 

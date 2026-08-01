@@ -122,6 +122,164 @@ public enum FortProjectOrdering {
     }
 }
 
+/// Status-neutral ordering for the conversation history. Urgency belongs in
+/// the separate Needs You inbox; the history itself follows the newest real
+/// run, gate, or append-only event timestamp.
+public enum FortConversationOrdering {
+    public static func newestFirst(
+        _ runs: [RunSummary],
+        gates: [GateItem],
+        events: [Event]
+    ) -> [RunSummary] {
+        let eventDates = Dictionary(grouping: events, by: \.runID).mapValues { values in
+            values.compactMap { parse($0.time) }.max()
+        }
+        let gateDates = Dictionary(grouping: gates, by: \.runID).mapValues { values in
+            values.compactMap { parse($0.since) }.max()
+        }
+
+        return runs.enumerated().sorted { left, right in
+            let leftDate = newestDate(for: left.element, eventDates: eventDates, gateDates: gateDates)
+            let rightDate = newestDate(for: right.element, eventDates: eventDates, gateDates: gateDates)
+            if leftDate != rightDate {
+                return leftDate > rightDate
+            }
+            if left.element.id != right.element.id {
+                return left.element.id < right.element.id
+            }
+            return left.offset < right.offset
+        }
+        .map(\.element)
+    }
+
+    private static func newestDate(
+        for run: RunSummary,
+        eventDates: [String: Date?],
+        gateDates: [String: Date?]
+    ) -> Date {
+        [
+            eventDates[run.id] ?? nil,
+            gateDates[run.id] ?? nil,
+            parse(run.updatedAt),
+            parse(run.createdAt),
+        ]
+        .compactMap { $0 }
+        .max() ?? .distantPast
+    }
+
+    fileprivate static func parse(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value)
+    }
+}
+
+/// A truthful conversation state derived from durable run/gate state and
+/// actual provider events. A running flag alone is intentionally not enough to
+/// claim that an agent is working.
+public enum FortConversationActivity: Equatable, Sendable {
+    case starting
+    case working
+    case pausedForReview
+    case paused
+    case finished
+    case failed
+    case canceled
+    case ready
+
+    public static func resolve(
+        run: RunSummary,
+        gates: [GateItem],
+        events: [Event]
+    ) -> FortConversationActivity {
+        if gates.contains(where: { $0.runID == run.id }) {
+            return .pausedForReview
+        }
+
+        switch run.status.lowercased() {
+        case "succeeded", "done": return .finished
+        case "failed", "error": return .failed
+        case "canceled", "cancelled": return .canceled
+		case "blocked", "paused": return .paused
+        default: break
+        }
+
+        let workKinds: Set<String> = [
+			"started", "stdout", "stderr", "message", "tool", "subagent",
+        ]
+        if events.contains(where: { $0.runID == run.id && workKinds.contains($0.type.lowercased()) }) {
+            return .working
+        }
+
+        switch run.status.lowercased() {
+        case "running", "queued": return .starting
+        default: return .ready
+        }
+    }
+
+    public var label: String {
+        switch self {
+        case .starting: return "Starting"
+        case .working: return "Working"
+        case .pausedForReview: return "Paused for review"
+        case .paused: return "Paused"
+        case .finished: return "Finished"
+        case .failed: return "Failed"
+        case .canceled: return "Canceled"
+        case .ready: return "Ready"
+        }
+    }
+
+    public var projectState: FortProjectState {
+        switch self {
+        case .working: return .working
+        case .pausedForReview: return .needsYou
+        case .finished: return .delivered
+        case .failed: return .failed
+        case .starting, .paused, .canceled, .ready: return .idle
+        }
+    }
+}
+
+/// A direct answer can become routed work once. Assignments already carrying a
+/// flow id are work, so they never re-enter the promotion path.
+public enum FortConversationPromotion {
+    public static func isEligible(_ run: RunSummary, gates: [GateItem]) -> Bool {
+        let finished = ["succeeded", "done"].contains(run.status.lowercased())
+        let direct = run.flowID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+        let waitingForHuman = gates.contains { $0.runID == run.id }
+        return finished && direct && !waitingForHuman
+    }
+}
+
+/// Collapses repeated assignments into one project-room row without removing
+/// any run from conversation history. Ordering happens before grouping so a
+/// waiting sign-off remains the representative for its normalized title.
+public enum FortProjectRooms {
+    public static func unique(
+        _ runs: [RunSummary],
+        gates: [GateItem],
+        now: Date = Date()
+    ) -> [RunSummary] {
+        var seen: Set<String> = []
+        return FortProjectOrdering.sorted(runs, gates: gates, now: now).filter { run in
+            let title = normalizedTitle(run.title)
+            let key = title.isEmpty ? "run:\(run.id)" : "title:\(title)"
+            return seen.insert(key).inserted
+        }
+    }
+
+    private static func normalizedTitle(_ title: String) -> String {
+        title
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .lowercased()
+    }
+}
+
 /// Cross-machine copy for the native clients. A non-empty roster is a mesh,
 /// never a selected execution target: placement remains Fort's deterministic
 /// responsibility.
@@ -158,6 +316,18 @@ public extension CheckpointSummary {
 /// intentionally ignores trigger enablement: an explicit human choice is an
 /// override, while the trigger only controls automatic routing.
 public enum FortPlaybookRouting {
+    public static func defaultAssignment(in playbooks: [Playbook]) -> Playbook? {
+        playbooks
+            .filter { $0.delivery != "answer" }
+            .sorted {
+                if ($0.isDefault == true) != ($1.isDefault == true) {
+                    return $0.isDefault == true
+                }
+                return $0.id < $1.id
+            }
+            .first
+    }
+
     public static func quickAnswer(in playbooks: [Playbook]) -> Playbook? {
         playbooks
             .filter { $0.delivery == "answer" }
@@ -171,8 +341,9 @@ public enum FortPlaybookRouting {
     }
 }
 
-/// Honest delivery state for native handoff surfaces. A missing answer body or
-/// an explicit failure/error kind must never render as a successful handoff.
+/// Honest delivery state for native handoff surfaces. A missing synchronous
+/// answer body or explicit failure kind must never render as success. A 202
+/// accepted answer is an observable run whose output arrives through replay/SSE.
 public enum FortHandoffOutcome: Equatable, Sendable {
     case assignment
     case answer(String)
@@ -184,6 +355,7 @@ public extension ChatResult {
         let text = answer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         switch kind.lowercased() {
         case "answer":
+            if accepted == true, !runID.isEmpty { return .assignment }
             return text.isEmpty ? .failure("Quick answer returned no text.") : .answer(text)
         case "error", "failed", "failure":
             return .failure(text.isEmpty ? "Fort reported that the handoff failed." : text)

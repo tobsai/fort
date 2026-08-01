@@ -9,8 +9,8 @@ import "strings"
 
 const (
 	ProtocolVersion       = 1
-	CatalogVersion        = 1
-	ProfileMappingVersion = 1
+	CatalogVersion        = 2
+	ProfileMappingVersion = 2
 )
 
 // SelectionKind is the closed provider-selection strategy for a profile.
@@ -65,8 +65,8 @@ type Catalog struct {
 	Bindings              []BindingDefinition    `json:"bindings"`
 }
 
-// CatalogV1 returns a fresh copy of the approved version-1 catalog.
-func CatalogV1() Catalog {
+// CatalogV2 returns a fresh copy of the approved version-2 catalog.
+func CatalogV2() Catalog {
 	return Catalog{
 		Version:               CatalogVersion,
 		ProfileMappingVersion: ProfileMappingVersion,
@@ -77,6 +77,8 @@ func CatalogV1() Catalog {
 			{ID: "codex:configured-default", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionConfiguredDefault}, DisplayName: "Codex · configured default", legacy: []string{""}},
 			{ID: "codex:gpt-5.5", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.5"}, DisplayName: "Codex · GPT-5.5"},
 			{ID: "codex:gpt-5.6-sol", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-sol"}, DisplayName: "Codex · GPT-5.6 Sol", legacy: []string{"5.6 Sol"}},
+			{ID: "codex:gpt-5.6-terra", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-terra"}, DisplayName: "Codex · GPT-5.6 Terra"},
+			{ID: "codex:gpt-5.6-luna", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-luna"}, DisplayName: "Codex · GPT-5.6 Luna"},
 			{ID: "hermes:configured-default", Agent: "hermes", Adapter: "profile.hermes.native", Selection: ProfileSelection{Kind: SelectionConfiguredDefault}, DisplayName: "Hermes · configured default", legacy: []string{""}},
 			{ID: "hermes:openai-codex/gpt-5.6-sol", Agent: "hermes", Adapter: "profile.hermes.native", Selection: ProfileSelection{Kind: SelectionProviderModel, ProviderID: "openai-codex", ModelID: "gpt-5.6-sol"}, DisplayName: "Hermes · Codex GPT-5.6 Sol", legacy: []string{"Codex 5.6 Sol"}},
 			{ID: "openclaw:main", Agent: "openclaw", Adapter: "profile.openclaw.main", Selection: ProfileSelection{Kind: SelectionConfiguredAgent, AgentID: "main"}, DisplayName: "OpenClaw · main", legacy: []string{"", "Fable"}},

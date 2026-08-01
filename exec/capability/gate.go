@@ -40,7 +40,7 @@ type ProfileGate struct {
 }
 
 func NewProfileGate(next runtime.Runtime, refresher MachineRefresher) *ProfileGate {
-	return &ProfileGate{next: next, refresher: refresher, catalog: corecap.CatalogV1()}
+	return &ProfileGate{next: next, refresher: refresher, catalog: corecap.CatalogV2()}
 }
 
 func (g *ProfileGate) Name() string { return "profile-gate(" + g.next.Name() + ")" }

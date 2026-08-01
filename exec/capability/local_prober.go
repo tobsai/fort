@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	codexVersion    = "codex-cli 0.143.0"
+	codexVersion    = "codex-cli 0.146.0-alpha.3.1"
 	claudeVersion   = "2.1.207 (Claude Code)"
 	hermesVersion   = "Hermes Agent v0.15.1"
 	openClawVersion = "2026.7.1-2"
 	himalayaVersion = "1.2.0"
 
-	codexNormalSchemaDigest       = "44b0f3e1bcddcee69d9b2dbdcfbfbb9252757f884946aeae698af6f82e439ebd"
-	codexExperimentalSchemaDigest = "e0ee3ce1d6b9aee796d4d0b00536d4aefeaf77641875577775e832cfae6445db"
+	codexNormalSchemaDigest       = "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6"
+	codexExperimentalSchemaDigest = "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf"
 )
 
 // CodexInspection contains normalized process-private facts extracted from one
@@ -155,7 +155,7 @@ func (p *LocalProber) codexNative(ctx context.Context, experimental bool) ProbeO
 	if inspection.ExecutableDigest == "" || inspection.ExecutableDigest != version.ExecutableDigest {
 		return unsatisfied(corecap.ReasonIncompatibleVersion)
 	}
-	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 267 {
+	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 273 {
 		return unsatisfied(corecap.ReasonIncompatibleVersion)
 	}
 	binding := []string{
@@ -165,7 +165,7 @@ func (p *LocalProber) codexNative(ctx context.Context, experimental bool) ProbeO
 	}
 	if experimental {
 		if inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest ||
-			inspection.ExperimentalSchemaFiles != 337 {
+			inspection.ExperimentalSchemaFiles != 347 {
 			return unsatisfied(corecap.ReasonIncompatibleVersion)
 		}
 		binding = append(binding, "schema.experimental="+inspection.ExperimentalSchemaDigest)

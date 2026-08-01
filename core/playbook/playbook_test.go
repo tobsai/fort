@@ -147,6 +147,11 @@ func TestClassifyTaskTypeUsesFixedRules(t *testing.T) {
 		want playbook.TaskType
 	}{
 		{"How does routing work?", playbook.TaskQuestion},
+		{"Reply OK", playbook.TaskQuestion},
+		{"Reply with exactly OK", playbook.TaskQuestion},
+		{"Respond with exactly OK", playbook.TaskQuestion},
+		{"Answer OK", playbook.TaskQuestion},
+		{"Say OK", playbook.TaskQuestion},
 		{"Please fix the crash in the board", playbook.TaskBug},
 		{"Investigate and compare scheduler libraries", playbook.TaskResearch},
 		{"Build a new dashboard view", playbook.TaskFeature},
@@ -155,6 +160,49 @@ func TestClassifyTaskTypeUsesFixedRules(t *testing.T) {
 		if got := playbook.ClassifyTaskType(tc.text); got != tc.want {
 			t.Errorf("ClassifyTaskType(%q) = %q, want %q", tc.text, got, tc.want)
 		}
+	}
+}
+
+func TestConversationalImperativesResolveToQuickAnswerWithoutOverridingExplicitRoute(t *testing.T) {
+	c := testCatalog()
+	for _, direction := range []string{
+		"Reply OK",
+		"Reply with exactly OK",
+		"Respond with exactly OK",
+		"Answer OK",
+		"Say OK",
+	} {
+		t.Run(direction, func(t *testing.T) {
+			route, err := c.Resolve(playbook.RouteRequest{Direction: direction})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if route.PlaybookID != "quick-answer" || route.TaskType != playbook.TaskQuestion || route.Source != playbook.SourceTrigger || route.Delivery != playbook.DeliveryAnswer {
+				t.Fatalf("route = %+v, want triggered quick-answer/question", route)
+			}
+		})
+	}
+
+	feature := "Build a new dashboard view"
+	if got := playbook.ClassifyTaskType(feature); got != playbook.TaskFeature {
+		t.Fatalf("ClassifyTaskType(%q) = %q, want %q", feature, got, playbook.TaskFeature)
+	}
+	route, err := c.Resolve(playbook.RouteRequest{Direction: feature})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route.PlaybookID != "standard-delivery" || route.TaskType != playbook.TaskFeature {
+		t.Fatalf("feature route = %+v, want standard-delivery/feature", route)
+	}
+
+	route, err = c.Resolve(playbook.RouteRequest{
+		Direction: "Reply OK", TaskType: playbook.TaskBug, PlaybookID: "research",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route.PlaybookID != "research" || route.TaskType != playbook.TaskBug || route.Source != playbook.SourceManual {
+		t.Fatalf("explicit route = %+v, want research/bug/manual", route)
 	}
 }
 
@@ -277,7 +325,7 @@ func TestDefaultCatalogIsValidAndCoversEveryTaskType(t *testing.T) {
 	if got := feature.Stages[0].Assignments[0]; got.Profile != "codex:gpt-5.5" || got.Agent != "codex" || got.Model != "gpt-5.5" {
 		t.Fatalf("breakdown assignment = %+v", got)
 	}
-	if got := feature.Stages[1].Assignments[0]; got.Agent != "openclaw" || got.Model != "Fable" {
+	if got := feature.Stages[1].Assignments[0]; got.Profile != "codex:gpt-5.5" || got.Agent != "codex" || got.Model != "gpt-5.5" {
 		t.Fatalf("design assignment = %+v", got)
 	}
 	buildAssignments := feature.Stages[2].Assignments
@@ -287,6 +335,21 @@ func TestDefaultCatalogIsValidAndCoversEveryTaskType(t *testing.T) {
 	if feature.Stages[0].Description == "" || feature.Stages[1].Description == "" || feature.Stages[2].Description == "" {
 		t.Fatalf("source-design stage descriptions missing: %+v", feature.Stages)
 	}
+}
+
+func TestLegacyGPT55DefaultCatalogKeepsImmutableOpenClawDesignStage(t *testing.T) {
+	catalog := playbook.LegacyGPT55DefaultCatalog()
+	for _, definition := range catalog.Playbooks {
+		if definition.ID != "feature-work" {
+			continue
+		}
+		got := definition.Stages[1].Assignments[0]
+		if got.Agent != "openclaw" || got.Model != "Fable" || got.Profile != "" {
+			t.Fatalf("legacy GPT-5.5 design assignment = %+v", got)
+		}
+		return
+	}
+	t.Fatal("legacy GPT-5.5 Feature work playbook missing")
 }
 
 func TestLegacyDefaultCatalogRevision1MatchesShippedAssignments(t *testing.T) {

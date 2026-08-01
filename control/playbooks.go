@@ -211,6 +211,10 @@ func (c *PlaybookCatalog) migrateLegacyDefaults(items []ui.Playbook) error {
 	for _, definition := range playbook.InterimConfiguredDefaultCatalog().Playbooks {
 		interim[definition.ID] = toUIPlaybook(definition)
 	}
+	gpt55 := make(map[string]ui.Playbook)
+	for _, definition := range playbook.LegacyGPT55DefaultCatalog().Playbooks {
+		gpt55[definition.ID] = toUIPlaybook(definition)
+	}
 	current := make(map[string]ui.Playbook)
 	for _, definition := range playbook.DefaultCatalog().Playbooks {
 		current[definition.ID] = toUIPlaybook(definition)
@@ -234,6 +238,11 @@ func (c *PlaybookCatalog) migrateLegacyDefaults(items []ui.Playbook) error {
 		}
 		if !knownPredecessor && (item.Revision == 1 || item.Revision == 2) {
 			before := interim[item.ID]
+			before.Revision = item.Revision
+			knownPredecessor = reflect.DeepEqual(item, before)
+		}
+		if !knownPredecessor && (item.Revision == 1 || item.Revision == 2) {
+			before := gpt55[item.ID]
 			before.Revision = item.Revision
 			knownPredecessor = reflect.DeepEqual(item, before)
 		}

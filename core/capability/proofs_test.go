@@ -23,7 +23,7 @@ func TestDirectionDigestPreservesExactUTF8AndEnforcesBound(t *testing.T) {
 }
 
 func TestPlanRevisionBindsSemanticsButNotInventory(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestPlanRevisionBindsSemanticsButNotInventory(t *testing.T) {
 			PermittedProfiles: []string{"codex:gpt-5.5"},
 			DeliveryMode:      "assignment", SignoffRequired: true,
 		},
-		Plan: plan, CatalogVersion: 1, ProfileMappingVersion: 1,
+		Plan: plan, CatalogVersion: CatalogVersion, ProfileMappingVersion: ProfileMappingVersion,
 	}
 	first, err := PlanRevision(identity)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestRelevantRevisionIgnoresTimestampsAndUnrelatedOffers(t *testing.T) {
 		"id":"answer","order":1,"title":"Answer","prompt":"Answer.",
 		"profile":"codex:gpt-5.5","requires":[],"input_from":[],
 		"output":"answer","output_format":"text","max_output_bytes":1024
-	}]}`), CatalogV1(), nil)
+	}]}`), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestRelevantRevisionIgnoresTimestampsAndUnrelatedOffers(t *testing.T) {
 }
 
 func TestPlacementProofAndOptionIDsAreStable(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

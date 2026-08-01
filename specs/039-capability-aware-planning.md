@@ -8,6 +8,12 @@ full capability-planning lifecycle is not implemented.
 exact ready `codex:gpt-5.5` profile, while stale or unavailable profiles fail
 before a provider starts.
 
+**Catalog v2 approval:** approved by Toby's 2026-07-27 instruction to expose
+the latest models already installed with the Codex Mac app. Version 2 changes
+only the closed Codex profile rows and verified Codex executable/schema tuple;
+it does not add a logical capability, install software, or permit model
+substitution.
+
 **Governed by:** [021-fort-native](021-fort-native.md),
 [022-multi-machine-orchestration](022-multi-machine-orchestration.md),
 [024-mesh-enrollment](024-mesh-enrollment.md),
@@ -145,10 +151,16 @@ The profile-readiness milestone is accepted only when:
   Connect without warnings or errors. Apple's receipt records the upload as
   successful and processing for TestFlight.
 
-These results accept the bounded profile-readiness milestone. They do not
-accept the full spec: Feature work can still be vetoed at its quarantined
-OpenClaw design stage, and inventory still does not perform capability-aware
-placement.
+These results accept the bounded profile-readiness milestone. The subsequent
+conversation-command-center acceptance found that the untouched Feature work
+default still sent its post-approval Design stage to the quarantined
+`openclaw:main` profile even when inventory had already reported it absent. The
+bounded repair appends a new immutable built-in revision that assigns Design to
+the same exact `codex:gpt-5.5` profile as Break down. Migration recognizes only
+the shipped, untouched GPT-5.5 default; prior revisions and user-edited
+playbooks remain unchanged. This does not accept the full spec: user-authored
+unready stages are still vetoed at dispatch, and inventory still does not
+perform capability-aware placement.
 
 ### Current implementation boundary
 
@@ -552,7 +564,9 @@ that provider's configured default. `kind: "configured_agent"` names a tested
 provider-owned selector such as OpenClaw's `main`; it is not a model alias.
 Display labels are never passed through as provider/model IDs.
 
-Catalog/profile-mapping version 1 is closed:
+Catalog/profile-mapping version 2 is closed. It preserves every v1 row and adds
+the two provider-native GPT-5.6 profiles advertised by the approved Codex Mac
+app executable:
 
 | Profile ID | Provider selection | Accepted legacy label |
 | --- | --- | --- |
@@ -562,6 +576,8 @@ Catalog/profile-mapping version 1 is closed:
 | `codex:configured-default` | configured default | empty |
 | `codex:gpt-5.5` | model `gpt-5.5` | none |
 | `codex:gpt-5.6-sol` | model `gpt-5.6-sol` | `5.6 Sol` |
+| `codex:gpt-5.6-terra` | model `gpt-5.6-terra` | none |
+| `codex:gpt-5.6-luna` | model `gpt-5.6-luna` | none |
 | `hermes:configured-default` | configured default | empty |
 | `hermes:openai-codex/gpt-5.6-sol` | provider/model `openai-codex` + `gpt-5.6-sol` | `Codex 5.6 Sol` |
 | `openclaw:main` | configured agent `main` | empty or `Fable` |
@@ -570,20 +586,22 @@ The `Fable` mapping preserves the already deployed OpenClaw-main behavior; it
 does not claim that Fable is a provider model. Adding or changing a row requires
 a catalog-version change and contract tests.
 
-### V1 compatibility matrix
+### V2 compatibility matrix
 
 Compatibility is catalog data, not an implementation-defined version range.
-Catalog version 1 accepts only the following tuples:
+Catalog version 2 accepts only the following tuples. On this Mac, Fort resolves
+Codex from the already-installed app resources before an older Homebrew CLI;
+the normal immutable staging and executable-drift checks remain authoritative.
 
-| Adapter or binding | Platform | Executable/protocol identity | V1 result |
+| Adapter or binding | Platform | Executable/protocol identity | V2 result |
 | --- | --- | --- | --- |
 | `profile.claude.native` | `darwin/arm64` | Claude Code `2.1.207`; the parsed `claude -p --help` and `claude auth status --json` contracts below | eligible for the cataloged Claude profiles |
 | `profile.hermes.native` | `darwin/arm64` | Hermes Agent `0.15.1`; the parsed help/config/status contracts below | eligible for the cataloged Hermes profiles |
 | `profile.openclaw.main` | `darwin/arm64` | OpenClaw `2026.7.1-2`; the parsed agent/config/model contracts below | eligible only for `openclaw:main` |
 | `email.gmail.read.himalaya-broker` | `darwin/arm64` | Himalaya `1.2.0`; the parsed v1.2 account-scoped envelope/preview contract below | eligible for the Gmail logical offer |
-| `profile.codex.native` | `darwin/arm64` | version output `codex-cli 0.143.0`; normal 267-file schema-bundle digest `44b0f3e1bcddcee69d9b2dbdcfbfbb9252757f884946aeae698af6f82e439ebd` | eligible for no-capability Codex profiles |
-| `codex-appserver+gmail` | `darwin/arm64` | `codex-cli 0.143.0`; experimental 337-file schema-bundle digest `e0ee3ce1d6b9aee796d4d0b00536d4aefeaf77641875577775e832cfae6445db`; `dynamicTools`, empty `selectedCapabilityRoots`, and the exact Gmail namespace schema in this spec | eligible only after profile, Gmail, and isolation guards pass |
-| `codex-appserver+supabase` | `darwin/arm64` | `codex-cli 0.143.0`; the same experimental bundle digest; exact root selection, `dynamicTools`, and the exact Supabase schemas below | eligible only after profile, Supabase, and isolation guards pass |
+| `profile.codex.native` | `darwin/arm64` | version output `codex-cli 0.146.0-alpha.3.1`; normal 273-file schema-bundle digest `ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6` | eligible for no-capability Codex profiles |
+| `codex-appserver+gmail` | `darwin/arm64` | `codex-cli 0.146.0-alpha.3.1`; experimental 347-file schema-bundle digest `3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf`; `dynamicTools`, empty `selectedCapabilityRoots`, and the exact Gmail namespace schema in this spec | eligible only after profile, Gmail, and isolation guards pass |
+| `codex-appserver+supabase` | `darwin/arm64` | `codex-cli 0.146.0-alpha.3.1`; the same experimental bundle digest; exact root selection, `dynamicTools`, and the exact Supabase schemas below | eligible only after profile, Supabase, and isolation guards pass |
 
 For the Supabase raw broker, `supabase.list_tables` must have exactly
 `{project_id:string,schemas:string[],verbose:boolean}` and
@@ -914,7 +932,7 @@ logical offer requires `binding_revision:""`.
       "state": "satisfied",
       "reason": "",
       "depends_on": [],
-      "remedy_effect_ids": ["effect.codex.capability-0.143.0-e0ee3ce1.v1"]
+      "remedy_effect_ids": ["effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"]
     },
     {
       "id": "predicate.codex.authenticated-subject.v1",
@@ -972,7 +990,7 @@ The node also publishes the composite contracts the solver may actually use:
         "predicate.himalaya.preview-contract.v1",
         "predicate.gmail.selected-imap-preview-read.v1"
       ],
-      "remedy_effect_ids": ["effect.codex.capability-0.143.0-e0ee3ce1.v1"]
+      "remedy_effect_ids": ["effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"]
     }
   ]
 }
@@ -1508,8 +1526,8 @@ Every matched row also resolves to one closed `remedy_effect_id`, one
 success establishes on that machine:
 
 - the one Codex update template uses
-  `effect.codex.capability-0.143.0-e0ee3ce1.v1`, meaning the exact
-  `codex-cli 0.143.0` normal and experimental schema tuples in the
+  `effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2`, meaning the exact
+  `codex-cli 0.146.0-alpha.3.1` normal and experimental schema tuples in the
   compatibility matrix;
 - Codex login uses `effect.codex.authenticated-subject.v1`, and model
   availability uses

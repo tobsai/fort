@@ -141,6 +141,29 @@ func TestPlacementRecordsMachineAndStampsSpec(t *testing.T) {
 	}
 }
 
+func TestSubmitCarriesExactProfileAndModel(t *testing.T) {
+	e, st, rt := newEngine(t)
+	runID, err := e.Submit(context.Background(), task.Task{
+		ID: "profiled", Title: "build", Agent: "codex",
+		Profile: "codex:gpt-5.6-sol", Model: "gpt-5.6-sol",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.Wait(runID)
+	dispatched := rt.Dispatched()
+	if len(dispatched) != 1 || dispatched[0].Profile != "codex:gpt-5.6-sol" || dispatched[0].Model != "gpt-5.6-sol" {
+		t.Fatalf("dispatched = %+v, want exact profile/model", dispatched)
+	}
+	run, err := st.GetRun(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Profile != "codex:gpt-5.6-sol" || run.Model != "gpt-5.6-sol" {
+		t.Fatalf("persisted run = %+v, want exact profile/model", run)
+	}
+}
+
 func TestPlacementErrorBoardsFailedRun(t *testing.T) {
 	e, st, rt := newEngine(t)
 	e.UsePlacer(&stubPlacer{err: context.DeadlineExceeded})

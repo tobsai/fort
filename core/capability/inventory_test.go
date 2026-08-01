@@ -62,17 +62,17 @@ func TestNormalizeSnapshotRejectsOutOfOrderCatalogPredicateVector(t *testing.T) 
 
 func readySnapshot() Snapshot {
 	profilePredicates := []Predicate{
-		{ID: "predicate.codex.native-contract.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"}},
+		{ID: "predicate.codex.native-contract.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
 		{ID: "predicate.codex.authenticated-subject.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{"predicate.codex.native-contract.v1"}, RemedyEffectIDs: []string{"effect.codex.authenticated-subject.v1"}},
 		{ID: "predicate.codex.model.codex:gpt-5.5.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{"predicate.codex.authenticated-subject.v1"}, RemedyEffectIDs: []string{"effect.codex.model-ready.codex:gpt-5.5.v1"}},
 	}
 	return Snapshot{
-		CatalogVersion:        1,
-		ProfileMappingVersion: 1,
+		CatalogVersion:        CatalogVersion,
+		ProfileMappingVersion: ProfileMappingVersion,
 		LocalMachine:          "laptop",
 		Machines: []MachineInventory{{
 			Name: "laptop", Local: true, RegistryRank: 0, Reachable: true,
-			ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+			ProtocolVersion: ProtocolVersion, CatalogVersion: CatalogVersion, ProfileMappingVersion: ProfileMappingVersion,
 			State: MachineReady, Reason: "",
 			Profiles: []ProfileOffer{{
 				ID: "codex:gpt-5.5", Agent: "codex", Adapter: "profile.codex.native",

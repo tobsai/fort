@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/playbook"
@@ -41,6 +42,16 @@ func legacyDefaultPlaybooks(t *testing.T) []ui.Playbook {
 func interimDefaultPlaybooks(t *testing.T) []ui.Playbook {
 	t.Helper()
 	definitions := playbook.InterimConfiguredDefaultCatalog().Playbooks
+	items := make([]ui.Playbook, 0, len(definitions))
+	for _, definition := range definitions {
+		items = append(items, toUIPlaybook(definition))
+	}
+	return items
+}
+
+func legacyGPT55DefaultPlaybooks(t *testing.T) []ui.Playbook {
+	t.Helper()
+	definitions := playbook.LegacyGPT55DefaultCatalog().Playbooks
 	items := make([]ui.Playbook, 0, len(definitions))
 	for _, definition := range definitions {
 		items = append(items, toUIPlaybook(definition))
@@ -181,6 +192,87 @@ func TestPlaybookCatalogMigratesInterimRevisionOneDefaults(t *testing.T) {
 	}
 	if got := playbookByID(t, items, "research"); got.Revision != 1 {
 		t.Errorf("research revision = %d, want 1", got.Revision)
+	}
+}
+
+func TestPlaybookCatalogMigratesUntouchedGPT55DefaultOnce(t *testing.T) {
+	st := newStore(t)
+	seedPlaybookDefinitions(t, st, legacyGPT55DefaultPlaybooks(t))
+
+	cat := NewPlaybookCatalog(st)
+	items, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := playbookByID(t, items, "feature-work")
+	if feature.Revision != 2 {
+		t.Fatalf("Feature work revision = %d, want 2", feature.Revision)
+	}
+	if got := feature.Stages[1].Assignments[0]; got.Profile != "codex:gpt-5.5" || got.Agent != "codex" || got.Model != "gpt-5.5" {
+		t.Fatalf("migrated Feature work Design = %+v", got)
+	}
+	prior, err := st.PlaybookRevision("feature-work", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := decodePlaybookRevision(prior)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := legacy.Stages[1].Assignments[0]; got.Agent != "openclaw" || got.Model != "Fable" || got.Profile != "" {
+		t.Fatalf("immutable Feature work revision 1 = %+v", got)
+	}
+	beforeRestart, err := st.LatestPlaybookRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewPlaybookCatalog(st).List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	afterRestart, err := st.LatestPlaybookRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(beforeRestart, afterRestart) {
+		t.Fatalf("GPT-5.5 migration was not idempotent:\nbefore=%+v\nafter=%+v", beforeRestart, afterRestart)
+	}
+}
+
+func TestPlaybookCatalogMigratesUntouchedGPT55RevisionTwo(t *testing.T) {
+	st := newStore(t)
+	items := legacyGPT55DefaultPlaybooks(t)
+	for i := range items {
+		items[i].Revision = 2
+	}
+	seedPlaybookDefinitions(t, st, items)
+
+	latest, err := NewPlaybookCatalog(st).List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := playbookByID(t, latest, "feature-work")
+	if feature.Revision != 3 || feature.Stages[1].Assignments[0].Profile != "codex:gpt-5.5" {
+		t.Fatalf("migrated revision-two Feature work = %+v", feature)
+	}
+}
+
+func TestPlaybookCatalogPreservesUserEditedGPT55Default(t *testing.T) {
+	st := newStore(t)
+	items := legacyGPT55DefaultPlaybooks(t)
+	for i := range items {
+		if items[i].ID == "feature-work" {
+			items[i].Stages[1].Prompt = "Use my custom design process."
+		}
+	}
+	seedPlaybookDefinitions(t, st, items)
+
+	latest, err := NewPlaybookCatalog(st).List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := playbookByID(t, latest, "feature-work")
+	if feature.Revision != 1 || feature.Stages[1].Assignments[0].Agent != "openclaw" || feature.Stages[1].Prompt != "Use my custom design process." {
+		t.Fatalf("user-edited GPT-5.5 default was migrated: %+v", feature)
 	}
 }
 
@@ -463,7 +555,9 @@ func TestFlowExecutorPlaybookFlowResumesFromCanonicalRevisionAfterRestart(t *tes
 		t.Fatal(err)
 	}
 	edited := playbookByID(t, items, "feature-work")
+	edited.Stages[1].Assignments[0].Profile = "hermes:configured-default"
 	edited.Stages[1].Assignments[0].Agent = "hermes"
+	edited.Stages[1].Assignments[0].Model = ""
 	if _, err := cat.Save(context.Background(), edited); err != nil {
 		t.Fatalf("save later revision: %v", err)
 	}
@@ -484,8 +578,80 @@ func TestFlowExecutorPlaybookFlowResumesFromCanonicalRevisionAfterRestart(t *tes
 		t.Fatalf("resume result = %+v", resumed)
 	}
 	specs := rt.Dispatched()
-	if len(specs) != 3 || specs[1].Agent != "openclaw" {
+	if len(specs) != 3 || specs[1].Agent != "codex" || specs[1].Profile != "codex:gpt-5.5" {
 		t.Fatalf("dispatches = %+v; resume did not use immutable revision 1", specs)
+	}
+}
+
+func TestFlowExecutorAcceptsPlaybookBeforeProviderDispatchCompletes(t *testing.T) {
+	st := newStore(t)
+	cat := NewPlaybookCatalog(st)
+	route, err := cat.Route(context.Background(), ui.RouteRequest{
+		Text: "Build export", PlaybookID: "feature-work", TaskType: "feature",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := &blockedRuntime{started: make(chan struct{}), release: make(chan struct{})}
+	fx := NewFlowExecutor(graph.NewExecutor(rt, st), nil).WithPlaybooks(cat)
+
+	result, err := fx.StartPlaybookAsync(context.Background(), route, "accepted-playbook", "Build export")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.State != "accepted" || result.FlowID == "" {
+		t.Fatalf("accepted result = %+v", result)
+	}
+	run, err := st.GetRun("accepted-playbook")
+	if err != nil || run.FlowID != result.FlowID || run.Status != "running" {
+		t.Fatalf("durable playbook run = %+v, %v", run, err)
+	}
+	select {
+	case <-rt.started:
+	case <-time.After(time.Second):
+		t.Fatal("accepted playbook did not start provider dispatch")
+	}
+	close(rt.release)
+}
+
+func TestLatestFeatureWorkContinuesAfterApprovalWithoutOpenClaw(t *testing.T) {
+	st := newStore(t)
+	cat := NewPlaybookCatalog(st)
+	items, err := cat.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := playbookByID(t, items, "feature-work")
+	route, err := cat.Route(context.Background(), ui.RouteRequest{
+		Text: "Build export", PlaybookID: feature.ID, PlaybookRevision: feature.Revision, TaskType: "feature",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := fake.New()
+	fx := NewFlowExecutor(graph.NewExecutor(rt, st), nil).WithPlaybooks(cat)
+	started, err := fx.StartPlaybook(context.Background(), route, "ready-feature", "Build export")
+	if err != nil || started.State != "paused" || started.PausedNode != "plan-gate" {
+		t.Fatalf("start = %+v, %v", started, err)
+	}
+	if err := fx.Approve("ready-feature", "plan-gate", ""); err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := fx.ResumeFlow(context.Background(), started.FlowID, "ready-feature")
+	if err != nil || resumed.State != "completed" {
+		t.Fatalf("resume = %+v, %v", resumed, err)
+	}
+	specs := rt.Dispatched()
+	if len(specs) != 3 {
+		t.Fatalf("dispatches = %+v, want three stages", specs)
+	}
+	if specs[0].Profile != "codex:gpt-5.5" || specs[1].Profile != "codex:gpt-5.5" || specs[1].Agent != "codex" || specs[2].Agent != "claude" {
+		t.Fatalf("dispatches = %+v, want Codex plan/design then Claude build", specs)
+	}
+	for _, spec := range specs {
+		if spec.Agent == "openclaw" {
+			t.Fatalf("latest Feature work dispatched unavailable OpenClaw: %+v", specs)
+		}
 	}
 }
 

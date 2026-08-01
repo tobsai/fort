@@ -39,19 +39,21 @@ func executableSizeAllowed(size int64) bool {
 const probePipeWaitDelay = 250 * time.Millisecond
 
 type CommandResolverOptions struct {
-	Platform    string
-	StageDir    string
-	Environment []string
+	Platform             string
+	StageDir             string
+	Environment          []string
+	PreferredExecutables map[string]string
 }
 
 // CommandResolver resolves a command once, reads it through a no-follow file
 // descriptor, and stages immutable content-addressed bytes for both probes and
 // dispatch. Paths and fingerprints stay execution-private.
 type CommandResolver struct {
-	platform string
-	stageDir string
-	env      []string
-	path     string
+	platform  string
+	stageDir  string
+	env       []string
+	path      string
+	preferred map[string]string
 
 	authorizedMu sync.RWMutex
 	authorized   map[string]string
@@ -71,9 +73,13 @@ func NewCommandResolver(options CommandResolverOptions) (*CommandResolver, error
 	if path == "" {
 		path = os.Getenv("PATH")
 	}
+	preferred := make(map[string]string, len(options.PreferredExecutables))
+	for name, path := range options.PreferredExecutables {
+		preferred[name] = path
+	}
 	return &CommandResolver{
 		platform: options.Platform, stageDir: options.StageDir,
-		env: append([]string(nil), options.Environment...), path: path,
+		env: append([]string(nil), options.Environment...), path: path, preferred: preferred,
 		authorized: map[string]string{},
 	}, nil
 }
@@ -183,6 +189,12 @@ func (r *CommandResolver) resolve(name string) (string, error) {
 			name = absolute
 		}
 		return name, nil
+	}
+	if preferred := r.preferred[name]; preferred != "" {
+		info, err := os.Stat(preferred)
+		if err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+			return preferred, nil
+		}
 	}
 	for _, directory := range filepath.SplitList(r.path) {
 		if directory == "" {

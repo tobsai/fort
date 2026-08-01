@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,9 +65,11 @@ func newFullUI(t *testing.T) (*ui.Server, *store.Store) {
 	for i, f := range flows {
 		ids[i] = f.ID
 	}
+	executor := graph.NewExecutor(rt, st)
+	t.Cleanup(executor.Wait)
 	return ui.New(ui.Deps{
 		Dispatcher: control.NewEngineDispatcher(eng),
-		Runner:     control.NewFlowExecutor(graph.NewExecutor(rt, st), flows),
+		Runner:     control.NewFlowExecutor(executor, flows),
 		Store:      st,
 		FlowIDs:    ids,
 	}), st
@@ -106,6 +109,39 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 	return v
 }
 
+func waitForGate(t *testing.T, st *store.Store, runID, nodeID, status string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		nodes, err := st.NodeRuns(runID)
+		if err == nil {
+			for _, node := range nodes {
+				if node.NodeID == nodeID && node.Status == status {
+					return
+				}
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("gate %s/%s never reached %q", runID, nodeID, status)
+}
+
+func waitForRunStatus(t *testing.T, st *store.Store, runID string, statuses ...string) {
+	t.Helper()
+	want := make(map[string]bool, len(statuses))
+	for _, status := range statuses {
+		want[status] = true
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if run, err := st.GetRun(runID); err == nil && want[run.Status] {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("run %s never reached one of %v", runID, statuses)
+}
+
 func TestWebIcon(t *testing.T) {
 	s, _ := newControlUI(t)
 	page := do(t, s, "GET", "/", nil)
@@ -125,51 +161,174 @@ func TestWebIcon(t *testing.T) {
 	}
 }
 
+func TestShippingAppIconAssetsConformToCanonicalIdentity(t *testing.T) {
+	type pngAsset struct {
+		path          string
+		data          []byte
+		width, height int
+	}
+	readPNG := func(path string) pngAsset {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		config, err := png.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			t.Fatalf("decode PNG config %s: %v", path, err)
+		}
+		return pngAsset{path: path, data: data, width: config.Width, height: config.Height}
+	}
+	requireDimensions := func(asset pngAsset, width, height int) {
+		t.Helper()
+		if asset.width != width || asset.height != height {
+			t.Errorf("%s dimensions = %dx%d, want %dx%d", asset.path, asset.width, asset.height, width, height)
+		}
+	}
+
+	canonical := readPNG(filepath.Join("..", "assets", "fort-icon.png"))
+	requireDimensions(canonical, 1024, 1024)
+	shipping1024 := []pngAsset{
+		readPNG(filepath.Join("apple", "iOS", "Assets.xcassets", "AppIcon.appiconset", "icon-1024.png")),
+		readPNG(filepath.Join("apple", "watch", "Assets.xcassets", "AppIcon.appiconset", "icon-1024.png")),
+		readPNG(filepath.Join("apple", "macOS", "Assets.xcassets", "AppIcon.appiconset", "icon_512x512@2x.png")),
+	}
+	for _, asset := range shipping1024 {
+		requireDimensions(asset, 1024, 1024)
+		if !bytes.Equal(asset.data, canonical.data) {
+			t.Errorf("%s is not byte-identical to canonical identity %s", asset.path, canonical.path)
+		}
+	}
+
+	macCatalogPath := filepath.Join("apple", "macOS", "Assets.xcassets", "AppIcon.appiconset", "Contents.json")
+	macCatalogData, err := os.ReadFile(macCatalogPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", macCatalogPath, err)
+	}
+	var macCatalog struct {
+		Images []struct {
+			Filename string `json:"filename"`
+		} `json:"images"`
+	}
+	if err := json.Unmarshal(macCatalogData, &macCatalog); err != nil {
+		t.Fatalf("decode %s: %v", macCatalogPath, err)
+	}
+	expectedMacDimensions := map[string][2]int{
+		"icon_16x16.png":      {16, 16},
+		"icon_16x16@2x.png":   {32, 32},
+		"icon_32x32.png":      {32, 32},
+		"icon_32x32@2x.png":   {64, 64},
+		"icon_128x128.png":    {128, 128},
+		"icon_128x128@2x.png": {256, 256},
+		"icon_256x256.png":    {256, 256},
+		"icon_256x256@2x.png": {512, 512},
+		"icon_512x512.png":    {512, 512},
+		"icon_512x512@2x.png": {1024, 1024},
+	}
+	if len(macCatalog.Images) != len(expectedMacDimensions) {
+		t.Fatalf("macOS app-icon catalog entries = %d, want %d", len(macCatalog.Images), len(expectedMacDimensions))
+	}
+	seenMac := make(map[string]bool, len(macCatalog.Images))
+	for _, entry := range macCatalog.Images {
+		dimensions, ok := expectedMacDimensions[entry.Filename]
+		if !ok {
+			t.Errorf("macOS app-icon catalog has unexpected filename %q", entry.Filename)
+			continue
+		}
+		if seenMac[entry.Filename] {
+			t.Errorf("macOS app-icon catalog duplicates filename %q", entry.Filename)
+			continue
+		}
+		seenMac[entry.Filename] = true
+		requireDimensions(readPNG(filepath.Join(filepath.Dir(macCatalogPath), entry.Filename)), dimensions[0], dimensions[1])
+	}
+	for filename := range expectedMacDimensions {
+		if !seenMac[filename] {
+			t.Errorf("macOS app-icon catalog is missing %q", filename)
+		}
+	}
+
+	requireDimensions(readPNG("fort-icon.png"), 256, 256)
+	orbPath := filepath.Join("apple", "macOS", "Assets.xcassets", "FortAgentOrb.imageset", "fort-agent-orb.png")
+	orb := readPNG(orbPath)
+	if _, err := png.Decode(bytes.NewReader(orb.data)); err != nil {
+		t.Errorf("decode FortAgentOrb PNG %s: %v", orbPath, err)
+	}
+}
+
+func TestAgentOrbIsServedAsPNG(t *testing.T) {
+	s, _ := newControlUI(t)
+	orb := do(t, s, "GET", "/fort-agent-orb.png", nil)
+	if orb.Code != http.StatusOK {
+		t.Fatalf("code %d, want %d", orb.Code, http.StatusOK)
+	}
+	if got := orb.Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("content type = %q, want image/png", got)
+	}
+	if !bytes.HasPrefix(orb.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) || orb.Body.Len() < 10_000 {
+		t.Fatal("agent orb is not a production PNG asset")
+	}
+}
+
 // ---- full mode ----
 
 func TestChatCreatesRoutedTask(t *testing.T) {
-	s, _ := newFullUI(t)
+	s, st := newFullUI(t)
 	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "please summarize the repo"})
-	if rec.Code != 200 {
+	if rec.Code != http.StatusAccepted {
 		t.Fatalf("code %d: %s", rec.Code, rec.Body)
 	}
 	res := decode[ui.ChatResult](t, rec)
-	if res.Kind != "task" || res.Route != "claude" || res.Queued {
-		t.Errorf("res = %+v, want task/claude not queued", res)
+	if res.Kind != "task" || res.Route != "claude" || res.Queued || !res.Accepted || res.Delivery != "assignment" {
+		t.Errorf("res = %+v, want accepted task/claude assignment not queued", res)
 	}
+	if rec.Header().Get("Location") != "/api/runs/"+res.RunID {
+		t.Fatalf("Location = %q, want durable run detail", rec.Header().Get("Location"))
+	}
+	if run, err := st.GetRun(res.RunID); err != nil || run.ID != res.RunID {
+		t.Fatalf("accepted run = %+v, %v", run, err)
+	}
+	waitForRunStatus(t, st, res.RunID, "succeeded", "failed", "canceled")
 }
 
 func TestChatShipInstantiatesFlow(t *testing.T) {
-	s, _ := newFullUI(t)
+	s, st := newFullUI(t)
 	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship dark mode toggle"})
 	res := decode[ui.ChatResult](t, rec)
-	if res.Kind != "flow" || res.FlowID != "ship-feature" || res.Paused != "plan_gate" {
-		t.Fatalf("res = %+v, want flow/ship-feature paused at plan_gate", res)
+	if rec.Code != http.StatusAccepted || res.Kind != "flow" || res.FlowID != "ship-feature" || res.Paused != "" || !res.Accepted || res.Delivery != "assignment" {
+		t.Fatalf("res = %+v status=%d, want accepted flow/ship-feature", res, rec.Code)
 	}
+	waitForGate(t, st, res.RunID, "plan_gate", "waiting")
 }
 
 func TestGateDecisionResumesFlow(t *testing.T) {
-	s, _ := newFullUI(t)
+	s, st := newFullUI(t)
 	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship a thing"})
 	started := decode[ui.ChatResult](t, rec)
+	waitForGate(t, st, started.RunID, "plan_gate", "waiting")
 
 	rec = do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "approve"})
-	if rec.Code != 200 {
+	if rec.Code != http.StatusAccepted {
 		t.Fatalf("gate code %d: %s", rec.Code, rec.Body)
 	}
 	ar := decode[ui.ActionResult](t, rec)
-	if ar.State != "paused" || ar.PausedNode != "merge_gate" {
-		t.Errorf("after plan approve = %+v, want paused at merge_gate", ar)
+	if ar.State != "accepted" || ar.PausedNode != "" {
+		t.Errorf("after plan approve = %+v, want accepted continuation", ar)
 	}
+	if rec.Header().Get("Location") != "/api/runs/"+started.RunID {
+		t.Fatalf("Location = %q", rec.Header().Get("Location"))
+	}
+	waitForGate(t, st, started.RunID, "merge_gate", "waiting")
 }
 
 func TestGateRejectRecordsNote(t *testing.T) {
-	s, _ := newFullUI(t)
+	s, st := newFullUI(t)
 	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship a smaller thing"})
 	started := decode[ui.ChatResult](t, rec)
+	waitForGate(t, st, started.RunID, "plan_gate", "waiting")
 
 	rec = do(t, s, "POST", "/api/gate", ui.GateDecision{RunID: started.RunID, NodeID: "plan_gate", Decision: "reject", Note: "smaller please"})
-	if rec.Code != 200 {
+	if rec.Code != http.StatusAccepted {
 		t.Fatalf("gate code %d: %s", rec.Code, rec.Body)
 	}
 	rec = do(t, s, "GET", "/api/runs/"+started.RunID, nil)
@@ -186,8 +345,9 @@ func TestGateRejectRecordsNote(t *testing.T) {
 }
 
 func TestBoardListsRunsAndGates(t *testing.T) {
-	s, _ := newFullUI(t)
-	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship something"})
+	s, st := newFullUI(t)
+	started := decode[ui.ChatResult](t, do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship something"}))
+	waitForGate(t, st, started.RunID, "plan_gate", "waiting")
 	rec := do(t, s, "GET", "/api/board", nil)
 	b := decode[ui.Board](t, rec)
 	if len(b.Runs) != 1 {
@@ -199,8 +359,9 @@ func TestBoardListsRunsAndGates(t *testing.T) {
 }
 
 func TestBoardCarriesTimestampsAndCheckpoints(t *testing.T) {
-	s, _ := newFullUI(t)
-	_ = do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship checkpoints"})
+	s, st := newFullUI(t)
+	started := decode[ui.ChatResult](t, do(t, s, "POST", "/api/chat", ui.ChatRequest{Text: "ship checkpoints"}))
+	waitForGate(t, st, started.RunID, "plan_gate", "waiting")
 	rec := do(t, s, "GET", "/api/board", nil)
 	if strings.Contains(rec.Body.String(), "null") {
 		t.Fatalf("board body contains null: %s", rec.Body)
@@ -336,6 +497,102 @@ func TestChatForcesAgent(t *testing.T) {
 	}
 }
 
+func TestProfilesExposeClosedCatalogChoices(t *testing.T) {
+	st := openStore(t)
+	s := ui.New(ui.Deps{Dispatcher: &capturingDispatcher{}, Store: st})
+	rec := do(t, s, "GET", "/api/profiles", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	profiles := decode[[]ui.ProfileOption](t, rec)
+	want := map[string]struct{ model, display string }{
+		"codex:gpt-5.6-sol":   {model: "gpt-5.6-sol", display: "Codex · GPT-5.6 Sol"},
+		"codex:gpt-5.6-terra": {model: "gpt-5.6-terra", display: "Codex · GPT-5.6 Terra"},
+		"codex:gpt-5.6-luna":  {model: "gpt-5.6-luna", display: "Codex · GPT-5.6 Luna"},
+	}
+	for _, profile := range profiles {
+		expected, ok := want[profile.ID]
+		if !ok {
+			continue
+		}
+		if profile.Agent != "codex" || profile.Model != expected.model || profile.DisplayName != expected.display {
+			t.Fatalf("profile = %+v", profile)
+		}
+		if profile.State != corecap.OfferUnknown || profile.Reason != corecap.ReasonStale {
+			t.Fatalf("inventory-free profile state = %q/%q, want unknown/stale", profile.State, profile.Reason)
+		}
+		delete(want, profile.ID)
+	}
+	if len(want) != 0 {
+		t.Fatalf("closed Codex profiles missing: %#v", want)
+	}
+}
+
+func TestProfilesAggregateReadyMachinesWithoutSubstitution(t *testing.T) {
+	st := openStore(t)
+	snapshot := corecap.Snapshot{Machines: []corecap.MachineInventory{
+		{
+			Name: "laptop", Reachable: true,
+			Profiles: []corecap.ProfileOffer{{ID: "codex:gpt-5.5", State: corecap.OfferReady}},
+		},
+		{
+			Name: "mac-mini", Reachable: true,
+			Profiles: []corecap.ProfileOffer{{ID: "codex:gpt-5.5", State: corecap.OfferSetupRequired, Reason: corecap.ReasonModelUnavailable}},
+		},
+	}}
+	s := ui.New(ui.Deps{
+		Dispatcher: &capturingDispatcher{}, Store: st,
+		Capabilities: stubCapabilities{snapshot: snapshot, generation: 9},
+	})
+	profiles := decode[[]ui.ProfileOption](t, do(t, s, http.MethodGet, "/api/profiles", nil))
+	for _, profile := range profiles {
+		if profile.ID != "codex:gpt-5.5" {
+			continue
+		}
+		if profile.State != corecap.OfferReady || profile.Reason != "" {
+			t.Fatalf("aggregate state = %q/%q, want ready with no reason", profile.State, profile.Reason)
+		}
+		if len(profile.Machines) != 1 || profile.Machines[0] != "laptop" {
+			t.Fatalf("ready machines = %#v, want only laptop", profile.Machines)
+		}
+		return
+	}
+	t.Fatal("codex:gpt-5.5 profile missing")
+}
+
+func TestChatUsesExactCatalogProfile(t *testing.T) {
+	st := openStore(t)
+	cd := &capturingDispatcher{}
+	s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+	rec := do(t, s, "POST", "/api/chat", ui.ChatRequest{
+		Text: "build it", Profile: "codex:gpt-5.6-terra", Machine: "mac-mini",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	if cd.last.Profile != "codex:gpt-5.6-terra" || cd.last.Agent != "codex" || cd.last.Model != "gpt-5.6-terra" || cd.last.Machine != "mac-mini" {
+		t.Fatalf("task = %+v, want exact profile-derived selection", cd.last)
+	}
+}
+
+func TestChatRejectsUnknownOrMismatchedProfileBeforeDispatch(t *testing.T) {
+	for _, request := range []ui.ChatRequest{
+		{Text: "build it", Profile: "codex:not-real"},
+		{Text: "build it", Agent: "claude", Profile: "codex:gpt-5.5"},
+	} {
+		st := openStore(t)
+		cd := &capturingDispatcher{}
+		s := ui.New(ui.Deps{Dispatcher: cd, Store: st})
+		rec := do(t, s, "POST", "/api/chat", request)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("request=%+v status=%d body=%s", request, rec.Code, rec.Body)
+		}
+		if cd.last.ID != "" {
+			t.Fatalf("invalid profile dispatched task %+v", cd.last)
+		}
+	}
+}
+
 func TestChatSplitsTitleAndBody(t *testing.T) {
 	st := openStore(t)
 	cd := &capturingDispatcher{}
@@ -410,7 +667,7 @@ func (s stubCapabilities) Capabilities() (corecap.Snapshot, uint64) {
 func TestCapabilitiesEndpointReturnsCurrentSecretFreeSnapshot(t *testing.T) {
 	st := openStore(t)
 	snapshot := corecap.Snapshot{
-		CatalogVersion: 1, ProfileMappingVersion: 1, LocalMachine: "laptop",
+		CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion, LocalMachine: "laptop",
 		Revision: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		Machines: []corecap.MachineInventory{{
 			Name: "laptop", Local: true, Reachable: true, State: corecap.MachinePartial,

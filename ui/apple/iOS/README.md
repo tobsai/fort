@@ -1,7 +1,7 @@
 # Fort — iOS client
 
 The iOS control-plane surface for Fort. Its thumb-reachable navigation is
-**Deck, Direction, Projects, Today, More**. More keeps Playbooks, Crew, Week,
+**Deck, Direction, Conversations, Today, More**. More keeps Playbooks, Crew, Week,
 the inspectable Feed, and Settings available without crowding the primary bar.
 It imports [`../FortKit`](../FortKit) and does **not** redefine the wire models
 or client.

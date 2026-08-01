@@ -1,9 +1,9 @@
 package ui
 
 // boardHTML is the web control plane served at GET / — the delegation-model
-// dashboard (spec 033, from design_handoff_fort_dashboard_redesign/): six views
-// behind one top-bar nav. Deck (needs-you inbox + projects + crew), Projects
-// (sigil cards with human-checkpoint bars), Assign (give direction + roster),
+// dashboard (spec 033, from design_handoff_fort_dashboard_redesign/): views
+// behind one top-bar nav. Deck (needs-you inbox + conversations + crew), Assign
+// (work intake + roster),
 // Performance (/api/metrics scorecards), Week and Today (per-agent schedule
 // grids; Today derives a "You" row of sign-off moments). Vocabulary is human
 // (assignment / sign-off / Up next / Start / Draft a plan / checkpoint) over
@@ -19,21 +19,21 @@ const boardHTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Fort — Command Deck</title>
 <link rel="icon" type="image/png" href="/fort-icon.png"/>
-<link rel="apple-touch-icon" href="/fort-icon.png"/>
+<link rel="apple-touch-icon" href="/fort-agent-orb.png"/>
 <script>(function(){var s=localStorage.getItem('fort-theme');document.documentElement.setAttribute('data-theme',s||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0e14;--panel:#12161f;--line:#1a212e;--line2:#212938;--raise:#26314a;--outline:#303848;
-    --fg:#e8ebf2;--body:#b8bfce;--mut:#8b93a5;--faint:#687183;--dis:#4a5262;
-    --brass:#c9a35c;--brass2:#dcb877;--work:#6fa8ff;--need:#e0a458;--ok:#57b98a;--bad:#d96a6a;
-    --queued:#2a3650;--sched:#56617a;--seg0:#212938;--sheen:#e4efff;--slip:#3a3020;
-    --on-brass:#0b0e14;--on-amber:#12100a;--on-blue:#07101f;--on-green:#07120c;
+    --bg:#030b14;--panel:#071320;--line:#102235;--line2:#18334d;--raise:#24547f;--outline:#29445f;
+    --fg:#f1f6fc;--body:#b9c7d7;--mut:#8596aa;--faint:#60758d;--dis:#41546a;
+    --brass:#168cff;--brass2:#60b8ff;--work:#25a4ff;--need:#d69f35;--ok:#66c791;--bad:#dd707b;
+    --queued:#152a42;--sched:#59718a;--seg0:#14283d;--sheen:#e5f4ff;--slip:#3a3020;
+    --on-brass:#f7fbff;--on-amber:#12100a;--on-blue:#f7fbff;--on-green:#07120c;
     --tint-need:rgba(224,164,88,.14);--tint-work:rgba(111,168,255,.13);--tint-ok:rgba(87,185,138,.13);
     --tint-bad:rgba(217,106,106,.13);--tint-brass:rgba(201,163,92,.12);
     --font:'Instrument Sans',system-ui,sans-serif;--mono:'Spline Sans Mono',ui-monospace,Menlo,monospace;
@@ -48,25 +48,45 @@ const boardHTML = `<!doctype html>
     --tint-bad:rgba(194,59,52,.11);--tint-brass:rgba(154,123,46,.12);
   }
   *{box-sizing:border-box}
+  html,body{min-height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);transition:background .15s,color .15s}
   button{font:inherit}
   .mono{font-family:var(--mono)}
   @keyframes spinrace{to{transform:rotate(360deg)}}
   @keyframes sheen{to{background-position:-220% 0}}
   @keyframes dotpulse{0%,100%{opacity:1}50%{opacity:.35}}
-  @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+  @keyframes orbCoreDrift{
+    0%,100%{transform:rotate(-1.5deg) scale(.985)}
+    34%{transform:rotate(2.5deg) scale(1.035)}
+    68%{transform:rotate(-2deg) scale(1.01)}
+  }
+  @keyframes orbEnergyBreathe{
+    0%,100%{filter:brightness(.96) saturate(1) drop-shadow(0 0 6px rgba(29,142,255,.3))}
+    50%{filter:brightness(1.13) saturate(1.18) drop-shadow(0 0 14px rgba(70,177,255,.78))}
+  }
+  @keyframes orbReducedEnergyPulse{
+    0%,100%{filter:brightness(.98) saturate(1.02) drop-shadow(0 0 6px rgba(29,142,255,.32))}
+    50%{filter:brightness(1.07) saturate(1.1) drop-shadow(0 0 11px rgba(70,177,255,.62))}
+  }
+  .fort-orb{transform-origin:50% 50%}
+  .fort-orb.is-thinking{will-change:transform,filter;animation:orbCoreDrift 2.6s cubic-bezier(.45,0,.55,1) infinite,orbEnergyBreathe 1.7s ease-in-out infinite}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important}
+    .fort-orb.is-thinking{will-change:filter;transform:none!important;animation:orbReducedEnergyPulse 4s ease-in-out infinite!important}
+    .conversation-sidebar{transition:none!important}
+  }
   a{color:var(--brass);text-decoration:none}a:hover{color:var(--brass2)}
   a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
 
   /* ---- top bar ---- */
-  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
-  .brand-icon{width:28px;height:28px;border-radius:7px;display:block}
-  .wordmark{font:700 15px var(--mono);letter-spacing:.22em;color:var(--brass2)}
+  header{display:flex;align-items:center;gap:13px;min-height:53px;padding:9px 16px;border-bottom:1px solid var(--line);background:#020914}
+  .brand-icon{width:36px;height:36px;border-radius:50%;display:block;filter:drop-shadow(0 0 10px rgba(29,142,255,.45))}
+  .wordmark{font:700 14px var(--mono);letter-spacing:.24em;color:var(--fg)}
   nav{display:flex;gap:2px}
   nav button{font-size:13px;color:var(--mut);background:none;border:none;padding:5px 10px;border-radius:7px;cursor:pointer}
   nav button:hover{color:var(--fg)}
-  nav button.on{color:var(--brass2);background:var(--tint-brass)}
-  .needpill{font-size:12px;padding:3px 10px;border-radius:20px;background:var(--tint-need);color:var(--need);font-weight:600}
+  nav button.on{color:var(--fg);background:transparent}
+  .needpill{font-size:12px;padding:4px 10px;border:1px solid rgba(214,159,53,.34);border-radius:20px;background:var(--tint-need);color:var(--need);font-weight:600;cursor:pointer}
   .grow{flex:1}
   .mdot{display:flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--mut)}
   .mdot i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
@@ -99,12 +119,13 @@ const boardHTML = `<!doctype html>
   .subhead .cm{font:12px var(--mono);color:var(--faint)}
   .view[hidden]{display:none}
 
-  /* ---- sigils ---- */
-  .ring{display:inline-block;border:2px solid var(--outline);line-height:0;flex:none}
-  .ring-sq30{border-radius:8px;padding:4px}
-  .ring-sq42{border-radius:10px;padding:5px}
-  .ring-work{position:relative;border-radius:50%;padding:8px;border-color:var(--work)}
-  .race{position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(rgba(255,255,255,0) 0 70%,#ffffff 82%,rgba(255,255,255,0) 94%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));animation:spinrace 2.2s linear infinite}
+  /* ---- Fort orb identity ---- */
+  .orb-ring{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--outline);border-radius:50%;padding:2px;line-height:0;flex:none;background:#020812;box-shadow:0 0 13px rgba(29,142,255,.2)}
+  .orb-ring img{display:block;border-radius:50%;object-fit:cover}
+  .orb-ring.need{border-color:var(--need);box-shadow:0 0 12px rgba(214,159,53,.24)}
+  .orb-ring.working{border-color:var(--work);box-shadow:0 0 14px rgba(37,164,255,.34)}
+  .orb-ring.ok{border-color:var(--ok)}
+  .orb-ring.failed{border-color:var(--bad)}
 
   /* ---- deck ---- */
   .deck{display:flex}
@@ -135,26 +156,120 @@ const boardHTML = `<!doctype html>
   .crewrow .act{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .crewrow .act.dim{color:var(--faint)}
 
-  /* ---- projects ---- */
-  .projgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:22px}
-  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;cursor:pointer}
-  .pcard:hover{border-color:var(--raise)}
-  .pcard.need{border-color:var(--raise)}
-  .pcard.brief{border:1px dashed var(--outline)}
-  .pcard .hd{display:flex;align-items:center;gap:14px}
-  .pcard .nm{font-size:17px;font-weight:600}
-  .pcard .sub{font-size:12.5px;color:var(--mut)}
-  .pcard .sub.dim{color:var(--faint)}
-  .pcard .hd .pill{margin-left:auto}
-  .pcard .col{display:flex;flex-direction:column;gap:2px;min-width:0}
-  .bar{display:flex;gap:4px}
-  .bar i{flex:1;height:8px;border-radius:4px;background:var(--seg0)}
-  .bar i.ok{background:var(--ok)} .bar i.need{background:var(--need)} .bar i.work{background:var(--work)} .bar i.bad{background:var(--bad)}
-  .barcap{font-size:12.5px;color:var(--mut)}
-  .barcap .need{color:var(--need)} .barcap .work{color:var(--work)}
-  .pcard .act{font-size:13.5px;color:var(--body);line-height:1.5}
-  .pcard .act.dim{color:var(--faint)}
-  .pcard .cta{align-self:flex-start}
+  /* ---- conversation command center (spec 040) ---- */
+  #v-deck{height:calc(100vh - 53px);min-height:610px;overflow:hidden}
+  .conversation-shell{height:100%;display:grid;grid-template-columns:274px minmax(500px,1fr) 272px;background:var(--bg)}
+  .conversation-sidebar,.command-rail{min-width:0;background:#040d18;display:flex;flex-direction:column}
+  .conversation-sidebar{border-right:1px solid var(--line)}
+  .mobile-sidebar-head,.mobile-conversation-nav,.mobile-conversation-state,.mobile-sidebar-scrim{display:none}
+  .command-rail{border-left:1px solid var(--line);padding:17px 16px;gap:19px;overflow:auto}
+  .new-conversation{margin:11px 16px 13px;width:calc(100% - 32px);border:1px solid #176bc0;border-radius:7px;background:rgba(19,100,177,.22);box-shadow:0 0 18px rgba(18,128,239,.18) inset;color:var(--brass2);padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .side-scroll{flex:1;overflow:auto;padding:0 10px 16px}
+  .side-section{margin-top:4px}
+  .side-heading{display:flex;align-items:center;padding:8px 6px 6px;color:#a7b5c7;font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+  .side-heading .count{margin-left:auto;color:var(--faint);font:10.5px var(--mono)}
+  .side-row{width:100%;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--mut);padding:6px 8px;border-radius:6px;text-align:left;font-size:12px;cursor:pointer;min-width:0}
+  .side-row:hover{background:#0a1a2a;color:var(--fg)}
+  .side-row.on{background:#0d2237;color:var(--fg);box-shadow:0 0 0 1px rgba(35,127,213,.18) inset}
+  .side-row .side-icon{width:16px;height:16px;border-radius:4px;object-fit:cover;flex:none}
+  .side-row .side-copy{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .side-row .side-time{font:10px var(--mono);color:var(--faint);white-space:nowrap}
+  .side-row .attention-label{font-size:9px;font-weight:700;letter-spacing:.02em;color:var(--need);white-space:nowrap}
+  .conversation-status{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:650;letter-spacing:.01em;color:var(--faint);white-space:nowrap}
+  .conversation-status i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .conversation-status.working{color:var(--work)}
+  .conversation-status.paused-review,.conversation-status.paused{color:var(--need)}
+  .conversation-status.finished{color:var(--ok)}
+  .conversation-status.failed,.conversation-status.canceled{color:var(--bad)}
+  .conversation-status.starting{color:var(--queued)}
+  .side-thread{padding-left:12px;position:relative}
+  .side-thread:before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:1px;background:var(--outline)}
+  .side-footer{border-top:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:9px;color:var(--mut);font-size:12px}
+  .side-footer .side-icon{width:18px;height:18px;border-radius:5px;object-fit:cover;flex:none}
+  .conversation-main{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:50px minmax(0,1fr) auto;background:var(--bg)}
+  .conversation-head{display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line);padding:0 22px}
+  .conversation-head-copy{display:flex;align-items:center;gap:9px;min-width:0}
+  .conversation-head h1{font-size:14px;font-weight:600;margin:0}
+  .conversation-head .conversation-meta{font-size:11px;color:var(--faint)}
+  .conversation-head .head-actions{margin-left:auto;display:flex;gap:6px}
+  .quiet-action{border:0;background:transparent;color:var(--mut);font-size:12px;padding:5px 7px;cursor:pointer}
+  .conversation-feed{overflow:auto;padding:15px 20px 10px;display:flex;flex-direction:column;gap:13px}
+  .message-row{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;max-width:760px}
+  .message-avatar{width:38px;height:38px;border-radius:50%;display:block;filter:drop-shadow(0 0 8px rgba(29,142,255,.24))}
+  .message-avatar.human-avatar{display:grid;place-items:center;background:#102235;border:1px solid var(--outline);color:#a9b8c9;filter:none}
+  .human-avatar svg{width:22px;height:22px;display:block}
+  .message-copy{min-width:0}
+  .message-byline{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  .message-byline strong{font-size:12.5px;color:var(--fg)}
+  .message-byline span{font:10.5px var(--mono);color:var(--faint)}
+  .message-body{font-size:12.5px;line-height:1.45;color:var(--body);white-space:pre-wrap}
+  .model-badge{font:9.5px var(--mono)!important;padding:2px 7px;border-radius:10px;background:#11253a;color:#899cb2!important}
+  .turn-work{margin-left:48px;max-width:760px;border:1px solid #176bc0;border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:10px;background:rgba(10,31,51,.76)}
+  .turn-work img{width:34px;height:34px;border-radius:50%;flex:none}
+  .turn-work .copy{min-width:0;flex:1}
+  .turn-work .title{font-size:11.5px;font-weight:600;color:var(--brass2)}
+  .turn-work .detail{font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .turn-work button{border:1px solid #176bc0;border-radius:6px;background:transparent;color:var(--brass2);padding:6px 11px;font-size:11px;cursor:pointer}
+  .assignment-card{margin-left:48px;max-width:588px;border:1px solid var(--line2);border-radius:8px;background:rgba(5,15,26,.72);padding:10px 12px}
+  .assignment-card .assignment-head{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--fg)}
+  .assignment-card .assignment-head .state{margin-left:auto;color:var(--work);font-size:10.5px}
+  .assignment-card .progress-track{height:3px;background:var(--line);border-radius:3px;margin:8px 0;overflow:hidden}
+  .assignment-card .progress-track i{display:block;height:100%;background:var(--work);box-shadow:0 0 8px var(--work)}
+  .assignment-meta{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line);font-size:9.5px;color:var(--faint)}
+  .assignment-meta strong{display:block;font-size:10.5px;color:var(--body);font-weight:500}
+  .checkpoint-list{display:flex;flex-direction:column;gap:4px;padding-top:7px}
+  .checkpoint{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--mut)}
+  .checkpoint i{width:11px;height:11px;border-radius:50%;border:1px solid var(--outline);flex:none}
+  .checkpoint.done i{background:var(--ok);border-color:var(--ok);box-shadow:0 0 5px rgba(102,199,145,.35)}
+  .checkpoint.current{color:var(--body)}
+  .checkpoint.current i{border-color:var(--work);box-shadow:0 0 7px var(--work)}
+  .checkpoint time{margin-left:auto;color:var(--faint);font:9.5px var(--mono)}
+  .activity-timeline{margin-left:48px;max-width:680px;border:1px solid var(--line2);border-radius:9px;background:rgba(5,15,26,.72);padding:10px 12px}
+  .activity-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .activity-head strong{font-size:11.5px;color:var(--fg)}
+  .activity-head .conversation-status{margin-left:auto}
+  .activity-sub{font-size:9.5px;color:var(--faint)}
+  .activity-events{display:flex;flex-direction:column;gap:6px}
+  .activity-event{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:start;gap:8px;font-size:10.5px;color:var(--body)}
+  .activity-event i{width:6px;height:6px;border-radius:50%;background:var(--outline);margin-top:4px}
+  .activity-event.active i{background:var(--work);box-shadow:0 0 7px var(--work);animation:dotpulse 1.6s infinite}
+  .activity-event.error{color:var(--bad)}
+  .activity-event.error i{background:var(--bad)}
+  .activity-event time{font:9.5px var(--mono);color:var(--faint);white-space:nowrap}
+  .approval-card{margin-left:48px;max-width:680px;border:1px solid rgba(214,159,53,.55);border-radius:9px;background:var(--tint-need);padding:12px 13px;display:flex;flex-direction:column;gap:8px}
+  .approval-card .approval-title{display:flex;align-items:center;gap:7px;color:var(--need);font-size:12px;font-weight:700}
+  .approval-card .approval-title i{width:7px;height:7px;border-radius:50%;background:var(--need);box-shadow:0 0 8px rgba(214,159,53,.45)}
+  .approval-card .approval-copy{font-size:11.5px;line-height:1.45;color:var(--body)}
+  .approval-card .approval-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .approval-card .approval-actions button{font-size:11px;padding:6px 10px}
+  .conversation-compose{margin:0 16px 15px;border:1px solid var(--line2);border-radius:8px;background:rgba(6,17,29,.88);padding:10px;box-shadow:0 12px 34px rgba(0,0,0,.18)}
+  #conversationcomposer{display:block;width:100%;height:36px;min-height:36px;max-height:100px;resize:vertical;border:0;background:transparent;color:var(--fg);font:12px/1.45 var(--font);padding:0 2px;outline:none}
+  #conversationcomposer::placeholder{color:var(--faint)}
+  .compose-actions{display:flex;align-items:center;gap:7px;padding-top:6px}
+  .compose-select{appearance:auto;min-width:0;max-width:178px;border:1px solid var(--outline);border-radius:6px;background:#071421;color:var(--body);padding:5px 25px 5px 8px;font:10.5px var(--font)}
+  #composerstatus{font-size:10px;color:var(--mut);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #composerstatus.error{color:var(--bad)}
+  .compose-spacer{flex:1}
+  .compose-button{border:1px solid #176bc0;border-radius:6px;background:transparent;color:var(--brass2);padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer}
+  .compose-button.primary{background:#168cff;color:white;box-shadow:0 0 14px rgba(26,143,255,.24)}
+  .compose-button:disabled,.compose-select:disabled{opacity:.45;cursor:not-allowed}
+  .rail-section-title{font-size:10.5px;letter-spacing:.05em;color:#a1afc1;text-transform:uppercase}
+  .rail-card{border:1px solid var(--line);border-radius:7px;background:rgba(8,23,38,.72);padding:10px 11px;display:flex;align-items:center;gap:9px}
+  .rail-card + .rail-card{margin-top:7px}
+  .rail-card img{width:36px;height:36px;border-radius:50%;filter:drop-shadow(0 0 8px rgba(29,142,255,.22));flex:none}
+  .rail-card .rail-copy{min-width:0;flex:1}
+  .rail-card .rail-name{font-size:12px;font-weight:600;color:var(--fg);display:flex;gap:6px;align-items:center}
+  .rail-card .rail-model{font:9px var(--mono);color:var(--faint);padding:2px 5px;background:#102236;border-radius:8px}
+  .rail-card .rail-detail{font-size:10px;color:var(--mut);margin-top:2px;line-height:1.35}
+  .rail-status{font-size:9.5px;color:var(--ok);white-space:nowrap}
+  .rail-status i,.system-status i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:5px}
+  .rail-status.working{color:var(--brass2)}
+  .rail-status.working i{background:var(--brass2);box-shadow:0 0 8px rgba(45,159,255,.65)}
+  .rail-status.need{color:var(--amber)}
+  .rail-status.need i{background:var(--amber)}
+  .machine-card img{width:26px;height:26px;border-radius:6px}
+  .machine-card.down{opacity:.62}
+  .system-status{margin-top:auto;color:var(--mut);font-size:10px;padding-top:10px}
 
   /* ---- assign ---- */
   .assign{display:flex}
@@ -174,6 +289,10 @@ const boardHTML = `<!doctype html>
   .toggle.off .track{background:var(--outline)}
   .toggle.off .track i{right:16px}
   .handoff{font-size:14.5px;padding:11px 22px;border-radius:9px;align-self:flex-start}
+  .handoff:disabled{cursor:wait;opacity:.72;box-shadow:none}
+  .handoff-status{font-size:12.5px;line-height:1.45;color:var(--work);min-height:18px}
+  .handoff-status.fail{color:var(--bad)}
+  .handoff-status[hidden]{display:none}
   .orlink{font-size:12.5px;color:var(--mut);background:none;border:none;cursor:pointer;align-self:flex-start;padding:0}
   .orlink:hover{color:var(--fg)}
   .roster{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
@@ -289,7 +408,7 @@ const boardHTML = `<!doctype html>
   .rowlab.dim{color:var(--mut)}
   .rowlab.you{color:var(--brass2);font-weight:700}
   .blk{height:36px;border-radius:7px;display:flex;align-items:center;padding:0 12px;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0}
-  .blk-active{background:linear-gradient(105deg,var(--work) 42%,var(--sheen) 50%,var(--work) 58%) 0 0/220% 100%;animation:sheen 2.6s linear infinite;color:var(--on-blue);font-weight:600}
+  .blk-active{background:var(--work);color:var(--on-blue);font-weight:600}
   .blk-next{background:var(--queued);color:var(--body)}
   .blk-wait{background:var(--need);color:var(--on-amber);font-weight:600}
   .blk-sched{border:1.5px dashed var(--sched);color:var(--mut)}
@@ -347,15 +466,79 @@ const boardHTML = `<!doctype html>
     #machines{display:none!important}
     .deck,.assign,.playbook-layout{flex-direction:column}
     .deck-left,.assign-left{border-right:0;border-bottom:1px solid var(--line)}
-    .projgrid,.perfgrid{grid-template-columns:1fr;padding:14px}
+    .perfgrid{grid-template-columns:1fr;padding:14px}
     .deck-left,.deck-right,.assign-left,.assign-right,.playbook-main{padding:16px}
     .playbook-rail{width:auto;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
     .pipeline{gap:8px}
     .pipearrow{display:none}
     .subhead{padding:12px 14px;flex-wrap:wrap}
     .legend{width:100%;overflow-x:auto}
+    #v-deck{height:calc(100vh - 102px)}
+    .conversation-shell{grid-template-columns:220px minmax(0,1fr)}
+    .command-rail{display:none}
+    .assignment-meta{grid-template-columns:repeat(3,1fr)}
+  }
+  @media (max-width:700px){
+    html,body{max-width:100%;overflow-x:hidden}
+    body[data-view=deck]{height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+    body[data-view=deck] header{flex:none}
+    nav{overscroll-behavior-x:contain;scroll-snap-type:x proximity}
+    nav button{min-height:44px;flex:none;scroll-snap-align:start}
+    .needpill{min-height:44px}
+    #v-deck{height:auto;min-height:0;overflow:hidden;flex:1}
+    .conversation-shell{display:block;height:100%;min-height:0;overflow:hidden}
+    .conversation-sidebar{position:fixed;inset:0 auto 0 0;z-index:70;width:min(88vw,340px);max-width:100%;border-right:1px solid var(--raise);border-bottom:0;padding:0 0 max(10px,env(safe-area-inset-bottom));transform:translateX(-105%);transition:transform .18s ease;visibility:hidden}
+    .conversation-sidebar.mobile-open{transform:translateX(0);visibility:visible}
+    .mobile-sidebar-head{min-height:56px;padding:max(8px,env(safe-area-inset-top)) 12px 8px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;font-size:14px}
+    .mobile-sidebar-head .quiet-action{margin-left:auto;min-height:44px;padding:8px 10px;color:var(--brass2)}
+    .conversation-sidebar .new-conversation{display:block;margin:10px 12px;width:calc(100% - 24px);min-height:44px;font-size:14px}
+    .conversation-sidebar .side-scroll{display:block;flex:1;min-height:0;overflow:auto;padding:0 8px 12px;-webkit-overflow-scrolling:touch}
+    .conversation-sidebar .side-footer{display:flex;padding:12px}
+    .conversation-sidebar .side-row{min-height:44px;font-size:13px}
+    .mobile-sidebar-scrim{display:block;position:fixed;inset:0;z-index:65;width:100%;height:100%;border:0;background:rgba(0,4,10,.72);padding:0}
+    .mobile-sidebar-scrim[hidden]{display:none}
+    .conversation-main{height:100%;min-height:0;width:100%;max-width:100vw;grid-template-rows:56px minmax(0,1fr) auto}
+    .conversation-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;padding:0 9px}
+    .mobile-conversation-nav{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--outline);border-radius:7px;background:transparent;color:var(--brass2);padding:7px 8px;font-size:11px;font-weight:600;cursor:pointer}
+    .conversation-head-copy{display:flex;flex-direction:column;align-items:flex-start;gap:1px;overflow:hidden}
+    .conversation-head h1{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .conversation-head .conversation-meta{display:none}
+    .mobile-conversation-state{display:block;line-height:1}
+    .mobile-conversation-state .conversation-status{font-size:9.5px}
+    .conversation-head .head-actions{margin-left:0}
+    .conversation-head .quiet-action{min-height:44px;padding:7px 5px}
+    .conversation-feed{min-width:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 11px 10px}
+    .message-row{grid-template-columns:32px minmax(0,1fr)}
+    .message-avatar{width:32px;height:32px}
+    .message-body,.approval-copy,.activity-event span,.assignment-meta strong{overflow-wrap:anywhere}
+    .turn-work,.assignment-card,.activity-timeline{margin-left:0;max-width:none}
+    .turn-work{align-items:flex-start;flex-wrap:wrap;padding:10px}
+    .turn-work .copy{min-width:calc(100% - 44px)}
+    .turn-work .detail{white-space:normal}
+    .turn-work button{width:100%;min-height:44px}
+    .approval-card{margin-left:0;max-width:none;padding:14px 12px}
+    .approval-card .approval-title{font-size:13px}
+    .approval-card .approval-copy{font-size:13px}
+    .approval-card .approval-actions{display:grid;grid-template-columns:1fr;gap:8px}
+    .approval-card .approval-actions button{min-height:44px;width:100%}
+    .notebox textarea{font-size:16px}
+    .notebox button{min-height:44px;width:100%}
+    .assignment-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .conversation-compose{margin:0 8px max(8px,env(safe-area-inset-bottom));padding:9px}
+    #conversationcomposer{height:48px;min-height:48px;font-size:16px}
+    .compose-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .compose-select{font-size:16px;padding:7px 25px 7px 8px;min-height:44px;max-width:none;width:100%}
+    #composermachine{grid-column:1/-1}
+    #composerstatus{grid-column:1/-1;order:initial;width:auto;min-height:18px;white-space:normal}
+    .compose-spacer{display:none}
+    .compose-button{font-size:13px;min-height:44px;width:100%}
+    .compose-chip{display:none}
   }
   @media (max-width:600px){
+    header{gap:8px}
+    header .grow{display:none}
+    .wordmark{flex:none;white-space:nowrap}
+    #theme{display:none}
     nav{scrollbar-width:none}
     nav::-webkit-scrollbar{display:none}
     .pipeline{flex-direction:column;overflow-x:visible}
@@ -369,51 +552,57 @@ const boardHTML = `<!doctype html>
 </head>
 <body>
 <header>
-  <img class="brand-icon" src="/fort-icon.png" alt=""/>
+  <img class="brand-icon fort-orb" id="brandorb" src="/fort-agent-orb.png" alt=""/>
   <span class="wordmark">FORT</span>
   <nav id="nav" aria-label="views">
     <button data-v="deck">Deck</button>
-    <button data-v="projects">Projects</button>
     <button data-v="assign">Assign</button>
     <button data-v="perf">Performance</button>
     <button data-v="week">Week</button>
     <button data-v="today">Today</button>
     <button data-v="playbooks">Playbooks</button>
   </nav>
-  <span class="needpill" id="needpill" hidden></span>
+  <button class="needpill" id="needpill" hidden></button>
   <span class="grow"></span>
   <span id="machines" style="display:flex;gap:14px"></span>
   <span class="plane" id="plane" hidden>control only</span>
-  <button class="btn btn-brass" id="givedir">Give direction</button>
   <button class="iconbtn" id="theme" title="toggle theme" aria-label="toggle light/dark theme">◐</button>
 </header>
 
 <section class="view" id="v-deck">
-  <div class="deck">
-    <div class="deck-left">
-      <div class="ulabel amber">Needs you</div>
-      <div id="needlist" style="display:flex;flex-direction:column;gap:14px"></div>
-      <div class="alldone" id="alldone"></div>
-    </div>
-    <div class="deck-right">
-      <div class="ulabel">Projects</div>
-      <div id="projlist" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div class="ulabel" style="margin-top:10px">Crew</div>
-      <div id="crewlist" style="display:flex;flex-direction:column;gap:8px"></div>
-    </div>
+  <div class="conversation-shell" data-desktop-command-center>
+    <aside class="conversation-sidebar" id="conversationnav" aria-label="conversations">
+      <div class="mobile-sidebar-head"><strong>Conversations</strong><button class="quiet-action" id="closeconversationnav" type="button">Close</button></div>
+      <button class="new-conversation" id="newconversation">New conversation</button>
+      <div class="side-scroll">
+        <div class="side-section"><div class="side-heading">Inbox</div><div id="conversationinbox"></div></div>
+        <div class="side-section"><div class="side-heading">Conversations <span class="count">Recent</span></div><div id="conversationlist"></div></div>
+      </div>
+      <div class="side-footer"><img class="side-icon" src="/fort-agent-orb.png" alt=""/> Fort verifies every handoff</div>
+    </aside>
+    <button class="mobile-sidebar-scrim" id="conversationnavscrim" type="button" aria-label="Close conversations" hidden></button>
+    <main class="conversation-main">
+      <div class="conversation-head"><button class="mobile-conversation-nav" id="mobileconversationnav" type="button" aria-controls="conversationnav" aria-expanded="false">Conversations</button><div class="conversation-head-copy"><h1 id="conversationtitle">Conversation</h1><span class="conversation-meta" id="conversationmeta"></span><span class="mobile-conversation-state" id="mobileconversationstate"></span></div><div class="head-actions"><button class="quiet-action" id="conversationdetail">Activity</button></div></div>
+      <div class="conversation-feed" id="conversationfeed"></div>
+      <div class="conversation-compose">
+        <textarea id="conversationcomposer" placeholder="Message the current agent…" aria-label="message current agent"></textarea>
+        <div class="compose-actions"><select class="compose-select" id="composeragent" aria-label="Agent"></select><select class="compose-select" id="composerprofile" aria-label="Model"></select><select class="compose-select" id="composermachine" aria-label="Machine"></select><span id="composerstatus"></span><span class="compose-spacer"></span><button class="compose-button" id="conversationassign">Assign</button><button class="compose-button primary" id="conversationsend">Send</button></div>
+      </div>
+    </main>
+    <aside class="command-rail" aria-label="agents and machines">
+      <div><div class="rail-section-title">Current agent</div><div id="currentagent" style="margin-top:10px"></div></div>
+      <div><div class="rail-section-title">Other agents</div><div id="otheragents" style="margin-top:10px"></div></div>
+      <div><div class="rail-section-title">Machines</div><div id="machinerail" style="margin-top:10px"></div></div>
+      <div class="system-status"><i></i>All systems operational</div>
+    </aside>
   </div>
-</section>
-
-<section class="view" id="v-projects" hidden>
-  <div class="subhead"><span class="c" id="projsum"></span><span class="grow"></span><button class="btn btn-brassline" id="newbrief">＋ New brief</button></div>
-  <div class="projgrid" id="projgrid"></div>
 </section>
 
 <section class="view" id="v-assign" hidden>
   <div class="subhead"><span class="c" id="crewsum"></span></div>
   <div class="assign">
     <div class="assign-left">
-      <h2>Give direction</h2>
+      <h2>Assign work</h2>
       <div class="mode-switch" role="tablist" aria-label="direction type">
         <button id="modeassignment" class="on" role="tab" aria-selected="true">Assignment</button>
         <button id="modequick" role="tab" aria-selected="false">Quick question</button>
@@ -424,6 +613,7 @@ const boardHTML = `<!doctype html>
       <div id="routepicker" class="routepicker" hidden></div>
       <button type="button" class="toggle" id="plantoggle" aria-pressed="true"><span class="track"><i></i></span>Propose a plan first — I&#39;ll sign off before work starts</button>
       <button class="btn btn-brass handoff" id="handoff">Hand it off</button>
+      <div class="handoff-status" id="handoffstatus" role="status" aria-live="polite" hidden></div>
       <button class="orlink" id="tobacklog">or add to Up next ›</button>
       <div id="quickanswer" class="quickanswer" hidden></div>
     </div>
@@ -524,20 +714,26 @@ function md(src){
 
 // ---- state ----
 let hasExec=true;
-let model={sum:null,machines:[],runs:[],gates:[],backlog:[],metrics:null,playbooks:[]};
+let model={sum:null,machines:[],profiles:[],runs:[],gates:[],backlog:[],metrics:null,playbooks:[]};
 let agentOfRun={};       // flow run id -> agent of its latest started event
 let actByRun={};         // live activity buffers (spec 030)
-const ACT_MAX=6;
+const ACT_MAX=20;
 let dwRun=null, dwNode=null, dwNodes=[], dwEvents=[];
 let assignCtx=null;      // {backlogId} when assigning an existing brief
 let assignMode='assignment';
 let planFirst=true;
 let routePreview=null, routeChoice=null, routePickerOpen=false, routeTimer=null, routeSerial=0;
+let handoffPending=false;
 let quickAnswer='',quickAnswerError='';
 let playbooksLoaded=false,playbooksLoading=false;
 let selectedPlaybook=localStorage.getItem('fort-playbook')||'';
 let curView=localStorage.getItem('fort-view')||'deck';
+if(curView==='projects')curView='deck';
 let perfLane='';
+let selectedConversation=localStorage.getItem('fort-conversation')||'';
+let conversationDetails={},conversationLoading={};
+let composerAgent='',composerProfile='',composerMachine='',composerSelectionRun='';
+let composingNewConversation=false,conversationSending=false;
 
 const DISP={claude:'Claude Code',codex:'Codex',hermes:'Hermes',openclaw:'OpenClaw'};
 function dispName(a){
@@ -571,28 +767,6 @@ function elapsed(iso){
 function hr12(h){var x=h%12;return x===0?12:x;}
 function ampm(h){return (h%24)<12?'am':'pm';}
 
-// ---- sigils: FNV-1a -> xorshift32 -> mirrored 5x5; mark fill = status color ----
-const STATE_COL={working:'#6fa8ff',need:'#e0a458',ok:'#57b98a',idle:'#56617a',failed:'#d96a6a'};
-const RING_COL={working:'#6fa8ff',need:'#e0a458',ok:'#57b98a',idle:'#303848',failed:'#d96a6a'};
-function sigil(name,size,color){
-  var h=2166136261;
-  for(var i=0;i<name.length;i++){h^=name.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
-  function rnd(){h^=h<<13;h^=h>>>17;h^=h<<5;h>>>=0;return h/4294967296;}
-  var cells=[];
-  for(var x=0;x<3;x++)for(var y=0;y<5;y++){if(rnd()>0.55){cells.push([x,y]);if(x<2)cells.push([4-x,y]);}}
-  var u=size/5,r='';
-  for(var j=0;j<cells.length;j++){
-    r+='<rect x="'+(cells[j][0]*u+u*0.04).toFixed(2)+'" y="'+(cells[j][1]*u+u*0.04).toFixed(2)+'" width="'+(u*0.88).toFixed(2)+'" height="'+(u*0.88).toFixed(2)+'" rx="'+(u*0.2).toFixed(2)+'" fill="'+color+'"/>';
-  }
-  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" aria-hidden="true" style="display:block">'+r+'</svg>';
-}
-function ringWrap(name,size,state){
-  var mark=sigil(name,size,STATE_COL[state]||STATE_COL.idle);
-  if(state==='working')return '<span class="ring ring-work"><span class="race"></span>'+mark+'</span>';
-  var cls=size>36?'ring-sq42':'ring-sq30';
-  return '<span class="ring '+cls+'" style="border-color:'+(RING_COL[state]||RING_COL.idle)+'">'+mark+'</span>';
-}
-
 // ---- theme ----
 $('#theme').addEventListener('click',function(){
   var cur=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
@@ -601,52 +775,124 @@ $('#theme').addEventListener('click',function(){
 });
 
 // ---- view router ----
+function setMobileConversationNav(open){
+  var panel=$('#conversationnav'),trigger=$('#mobileconversationnav'),scrim=$('#conversationnavscrim');
+  panel.classList.toggle('mobile-open',!!open);
+  trigger.setAttribute('aria-expanded',open?'true':'false');
+  scrim.hidden=!open;
+}
 function showView(v){
   curView=v; localStorage.setItem('fort-view',v);
+  document.body.dataset.view=v;
+  if(v!=='deck')setMobileConversationNav(false);
   document.querySelectorAll('.view').forEach(function(s){s.hidden=('v-'+v!==s.id);});
   document.querySelectorAll('#nav button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});
   if(v==='perf')fetchMetrics();
   if(v==='playbooks'&&!playbooksLoaded)fetchPlaybooks();
   render();
 }
-document.querySelectorAll('#nav button').forEach(function(b){b.addEventListener('click',function(){showView(b.dataset.v);});});
+document.querySelectorAll('#nav button').forEach(function(b){b.addEventListener('click',function(){if(b.dataset.v==='assign')beginDirection();else showView(b.dataset.v);});});
 function beginDirection(){
   assignCtx=null;assignMode='assignment';planFirst=true;routeChoice=null;routePreview=null;routePickerOpen=false;quickAnswer='';quickAnswerError='';
   showView('assign');$('#brief').focus();
 }
-$('#givedir').addEventListener('click',beginDirection);
-$('#newbrief').addEventListener('click',beginDirection);
+function beginConversation(){
+  setMobileConversationNav(false);
+  selectedConversation='';localStorage.removeItem('fort-conversation');
+  composingNewConversation=true;
+  composerSelectionRun='';composerAgent='';composerProfile='';composerMachine='';
+  $('#conversationcomposer').value='';$('#composerstatus').textContent='';
+  showView('deck');renderDeck();$('#conversationcomposer').focus();
+}
+$('#newconversation').addEventListener('click',beginConversation);
+$('#mobileconversationnav').addEventListener('click',function(){setMobileConversationNav(!$('#conversationnav').classList.contains('mobile-open'));});
+$('#closeconversationnav').addEventListener('click',function(){setMobileConversationNav(false);$('#mobileconversationnav').focus();});
+$('#conversationnavscrim').addEventListener('click',function(){setMobileConversationNav(false);});
+$('#needpill').addEventListener('click',openNeedsYou);
+$('#conversationdetail').addEventListener('click',function(){if(selectedConversation)openDrawer(selectedConversation);});
+$('#conversationassign').addEventListener('click',assignConversation);
+$('#conversationsend').addEventListener('click',sendConversation);
+$('#conversationcomposer').addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='Enter')sendConversation();});
+$('#composeragent').addEventListener('change',function(){
+  composerAgent=this.value;var choice=defaultProfileForAgent(composerAgent);
+  composerProfile=choice?choice.id:'';composerMachine='';renderComposerControls(selectedConversation&&runByID(selectedConversation));
+});
+$('#composerprofile').addEventListener('change',function(){
+  composerProfile=this.value;var p=profileByID(composerProfile);if(p)composerAgent=p.agent;composerMachine='';renderComposerControls(selectedConversation&&runByID(selectedConversation));
+});
+$('#composermachine').addEventListener('change',function(){composerMachine=this.value;});
 $('#modeassignment').addEventListener('click',function(){setAssignMode('assignment');});
 $('#modequick').addEventListener('click',function(){setAssignMode('quick');});
 $('#newplaybook').addEventListener('click',duplicatePlaybook);
 
 // ---- SSE + activity buffers (spec 030) ----
+const seenActivityEvents={};
+const trackedActivityKinds={ingress:1,placement:1,started:1,stdout:1,stderr:1,message:1,tool:1,subagent:1,gate:1,error:1,exited:1,transform:1};
+const workEvidenceKinds={started:1,stdout:1,stderr:1,message:1,tool:1,subagent:1};
 function trackEvent(e){
   if(!e||!e.run_id)return;
   if(e.type==='started'&&e.data&&e.data.indexOf('{')!==0)agentOfRun[e.run_id]=e.data;
-  if(e.type!=='tool'&&e.type!=='subagent'&&e.type!=='message')return;
+  if(!trackedActivityKinds[e.type])return;
+  var key=e.id!==undefined&&e.id!==null?'id:'+e.id:'event:'+e.run_id+':'+e.type+':'+(e.time||'')+':'+(e.data||'');
+  if(seenActivityEvents[key])return;
+  seenActivityEvents[key]=1;
   const buf=actByRun[e.run_id]||(actByRun[e.run_id]=[]);
-  buf.push(e); if(buf.length>ACT_MAX)buf.shift();
+  buf.push(e);
+  buf.sort(function(a,b){return ((Date.parse(a.time)||0)-(Date.parse(b.time)||0))||((a.id||0)-(b.id||0));});
+  if(buf.length>ACT_MAX)buf.splice(0,buf.length-ACT_MAX);
+}
+function eventPayload(e){
+  if(!e||!e.data)return {};
+  try{return JSON.parse(e.data)}catch(err){return {};}
+}
+function activityDescription(e){
+  if(!e)return '';
+  var data=eventPayload(e),line=String(e.data||'').split('\n')[0];
+  if(e.type==='ingress')return 'Accepted by Fort';
+  if(e.type==='placement')return 'Placed '+dispName(data.agent||'agent')+(data.machine?' on '+data.machine:'');
+  if(e.type==='started')return dispName(line||'agent')+' process started';
+  if(e.type==='stdout'){
+    if(data.type==='thread.started')return 'Provider session opened';
+    if(data.type==='turn.started')return 'Model turn started';
+    if(data.type==='turn.completed')return 'Model turn completed';
+    return '';
+  }
+  if(e.type==='stderr'){
+    if(line.length>220)line=line.slice(0,219)+'…';
+    return line?'Provider reported — '+line:'Provider reported diagnostic output';
+  }
+  if(e.type==='tool')return 'Using '+(data.name||'tool')+(data.summary?' — '+data.summary:'');
+  if(e.type==='subagent')return 'Helper started'+(data.description?' — '+data.description:'');
+  if(e.type==='message'){
+    if(line.length>110)line=line.slice(0,109)+'…';
+    return line?'Response produced — '+line:'Response produced';
+  }
+  if(e.type==='gate')return data.decision==='approved'?'Checkpoint approved':data.decision==='rejected'?'Changes requested':'Checkpoint updated';
+  if(e.type==='error'){
+    if(line.length>220)line=line.slice(0,219)+'…';
+    return line||'Fort reported an execution error';
+  }
+  if(e.type==='exited')return e.code&&e.code!==0?'Provider process exited with code '+e.code:'Provider process completed';
+  return '';
 }
 function activityLine(e){
-  if(e.type==='tool'){
-    let d={}; try{d=JSON.parse(e.data||'{}')}catch(err){}
-    return '<div class="a-tool">🔧 '+esc(d.name||'tool')+(d.summary?' · '+esc(d.summary):'')+'</div>';
-  }
-  if(e.type==='subagent'){
-    let d={}; try{d=JSON.parse(e.data||'{}')}catch(err){}
-    return '<div class="a-sub">🤖 helper'+(d.description?' · '+esc(d.description):'')+'</div>';
-  }
-  const t=(e.data||'').split('\n')[0];
-  return t?'<div class="a-msg">💬 '+esc(t.length>120?t.slice(0,119)+'…':t)+'</div>':'';
+  var text=activityDescription(e);
+  return text?'<div class="a-'+esc(e.type)+'">'+esc(text)+'</div>':'';
+}
+function latestEventMillis(runID){
+  var buf=actByRun[runID]||[],latest=0;
+  buf.forEach(function(e){latest=Math.max(latest,Date.parse(e.time)||0);});
+  return latest;
+}
+function hasWorkEvidence(runID){
+  return (actByRun[runID]||[]).some(function(e){return !!workEvidenceKinds[e.type];});
 }
 function latestActivityText(runID){
   var buf=actByRun[runID];
   if(!buf||!buf.length)return '';
   for(var i=buf.length-1;i>=0;i--){
-    var e=buf[i];
-    if(e.type==='message'){var t=(e.data||'').split('\n')[0];if(t)return t.length>110?t.slice(0,109)+'…':t;}
-    if(e.type==='tool'){try{var d=JSON.parse(e.data||'{}');if(d.name)return 'using '+d.name+(d.summary?' — '+d.summary:'');}catch(err){}}
+    var text=activityDescription(buf[i]);
+    if(text)return text;
   }
   return '';
 }
@@ -660,12 +906,11 @@ async function refresh(){
     $('#plane').hidden=hasExec;
     model.sum=sum;
     model.machines=await fetchJSON('/api/machines')||[];
+    model.profiles=await fetchJSON('/api/profiles')||[];
     const b=await fetchJSON('/api/board');
     model.runs=b.runs||[]; model.gates=b.gates||[];
     model.backlog=await fetchJSON('/api/backlog')||[];
   }catch(err){return;}
-  const liveIds=new Set(model.runs.filter(isLive).map(function(r){return r.id;}));
-  Object.keys(actByRun).forEach(function(k){if(!liveIds.has(k))delete actByRun[k];});
   // flow runs whose agent we don't know yet: harvest their events once
   model.runs.forEach(function(r){
     if(r.agent&&r.agent.indexOf('flow:')===0&&!agentOfRun[r.id]&&isLive(r)){
@@ -714,61 +959,93 @@ function needCount(){return model.gates.length+recentFailed().length;}
 function agentSet(){
   var s={};
   model.machines.forEach(function(m){(m.agents||[]).forEach(function(a){s[a]=1;});});
+  (model.profiles||[]).forEach(function(p){if(p.agent)s[p.agent]=1;});
   model.runs.forEach(function(r){var a=runAgent(r);if(a)s[a]=1;});
   if(model.metrics)(model.metrics.agents||[]).forEach(function(a){s[a.agent]=1;});
   model.playbooks.forEach(function(p){(p.stages||[]).forEach(function(st){(st.assignments||[]).forEach(function(a){if(a.agent)s[a.agent]=1;});});});
   return Object.keys(s).sort();
+}
+function agentModel(agent){
+  var found='';
+  model.playbooks.some(function(p){
+    return (p.stages||[]).some(function(st){
+      return (st.assignments||[]).some(function(a){
+        if(a.agent!==agent)return false;
+        found=a.model||'';return true;
+      });
+    });
+  });
+  return found;
 }
 function agentStatus(a){
   var waiting=null,working=null;
   model.runs.forEach(function(r){
     if(runAgent(r)!==a)return;
     if(r.status==='blocked'&&gatesFor(r.id).length)waiting=waiting||r;
-    if(r.status==='running')working=working||r;
+    if(runState(r)==='working')working=working||r;
   });
   if(waiting)return {state:'need',run:waiting};
   if(working)return {state:'working',run:working};
   return {state:'idle',run:null};
 }
-function projectState(r){
-  if(hasGate(r.id)||r.status==='blocked')return 'need';
-  if(r.status==='failed'||r.status==='error')return 'failed';
-  if(r.status==='running')return 'working';
-  // a run that finished down a rejected-gate path was closed by your redirect,
-  // not delivered — never dress it in green
-  if(r.status==='succeeded')return (r.checkpoints&&r.checkpoints.rejected>0)?'idle':'ok';
+function runState(r){
+  if(hasGate(r.id))return 'paused-review';
+  var status=String(r.status||'').toLowerCase();
+  if(status==='succeeded'||status==='done'||status==='failed'||status==='error'||status==='canceled'||status==='cancelled')return 'terminal';
+  if(status==='blocked'||status==='paused')return 'paused';
+  if(hasWorkEvidence(r.id))return 'working';
+  if(status==='running'||status==='queued')return 'starting';
   return 'idle';
 }
-// projects = flow runs (all) + live plain runs + backlog briefs
-function projects(){
-  var out=[];
-  model.runs.forEach(function(r){
-    var isFlow=r.agent&&r.agent.indexOf('flow:')===0;
-    if(isFlow||isLive(r)||r.status==='queued')out.push({kind:'run',run:r,state:projectState(r),t:Date.parse(r.updated_at||r.created_at)||0});
-  });
-  model.backlog.forEach(function(b){out.push({kind:'brief',item:b,state:'idle',t:0});});
-  function priority(p){
-    if(p.state==='need')return 0;
-    if(p.state==='failed')return failureIsRecent(p.run)?1:5;
-    if(p.state==='working')return 2;
-    if(p.state==='idle')return 3;
-    if(p.state==='ok')return 4;
-    return 6;
-  }
-  out.sort(function(a,b){return (priority(a)-priority(b))||(b.t-a.t);});
+function runStatusLabel(r){
+  var state=runState(r),status=String(r.status||'').toLowerCase();
+  if(state==='paused-review')return 'Needs approval';
+  if(state==='working')return 'Working';
+  if(state==='starting')return 'Starting';
+  if(state==='paused')return 'Paused';
+  if(status==='succeeded'||status==='done')return 'Finished';
+  if(status==='failed'||status==='error')return 'Failed';
+  if(status==='canceled'||status==='cancelled')return 'Canceled';
+  return 'Ready';
+}
+function gateActivityMillis(runID){
+  var latest=0;
+  gatesFor(runID).forEach(function(g){latest=Math.max(latest,Date.parse(g.since)||0);});
+  return latest;
+}
+function conversationRecency(r){
+  return Math.max(latestEventMillis(r.id),gateActivityMillis(r.id),Date.parse(r.updated_at)||0,Date.parse(r.created_at)||0);
+}
+function conversationRuns(){
+  var out=model.runs.slice();
+  out.sort(function(a,b){return (conversationRecency(b)-conversationRecency(a))||String(a.id).localeCompare(String(b.id));});
   return out;
+}
+function profileByID(id){
+  var found=null;
+  (model.profiles||[]).some(function(p){if(p.id===id){found=p;return true;}return false;});
+  return found;
+}
+function profileSelectable(p){return p&&p.state!=='unavailable'&&p.state!=='setup_required';}
+function defaultProfileForAgent(agent){
+  var choices=(model.profiles||[]).filter(function(p){return p.agent===agent&&profileSelectable(p);});
+  return choices.find(function(p){return p.id===agent+':configured-default'&&p.state==='ready';})||
+    choices.find(function(p){return p.state==='ready';})||
+    choices.find(function(p){return p.id===agent+':configured-default';})||choices[0]||null;
 }
 function ckCaption(r){
   var c=r.checkpoints;
-  if(r.status==='queued')return 'Up next · queued';
+  var state=runState(r),latest=latestEventMillis(r.id);
+  if(state==='starting')return r.status==='queued'?'Queued · waiting to start':'Starting · waiting for the first provider event';
   if(!c||!c.total){
-    if(r.status==='running')return dispName(runAgent(r))+' on it · '+elapsed(r.created_at);
-    if(r.status==='succeeded')return 'Delivered '+ago(r.updated_at);
+    if(state==='working')return 'Working · last activity '+ago(new Date(latest).toISOString());
+    if(r.status==='succeeded')return 'Finished '+ago(r.updated_at);
     if(r.status==='failed')return 'Stopped — needs direction';
     return 'Direct assignment — no checkpoints';
   }
   if(c.waiting>0)return c.accepted+' of '+c.total+' checkpoints accepted · '+c.waiting+' awaiting sign-off';
-  if(r.status==='running')return c.accepted+' of '+c.total+' accepted · '+dispName(runAgent(r))+' working';
+  if(state==='working')return c.accepted+' of '+c.total+' accepted · activity '+ago(new Date(latest).toISOString());
+  if(state==='starting')return c.accepted+' of '+c.total+' accepted · waiting for provider activity';
   if(r.status==='succeeded'&&c.rejected>0)return 'Closed after your redirect';
   if(c.accepted===c.total)return 'All '+c.total+' checkpoints accepted';
   if(r.status==='failed')return c.accepted+' of '+c.total+' accepted · stopped';
@@ -778,14 +1055,17 @@ function activitySentence(r){
   var live=latestActivityText(r.id);
   if(live)return live;
   var a=dispName(runAgent(r));
-  switch(projectState(r)){
-    case 'need':return a+' is waiting on your sign-off.';
-    case 'working':return a+' working · '+elapsed(r.created_at)+' in.';
-    case 'ok':return 'Delivered '+ago(r.updated_at)+'.';
-    case 'failed':return 'Hit a wall '+ago(r.updated_at)+' — open to see what happened.';
+  switch(runState(r)){
+    case 'paused-review':return a+' is paused for your review.';
+    case 'paused':return a+' is paused and needs direction.';
+    case 'starting':return 'Fort accepted the turn; no provider activity has arrived yet.';
+    case 'working':return 'Recorded provider activity '+ago(new Date(latestEventMillis(r.id)).toISOString())+'.';
+    case 'terminal':return r.status==='succeeded'?'Finished '+ago(r.updated_at)+'.':'Stopped '+ago(r.updated_at)+' — open to see what happened.';
   }
   return '';
 }
+function isThinking(r){return !!r&&runState(r)==='working';}
+function orbClass(thinking){return 'fort-orb'+(thinking?' is-thinking':'');}
 function gateTitle(nodeID){
   if(nodeID==='plan_gate')return 'Sign off on the plan';
   if(nodeID==='merge_gate')return 'Sign off on the merge';
@@ -797,7 +1077,6 @@ function gateTitle(nodeID){
 function render(){
   renderHeader();
   if(curView==='deck')renderDeck();
-  if(curView==='projects')renderProjects();
   if(curView==='assign')renderAssign();
   if(curView==='perf')renderPerf();
   if(curView==='week')renderWeek();
@@ -806,6 +1085,7 @@ function render(){
 }
 function renderHeader(){
   var n=needCount();
+  $('#brandorb').classList.toggle('is-thinking',model.runs.some(isThinking));
   $('#needpill').hidden=n===0;
   $('#needpill').textContent=n+' need'+(n===1?'s':'')+' you';
   $('#machines').innerHTML=model.machines.map(function(m){
@@ -815,74 +1095,227 @@ function renderHeader(){
 
 // ---- Deck (1a) ----
 let openNote=null; // gate key with an open note editor — skip re-render while typing
+function runAttentionHTML(r){
+  if(hasGate(r.id))return '<span class="attention-label">Needs approval</span>';
+  if(failureIsRecent(r)||r.status==='blocked')return '<span class="attention-label">Needs direction</span>';
+  return '';
+}
+function conversationStatusHTML(r){
+  var state=runState(r),cls=state;
+  if(state==='terminal')cls=(r.status==='succeeded'||r.status==='done')?'finished':(r.status==='canceled'||r.status==='cancelled')?'canceled':'failed';
+  return '<span class="conversation-status '+esc(cls)+'"><i></i>'+esc(runStatusLabel(r))+'</span>';
+}
+function openNeedsYou(){
+  var target=model.gates.length?model.gates[0].run_id:((recentFailed()[0]||{}).id||'');
+  composingNewConversation=false;
+  showView('deck');
+  if(target)selectConversation(target);
+}
+function profileStateText(profile){
+  if(!profile)return 'Choose an exact model profile.';
+  var state=String(profile.state||'unknown').replace(/_/g,' ');
+  var reason=String(profile.reason||'').replace(/_/g,' ');
+  if(profile.state==='ready')return (profile.machines||[]).length?'Ready on '+profile.machines.length+' machine'+(profile.machines.length===1?'':'s'):'Ready';
+  return state.charAt(0).toUpperCase()+state.slice(1)+(reason?' · '+reason:'');
+}
+function renderComposerControls(active){
+  var selectionKey=active?active.id:'@new';
+  if(composerSelectionRun!==selectionKey){
+    composerSelectionRun=selectionKey;
+    composerAgent=active?runAgent(active):'';
+    composerProfile=active&&active.profile?active.profile:'';
+    composerMachine=active&&active.machine?active.machine:'';
+    var existing=profileByID(composerProfile);
+    if(existing)composerAgent=existing.agent;
+  }
+  var agents=agentSet();
+  if(!composerAgent||agents.indexOf(composerAgent)<0)composerAgent=agents.indexOf('codex')>=0?'codex':(agents[0]||'');
+  var profiles=(model.profiles||[]).filter(function(p){return p.agent===composerAgent;});
+  if(!profileByID(composerProfile)||profileByID(composerProfile).agent!==composerAgent){
+    var preferred=defaultProfileForAgent(composerAgent);composerProfile=preferred?preferred.id:'';composerMachine='';
+  }
+  var selectedProfile=profileByID(composerProfile);
+  $('#composeragent').innerHTML=agents.length?agents.map(function(agent){return '<option value="'+esc(agent)+'"'+(agent===composerAgent?' selected':'')+'>'+esc(dispName(agent))+'</option>';}).join(''):'<option value="">No agents</option>';
+  $('#composerprofile').innerHTML=profiles.length?profiles.map(function(profile){
+    var label=profile.display_name||profile.model||profile.id;
+    if(profile.state&&profile.state!=='ready')label+=' · '+String(profile.state).replace(/_/g,' ');
+    return '<option value="'+esc(profile.id)+'"'+(profile.id===composerProfile?' selected':'')+(!profileSelectable(profile)?' disabled':'')+'>'+esc(label)+'</option>';
+  }).join(''):'<option value="">No model profiles</option>';
+  var machines=selectedProfile?(selectedProfile.machines||[]):model.machines.filter(function(m){return m.reachable&&(!composerAgent||(m.agents||[]).indexOf(composerAgent)>=0);}).map(function(m){return m.name;});
+  var uniqueMachines=[];machines.forEach(function(name){if(uniqueMachines.indexOf(name)<0)uniqueMachines.push(name);});
+  if(composerMachine&&uniqueMachines.indexOf(composerMachine)<0)composerMachine='';
+  $('#composermachine').innerHTML='<option value="">Fort places it</option>'+uniqueMachines.map(function(name){return '<option value="'+esc(name)+'"'+(name===composerMachine?' selected':'')+'>'+esc(name)+'</option>';}).join('');
+  var blocked=!selectedProfile||!profileSelectable(selectedProfile);
+  $('#composeragent').disabled=conversationSending||!agents.length;
+  $('#composerprofile').disabled=conversationSending||!profiles.length;
+  $('#composermachine').disabled=conversationSending||!uniqueMachines.length;
+  $('#conversationsend').disabled=conversationSending||blocked;
+  $('#conversationassign').disabled=conversationSending;
+  $('#composerstatus').classList.remove('error');
+  $('#composerstatus').textContent=conversationSending?'Submitting to Fort…':profileStateText(selectedProfile);
+}
 function renderDeck(){
-  if(openNote&&document.activeElement&&document.activeElement.tagName==='TEXTAREA')return;
-  // preserve an open (but unfocused) note draft across the re-render
-  var draft='';
-  if(openNote){var dEl=$('#note-'+cssKey(openNote));if(dEl)draft=dEl.querySelector('textarea').value;}
-  var cards=[];
-  model.gates.forEach(function(g){
-    var r=runByID(g.run_id)||{};
-    var agent=dispName(runAgent(r)||agentOfRun[g.run_id]);
-    var excerpt=(g.input||'').split('\n')[0];
-    if(excerpt.length>140)excerpt=excerpt.slice(0,139)+'…';
-    var key=g.run_id+'|'+g.node_id;
-    cards.push('<div class="needcard">'+
-      '<div class="hd"><span class="t">'+esc(gateTitle(g.node_id))+'</span><span class="ago">'+esc(ago(g.since))+'</span></div>'+
-      '<div class="bd">'+esc(agent)+' is waiting on <span class="proj">'+esc(r.title||g.run_id)+'</span>'+(excerpt?' — '+esc(excerpt):'')+'</div>'+
-      '<div class="acts">'+
-        '<button class="btn btn-ok" onclick="decide(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\',\'approve\')">Approve</button>'+
-        '<button class="btn btn-outline" onclick="toggleNote(\''+esc(key)+'\')">Request changes…</button>'+
-        '<button class="btn btn-ghost" onclick="openDrawer(\''+g.run_id+'\')">View the plan</button>'+
-      '</div>'+
-      '<div class="notebox'+(openNote===key?' open':'')+'" id="note-'+cssKey(key)+'">'+
-        '<textarea placeholder="What should change?" aria-label="redirect note"></textarea>'+
-        '<div style="display:flex;gap:8px"><button class="btn btn-outline" onclick="sendNote(\''+g.run_id+'\',\''+esc(jsq(g.node_id))+'\')">Send it back</button>'+
-        '<button class="btn btn-ghost" onclick="toggleNote(null)">Cancel</button></div>'+
-      '</div>'+
-    '</div>');
-  });
-  recentFailed().forEach(function(r){
-    cards.push('<div class="needcard fail">'+
-      '<div class="hd"><span class="t">'+esc(r.title||r.id)+' hit a wall</span><span class="ago">'+esc(ago(r.updated_at))+'</span></div>'+
-      '<div class="bd">'+esc(dispName(runAgent(r)))+' stopped'+(r.machine?' on <span class="proj">'+esc(r.machine)+'</span>':'')+'. Open it to see what happened and give direction.</div>'+
-      '<div class="acts"><button class="btn btn-outline" onclick="openDrawer(\''+r.id+'\')">View what happened</button></div>'+
-    '</div>');
-  });
-  $('#needlist').innerHTML=cards.join('');
-  if(openNote){var rEl=$('#note-'+cssKey(openNote));if(rEl){rEl.classList.add('open');rEl.querySelector('textarea').value=draft;}else openNote=null;}
-  var workers=agentSet().filter(function(a){return agentStatus(a).state==='working';}).length;
-  var verb=workers===1?' is':'s are', need=workers===1?'doesn&#39;t':'don&#39;t';
-  var msg;
-  if(cards.length)msg='That&#39;s everything else — '+workers+' agent'+verb+' working and '+need+' need you.';
-  else if(workers)msg='That&#39;s everything — '+workers+' agent'+verb+' working and '+need+' need you.';
-  else msg='All quiet — nothing needs you.';
-  $('#alldone').innerHTML=msg;
+  if(openNote&&document.activeElement&&document.activeElement.closest&&document.activeElement.closest('.notebox'))return;
+  var runs=conversationRuns();
+  var active=runByID(selectedConversation);
+  if(!active&&!composingNewConversation&&runs.length){active=runs[0];selectedConversation=active.id;localStorage.setItem('fort-conversation',active.id);}
+  var n=needCount(),working=model.runs.filter(function(r){return runState(r)==='working';}).length;
+  $('#conversationinbox').innerHTML=
+    '<button class="side-row'+(n?' on':'')+'" onclick="openNeedsYou()"><span class="side-copy">Needs you</span><span class="side-time">'+n+'</span></button>'+
+    '<button class="side-row"><span class="side-copy">Updates</span><span class="side-time">'+working+'</span></button>';
+  $('#conversationlist').innerHTML=runs.map(function(r){
+    var recent=conversationRecency(r),recentISO=recent?new Date(recent).toISOString():(r.updated_at||r.created_at);
+    return '<div class="side-thread"><button class="side-row'+(active&&active.id===r.id?' on':'')+'" onclick="selectConversation(\''+esc(jsq(r.id))+'\')"><span class="side-copy">'+esc(r.title||r.id)+'</span>'+conversationStatusHTML(r)+'<span class="side-time">'+esc(ago(recentISO))+'</span></button></div>';
+  }).join('')||'<div class="empty" style="padding:5px 8px">Start a new conversation.</div>';
 
-  var rows=projects().slice(0,6).map(function(p){
-    if(p.kind==='brief'){
-      return '<div class="projrow" tabindex="0" role="button" onclick="assignBrief(\''+p.item.id+'\')" onkeydown="if(event.key===\'Enter\')assignBrief(\''+p.item.id+'\')">'+
-        ringWrap(p.item.title,30,'idle')+
-        '<div class="col"><span class="nm">'+esc(p.item.title)+'</span><span class="cap dim">Not started · brief drafted</span></div></div>';
-    }
-    var r=p.run;
-    return '<div class="projrow" tabindex="0" role="button" onclick="openDrawer(\''+r.id+'\')" onkeydown="if(event.key===\'Enter\')openDrawer(\''+r.id+'\')">'+
-      ringWrap(r.title||r.id,30,p.state==='failed'?'failed':p.state)+
-      '<div class="col"><span class="nm">'+esc(r.title||r.id)+'</span><span class="cap'+(p.state==='idle'?' dim':'')+'">'+esc(ckCaption(r))+'</span></div></div>';
-  });
-  $('#projlist').innerHTML=rows.join('')||'<div class="empty" style="padding:4px 0">Nothing on the board yet — give direction to start.</div>';
+  var title=active?(active.title||active.id):'New conversation';
+  $('#conversationtitle').textContent=title;
+  $('#conversationmeta').textContent=active?ckCaption(active):'Choose an agent, model, and machine';
+  $('#mobileconversationstate').innerHTML=active?conversationStatusHTML(active):'<span class="conversation-status"><i></i>Ready</span>';
+  $('#conversationdetail').hidden=!active;
+  $('#conversationfeed').innerHTML=conversationFeedHTML(active);
 
-  $('#crewlist').innerHTML=agentSet().map(function(a){
-    var st=agentStatus(a);
-    var dot=st.state==='working'?'work':st.state==='need'?'need':'';
-    var act;
-    if(st.state==='need')act='waiting on your sign-off';
-    else if(st.state==='working'){
-      var live=latestActivityText(st.run.id);
-      act=(live||('working — '+(st.run.title||'')))+' · '+elapsed(st.run.created_at);
-    }else act='idle';
-    return '<div class="crewrow"><span class="dot '+dot+'"></span><strong>'+esc(dispName(a))+'</strong><span class="act'+(st.state==='idle'?' dim':'')+'">'+esc(act)+'</span></div>';
-  }).join('')||'<div class="empty" style="padding:4px 0">No agents seen yet.</div>';
+  renderComposerControls(active);
+  var agents=agentSet();
+  var current=active?runAgent(active):composerAgent;
+  if(!current)current=agents.indexOf('codex')>=0?'codex':(agents[0]||'');
+  $('#currentagent').innerHTML=current?agentRailCard(current,true,active):'<div class="empty" style="padding:8px 0">Fort will choose an agent.</div>';
+  $('#otheragents').innerHTML=agents.filter(function(a){return a!==current;}).map(function(a){return agentRailCard(a,false,null);}).join('')||'<div class="empty" style="padding:8px 0">No other agents available.</div>';
+  $('#machinerail').innerHTML=model.machines.map(function(m){
+    return '<div class="rail-card machine-card'+(m.reachable?'':' down')+'"><div class="rail-copy"><div class="rail-name">'+esc(m.name)+'</div><div class="rail-detail">'+esc((m.agents||[]).map(dispName).join(', ')||'execution node')+'</div></div><span class="rail-status"><i></i>'+(m.reachable?'Ready':'Offline')+'</span></div>';
+  }).join('')||'<div class="rail-card machine-card"><div class="rail-copy"><div class="rail-name">This Mac</div><div class="rail-detail">local control plane</div></div><span class="rail-status"><i></i>Ready</span></div>';
+  if(active)loadConversationDetail(active.id);
+}
+function selectConversation(id){
+  composingNewConversation=false;composerSelectionRun='';selectedConversation=id;localStorage.setItem('fort-conversation',id);setMobileConversationNav(false);renderDeck();loadConversationDetail(id);
+}
+async function loadConversationDetail(id){
+  if(!id||conversationDetails[id]||conversationLoading[id])return;
+  conversationLoading[id]=true;
+  try{
+    var detail=await fetchJSON('/api/runs/'+encodeURIComponent(id));
+    conversationDetails[id]=detail;(detail.events||[]).forEach(trackEvent);
+  }catch(err){}finally{delete conversationLoading[id];}
+  if(curView==='deck'&&selectedConversation===id)renderDeck();
+}
+function messageAvatarHTML(role,thinking){
+  if(role==='human')return '<span class="message-avatar human-avatar" role="img" aria-label="You"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 19c.55-3.65 2.72-5.5 6.5-5.5s5.95 1.85 6.5 5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>';
+  return '<img class="message-avatar '+orbClass(!!thinking)+'" src="/fort-agent-orb.png" alt=""/>';
+}
+function messageHTML(role,name,meta,body,modelName,thinking){
+  return '<div class="message-row">'+messageAvatarHTML(role,thinking)+'<div class="message-copy"><div class="message-byline"><strong>'+esc(name)+'</strong>'+
+    (modelName?'<span class="model-badge">'+esc(modelName)+'</span>':'')+'<span>'+esc(meta||'')+'</span></div><div class="message-body">'+esc(body||'')+'</div></div></div>';
+}
+function activityTimelineHTML(run,events){
+  var rows=(events||[]).map(function(e){return {event:e,text:activityDescription(e)};}).filter(function(item){return !!item.text;}).slice(-6);
+  var state=runState(run),latest=rows.length?Date.parse(rows[rows.length-1].event.time)||0:0;
+  if(!rows.length){
+    var empty=state==='starting'?'No provider activity yet — Fort is waiting for the first event.':
+      state==='paused-review'?'Work is paused for your review.':
+      state==='paused'?'Work is paused and needs direction.':
+      state==='terminal'?'No provider activity was recorded for this run.':'No activity recorded yet.';
+    rows=[{event:{type:'status',time:run.updated_at||run.created_at||''},text:empty}];
+  }
+  var activeNow=state==='working'&&latest>0&&(Date.now()-latest)<12000;
+  return '<div class="activity-timeline" data-activity-timeline><div class="activity-head"><strong>Recorded activity</strong><span class="activity-sub">Fort event log</span>'+conversationStatusHTML(run)+'</div><div class="activity-events">'+rows.map(function(item,index){
+    var isLast=index===rows.length-1&&activeNow,error=item.event.type==='error';
+    return '<div class="activity-event'+(isLast?' active':'')+(error?' error':'')+'"><i></i><span>'+esc(item.text)+'</span><time>'+esc(ago(item.event.time))+'</time></div>';
+  }).join('')+'</div></div>';
+}
+function canTurnConversationIntoWork(run){
+  if(!run||run.flow_id||hasGate(run.id))return false;
+  var status=String(run.status||'').toLowerCase();
+  return status==='succeeded'||status==='done';
+}
+function conversationFeedHTML(run){
+  if(!run)return messageHTML('agent','Fort','ready','Choose an agent, model, and eligible machine, then start the conversation.','');
+  var agent=runAgent(run)||agentOfRun[run.id]||'',name=dispName(agent),detail=conversationDetails[run.id]||{};
+  var prompt=runPrompt(run);
+  var html=messageHTML('human','You',ago(run.created_at),prompt,'');
+  var state=runState(run);
+  var terminalStatus=String(run.status||'').toLowerCase();
+  var response=state==='paused-review'?'I reached a checkpoint and need your direction before I continue.':
+    state==='paused'?'Work is paused. Open the recorded activity to see what needs direction.':
+    state==='terminal'&&(terminalStatus==='failed'||terminalStatus==='error')?'I hit a wall. The exact failure is preserved in the activity below.':
+    state==='terminal'&&(terminalStatus==='canceled'||terminalStatus==='cancelled')?'This conversation was canceled. Its recorded events are preserved below.':
+    state==='terminal'?'This conversation is finished and its recorded events are preserved below.':
+    state==='working'?'Work has started. The activity below comes directly from Fort’s event log.':
+    'Fort accepted this turn and is waiting for the first provider event.';
+  html+=messageHTML('agent',name||'Fort',ago(run.updated_at||run.created_at),response,run.model||agentModel(agent),isThinking(run));
+  var conversationEvents=(actByRun[run.id]&&actByRun[run.id].length)?actByRun[run.id]:(detail.events||[]);
+  conversationEvents.filter(function(e){return e.type==='message'&&e.data;}).slice(-2).forEach(function(e){
+    var line=String(e.data).split('\n')[0];if(line.length>180)line=line.slice(0,179)+'…';
+    if(line)html+=messageHTML('agent',name||'Fort',ago(e.time),line,run.model||agentModel(agent));
+  });
+  html+=approvalCardsHTML(run);
+  html+=activityTimelineHTML(run,conversationEvents);
+  if(canTurnConversationIntoWork(run))html+='<div class="turn-work"><img src="/fort-agent-orb.png" alt=""/><div class="copy"><div class="title">Turn this into work</div><div class="detail">Create a routed assignment from this conversation.</div></div><button id="turnintowork" onclick="turnConversationIntoWork()">Assign work</button></div>';
+  html+=assignmentCardHTML(run,detail.nodes||[]);
+  return html;
+}
+function approvalCardsHTML(run){
+  return gatesFor(run.id).map(function(gate){
+    var key=run.id+'|'+gate.node_id,box='note-'+cssKey(key);
+    var input=String(gate.input||'').trim();if(input.length>220)input=input.slice(0,219)+'…';
+    return '<div class="approval-card"><div class="approval-title"><i></i><span>Needs approval · '+esc(gateTitle(gate.node_id))+'</span></div>'+
+      '<div class="approval-copy">Work is paused until you approve or request changes.'+(input?'<br>'+esc(input):'')+'</div>'+
+      '<div class="approval-actions"><button class="btn btn-amber" onclick="decide(\''+esc(jsq(run.id))+'\',\''+esc(jsq(gate.node_id))+'\',\'approve\',\'\')">Approve & continue</button><button class="btn btn-neutral" onclick="toggleNote(\''+esc(jsq(key))+'\')">Request changes</button></div>'+
+      '<div class="notebox'+(openNote===key?' open':'')+'" id="'+esc(box)+'"><textarea placeholder="Describe what should change before work continues."></textarea><button class="btn btn-brassline" onclick="sendNote(\''+esc(jsq(run.id))+'\',\''+esc(jsq(gate.node_id))+'\')">Send changes</button></div></div>';
+  }).join('');
+}
+function assignmentCardHTML(run,nodes){
+  var c=run.checkpoints||{},total=c.total||nodes.length||0;
+  if(!total&&run.status!=='running'&&run.status!=='blocked')return '';
+  var accepted=c.accepted||0,pct=total?Math.round(accepted*100/total):0;
+  var rows=nodes.map(function(node){
+    var status=(node.status||'').toLowerCase(),done=status==='succeeded'||status==='approved',current=status==='running'||status==='waiting';
+    var name=(node.node_id||'checkpoint').replace(/[-_]/g,' ');
+    return '<div class="checkpoint'+(done?' done':current?' current':'')+'"><i></i><span>'+esc(name)+'</span></div>';
+  });
+  if(!rows.length&&total){for(var i=0;i<total;i++)rows.push('<div class="checkpoint'+(i<accepted?' done':i===accepted&&run.status==='running'?' current':'')+'"><i></i><span>Checkpoint '+(i+1)+'</span></div>');}
+  return '<div class="assignment-card"><div class="assignment-head"><strong>'+esc(run.title||run.id)+'</strong><span class="state">'+esc(runStatusLabel(run))+'</span></div>'+
+    '<div class="progress-track"><i style="width:'+pct+'%"></i></div><div class="assignment-meta"><span>Agent<strong>'+esc(dispName(runAgent(run)))+'</strong></span><span>Model<strong>'+esc(run.model||agentModel(runAgent(run))||'configured')+'</strong></span><span>Machine<strong>'+esc(run.machine||'Fort placed')+'</strong></span><span>Elapsed<strong>'+esc(elapsed(run.created_at))+'</strong></span><span>Progress<strong>'+accepted+' of '+total+'</strong></span></div><div class="checkpoint-list">'+rows.join('')+'</div></div>';
+}
+function agentRailCard(agent,current,run){
+  var st=agentStatus(agent),ready=st.state==='idle'?'Ready':st.state==='need'?'Needs you':'Working';
+  var detail=run?activitySentence(run):(st.run?activitySentence(st.run):'Ready for routed work.');
+  var modelName=run&&run.model?run.model:agentModel(agent);
+  return '<div class="rail-card"><img class="'+orbClass(st.state==='working')+'" src="/fort-agent-orb.png" alt=""/><div class="rail-copy"><div class="rail-name">'+esc(dispName(agent))+(modelName?'<span class="rail-model">'+esc(modelName)+'</span>':'')+'</div><div class="rail-detail">'+esc(detail||'Ready for routed work.')+'</div></div><span class="rail-status '+esc(st.state)+'"><i></i>'+esc(ready)+'</span></div>';
+}
+function runPrompt(run){
+  var title=(run.title||run.id||'').trim(),body=(run.body||'').trim();
+  if(!body)return title;
+  var lines=body.split('\n');if(lines[0].trim()===title)lines.shift();
+  return lines.join('\n').trim()||title;
+}
+function conversationSeed(){var run=runByID(selectedConversation);if(!run)return '';var prompt=runPrompt(run),title=run.title||run.id;return prompt===title?title:title+'\n'+prompt;}
+function prepareConversation(mode,seed,playbook){
+  showView('assign');setAssignMode(mode);
+  routeChoice=playbook?{id:playbook.id,revision:playbook.revision}:null;routePreview=null;routePickerOpen=false;
+  $('#brief').value=(seed||'').trim();renderBriefPreview();renderAssignControls();queueRoutePreview();$('#brief').focus();
+}
+function turnConversationIntoWork(){prepareConversation('assignment',conversationSeed(),defaultAssignmentPlaybook());}
+function assignConversation(){var text=$('#conversationcomposer').value.trim();prepareConversation('assignment',text||conversationSeed());}
+async function sendConversation(){
+  var text=$('#conversationcomposer').value.trim();if(!text){$('#composerstatus').classList.add('error');$('#composerstatus').textContent='Write a message first.';return;}
+  var profile=profileByID(composerProfile);
+  if(!profile||!profileSelectable(profile)){$('#composerstatus').classList.add('error');$('#composerstatus').textContent=profileStateText(profile);return;}
+  if(conversationSending)return;
+  conversationSending=true;renderComposerControls(selectedConversation&&runByID(selectedConversation));
+  var request={text:text,agent:composerAgent,profile:composerProfile,machine:composerMachine};
+  try{
+    var response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request)});
+    var payload=await response.text();
+    if(!response.ok)throw new Error(payload.trim()||('Request failed with '+response.status));
+    var result=payload?JSON.parse(payload):{};
+    $('#conversationcomposer').value='';composingNewConversation=false;composerSelectionRun='';
+    if(result.run_id){selectedConversation=result.run_id;localStorage.setItem('fort-conversation',result.run_id);}
+    conversationSending=false;await refresh();renderDeck();
+  }catch(err){
+    conversationSending=false;renderComposerControls(selectedConversation&&runByID(selectedConversation));
+    $('#composerstatus').classList.add('error');
+    $('#composerstatus').textContent=err&&err.message?err.message:'Unable to send this conversation.';
+  }
 }
 function cssKey(k){return k.replace(/[^a-zA-Z0-9_-]/g,'_');}
 // jsq escapes a value for use inside a single-quoted JS string that lives in an
@@ -900,74 +1333,7 @@ async function sendNote(run,node){
   openNote=null;
   await decide(run,node,'reject',note);
 }
-function assignBrief(id){
-  var item=null;
-  model.backlog.forEach(function(b){if(b.id===id)item=b;});
-  if(!item)return;
-  assignCtx={backlogId:id};
-  assignMode='assignment';planFirst=true;routeChoice=null;routePreview=null;routePickerOpen=false;quickAnswer='';quickAnswerError='';
-  showView('assign');
-  $('#brief').value=item.title+(item.body?'\n'+item.body:'');
-  renderAssignControls();
-  renderBriefPreview();
-  queueRoutePreview();
-}
-
-// ---- Projects (1b) ----
-function renderProjects(){
-  var ps=projects();
-  var working=agentSet().filter(function(a){return agentStatus(a).state==='working';}).length;
-  $('#projsum').textContent=ps.length+' project'+(ps.length===1?'':'s')+' · '+working+' agent'+(working===1?'':'s')+' working';
-  $('#projgrid').innerHTML=ps.slice(0,8).map(function(p){
-    if(p.kind==='brief'){
-      var quote=(p.item.body||p.item.title).split('\n')[0];
-      if(quote.length>120)quote=quote.slice(0,119)+'…';
-      return '<div class="pcard brief" onclick="assignBrief(\''+p.item.id+'\')">'+
-        '<div class="hd">'+ringWrap(p.item.title,42,'idle')+
-          '<div class="col"><span class="nm">'+esc(p.item.title)+'</span><span class="sub dim">Brief drafted · no one assigned</span></div></div>'+
-        '<div class="act dim">&#8220;'+esc(quote)+'&#8221;</div>'+
-        '<button class="btn btn-brassline cta" style="font-size:13.5px" onclick="event.stopPropagation();assignBrief(\''+p.item.id+'\')">Assign an agent</button>'+
-      '</div>';
-    }
-    var r=p.run, c=r.checkpoints, state=p.state;
-    var agents=dispName(runAgent(r));
-    var sub=agents+(r.machine?' · on '+r.machine:'');
-    if(state==='ok')sub=agents+' · finished '+ago(r.updated_at);
-    var pill=state==='need'?'<span class="pill pill-need">needs you</span>':
-             state==='working'?'<span class="pill pill-work">working</span>':
-             state==='ok'?'<span class="pill pill-ok">delivered</span>':
-             state==='failed'?'<span class="pill pill-fail">failed</span>':'';
-    var bar='',cap='';
-    if(c&&c.total){
-      var segs=[];
-      for(var i=0;i<c.accepted;i++)segs.push('ok');
-      for(var i=0;i<c.waiting;i++)segs.push('need');
-      for(var i=0;i<c.rejected;i++)segs.push('bad');
-      if(r.status==='running')segs.push('work');
-      while(segs.length<c.total)segs.push('');
-      bar='<div class="bar">'+segs.map(function(s){return '<i'+(s?' class="'+s+'"':'')+'></i>';}).join('')+'</div>';
-      var bits=[c.accepted+' accepted'];
-      if(c.waiting)bits.push('<span class="need">'+c.waiting+' awaiting your sign-off</span>');
-      if(r.status==='running')bits.push('<span class="work">1 in progress</span>');
-      var left=c.total-c.accepted-c.waiting-c.rejected-(r.status==='running'?1:0);
-      if(left>0)bits.push(left+' not started');
-      var capText=c.accepted===c.total?'All '+c.total+' checkpoints accepted':
-        (r.status==='succeeded'&&c.rejected>0)?'Closed after your redirect':bits.join(' · ');
-      cap='<span class="barcap">'+capText+'</span>';
-    }
-    var cta='';
-    if(state==='need')cta='<button class="btn btn-amber cta" onclick="event.stopPropagation();openDrawer(\''+r.id+'\')">Review the plan</button>';
-    else if(state==='working')cta='<button class="btn btn-neutral cta" onclick="event.stopPropagation();openDrawer(\''+r.id+'\')">Watch the work</button>';
-    return '<div class="pcard'+(state==='need'?' need':'')+'" onclick="openDrawer(\''+r.id+'\')">'+
-      '<div class="hd">'+ringWrap(r.title||r.id,42,state==='failed'?'failed':state)+
-        '<div class="col"><span class="nm">'+esc(r.title||r.id)+'</span><span class="sub">'+esc(sub)+'</span></div>'+pill+'</div>'+
-      (bar?'<div class="col" style="gap:6px">'+bar+cap+'</div>':'')+
-      '<div class="act">'+esc(activitySentence(r))+'</div>'+cta+
-    '</div>';
-  }).join('')||'<div class="empty">No projects yet — hand off a brief to start one.</div>';
-}
-
-// ---- Assign (1c) ----
+// ---- Assign ----
 function renderAssign(){
   var as=agentSet();
   var ms=model.machines;
@@ -1017,7 +1383,7 @@ function renderAssignControls(){
   $('#plantoggle').classList.toggle('off',!effectivePlanGate());
   $('#plantoggle').setAttribute('aria-pressed',effectivePlanGate()?'true':'false');
   $('#tobacklog').hidden=quick;
-  $('#handoff').textContent=quick?'Ask Fort':'Hand it off';
+  if(!handoffPending)$('#handoff').textContent=quick?'Ask Fort':'Hand it off';
   $('#brief').placeholder=quick?'Ask a focused question — Fort will answer without creating an assignment.':'Describe the outcome you want — like briefing an employee.';
   var qa=$('#quickanswer');
   qa.hidden=!quickAnswer&&!quickAnswerError;
@@ -1100,33 +1466,53 @@ function chooseRoute(id){
 }
 $('#brief').addEventListener('input',function(){quickAnswer='';quickAnswerError='';renderBriefPreview();queueRoutePreview();});
 $('#brief').addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='Enter')handoff();});
+function setHandoffPending(pending,message,isError){
+  handoffPending=pending;
+  var button=$('#handoff'),status=$('#handoffstatus');
+  button.disabled=handoffPending;
+  button.setAttribute('aria-busy',handoffPending?'true':'false');
+  button.textContent=handoffPending?(assignMode==='quick'?'Asking Fort…':'Handing off…'):(assignMode==='quick'?'Ask Fort':'Hand it off');
+  status.hidden=!message;
+  status.classList.toggle('fail',!!isError);
+  status.textContent=message||'';
+}
 async function handoff(){
+  if(handoffPending)return;
   var text=$('#brief').value;
-  if(!text.trim())return;
-  var resolved=await previewRoute();
-  if(!resolved){alert('Fort could not preview this route. Try again in a moment.');return;}
-  var request={text:text,task_type:resolved.task_type||'',plan_gate:!!resolved.plan_gate};
-  if(resolved.playbook_id)request.playbook_id=resolved.playbook_id;
-  if(resolved.playbook_revision!==undefined)request.playbook_revision=resolved.playbook_revision;
-  var r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request)});
-  if(!r.ok){
-    var failure=(await r.text()).trim()||'Fort could not answer this question.';
-    if(assignMode==='quick'){quickAnswer='';quickAnswerError=failure;renderAssignControls();return;}
-    if(r.status===409){alert('This route needs the execution plane — start fort serve, or choose a direct route.');return;}
-    alert(failure);return;
-  }
-  var result=await r.json();
-  if(assignMode==='quick'&&result.kind!=='answer'){
-    quickAnswer='';quickAnswerError='Fort returned an assignment instead of an answer.';renderAssignControls();return;
-  }
-  if(result.kind==='answer'){
-    quickAnswer=(result.answer||'').trim();quickAnswerError=quickAnswer?'':'Fort returned no answer text.';
-    renderAssignControls();
-    return;
-  }
-  if(assignCtx&&assignCtx.backlogId)await fetch('/api/backlog/'+assignCtx.backlogId,{method:'DELETE'});
-  assignCtx=null;
-  $('#brief').value='';routePreview=null;routeChoice=null;quickAnswer='';quickAnswerError='';renderBriefPreview();showView('deck');refresh();
+  if(!text.trim()){setHandoffPending(false,'Describe the outcome before handing it off.',true);return;}
+  var settledMessage='',settledError=false;
+  setHandoffPending(true,assignMode==='quick'?'Fort is answering this question…':'Fort is confirming the route and starting this assignment…',false);
+  try{
+    var resolved=routePreview&&!routePreview.error?routePreview:await previewRoute();
+    if(!resolved)throw new Error('Fort could not preview this route. Try again in a moment.');
+    var request={text:text,task_type:resolved.task_type||'',plan_gate:!!resolved.plan_gate};
+    if(resolved.playbook_id)request.playbook_id=resolved.playbook_id;
+    if(resolved.playbook_revision!==undefined)request.playbook_revision=resolved.playbook_revision;
+    var r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(request)});
+    var responseText=await r.text();
+    if(!r.ok){
+      var failure=responseText.trim()||'Fort could not start this handoff.';
+      if(r.status===409)failure='This route needs the execution plane — start fort serve, or choose a direct route.';
+      throw new Error(failure);
+    }
+    var result=responseText?JSON.parse(responseText):{};
+    if(assignMode==='quick'&&result.kind!=='answer')throw new Error('Fort returned an assignment instead of an answer.');
+    if(result.kind==='answer'&&r.status!==202){
+      quickAnswer=(result.answer||'').trim();quickAnswerError=quickAnswer?'':'Fort returned no answer text.';
+      if(quickAnswerError)throw new Error(quickAnswerError);
+      renderAssignControls();
+      return;
+    }
+    if(assignCtx&&assignCtx.backlogId)await fetch('/api/backlog/'+assignCtx.backlogId,{method:'DELETE'});
+    assignCtx=null;
+    $('#brief').value='';routePreview=null;routeChoice=null;quickAnswer='';quickAnswerError='';renderBriefPreview();
+    if(result.run_id){selectedConversation=result.run_id;localStorage.setItem('fort-conversation',result.run_id);}
+    showView('deck');await refresh();
+  }catch(err){
+    settledMessage=err&&err.message?err.message:'Fort could not start this handoff.';
+    settledError=true;
+    if(assignMode==='quick'){quickAnswer='';quickAnswerError=settledMessage;renderAssignControls();}
+  }finally{setHandoffPending(false,settledMessage,settledError);}
 }
 $('#handoff').addEventListener('click',handoff);
 $('#tobacklog').addEventListener('click',async function(){
@@ -1139,21 +1525,29 @@ $('#tobacklog').addEventListener('click',async function(){
 });
 
 // ---- Playbooks (Turn 4) ----
-const PB_AGENTS=['hermes','openclaw','claude','codex'];
-const PB_MODELS={hermes:['Codex 5.6 Sol'],openclaw:['Fable'],claude:['Sonnet','Opus'],codex:['gpt-5.5']};
-const PB_PROFILE_IDS={
-  'claude\u0000':'claude:configured-default','claude\u0000Sonnet':'claude:sonnet','claude\u0000Opus':'claude:opus',
-  'codex\u0000':'codex:configured-default','codex\u0000gpt-5.5':'codex:gpt-5.5','codex\u00005.6 Sol':'codex:gpt-5.6-sol',
-  'hermes\u0000':'hermes:configured-default','hermes\u0000Codex 5.6 Sol':'hermes:openai-codex/gpt-5.6-sol',
-  'openclaw\u0000':'openclaw:main','openclaw\u0000Fable':'openclaw:main'
-};
-function syncAssignmentProfile(a){var id=PB_PROFILE_IDS[(a.agent||'')+'\u0000'+(a.model||'')];if(id)a.profile=id;else delete a.profile;}
+function assignmentProfilesFor(agent){
+  return (model.profiles||[]).filter(function(profile){return profile.agent===agent;});
+}
+function assignmentProfileFor(agent,modelName){
+  var found=null;
+  assignmentProfilesFor(agent).some(function(profile){if((profile.model||'')===(modelName||'')){found=profile;return true;}return false;});
+  return found;
+}
+function preferredAssignmentProfile(agent){
+  var profiles=assignmentProfilesFor(agent),configured=profiles.find(function(profile){return !profile.model&&profileSelectable(profile);});
+  return configured||profiles.find(profileSelectable)||profiles[0]||null;
+}
+function syncAssignmentProfile(a){var profile=assignmentProfileFor(a.agent||'',a.model||'');if(profile)a.profile=profile.id;else delete a.profile;}
 function playbookByID(id){
   for(var i=0;i<model.playbooks.length;i++)if(model.playbooks[i].id===id)return model.playbooks[i];
   return null;
 }
 function availablePlaybooks(){
   return model.playbooks.filter(function(p){return assignMode==='quick'?p.delivery==='answer':p.delivery!=='answer';});
+}
+function defaultAssignmentPlaybook(){
+  var choices=model.playbooks.filter(function(p){return p.delivery!=='answer';});
+  return choices.find(function(p){return p.is_default;})||choices.sort(function(a,b){return String(a.id).localeCompare(String(b.id));})[0]||null;
 }
 function cloneData(v){return JSON.parse(JSON.stringify(v));}
 function stageAssignments(st){return (st.assignments&&st.assignments.length)?st.assignments:[];}
@@ -1185,15 +1579,16 @@ function optionList(values,current,labeler){
   var all=values.slice();if(current&&all.indexOf(current)<0)all.push(current);
   return all.map(function(v){return '<option value="'+esc(v)+'"'+(v===current?' selected':'')+'>'+esc(labeler?labeler(v):v)+'</option>';}).join('');
 }
-function modelsFor(agent,current){
-  var seen={},out=[];
-  (PB_MODELS[agent]||[]).forEach(function(m){if(!seen[m]){seen[m]=1;out.push(m);}});
-  model.playbooks.forEach(function(p){(p.stages||[]).forEach(function(st){stageAssignments(st).forEach(function(a){if(a.agent===agent&&a.model&&!seen[a.model]){seen[a.model]=1;out.push(a.model);}});});});
-  if(current&&!seen[current])out.push(current);
-  return out;
-}
 function modelOptionList(agent,current){
-  return '<option value=""'+(current?'':' selected')+'>Provider default</option>'+optionList(modelsFor(agent,current),current);
+  var profiles=assignmentProfilesFor(agent),matched=false;
+  var options=profiles.map(function(profile){
+    var modelName=profile.model||'',label=profile.display_name||modelName||profile.id;
+    if(modelName===current)matched=true;
+    if(profile.state&&profile.state!=='ready')label+=' · '+String(profile.state).replace(/_/g,' ');
+    return '<option value="'+esc(modelName)+'"'+(modelName===current?' selected':'')+(profileSelectable(profile)?'':' disabled')+'>'+esc(label)+'</option>';
+  });
+  if(!matched&&current)options.push('<option value="'+esc(current)+'" selected disabled>'+esc(current)+' · not in current catalog</option>');
+  return options.join('')||'<option value="" selected disabled>No model profiles</option>';
 }
 function renderPlaybooks(){
   var list=$('#playbooklist'),editor=$('#playbookeditor');
@@ -1217,7 +1612,7 @@ function renderPlaybooks(){
       var type=branchLabel(pb,a,branching);
       return '<div class="assignment">'+(type?'<span class="tasktype">'+esc(type.replace(/[-_]/g,' '))+'</span>':'')+
         '<select class="agentselect" aria-label="agent for '+esc(st.name)+'" onchange="editStageAssignment(\''+esc(jsq(pb.id))+'\','+stageIndex+','+ai+',\'agent\',this.value)">'+
-          optionList(PB_AGENTS,a.agent,dispName)+'</select>'+
+          optionList(agentSet(),a.agent,dispName)+'</select>'+
         '<select class="modelselect" aria-label="model for '+esc(st.name)+'" onchange="editStageAssignment(\''+esc(jsq(pb.id))+'\','+stageIndex+','+ai+',\'model\',this.value)">'+
           modelOptionList(a.agent,a.model)+'</select></div>';
     }).join('');
@@ -1280,7 +1675,7 @@ function togglePlaybookPlanGate(){var pb=playbookByID(selectedPlaybook);if(!pb||
 function toggleStageMemory(id,stageIndex){var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb);next.stages[stageIndex].memory=!next.stages[stageIndex].memory;savePlaybook(next);}
 function editStageAssignment(id,stageIndex,assignmentIndex,field,value){
   var pb=playbookByID(id);if(!pb)return;var next=cloneData(pb),a=next.stages[stageIndex].assignments[assignmentIndex];a[field]=value;
-  if(field==='agent'){var ms=PB_MODELS[value]||[];if(ms.length)a.model=ms[0];}
+  if(field==='agent'){var preferred=preferredAssignmentProfile(value);a.model=preferred?(preferred.model||''):'';}
   syncAssignmentProfile(a);
   savePlaybook(next);
 }
@@ -1288,7 +1683,8 @@ function addPlaybookStage(){
   var pb=playbookByID(selectedPlaybook);if(!pb||pb.delivery==='answer')return;
   var name=prompt('Stage name','New stage');if(name===null||!name.trim())return;
   var next=cloneData(pb),prev=next.stages.length?next.stages[next.stages.length-1]:null,pa=prev&&stageAssignments(prev)[0];
-  var assignment={agent:(pa&&pa.agent)||'codex',model:pa?(pa.model||''):'gpt-5.5'};syncAssignmentProfile(assignment);
+  var agent=(pa&&pa.agent)||'codex',preferred=preferredAssignmentProfile(agent);
+  var assignment={agent:agent,model:pa?(pa.model||''):((preferred&&preferred.model)||'')};syncAssignmentProfile(assignment);
   next.stages.push({order:next.stages.length+1,name:name.trim(),assignments:[assignment],memory:false});
   savePlaybook(next);
 }
@@ -1582,24 +1978,41 @@ function renderLog(){
   }).join('');
   log.scrollTop=atBottom?log.scrollHeight:prev;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(openNote)toggleNote(null);else closeDrawer();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#conversationnav').classList.contains('mobile-open'))setMobileConversationNav(false);else if(openNote)toggleNote(null);else closeDrawer();}});
 
 // ---- actions ----
 async function decide(run,node,decision,note){
   const body={run_id:run,node_id:node,decision:decision};
   if(note)body.note=note;
   const r=await fetch('/api/gate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  if(r.status===409)alert('No execution plane — start fort serve to act on sign-offs.');
-  refresh();
+  const responseBody=await r.text();
+  await refresh();
+  if(!r.ok){
+    const message=responseBody.trim()||('Sign-off failed with '+r.status);
+    $('#composerstatus').classList.add('error');
+    $('#composerstatus').textContent=message;
+  }
 }
 
 // ---- boot ----
 let refreshQueued=false;
 const es=new EventSource('/api/events?since=0');
-es.onmessage=ev=>{
+function onFortEvent(ev){
   try{trackEvent(JSON.parse(ev.data))}catch(err){}
   if(!refreshQueued){refreshQueued=true;setTimeout(function(){refreshQueued=false;refresh();},300);}
-};
+}
+es.addEventListener('started',onFortEvent);
+es.addEventListener('stdout',onFortEvent);
+es.addEventListener('stderr',onFortEvent);
+es.addEventListener('message',onFortEvent);
+es.addEventListener('tool',onFortEvent);
+es.addEventListener('subagent',onFortEvent);
+es.addEventListener('exited',onFortEvent);
+es.addEventListener('error',onFortEvent);
+es.addEventListener('ingress',onFortEvent);
+es.addEventListener('placement',onFortEvent);
+es.addEventListener('transform',onFortEvent);
+es.addEventListener('gate',onFortEvent);
 setInterval(refresh,3000);
 setInterval(fetchMetrics,60000);
 showView(curView);

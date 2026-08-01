@@ -41,6 +41,10 @@ func cmdControl(args []string) error {
 	// Control-only: board tasks via the queue dispatcher, no execution plane.
 	dispatcher := control.NewQueueDispatcher(st)
 	deps := wirePlaybooks(ui.Deps{Dispatcher: dispatcher, Runner: nil, Store: st}, st, nil)
+	conversationService := control.NewConversationService(st, nil, control.SnapshotConversationSeats{}, cfg.WorkRoot)
+	defer conversationService.Close()
+	deps.Conversations = conversationService
+	deps.Today = control.NewTodayService(st, nil, conversationService)
 
 	// Multi-machine (spec 022/024): even without execution, show the machine
 	// roster so the control plane is aware of every host. The managed registry

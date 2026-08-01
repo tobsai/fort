@@ -164,6 +164,58 @@ func TestSubmitCancelStopsBlockedDispatch(t *testing.T) {
 	}
 }
 
+// TestAcceptRefPersistsBeforeDispatchAndReturnsImmediately pins the HTTP
+// acceptance seam: a provider preflight may block, but the caller must receive
+// the durable run identity without waiting for Dispatch to return.
+func TestAcceptRefPersistsBeforeDispatchAndReturnsImmediately(t *testing.T) {
+	rs, err := rules.Parse([]byte(ruleset))
+	if err != nil {
+		t.Fatalf("rules: %v", err)
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { st.Close() })
+	rt := &blockedDispatchRuntime{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	e := New(router.New(rs), rt, st, t.TempDir())
+
+	type accepted struct {
+		runID   string
+		machine string
+		err     error
+	}
+	result := make(chan accepted, 1)
+	go func() {
+		runID, machine, err := e.AcceptRef(context.Background(), task.Task{ID: "accepted", Title: "accepted"})
+		result <- accepted{runID: runID, machine: machine, err: err}
+	}()
+
+	var got accepted
+	select {
+	case got = <-result:
+	case <-time.After(250 * time.Millisecond):
+		close(rt.release)
+		t.Fatal("AcceptRef waited for blocked Dispatch")
+	}
+	if got.err != nil || got.runID == "" || got.machine != "" {
+		t.Fatalf("accepted = %+v", got)
+	}
+	run, err := st.GetRun(got.runID)
+	if err != nil || run.Status != "running" {
+		t.Fatalf("durable run before dispatch = %+v, %v", run, err)
+	}
+	select {
+	case <-rt.started:
+	case <-time.After(time.Second):
+		t.Fatal("accepted dispatch never started")
+	}
+	close(rt.release)
+}
+
 // TestSubmitAndWaitCancelStopsRun keeps the CLI semantics: a blocking
 // SubmitAndWait whose caller cancels should still cancel the run (Ctrl-C on
 // `fort task add`), not leave it detached and running.

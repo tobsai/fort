@@ -109,6 +109,83 @@ func TestHeldCommandExecutesStagedBytesAfterSourceReplacement(t *testing.T) {
 	}
 }
 
+func TestCommandResolverPrefersExplicitAppExecutableBeforePATH(t *testing.T) {
+	root := t.TempDir()
+	appBin := filepath.Join(root, "app", "codex")
+	pathBin := filepath.Join(root, "path")
+	if err := os.MkdirAll(filepath.Dir(appBin), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(pathBin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(appBin, []byte("#!/bin/sh\necho app\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pathBin, "codex"), []byte("#!/bin/sh\necho path\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := NewCommandResolver(CommandResolverOptions{
+		Platform: "darwin/arm64", StageDir: filepath.Join(root, "held"),
+		Environment:          []string{"PATH=" + pathBin},
+		PreferredExecutables: map[string]string{"codex": appBin},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := resolver.Hold("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := held.Run(context.Background(), nil, 1024, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(output)); got != "app" {
+		t.Fatalf("output = %q, want app resource", got)
+	}
+	if err := resolver.AuthorizeExecutable("codex", held.Digest()); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := resolver.ResolveVerifiedExecutable("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified != held.Executable() {
+		t.Fatalf("dispatch executable = %q, want held preferred bytes %q", verified, held.Executable())
+	}
+}
+
+func TestCommandResolverFallsBackToPATHWhenPreferredExecutableIsAbsent(t *testing.T) {
+	root := t.TempDir()
+	pathBin := filepath.Join(root, "path")
+	if err := os.Mkdir(pathBin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pathBin, "codex"), []byte("#!/bin/sh\necho path\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := NewCommandResolver(CommandResolverOptions{
+		Platform: "darwin/arm64", StageDir: filepath.Join(root, "held"),
+		Environment:          []string{"PATH=" + pathBin},
+		PreferredExecutables: map[string]string{"codex": filepath.Join(root, "missing", "codex")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := resolver.Hold("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := held.Run(context.Background(), nil, 1024, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(output)); got != "path" {
+		t.Fatalf("output = %q, want PATH fallback", got)
+	}
+}
+
 func TestCommandResolverRejectsNonExecutableAbsoluteFile(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "not-executable")
 	if err := os.WriteFile(source, []byte("#!/bin/sh\nexit 0\n"), 0o600); err != nil {

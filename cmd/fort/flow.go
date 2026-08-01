@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tobsai/fort/core/config"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/scheduler"
@@ -141,49 +147,51 @@ func cmdSchedule(args []string) error {
 	if len(args) < 3 {
 		return fmt.Errorf("usage: fort schedule cron <spec> <flow> | once <duration> <flow>")
 	}
-	mode := args[0]
-	f, err := loadFlowByID(args[2])
-	if err != nil {
-		return err
-	}
-	a, err := buildApp()
-	if err != nil {
-		return err
-	}
-	defer a.store.Close()
-	ex := graph.NewExecutor(a.rt, a.store)
-
-	fire := func() {
-		runID := uuid.NewString()
-		fmt.Printf("\n[scheduler] firing %s -> run %s\n", f.ID, runID)
-		if _, err := ex.Start(context.Background(), f, runID, ""); err != nil {
-			fmt.Fprintln(os.Stderr, "scheduler:", err)
-		}
-	}
-
-	s := scheduler.New()
-	defer s.Stop()
-	switch mode {
+	definition := scheduler.Definition{ID: uuid.NewString(), FlowID: args[2], Timezone: time.Local.String(), Enabled: true}
+	switch args[0] {
 	case "cron":
-		if _, err := s.Cron(args[1], fire); err != nil {
-			return err
-		}
-		s.Start()
-		fmt.Printf("scheduled %s on cron %q — Ctrl-C to stop\n", f.ID, args[1])
-		select {} // block
+		definition.Kind, definition.Expression = scheduler.KindCron, args[1]
 	case "once":
 		d, err := time.ParseDuration(args[1])
 		if err != nil {
 			return err
 		}
-		done := make(chan struct{})
-		s.Once(d, func() { fire(); close(done) })
-		fmt.Printf("scheduled %s once in %s\n", f.ID, d)
-		<-done
-		return nil
+		definition.Kind = scheduler.KindOnce
+		definition.Expression = time.Now().Add(d).Format(time.RFC3339)
 	default:
 		return fmt.Errorf("usage: fort schedule cron|once ...")
 	}
+	body, err := json.Marshal(struct {
+		ID         string         `json:"id"`
+		Kind       scheduler.Kind `json:"kind"`
+		Expression string         `json:"expression"`
+		FlowID     string         `json:"flow_id"`
+		Timezone   string         `json:"timezone"`
+	}{definition.ID, definition.Kind, definition.Expression, definition.FlowID, definition.Timezone})
+	if err != nil {
+		return err
+	}
+	cfg := config.Load(os.Getenv)
+	host, port, err := net.SplitHostPort(cfg.Addr)
+	if err != nil {
+		return fmt.Errorf("invalid Fort address %q: %w", cfg.Addr, err)
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	endpoint := "http://" + net.JoinHostPort(host, port) + "/api/schedules"
+	response, err := http.Post(endpoint, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("contact running Fort daemon at %s: %w", endpoint, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		var message bytes.Buffer
+		_, _ = message.ReadFrom(response.Body)
+		return fmt.Errorf("Fort daemon rejected schedule: %s", strings.TrimSpace(message.String()))
+	}
+	fmt.Printf("scheduled %s (%s) in the running Fort daemon\n", definition.FlowID, definition.ID)
+	return nil
 }
 
 func loadFlowByID(id string) (graph.Flow, error) {

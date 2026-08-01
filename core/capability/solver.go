@@ -69,7 +69,7 @@ func Solve(plan Plan, snapshot Snapshot, pin string) (SolveResult, error) {
 	if len(plan.Stages) < 1 || len(plan.Stages) > 16 {
 		return SolveResult{}, fmt.Errorf("capability: solver received an invalid plan")
 	}
-	catalog := CatalogV1()
+	catalog := CatalogV2()
 	candidates := make([][]stageCandidate, len(plan.Stages))
 	for stageIndex, stage := range plan.Stages {
 		for machineIndex, machine := range normalized.Machines {

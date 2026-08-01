@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func TestCatalogV1IsClosedAndOrdered(t *testing.T) {
-	c := CatalogV1()
+func TestCatalogV2IsClosedAndOrdered(t *testing.T) {
+	c := CatalogV2()
 
-	if c.Version != 1 || c.ProfileMappingVersion != 1 {
-		t.Fatalf("versions = %d/%d, want 1/1", c.Version, c.ProfileMappingVersion)
+	if c.Version != 2 || c.ProfileMappingVersion != 2 {
+		t.Fatalf("versions = %d/%d, want 2/2", c.Version, c.ProfileMappingVersion)
 	}
 	gotProfiles := make([]string, 0, len(c.Profiles))
 	for _, p := range c.Profiles {
@@ -22,6 +22,8 @@ func TestCatalogV1IsClosedAndOrdered(t *testing.T) {
 		"codex:configured-default",
 		"codex:gpt-5.5",
 		"codex:gpt-5.6-sol",
+		"codex:gpt-5.6-terra",
+		"codex:gpt-5.6-luna",
 		"hermes:configured-default",
 		"hermes:openai-codex/gpt-5.6-sol",
 		"openclaw:main",
@@ -55,8 +57,8 @@ func TestCatalogV1IsClosedAndOrdered(t *testing.T) {
 	}
 }
 
-func TestCatalogV1MapsOnlyApprovedLegacyLabels(t *testing.T) {
-	c := CatalogV1()
+func TestCatalogV2MapsOnlyApprovedLegacyLabels(t *testing.T) {
+	c := CatalogV2()
 	tests := []struct {
 		agent string
 		label string
@@ -83,10 +85,34 @@ func TestCatalogV1MapsOnlyApprovedLegacyLabels(t *testing.T) {
 	}
 }
 
-func TestCatalogV1LowersFirstClassGPT55Profile(t *testing.T) {
-	agent, model, ok := CatalogV1().RuntimeSelection("codex:gpt-5.5")
+func TestCatalogV2LowersFirstClassGPT55Profile(t *testing.T) {
+	agent, model, ok := CatalogV2().RuntimeSelection("codex:gpt-5.5")
 	if !ok || agent != "codex" || model != "gpt-5.5" {
 		t.Fatalf("RuntimeSelection = %q/%q,%v", agent, model, ok)
+	}
+}
+
+func TestCatalogV2LowersApprovedGPT56ProfilesExactly(t *testing.T) {
+	tests := []struct {
+		id      string
+		model   string
+		display string
+	}{
+		{id: "codex:gpt-5.6-terra", model: "gpt-5.6-terra", display: "Codex · GPT-5.6 Terra"},
+		{id: "codex:gpt-5.6-luna", model: "gpt-5.6-luna", display: "Codex · GPT-5.6 Luna"},
+	}
+	catalog := CatalogV2()
+	for _, test := range tests {
+		t.Run(test.id, func(t *testing.T) {
+			agent, model, ok := catalog.RuntimeSelection(test.id)
+			if !ok || agent != "codex" || model != test.model {
+				t.Fatalf("RuntimeSelection = %q/%q,%v", agent, model, ok)
+			}
+			definition, ok := catalog.profile(test.id)
+			if !ok || definition.DisplayName != test.display {
+				t.Fatalf("profile = %#v,%v", definition, ok)
+			}
+		})
 	}
 }
 

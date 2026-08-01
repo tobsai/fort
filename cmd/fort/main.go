@@ -20,6 +20,7 @@ import (
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/inbox"
+	"github.com/tobsai/fort/core/scheduler"
 	"github.com/tobsai/fort/core/server"
 	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/meshjoin"
@@ -182,6 +183,11 @@ func cmdServe(args []string) error {
 	} else if reconciled > 0 {
 		slog.Warn("reconciled interrupted direct runs", "count", reconciled)
 	}
+	if reconciled, err := a.store.FailInterruptedConversationTargets(interruptedRunReason); err != nil {
+		return fmt.Errorf("reconcile interrupted conversation targets: %w", err)
+	} else if reconciled > 0 {
+		slog.Warn("reconciled interrupted conversation targets", "count", reconciled)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -202,6 +208,7 @@ func cmdServe(args []string) error {
 		ids[i] = f.ID
 	}
 	graphExecutor := graph.NewExecutor(a.rt, a.store)
+	defer graphExecutor.Wait()
 	graphExecutor.UsePlacer(a.live)
 	flowRunner := control.NewFlowExecutor(graphExecutor, flows)
 	deps := wirePlaybooks(ui.Deps{
@@ -209,6 +216,41 @@ func cmdServe(args []string) error {
 		Store:      a.store,
 		FlowIDs:    ids,
 	}, a.store, &flowRunner)
+	var conversationSeats control.ConversationSeatSource = control.SnapshotConversationSeats{}
+	if a.caps != nil {
+		conversationSeats = control.SnapshotConversationSeats{Source: a.caps.coordinator}
+	} else if os.Getenv("FORT_FAKE") == "1" {
+		conversationSeats = control.FakeConversationSeats(localName(a.live, a.cfg))
+	}
+	conversationService := control.NewConversationService(a.store, a.rt, conversationSeats, a.cfg.WorkRoot)
+	defer conversationService.Close()
+	durableSchedules := scheduler.NewDurableScheduler(a.store, func(scheduleCtx context.Context, definition scheduler.Definition, occurrence scheduler.Occurrence) error {
+		var selected *graph.Flow
+		for i := range flows {
+			if flows[i].ID == definition.FlowID {
+				selected = &flows[i]
+				break
+			}
+		}
+		if selected == nil {
+			return fmt.Errorf("scheduled flow %q is unavailable", definition.FlowID)
+		}
+		result, err := graphExecutor.Start(scheduleCtx, *selected, occurrence.RunID, "")
+		if err != nil {
+			return err
+		}
+		if result.State == "failed" {
+			return fmt.Errorf("scheduled flow %q failed", definition.FlowID)
+		}
+		return nil
+	})
+	if err := durableSchedules.Start(ctx); err != nil {
+		return fmt.Errorf("start durable scheduler: %w", err)
+	}
+	defer durableSchedules.Stop()
+	deps.Conversations = conversationService
+	deps.Today = control.NewTodayService(a.store, durableSchedules, conversationService)
+	deps.Schedules = control.NewScheduleService(durableSchedules, ids)
 	// Task breakdown (spec 026): a planner agent decomposes a goal into backlog
 	// sub-tasks. FORT_PLANNER selects the agent (default claude). Only wired in
 	// serve — breakdown is a real agent run, so it 409s in control-only mode.
@@ -300,7 +342,7 @@ func cmdServe(args []string) error {
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
 	fmt.Printf("fort-core on http://%s  (runtime=%s · node=%s)\n", a.cfg.Addr, a.rt.Name(), a.cfg.NodeName)
-	fmt.Printf("fort-ui   on http://%s/  (board · feed · gates · chat · execution)\n", a.cfg.Addr)
+	fmt.Printf("fort-ui   on http://%s/  (conversations · projects · computers · today)\n", a.cfg.Addr)
 	if reg := a.live.Load(); reg != nil {
 		exec := "off"
 		if a.cfg.NodeToken != "" {

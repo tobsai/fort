@@ -73,9 +73,9 @@ func TestVerifiedCodexInspectorDefersAndCachesContractVerification(t *testing.T)
 	verifier := &fakeCodexContractVerifier{contract: CodexAppServerContract{
 		ExecutableDigest:         "fixture-executable",
 		NormalSchemaDigest:       codexNormalSchemaDigest,
-		NormalSchemaFiles:        267,
+		NormalSchemaFiles:        273,
 		ExperimentalSchemaDigest: codexExperimentalSchemaDigest,
-		ExperimentalSchemaFiles:  337,
+		ExperimentalSchemaFiles:  347,
 	}}
 	inspector := NewVerifiedCodexAppServerInspector(starter, verifier)
 	if verifier.calls.Load() != 0 || starter.starts != 0 {
@@ -112,16 +112,16 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 		`{"method":"account/updated","params":{}}`,
 		`{"id":2,"result":{"account":{"type":"chatgpt","email":"private@example.com","planType":"pro"},"requiresOpenaiAuth":true}}`,
 		`{"id":3,"result":{"config":{"model":"gpt-5.6-sol"},"origins":{"model":"PRIVATE-CONFIG-ORIGIN"}}}`,
-		`{"id":4,"result":{"data":[{"id":"row-1","model":"gpt-5.6-sol","isDefault":false}],"nextCursor":"private-cursor"}}`,
-		`{"id":5,"result":{"data":[{"id":"row-2","model":"gpt-5.5","isDefault":true}],"nextCursor":null}}`,
+		`{"id":4,"result":{"data":[{"id":"row-1","model":"gpt-5.6-sol","isDefault":false},{"id":"row-2","model":"gpt-5.6-terra","isDefault":false}],"nextCursor":"private-cursor"}}`,
+		`{"id":5,"result":{"data":[{"id":"row-3","model":"gpt-5.6-luna","isDefault":false},{"id":"row-4","model":"gpt-5.5","isDefault":true}],"nextCursor":null}}`,
 	}, "\n") + "\n")
 	starter := &fakeCodexAppServerStarter{process: process}
 	inspector := NewCodexAppServerInspector(starter, CodexAppServerContract{
 		ExecutableDigest:         "fixture-executable",
 		NormalSchemaDigest:       codexNormalSchemaDigest,
-		NormalSchemaFiles:        267,
+		NormalSchemaFiles:        273,
 		ExperimentalSchemaDigest: codexExperimentalSchemaDigest,
-		ExperimentalSchemaFiles:  337,
+		ExperimentalSchemaFiles:  347,
 		GmailIsolationReady:      true,
 	})
 
@@ -132,14 +132,16 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 	if !inspection.AccountReady || inspection.AccountHandle != "authenticated" {
 		t.Fatalf("account = %#v", inspection)
 	}
-	if len(inspection.Models) != 2 || !inspection.Models["gpt-5.6-sol"] || !inspection.Models["gpt-5.5"] {
+	if len(inspection.Models) != 4 || !inspection.Models["gpt-5.6-sol"] ||
+		!inspection.Models["gpt-5.6-terra"] || !inspection.Models["gpt-5.6-luna"] ||
+		!inspection.Models["gpt-5.5"] {
 		t.Fatalf("models = %#v", inspection.Models)
 	}
 	if inspection.DefaultModel != "gpt-5.6-sol" {
 		t.Fatalf("default model = %q", inspection.DefaultModel)
 	}
-	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 267 ||
-		inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest || inspection.ExperimentalSchemaFiles != 337 ||
+	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 273 ||
+		inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest || inspection.ExperimentalSchemaFiles != 347 ||
 		!inspection.GmailIsolationReady {
 		t.Fatalf("contract facts = %#v", inspection)
 	}
@@ -283,7 +285,7 @@ func TestCodexAppServerInspectorRejectsDifferentExecutableIdentityBeforeProtocol
 	}
 }
 
-const validCodexInitializeResponse = `{"id":1,"result":{"codexHome":"/private/hidden","platformFamily":"unix","platformOs":"macos","userAgent":"codex_cli_rs/0.143.0"}}`
+const validCodexInitializeResponse = `{"id":1,"result":{"codexHome":"/private/hidden","platformFamily":"unix","platformOs":"macos","userAgent":"codex_cli_rs/0.146.0-alpha.3.1"}}`
 
 type decodedAppServerRequest struct {
 	ID     *int           `json:"id"`

@@ -389,7 +389,7 @@ func TestCapabilityCoordinatorRejectsMoreThanSixteenMachines(t *testing.T) {
 
 func minimalNodeInventory(nodeID string) corecap.NodeInventory {
 	return corecap.NodeInventory{
-		ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 		NodeID: nodeID, State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
 		Bindings: []corecap.ExecutionBindingOffer{},

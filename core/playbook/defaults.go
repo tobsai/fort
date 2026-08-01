@@ -3,6 +3,32 @@ package playbook
 // DefaultCatalog returns a fresh, valid starter catalog matching the approved
 // Feature work, Bug fix, Quick answer, and Research handoff designs.
 func DefaultCatalog() Catalog {
+	catalog := legacyGPT55DefaultCatalog()
+	for i := range catalog.Playbooks {
+		if catalog.Playbooks[i].ID != "feature-work" {
+			continue
+		}
+		for j := range catalog.Playbooks[i].Stages {
+			if catalog.Playbooks[i].Stages[j].Name != "Design" {
+				continue
+			}
+			assignment := &catalog.Playbooks[i].Stages[j].Assignments[0]
+			assignment.Profile = "codex:gpt-5.5"
+			assignment.Agent = "codex"
+			assignment.Model = "gpt-5.5"
+		}
+	}
+	return catalog
+}
+
+// LegacyGPT55DefaultCatalog returns the exact defaults shipped before Feature
+// work's unavailable OpenClaw design stage was replaced. It is migration input
+// only; prior immutable runs continue to resolve against their stored revision.
+func LegacyGPT55DefaultCatalog() Catalog {
+	return legacyGPT55DefaultCatalog()
+}
+
+func legacyGPT55DefaultCatalog() Catalog {
 	catalog := interimConfiguredDefaultCatalog()
 	for i := range catalog.Playbooks {
 		for j := range catalog.Playbooks[i].Stages {

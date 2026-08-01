@@ -1,10 +1,10 @@
 # FortMac — macOS Command Deck
 
 A windowed SwiftUI Command Deck plus `MenuBarExtra` for Fort's control plane.
-The primary sidebar mirrors the web redesign's Command Deck, Projects, Today,
-Crew, and Playbooks destinations while retaining native service and machine
-controls. Give direction remains a top-bar action, and Week is reachable from
-Today. The
+The primary sidebar mirrors the web redesign's Command Deck, Conversations,
+Today, Crew, and Playbooks destinations while retaining native service and
+machine controls. New conversation is the single creation action, and Week is
+reachable from Today. The
 menu leads with **Needs you**, supports **Accept / Request changes**, and keeps
 quick direction available. The menu-bar icon badges the pending sign-off count.
 

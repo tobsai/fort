@@ -20,11 +20,9 @@
 import type { Frame } from "@fort/gateway-shared";
 import { DurableObject } from "cloudflare:workers";
 
-import { Multiplexer, OfflineError, TimeoutError, replyExpected } from "./mux";
+import { Multiplexer, OfflineError, TimeoutError, relayTimeoutMs, replyExpected } from "./mux";
 import type { Env } from "./types";
 import { error, json } from "./types";
-
-const RELAY_TIMEOUT_MS = 10_000;
 
 export class TunnelDO extends DurableObject<Env> {
   // The multiplexer is rebuilt lazily and bound to whatever daemon socket is
@@ -117,7 +115,7 @@ export class TunnelDO extends DurableObject<Env> {
     try {
       const reply = await mux.relay(frame, {
         expectReply: replyExpected(frame.kind),
-        timeoutMs: RELAY_TIMEOUT_MS,
+        timeoutMs: relayTimeoutMs(frame.kind),
       });
       return json({ frames: reply ? [reply] : [] });
     } catch (e) {
@@ -155,7 +153,7 @@ export class TunnelDO extends DurableObject<Env> {
       },
     });
     // Fire the browser's request frame; replies flow back over the subscription.
-    void mux.relay(frame, { expectReply: false, timeoutMs: RELAY_TIMEOUT_MS }).catch(() => {});
+    void mux.relay(frame, { expectReply: false, timeoutMs: relayTimeoutMs(frame.kind) }).catch(() => {});
 
     return new Response(body, {
       headers: { "content-type": "application/x-ndjson", "cache-control": "no-store" },

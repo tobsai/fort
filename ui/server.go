@@ -20,6 +20,9 @@ import (
 //go:embed fort-icon.png
 var fortIcon []byte
 
+//go:embed fort-agent-orb.png
+var fortAgentOrb []byte
+
 // Deps are the control-plane collaborators — ports only. With no Runner and a
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
@@ -33,6 +36,9 @@ type Deps struct {
 	Planner        Planner          // nil in control-only mode (spec 026)
 	Playbooks      PlaybookCatalog  // deterministic catalog + preview (spec 036)
 	PlaybookRunner PlaybookRunner   // nil in control-only mode
+	Conversations  ConversationPort // durable shared conversations (spec 041)
+	Today          TodayPort        // truthful right-rail projection (spec 041)
+	Schedules      SchedulePort     // durable daemon scheduler (spec 041)
 }
 
 // Server holds the ui handlers.
@@ -53,13 +59,16 @@ func New(d Deps) *Server {
 // Register mounts the ui routes onto mux.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", s.handlePage)
+	mux.HandleFunc("GET /legacy", s.handleLegacyPage)
 	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
+	mux.HandleFunc("GET /fort-agent-orb.png", s.handleAgentOrb)
 	mux.HandleFunc("GET /api/board", s.handleBoard)
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleRunDetail)
 	mux.HandleFunc("GET /api/gates", s.handleGates)
 	mux.HandleFunc("GET /api/machines", s.handleMachines)
 	mux.HandleFunc("GET /api/capabilities", s.handleCapabilities)
+	mux.HandleFunc("GET /api/profiles", s.handleProfiles)
 	mux.HandleFunc("POST /api/gate", s.handleGate)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/backlog", s.handleBacklogList)
@@ -75,6 +84,26 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/route", s.handleRoute)
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
+	mux.HandleFunc("GET /api/conversation-seats", s.handleConversationSeats)
+	mux.HandleFunc("GET /api/today", s.handleToday)
+	mux.HandleFunc("POST /api/schedules", s.handleScheduleCreate)
+	mux.HandleFunc("GET /api/projects", s.handleProjectsList)
+	mux.HandleFunc("POST /api/projects", s.handleProjectCreate)
+	mux.HandleFunc("PATCH /api/projects/{id}", s.handleProjectPatch)
+	mux.HandleFunc("DELETE /api/projects/{id}", s.handleProjectDelete)
+	mux.HandleFunc("GET /api/conversations", s.handleConversationsList)
+	mux.HandleFunc("POST /api/conversations", s.handleConversationCreate)
+	mux.HandleFunc("GET /api/conversations/{id}", s.handleConversationGet)
+	mux.HandleFunc("PATCH /api/conversations/{id}", s.handleConversationPatch)
+	mux.HandleFunc("DELETE /api/conversations/{id}", s.handleConversationDelete)
+	mux.HandleFunc("POST /api/conversations/{id}/participants", s.handleConversationParticipantAdd)
+	mux.HandleFunc("DELETE /api/conversations/{id}/participants/{participant_id}", s.handleConversationParticipantDelete)
+	mux.HandleFunc("POST /api/conversations/{id}/turns", s.handleConversationTurn)
+	mux.HandleFunc("POST /api/conversations/{id}/targets/{target_id}/retry", s.handleConversationTargetRetry)
+	mux.HandleFunc("POST /api/conversations/{id}/targets/{target_id}/cancel", s.handleConversationTargetCancel)
+	mux.HandleFunc("GET /api/conversations/{id}/events", s.handleConversationEvents)
+	mux.HandleFunc("POST /api/conversation-targets/{id}/retry", s.handleConversationTargetRetry)
+	mux.HandleFunc("POST /api/conversation-targets/{id}/cancel", s.handleConversationTargetCancel)
 }
 
 // HasExecution reports whether an execution plane is wired (for diagnostics).
@@ -104,7 +133,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, _ *http.Request) {
 	for _, r := range assignmentRuns(runs) {
 		b.Runs = append(b.Runs, RunSummary{
 			ID: r.ID, Title: r.Title, Body: r.Body, Agent: r.Agent, Status: r.Status,
-			Machine: r.Machine, FlowID: r.FlowID,
+			Profile: r.Profile, Model: r.Model, Machine: r.Machine, FlowID: r.FlowID,
 			CreatedAt:   r.CreatedAt.UTC().Format(time.RFC3339),
 			UpdatedAt:   r.UpdatedAt.UTC().Format(time.RFC3339),
 			Checkpoints: s.checkpoints(r.FlowID, nodesByRun[r.ID]),
@@ -238,7 +267,7 @@ func (s *Server) handleRunDetail(w http.ResponseWriter, r *http.Request) {
 	nodes, _ := s.d.Store.NodeRuns(id)
 	evs, _ := s.d.Store.Events(id)
 	d := RunDetail{
-		Run: RunSummary{ID: run.ID, Title: run.Title, Body: run.Body, Agent: run.Agent, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID,
+		Run: RunSummary{ID: run.ID, Title: run.Title, Body: run.Body, Agent: run.Agent, Profile: run.Profile, Model: run.Model, Status: run.Status, Machine: run.Machine, FlowID: run.FlowID,
 			CreatedAt: run.CreatedAt.UTC().Format(time.RFC3339), UpdatedAt: run.UpdatedAt.UTC().Format(time.RFC3339)},
 		Nodes:  []NodeSummary{},
 		Events: []Event{},
@@ -276,6 +305,69 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, _ *http.Request) {
 		snapshot.Machines = []corecap.MachineInventory{}
 	}
 	writeJSON(w, http.StatusOK, CapabilitiesResponse{Generation: generation, Snapshot: snapshot})
+}
+
+func (s *Server) handleProfiles(w http.ResponseWriter, _ *http.Request) {
+	catalog := corecap.CatalogV2()
+	var snapshot corecap.Snapshot
+	var generation uint64
+	if s.d.Capabilities != nil {
+		snapshot, generation = s.d.Capabilities.Capabilities()
+	}
+	out := make([]ProfileOption, 0, len(catalog.Profiles))
+	for _, definition := range catalog.Profiles {
+		agent, model, ok := catalog.RuntimeSelection(definition.ID)
+		if !ok {
+			continue
+		}
+		option := ProfileOption{
+			ID: definition.ID, Agent: agent, Model: model, DisplayName: definition.DisplayName,
+			State: corecap.OfferUnknown, Reason: corecap.ReasonStale, Machines: []string{},
+		}
+		if generation > 0 {
+			var states []corecap.OfferState
+			var reasons []corecap.Reason
+			for _, machine := range snapshot.Machines {
+				for _, offer := range machine.Profiles {
+					if offer.ID != definition.ID {
+						continue
+					}
+					states = append(states, offer.State)
+					if offer.Reason != "" {
+						reasons = append(reasons, offer.Reason)
+					}
+					if machine.Reachable && offer.State == corecap.OfferReady {
+						option.Machines = append(option.Machines, machine.Name)
+					}
+				}
+			}
+			option.State, option.Reason = aggregateProfileState(states, reasons)
+		}
+		out = append(out, option)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func aggregateProfileState(states []corecap.OfferState, reasons []corecap.Reason) (corecap.OfferState, corecap.Reason) {
+	if len(states) == 0 {
+		return corecap.OfferUnknown, corecap.ReasonStale
+	}
+	for _, state := range states {
+		if state == corecap.OfferReady {
+			return corecap.OfferReady, ""
+		}
+	}
+	for _, state := range states {
+		if state == corecap.OfferSetupRequired {
+			return corecap.OfferSetupRequired, corecap.FirstReason(reasons...)
+		}
+	}
+	for _, state := range states {
+		if state == corecap.OfferUnknown {
+			return corecap.OfferUnknown, corecap.FirstReason(reasons...)
+		}
+	}
+	return corecap.OfferUnavailable, corecap.FirstReason(reasons...)
 }
 
 func (s *Server) handleGates(w http.ResponseWriter, _ *http.Request) {
@@ -328,6 +420,14 @@ func (s *Server) handleGate(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
+	if runner, ok := s.d.Runner.(AcceptedFlowRunner); ok {
+		if err := runner.ResumeFlowAsync(r.Context(), run.FlowID, dec.RunID); err != nil {
+			httpError(w, err)
+			return
+		}
+		writeAccepted(w, dec.RunID, ActionResult{State: "accepted"})
+		return
+	}
 	res, err := s.d.Runner.ResumeFlow(r.Context(), run.FlowID, dec.RunID)
 	if err != nil {
 		httpError(w, err)
@@ -343,6 +443,25 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Text) == "" {
 		http.Error(w, "text is required", http.StatusBadRequest)
 		return
+	}
+	resolvedModel := ""
+	if req.Profile != "" {
+		if req.PlaybookID != "" || req.PlaybookRevision != 0 || req.TaskType != "" || req.PlanGate != nil {
+			http.Error(w, "profile cannot be combined with a playbook route", http.StatusBadRequest)
+			return
+		}
+		agent, model, ok := corecap.CatalogV2().RuntimeSelection(req.Profile)
+		if !ok {
+			http.Error(w, "unknown profile", http.StatusBadRequest)
+			return
+		}
+		if req.Agent != "" && req.Agent != agent {
+			http.Error(w, "profile does not belong to agent", http.StatusBadRequest)
+			return
+		}
+		req.Agent = agent
+		// Model is derived from the closed profile and never accepted directly.
+		resolvedModel = model
 	}
 	if req.PlaybookID != "" || req.PlaybookRevision != 0 || req.TaskType != "" || req.PlanGate != nil {
 		s.handlePlaybookChat(w, r, req)
@@ -367,9 +486,19 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		title, body = strings.TrimSpace(text[:i]), strings.TrimSpace(text[i+1:])
 	}
 	// Flow templates require an execution plane.
-	if s.d.Runner != nil {
+	if s.d.Runner != nil && req.Profile == "" {
 		if flowID, input, ok := matchFlow(title, s.flowIDs); ok {
 			runID := uuid.NewString()
+			if runner, ok := s.d.Runner.(AcceptedFlowRunner); ok {
+				if _, err := runner.StartFlowAsync(r.Context(), flowID, runID, input); err != nil {
+					httpError(w, err)
+					return
+				}
+				writeAccepted(w, runID, ChatResult{
+					Kind: "flow", RunID: runID, FlowID: flowID, Accepted: true, Delivery: "assignment",
+				})
+				return
+			}
 			res, err := s.d.Runner.StartFlow(r.Context(), flowID, runID, input)
 			if err != nil {
 				httpError(w, err)
@@ -379,7 +508,19 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	t := task.Task{ID: uuid.NewString(), Title: title, Body: body, Agent: req.Agent, Machine: req.Machine, CreatedAt: time.Now()}
+	t := task.Task{ID: uuid.NewString(), Title: title, Body: body, Agent: req.Agent, Profile: req.Profile, Model: resolvedModel, Machine: req.Machine, CreatedAt: time.Now()}
+	if dispatcher, ok := s.d.Dispatcher.(AcceptedDispatcher); ok {
+		ref, err := dispatcher.Accept(r.Context(), t)
+		if err != nil {
+			httpError(w, err)
+			return
+		}
+		writeAccepted(w, ref.RunID, ChatResult{
+			Kind: "task", RunID: ref.RunID, Accepted: true, Delivery: "assignment",
+			Route: ref.Route, Machine: ref.Machine, Queued: ref.Queued,
+		})
+		return
+	}
 	ref, err := s.d.Dispatcher.Submit(r.Context(), t)
 	if err != nil {
 		httpError(w, err)
@@ -406,6 +547,22 @@ func (s *Server) handlePlaybookChat(w http.ResponseWriter, r *http.Request, req 
 		return
 	}
 	runID := uuid.NewString()
+	if runner, ok := s.d.PlaybookRunner.(AcceptedPlaybookRunner); ok {
+		res, err := runner.StartPlaybookAsync(r.Context(), preview, runID, req.Text)
+		if err != nil {
+			httpError(w, err)
+			return
+		}
+		kind := "flow"
+		if preview.Delivery == "answer" {
+			kind = "answer"
+		}
+		writeAccepted(w, runID, ChatResult{
+			Kind: kind, RunID: runID, Accepted: true, Delivery: preview.Delivery, FlowID: res.FlowID,
+			PlaybookID: preview.PlaybookID, PlaybookRevision: preview.PlaybookRevision,
+		})
+		return
+	}
 	res, err := s.d.PlaybookRunner.StartPlaybook(r.Context(), preview, runID, req.Text)
 	if err != nil {
 		httpError(w, err)
@@ -669,12 +826,22 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePage(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(conversationPageHTML))
+}
+
+func (s *Server) handleLegacyPage(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(boardHTML))
 }
 
 func (s *Server) handleIcon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	_, _ = w.Write(fortIcon)
+}
+
+func (s *Server) handleAgentOrb(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	_, _ = w.Write(fortAgentOrb)
 }
 
 // matchFlow maps a chat message to a flow template (deterministic, not an LLM
@@ -697,6 +864,11 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeAccepted(w http.ResponseWriter, runID string, v any) {
+	w.Header().Set("Location", "/api/runs/"+runID)
+	writeJSON(w, http.StatusAccepted, v)
 }
 
 func httpError(w http.ResponseWriter, err error) {

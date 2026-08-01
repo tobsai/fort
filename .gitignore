@@ -15,6 +15,7 @@ dist/
 
 # swift / xcode build outputs
 ui/apple/**/.build/
+ui/apple/FortKit/build/
 ui/apple/**/*.xcodeproj
 ui/apple/DerivedData/
 .swiftpm/

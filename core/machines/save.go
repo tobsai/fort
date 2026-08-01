@@ -82,7 +82,8 @@ func Save(path string, r *Registry) error {
 // every reader sees it immediately. The zero value holds no registry, which
 // behaves exactly like single-machine mode.
 type Live struct {
-	p atomic.Pointer[Registry]
+	p     atomic.Pointer[Registry]
+	local atomic.Pointer[string]
 }
 
 // Load returns the current registry, or nil when none is installed.
@@ -91,6 +92,18 @@ func (l *Live) Load() *Registry { return l.p.Load() }
 // Store installs reg as the current registry.
 func (l *Live) Store(reg *Registry) { l.p.Store(reg) }
 
+// SetLocal records the configured identity used by single-machine mode. It
+// lets a client explicitly choose the same local machine advertised by the
+// capability inventory without inventing a one-entry mesh registry.
+func (l *Live) SetLocal(name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		l.local.Store(nil)
+		return
+	}
+	l.local.Store(&name)
+}
+
 // Place implements engine.Placer over the current registry. With no registry
 // installed it preserves single-machine semantics: no placement, but an
 // explicit pin is an error (there is nothing to pin to).
@@ -98,6 +111,9 @@ func (l *Live) Place(agent, pin string) (string, error) {
 	reg := l.p.Load()
 	if reg == nil {
 		if pin != "" {
+			if local := l.local.Load(); local != nil && strings.EqualFold(pin, *local) {
+				return *local, nil
+			}
 			return "", fmt.Errorf("machines: pinned machine %q but no registry is configured", pin)
 		}
 		return "", nil

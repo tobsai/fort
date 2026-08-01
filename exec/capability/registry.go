@@ -115,14 +115,14 @@ func NewRegistry(options RegistryOptions) (*Registry, error) {
 	return &Registry{
 		nodeID: options.NodeID, platform: options.Platform,
 		revisionKey: append([]byte(nil), options.RevisionKey...),
-		prober:      options.Prober, now: options.Now, catalog: corecap.CatalogV1(),
+		prober:      options.Prober, now: options.Now, catalog: corecap.CatalogV2(),
 		semaphore: make(chan struct{}, 2), cache: map[string]cachedProbe{},
 		flights: map[string]*probeFlight{}, adapterGates: map[string]chan struct{}{},
 	}, nil
 }
 
 func RecheckAll(mode corecap.RefreshMode, requestID string) corecap.RecheckRequest {
-	adapters := allAdapterIDs(corecap.CatalogV1())
+	adapters := allAdapterIDs(corecap.CatalogV2())
 	maxAge := 0
 	if mode == corecap.RefreshPlanning {
 		maxAge = 60
@@ -181,7 +181,7 @@ func ValidateRecheckRequest(request corecap.RecheckRequest) error {
 		return fmt.Errorf("exec capability: adapters must contain 1 to 32 rows")
 	}
 	known := map[string]bool{}
-	for _, adapter := range allAdapterIDs(corecap.CatalogV1()) {
+	for _, adapter := range allAdapterIDs(corecap.CatalogV2()) {
 		known[adapter] = true
 	}
 	seen := map[string]bool{}

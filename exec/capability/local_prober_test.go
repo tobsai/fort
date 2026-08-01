@@ -38,17 +38,17 @@ func (f fakeCodexInspector) Inspect(context.Context) (CodexInspection, error) {
 func TestLocalProberAcceptsOnlyExactCodexContractAndModelCatalog(t *testing.T) {
 	commands := fakeCommandExecutor{results: map[string]CommandResult{
 		"codex\x00--version": {
-			Output: []byte("codex-cli 0.143.0\n"), ExecutableDigest: "codex-digest",
+			Output: []byte("codex-cli 0.146.0-alpha.3.1\n"), ExecutableDigest: "codex-digest",
 		},
 	}}
 	inspection := CodexInspection{
 		AccountReady: true, AccountHandle: "account-handle",
-		Models: map[string]bool{"gpt-5.5": true}, DefaultModel: "gpt-5.5",
+		Models: map[string]bool{"gpt-5.5": true, "gpt-5.6-terra": true, "gpt-5.6-luna": true}, DefaultModel: "gpt-5.6-terra",
 		ExecutableDigest:         "codex-digest",
-		NormalSchemaDigest:       "44b0f3e1bcddcee69d9b2dbdcfbfbb9252757f884946aeae698af6f82e439ebd",
-		NormalSchemaFiles:        267,
-		ExperimentalSchemaDigest: "e0ee3ce1d6b9aee796d4d0b00536d4aefeaf77641875577775e832cfae6445db",
-		ExperimentalSchemaFiles:  337,
+		NormalSchemaDigest:       "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6",
+		NormalSchemaFiles:        273,
+		ExperimentalSchemaDigest: "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf",
+		ExperimentalSchemaFiles:  347,
 	}
 	prober := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil)
 
@@ -65,6 +65,15 @@ func TestLocalProberAcceptsOnlyExactCodexContractAndModelCatalog(t *testing.T) {
 	})
 	if model.State != corecap.PredicateSatisfied {
 		t.Fatalf("model = %#v", model)
+	}
+	for _, profile := range []string{"codex:gpt-5.6-terra", "codex:gpt-5.6-luna"} {
+		model := prober.Probe(context.Background(), ProbeRequest{
+			AdapterID: "profile.codex.native", TargetID: profile,
+			ProfileID: profile, PredicateID: "predicate.codex.model." + profile + ".v1",
+		})
+		if model.State != corecap.PredicateSatisfied {
+			t.Fatalf("%s model = %#v", profile, model)
+		}
 	}
 	unavailable := prober.Probe(context.Background(), ProbeRequest{
 		AdapterID: "profile.codex.native", TargetID: "codex:gpt-5.6-sol",
@@ -92,11 +101,11 @@ func TestLocalProberRejectsConfiguredCodexDefaultMissingFromRuntimeCatalog(t *te
 
 func TestLocalProberRejectsCodexFactsFromDifferentExecutableIdentity(t *testing.T) {
 	commands := fakeCommandExecutor{results: map[string]CommandResult{
-		"codex\x00--version": {Output: []byte("codex-cli 0.143.0\n"), ExecutableDigest: "version-digest"},
+		"codex\x00--version": {Output: []byte("codex-cli 0.146.0-alpha.3.1\n"), ExecutableDigest: "version-digest"},
 	}}
 	inspection := CodexInspection{
 		ExecutableDigest:   "schema-and-app-server-digest",
-		NormalSchemaDigest: codexNormalSchemaDigest, NormalSchemaFiles: 267,
+		NormalSchemaDigest: codexNormalSchemaDigest, NormalSchemaFiles: 273,
 	}
 	prober := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil)
 	observation := prober.Probe(context.Background(), ProbeRequest{
@@ -112,7 +121,7 @@ func TestLocalProberFailsClosedOnVersionDriftWithoutLeakingOutput(t *testing.T) 
 	sentinel := "PRIVATE-PROBE-OUTPUT"
 	commands := fakeCommandExecutor{results: map[string]CommandResult{
 		"codex\x00--version": {
-			Output: []byte("codex-cli 0.144.0 " + sentinel), ExecutableDigest: "changed",
+			Output: []byte("codex-cli 0.143.0 " + sentinel), ExecutableDigest: "changed",
 		},
 	}}
 	prober := NewLocalProber(commands, fakeCodexInspector{}, nil, nil)

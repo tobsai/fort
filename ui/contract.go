@@ -9,8 +9,9 @@
 //	GET  /api/summary               -> Summary (counts + pending gates)
 //	GET  /api/runs/{id}             -> RunDetail (run + nodes + events; replayable)
 //	GET  /api/gates                 -> []GateItem
-//	POST /api/gate                  <- GateDecision  -> ActionResult (reject may carry a note)
-//	POST /api/chat                  <- ChatRequest   -> ChatResult
+//	GET  /api/profiles              -> []ProfileOption (closed agent/model choices)
+//	POST /api/gate                  <- GateDecision  -> 202 ActionResult + Location (reject may carry a note)
+//	POST /api/chat                  <- ChatRequest   -> 202 ChatResult + Location
 //	GET  /api/backlog               -> []BacklogItem
 //	POST /api/backlog               <- BacklogRequest -> BacklogItem
 //	PATCH /api/backlog/{id}         <- BacklogPatch  -> BacklogItem (reassign, spec 033)
@@ -45,6 +46,8 @@ type RunSummary struct {
 	Title       string             `json:"title"`
 	Body        string             `json:"body,omitempty"`
 	Agent       string             `json:"agent"`
+	Profile     string             `json:"profile,omitempty"`
+	Model       string             `json:"model,omitempty"`
 	Status      string             `json:"status"`
 	Machine     string             `json:"machine,omitempty"` // host the run is placed on (spec 022)
 	FlowID      string             `json:"flow_id,omitempty"`
@@ -71,6 +74,21 @@ type MachineStatus struct {
 	Agents    []string `json:"agents"`
 	Local     bool     `json:"local"`
 	Reachable bool     `json:"reachable"`
+}
+
+// ProfileOption is one closed, Fort-owned agent/model choice for a direct
+// conversation turn. State and Reason are the latest aggregate readiness
+// projection; Machines names only targets that currently report the profile
+// ready. Unknown/setup-required choices remain visible and are never silently
+// substituted at dispatch.
+type ProfileOption struct {
+	ID          string             `json:"id"`
+	Agent       string             `json:"agent"`
+	Model       string             `json:"model,omitempty"`
+	DisplayName string             `json:"display_name"`
+	State       corecap.OfferState `json:"state"`
+	Reason      corecap.Reason     `json:"reason,omitempty"`
+	Machines    []string           `json:"machines"`
 }
 
 // CapabilitiesResponse is the current capability inventory generation. The
@@ -122,6 +140,7 @@ type GateDecision struct {
 type ChatRequest struct {
 	Text             string `json:"text"`
 	Agent            string `json:"agent,omitempty"`             // force a specific agent
+	Profile          string `json:"profile,omitempty"`           // exact Fort-owned execution profile
 	Machine          string `json:"machine,omitempty"`           // pin a target host (spec 022)
 	PlaybookID       string `json:"playbook_id,omitempty"`       // exact route override (spec 036)
 	PlaybookRevision int    `json:"playbook_revision,omitempty"` // immutable preview revision
@@ -129,10 +148,15 @@ type ChatRequest struct {
 	PlanGate         *bool  `json:"plan_gate,omitempty"`         // per-handoff plan-gate override
 }
 
-// ChatResult is the response for chat/openclaw.
+// ChatResult is the response for chat/openclaw. Production chat accepts durable
+// work with HTTP 202 and a Location pointing at this run; terminal output and
+// errors arrive through run detail/events. Legacy synchronous adapters may
+// still include Paused or Answer in an HTTP 200 response.
 type ChatResult struct {
 	Kind             string `json:"kind"` // task | flow | answer
 	RunID            string `json:"run_id"`
+	Accepted         bool   `json:"accepted,omitempty"`    // true when work was durably accepted for asynchronous execution
+	Delivery         string `json:"delivery,omitempty"`    // assignment | answer for accepted chat work
 	Route            string `json:"route,omitempty"`       // agent, for task kind (execution plane)
 	Machine          string `json:"machine,omitempty"`     // resolved host (spec 022)
 	Queued           bool   `json:"queued,omitempty"`      // true when only boarded (control-only)

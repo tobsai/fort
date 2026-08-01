@@ -9,6 +9,7 @@ import FoundationNetworking
 struct FortKitContractChecks {
     static func main() async throws {
         try boardDecodesRedesignFields()
+        try profileOptionsDecodeClosedChoices()
         try metricsDecodeScorecards()
         try gateDecisionEncodesRedirectNote()
         try backlogPatchEncodesAgent()
@@ -28,8 +29,20 @@ struct FortKitContractChecks {
         projectStatePrioritizesHumanAttention()
         recentFailuresStayActionableForFortyEightHours()
         projectOrderingDemotesHistoricalFailures()
+        conversationOrderingUsesNewestActivityNotStatus()
+        conversationActivityUsesEventEvidenceAndClearLabels()
+        conversationPromotionOnlyAllowsFinishedDirectRuns()
+        promotionPinsDefaultAssignmentPlaybook()
+        orbMotionSeparatesEnergyFromSpatialMovement()
+        projectRoomGroupingRemainsAPureBackendUtility()
         meshStatusUsesCrossMachineLanguage()
         try macSidebarSelectionUsesNonOptionalTags()
+        try macConversationUXContractIsActionable()
+        try iPhoneConversationUXContractIsActionable()
+        try iPhoneSimulatorSupportsDeterministicVisualQAHost()
+        try nativeOrbMotionUsesTheRasterAndHonorsReduceMotion()
+        try appleClientsRemoveProjectsPresentation()
+        try macConversationConsumesLiveEventsAndRendersTimeline()
         checkpointCaptionUsesAcceptedProgress()
         displayedWeekIsMondayThroughSunday()
         print("FortKit contract checks passed")
@@ -40,12 +53,22 @@ struct FortKitContractChecks {
     }
 
     private static func boardDecodesRedesignFields() throws {
-        let json = #"{"runs":[{"id":"run-1","title":"Ship Fort","body":"Polish the clients","agent":"codex","status":"running","machine":"studio","flow_id":"release","created_at":"2026-07-19T14:00:00Z","updated_at":"2026-07-19T15:00:00Z","checkpoints":{"total":4,"accepted":2,"waiting":1,"rejected":0,"done":3}}],"gates":[{"run_id":"run-1","node_id":"review","input":"Review the build","since":"2026-07-19T15:00:00Z"}]}"#
+        let json = #"{"runs":[{"id":"run-1","title":"Ship Fort","body":"Polish the clients","agent":"codex","profile":"codex:gpt-5.6-sol","model":"gpt-5.6-sol","status":"running","machine":"studio","flow_id":"release","created_at":"2026-07-19T14:00:00Z","updated_at":"2026-07-19T15:00:00Z","checkpoints":{"total":4,"accepted":2,"waiting":1,"rejected":0,"done":3}}],"gates":[{"run_id":"run-1","node_id":"review","input":"Review the build","since":"2026-07-19T15:00:00Z"}]}"#
         let board = try JSONDecoder().decode(Board.self, from: Data(json.utf8))
         expect(board.runs[0].machine == "studio", "machine did not decode")
+        expect(board.runs[0].profile == "codex:gpt-5.6-sol", "profile did not decode")
+        expect(board.runs[0].model == "gpt-5.6-sol", "model did not decode")
         expect(board.runs[0].createdAt == "2026-07-19T14:00:00Z", "created_at did not decode")
         expect(board.runs[0].checkpoints?.accepted == 2, "checkpoints did not decode")
         expect(board.gates[0].since == "2026-07-19T15:00:00Z", "gate since did not decode")
+    }
+
+    private static func profileOptionsDecodeClosedChoices() throws {
+        let json = #"[{"id":"codex:gpt-5.6-sol","agent":"codex","model":"gpt-5.6-sol","display_name":"Codex · GPT-5.6 Sol","state":"ready","machines":["mac-mini"]},{"id":"claude:opus","agent":"claude","model":"opus","display_name":"Claude · Opus","state":"setup_required","reason":"auth_required","machines":[]}]"#
+        let profiles = try JSONDecoder().decode([ProfileOption].self, from: Data(json.utf8))
+        expect(profiles[0].id == "codex:gpt-5.6-sol", "profile id did not decode")
+        expect(profiles[0].machines == ["mac-mini"], "ready profile machines did not decode")
+        expect(profiles[1].state == "setup_required" && profiles[1].reason == "auth_required", "closed unavailable state did not decode")
     }
 
     private static func metricsDecodeScorecards() throws {
@@ -102,6 +125,7 @@ struct FortKitContractChecks {
     private static func chatOverrideEncodesAndAnswerDecodes() throws {
         let request = ChatRequest(
             text: "Why was it skipped?",
+            profile: "codex:gpt-5.6-sol",
             playbookID: "quick-answer",
             playbookRevision: 1,
             taskType: "question",
@@ -110,6 +134,7 @@ struct FortKitContractChecks {
         let data = try JSONEncoder().encode(request)
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         expect(object?["playbook_id"] as? String == "quick-answer", "chat playbook_id did not encode")
+        expect(object?["profile"] as? String == "codex:gpt-5.6-sol", "chat profile did not encode")
         expect(object?["playbook_revision"] as? Int == 1, "chat playbook revision did not encode")
         expect(object?["task_type"] as? String == "question", "chat task_type did not encode")
         expect(object?["plan_gate"] as? Bool == false, "chat plan_gate false override was omitted")
@@ -129,6 +154,8 @@ struct FortKitContractChecks {
             let method = request.httpMethod ?? "GET"
             let json: String
             switch (method, path) {
+            case ("GET", "/api/profiles"):
+                json = "[]"
             case ("GET", "/api/playbooks"):
                 json = "[]"
             case ("PUT", "/api/playbooks"), ("POST", "/api/playbooks/feature-work/duplicate"):
@@ -164,6 +191,7 @@ struct FortKitContractChecks {
         _ = try await client.duplicatePlaybook(playbook.id)
         _ = try await client.route(RouteRequest(text: "Build it", playbookID: playbook.id, playbookRevision: 3))
         _ = try await client.chat(ChatRequest(text: "Answer it", taskType: "question", planGate: false))
+        _ = try await client.profiles()
 
         let signatures = StubURLProtocol.requests.map { "\($0.httpMethod ?? "") \($0.url?.path ?? "")" }
         expect(signatures == [
@@ -172,6 +200,7 @@ struct FortKitContractChecks {
             "POST /api/playbooks/feature-work/duplicate",
             "POST /api/route",
             "POST /api/chat",
+            "GET /api/profiles",
         ], "FortClient playbook endpoint surface drifted: \(signatures)")
 
         let requestIDs = StubURLProtocol.requests.compactMap {
@@ -450,6 +479,12 @@ struct FortKitContractChecks {
             "empty answer must be surfaced as failure"
         )
         expect(
+            ChatResult(
+                kind: "answer", runID: "accepted", accepted: true, delivery: "answer"
+            ).handoffOutcome == .assignment,
+            "a durable accepted answer must open its observable run instead of failing"
+        )
+        expect(
             ChatResult(kind: "error", runID: "failed", answer: "Provider exited 1").handoffOutcome
                 == .failure("Provider exited 1"),
             "wire error kind must be surfaced as failure"
@@ -572,6 +607,124 @@ struct FortKitContractChecks {
         )
     }
 
+    private static func conversationOrderingUsesNewestActivityNotStatus() {
+        let runs = [
+            RunSummary(id: "event", title: "Event activity", agent: "codex", status: "queued", updatedAt: "2026-07-22T08:00:00Z"),
+            RunSummary(id: "gate", title: "Gate activity", agent: "hermes", status: "blocked", updatedAt: "2026-07-22T07:00:00Z"),
+            RunSummary(id: "finished", title: "Finished", agent: "claude", status: "succeeded", updatedAt: "2026-07-22T12:00:00Z"),
+            RunSummary(id: "working", title: "Working", agent: "codex", status: "running", updatedAt: "2026-07-22T11:00:00Z"),
+            RunSummary(id: "failed", title: "Old failure", agent: "hermes", status: "failed", updatedAt: "2026-07-22T09:00:00Z"),
+        ]
+        let events = [
+            Event(id: 1, runID: "event", type: "tool", data: #"{"name":"Read"}"#, time: "2026-07-22T14:00:00Z"),
+            Event(id: 2, runID: "unrelated", type: "message", data: "Ignore me", time: "2026-07-22T15:00:00Z"),
+        ]
+        let gates = [
+            GateItem(runID: "gate", nodeID: "review", since: "2026-07-22T13:00:00Z"),
+        ]
+
+        let ordered: [RunSummary] = FortConversationOrdering.newestFirst(runs, gates: gates, events: events)
+
+        expect(
+            ordered.map(\.id) == ["event", "gate", "finished", "working", "failed"],
+            "conversations must order by newest matching activity evidence, never by attention or terminal state"
+        )
+    }
+
+    private static func conversationActivityUsesEventEvidenceAndClearLabels() {
+        let evidenceOnly = RunSummary(id: "evidence", title: "Evidence", agent: "codex", status: "queued")
+        let toolEvent = Event(
+            id: 1,
+            runID: evidenceOnly.id,
+            type: "tool",
+            data: #"{"name":"go test"}"#,
+            time: "2026-07-22T14:00:00Z"
+        )
+        expect(
+            FortConversationActivity.resolve(run: evidenceOnly, gates: [], events: [toolEvent]).label == "Working",
+            "matching persisted activity evidence must render as Working even before the board status refreshes"
+        )
+        expect(
+            FortConversationActivity.resolve(run: evidenceOnly, gates: [], events: []).label == "Starting",
+            "a conversation without activity evidence needs a readable Starting label"
+        )
+
+        let blocked = RunSummary(id: "blocked", title: "Blocked", agent: "codex", status: "blocked")
+        let blockedToolEvent = Event(
+            id: 3,
+            runID: blocked.id,
+            type: "tool",
+            data: #"{"name":"Read"}"#,
+            time: "2026-07-22T14:01:00Z"
+        )
+        expect(
+            FortConversationActivity.resolve(run: blocked, gates: [], events: [blockedToolEvent]).label == "Paused",
+            "blocked work must remain Paused even when earlier provider evidence exists"
+        )
+
+        let placementOnly = RunSummary(id: "placed", title: "Placed", agent: "codex", status: "queued")
+        let placementEvent = Event(
+            id: 4,
+            runID: placementOnly.id,
+            type: "placement",
+            data: #"{"agent":"codex","machine":"mac-mini"}"#,
+            time: "2026-07-22T14:02:00Z"
+        )
+        expect(
+            FortConversationActivity.resolve(run: placementOnly, gates: [], events: [placementEvent]).label == "Starting",
+            "deterministic placement alone is not provider work evidence"
+        )
+
+        let stderrEvent = Event(
+            id: 5,
+            runID: evidenceOnly.id,
+            type: "stderr",
+            data: "provider startup diagnostic",
+            time: "2026-07-22T14:03:00Z"
+        )
+        expect(
+            FortConversationActivity.resolve(run: evidenceOnly, gates: [], events: [stderrEvent]).label == "Working",
+            "provider stderr is truthful execution evidence"
+        )
+
+        let finished = RunSummary(id: "finished", title: "Finished", agent: "codex", status: "succeeded")
+        let staleToolEvent = Event(
+            id: 2,
+            runID: finished.id,
+            type: "tool",
+            data: #"{"name":"Write"}"#,
+            time: "2026-07-22T13:00:00Z"
+        )
+        expect(
+            FortConversationActivity.resolve(run: finished, gates: [], events: [staleToolEvent]).label == "Finished",
+            "terminal run state must take precedence over older working evidence"
+        )
+        expect(
+            FortConversationActivity.resolve(
+                run: finished,
+                gates: [GateItem(runID: finished.id, nodeID: "review")],
+                events: [staleToolEvent]
+            ).label == "Paused for review",
+            "a waiting human gate must take precedence over terminal and event evidence"
+        )
+    }
+
+    private static func projectRoomGroupingRemainsAPureBackendUtility() {
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-07-22T12:00:00Z")!
+        let runs = [
+            RunSummary(id: "older", title: " Nimbus   Reliability ", agent: "codex", status: "succeeded", updatedAt: "2026-07-22T08:00:00Z"),
+            RunSummary(id: "gated", title: "nimbus reliability", agent: "codex", status: "blocked", updatedAt: "2026-07-22T10:00:00Z"),
+            RunSummary(id: "other", title: "Email cleanup", agent: "hermes", status: "running", updatedAt: "2026-07-22T09:00:00Z"),
+        ]
+        let rooms = FortProjectRooms.unique(
+            runs,
+            gates: [GateItem(runID: "gated", nodeID: "review")],
+            now: now
+        )
+        expect(rooms.map(\.id) == ["gated", "other"], "backend room grouping must normalize titles and preserve the gated representative")
+    }
+
     private static func meshStatusUsesCrossMachineLanguage() {
         let single = FortMeshSummary.resolve([])
         expect(single.title == "This Mac", "single-machine mode must say This Mac")
@@ -600,6 +753,249 @@ struct FortKitContractChecks {
         expect(source.contains("List(selection: $route)"), "macOS sidebar selection contract disappeared")
         expect(source.contains(".tag(item)"), "optional macOS sidebar tags do not update the nonoptional route selection")
         expect(!source.contains(".tag(Optional(item))"), "macOS sidebar tags must match the nonoptional List selection value")
+    }
+
+    private static func macConversationUXContractIsActionable() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: appleRoot.appendingPathComponent("macOS/FortWindow.swift"),
+            encoding: .utf8
+        )
+        for required in [
+            "Image(\"FortAgentOrb\")",
+            "Work is paused until you approve",
+            "Approve & continue",
+            "Request changes",
+            "Picker(\"Agent\"",
+            "Picker(\"Model\"",
+            "Picker(\"Machine\"",
+            "Needs approval",
+        ] {
+            expect(source.contains(required), "native conversation UX missing \(required)")
+        }
+        expect(!source.contains("Button(\"Give direction\")"), "duplicate upper-right conversation action remains")
+        expect(source.contains("case .assign: return \"Assign\""), "Assign route label drifted")
+    }
+
+    private static func iPhoneConversationUXContractIsActionable() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/BoardView.swift"),
+            encoding: .utf8
+        )
+
+        for required in [
+            "case .deck: return \"Chats\"",
+            "case .assign: return \"Assign\"",
+            "newConversationID",
+            "@State private var profiles: [ProfileOption] = []",
+            "@State private var conversationEvents: [Event] = []",
+            "client.events(since:",
+            "client.runDetail(run.id)",
+            "FortAgentOrbView",
+            "HumanConversationAvatar",
+            "Approve & continue",
+            "Request changes",
+            "selectedConversationGate",
+            "conversationGateDock",
+            "accessibilityLabel(\"Assignment\")",
+            "accessibilityLabel(\"Message Fort\")",
+            "accessibilityLabel(\"Requested changes\")",
+            "Picker(\"Agent\"",
+            "Picker(\"Model\"",
+            "Picker(\"Machine\"",
+            "profile: profile?.id",
+            "machine: selectedMachine.isEmpty ? nil : selectedMachine",
+            "Turn this into work",
+            "FortConversationPromotion.isEligible",
+            "Submitting to Fort",
+            "mainNavigationHidden ? .hidden : .visible",
+        ] {
+            expect(source.contains(required), "iPhone conversation UX missing \(required)")
+        }
+        expect(!source.contains("Give direction"), "iPhone still exposes the superseded Give direction vocabulary")
+        expect(!source.contains("Text(\"Hand it off\")"), "iPhone routed-work action still uses the ambiguous Hand it off label")
+    }
+
+    private static func iPhoneSimulatorSupportsDeterministicVisualQAHost() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/GatewayCoordinator.swift"),
+            encoding: .utf8
+        )
+        expect(source.contains("#if targetEnvironment(simulator)"), "iPhone simulator no longer has an isolated direct-host QA path")
+        expect(source.contains("FORT_DIRECT_HOST_URL"), "visual QA cannot point the simulator at a deterministic Fort fixture")
+        let boardSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/BoardView.swift"),
+            encoding: .utf8
+        )
+        expect(boardSource.contains("FORT_QA_SCREEN"), "visual QA cannot open deterministic New and approval states")
+    }
+
+    private static func conversationPromotionOnlyAllowsFinishedDirectRuns() {
+        for status in ["succeeded", "done"] {
+            expect(
+                FortConversationPromotion.isEligible(
+                    RunSummary(id: status, title: "Direct", agent: "codex", status: status),
+                    gates: []
+                ),
+                "a completed direct conversation must be eligible for promotion"
+            )
+        }
+        expect(
+            FortConversationPromotion.isEligible(
+                RunSummary(id: "empty-flow", title: "Direct", agent: "codex", status: "succeeded", flowID: "  "),
+                gates: []
+            ),
+            "an empty flow id must still represent a direct conversation"
+        )
+        expect(
+            !FortConversationPromotion.isEligible(
+                RunSummary(id: "routed", title: "Routed", agent: "flow:feature-work", status: "succeeded", flowID: "feature-work"),
+                gates: []
+            ),
+            "a routed assignment must never promote itself again"
+        )
+        for status in ["queued", "running", "blocked", "paused", "failed", "error", "canceled", "cancelled"] {
+            expect(
+                !FortConversationPromotion.isEligible(
+                    RunSummary(id: status, title: "Not complete", agent: "codex", status: status),
+                    gates: []
+                ),
+                "\(status) direct conversations must not expose promotion"
+            )
+        }
+        let gated = RunSummary(id: "gated", title: "Pending review", agent: "codex", status: "succeeded")
+        expect(
+            !FortConversationPromotion.isEligible(
+                gated,
+                gates: [GateItem(runID: gated.id, nodeID: "review")]
+            ),
+            "a pending human gate must suppress promotion even when the board status is stale"
+        )
+    }
+
+    private static func promotionPinsDefaultAssignmentPlaybook() {
+        let quick = Playbook(
+            id: "quick-answer", name: "Quick answer", revision: 4,
+            delivery: "answer", trigger: PlaybookTrigger(kind: "question", enabled: true),
+            stages: [PlaybookStage(order: 1, name: "Answer", assignments: [PlaybookAssignment(agent: "codex")])]
+        )
+        let bug = Playbook(
+            id: "bug-fix", name: "Bug fix", revision: 6,
+            delivery: "assignment", trigger: PlaybookTrigger(kind: "bug", enabled: true),
+            stages: [PlaybookStage(order: 1, name: "Repair", assignments: [PlaybookAssignment(agent: "codex")])]
+        )
+        let feature = Playbook(
+            id: "feature-work", name: "Feature work", revision: 8, isDefault: true,
+            delivery: "assignment", trigger: PlaybookTrigger(kind: "feature", enabled: true),
+            stages: [PlaybookStage(order: 1, name: "Build", assignments: [PlaybookAssignment(agent: "codex")])]
+        )
+
+        let selected = FortPlaybookRouting.defaultAssignment(in: [quick, bug, feature])
+        expect(selected?.id == "feature-work", "promotion must not be reclaimed by the answer route")
+        expect(selected?.revision == 8, "promotion must pin the default assignment's immutable revision")
+    }
+
+    private static func orbMotionSeparatesEnergyFromSpatialMovement() {
+        expect(FortOrbMotion.shouldPulse(state: .working), "truthful working activity should pulse the Fort orb")
+        expect(FortOrbMotion.allowsSpatialMotion(state: .working, reduceMotion: false), "working activity should move the Fort orb when spatial motion is allowed")
+        expect(!FortOrbMotion.allowsSpatialMotion(state: .working, reduceMotion: true), "Reduce Motion must suppress Fort orb rotation, scale, and drift")
+        for state in [FortProjectState.idle, .needsYou, .delivered, .failed] {
+            expect(!FortOrbMotion.shouldPulse(state: state), "non-working Fort orbs must not pulse")
+            expect(!FortOrbMotion.allowsSpatialMotion(state: state, reduceMotion: false), "non-working Fort orbs must not move")
+        }
+    }
+
+    private static func nativeOrbMotionUsesTheRasterAndHonorsReduceMotion() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let macSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("macOS/FortWindow.swift"),
+            encoding: .utf8
+        )
+        let styleSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("FortKit/Sources/FortKit/CommandDeckStyle.swift"),
+            encoding: .utf8
+        )
+
+        for required in [
+            "@Environment(\\.accessibilityReduceMotion)",
+            "FortOrbMotion.shouldPulse",
+            "FortOrbMotion.allowsSpatialMotion",
+            "Image(\"FortAgentOrb\")",
+            ".rotationEffect",
+            ".scaleEffect",
+        ] {
+            expect(macSource.contains(required), "macOS Fort orb motion missing \(required)")
+        }
+        expect(styleSource.contains("@Environment(\\.accessibilityReduceMotion)"), "shared Fort orb motion ignores Reduce Motion")
+        expect(styleSource.contains("FortOrbMotion.shouldPulse"), "shared Fort orb pulse is not gated by truthful working state")
+        expect(styleSource.contains("FortOrbMotion.allowsSpatialMotion"), "shared Fort orb spatial motion does not honor Reduce Motion")
+        expect(macSource.contains("conversationMessage(\"You\""), "native transcript no longer renders the human turn")
+        expect(macSource.contains("role: .human"), "human transcript rows must use an explicit role")
+        expect(macSource.contains("HumanConversationAvatar"), "human transcript rows need a distinct person avatar")
+        expect(macSource.contains("if FortConversationPromotion.isEligible(run, gates: board.gates)"), "native promotion is not gated to completed direct conversations")
+        expect(macSource.contains("handoffPlaybookID = FortPlaybookRouting.defaultAssignment(in: playbooks)?.id"), "native promotion does not pin its assignment route")
+        expect(!macSource.contains("FortAgentOrbAvatar(name: \"Fort\", state: .working"), "the brand orb must not claim work without real agent activity")
+        expect(!macSource.contains("FortAgentOrbAvatar(name: title(run), state: .working"), "passive handoff orb must remain static")
+    }
+
+    private static func appleClientsRemoveProjectsPresentation() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let macSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("macOS/FortWindow.swift"),
+            encoding: .utf8
+        )
+        let mobileSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/BoardView.swift"),
+            encoding: .utf8
+        )
+
+        for (platform, source) in [("macOS", macSource), ("iOS", mobileSource)] {
+            expect(!source.contains(".projects"), "\(platform) still exposes a Projects route")
+            expect(!source.contains("\"PROJECTS\""), "\(platform) still renders a Projects section")
+            expect(!source.contains("\"PROJECT ROOMS\""), "\(platform) still renders the superseded project-room presentation")
+            expect(!source.contains("\"Project rooms\""), "\(platform) still renders the superseded project-room presentation")
+        }
+    }
+
+    private static func macConversationConsumesLiveEventsAndRendersTimeline() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: appleRoot.appendingPathComponent("macOS/FortWindow.swift"),
+            encoding: .utf8
+        )
+
+        expect(source.contains("@State private var conversationEvents: [Event] = []"), "macOS does not retain live conversation events")
+        expect(source.contains("client.events(since:"), "macOS does not consume the append-only event stream")
+		expect(source.contains("client.runDetail(run.id)"), "macOS does not recover selected-conversation activity from run detail")
+		expect(source.contains("!$0.hasPrefix(\"flow:\")"), "macOS still presents flow IDs as agents")
+		expect(source.contains("case \"stderr\""), "macOS timeline omits provider diagnostic activity")
+        expect(source.contains("conversationActivityTimeline"), "macOS conversation center does not render an activity timeline")
     }
 
     private static func checkpointCaptionUsesAcceptedProgress() {

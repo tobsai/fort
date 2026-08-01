@@ -15,6 +15,8 @@ import (
 	execcap "github.com/tobsai/fort/exec/capability"
 )
 
+const bundledCodexExecutable = "/Applications/ChatGPT.app/Contents/Resources/codex"
+
 var executionProfileAdapters = []string{
 	"profile.claude.native",
 	"profile.codex.native",
@@ -94,8 +96,9 @@ func buildCapabilitySubsystem(
 	platform string,
 	token func() string,
 ) (*capabilitySubsystem, error) {
-	return buildCapabilitySubsystemWithVerifier(
+	return buildCapabilitySubsystemConfigured(
 		cfg, live, next, revisionKey, environment, platform, token, nil,
+		map[string]string{"codex": bundledCodexExecutable},
 	)
 }
 
@@ -109,9 +112,26 @@ func buildCapabilitySubsystemWithVerifier(
 	token func() string,
 	verifier execcap.CodexContractVerifier,
 ) (*capabilitySubsystem, error) {
+	return buildCapabilitySubsystemConfigured(
+		cfg, live, next, revisionKey, environment, platform, token, verifier, nil,
+	)
+}
+
+func buildCapabilitySubsystemConfigured(
+	cfg config.Config,
+	live *machines.Live,
+	next coreruntime.Runtime,
+	revisionKey []byte,
+	environment []string,
+	platform string,
+	token func() string,
+	verifier execcap.CodexContractVerifier,
+	preferredExecutables map[string]string,
+) (*capabilitySubsystem, error) {
 	resolver, err := execcap.NewCommandResolver(execcap.CommandResolverOptions{
 		Platform: platform, StageDir: filepath.Join(cfg.DataDir(), "capability-bin"),
-		Environment: environment,
+		Environment:          environment,
+		PreferredExecutables: preferredExecutables,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("capability wiring: command resolver: %w", err)

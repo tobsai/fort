@@ -175,3 +175,15 @@ export class Multiplexer {
 export function replyExpected(kind: string): boolean {
   return kind === "hs1" || kind === "req";
 }
+
+const HANDSHAKE_TIMEOUT_MS = 10_000;
+const APPLICATION_ACK_TIMEOUT_MS = 30_000;
+
+/**
+ * Application requests now receive a durable 202 from Fort before provider
+ * execution. Give that local validation/persistence path cold-start headroom,
+ * while keeping the replay-safe Noise handshake on its original short bound.
+ */
+export function relayTimeoutMs(kind: string): number {
+  return kind === "req" ? APPLICATION_ACK_TIMEOUT_MS : HANDSHAKE_TIMEOUT_MS;
+}

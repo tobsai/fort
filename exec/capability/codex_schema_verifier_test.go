@@ -25,6 +25,21 @@ type fakeCodexSchemaGenerator struct {
 	executableDigest string
 }
 
+func TestCodexSchemaV2ExpectationPinsApprovedBundles(t *testing.T) {
+	if codexSchemaV2Expectation.normal != (codexBundleExpectation{
+		digest: "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6",
+		files:  273,
+	}) {
+		t.Fatalf("normal expectation = %#v", codexSchemaV2Expectation.normal)
+	}
+	if codexSchemaV2Expectation.experimental != (codexBundleExpectation{
+		digest: "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf",
+		files:  347,
+	}) {
+		t.Fatalf("experimental expectation = %#v", codexSchemaV2Expectation.experimental)
+	}
+}
+
 func (g *fakeCodexSchemaGenerator) Generate(ctx context.Context, normalDir, experimentalDir string) (string, error) {
 	g.calls++
 	g.normalDir, g.experimentalDir = normalDir, experimentalDir

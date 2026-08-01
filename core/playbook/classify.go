@@ -20,7 +20,17 @@ func ClassifyTaskType(direction string) TaskType {
 		}
 		return false
 	}
-	if strings.Contains(text, "?") || has(map[string]bool{
+	first := ""
+	if len(words) > 0 {
+		first = words[0]
+		if first == "please" && len(words) > 1 {
+			first = words[1]
+		}
+	}
+	replyImperative := map[string]bool{
+		"reply": true, "respond": true, "answer": true, "say": true,
+	}[first]
+	if strings.Contains(text, "?") || replyImperative || has(map[string]bool{
 		"what": true, "why": true, "when": true, "where": true, "who": true,
 		"how": true, "can": true, "could": true, "would": true, "explain": true,
 	}) {

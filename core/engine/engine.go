@@ -132,10 +132,41 @@ func (e *Engine) Submit(ctx context.Context, t task.Task) (string, error) {
 	return runID, err
 }
 
+type preparedRun struct {
+	runID   string
+	machine string
+	spec    runtime.RunSpec
+}
+
 // SubmitRef is Submit that also returns the resolved machine (spec 022). It
 // persists the route decision and a run row, starts native execution, and
 // streams events into the store on a goroutine.
 func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, error) {
+	prepared, err := e.prepareRun(ctx, t)
+	if err != nil {
+		return prepared.runID, prepared.machine, err
+	}
+	if err := e.dispatchPrepared(ctx, prepared, true); err != nil {
+		return prepared.runID, prepared.machine, err
+	}
+	return prepared.runID, prepared.machine, nil
+}
+
+// AcceptRef persists the routed run and returns its identity before provider
+// startup completes. The accepted run is dispatched exactly once on a detached
+// context; any startup failure lands on that already-visible run.
+func (e *Engine) AcceptRef(ctx context.Context, t task.Task) (string, string, error) {
+	prepared, err := e.prepareRun(ctx, t)
+	if err != nil {
+		return prepared.runID, prepared.machine, err
+	}
+	go func() {
+		_ = e.dispatchPrepared(context.Background(), prepared, false)
+	}()
+	return prepared.runID, prepared.machine, nil
+}
+
+func (e *Engine) prepareRun(ctx context.Context, t task.Task) (preparedRun, error) {
 	dec := e.router.Route(t)
 	_ = e.store.SaveRouteDecision(store.RouteDecision{
 		ID:          e.newID(),
@@ -161,9 +192,10 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 			failID := e.newID()
 			_ = e.store.CreateRun(store.Run{
 				ID: failID, Title: title, Agent: dec.Route, Status: "failed",
-				MatchedRule: dec.MatchedRule, ExitCode: -1, Error: perr.Error(),
+				Profile: t.Profile, Model: t.Model, MatchedRule: dec.MatchedRule,
+				ExitCode: -1, Error: perr.Error(),
 			})
-			return failID, "", perr
+			return preparedRun{runID: failID}, perr
 		}
 		machine = m
 	}
@@ -174,11 +206,13 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 		Title:       title,
 		Body:        t.Body,
 		Agent:       dec.Route,
+		Profile:     t.Profile,
+		Model:       t.Model,
 		Status:      "running",
 		MatchedRule: dec.MatchedRule,
 		Machine:     machine,
 	}); err != nil {
-		return "", "", err
+		return preparedRun{}, err
 	}
 	if requestID := requestid.From(ctx); requestID != "" {
 		data, _ := json.Marshal(map[string]string{"request_id": requestID})
@@ -187,11 +221,17 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 
 	spec := runtime.RunSpec{
 		RunID:   runID,
+		Profile: t.Profile,
 		Agent:   dec.Route,
+		Model:   t.Model,
 		Prompt:  prompt(t),
 		Workdir: filepath.Join(e.workRoot, runID),
 		Machine: machine,
 	}
+	return preparedRun{runID: runID, machine: machine, spec: spec}, nil
+}
+
+func (e *Engine) dispatchPrepared(ctx context.Context, prepared preparedRun, bridgeCaller bool) error {
 	// A submitted run is asynchronous: consume() drains it on a goroutine and it
 	// must outlive this call. A board chat submit is fire-and-forget — its HTTP
 	// request context ends the moment the handler returns — so the run executes
@@ -206,28 +246,31 @@ func (e *Engine) SubmitRef(ctx context.Context, t task.Task) (string, string, er
 	// synchronous window; once Dispatch returns, the run remains detached.
 	var dispatchMu sync.Mutex
 	dispatching := true
-	stopDispatchBridge := context.AfterFunc(ctx, func() {
-		dispatchMu.Lock()
-		defer dispatchMu.Unlock()
-		if dispatching {
-			cancelRun()
-		}
-	})
-	run, err := e.rt.Dispatch(runCtx, spec)
+	stopDispatchBridge := func() bool { return false }
+	if bridgeCaller {
+		stopDispatchBridge = context.AfterFunc(ctx, func() {
+			dispatchMu.Lock()
+			defer dispatchMu.Unlock()
+			if dispatching {
+				cancelRun()
+			}
+		})
+	}
+	run, err := e.rt.Dispatch(runCtx, prepared.spec)
 	dispatchMu.Lock()
 	dispatching = false
 	dispatchMu.Unlock()
 	stopDispatchBridge()
 	if err != nil {
 		cancelRun()
-		_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
-		return runID, machine, err
+		_ = e.store.UpdateRunStatus(prepared.runID, "failed", -1, err.Error())
+		return err
 	}
 
 	done := make(chan struct{})
-	e.track(runID, &runState{done: done, run: run, cancel: cancelRun})
-	go e.consume(run, runID, done, cancelRun)
-	return runID, machine, nil
+	e.track(prepared.runID, &runState{done: done, run: run, cancel: cancelRun})
+	go e.consume(run, prepared.runID, done, cancelRun)
+	return nil
 }
 
 // SubmitAndWait submits a task and blocks until its run terminates, returning

@@ -211,7 +211,7 @@ func operationCatalogLess(a, b remedyOperation) bool {
 
 func effectRank(effect string) int {
 	order := []string{
-		"effect.codex.capability-0.143.0-e0ee3ce1.v1",
+		"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2",
 		"effect.codex.authenticated-subject.v1",
 		"effect.codex.model-ready.",
 		"effect.claude-2.1.207.v1",
@@ -262,7 +262,7 @@ func solveSetupAlternatives(plan Plan, machines []MachineInventory, ready [][]st
 			if pin != "" && machine.Name != pin {
 				continue
 			}
-			candidate, ok, err := setupCandidateFor(CatalogV1(), stage, machine, machineIndex)
+			candidate, ok, err := setupCandidateFor(CatalogV2(), stage, machine, machineIndex)
 			if err != nil {
 				return nil, false, err
 			}

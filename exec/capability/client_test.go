@@ -22,7 +22,7 @@ func TestClientReadsLiveTokenForEveryRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headers <- r.Header.Get("Authorization")
 		_ = json.NewEncoder(w).Encode(corecap.NodeInventory{
-			ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+			ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 			NodeID: "node", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
 			Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
 			Bindings: []corecap.ExecutionBindingOffer{},
@@ -45,7 +45,7 @@ func TestClientReadsLiveTokenForEveryRequest(t *testing.T) {
 
 func TestClientRefreshBindsAuthenticatedNodeIdentity(t *testing.T) {
 	inventory := corecap.NodeInventory{
-		ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 		NodeID: "enrolled-node", ObservedAt: time.Unix(1, 0).UTC(),
 		State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
@@ -76,7 +76,7 @@ func TestClientRefreshBindsAuthenticatedNodeIdentity(t *testing.T) {
 func TestClientRejectsNodeIdentityMismatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(corecap.NodeInventory{
-			ProtocolVersion: 1, CatalogVersion: 1, ProfileMappingVersion: 1,
+			ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 			NodeID: "other", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
 			Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
 			Bindings: []corecap.ExecutionBindingOffer{},

@@ -1,23 +1,33 @@
 import SwiftUI
 
+public enum FortOrbMotion {
+    public static func shouldPulse(state: FortProjectState) -> Bool {
+        state == .working
+    }
+
+    public static func allowsSpatialMotion(state: FortProjectState, reduceMotion: Bool) -> Bool {
+        state == .working && !reduceMotion
+    }
+}
+
 public enum FortPalette {
-    public static let canvas = Color(red: 7 / 255, green: 9 / 255, blue: 14 / 255)
-    public static let page = Color(red: 11 / 255, green: 14 / 255, blue: 20 / 255)
-    public static let panel = Color(red: 18 / 255, green: 22 / 255, blue: 31 / 255)
-    public static let line = Color(red: 26 / 255, green: 33 / 255, blue: 46 / 255)
-    public static let raised = Color(red: 38 / 255, green: 49 / 255, blue: 74 / 255)
-    public static let outline = Color(red: 48 / 255, green: 56 / 255, blue: 72 / 255)
-    public static let primary = Color(red: 232 / 255, green: 235 / 255, blue: 242 / 255)
-    public static let body = Color(red: 184 / 255, green: 191 / 255, blue: 206 / 255)
-    public static let muted = Color(red: 139 / 255, green: 147 / 255, blue: 165 / 255)
-    public static let faint = Color(red: 104 / 255, green: 113 / 255, blue: 131 / 255)
-    public static let brass = Color(red: 201 / 255, green: 163 / 255, blue: 92 / 255)
-    public static let brassBright = Color(red: 220 / 255, green: 184 / 255, blue: 119 / 255)
-    public static let working = Color(red: 111 / 255, green: 168 / 255, blue: 255 / 255)
-    public static let needsYou = Color(red: 224 / 255, green: 164 / 255, blue: 88 / 255)
-    public static let accepted = Color(red: 87 / 255, green: 185 / 255, blue: 138 / 255)
-    public static let failed = Color(red: 217 / 255, green: 106 / 255, blue: 106 / 255)
-    public static let queued = Color(red: 42 / 255, green: 54 / 255, blue: 80 / 255)
+    public static let canvas = Color(red: 2 / 255, green: 9 / 255, blue: 20 / 255)
+    public static let page = Color(red: 3 / 255, green: 11 / 255, blue: 20 / 255)
+    public static let panel = Color(red: 7 / 255, green: 19 / 255, blue: 32 / 255)
+    public static let line = Color(red: 16 / 255, green: 34 / 255, blue: 53 / 255)
+    public static let raised = Color(red: 36 / 255, green: 84 / 255, blue: 127 / 255)
+    public static let outline = Color(red: 41 / 255, green: 68 / 255, blue: 95 / 255)
+    public static let primary = Color(red: 241 / 255, green: 246 / 255, blue: 252 / 255)
+    public static let body = Color(red: 185 / 255, green: 199 / 255, blue: 215 / 255)
+    public static let muted = Color(red: 133 / 255, green: 150 / 255, blue: 170 / 255)
+    public static let faint = Color(red: 102 / 255, green: 125 / 255, blue: 150 / 255)
+    public static let brass = Color(red: 22 / 255, green: 140 / 255, blue: 255 / 255)
+    public static let brassBright = Color(red: 96 / 255, green: 184 / 255, blue: 255 / 255)
+    public static let working = Color(red: 37 / 255, green: 164 / 255, blue: 255 / 255)
+    public static let needsYou = Color(red: 214 / 255, green: 159 / 255, blue: 53 / 255)
+    public static let accepted = Color(red: 102 / 255, green: 199 / 255, blue: 145 / 255)
+    public static let failed = Color(red: 221 / 255, green: 112 / 255, blue: 123 / 255)
+    public static let queued = Color(red: 21 / 255, green: 42 / 255, blue: 66 / 255)
 }
 
 public extension FortProjectState {
@@ -32,8 +42,12 @@ public extension FortProjectState {
     }
 }
 
-/// The generated project identity with a separate status ring.
-public struct FortSigilView: View {
+/// The supplied Fort intelligence-core raster with motion tied only to
+/// evidence-backed Working state. The asset is resolved from each Apple app's
+/// main asset catalog so FortKit can share the truthful motion treatment.
+public struct FortAgentOrbView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let name: String
     private let state: FortProjectState
     private let size: CGFloat
@@ -45,35 +59,97 @@ public struct FortSigilView: View {
     }
 
     public var body: some View {
-        ZStack {
-            Circle()
-                .stroke(state.color, lineWidth: 2)
+        let pulsing = FortOrbMotion.shouldPulse(state: state)
+        let spatialMotion = FortOrbMotion.allowsSpatialMotion(state: state, reduceMotion: reduceMotion)
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !pulsing)) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+            let energy = pulsing ? (sin(phase * 1.1) + 1) / 2 : 0
+            let drift = spatialMotion ? sin(phase * 1.25) * 3.5 : 0
+            ZStack {
+                Image("FortAgentOrb")
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(Circle())
+                    .rotationEffect(.degrees(drift))
+                    .scaleEffect(spatialMotion ? 0.99 + energy * 0.045 : 1)
 
-            Canvas { context, canvasSize in
-                let inset = canvasSize.width * 0.13
-                let unit = (canvasSize.width - inset * 2) / 5
-                for cell in FortSigil.cells(for: name) {
-                    let rect = CGRect(
-                        x: inset + CGFloat(cell.x) * unit + unit * 0.06,
-                        y: inset + CGFloat(cell.y) * unit + unit * 0.06,
-                        width: unit * 0.88,
-                        height: unit * 0.88
-                    )
-                    context.fill(
-                        Path(roundedRect: rect, cornerRadius: unit * 0.2),
-                        with: .color(state.color)
-                    )
+                Circle()
+                    .stroke(state.color, lineWidth: size < 24 ? 1.2 : 1.8)
+
+                if state == .working {
+                    Circle()
+                        .trim(from: 0, to: 0.14)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(spatialMotion ? phase * 78 : 18))
+                        .opacity(pulsing ? 0.72 + energy * 0.28 : 0.72)
                 }
             }
+            .shadow(
+                color: state.color.opacity(pulsing ? 0.2 + energy * 0.22 : 0.18),
+                radius: size * (pulsing ? 0.12 + energy * 0.1 : 0.12)
+            )
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("\(name), \(state.label)")
+    }
+}
 
-            if state == .working {
-                TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+/// The generated project identity with a separate status ring.
+public struct FortSigilView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let name: String
+    private let state: FortProjectState
+    private let size: CGFloat
+
+    public init(name: String, state: FortProjectState, size: CGFloat = 38) {
+        self.name = name
+        self.state = state
+        self.size = size
+    }
+
+    public var body: some View {
+        let pulsing = FortOrbMotion.shouldPulse(state: state)
+        let spatialMotion = FortOrbMotion.allowsSpatialMotion(state: state, reduceMotion: reduceMotion)
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !pulsing)) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+            let energy = pulsing ? (sin(phase * 1.1) + 1) / 2 : 0
+            let drift = spatialMotion ? sin(phase * 1.25) * 3.5 : 0
+            ZStack {
+                Circle()
+                    .stroke(state.color, lineWidth: 2)
+
+                Canvas { context, canvasSize in
+                    let inset = canvasSize.width * 0.13
+                    let unit = (canvasSize.width - inset * 2) / 5
+                    for cell in FortSigil.cells(for: name) {
+                        let rect = CGRect(
+                            x: inset + CGFloat(cell.x) * unit + unit * 0.06,
+                            y: inset + CGFloat(cell.y) * unit + unit * 0.06,
+                            width: unit * 0.88,
+                            height: unit * 0.88
+                        )
+                        context.fill(
+                            Path(roundedRect: rect, cornerRadius: unit * 0.2),
+                            with: .color(state.color)
+                        )
+                    }
+                }
+                .rotationEffect(.degrees(drift))
+                .scaleEffect(spatialMotion ? 0.99 + energy * 0.045 : 1)
+
+                if state == .working {
                     Circle()
                         .trim(from: 0, to: 0.12)
                         .stroke(Color.white, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                        .rotationEffect(.degrees(timeline.date.timeIntervalSinceReferenceDate * 164))
+                        .rotationEffect(.degrees(spatialMotion ? phase * 78 : 18))
+                        .opacity(pulsing ? 0.72 + energy * 0.28 : 0.72)
                 }
             }
+            .shadow(
+                color: state.color.opacity(pulsing ? 0.2 + energy * 0.22 : 0.18),
+                radius: size * (pulsing ? 0.12 + energy * 0.1 : 0.12)
+            )
         }
         .frame(width: size, height: size)
         .accessibilityLabel("\(name), \(state.label)")

@@ -2,18 +2,38 @@ package control
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/tobsai/fort/core/engine"
 	"github.com/tobsai/fort/core/flow"
 	"github.com/tobsai/fort/core/graph"
 	"github.com/tobsai/fort/core/router"
 	"github.com/tobsai/fort/core/rules"
+	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/fake"
 )
+
+type blockedRuntime struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (r *blockedRuntime) Name() string { return "blocked" }
+
+func (r *blockedRuntime) Dispatch(ctx context.Context, _ runtime.RunSpec) (runtime.Run, error) {
+	close(r.started)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-r.release:
+		return nil, errors.New("blocked runtime released")
+	}
+}
 
 const rs = `
 version: 1
@@ -70,6 +90,28 @@ func TestEngineDispatcherRoutesAndRuns(t *testing.T) {
 	if ref.Route != "codex" {
 		t.Errorf("route = %q, want codex", ref.Route)
 	}
+}
+
+func TestEngineDispatcherAcceptsBeforeBlockedDispatchCompletes(t *testing.T) {
+	st := newStore(t)
+	parsed, _ := rules.Parse([]byte(rs))
+	rt := &blockedRuntime{started: make(chan struct{}), release: make(chan struct{})}
+	eng := engine.New(router.New(parsed), rt, st, t.TempDir())
+	d := NewEngineDispatcher(eng)
+
+	ref, err := d.Accept(context.Background(), task.Task{ID: "accepted", Title: "accepted"})
+	if err != nil || ref.RunID == "" {
+		t.Fatalf("accept = %+v, %v", ref, err)
+	}
+	if run, err := st.GetRun(ref.RunID); err != nil || run.Status != "running" {
+		t.Fatalf("accepted run = %+v, %v", run, err)
+	}
+	select {
+	case <-rt.started:
+	case <-time.After(time.Second):
+		t.Fatal("accepted dispatch did not start")
+	}
+	close(rt.release)
 }
 
 // FlowExecutor adapts graph.Executor to ui.FlowRunner (id-based).

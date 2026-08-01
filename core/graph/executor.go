@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/runtime"
@@ -19,6 +20,7 @@ type Executor struct {
 	rt     runtime.Runtime
 	store  *store.Store
 	placer Placer
+	async  sync.WaitGroup
 }
 
 // Placer chooses the machine that will run a Playbook task stage (spec 038).
@@ -39,7 +41,7 @@ func (e *Executor) UsePlacer(p Placer) { e.placer = p }
 
 // Result is the outcome of a Start/Resume call.
 type Result struct {
-	State      string // completed | failed | paused
+	State      string // accepted | completed | failed | paused
 	PausedNode string // gate id when paused
 }
 
@@ -54,16 +56,39 @@ func isTerminal(status string) bool {
 
 // Start runs a flow from its start node with an initial payload.
 func (e *Executor) Start(ctx context.Context, f Flow, runID, payload string) (Result, error) {
+	if err := e.prepareStart(ctx, f, runID, payload); err != nil {
+		return Result{}, err
+	}
+	return e.walkFrom(ctx, f, runID, f.Start, payload, "")
+}
+
+// StartAsync durably creates the flow run, then walks it exactly once on a
+// detached context. It returns only after the run identity is queryable.
+func (e *Executor) StartAsync(ctx context.Context, f Flow, runID, payload string) (Result, error) {
+	if err := e.prepareStart(ctx, f, runID, payload); err != nil {
+		return Result{}, err
+	}
+	e.async.Add(1)
+	go func() {
+		defer e.async.Done()
+		e.walkDetached(context.WithoutCancel(ctx), f, runID, f.Start, payload)
+	}()
+	return Result{State: "accepted"}, nil
+}
+
+func (e *Executor) prepareStart(ctx context.Context, f Flow, runID, payload string) error {
 	body := ""
 	if usesPlaybookContext(f) {
 		body = payload
 	}
-	_ = e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Body: body, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID})
+	if err := e.store.CreateRun(store.Run{ID: runID, Title: f.Name, Body: body, Agent: "flow:" + f.ID, Status: "running", FlowID: f.ID}); err != nil {
+		return err
+	}
 	if requestID := requestid.From(ctx); requestID != "" {
 		data, _ := json.Marshal(map[string]string{"request_id": requestID})
 		_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: "ingress", Data: string(data)})
 	}
-	return e.walkFrom(ctx, f, runID, f.Start, payload, "")
+	return nil
 }
 
 // Resume continues a paused flow. It re-walks from the start, replaying
@@ -71,6 +96,31 @@ func (e *Executor) Start(ctx context.Context, f Flow, runID, payload string) (Re
 // reaches the (now-decided) gate or a still-undecided one.
 func (e *Executor) Resume(ctx context.Context, f Flow, runID string) (Result, error) {
 	return e.walkFrom(ctx, f, runID, f.Start, "", "")
+}
+
+// ResumeAsync validates the durable run before returning, then resumes it once
+// on a detached context. Background errors are written to the existing run.
+func (e *Executor) ResumeAsync(ctx context.Context, f Flow, runID string) error {
+	if _, err := e.store.GetRun(runID); err != nil {
+		return err
+	}
+	e.async.Add(1)
+	go func() {
+		defer e.async.Done()
+		e.walkDetached(context.WithoutCancel(ctx), f, runID, f.Start, "")
+	}()
+	return nil
+}
+
+// Wait joins every asynchronous walk accepted before the call. Callers use it
+// during shutdown and tests before closing the store that those walks persist to.
+func (e *Executor) Wait() { e.async.Wait() }
+
+func (e *Executor) walkDetached(ctx context.Context, f Flow, runID, start, payload string) {
+	if _, err := e.walkFrom(ctx, f, runID, start, payload, ""); err != nil {
+		_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: "error", Data: err.Error()})
+		_ = e.store.UpdateRunStatus(runID, "failed", -1, err.Error())
+	}
 }
 
 // Approve records an approve decision on a waiting gate, optionally editing the
@@ -90,18 +140,19 @@ func (e *Executor) decideGate(runID, nodeID, status, edited, note string) error 
 	if err != nil {
 		return err
 	}
-	if !ok {
+	if !ok || nr.Status != "waiting" {
 		return fmt.Errorf("gate %s/%s not found (not waiting)", runID, nodeID)
 	}
 	out := nr.Input
 	if edited != "" {
 		out = edited
 	}
-	if err := e.store.UpsertNodeRun(store.NodeRun{
-		ID: nrID(runID, nodeID), RunID: runID, NodeID: nodeID, Type: "gate",
-		Status: status, Input: nr.Input, Output: out,
-	}); err != nil {
+	decided, err := e.store.DecideWaitingGate(nr.ID, status, out)
+	if err != nil {
 		return err
+	}
+	if !decided {
+		return fmt.Errorf("gate %s/%s not found (not waiting)", runID, nodeID)
 	}
 	// Append-only decision record (spec 033): the node_run upsert keeps only the
 	// latest state, so the event row is what preserves decision history.
@@ -130,6 +181,19 @@ func (e *Executor) walkFrom(ctx context.Context, f Flow, runID, start, payload, 
 		}
 
 		switch {
+		case exists && node.Type == Gate && nr.Status == "rejected" && len(node.next(OutReject)) == 0:
+			// A plan gate with no reject edge treats rejection as a request for
+			// revision, not a terminal failure. The append-only reject event is
+			// already durable; restore the actionable waiting state in place.
+			if err := e.store.UpsertNodeRun(store.NodeRun{
+				ID: nrID(runID, cur), RunID: runID, NodeID: cur, Type: "gate",
+				Status: "waiting", Input: nr.Input, Output: nr.Output,
+			}); err != nil {
+				return Result{}, err
+			}
+			_ = e.store.UpdateRunStatus(runID, "blocked", 0, "")
+			return Result{State: "paused", PausedNode: cur}, nil
+
 		case exists && isTerminal(nr.Status):
 			// Replay a completed node (resume path) — never re-execute.
 			outcome = deriveOutcome(node.Type, nr.Status)
@@ -274,7 +338,14 @@ func (e *Executor) execTask(ctx context.Context, f Flow, runID string, node Node
 			}
 		}
 		st := run.Wait()
-		lastOut = strings.Join(msgs, "\n")
+		lastOut = ""
+		if len(msgs) > 0 {
+			// A provider can emit several assistant messages while it works (for
+			// example, a startup warning followed by the requested response).
+			// The append-only event log retains every message for activity UI;
+			// only the terminal message is the task result passed downstream.
+			lastOut = msgs[len(msgs)-1]
+		}
 		if st.State == runtime.StateSucceeded {
 			e.persistNode(runID, node, "succeeded", payload, lastOut, attempts)
 			return OutSuccess, lastOut, nil

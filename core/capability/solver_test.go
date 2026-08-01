@@ -10,7 +10,7 @@ func TestSolveAutomaticallySelectsEligibleLocalSingleHost(t *testing.T) {
 		"id":"answer","order":1,"title":"Answer","prompt":"Answer safely.",
 		"profile":"codex:gpt-5.5","requires":[],"input_from":[],
 		"output":"answer","output_format":"text","max_output_bytes":1024
-	}]}`), CatalogV1(), nil)
+	}]}`), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestSolveAutomaticallySelectsEligibleLocalSingleHost(t *testing.T) {
 }
 
 func TestSolveDisclosesExactSplitWhenNoSingleHostCanRunPlan(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestSolveDisclosesExactSplitWhenNoSingleHostCanRunPlan(t *testing.T) {
 }
 
 func TestSolvePinNeverFallsBackOrSplits(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestSolvePinNeverFallsBackOrSplits(t *testing.T) {
 }
 
 func TestSolveOffersInstructionsOnlySetupToSplit(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestSetupDeduplicatesSharedCodexUpdateEffect(t *testing.T) {
 		"id":"inspect","order":1,"title":"Inspect","prompt":"Inspect Supabase.",
 		"profile":"codex:gpt-5.5","requires":["database.supabase.inspect"],"input_from":[],
 		"output":"inspection","output_format":"text","max_output_bytes":1024
-	}]}`), CatalogV1(), nil)
+	}]}`), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestSetupDeduplicatesSharedCodexUpdateEffect(t *testing.T) {
 	var update *Instruction
 	for i := range result.SetupAlternatives[0].InstructionBundle.Instructions {
 		instruction := &result.SetupAlternatives[0].InstructionBundle.Instructions[i]
-		if instruction.RemedyEffectID == "effect.codex.capability-0.143.0-e0ee3ce1.v1" {
+		if instruction.RemedyEffectID == "effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2" {
 			if update != nil {
 				t.Fatal("Codex update effect produced more than one instruction")
 			}
@@ -130,7 +130,7 @@ func TestSetupDeduplicatesSharedCodexUpdateEffect(t *testing.T) {
 }
 
 func TestSetupIDsAndRankingAreDeterministic(t *testing.T) {
-	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV1(), nil)
+	plan, err := DecodeGeneratedPlan([]byte(validGeneratedPlan), CatalogV2(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func setupToSplitSnapshot() Snapshot {
 		State: OfferSetupRequired, Reason: ReasonAuthRequired, BindingRevision: "",
 		AvailableThrough: []string{"codex-appserver+supabase"},
 		Predicates: []Predicate{
-			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"}},
+			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
 			{ID: "predicate.supabase.selected-project-readonly.v1", Resolution: ResolutionProbe, State: PredicateUnsatisfied, Reason: ReasonAuthRequired, DependsOn: []string{"predicate.codex.capability-runtime.v1"}, RemedyEffectIDs: []string{"effect.supabase.selected-project-readonly.v1"}},
 		},
 	}}
@@ -200,7 +200,7 @@ func sharedCodexSetupSnapshot() Snapshot {
 		State: OfferSetupRequired, Reason: ReasonIncompatibleVersion,
 		BindingRevision: "",
 		Predicates: []Predicate{
-			{ID: "predicate.codex.native-contract.v1", Resolution: ResolutionProbe, State: PredicateUnsatisfied, Reason: ReasonIncompatibleVersion, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"}},
+			{ID: "predicate.codex.native-contract.v1", Resolution: ResolutionProbe, State: PredicateUnsatisfied, Reason: ReasonIncompatibleVersion, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
 			{ID: "predicate.codex.authenticated-subject.v1", Resolution: ResolutionProbe, State: PredicateBlocked, Reason: ReasonAuthRequired, DependsOn: []string{"predicate.codex.native-contract.v1"}, RemedyEffectIDs: []string{"effect.codex.authenticated-subject.v1"}},
 			{ID: "predicate.codex.model.codex:gpt-5.5.v1", Resolution: ResolutionProbe, State: PredicateBlocked, Reason: ReasonModelUnavailable, DependsOn: []string{"predicate.codex.authenticated-subject.v1"}, RemedyEffectIDs: []string{"effect.codex.model-ready.codex:gpt-5.5.v1"}},
 		},
@@ -210,7 +210,7 @@ func sharedCodexSetupSnapshot() Snapshot {
 		State: OfferSetupRequired, Reason: ReasonIncompatibleVersion, BindingRevision: "",
 		AvailableThrough: []string{"codex-appserver+supabase"},
 		Predicates: []Predicate{
-			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateUnsatisfied, Reason: ReasonIncompatibleVersion, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"}},
+			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateUnsatisfied, Reason: ReasonIncompatibleVersion, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
 			{ID: "predicate.supabase.selected-project-readonly.v1", Resolution: ResolutionProbe, State: PredicateBlocked, Reason: ReasonAuthRequired, DependsOn: []string{"predicate.codex.capability-runtime.v1"}, RemedyEffectIDs: []string{"effect.supabase.selected-project-readonly.v1"}},
 		},
 	}}
@@ -234,7 +234,7 @@ func notReadySupabaseBinding(reason Reason) ExecutionBindingOffer {
 				"predicate.codex.capability-runtime.v1",
 				"predicate.supabase.selected-project-readonly.v1",
 			},
-			RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"},
+			RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"},
 		}},
 	}
 }
@@ -257,7 +257,7 @@ func readyLogicalSupabase() LogicalOffer {
 		State: OfferReady, BindingRevision: "opaque:supabase",
 		AvailableThrough: []string{"codex-appserver+supabase"},
 		Predicates: []Predicate{
-			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"}},
+			{ID: "predicate.codex.capability-runtime.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
 			{ID: "predicate.supabase.selected-project-readonly.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{"predicate.codex.capability-runtime.v1"}, RemedyEffectIDs: []string{"effect.supabase.selected-project-readonly.v1"}},
 		},
 	}
@@ -285,7 +285,7 @@ func readyBinding(id, capabilityID, machine string) ExecutionBindingOffer {
 		Predicates: []Predicate{{
 			ID: "predicate.binding." + id + ".v1", Resolution: ResolutionProbe,
 			State: PredicateSatisfied, DependsOn: depends,
-			RemedyEffectIDs: []string{"effect.codex.capability-0.143.0-e0ee3ce1.v1"},
+			RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"},
 		}},
 	}
 }

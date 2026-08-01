@@ -35,6 +35,17 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
         guard !restored else { return }
         restored = true
         defer { restoreComplete = true }
+#if targetEnvironment(simulator)
+        if account.bearerToken == nil {
+            let configured = ProcessInfo.processInfo.environment["FORT_DIRECT_HOST_URL"]
+                ?? "http://127.0.0.1:4087"
+            if let directURL = URL(string: configured) {
+                client.useDirectHost(directURL)
+                directHostEnabled = true
+                return
+            }
+        }
+#endif
         guard account.gatewayURL != nil, account.bearerToken != nil else { return }
         await refreshMachines()
         guard let selected = account.selectedMachineID,

@@ -146,7 +146,7 @@ func RelevantInventory(plan Plan, snapshot Snapshot) (RelevantProjection, string
 	if err != nil {
 		return RelevantProjection{}, "", err
 	}
-	catalog := CatalogV1()
+	catalog := CatalogV2()
 	profileSet, capabilitySet, bindingSet := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	scope := RelevantScope{Profiles: []string{}, Capabilities: []string{}, Bindings: []BindingScope{}}
 	for _, stage := range plan.Stages {
@@ -404,7 +404,7 @@ func BuildPlacementProof(planRevision string, plan Plan, snapshot Snapshot, resu
 }
 
 func candidateProjection(plan Plan, snapshot Snapshot, pin string) ([]CandidateSet, error) {
-	catalog := CatalogV1()
+	catalog := CatalogV2()
 	out := make([]CandidateSet, len(plan.Stages))
 	for stageIndex, stage := range plan.Stages {
 		row := CandidateSet{StageID: stage.ID, Ready: []CandidateReady{}, Setup: []CandidateSetup{}}

@@ -19,7 +19,7 @@ func NormalizeSnapshot(snapshot Snapshot) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("capability: machines must contain 1 to 16 rows")
 	}
 
-	catalog := CatalogV1()
+	catalog := CatalogV2()
 	out := snapshot
 	out.Machines = append([]MachineInventory(nil), snapshot.Machines...)
 	names := map[string]bool{}

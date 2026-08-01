@@ -40,6 +40,17 @@ func (d EngineDispatcher) Submit(ctx context.Context, t task.Task) (ui.RunRef, e
 	return ui.RunRef{RunID: runID, Route: dec.Route, Machine: machine}, nil
 }
 
+// Accept persists the routed run, then starts native execution in the
+// background so an HTTP acceptance response is independent of provider startup.
+func (d EngineDispatcher) Accept(ctx context.Context, t task.Task) (ui.RunRef, error) {
+	dec := d.e.Route(t)
+	runID, machine, err := d.e.AcceptRef(ctx, t)
+	if err != nil {
+		return ui.RunRef{}, err
+	}
+	return ui.RunRef{RunID: runID, Route: dec.Route, Machine: machine}, nil
+}
+
 // QueueDispatcher boards a task as a "queued" run with no execution plane.
 type QueueDispatcher struct {
 	s     *store.Store
@@ -58,10 +69,22 @@ func (d QueueDispatcher) Submit(_ context.Context, t task.Task) (ui.RunRef, erro
 	if title == "" {
 		title = t.ID
 	}
-	if err := d.s.CreateRun(store.Run{ID: runID, Title: title, Agent: "unassigned", Status: "queued"}); err != nil {
+	agent := t.Agent
+	if agent == "" {
+		agent = "unassigned"
+	}
+	if err := d.s.CreateRun(store.Run{
+		ID: runID, Title: title, Agent: agent, Profile: t.Profile, Model: t.Model, Status: "queued",
+	}); err != nil {
 		return ui.RunRef{}, err
 	}
 	return ui.RunRef{RunID: runID, Queued: true}, nil
+}
+
+// Accept is identical to Submit in control-only mode because boarding is the
+// complete durable action and no provider execution follows.
+func (d QueueDispatcher) Accept(ctx context.Context, t task.Task) (ui.RunRef, error) {
+	return d.Submit(ctx, t)
 }
 
 // FlowExecutor adapts the DAG executor to ui.FlowRunner (id-based).
@@ -127,6 +150,16 @@ func (f FlowExecutor) StartFlow(ctx context.Context, flowID, runID, payload stri
 	return ui.RunResult{State: r.State, PausedNode: r.PausedNode}, err
 }
 
+// StartFlowAsync persists the run, then walks the flow once in the background.
+func (f FlowExecutor) StartFlowAsync(ctx context.Context, flowID, runID, payload string) (ui.RunResult, error) {
+	fl, err := f.lookup(flowID)
+	if err != nil {
+		return ui.RunResult{}, err
+	}
+	r, err := f.x.StartAsync(ctx, fl, runID, payload)
+	return ui.RunResult{State: r.State, PausedNode: r.PausedNode}, err
+}
+
 // ResumeFlow resumes the named flow.
 func (f FlowExecutor) ResumeFlow(ctx context.Context, flowID, runID string) (ui.RunResult, error) {
 	fl, err := f.lookup(flowID)
@@ -135,6 +168,16 @@ func (f FlowExecutor) ResumeFlow(ctx context.Context, flowID, runID string) (ui.
 	}
 	r, err := f.x.Resume(ctx, fl, runID)
 	return ui.RunResult{State: r.State, PausedNode: r.PausedNode}, err
+}
+
+// ResumeFlowAsync validates the immutable flow before scheduling one detached
+// continuation of the durable run.
+func (f FlowExecutor) ResumeFlowAsync(ctx context.Context, flowID, runID string) error {
+	fl, err := f.lookup(flowID)
+	if err != nil {
+		return err
+	}
+	return f.x.ResumeAsync(ctx, fl, runID)
 }
 
 // Approve records a gate approval.
@@ -165,17 +208,9 @@ func (f FlowExecutor) Plan(flowID string) []ui.FlowNode {
 // process restart, while its delivery suffix lets operational views exclude
 // answer-only history.
 func (f FlowExecutor) StartPlaybook(ctx context.Context, route ui.RoutePreview, runID, direction string) (ui.PlaybookRunResult, error) {
-	if f.playbooks == nil {
-		return ui.PlaybookRunResult{}, fmt.Errorf("control: playbook catalog is not configured")
-	}
-	flowID, err := canonicalPlaybookFlowID(route)
+	flowID, fl, err := f.playbookFlow(route, direction)
 	if err != nil {
 		return ui.PlaybookRunResult{}, err
-	}
-	fl := playbook.Compile(toCoreResolvedRoute(route))
-	fl.ID = flowID
-	if title := firstNonemptyLine(direction); title != "" {
-		fl.Name = title
 	}
 	result, runErr := f.x.Start(ctx, fl, runID, direction)
 	out := ui.PlaybookRunResult{State: result.State, PausedNode: result.PausedNode, FlowID: flowID}
@@ -196,6 +231,34 @@ func (f FlowExecutor) StartPlaybook(ctx context.Context, route ui.RoutePreview, 
 		out.Answer = answer
 	}
 	return out, runErr
+}
+
+// StartPlaybookAsync persists the exact canonical playbook flow, then executes
+// it once in the background. Quick-answer output is delivered later through the
+// existing run detail and event stream rather than holding the HTTP response.
+func (f FlowExecutor) StartPlaybookAsync(ctx context.Context, route ui.RoutePreview, runID, direction string) (ui.PlaybookRunResult, error) {
+	flowID, fl, err := f.playbookFlow(route, direction)
+	if err != nil {
+		return ui.PlaybookRunResult{}, err
+	}
+	result, err := f.x.StartAsync(ctx, fl, runID, direction)
+	return ui.PlaybookRunResult{State: result.State, PausedNode: result.PausedNode, FlowID: flowID}, err
+}
+
+func (f FlowExecutor) playbookFlow(route ui.RoutePreview, direction string) (string, graph.Flow, error) {
+	if f.playbooks == nil {
+		return "", graph.Flow{}, fmt.Errorf("control: playbook catalog is not configured")
+	}
+	flowID, err := canonicalPlaybookFlowID(route)
+	if err != nil {
+		return "", graph.Flow{}, err
+	}
+	fl := playbook.Compile(toCoreResolvedRoute(route))
+	fl.ID = flowID
+	if title := firstNonemptyLine(direction); title != "" {
+		fl.Name = title
+	}
+	return flowID, fl, nil
 }
 
 func (f FlowExecutor) lastTaskOutput(fl graph.Flow, runID string) (string, error) {
