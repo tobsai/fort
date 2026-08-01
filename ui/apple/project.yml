@@ -114,6 +114,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.mac
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
 
   FortMacUITests:
     type: bundle.ui-testing

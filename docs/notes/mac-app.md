@@ -86,6 +86,8 @@ One target does archive → inject the daemon → export a Developer ID–signed
 make mac-dmg           # -> ./build/Fort.dmg
 # override the notarytool profile name if you didn't use the default:
 make mac-dmg NOTARY_PROFILE=my-profile
+# if the keychain contains duplicate certificate names, select one by SHA-1:
+make mac-dmg DEVELOPER_ID=<CERTIFICATE_SHA1>
 ```
 
 What it runs (see the `mac-dmg` target in the `Makefile`):
@@ -95,9 +97,12 @@ What it runs (see the `mac-dmg` target in the `Makefile`):
 3. `cp bin/fort …/FortMac.app/Contents/Resources/fort` — bundle the daemon.
 4. `xcodebuild -exportArchive … -exportOptionsPlist ExportOptions-mac.plist`
    → a Developer ID–signed `build/FortMac-export/FortMac.app`.
-5. `hdiutil create … build/Fort.dmg` (swap in `create-dmg` for a styled DMG).
-6. `xcrun notarytool submit build/Fort.dmg --keychain-profile fort-notary --wait`.
-7. `xcrun stapler staple build/Fort.dmg`.
+5. Harden and Developer ID–sign the bundled daemon, then reseal and verify the
+   outer app.
+6. `hdiutil create … build/Fort.dmg` (swap in `create-dmg` for a styled DMG).
+7. Developer ID–sign and verify the DMG container.
+8. `xcrun notarytool submit build/Fort.dmg --keychain-profile fort-notary --wait`.
+9. `xcrun stapler staple build/Fort.dmg`.
 
 `ui/apple/ExportOptions-mac.plist` selects `method: developer-id` (distribution
 outside the App Store). The sibling `ExportOptions.plist` is for the iOS App

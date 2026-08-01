@@ -44,6 +44,7 @@ apple-build: apple-project ## compile-verify FortKit + all Apple client targets 
 #       xcrun notarytool store-credentials fort-notary \
 #         --apple-id <APPLE_ID> --team-id T3JB5MYZ93 --password <APP_SPECIFIC_PASSWORD>
 NOTARY_PROFILE ?= fort-notary
+DEVELOPER_ID    ?= Developer ID Application: Maple Tree Enterprises LLC (T3JB5MYZ93)
 MAC_ARCHIVE    := build/FortMac.xcarchive
 MAC_EXPORT     := build/FortMac-export
 MAC_DMG        := build/Fort.dmg
@@ -64,14 +65,26 @@ mac-dmg: build apple-project ## archive → sign → notarize → staple → For
 		-archivePath ../../$(MAC_ARCHIVE) \
 		-exportOptionsPlist ExportOptions-mac.plist \
 		-exportPath ../../$(MAC_EXPORT)
-	# 5. Build the DMG from the exported app (hdiutil; swap for create-dmg if
+	# 5. The daemon was injected after archive, so harden its Developer ID
+	#    signature explicitly and reseal the outer app before notarization.
+	codesign --force --timestamp --options runtime --sign "$(DEVELOPER_ID)" \
+		$(MAC_EXPORT)/FortMac.app/Contents/Resources/fort
+	codesign --force --timestamp --options runtime \
+		--preserve-metadata=entitlements,requirements --sign "$(DEVELOPER_ID)" \
+		$(MAC_EXPORT)/FortMac.app
+	codesign --verify --deep --strict --verbose=2 $(MAC_EXPORT)/FortMac.app
+	# 6. Build the DMG from the exported app (hdiutil; swap for create-dmg if
 	#    you want a styled background/volume icon).
 	rm -f $(MAC_DMG)
 	hdiutil create -volname Fort -srcfolder $(MAC_EXPORT)/FortMac.app \
 		-ov -format UDZO $(MAC_DMG)
-	# 6. Notarize the DMG (operator's Apple ID via the keychain profile above).
+	# 7. Sign the container so Gatekeeper can validate the downloaded image
+	#    itself before mounting it.
+	codesign --force --timestamp --sign "$(DEVELOPER_ID)" $(MAC_DMG)
+	codesign --verify --strict --verbose=2 $(MAC_DMG)
+	# 8. Notarize the DMG (operator's Apple ID via the keychain profile above).
 	xcrun notarytool submit $(MAC_DMG) --keychain-profile $(NOTARY_PROFILE) --wait
-	# 7. Staple the notarization ticket so the DMG verifies offline.
+	# 9. Staple the notarization ticket so the DMG verifies offline.
 	xcrun stapler staple $(MAC_DMG)
 	@echo "Notarized DMG: $(MAC_DMG)"
 
