@@ -1,8 +1,8 @@
 # Spec 044 — Phase 1: Private Primary Channels
 
-**Status:** proposed implementation contract — no production implementation is
-authorized until Toby approves this spec and selects the Web/macOS/iOS design
-direction
+**Status:** approved for implementation on 2026-08-08 — live provider use,
+`primary` promotion, and the trial remain blocked until the deployment-specific
+approval inputs below are complete
 **Date:** 2026-08-08
 **Decision owner:** Toby
 **Depends on:** Spec 043 direction; Spec 041 durable conversation, immutable
@@ -54,7 +54,8 @@ does preserve and expose existing durable schedule execution truthfully.
 This document is implementation-ready, but it is not self-authorizing.
 Production work starts only after both conditions are satisfied:
 
-- Toby selects or approves one of the three cross-platform design directions;
+- Toby selects or approves one or more of the recorded visual treatments for
+  the shared Channel/Scheduled experience;
   and
 - Toby explicitly approves this implementation contract, including the
   OpenAI Responses text-only lane and its API-billing/retention disclosure.
@@ -341,7 +342,7 @@ messages.
 
 ## Cross-platform design gate
 
-The three mockup directions must each show one coherent experience across:
+The three mockup treatments must each show one coherent experience across:
 
 1. Web desktop at approximately 1440×900;
 2. native macOS at approximately 1240×800; and
@@ -349,8 +350,9 @@ The three mockup directions must each show one coherent experience across:
 
 All three surfaces use the same sample Channel, exact Primary Agent, message
 order, schedule IDs/order, and durable states so the comparison is about
-design. Each direction shows both the active Channel state and the Scheduled
-destination. The visual language may vary, but every option must show:
+presentation. Each treatment shows both the active Channel state and the
+Scheduled destination. The visual language may vary, but every option must
+show:
 
 - unmistakable private Channels navigation with pinned and recent Channels;
 - one transcript and composer;
@@ -369,11 +371,37 @@ mockups are labelled future design. They do not claim implementation or parity
 until FortKit consumes the canonical Primary Channel and schedule-read
 contracts.
 
-The preferred visual foundation is Fort's existing deep-navy/electric-blue
-intelligence-core language and real orb asset, simplified from a command center
-into a conversation. Alternative directions may test a flatter private-channel
-language or an Apple-first daylight language; they must not blend incompatible
-themes into one option.
+The Fort mark retains the existing orbital intelligence-core aesthetic: dense
+concentric rings, fine technical arcs, luminous nodes, and a bright central
+core. A treatment may recolor or rematerialize that orb to match its surface,
+but it must not replace it with new geometry, flatten it into a different
+symbol, or make logo color carry runtime state. Alternative presentations may
+use the deep-navy/electric-blue, graphite/olive/lime, or daylight/cobalt
+language while keeping the product structure identical.
+
+### Latest mockup checkpoint — 2026-08-08
+
+These are the current Phase 1 visual references. They intentionally preserve
+one Channel/Scheduled UX and the original Fort orbital-core aesthetic. Only the
+surface palette/material and matching orb colors vary. macOS and iOS remain
+future-design evidence; these images do not claim implementation or parity.
+
+#### Quiet Intelligence — original blue core
+
+![Quiet Intelligence Phase 1 mockups for Web, macOS, and iOS](assets/044/quiet-intelligence-original-core.png)
+
+#### Private Channels — original lime core
+
+![Private Channels Phase 1 mockups for Web, macOS, and iOS](assets/044/private-channels-original-core.png)
+
+#### Native Daylight — original daylight core
+
+![Native Daylight Phase 1 mockups for Web, macOS, and iOS](assets/044/native-daylight-original-core.png)
+
+One, two, or all three treatments may be approved for Web Phase 1. Approval
+must name the included set; the shared product hierarchy, controls, state, and
+API behavior may not fork by treatment. Saving these references does not by
+itself approve implementation.
 
 ## Persistence contract
 
@@ -1117,9 +1145,10 @@ amendment before implementation.
 
 ### Design gate
 
-- Toby selects or approves one cross-platform direction.
-- The selected first-run, active-Channel, Scheduled, failure/Needs-you,
-  Settings, and compact layouts match this contract.
+- Toby selects or approves the shared cross-platform experience and names the
+  Web treatment set to implement.
+- Every approved treatment's first-run, active-Channel, Scheduled,
+  failure/Needs-you, Settings, and compact layouts match this contract.
 - Any product change is reflected here before code starts.
 
 ### Automated
@@ -1257,18 +1286,21 @@ The accepted adapter revision must retest the live API/SDK contract:
 
 ## Approval record
 
-Record the following before implementation begins:
+Record the implementation decision here. Deployment-specific blanks must be
+completed before a live provider request, `primary` promotion, or trial start;
+they do not authorize Fort to infer credentials, billing, retention, or spend
+policy.
 
 ```text
-Selected design direction: ____________________
-Spec 044 approved by Toby: ____________________
-Initial exact OpenAI profile/model: ___________
-Accepted policy / adapter / SDK: ______________
-Reasoning effort / max output tokens: __________
-Credential ref / organization / project: ______
-Manual trial spend cap / billing source: _______
-Billing provenance: ____________________________
-Provider retention mode / source / date: _______
-Accepted schedule-inventory:v1 digest / date: __
-Implementation start commit: __________________
+Approved Web visual treatment set: Quiet Intelligence, Private Channels, Native Daylight / 2026-08-08
+Spec 044 approved by Toby: 2026-08-08
+Initial exact OpenAI profile/model: openai-responses:gpt-5.6-sol / gpt-5.6-sol
+Accepted policy / adapter / SDK: openai-responses-text-v1 / implementation must pin exact adapter and SDK
+Reasoning effort / max output tokens: medium / 4096
+Credential ref / organization / project: deployment configuration required
+Manual trial spend cap / billing source: pending / unknown
+Billing provenance: unknown
+Provider retention mode / source / date: unknown / user accepted unknown for implementation only / 2026-08-08
+Accepted schedule-inventory:v1 digest / date: pending preview inventory
+Implementation start commit: pending visual checkpoint commit
 ```
