@@ -8,7 +8,7 @@ import (
 )
 
 type ScheduleCreator interface {
-	Create(context.Context, scheduler.Definition) error
+	Create(context.Context, scheduler.Definition) (scheduler.Definition, error)
 }
 
 type ScheduleService struct {
@@ -24,9 +24,9 @@ func NewScheduleService(next ScheduleCreator, flowIDs []string) *ScheduleService
 	return &ScheduleService{next: next, flowIDs: known}
 }
 
-func (s *ScheduleService) Create(ctx context.Context, definition scheduler.Definition) error {
+func (s *ScheduleService) Create(ctx context.Context, definition scheduler.Definition) (scheduler.Definition, error) {
 	if !s.flowIDs[definition.FlowID] {
-		return fmt.Errorf("unknown flow %q", definition.FlowID)
+		return scheduler.Definition{}, fmt.Errorf("unknown flow %q", definition.FlowID)
 	}
 	return s.next.Create(ctx, definition)
 }

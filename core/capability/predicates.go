@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const codexCapabilityRuntimeEffectID = "effect.codex.capability-0.146.0-alpha.9.2-16bb4744.v2"
+
 // PredicateTemplate is the immutable catalog portion of a predicate row. A
 // node probe supplies only state/reason; it cannot alter dependencies or
 // remedy semantics.
@@ -21,7 +23,7 @@ func profilePredicateShapes(profile ProfileDefinition) []PredicateTemplate {
 		native := "predicate.codex.native-contract.v1"
 		auth := "predicate.codex.authenticated-subject.v1"
 		return []PredicateTemplate{
-			{ID: native, Resolution: ResolutionProbe, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
+			{ID: native, Resolution: ResolutionProbe, DependsOn: []string{}, RemedyEffectIDs: []string{codexCapabilityRuntimeEffectID}},
 			{ID: auth, Resolution: ResolutionProbe, DependsOn: []string{native}, RemedyEffectIDs: []string{"effect.codex.authenticated-subject.v1"}},
 			{
 				ID: "predicate.codex.model." + profile.ID + ".v1", Resolution: ResolutionProbe,
@@ -74,7 +76,7 @@ func logicalPredicateShapes(logical CapabilityDefinition) []PredicateTemplate {
 	case "database.supabase.inspect":
 		runtime := "predicate.codex.capability-runtime.v1"
 		return []PredicateTemplate{
-			{ID: runtime, Resolution: ResolutionProbe, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}},
+			{ID: runtime, Resolution: ResolutionProbe, DependsOn: []string{}, RemedyEffectIDs: []string{codexCapabilityRuntimeEffectID}},
 			{
 				ID: "predicate.supabase.selected-project-readonly.v1", Resolution: ResolutionProbe,
 				DependsOn: []string{runtime}, RemedyEffectIDs: []string{"effect.supabase.selected-project-readonly.v1"},
@@ -104,7 +106,7 @@ func bindingPredicateShapes(catalog Catalog, binding BindingDefinition, profile 
 	}
 	if strings.HasPrefix(binding.ID, "codex-appserver+") {
 		shape.Resolution = ResolutionProbe
-		shape.RemedyEffectIDs = []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}
+		shape.RemedyEffectIDs = []string{codexCapabilityRuntimeEffectID}
 	}
 	return []PredicateTemplate{shape}
 }

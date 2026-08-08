@@ -41,6 +41,7 @@ type CapabilityCoordinator struct {
 	peers     PeerCapabilityClient
 	now       func() time.Time
 
+	refreshMu  sync.Mutex
 	mu         sync.Mutex
 	generation uint64
 	current    corecap.Snapshot
@@ -63,6 +64,8 @@ func NewCapabilityCoordinator(options CapabilityCoordinatorOptions) (*Capability
 }
 
 func (c *CapabilityCoordinator) Refresh(ctx context.Context, mode corecap.RefreshMode, adapters []string) (corecap.Snapshot, uint64, error) {
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
 	registry := c.live.Load()
 	if registry != nil && len(registry.Machines) > 16 {
 		return corecap.Snapshot{}, 0, fmt.Errorf("control capability: registry exceeds 16 machines")
@@ -74,6 +77,7 @@ func (c *CapabilityCoordinator) Refresh(ctx context.Context, mode corecap.Refres
 	if mode == corecap.RefreshPlanning {
 		request.MaxAgeSeconds = 60
 	}
+	previous := c.previousMachines()
 	type peerResult struct {
 		index     int
 		name      string
@@ -95,9 +99,9 @@ func (c *CapabilityCoordinator) Refresh(ctx context.Context, mode corecap.Refres
 			defer wg.Done()
 			inventory, err := c.peers.Refresh(ctx, machine.URL, machine.Name, request)
 			if err != nil {
-				inventory = unknownNode(machine.Name, discoveryReason(err))
+				inventory = unknownNodeWithPrevious(machine.Name, discoveryReason(err), previous[machine.Name])
 			} else if inventory.NodeID != machine.Name {
-				inventory = unknownNode(machine.Name, corecap.ReasonCommandContractChanged)
+				inventory = unknownNodeWithPrevious(machine.Name, corecap.ReasonCommandContractChanged, previous[machine.Name])
 			}
 			results <- peerResult{
 				index: index, name: machine.Name, inventory: inventory,
@@ -112,10 +116,10 @@ func (c *CapabilityCoordinator) Refresh(ctx context.Context, mode corecap.Refres
 		return corecap.Snapshot{}, 0, err
 	}
 	if localErr != nil {
-		localInventory = unknownNode(c.localName, corecap.ReasonProbeFailed)
+		localInventory = unknownNodeWithPrevious(c.localName, corecap.ReasonProbeFailed, previous[c.localName])
 	}
 	if localInventory.NodeID != c.localName {
-		localInventory = unknownNode(c.localName, corecap.ReasonCommandContractChanged)
+		localInventory = unknownNodeWithPrevious(c.localName, corecap.ReasonCommandContractChanged, previous[c.localName])
 	}
 	receiptTime := c.now().UTC()
 	localRow := bindInventory(localInventory, c.localName, true, 0, receiptTime)
@@ -145,6 +149,25 @@ func (c *CapabilityCoordinator) Refresh(ctx context.Context, mode corecap.Refres
 	c.current = normalized
 	c.mu.Unlock()
 	return normalized, generation, nil
+}
+
+// RecheckConversationSeats explicitly reprobes every execution-profile adapter
+// and publishes one fresh snapshot generation. It is the bounded user action
+// behind the shared-conversation seat picker; it performs no setup, placement,
+// or runtime dispatch.
+func (c *CapabilityCoordinator) RecheckConversationSeats(ctx context.Context) error {
+	catalog := corecap.CatalogV2()
+	seen := map[string]bool{}
+	adapters := make([]string, 0, len(catalog.Profiles))
+	for _, profile := range catalog.Profiles {
+		if seen[profile.Adapter] {
+			continue
+		}
+		seen[profile.Adapter] = true
+		adapters = append(adapters, profile.Adapter)
+	}
+	_, _, err := c.Refresh(ctx, corecap.RefreshUserRecheck, adapters)
+	return err
 }
 
 // RefreshMachine refreshes only the already-selected target. Dispatch uses
@@ -203,6 +226,16 @@ func (c *CapabilityCoordinator) Current() (corecap.Snapshot, uint64) {
 	return c.current, c.generation
 }
 
+func (c *CapabilityCoordinator) previousMachines() map[string]corecap.MachineInventory {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make(map[string]corecap.MachineInventory, len(c.current.Machines))
+	for _, machine := range c.current.Machines {
+		out[machine.Name] = machine
+	}
+	return out
+}
+
 // Capabilities implements ui.CapabilityLister without exposing refresh or
 // private probe controls to the presentation layer.
 func (c *CapabilityCoordinator) Capabilities() (corecap.Snapshot, uint64) {
@@ -227,6 +260,45 @@ func unknownNode(nodeID string, reason corecap.Reason) corecap.NodeInventory {
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
 		Bindings: []corecap.ExecutionBindingOffer{},
 	}
+}
+
+// unknownNodeWithPrevious preserves only profile identities that were already
+// verified for this registry-owned machine, and only across a transient loss
+// of reachability. Identity, protocol, and contract failures stay empty; a
+// stale logical capability or composite binding is never carried forward.
+func unknownNodeWithPrevious(nodeID string, reason corecap.Reason, previous corecap.MachineInventory) corecap.NodeInventory {
+	if previous.Name == "" || reason != corecap.ReasonUnavailable {
+		return unknownNode(nodeID, reason)
+	}
+	profiles := append([]corecap.ProfileOffer(nil), previous.Profiles...)
+	for index := range profiles {
+		profiles[index].State = corecap.OfferUnknown
+		profiles[index].Reason = reason
+		profiles[index].BindingRevision = ""
+		profiles[index].Predicates = unknownPredicates(profiles[index].Predicates, reason)
+	}
+	return corecap.NodeInventory{
+		ProtocolVersion: previous.ProtocolVersion, CatalogVersion: previous.CatalogVersion,
+		ProfileMappingVersion: previous.ProfileMappingVersion, NodeID: nodeID,
+		State: corecap.MachineUnknown, Reason: reason,
+		Profiles: profiles, Offers: []corecap.LogicalOffer{}, Bindings: []corecap.ExecutionBindingOffer{},
+	}
+}
+
+func unknownPredicates(values []corecap.Predicate, reason corecap.Reason) []corecap.Predicate {
+	out := append([]corecap.Predicate(nil), values...)
+	for index := range out {
+		out[index].DependsOn = append([]string{}, out[index].DependsOn...)
+		out[index].RemedyEffectIDs = append([]string{}, out[index].RemedyEffectIDs...)
+		if out[index].Resolution == corecap.ResolutionDerived {
+			out[index].State = corecap.PredicateBlocked
+			out[index].Reason = ""
+			continue
+		}
+		out[index].State = corecap.PredicateUnsatisfied
+		out[index].Reason = reason
+	}
+	return out
 }
 
 func discoveryReason(err error) corecap.Reason {

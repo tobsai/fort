@@ -232,17 +232,21 @@ func parseCodexConfiguredModel(result json.RawMessage) (string, error) {
 	if err := json.Unmarshal(result, &payload); err != nil || len(payload.Config) == 0 || len(payload.Origins) == 0 {
 		return "", codexProtocolError()
 	}
-	var config struct {
+	var config *struct {
 		Model *string `json:"model"`
 	}
-	if err := json.Unmarshal(payload.Config, &config); err != nil {
+	var origins map[string]json.RawMessage
+	if err := json.Unmarshal(payload.Config, &config); err != nil || config == nil {
+		return "", codexProtocolError()
+	}
+	if err := json.Unmarshal(payload.Origins, &origins); err != nil || origins == nil {
 		return "", codexProtocolError()
 	}
 	if config.Model == nil {
 		return "", nil
 	}
-	model := strings.TrimSpace(*config.Model)
-	if model == "" {
+	model := *config.Model
+	if model == "" || model != strings.TrimSpace(model) {
 		return "", codexProtocolError()
 	}
 	return model, nil
@@ -391,11 +395,11 @@ func (s *codexAppServerSession) readModels(ctx context.Context, firstID int) (ma
 			Model     string `json:"model"`
 			IsDefault *bool  `json:"isDefault"`
 		}
-		if err := json.Unmarshal(payload.Data, &rows); err != nil {
+		if err := json.Unmarshal(payload.Data, &rows); err != nil || rows == nil {
 			return nil, "", codexProtocolError()
 		}
 		for _, row := range rows {
-			if row.Model == "" || row.IsDefault == nil {
+			if row.Model == "" || row.Model != strings.TrimSpace(row.Model) || row.IsDefault == nil {
 				return nil, "", codexProtocolError()
 			}
 			models[row.Model] = true

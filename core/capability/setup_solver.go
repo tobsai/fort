@@ -211,7 +211,7 @@ func operationCatalogLess(a, b remedyOperation) bool {
 
 func effectRank(effect string) int {
 	order := []string{
-		"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2",
+		codexCapabilityRuntimeEffectID,
 		"effect.codex.authenticated-subject.v1",
 		"effect.codex.model-ready.",
 		"effect.claude-2.1.207.v1",

@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -316,7 +317,7 @@ type fakeCapabilityRegistry struct {
 func (f *fakeCapabilityRegistry) Current() corecap.NodeInventory { return f.current }
 func (f *fakeCapabilityRegistry) Refresh(_ context.Context, request corecap.RecheckRequest) (corecap.NodeInventory, error) {
 	f.refreshCalls++
-	if request.ProtocolVersion != 1 {
+	if request.ProtocolVersion != corecap.ProtocolVersion {
 		return corecap.NodeInventory{}, context.Canceled
 	}
 	return f.refreshResult, nil
@@ -375,14 +376,33 @@ func TestCapabilityInventoryAndRecheckRequireMeshAuth(t *testing.T) {
 		t.Fatalf("inventory = %#v", got)
 	}
 
-	body := `{"protocol_version":1,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"]}`
-	req = httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", strings.NewReader(body))
+	body, err := json.Marshal(corecap.RecheckRequest{
+		ProtocolVersion: corecap.ProtocolVersion,
+		RequestID:       "018f3f1c-7d3a-7c1d-a176-9c52c606c6e4",
+		Mode:            corecap.RefreshPlanning,
+		MaxAgeSeconds:   60,
+		Adapters:        []string{"profile.codex.native"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || registry.refreshCalls != 1 {
 		t.Fatalf("POST = %d calls=%d body=%s", rec.Code, registry.refreshCalls, rec.Body.String())
+	}
+
+	oldBody := `{"protocol_version":1,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"]}`
+	req = httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", strings.NewReader(oldBody))
+	req.Header.Set("Authorization", "Bearer token")
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest || registry.refreshCalls != 2 {
+		t.Fatalf("old protocol POST = %d calls=%d body=%s", rec.Code, registry.refreshCalls, rec.Body.String())
 	}
 }
 
@@ -393,7 +413,7 @@ func TestCapabilityRecheckRejectsUnknownFieldsBeforeProbe(t *testing.T) {
 	mux := http.NewServeMux()
 	srv.Register(mux)
 
-	body := `{"protocol_version":1,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"],"shell":"please"}`
+	body := `{"protocol_version":2,"request_id":"018f3f1c-7d3a-7c1d-a176-9c52c606c6e4","mode":"planning","max_age_seconds":60,"adapters":["profile.codex.native"],"shell":"please"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/node/capabilities/recheck", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer token")
 	rec := httptest.NewRecorder()

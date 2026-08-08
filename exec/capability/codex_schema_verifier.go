@@ -79,11 +79,11 @@ type codexSchemaExpectation struct {
 var codexSchemaV2Expectation = codexSchemaExpectation{
 	normal: codexBundleExpectation{
 		digest: codexNormalSchemaDigest,
-		files:  273,
+		files:  codexNormalSchemaFiles,
 	},
 	experimental: codexBundleExpectation{
 		digest: codexExperimentalSchemaDigest,
-		files:  347,
+		files:  codexExperimentalSchemaFiles,
 	},
 }
 

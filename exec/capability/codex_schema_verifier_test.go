@@ -25,16 +25,19 @@ type fakeCodexSchemaGenerator struct {
 	executableDigest string
 }
 
-func TestCodexSchemaV2ExpectationPinsApprovedBundles(t *testing.T) {
+func TestCodexSchemaV2ExpectationPinsCurrentBundledContract(t *testing.T) {
+	if codexVersion != "codex-cli 0.146.0-alpha.9.2" {
+		t.Fatalf("version = %q", codexVersion)
+	}
 	if codexSchemaV2Expectation.normal != (codexBundleExpectation{
-		digest: "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6",
-		files:  273,
+		digest: "617822e63708afdfcfd539255f34ffb31f07cd4172743bcfc62fc7e88bf976aa",
+		files:  275,
 	}) {
 		t.Fatalf("normal expectation = %#v", codexSchemaV2Expectation.normal)
 	}
 	if codexSchemaV2Expectation.experimental != (codexBundleExpectation{
-		digest: "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf",
-		files:  347,
+		digest: "16bb47445caca91a3316a8b60ff9e0f9918918b3bb352cfa00f07c825a958130",
+		files:  349,
 	}) {
 		t.Fatalf("experimental expectation = %#v", codexSchemaV2Expectation.experimental)
 	}

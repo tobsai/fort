@@ -73,9 +73,9 @@ func TestVerifiedCodexInspectorDefersAndCachesContractVerification(t *testing.T)
 	verifier := &fakeCodexContractVerifier{contract: CodexAppServerContract{
 		ExecutableDigest:         "fixture-executable",
 		NormalSchemaDigest:       codexNormalSchemaDigest,
-		NormalSchemaFiles:        273,
+		NormalSchemaFiles:        codexNormalSchemaFiles,
 		ExperimentalSchemaDigest: codexExperimentalSchemaDigest,
-		ExperimentalSchemaFiles:  347,
+		ExperimentalSchemaFiles:  codexExperimentalSchemaFiles,
 	}}
 	inspector := NewVerifiedCodexAppServerInspector(starter, verifier)
 	if verifier.calls.Load() != 0 || starter.starts != 0 {
@@ -119,9 +119,9 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 	inspector := NewCodexAppServerInspector(starter, CodexAppServerContract{
 		ExecutableDigest:         "fixture-executable",
 		NormalSchemaDigest:       codexNormalSchemaDigest,
-		NormalSchemaFiles:        273,
+		NormalSchemaFiles:        codexNormalSchemaFiles,
 		ExperimentalSchemaDigest: codexExperimentalSchemaDigest,
-		ExperimentalSchemaFiles:  347,
+		ExperimentalSchemaFiles:  codexExperimentalSchemaFiles,
 		GmailIsolationReady:      true,
 	})
 
@@ -140,8 +140,8 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 	if inspection.DefaultModel != "gpt-5.6-sol" {
 		t.Fatalf("default model = %q", inspection.DefaultModel)
 	}
-	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 273 ||
-		inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest || inspection.ExperimentalSchemaFiles != 347 ||
+	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != codexNormalSchemaFiles ||
+		inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest || inspection.ExperimentalSchemaFiles != codexExperimentalSchemaFiles ||
 		!inspection.GmailIsolationReady {
 		t.Fatalf("contract facts = %#v", inspection)
 	}
@@ -182,6 +182,82 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 		if strings.HasPrefix(request.Method, "thread/") || strings.HasPrefix(request.Method, "turn/") {
 			t.Fatalf("inspector created a model turn: %#v", request)
 		}
+	}
+}
+
+func TestCodexAppServerInspectorUsesUniqueCatalogDefaultWhenConfigIsUnset(t *testing.T) {
+	process := newFakeCodexAppServerProcess(strings.Join([]string{
+		validCodexInitializeResponse,
+		`{"id":2,"result":{"account":{"type":"apiKey"},"requiresOpenaiAuth":true}}`,
+		`{"id":3,"result":{"config":{"model":null},"origins":{}}}`,
+		`{"id":4,"result":{"data":[{"model":"gpt-5.6-sol","isDefault":false},{"model":"gpt-5.6-terra","isDefault":true}],"nextCursor":null}}`,
+	}, "\n") + "\n")
+	inspector := NewCodexAppServerInspector(&fakeCodexAppServerStarter{process: process}, CodexAppServerContract{ExecutableDigest: "fixture-executable"})
+
+	inspection, err := inspector.Inspect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.DefaultModel != "gpt-5.6-terra" {
+		t.Fatalf("catalog default = %q", inspection.DefaultModel)
+	}
+}
+
+func TestCodexAppServerInspectorRejectsMalformedConfiguredModelSelector(t *testing.T) {
+	process := newFakeCodexAppServerProcess(strings.Join([]string{
+		validCodexInitializeResponse,
+		`{"id":2,"result":{"account":{"type":"apiKey"},"requiresOpenaiAuth":true}}`,
+		`{"id":3,"result":{"config":{"model":" gpt-5.6-sol "},"origins":{}}}`,
+		`{"id":4,"result":{"data":[{"model":"gpt-5.6-sol","isDefault":true}],"nextCursor":null}}`,
+	}, "\n") + "\n")
+	inspector := NewCodexAppServerInspector(&fakeCodexAppServerStarter{process: process}, CodexAppServerContract{ExecutableDigest: "fixture-executable"})
+
+	_, err := inspector.Inspect(context.Background())
+	var probeError *ProbeError
+	if !errors.As(err, &probeError) || probeError.Reason != corecap.ReasonCommandContractChanged {
+		t.Fatalf("malformed configured selector error = %#v", err)
+	}
+}
+
+func TestCodexAppServerInspectorRejectsNullTypedResolutionFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    string
+		modelList string
+	}{
+		{
+			name:      "null config",
+			config:    `{"config":null,"origins":{}}`,
+			modelList: `{"data":[{"model":"gpt-5.6-sol","isDefault":true}],"nextCursor":null}`,
+		},
+		{
+			name:      "null origins",
+			config:    `{"config":{"model":null},"origins":null}`,
+			modelList: `{"data":[{"model":"gpt-5.6-sol","isDefault":true}],"nextCursor":null}`,
+		},
+		{
+			name:      "null model data",
+			config:    `{"config":{"model":null},"origins":{}}`,
+			modelList: `{"data":null,"nextCursor":null}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			process := newFakeCodexAppServerProcess(strings.Join([]string{
+				validCodexInitializeResponse,
+				`{"id":2,"result":{"account":{"type":"apiKey"},"requiresOpenaiAuth":true}}`,
+				`{"id":3,"result":` + test.config + `}`,
+				`{"id":4,"result":` + test.modelList + `}`,
+			}, "\n") + "\n")
+			inspector := NewCodexAppServerInspector(&fakeCodexAppServerStarter{process: process}, CodexAppServerContract{ExecutableDigest: "fixture-executable"})
+
+			_, err := inspector.Inspect(context.Background())
+			var probeError *ProbeError
+			if !errors.As(err, &probeError) || probeError.Reason != corecap.ReasonCommandContractChanged {
+				t.Fatalf("null typed field error = %#v", err)
+			}
+		})
 	}
 }
 
@@ -285,7 +361,7 @@ func TestCodexAppServerInspectorRejectsDifferentExecutableIdentityBeforeProtocol
 	}
 }
 
-const validCodexInitializeResponse = `{"id":1,"result":{"codexHome":"/private/hidden","platformFamily":"unix","platformOs":"macos","userAgent":"codex_cli_rs/0.146.0-alpha.3.1"}}`
+const validCodexInitializeResponse = `{"id":1,"result":{"codexHome":"/private/hidden","platformFamily":"unix","platformOs":"macos","userAgent":"codex_cli_rs/0.146.0-alpha.9.2"}}`
 
 type decodedAppServerRequest struct {
 	ID     *int           `json:"id"`

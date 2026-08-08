@@ -8,8 +8,8 @@ import (
 func TestCatalogV2IsClosedAndOrdered(t *testing.T) {
 	c := CatalogV2()
 
-	if c.Version != 2 || c.ProfileMappingVersion != 2 {
-		t.Fatalf("versions = %d/%d, want 2/2", c.Version, c.ProfileMappingVersion)
+	if ProtocolVersion != 2 || c.Version != 2 || c.ProfileMappingVersion != 3 {
+		t.Fatalf("versions = protocol:%d catalog:%d mapping:%d, want 2/2/3", ProtocolVersion, c.Version, c.ProfileMappingVersion)
 	}
 	gotProfiles := make([]string, 0, len(c.Profiles))
 	for _, p := range c.Profiles {

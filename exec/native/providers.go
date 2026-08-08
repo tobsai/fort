@@ -37,7 +37,7 @@ func claudeProvider() Provider {
 //
 //	codex exec "<prompt>" --json --sandbox workspace-write --skip-git-repo-check
 //
-// Verified against the catalog-v2 codex-cli 0.146.0-alpha.3.1 (2026-07-27):
+// Verified against the catalog-v2 codex-cli 0.146.0-alpha.9.2 (2026-08-03):
 // `codex exec` has no
 // --ask-for-approval flag — exec is already non-interactive, and passing it
 // aborts with "unexpected argument". --skip-git-repo-check is required because

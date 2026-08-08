@@ -32,3 +32,29 @@ func TestOccurrencesForDayIncludesOneShotOnlyOnItsDay(t *testing.T) {
 		t.Fatalf("tomorrow = %+v, %v", tomorrow, err)
 	}
 }
+
+func TestOccurrencesForDayHonorsDSTLengthAtDisplayBoundary(t *testing.T) {
+	location, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := Definition{
+		ID: "hourly", Kind: KindCron, Expression: "0 0 * * * *",
+		FlowID: "check", Timezone: "America/Chicago", Enabled: true,
+	}
+	for _, test := range []struct {
+		day  time.Time
+		want int
+	}{
+		{day: time.Date(2026, 3, 8, 12, 0, 0, 0, location), want: 23},
+		{day: time.Date(2026, 11, 1, 12, 0, 0, 0, location), want: 25},
+	} {
+		occurrences, err := OccurrencesForDay(definition, test.day, location)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(occurrences) != test.want {
+			t.Fatalf("%s occurrences = %d, want %d", test.day.Format("2006-01-02"), len(occurrences), test.want)
+		}
+	}
+}

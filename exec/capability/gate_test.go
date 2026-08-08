@@ -17,12 +17,14 @@ type fakeSnapshotRefresher struct {
 	err      error
 	adapters []string
 	target   string
+	mode     corecap.RefreshMode
 	calls    int
 }
 
-func (f *fakeSnapshotRefresher) RefreshMachine(_ context.Context, target string, _ corecap.RefreshMode, adapters []string) (corecap.MachineInventory, error) {
+func (f *fakeSnapshotRefresher) RefreshMachine(_ context.Context, target string, mode corecap.RefreshMode, adapters []string) (corecap.MachineInventory, error) {
 	f.calls++
 	f.target = target
+	f.mode = mode
 	f.adapters = append([]string(nil), adapters...)
 	return f.machine, f.err
 }
@@ -49,6 +51,9 @@ func TestProfileGateDispatchesOnlyReadyExactProfile(t *testing.T) {
 	if refresh.target != "laptop" {
 		t.Fatalf("refreshed machine=%q, want laptop", refresh.target)
 	}
+	if refresh.mode != corecap.RefreshUserRecheck {
+		t.Fatalf("refresh mode=%q, want uncached target guard", refresh.mode)
+	}
 }
 
 func TestProfileGateDispatchesFirstClassGPT55Profile(t *testing.T) {
@@ -67,6 +72,99 @@ func TestProfileGateDispatchesFirstClassGPT55Profile(t *testing.T) {
 	got := next.Dispatched()
 	if len(got) != 1 || got[0].Profile != "" || got[0].Agent != "codex" || got[0].Model != "gpt-5.5" {
 		t.Fatalf("dispatched = %+v, want lowered GPT-5.5 runtime selection", got)
+	}
+}
+
+func TestProfileGatePinsResolvedDynamicModelForConversationDispatch(t *testing.T) {
+	next := fake.New()
+	refresh := &fakeSnapshotRefresher{machine: corecap.MachineInventory{
+		Name: "laptop", Reachable: true,
+		Profiles: []corecap.ProfileOffer{{
+			ID: "codex:configured-default", Agent: "codex", State: corecap.OfferReady,
+			ResolvedModel: "gpt-5.6-sol", BindingRevision: "opaque:dynamic-sol",
+		}},
+	}}
+	gate := NewProfileGate(next, refresh)
+	run, err := gate.Dispatch(context.Background(), runtime.RunSpec{
+		RunID: "run-dynamic", Profile: "codex:configured-default", Agent: "codex",
+		Model: "gpt-5.6-sol", Machine: "laptop",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = run.Wait()
+	got := next.Dispatched()
+	if len(got) != 1 || got[0].Profile != "" || got[0].Agent != "codex" || got[0].Model != "gpt-5.6-sol" || got[0].Machine != "laptop" {
+		t.Fatalf("dispatched = %+v, want unchanged pinned dynamic model", got)
+	}
+}
+
+func TestProfileGateBlocksDynamicModelDriftBeforeProviderStart(t *testing.T) {
+	next := fake.New()
+	refresh := &fakeSnapshotRefresher{machine: corecap.MachineInventory{
+		Name: "laptop", Reachable: true,
+		Profiles: []corecap.ProfileOffer{{
+			ID: "codex:configured-default", Agent: "codex", State: corecap.OfferReady,
+			ResolvedModel: "gpt-5.6-terra", BindingRevision: "opaque:dynamic-terra",
+		}},
+	}}
+	gate := NewProfileGate(next, refresh)
+	_, err := gate.Dispatch(context.Background(), runtime.RunSpec{
+		RunID: "run-dynamic", Profile: "codex:configured-default", Agent: "codex",
+		Model: "gpt-5.6-sol", Machine: "laptop",
+	})
+	var blocked *ProfilePreflightError
+	if !errors.As(err, &blocked) || blocked.Reason != corecap.ReasonCapabilityDrift {
+		t.Fatalf("error=%v, want capability_drift", err)
+	}
+	if got := len(next.Dispatched()); got != 0 {
+		t.Fatalf("provider starts=%d, want 0", got)
+	}
+}
+
+func TestProfileGateBlocksMissingDynamicModelBeforeProviderStart(t *testing.T) {
+	next := fake.New()
+	refresh := &fakeSnapshotRefresher{machine: corecap.MachineInventory{
+		Name: "laptop", Reachable: true,
+		Profiles: []corecap.ProfileOffer{{
+			ID: "codex:configured-default", Agent: "codex", State: corecap.OfferSetupRequired,
+			Reason: corecap.ReasonModelUnavailable,
+		}},
+	}}
+	gate := NewProfileGate(next, refresh)
+	_, err := gate.Dispatch(context.Background(), runtime.RunSpec{
+		RunID: "run-dynamic", Profile: "codex:configured-default", Agent: "codex",
+		Model: "gpt-5.6-sol", Machine: "laptop",
+	})
+	var blocked *ProfilePreflightError
+	if !errors.As(err, &blocked) || blocked.Reason != corecap.ReasonModelUnavailable {
+		t.Fatalf("error=%v, want model_unavailable", err)
+	}
+	if got := len(next.Dispatched()); got != 0 {
+		t.Fatalf("provider starts=%d, want 0", got)
+	}
+}
+
+func TestProfileGatePreservesLegacyAmbientDynamicDispatch(t *testing.T) {
+	next := fake.New()
+	refresh := &fakeSnapshotRefresher{machine: corecap.MachineInventory{
+		Name: "laptop", Reachable: true,
+		Profiles: []corecap.ProfileOffer{{
+			ID: "codex:configured-default", Agent: "codex", State: corecap.OfferReady,
+			ResolvedModel: "gpt-5.6-sol", BindingRevision: "opaque:dynamic-sol",
+		}},
+	}}
+	gate := NewProfileGate(next, refresh)
+	run, err := gate.Dispatch(context.Background(), runtime.RunSpec{
+		RunID: "run-legacy", Profile: "codex:configured-default", Agent: "codex", Machine: "laptop",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = run.Wait()
+	got := next.Dispatched()
+	if len(got) != 1 || got[0].Profile != "" || got[0].Agent != "codex" || got[0].Model != "" {
+		t.Fatalf("legacy ambient dispatch = %+v, want empty model preserved", got)
 	}
 }
 

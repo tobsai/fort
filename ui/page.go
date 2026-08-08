@@ -977,6 +977,11 @@ function agentModel(agent){
   });
   return found;
 }
+function runModelLabel(run){
+  if(!run)return '';
+  if(run.model)return run.model;
+  return /:configured-default$/i.test(String(run.profile||''))?'Configured default':'';
+}
 function agentStatus(a){
   var waiting=null,working=null;
   model.runs.forEach(function(r){
@@ -1170,7 +1175,7 @@ function renderDeck(){
 
   var title=active?(active.title||active.id):'New conversation';
   $('#conversationtitle').textContent=title;
-  $('#conversationmeta').textContent=active?ckCaption(active):'Choose an agent, model, and machine';
+  $('#conversationmeta').textContent=active?ckCaption(active):'Choose an agent profile and machine';
   $('#mobileconversationstate').innerHTML=active?conversationStatusHTML(active):'<span class="conversation-status"><i></i>Ready</span>';
   $('#conversationdetail').hidden=!active;
   $('#conversationfeed').innerHTML=conversationFeedHTML(active);
@@ -1228,7 +1233,7 @@ function canTurnConversationIntoWork(run){
   return status==='succeeded'||status==='done';
 }
 function conversationFeedHTML(run){
-  if(!run)return messageHTML('agent','Fort','ready','Choose an agent, model, and eligible machine, then start the conversation.','');
+  if(!run)return messageHTML('agent','Fort','ready','Choose an agent profile and eligible machine, then start the conversation.','');
   var agent=runAgent(run)||agentOfRun[run.id]||'',name=dispName(agent),detail=conversationDetails[run.id]||{};
   var prompt=runPrompt(run);
   var html=messageHTML('human','You',ago(run.created_at),prompt,'');
@@ -1241,11 +1246,11 @@ function conversationFeedHTML(run){
     state==='terminal'?'This conversation is finished and its recorded events are preserved below.':
     state==='working'?'Work has started. The activity below comes directly from Fort’s event log.':
     'Fort accepted this turn and is waiting for the first provider event.';
-  html+=messageHTML('agent',name||'Fort',ago(run.updated_at||run.created_at),response,run.model||agentModel(agent),isThinking(run));
+  html+=messageHTML('agent',name||'Fort',ago(run.updated_at||run.created_at),response,runModelLabel(run),isThinking(run));
   var conversationEvents=(actByRun[run.id]&&actByRun[run.id].length)?actByRun[run.id]:(detail.events||[]);
   conversationEvents.filter(function(e){return e.type==='message'&&e.data;}).slice(-2).forEach(function(e){
     var line=String(e.data).split('\n')[0];if(line.length>180)line=line.slice(0,179)+'…';
-    if(line)html+=messageHTML('agent',name||'Fort',ago(e.time),line,run.model||agentModel(agent));
+    if(line)html+=messageHTML('agent',name||'Fort',ago(e.time),line,runModelLabel(run));
   });
   html+=approvalCardsHTML(run);
   html+=activityTimelineHTML(run,conversationEvents);
@@ -1274,12 +1279,13 @@ function assignmentCardHTML(run,nodes){
   });
   if(!rows.length&&total){for(var i=0;i<total;i++)rows.push('<div class="checkpoint'+(i<accepted?' done':i===accepted&&run.status==='running'?' current':'')+'"><i></i><span>Checkpoint '+(i+1)+'</span></div>');}
   return '<div class="assignment-card"><div class="assignment-head"><strong>'+esc(run.title||run.id)+'</strong><span class="state">'+esc(runStatusLabel(run))+'</span></div>'+
-    '<div class="progress-track"><i style="width:'+pct+'%"></i></div><div class="assignment-meta"><span>Agent<strong>'+esc(dispName(runAgent(run)))+'</strong></span><span>Model<strong>'+esc(run.model||agentModel(runAgent(run))||'configured')+'</strong></span><span>Machine<strong>'+esc(run.machine||'Fort placed')+'</strong></span><span>Elapsed<strong>'+esc(elapsed(run.created_at))+'</strong></span><span>Progress<strong>'+accepted+' of '+total+'</strong></span></div><div class="checkpoint-list">'+rows.join('')+'</div></div>';
+    '<div class="progress-track"><i style="width:'+pct+'%"></i></div><div class="assignment-meta"><span>Agent<strong>'+esc(dispName(runAgent(run)))+'</strong></span><span>Model<strong>'+esc(runModelLabel(run)||'Model not recorded')+'</strong></span><span>Machine<strong>'+esc(run.machine||'Fort placed')+'</strong></span><span>Elapsed<strong>'+esc(elapsed(run.created_at))+'</strong></span><span>Progress<strong>'+accepted+' of '+total+'</strong></span></div><div class="checkpoint-list">'+rows.join('')+'</div></div>';
 }
 function agentRailCard(agent,current,run){
   var st=agentStatus(agent),ready=st.state==='idle'?'Ready':st.state==='need'?'Needs you':'Working';
-  var detail=run?activitySentence(run):(st.run?activitySentence(st.run):'Ready for routed work.');
-  var modelName=run&&run.model?run.model:agentModel(agent);
+  var shownRun=run||st.run;
+  var detail=shownRun?activitySentence(shownRun):'Ready for routed work.';
+  var modelName=shownRun?runModelLabel(shownRun):'';
   return '<div class="rail-card"><img class="'+orbClass(st.state==='working')+'" src="/fort-agent-orb.png" alt=""/><div class="rail-copy"><div class="rail-name">'+esc(dispName(agent))+(modelName?'<span class="rail-model">'+esc(modelName)+'</span>':'')+'</div><div class="rail-detail">'+esc(detail||'Ready for routed work.')+'</div></div><span class="rail-status '+esc(st.state)+'"><i></i>'+esc(ready)+'</span></div>';
 }
 function runPrompt(run){

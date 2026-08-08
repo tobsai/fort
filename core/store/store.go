@@ -160,7 +160,7 @@ CREATE INDEX IF NOT EXISTS idx_conversation_message_conversation
 CREATE TABLE IF NOT EXISTS conversation_turn (
   id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, client_turn_id TEXT NOT NULL,
   prompt_message_id INTEGER NOT NULL,
-  through_message_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+  through_message_id INTEGER NOT NULL, context_json TEXT, created_at TEXT NOT NULL,
   FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
   FOREIGN KEY(prompt_message_id) REFERENCES conversation_message(id)
 );
@@ -221,6 +221,9 @@ CREATE INDEX IF NOT EXISTS idx_schedule_occurrence_day
 	}
 	if err := s.addColumn("conversation_turn", "client_turn_id", "TEXT"); err != nil {
 		return fmt.Errorf("store: migrate conversation_turn.client_turn_id: %w", err)
+	}
+	if err := s.addColumn("conversation_turn", "context_json", "TEXT"); err != nil {
+		return fmt.Errorf("store: migrate conversation_turn.context_json: %w", err)
 	}
 	if err := s.addColumn("conversation_target", "attempt", "INTEGER NOT NULL DEFAULT 1"); err != nil {
 		return fmt.Errorf("store: migrate conversation_target.attempt: %w", err)
@@ -332,12 +335,66 @@ func (s *Store) CreateRun(r Run) error {
 	return err
 }
 
-// UpdateRunStatus updates a run's terminal fields.
+// UpdateRunStatus updates a run and keeps any linked schedule occurrence truthful.
 func (s *Store) UpdateRunStatus(id, status string, exitCode int, errMsg string) error {
-	_, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := nowOr(time.Time{})
+	result, err := tx.Exec(
 		`UPDATE run SET status=?, exit_code=?, error=?, updated_at=? WHERE id=?`,
-		status, exitCode, errMsg, nowOr(time.Time{}), id)
-	return err
+		status, exitCode, errMsg, now, id)
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed > 0 {
+		if err := updateScheduleOccurrenceForRun(tx, id, status, errMsg, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// TransitionRunStatus atomically changes one flow run from an expected state.
+// A waiting human gate is never a resumable claim, and linked schedule state is
+// updated in the same transaction only for the caller that wins the transition.
+func (s *Store) TransitionRunStatus(id, flowID, from, to string, exitCode int, errMsg string) (bool, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	now := nowOr(time.Time{})
+	result, err := tx.Exec(
+		`UPDATE run SET status=?, exit_code=?, error=?, updated_at=?
+		 WHERE id=? AND flow_id=? AND status=?
+		   AND NOT EXISTS (
+		     SELECT 1 FROM node_run WHERE node_run.run_id=? AND node_run.status='waiting'
+		   )`,
+		to, exitCode, errMsg, now, id, flowID, from, id,
+	)
+	if err != nil {
+		return false, err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if changed == 1 {
+		if err := updateScheduleOccurrenceForRun(tx, id, to, errMsg, now); err != nil {
+			return false, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return changed == 1, nil
 }
 
 // FailInterruptedDirectRuns reconciles direct tasks left running by an earlier

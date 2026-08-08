@@ -54,6 +54,34 @@ func TestPlistCarriesCapabilityPlanningRollback(t *testing.T) {
 	}
 }
 
+func TestPlistCarriesConfiguredDisplayTimezone(t *testing.T) {
+	sc := serviceConfig{
+		Label: "io.tobsai.fort", BinPath: "/opt/homebrew/bin/fort",
+		Args: []string{"serve"}, DisplayTimezone: "America/Chicago",
+	}
+	got := renderPlist(sc)
+	for _, want := range []string{
+		"<key>FORT_DISPLAY_TIMEZONE</key>", "<string>America/Chicago</string>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("plist missing %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(renderPlist(serviceConfig{Label: "l", BinPath: "/b"}), "<key>FORT_DISPLAY_TIMEZONE</key>") {
+		t.Error("unset display timezone should resolve from the daemon host")
+	}
+}
+
+func TestServiceInstallRejectsInvalidDisplayTimezoneBeforeLaunchd(t *testing.T) {
+	err := validateServiceDisplayTimezone(serviceConfig{DisplayTimezone: "Not/A_Zone"})
+	if err == nil {
+		t.Fatal("invalid display timezone was accepted for service installation")
+	}
+	if !strings.Contains(err.Error(), `display timezone "Not/A_Zone"`) {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 // TestPlistIsSelfContained pins the boot contract. launchd starts a user agent
 // with cwd "/" (read-only), so any RELATIVE path in the daemon's config — the
 // default DB (.fort-native/fort.db) and work root (.fort-native/work) — makes it

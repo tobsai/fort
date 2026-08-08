@@ -19,7 +19,7 @@ func Load(data []byte) (graph.Flow, error) {
 	if err := yaml.Unmarshal(data, &f); err != nil {
 		return graph.Flow{}, fmt.Errorf("flow: invalid YAML: %w", err)
 	}
-	if err := validate(&f); err != nil {
+	if err := f.Validate(); err != nil {
 		return graph.Flow{}, err
 	}
 	return f, nil
@@ -66,34 +66,4 @@ func LoadDir(dir string) ([]graph.Flow, error) {
 	}
 	sort.Slice(flows, func(i, j int) bool { return flows[i].ID < flows[j].ID })
 	return flows, nil
-}
-
-func validate(f *graph.Flow) error {
-	if f.ID == "" {
-		return fmt.Errorf("flow: missing id")
-	}
-	ids := map[string]bool{}
-	for _, n := range f.Nodes {
-		if n.ID == "" {
-			return fmt.Errorf("flow %s: a node is missing an id", f.ID)
-		}
-		if ids[n.ID] {
-			return fmt.Errorf("flow %s: duplicate node id %q", f.ID, n.ID)
-		}
-		ids[n.ID] = true
-	}
-	if f.Start == "" || !ids[f.Start] {
-		return fmt.Errorf("flow %s: start %q does not reference a known node", f.ID, f.Start)
-	}
-	for _, n := range f.Nodes {
-		for _, e := range n.Edges {
-			if !ids[e.To] {
-				return fmt.Errorf("flow %s: node %s has a dangling edge to %q", f.ID, n.ID, e.To)
-			}
-		}
-		if n.Type == graph.Fanout && n.FaninID != "" && !ids[n.FaninID] {
-			return fmt.Errorf("flow %s: fanout %s references unknown fanin %q", f.ID, n.ID, n.FaninID)
-		}
-	}
-	return nil
 }

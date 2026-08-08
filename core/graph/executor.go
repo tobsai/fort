@@ -95,21 +95,80 @@ func (e *Executor) prepareStart(ctx context.Context, f Flow, runID, payload stri
 // already-completed nodes from persisted state (no re-execution) until it
 // reaches the (now-decided) gate or a still-undecided one.
 func (e *Executor) Resume(ctx context.Context, f Flow, runID string) (Result, error) {
-	return e.walkFrom(ctx, f, runID, f.Start, "", "")
+	if err := e.prepareResume(f, runID); err != nil {
+		return Result{}, err
+	}
+	return e.walkResumed(ctx, f, runID)
 }
 
 // ResumeAsync validates the durable run before returning, then resumes it once
 // on a detached context. Background errors are written to the existing run.
 func (e *Executor) ResumeAsync(ctx context.Context, f Flow, runID string) error {
-	if _, err := e.store.GetRun(runID); err != nil {
+	if err := e.prepareResume(f, runID); err != nil {
 		return err
 	}
 	e.async.Add(1)
 	go func() {
 		defer e.async.Done()
-		e.walkDetached(context.WithoutCancel(ctx), f, runID, f.Start, "")
+		_, _ = e.walkResumed(context.WithoutCancel(ctx), f, runID)
 	}()
 	return nil
+}
+
+func (e *Executor) prepareResume(f Flow, runID string) error {
+	if err := f.Validate(); err != nil {
+		return err
+	}
+	claimed, err := e.store.TransitionRunStatus(runID, f.ID, "blocked", "running", 0, "")
+	if err != nil {
+		return err
+	}
+	if claimed {
+		return nil
+	}
+	run, err := e.store.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	if run.FlowID != f.ID {
+		return fmt.Errorf("run %s belongs to flow %q, not %q", runID, run.FlowID, f.ID)
+	}
+	if run.Status == "blocked" {
+		return fmt.Errorf("run %s is still waiting for a gate decision", runID)
+	}
+	return fmt.Errorf("run %s is %s, not resumable", runID, run.Status)
+}
+
+func (e *Executor) walkResumed(ctx context.Context, f Flow, runID string) (Result, error) {
+	result, err := e.walkFrom(ctx, f, runID, f.Start, "", "")
+	if err == nil {
+		return result, nil
+	}
+	changed, transitionErr := e.store.TransitionRunStatus(runID, f.ID, "running", "failed", -1, err.Error())
+	if transitionErr == nil && changed {
+		_, _ = e.store.AppendEvent(store.Event{RunID: runID, Type: "error", Data: err.Error()})
+	}
+	return result, err
+}
+
+// RecoverInterrupted resumes a running flow only while startup owns exclusive
+// execution. It is deliberately separate from Resume: running -> running is
+// not an atomic claim and must never be exposed to ordinary gate actions.
+func (e *Executor) RecoverInterrupted(ctx context.Context, f Flow, runID string) (Result, error) {
+	if err := f.Validate(); err != nil {
+		return Result{}, err
+	}
+	run, err := e.store.GetRun(runID)
+	if err != nil {
+		return Result{}, err
+	}
+	if run.FlowID != f.ID {
+		return Result{}, fmt.Errorf("run %s belongs to flow %q, not %q", runID, run.FlowID, f.ID)
+	}
+	if run.Status != "running" {
+		return Result{}, fmt.Errorf("run %s is %s, not interrupted", runID, run.Status)
+	}
+	return e.walkResumed(ctx, f, runID)
 }
 
 // Wait joins every asynchronous walk accepted before the call. Callers use it

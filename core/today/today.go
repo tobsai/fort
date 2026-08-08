@@ -20,6 +20,7 @@ type Progress struct {
 	ParticipantName   string                   `json:"participant_name,omitempty"`
 	Agent             string                   `json:"agent"`
 	Profile           string                   `json:"profile,omitempty"`
+	Model             string                   `json:"model,omitempty"`
 	Machine           string                   `json:"machine,omitempty"`
 	State             conversation.TargetState `json:"state"`
 	UpdatedAt         time.Time                `json:"updated_at"`

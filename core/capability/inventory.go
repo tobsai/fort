@@ -3,6 +3,7 @@ package capability
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // NormalizeSnapshot validates and orders a complete public snapshot. It never
@@ -86,6 +87,16 @@ func normalizeMachine(machine *MachineInventory, catalog Catalog) error {
 		profileKeys[offer.ID] = true
 		if err := validateOffer(offer.State, offer.Reason, offer.BindingRevision, offer.Predicates); err != nil {
 			return fmt.Errorf("profile %q: %w", offer.ID, err)
+		}
+		if definition.RequiresResolvedModel() {
+			if offer.ResolvedModel != strings.TrimSpace(offer.ResolvedModel) {
+				return fmt.Errorf("profile %q has an invalid resolved_model", offer.ID)
+			}
+			if offer.State == OfferReady && offer.ResolvedModel == "" {
+				return fmt.Errorf("profile %q requires resolved_model when ready", offer.ID)
+			}
+		} else if offer.ResolvedModel != "" {
+			return fmt.Errorf("profile %q cannot carry resolved_model", offer.ID)
 		}
 		if err := validatePredicateShapes(offer.Predicates, profilePredicateShapes(definition)); err != nil {
 			return fmt.Errorf("profile %q: %w", offer.ID, err)

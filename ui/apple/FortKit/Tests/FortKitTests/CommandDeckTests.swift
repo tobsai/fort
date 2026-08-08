@@ -995,6 +995,7 @@ struct FortKitContractChecks {
 		expect(source.contains("client.runDetail(run.id)"), "macOS does not recover selected-conversation activity from run detail")
 		expect(source.contains("!$0.hasPrefix(\"flow:\")"), "macOS still presents flow IDs as agents")
 		expect(source.contains("case \"stderr\""), "macOS timeline omits provider diagnostic activity")
+        expect(source.contains("if let message = meaningfulConversationEvents(for: run)"), "macOS transcript does not render the latest persisted agent message")
         expect(source.contains("conversationActivityTimeline"), "macOS conversation center does not render an activity timeline")
     }
 

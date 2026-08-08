@@ -1,6 +1,6 @@
 # Spec 041 — Shared Agent Conversations
 
-**Status:** approved 2026-07-31 — implemented locally; live two-computer acceptance pending
+**Status:** approved 2026-07-31 — local implementation in progress; live two-computer acceptance pending
 **Product decision:** Fort's next milestone is one excellent shared conversation
 across enrolled agents and computers, with lightweight Projects that organize
 related conversations. Work on the broader command center, capability planner,
@@ -53,12 +53,22 @@ Fort profile + provider/model + enrolled machine
 For example:
 
 ```text
-Codex · Sol — Toby's MacBook
-OpenClaw · Main — Talos Mac mini
+Codex · Sol — MacBook Pro
+OpenClaw · Main — Mac mini
 ```
 
 The seat is the selection unit. The UI never asks a person to coordinate three
 independent Agent, Model, and Machine controls.
+
+The enrolled machine name remains the canonical placement identity in every
+seat ID, persisted participant, target, run, and runtime request. Presentation
+may shorten that name to a familiar device class when the result is unique. If
+two canonical names shorten to the same label, every colliding label appends
+its exact canonical name (for example, `MacBook Pro ·
+tobiass.macbook.pro.lan`). The web picker, transcript, target controls, Today,
+run details, and Computers view use this same collision-safe presentation.
+Formatting never changes persistence or dispatch, and Fort does not invent a
+personal alias unless one is explicitly configured.
 
 ## The experience
 
@@ -113,6 +123,14 @@ the conversation starts in that Project; when created from All conversations or
 Inbox, it starts in Inbox. The Project remains visible in the conversation
 header and can be changed later.
 
+When no transcript is selected, the central empty state exposes the same **New
+conversation** action directly beside its explanation; a person never has to
+hunt through the sidebar to begin.
+
+On a plain-root first visit with no existing conversations, Fort enters that
+client-only draft automatically. It persists nothing until the first addressed
+message is sent.
+
 The participant picker presents ready seats as complete choices, grouped by
 computer. Each row shows agent, exact model, and computer. Seats that are known
 but not usable appear under **Needs setup**, disabled with a closed reason such
@@ -121,6 +139,14 @@ offline**, plus **Recheck**. A static roster claim never produces a ready seat.
 
 The person adds at least one ready seat before sending. If exactly one seat is
 ready, Fort may preselect it, but the selection remains visible before send.
+
+The web control plane exposes one bounded explicit refresh for this surface:
+`POST /api/conversation-seats/recheck`. It runs the existing user-initiated
+capability probes, publishes the resulting inventory generation, and returns
+the freshly projected seat list. It never installs, authenticates, selects a
+replacement, or invokes an agent runtime. When functional capability probing
+is not wired, the endpoint fails closed instead of relabeling stale claims as
+ready.
 
 ### 4. Addressing agents
 
@@ -185,11 +211,19 @@ The server revalidates the exact seat immediately before every dispatch. If its
 profile or computer is no longer ready, that target fails without invoking a
 runtime. Fort never changes provider, model, profile, or computer automatically.
 
-The inline recovery offers only explicit actions:
+The inline recovery in this milestone offers only explicit actions:
 
-- **Recheck and retry** the same seat;
-- **Choose another seat**, which creates a visibly different target; or
+- **Recheck and retry** the same seat; or
 - **Cancel**.
+
+Alternative-seat/fallback recovery is deferred and is not part of the current
+milestone.
+
+**Recheck and retry** completes the bounded seat recheck before asking the
+conversation service to retry the original target. If that exact profile and
+computer remain unavailable, Fort creates no retry attempt and reports the
+closed readiness reason. Successful peers are never rechecked into new targets
+or rerun by this action.
 
 Historical messages continue to show the seat that actually produced them.
 
@@ -257,9 +291,13 @@ remain UTC. Disabled schedules never appear. An empty section says **Nothing
 scheduled today**.
 
 The rail updates from persisted conversation/run/schedule events and refreshes
-at the next local day boundary. At narrow widths it becomes a **Today** sheet
-opened from the conversation header; it is never squeezed beside the
-transcript.
+at the next local day boundary. At narrow widths it becomes a content-sized,
+scroll-bounded **Today** sheet opened from the conversation header; it is never
+squeezed beside the transcript or stretched into an empty full-height panel.
+Opening moves focus into the sheet, **Close** and Escape return focus to its
+trigger, and the trigger exposes its expanded state. Periodic refreshes preserve
+the focused row when it remains present and otherwise move focus to **Close**;
+leaving the conversation view closes the sheet before its trigger disappears.
 
 ## Durable model
 
@@ -356,6 +394,10 @@ run_id, error, created_at, updated_at
 `(schedule_id, scheduled_for)` is unique. Fort persists an occurrence and its
 canonical run ID before dispatch. Retry/restart cannot fire the same occurrence
 twice. Definitions plus occurrences are the only source for Scheduled today.
+The daemon materializes the configured display day's planned rows at startup
+and schedule creation, keeps the following day prepared, and advances that
+window at configured local midnight. `GET /api/today` only reads those durable
+rows; browser polling never creates or updates schedule state.
 
 ## Context contract
 
@@ -385,6 +427,7 @@ Add a conversation-focused API behind `ui` ports:
 
 ```text
 GET    /api/conversation-seats
+POST   /api/conversation-seats/recheck
 GET    /api/today
 POST   /api/schedules
 GET    /api/projects
@@ -571,6 +614,10 @@ approved milestone.
 
 - Fort opens directly to Conversations and exposes only Conversations and
   Computers as primary product areas.
+- At compact widths the complete conversation navigator—product areas, folders,
+  history, and **New**—is an on-demand sheet opened from one **Conversations**
+  control in the main header. It is not a permanent strip above the transcript;
+  Close, Escape, or choosing a destination dismisses it and preserves focus.
 - The desktop right rail shows only truthful In progress work and persisted
   Scheduled today items; it contains no static agent roster, inferred ETA,
   percentages, or predicted review moments.
@@ -587,6 +634,9 @@ approved milestone.
 - New conversation always starts at the visible top with composer focus.
 - A person can select complete agent seats without coordinating separate agent,
   model, and machine pickers.
+- Agent-seat labels are concise and consistent across the web surface. A
+  friendly machine label is used only while unique; collisions reveal the exact
+  canonical machine name in every affected label and accessible name.
 - Every agent answer visibly names its agent, exact model, and computer.
 - **Everyone** is explicit; Fort never adds a target implicitly.
 - Queued, Working, Answered, Failed, and Canceled are announced in text and to
@@ -599,6 +649,9 @@ approved milestone.
   broader orchestration navigation are absent from the default surface.
 
 ### Live acceptance
+
+This live two-Mac acceptance requires separate explicit authorization; approval
+of Spec 042 Slice B does not authorize it.
 
 On the real enrolled MacBook and Mac mini:
 

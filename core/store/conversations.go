@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tobsai/fort/core/conversation"
@@ -40,6 +41,13 @@ type ConversationTargetDispatch struct {
 	Participant  conversation.Participant
 }
 
+// sqliteRFC3339NanoOrder normalizes Fort's UTC RFC3339Nano text to a fixed
+// nine-digit fractional form. RFC3339Nano omits trailing zeroes, so raw TEXT
+// ordering puts an exact second after a later fractional timestamp.
+func sqliteRFC3339NanoOrder(column string) string {
+	return fmt.Sprintf(`substr(%[1]s,1,19)||'.'||substr((CASE WHEN instr(%[1]s,'.')=0 THEN '' ELSE substr(%[1]s,21,length(%[1]s)-21) END)||'000000000',1,9)`, column)
+}
+
 func (s *Store) CreateProject(project conversation.Project) error {
 	name, err := conversation.ValidateProjectName(project.Name)
 	if err != nil {
@@ -48,14 +56,30 @@ func (s *Store) CreateProject(project conversation.Project) error {
 	project.Name = name
 	now := nowOr(project.CreatedAt)
 	updated := nowOr(project.UpdatedAt)
-	_, err = s.db.Exec(`INSERT INTO project(id,name,created_at,updated_at) VALUES(?,?,?,?)`, project.ID, project.Name, now, updated)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := ensureProjectNameAvailable(tx, "", project.Name); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO project(id,name,created_at,updated_at) VALUES(?,?,?,?)`, project.ID, project.Name, now, updated); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) ListProjects() ([]conversation.Project, error) {
-	rows, err := s.db.Query(`SELECT p.id,p.name,p.created_at,p.updated_at
-FROM project p LEFT JOIN conversation c ON c.project_id=p.id
-GROUP BY p.id ORDER BY COALESCE(MAX(c.updated_at),p.updated_at) DESC,p.name COLLATE NOCASE,p.id`)
+	messageActivity := sqliteRFC3339NanoOrder("m.created_at")
+	conversationCreated := sqliteRFC3339NanoOrder("c.created_at")
+	projectCreated := sqliteRFC3339NanoOrder("p.created_at")
+	rows, err := s.db.Query(fmt.Sprintf(`SELECT p.id,p.name,p.created_at,p.updated_at
+	FROM project p
+	LEFT JOIN conversation c ON c.project_id=p.id
+	LEFT JOIN conversation_message m ON m.conversation_id=c.id
+	GROUP BY p.id
+	ORDER BY COALESCE(MAX(%s),MAX(%s),MAX(%s)) DESC,p.name COLLATE NOCASE,p.id`, messageActivity, conversationCreated, projectCreated))
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +102,19 @@ func (s *Store) RenameProject(id, name string) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.Exec(`UPDATE project SET name=?,updated_at=? WHERE id=?`, validated, nowOr(time.Time{}), id)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var exists int
+	if err := tx.QueryRow(`SELECT 1 FROM project WHERE id=?`, id).Scan(&exists); err != nil {
+		return err
+	}
+	if err := ensureProjectNameAvailable(tx, id, validated); err != nil {
+		return err
+	}
+	result, err := tx.Exec(`UPDATE project SET name=?,updated_at=? WHERE id=?`, validated, nowOr(time.Time{}), id)
 	if err != nil {
 		return err
 	}
@@ -86,7 +122,28 @@ func (s *Store) RenameProject(id, name string) error {
 	if err == nil && changed != 1 {
 		return sql.ErrNoRows
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func ensureProjectNameAvailable(tx *sql.Tx, exceptID, name string) error {
+	rows, err := tx.Query(`SELECT id,name FROM project`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, existing string
+		if err := rows.Scan(&id, &existing); err != nil {
+			return err
+		}
+		if id != exceptID && strings.EqualFold(existing, name) {
+			return fmt.Errorf("UNIQUE constraint failed: project.name")
+		}
+	}
+	return rows.Err()
 }
 
 func (s *Store) DeleteProject(id string) error {
@@ -95,7 +152,7 @@ func (s *Store) DeleteProject(id string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`UPDATE conversation SET project_id=NULL,updated_at=? WHERE project_id=?`, nowOr(time.Time{}), id); err != nil {
+	if _, err := tx.Exec(`UPDATE conversation SET project_id=NULL WHERE project_id=?`, id); err != nil {
 		return err
 	}
 	result, err := tx.Exec(`DELETE FROM project WHERE id=?`, id)
@@ -157,15 +214,17 @@ id,conversation_id,seat_id,profile,agent,model,machine,display_name,position,sta
 }
 
 func (s *Store) ListConversations(scope string) ([]conversation.Conversation, error) {
-	query := `SELECT id,project_id,title,state,created_at,updated_at FROM conversation`
+	query := `SELECT c.id,c.project_id,c.title,c.state,c.created_at,c.updated_at FROM conversation c`
 	args := []any{}
 	if scope == "inbox" {
-		query += ` WHERE project_id IS NULL OR project_id=''`
+		query += ` WHERE c.project_id IS NULL OR c.project_id=''`
 	} else if scope != "" {
-		query += ` WHERE project_id=?`
+		query += ` WHERE c.project_id=?`
 		args = append(args, scope)
 	}
-	query += ` ORDER BY updated_at DESC,id`
+	messageActivity := sqliteRFC3339NanoOrder("m.created_at")
+	conversationCreated := sqliteRFC3339NanoOrder("c.created_at")
+	query += fmt.Sprintf(` ORDER BY COALESCE((SELECT MAX(%s) FROM conversation_message m WHERE m.conversation_id=c.id),%s) DESC,c.id`, messageActivity, conversationCreated)
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -232,7 +291,21 @@ func (s *Store) RemoveConversationParticipant(conversationID, participantID stri
 }
 
 func (s *Store) DeleteConversation(id string) error {
-	result, err := s.db.Exec(`DELETE FROM conversation WHERE id=?`, id)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var active int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM conversation_target t
+		JOIN conversation_turn tr ON tr.id=t.turn_id
+		WHERE tr.conversation_id=? AND t.state IN (?,?)`, id, conversation.TargetQueued, conversation.TargetWorking).Scan(&active); err != nil {
+		return err
+	}
+	if active != 0 {
+		return fmt.Errorf("%w: %s", conversation.ErrConversationActive, id)
+	}
+	result, err := tx.Exec(`DELETE FROM conversation WHERE id=?`, id)
 	if err != nil {
 		return err
 	}
@@ -240,7 +313,10 @@ func (s *Store) DeleteConversation(id string) error {
 	if err == nil && changed != 1 {
 		return sql.ErrNoRows
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) GetConversation(id string) (ConversationDetail, error) {
@@ -264,6 +340,27 @@ func (s *Store) GetConversation(id string) (ConversationDetail, error) {
 	return detail, nil
 }
 
+func (s *Store) FindConversationTurnByClientID(conversationID, clientTurnID string) (conversation.Turn, []conversation.Target, bool, error) {
+	var turn conversation.Turn
+	var created string
+	err := s.db.QueryRow(`SELECT id,conversation_id,client_turn_id,prompt_message_id,through_message_id,created_at
+	FROM conversation_turn WHERE conversation_id=? AND client_turn_id=?`, conversationID, clientTurnID).Scan(
+		&turn.ID, &turn.ConversationID, &turn.ClientTurnID, &turn.PromptMessageID, &turn.ThroughMessageID, &created,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return conversation.Turn{}, nil, false, nil
+	}
+	if err != nil {
+		return conversation.Turn{}, nil, false, err
+	}
+	turn.CreatedAt = parseTime(created)
+	targets, err := conversationTargetsForTurn(s.db, turn.ID)
+	if err != nil {
+		return conversation.Turn{}, nil, false, err
+	}
+	return turn, targets, true, nil
+}
+
 func (s *Store) CreateConversationTurn(params CreateConversationTurnParams) (conversation.Turn, []conversation.Target, string, error) {
 	if len(params.Targets) == 0 {
 		return conversation.Turn{}, nil, "", fmt.Errorf("conversation turn needs at least one target")
@@ -278,9 +375,10 @@ func (s *Store) CreateConversationTurn(params CreateConversationTurnParams) (con
 	defer tx.Rollback()
 	var existing conversation.Turn
 	var existingCreated string
-	err = tx.QueryRow(`SELECT id,conversation_id,client_turn_id,prompt_message_id,through_message_id,created_at
+	var existingContext sql.NullString
+	err = tx.QueryRow(`SELECT id,conversation_id,client_turn_id,prompt_message_id,through_message_id,created_at,context_json
 FROM conversation_turn WHERE conversation_id=? AND client_turn_id=?`, params.ConversationID, params.ClientTurnID).Scan(
-		&existing.ID, &existing.ConversationID, &existing.ClientTurnID, &existing.PromptMessageID, &existing.ThroughMessageID, &existingCreated,
+		&existing.ID, &existing.ConversationID, &existing.ClientTurnID, &existing.PromptMessageID, &existing.ThroughMessageID, &existingCreated, &existingContext,
 	)
 	if err == nil {
 		existing.CreatedAt = parseTime(existingCreated)
@@ -288,12 +386,17 @@ FROM conversation_turn WHERE conversation_id=? AND client_turn_id=?`, params.Con
 		if targetErr != nil {
 			return conversation.Turn{}, nil, "", targetErr
 		}
-		messages, messageErr := conversationMessagesQuery(tx, params.ConversationID)
-		if messageErr != nil {
-			return conversation.Turn{}, nil, "", messageErr
+		if existingContext.Valid && existingContext.String != "" {
+			return existing, targets, existingContext.String, nil
 		}
-		contextJSON, contextErr := conversation.CompileContext(params.ConversationID, existing.ThroughMessageID, messages)
+		contextJSON, contextErr := conversationContextQuery(tx, params.ConversationID, existing.ThroughMessageID)
 		if contextErr != nil {
+			return conversation.Turn{}, nil, "", contextErr
+		}
+		if _, contextErr = tx.Exec(`UPDATE conversation_turn SET context_json=? WHERE id=? AND (context_json IS NULL OR context_json='')`, contextJSON, existing.ID); contextErr != nil {
+			return conversation.Turn{}, nil, "", contextErr
+		}
+		if contextErr = tx.Commit(); contextErr != nil {
 			return conversation.Turn{}, nil, "", contextErr
 		}
 		return existing, targets, contextJSON, nil
@@ -311,16 +414,12 @@ VALUES(?,?,NULL,?,?,?,?)`, params.ConversationID, params.TurnID, string(conversa
 	if err != nil {
 		return conversation.Turn{}, nil, "", err
 	}
-	messages, err := conversationMessagesQuery(tx, params.ConversationID)
-	if err != nil {
-		return conversation.Turn{}, nil, "", err
-	}
-	contextJSON, err := conversation.CompileContext(params.ConversationID, messageID, messages)
+	contextJSON, err := conversationContextQuery(tx, params.ConversationID, messageID)
 	if err != nil {
 		return conversation.Turn{}, nil, "", err
 	}
 	turn := conversation.Turn{ID: params.TurnID, ConversationID: params.ConversationID, ClientTurnID: params.ClientTurnID, PromptMessageID: messageID, ThroughMessageID: messageID, CreatedAt: parseTime(created), Created: true}
-	if _, err := tx.Exec(`INSERT INTO conversation_turn(id,conversation_id,client_turn_id,prompt_message_id,through_message_id,created_at) VALUES(?,?,?,?,?,?)`, turn.ID, turn.ConversationID, turn.ClientTurnID, messageID, messageID, created); err != nil {
+	if _, err := tx.Exec(`INSERT INTO conversation_turn(id,conversation_id,client_turn_id,prompt_message_id,through_message_id,context_json,created_at) VALUES(?,?,?,?,?,?,?)`, turn.ID, turn.ConversationID, turn.ClientTurnID, messageID, messageID, contextJSON, created); err != nil {
 		return conversation.Turn{}, nil, "", err
 	}
 	targets := make([]conversation.Target, 0, len(params.Targets))
@@ -328,19 +427,23 @@ VALUES(?,?,NULL,?,?,?,?)`, params.ConversationID, params.TurnID, string(conversa
 		var participant conversation.Participant
 		var model, removedAt sql.NullString
 		var participantState, participantCreated string
-		if err := tx.QueryRow(`SELECT id,conversation_id,seat_id,profile,agent,model,machine,display_name,position,state,created_at,removed_at FROM conversation_participant WHERE id=?`, requested.ParticipantID).Scan(
+		participantErr := tx.QueryRow(`SELECT id,conversation_id,seat_id,profile,agent,model,machine,display_name,position,state,created_at,removed_at FROM conversation_participant WHERE id=?`, requested.ParticipantID).Scan(
 			&participant.ID, &participant.ConversationID, &participant.SeatID, &participant.Profile, &participant.Agent, &model,
 			&participant.Machine, &participant.DisplayName, &participant.Position, &participantState, &participantCreated, &removedAt,
-		); err != nil {
-			return conversation.Turn{}, nil, "", err
+		)
+		if errors.Is(participantErr, sql.ErrNoRows) {
+			return conversation.Turn{}, nil, "", conversation.NewBoundedError(conversation.ErrorParticipantUnknown, fmt.Errorf("participant %s is not in conversation %s", requested.ParticipantID, params.ConversationID))
+		}
+		if participantErr != nil {
+			return conversation.Turn{}, nil, "", participantErr
 		}
 		participant.Model, participant.State, participant.CreatedAt = model.String, conversation.ParticipantState(participantState), parseTime(participantCreated)
 		participant.RemovedAt = parseTime(removedAt.String)
 		if participant.ConversationID != params.ConversationID {
-			return conversation.Turn{}, nil, "", fmt.Errorf("participant %s is not in conversation %s", requested.ParticipantID, params.ConversationID)
+			return conversation.Turn{}, nil, "", conversation.NewBoundedError(conversation.ErrorParticipantUnknown, fmt.Errorf("participant %s is not in conversation %s", requested.ParticipantID, params.ConversationID))
 		}
 		if participant.State != conversation.ParticipantActive {
-			return conversation.Turn{}, nil, "", fmt.Errorf("participant %s is removed", requested.ParticipantID)
+			return conversation.Turn{}, nil, "", conversation.NewBoundedError(conversation.ErrorParticipantRemoved, fmt.Errorf("participant %s is removed", requested.ParticipantID))
 		}
 		if _, err := conversation.CompileParticipantPrompt(contextJSON, participant); err != nil {
 			return conversation.Turn{}, nil, "", err
@@ -412,36 +515,106 @@ func (s *Store) AnswerConversationTarget(id string, message conversation.Message
 		return false, err
 	}
 	defer tx.Rollback()
+	failAnswer := func(cause error) (bool, error) {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			cause = errors.Join(cause, rollbackErr)
+		}
+		if _, terminalErr := s.TransitionConversationTargetWithCode(
+			id, conversation.TargetWorking, conversation.TargetFailed,
+			"answer_persist_failed", "failed to persist attributed answer",
+		); terminalErr != nil {
+			cause = errors.Join(cause, terminalErr)
+		}
+		return false, cause
+	}
 	result, err := tx.Exec(`UPDATE conversation_target SET state=?,error='',updated_at=? WHERE id=? AND state=?`,
 		conversation.TargetAnswered, nowOr(message.CreatedAt), id, conversation.TargetWorking)
 	if err != nil {
-		return false, err
+		return failAnswer(err)
 	}
 	changed, err := result.RowsAffected()
-	if err != nil || changed != 1 {
+	if err != nil {
+		return failAnswer(err)
+	}
+	if changed != 1 {
 		return false, err
 	}
 	if _, err := tx.Exec(`INSERT INTO conversation_message(conversation_id,turn_id,target_id,author_kind,author_id,body,created_at) VALUES(?,?,?,?,?,?,?)`,
 		message.ConversationID, nullableString(message.TurnID), message.TargetID, message.AuthorKind, message.AuthorID, message.Body, nowOr(message.CreatedAt)); err != nil {
-		return false, err
+		return failAnswer(err)
 	}
 	if _, err := tx.Exec(`UPDATE conversation SET updated_at=? WHERE id=?`, nowOr(message.CreatedAt), message.ConversationID); err != nil {
-		return false, err
+		return failAnswer(err)
 	}
 	if err := tx.Commit(); err != nil {
-		return false, err
+		return failAnswer(err)
 	}
 	return true, nil
 }
 
 func (s *Store) FailInterruptedConversationTargets(reason string) (int, error) {
-	result, err := s.db.Exec(`UPDATE conversation_target SET state=?,error_code='daemon_interrupted',error=?,updated_at=? WHERE state IN (?,?)`,
-		conversation.TargetFailed, reason, nowOr(time.Time{}), conversation.TargetQueued, conversation.TargetWorking)
+	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
-	changed, err := result.RowsAffected()
-	return int(changed), err
+	defer tx.Rollback()
+
+	rows, err := tx.Query(`SELECT id,run_id FROM conversation_target WHERE state IN (?,?) ORDER BY created_at,id`, conversation.TargetQueued, conversation.TargetWorking)
+	if err != nil {
+		return 0, err
+	}
+	type interruptedTarget struct{ id, runID string }
+	var targets []interruptedTarget
+	for rows.Next() {
+		var target interruptedTarget
+		if err := rows.Scan(&target.id, &target.runID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		targets = append(targets, target)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	now := nowOr(time.Time{})
+	changed := 0
+	for _, target := range targets {
+		result, updateErr := tx.Exec(`UPDATE conversation_target SET state=?,error_code='daemon_interrupted',error=?,updated_at=? WHERE id=? AND state IN (?,?)`,
+			conversation.TargetFailed, reason, now, target.id, conversation.TargetQueued, conversation.TargetWorking)
+		if updateErr != nil {
+			return 0, updateErr
+		}
+		rowsAffected, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			return 0, rowsErr
+		}
+		if rowsAffected == 0 {
+			continue
+		}
+		changed++
+		runResult, runErr := tx.Exec(`UPDATE run SET status='failed',exit_code=-1,error=?,updated_at=? WHERE id=? AND status IN ('queued','running')`, reason, now, target.runID)
+		if runErr != nil {
+			return 0, runErr
+		}
+		runChanged, runRowsErr := runResult.RowsAffected()
+		if runRowsErr != nil {
+			return 0, runRowsErr
+		}
+		if runChanged > 0 {
+			if _, eventErr := tx.Exec(`INSERT INTO event(run_id,node_id,type,data,code,created_at) VALUES(?,NULL,'error',?,-1,?)`, target.runID, reason, now); eventErr != nil {
+				return 0, eventErr
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return changed, nil
 }
 
 func (s *Store) GetConversationTargetDispatch(id string) (ConversationTargetDispatch, error) {
@@ -506,11 +679,25 @@ func (s *Store) RetryConversationTarget(originalID, newID, newRunID string, crea
 }
 
 func (s *Store) ConversationContext(conversationID string, throughMessageID int64) (string, error) {
-	messages, err := s.conversationMessages(conversationID)
+	var turnID string
+	var frozen sql.NullString
+	err := s.db.QueryRow(`SELECT id,context_json FROM conversation_turn WHERE conversation_id=? AND through_message_id=? ORDER BY created_at,id LIMIT 1`, conversationID, throughMessageID).Scan(&turnID, &frozen)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	if err == nil && frozen.Valid && frozen.String != "" {
+		return frozen.String, nil
+	}
+	contextJSON, err := conversationContextQuery(s.db, conversationID, throughMessageID)
 	if err != nil {
 		return "", err
 	}
-	return conversation.CompileContext(conversationID, throughMessageID, messages)
+	if turnID != "" {
+		if _, err := s.db.Exec(`UPDATE conversation_turn SET context_json=? WHERE id=? AND (context_json IS NULL OR context_json='')`, contextJSON, turnID); err != nil {
+			return "", err
+		}
+	}
+	return contextJSON, nil
 }
 
 func (s *Store) ListConversationTargetDispatches(states ...conversation.TargetState) ([]ConversationTargetDispatch, error) {
@@ -573,7 +760,11 @@ func scanConversation(row scanner) (conversation.Conversation, error) {
 }
 
 func (s *Store) conversationParticipants(id string) ([]conversation.Participant, error) {
-	rows, err := s.db.Query(`SELECT id,conversation_id,seat_id,profile,agent,model,machine,display_name,position,state,created_at,removed_at FROM conversation_participant WHERE conversation_id=? ORDER BY position,id`, id)
+	return conversationParticipantsQuery(s.db, id)
+}
+
+func conversationParticipantsQuery(queryer rowsQueryer, id string) ([]conversation.Participant, error) {
+	rows, err := queryer.Query(`SELECT id,conversation_id,seat_id,profile,agent,model,machine,display_name,position,state,created_at,removed_at FROM conversation_participant WHERE conversation_id=? ORDER BY position,id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -640,6 +831,18 @@ func conversationMessagesQuery(queryer rowsQueryer, id string) ([]conversation.M
 		out = append(out, message)
 	}
 	return out, rows.Err()
+}
+
+func conversationContextQuery(queryer rowsQueryer, conversationID string, throughMessageID int64) (string, error) {
+	participants, err := conversationParticipantsQuery(queryer, conversationID)
+	if err != nil {
+		return "", err
+	}
+	messages, err := conversationMessagesQuery(queryer, conversationID)
+	if err != nil {
+		return "", err
+	}
+	return conversation.CompileContext(conversationID, throughMessageID, participants, messages)
 }
 
 func (s *Store) conversationTurns(id string) ([]conversation.Turn, error) {

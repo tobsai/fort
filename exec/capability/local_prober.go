@@ -11,14 +11,16 @@ import (
 )
 
 const (
-	codexVersion    = "codex-cli 0.146.0-alpha.3.1"
+	codexVersion    = "codex-cli 0.146.0-alpha.9.2"
 	claudeVersion   = "2.1.207 (Claude Code)"
 	hermesVersion   = "Hermes Agent v0.15.1"
 	openClawVersion = "2026.7.1-2"
 	himalayaVersion = "1.2.0"
 
-	codexNormalSchemaDigest       = "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6"
-	codexExperimentalSchemaDigest = "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf"
+	codexNormalSchemaDigest       = "617822e63708afdfcfd539255f34ffb31f07cd4172743bcfc62fc7e88bf976aa"
+	codexNormalSchemaFiles        = 275
+	codexExperimentalSchemaDigest = "16bb47445caca91a3316a8b60ff9e0f9918918b3bb352cfa00f07c825a958130"
+	codexExperimentalSchemaFiles  = 349
 )
 
 // CodexInspection contains normalized process-private facts extracted from one
@@ -155,7 +157,7 @@ func (p *LocalProber) codexNative(ctx context.Context, experimental bool) ProbeO
 	if inspection.ExecutableDigest == "" || inspection.ExecutableDigest != version.ExecutableDigest {
 		return unsatisfied(corecap.ReasonIncompatibleVersion)
 	}
-	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != 273 {
+	if inspection.NormalSchemaDigest != codexNormalSchemaDigest || inspection.NormalSchemaFiles != codexNormalSchemaFiles {
 		return unsatisfied(corecap.ReasonIncompatibleVersion)
 	}
 	binding := []string{
@@ -165,7 +167,7 @@ func (p *LocalProber) codexNative(ctx context.Context, experimental bool) ProbeO
 	}
 	if experimental {
 		if inspection.ExperimentalSchemaDigest != codexExperimentalSchemaDigest ||
-			inspection.ExperimentalSchemaFiles != 347 {
+			inspection.ExperimentalSchemaFiles != codexExperimentalSchemaFiles {
 			return unsatisfied(corecap.ReasonIncompatibleVersion)
 		}
 		binding = append(binding, "schema.experimental="+inspection.ExperimentalSchemaDigest)
@@ -202,7 +204,11 @@ func (p *LocalProber) codexModel(ctx context.Context, profile string) ProbeObser
 	if model == "" || !inspection.Models[model] {
 		return unsatisfied(corecap.ReasonModelUnavailable)
 	}
-	return satisfied("model=" + model)
+	observation = satisfied("model=" + model)
+	if profile == "codex:configured-default" {
+		observation.ResolvedModel = model
+	}
+	return observation
 }
 
 func (p *LocalProber) inspectCodex(ctx context.Context) (CodexInspection, ProbeObservation) {
@@ -221,17 +227,18 @@ func (p *LocalProber) inspectCodex(ctx context.Context) (CodexInspection, ProbeO
 
 func (p *LocalProber) claudeAccount(ctx context.Context) ProbeObservation {
 	result := p.run(ctx, "claude", "auth", "status", "--json")
-	if result.Err != nil {
-		return commandFailure(result.Err)
-	}
 	var status struct {
 		LoggedIn bool `json:"loggedIn"`
 	}
-	if err := json.Unmarshal(result.Output, &status); err != nil {
-		return unsatisfied(corecap.ReasonCommandContractChanged)
-	}
-	if !status.LoggedIn {
+	parseErr := json.Unmarshal(result.Output, &status)
+	if parseErr == nil && !status.LoggedIn {
 		return unsatisfied(corecap.ReasonAuthRequired)
+	}
+	if result.Err != nil {
+		return commandFailure(result.Err)
+	}
+	if parseErr != nil {
+		return unsatisfied(corecap.ReasonCommandContractChanged)
 	}
 	return satisfied("authenticated=true", "executable="+result.ExecutableDigest)
 }
@@ -282,7 +289,9 @@ func (p *LocalProber) hermesModel(ctx context.Context, profile string) ProbeObse
 			return unsatisfied(corecap.ReasonAuthRequired)
 		}
 	case "hermes:openai-codex/gpt-5.6-sol":
-		if !strings.Contains(output, "openai-codex") || !strings.Contains(output, "gpt-5.6-sol") {
+		normalizedOutput := strings.Join(strings.Fields(output), " ")
+		providerReady := strings.Contains(output, "openai-codex") || strings.Contains(normalizedOutput, "Provider: OpenAI Codex")
+		if !providerReady || !strings.Contains(output, "gpt-5.6-sol") {
 			return unsatisfied(corecap.ReasonModelUnavailable)
 		}
 	default:

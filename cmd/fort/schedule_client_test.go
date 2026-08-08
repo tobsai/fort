@@ -25,12 +25,28 @@ func TestCmdScheduleCreatesDefinitionInRunningDaemon(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("FORT_ADDR", strings.TrimPrefix(server.URL, "http://"))
+	t.Setenv("FORT_DISPLAY_TIMEZONE", "America/Chicago")
 
 	if err := cmdSchedule([]string{"once", "1h", "brief"}); err != nil {
 		t.Fatalf("schedule: %v", err)
 	}
 	definition := <-received
-	if definition.Kind != scheduler.KindOnce || definition.FlowID != "brief" || definition.Expression == "" || definition.Timezone == "" {
+	if definition.Kind != scheduler.KindOnce || definition.FlowID != "brief" || definition.Expression == "" || definition.Timezone != "America/Chicago" {
 		t.Fatalf("definition = %+v", definition)
+	}
+}
+
+func TestCmdScheduleConnectionFailureExplainsHowToStartFort(t *testing.T) {
+	t.Setenv("FORT_ADDR", "127.0.0.1:0")
+	t.Setenv("FORT_DISPLAY_TIMEZONE", "America/Chicago")
+
+	err := cmdSchedule([]string{"once", "1h", "brief"})
+	if err == nil {
+		t.Fatal("schedule unexpectedly reached a daemon")
+	}
+	for _, want := range []string{"start Fort", "fort serve", "/api/schedules"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("connection error lacks %q: %v", want, err)
+		}
 	}
 }

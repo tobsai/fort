@@ -172,6 +172,10 @@ func cmdServe(args []string) error {
 	inboxDir := fs.String("inbox", ".fort-native/inbox", "task inbox directory to watch")
 	_ = fs.Parse(args)
 
+	todayLocation, err := config.Load(os.Getenv).DisplayLocation()
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
 	a, err := buildApp()
 	if err != nil {
 		return err
@@ -243,13 +247,14 @@ func cmdServe(args []string) error {
 			return fmt.Errorf("scheduled flow %q failed", definition.FlowID)
 		}
 		return nil
-	})
+	}, todayLocation)
 	if err := durableSchedules.Start(ctx); err != nil {
 		return fmt.Errorf("start durable scheduler: %w", err)
 	}
 	defer durableSchedules.Stop()
 	deps.Conversations = conversationService
-	deps.Today = control.NewTodayService(a.store, durableSchedules, conversationService)
+	deps.Today = control.NewTodayService(a.store, conversationService)
+	deps.TodayLocation = todayLocation
 	deps.Schedules = control.NewScheduleService(durableSchedules, ids)
 	// Task breakdown (spec 026): a planner agent decomposes a goal into backlog
 	// sub-tasks. FORT_PLANNER selects the agent (default claude). Only wired in
@@ -267,6 +272,7 @@ func cmdServe(args []string) error {
 	deps.Machines = roster
 	if a.caps != nil {
 		deps.Capabilities = a.caps.coordinator
+		deps.SeatRechecker = a.caps.coordinator
 		a.caps.start(ctx, time.Minute)
 	}
 	uiSrv := ui.New(deps)

@@ -11,14 +11,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/tobsai/fort/control"
+	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/config"
+	"github.com/tobsai/fort/core/conversation"
 	"github.com/tobsai/fort/core/machines"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
+	execcap "github.com/tobsai/fort/exec/capability"
 	"github.com/tobsai/fort/exec/cluster"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/exec/meshjoin"
@@ -27,9 +31,58 @@ import (
 	"github.com/tobsai/fort/ui"
 )
 
-// TestMeshPairingEndToEnd drives the full spec-024 enrollment flow through the
-// real HTTP handlers: invite → join → cross-machine dispatch → remove. It
-// assembles two Forts:
+type meshReadyCapabilityProber struct {
+	configuredModel string
+}
+
+func (p meshReadyCapabilityProber) Probe(_ context.Context, request execcap.ProbeRequest) execcap.ProbeObservation {
+	observation := execcap.ProbeObservation{
+		State:         corecap.PredicateSatisfied,
+		StableBinding: []string{"mesh-e2e=" + request.PredicateID},
+	}
+	if request.ProfileID == "codex:configured-default" && request.PredicateID == "predicate.codex.model.codex:configured-default.v1" {
+		observation.ResolvedModel = p.configuredModel
+	}
+	return observation
+}
+
+func newMeshCapabilityRegistry(t *testing.T, nodeID string, key byte, configuredModel string, now time.Time) *execcap.Registry {
+	t.Helper()
+	registry, err := execcap.NewRegistry(execcap.RegistryOptions{
+		NodeID: nodeID, Platform: "darwin/arm64", RevisionKey: bytes.Repeat([]byte{key}, 32),
+		Prober: meshReadyCapabilityProber{configuredModel: configuredModel}, Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new %s capability registry: %v", nodeID, err)
+	}
+	return registry
+}
+
+type meshRecordingRuntime struct {
+	next runtime.Runtime
+
+	mu    sync.Mutex
+	specs []runtime.RunSpec
+}
+
+func (r *meshRecordingRuntime) Name() string { return "mesh-recorder(" + r.next.Name() + ")" }
+
+func (r *meshRecordingRuntime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.Run, error) {
+	r.mu.Lock()
+	r.specs = append(r.specs, spec)
+	r.mu.Unlock()
+	return r.next.Dispatch(ctx, spec)
+}
+
+func (r *meshRecordingRuntime) Dispatched() []runtime.RunSpec {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]runtime.RunSpec(nil), r.specs...)
+}
+
+// TestMeshPairingEndToEnd drives the spec-024 enrollment and spec-041 shared
+// conversation flows through the real HTTP handlers: invite → join → raw and
+// conversation dispatch → remove. It assembles two Forts:
 //
 //   - a HUB: a meshjoin.Server + a roster (GET /api/machines) mounted on one
 //     mux, served over an httptest server; its data dir is dirA.
@@ -50,6 +103,7 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 	// --- worker Fort: node exec endpoint over a fake runtime ---
 	dirB := t.TempDir()
 	workerFake := fake.New()
+	workerCapabilities := newMeshCapabilityRegistry(t, workerName, 0x22, "gpt-5.6-terra", now)
 	// The worker token becomes live only after the CLI-equivalent SaveNodeFile;
 	// node.New reads it fresh per request via this closure (spec 024).
 	workerTokenOf := func() string {
@@ -57,6 +111,7 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 		return nf.Token
 	}
 	workerNode := node.New(workerFake, workerTokenOf)
+	workerNode.UseCapabilities(workerCapabilities)
 	workerMux := http.NewServeMux()
 	workerNode.Register(workerMux)
 	workerSrv := httptest.NewServer(workerMux)
@@ -76,6 +131,21 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 	clus := cluster.New("hub", hubFake, nil)
 	tokens := meshjoin.NewTokenStore("", dirA, "hub", "127.0.0.1:4087")
 	regPath := filepath.Join(dirA, "machines.yaml")
+	hubCapabilities := newMeshCapabilityRegistry(t, "hub", 0x11, "gpt-5.6-sol", now)
+	capabilityCoordinator, err := control.NewCapabilityCoordinator(control.CapabilityCoordinatorOptions{
+		Live: live, LocalName: "hub", Local: hubCapabilities,
+		Peers: execcap.NewClientWithToken(tokens.Get), Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new hub capability coordinator: %v", err)
+	}
+	// Record the exact Fort-owned profile before the gate lowers it to the
+	// legacy provider selector; the gate itself wraps the real local/remote
+	// cluster and performs a fresh exact-machine preflight before every target.
+	conversationRuntime := &meshRecordingRuntime{next: execcap.NewProfileGate(clus, capabilityCoordinator)}
+	conversationSeats := control.SnapshotConversationSeats{Source: capabilityCoordinator}
+	conversationService := control.NewConversationService(hubStore, conversationRuntime, conversationSeats, dirA)
+	defer conversationService.Close()
 
 	meshSrv := &meshjoin.Server{
 		Live:         live,
@@ -91,7 +161,10 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 		Log:          slog.Default(),
 	}
 	roster := control.NewRoster(live)
-	uiSrv := ui.New(ui.Deps{Store: hubStore, Machines: roster})
+	uiSrv := ui.New(ui.Deps{
+		Store: hubStore, Machines: roster, Conversations: conversationService,
+		Capabilities: capabilityCoordinator, SeatRechecker: capabilityCoordinator,
+	})
 
 	hubMux := http.NewServeMux()
 	uiSrv.Register(hubMux)
@@ -276,6 +349,16 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 		t.Fatalf("worker SaveNodeFile: %v", err)
 	}
 	clus.Add(workerName, remote.New(workerName, workerSrv.URL, hubToken))
+	// Keep the enrollment assertions above tied to the derived private URL, then
+	// point this in-process test cluster's live transport registry at the real
+	// worker server. Both capability discovery and execution now traverse that
+	// authenticated node HTTP surface.
+	workerEntry, ok := live.Load().Machine(workerName)
+	if !ok {
+		t.Fatal("worker missing before installing test transport URL")
+	}
+	workerEntry.URL = workerSrv.URL
+	live.Store(live.Load().WithMachine(workerEntry))
 
 	run, err := clus.Dispatch(context.Background(), runtime.RunSpec{
 		RunID: "r-e2e", Agent: "claude", Prompt: "hello mesh", Machine: workerName,
@@ -303,6 +386,201 @@ func TestMeshPairingEndToEnd(t *testing.T) {
 	}
 	if got := dispatched[0]; got.RunID != "r-e2e" || got.Machine != "" {
 		t.Fatalf("worker spec = %+v, want RunID=r-e2e Machine=\"\" (node strips placement)", got)
+	}
+
+	// =========================================================================
+	// (4c) SHARED CONVERSATION — one durable human turn fans out through the
+	//      real local + remote transports and restores both attributed answers
+	//      from the hub conversation API.
+	// =========================================================================
+	rec = doHub("GET", "/api/conversation-seats", "127.0.0.1:5555", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get unprobed mesh conversation seats: %d %s, want 200", rec.Code, rec.Body)
+	}
+	var seats []conversation.Seat
+	if err := json.Unmarshal(rec.Body.Bytes(), &seats); err != nil {
+		t.Fatalf("decode unprobed mesh conversation seats: %v", err)
+	}
+	if len(seats) != 0 {
+		t.Fatalf("unprobed mesh conversation seats = %+v, want none before functional recheck", seats)
+	}
+	rec = doHub("POST", "/api/conversation-seats/recheck", "127.0.0.1:5555", map[string]any{})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("recheck mesh conversation seats: %d %s, want 200", rec.Code, rec.Body)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &seats); err != nil {
+		t.Fatalf("decode rechecked mesh conversation seats: %v", err)
+	}
+	findReadySeat := func(profile, agent, model, machine string) string {
+		t.Helper()
+		for _, seat := range seats {
+			if seat.Profile != profile || seat.Machine != machine {
+				continue
+			}
+			if !strings.HasPrefix(seat.ID, "seat:v1:") || strings.Contains(seat.ID, profile) ||
+				strings.Contains(seat.ID, machine) || strings.Contains(seat.ID, model) ||
+				seat.Agent != agent || seat.Model != model || seat.State != string(corecap.OfferReady) || seat.Reason != "" {
+				t.Fatalf("rechecked exact seat = %+v, want ready %s/%s on %s", seat, agent, model, machine)
+			}
+			return seat.ID
+		}
+		t.Fatalf("rechecked seats do not contain %s on %s: %+v", profile, machine, seats)
+		return ""
+	}
+	hubSeatID := findReadySeat("codex:configured-default", "codex", "gpt-5.6-sol", "hub")
+	workerSeatID := findReadySeat("codex:configured-default", "codex", "gpt-5.6-terra", workerName)
+	if hubSeatID == workerSeatID {
+		t.Fatalf("model-versioned seats collided across machines: %q", hubSeatID)
+	}
+	// Capability discovery is evidence only: it must not invoke either runtime.
+	if got := len(hubFake.Dispatched()); got != 0 {
+		t.Fatalf("seat recheck dispatched %d hub runs, want 0", got)
+	}
+	if got := len(workerFake.Dispatched()); got != 1 {
+		t.Fatalf("seat recheck changed worker dispatch count to %d, want only the prior raw dispatch", got)
+	}
+	if got := len(conversationRuntime.Dispatched()); got != 0 {
+		t.Fatalf("seat recheck dispatched %d conversation targets, want 0", got)
+	}
+	rec = doHub("POST", "/api/conversations", "127.0.0.1:5555", map[string]any{
+		"title":    "Mesh conversation",
+		"seat_ids": []string{hubSeatID, workerSeatID},
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create mesh conversation: %d %s, want 201", rec.Code, rec.Body)
+	}
+	var created store.ConversationDetail
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode mesh conversation: %v", err)
+	}
+	if len(created.Participants) != 2 {
+		t.Fatalf("mesh conversation participants = %+v, want two exact seats", created.Participants)
+	}
+	for _, participant := range created.Participants {
+		wantModel := "gpt-5.6-sol"
+		if participant.Machine == workerName {
+			wantModel = "gpt-5.6-terra"
+		}
+		if participant.Profile != "codex:configured-default" || participant.Model != wantModel ||
+			participant.SeatID != findReadySeat(participant.Profile, "codex", wantModel, participant.Machine) {
+			t.Fatalf("persisted dynamic participant lost exact identity: %+v", participant)
+		}
+	}
+	participantIDs := make([]string, 0, len(created.Participants))
+	for _, participant := range created.Participants {
+		participantIDs = append(participantIDs, participant.ID)
+	}
+	rec = doHub("POST", "/api/conversations/"+created.Conversation.ID+"/turns", "127.0.0.1:5555", map[string]any{
+		"client_turn_id":  "mesh-conversation-turn",
+		"text":            "Answer together across the mesh.",
+		"participant_ids": participantIDs,
+	})
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("post mesh conversation turn: %d %s, want 202", rec.Code, rec.Body)
+	}
+
+	var restored store.ConversationDetail
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		rec = doHub("GET", "/api/conversations/"+created.Conversation.ID, "127.0.0.1:5555", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("restore mesh conversation: %d %s, want 200", rec.Code, rec.Body)
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &restored); err != nil {
+			t.Fatalf("decode restored mesh conversation: %v", err)
+		}
+		answered := 0
+		for _, target := range restored.Targets {
+			if target.State == conversation.TargetAnswered {
+				answered++
+			}
+		}
+		if answered == 2 && len(restored.Messages) == 3 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(restored.Targets) != 2 || len(restored.Messages) != 3 {
+		t.Fatalf("restored mesh conversation = %+v, want one human message and two answers", restored)
+	}
+	for _, target := range restored.Targets {
+		if target.State != conversation.TargetAnswered {
+			t.Fatalf("mesh conversation target = %+v, want answered", target)
+		}
+	}
+	authors := map[string]bool{}
+	for _, message := range restored.Messages {
+		if message.AuthorKind == conversation.AuthorAssistant {
+			authors[message.AuthorID] = true
+		}
+	}
+	for _, participant := range restored.Participants {
+		if !authors[participant.ID] {
+			t.Fatalf("participant %s on %s has no attributed answer: %+v", participant.ID, participant.Machine, restored.Messages)
+		}
+	}
+	hubSpecs := hubFake.Dispatched()
+	if got := len(hubSpecs); got != 1 {
+		t.Fatalf("hub received %d conversation specs, want 1", got)
+	}
+	workerSpecs := workerFake.Dispatched()
+	if got := len(workerSpecs); got != 2 {
+		t.Fatalf("worker received %d total specs, want raw dispatch plus one conversation target", got)
+	}
+	conversationSpecs := conversationRuntime.Dispatched()
+	if got := len(conversationSpecs); got != 2 {
+		t.Fatalf("conversation service dispatched %d specs, want 2", got)
+	}
+	var hubSpec, workerSpec runtime.RunSpec
+	for _, spec := range conversationSpecs {
+		switch spec.Machine {
+		case "hub":
+			hubSpec = spec
+		case workerName:
+			workerSpec = spec
+		}
+	}
+	if hubSpec.Profile != "codex:configured-default" || hubSpec.Agent != "codex" || hubSpec.Model != "gpt-5.6-sol" {
+		t.Fatalf("hub conversation dispatch lost exact seat: %+v", hubSpec)
+	}
+	if workerSpec.Profile != "codex:configured-default" || workerSpec.Agent != "codex" || workerSpec.Model != "gpt-5.6-terra" {
+		t.Fatalf("worker conversation dispatch lost exact seat: %+v", workerSpec)
+	}
+	// Spec 039 intentionally lowers the Fort-owned profile before the legacy
+	// node execution protocol. The exact seat remains in the durable run and
+	// compiled prompt; the worker receives the exact provider selector and runs
+	// locally after node strips the spent placement label.
+	if got := workerSpecs[1]; got.Profile != "" || got.Agent != "codex" || got.Model != "gpt-5.6-terra" || got.Machine != "" {
+		t.Fatalf("worker provider spec = %+v, want lowered exact selector and local placement", got)
+	}
+	if got := hubSpecs[0]; got.Profile != "" || got.Agent != "codex" || got.Model != "gpt-5.6-sol" || got.Machine != "hub" {
+		t.Fatalf("hub provider spec = %+v, want lowered exact selector on persisted local placement", got)
+	}
+	type compiledPrompt struct {
+		Participant struct {
+			Profile string `json:"profile"`
+			Machine string `json:"machine"`
+		} `json:"participant"`
+		Context json.RawMessage `json:"context"`
+	}
+	var hubPrompt, workerPrompt compiledPrompt
+	if err := json.Unmarshal([]byte(hubSpec.Prompt), &hubPrompt); err != nil {
+		t.Fatalf("decode hub conversation prompt: %v", err)
+	}
+	if err := json.Unmarshal([]byte(workerSpec.Prompt), &workerPrompt); err != nil {
+		t.Fatalf("decode worker conversation prompt: %v", err)
+	}
+	if hubPrompt.Participant.Profile != "codex:configured-default" || hubPrompt.Participant.Machine != "hub" {
+		t.Fatalf("hub prompt participant = %+v", hubPrompt.Participant)
+	}
+	if workerPrompt.Participant.Profile != "codex:configured-default" || workerPrompt.Participant.Machine != workerName {
+		t.Fatalf("worker prompt participant = %+v", workerPrompt.Participant)
+	}
+	if !bytes.Equal(hubPrompt.Context, workerPrompt.Context) ||
+		!bytes.Contains(hubPrompt.Context, []byte(`"body":"Answer together across the mesh."`)) ||
+		!bytes.Contains(hubPrompt.Context, []byte(`"machine":"hub"`)) ||
+		!bytes.Contains(hubPrompt.Context, []byte(`"machine":"worker"`)) {
+		t.Fatalf("conversation targets did not receive one frozen exact context:\nhub: %s\nworker: %s", hubPrompt.Context, workerPrompt.Context)
 	}
 
 	// =========================================================================

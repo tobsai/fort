@@ -134,7 +134,7 @@ func TestInputContractRevisionChangesWithConsumer(t *testing.T) {
 
 func readyClaudeProfile() ProfileOffer {
 	return ProfileOffer{
-		ID: "claude:configured-default", Agent: "claude", Adapter: "profile.claude.native",
+		ID: "claude:sonnet", Agent: "claude", Adapter: "profile.claude.native",
 		State: OfferReady, BindingRevision: "opaque:claude-profile",
 		Predicates: []Predicate{
 			{ID: "predicate.claude.native-contract.v1", Resolution: ResolutionProbe, State: PredicateSatisfied, DependsOn: []string{}, RemedyEffectIDs: []string{"effect.claude-2.1.207.v1"}},
@@ -145,7 +145,7 @@ func readyClaudeProfile() ProfileOffer {
 
 func readyClaudeBinding() ExecutionBindingOffer {
 	return ExecutionBindingOffer{
-		ID: "claude-native", Profile: "claude:configured-default", Capabilities: []string{},
+		ID: "claude-native", Profile: "claude:sonnet", Capabilities: []string{},
 		State: OfferReady, BindingRevision: "opaque:claude-binding",
 		Predicates: []Predicate{{
 			ID: "predicate.binding.claude-native.v1", Resolution: ResolutionDerived,

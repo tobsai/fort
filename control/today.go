@@ -3,6 +3,8 @@ package control
 import (
 	"context"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tobsai/fort/core/conversation"
@@ -12,26 +14,21 @@ import (
 	coretoday "github.com/tobsai/fort/core/today"
 )
 
-type TodayScheduleSource interface {
-	MaterializeDay(context.Context, time.Time, *time.Location) error
-}
-
 type ConversationActivity interface {
 	ConversationTargetActive(string) bool
 }
 
 type TodayService struct {
 	store     *store.Store
-	schedules TodayScheduleSource
 	activity  ConversationActivity
 	startedAt time.Time
 }
 
-func NewTodayService(st *store.Store, schedules TodayScheduleSource, activity ConversationActivity) *TodayService {
-	return &TodayService{store: st, schedules: schedules, activity: activity, startedAt: time.Now().UTC()}
+func NewTodayService(st *store.Store, activity ConversationActivity) *TodayService {
+	return &TodayService{store: st, activity: activity, startedAt: time.Now().UTC()}
 }
 
-func (s *TodayService) Today(ctx context.Context, now time.Time, location *time.Location) (coretoday.View, error) {
+func (s *TodayService) Today(_ context.Context, now time.Time, location *time.Location) (coretoday.View, error) {
 	if location == nil {
 		location = time.Local
 	}
@@ -64,7 +61,7 @@ func (s *TodayService) Today(ctx context.Context, now time.Time, location *time.
 			ConversationTitle: item.Conversation.Title, ProjectID: item.Conversation.ProjectID,
 			ProjectName: projectNames[item.Conversation.ProjectID], ParticipantID: item.Participant.ID,
 			ParticipantName: item.Participant.DisplayName, Agent: item.Participant.Agent,
-			Profile: item.Participant.Profile, Machine: item.Participant.Machine,
+			Profile: item.Participant.Profile, Model: item.Participant.Model, Machine: item.Participant.Machine,
 			State: item.Target.State, UpdatedAt: item.Target.UpdatedAt,
 		})
 	}
@@ -102,7 +99,7 @@ func (s *TodayService) Today(ctx context.Context, now time.Time, location *time.
 		}
 		view.InProgress = append(view.InProgress, coretoday.Progress{
 			RunID: run.ID, ConversationTitle: run.Title, Agent: run.Agent, Profile: run.Profile,
-			Machine: run.Machine, State: state, UpdatedAt: updatedAt,
+			Model: run.Model, Machine: run.Machine, State: state, UpdatedAt: updatedAt,
 		})
 	}
 	sort.SliceStable(view.InProgress, func(i, j int) bool {
@@ -113,11 +110,6 @@ func (s *TodayService) Today(ctx context.Context, now time.Time, location *time.
 	})
 
 	definitions := map[string]scheduler.Definition{}
-	if s.schedules != nil {
-		if err := s.schedules.MaterializeDay(ctx, now, location); err != nil {
-			return coretoday.View{}, err
-		}
-	}
 	items, err := s.store.ListSchedules()
 	if err != nil {
 		return coretoday.View{}, err
@@ -129,18 +121,59 @@ func (s *TodayService) Today(ctx context.Context, now time.Time, location *time.
 	if err != nil {
 		return coretoday.View{}, err
 	}
+	selectedOccurrences := map[string]scheduler.Occurrence{}
 	for _, occurrence := range occurrences {
 		definition, known := definitions[occurrence.ScheduleID]
 		if !known || !definition.Enabled {
 			continue
 		}
+		selected, exists := selectedOccurrences[occurrence.ScheduleID]
+		if !exists || preferTodayOccurrence(selected, occurrence, now) {
+			selectedOccurrences[occurrence.ScheduleID] = occurrence
+		}
+	}
+	for scheduleID, occurrence := range selectedOccurrences {
+		definition := definitions[scheduleID]
 		view.Scheduled = append(view.Scheduled, coretoday.Scheduled{
 			OccurrenceID: occurrence.ID, ScheduleID: occurrence.ScheduleID, FlowID: definition.FlowID,
-			Title: definition.Title, Recurrence: string(definition.Kind) + " · " + definition.Expression,
+			Title: definition.Title, Recurrence: recurrenceSummary(definition),
 			ScheduledFor: occurrence.ScheduledFor, State: occurrence.State, RunID: occurrence.RunID, Error: occurrence.Error,
 		})
 	}
+	sort.SliceStable(view.Scheduled, func(i, j int) bool {
+		return view.Scheduled[i].ScheduledFor.Before(view.Scheduled[j].ScheduledFor)
+	})
 	return view, nil
+}
+
+func preferTodayOccurrence(current, candidate scheduler.Occurrence, now time.Time) bool {
+	currentUpcoming := !current.ScheduledFor.Before(now)
+	candidateUpcoming := !candidate.ScheduledFor.Before(now)
+	if currentUpcoming != candidateUpcoming {
+		return candidateUpcoming
+	}
+	if candidateUpcoming {
+		return candidate.ScheduledFor.Before(current.ScheduledFor)
+	}
+	return candidate.ScheduledFor.After(current.ScheduledFor)
+}
+
+func recurrenceSummary(definition scheduler.Definition) string {
+	if definition.Kind == scheduler.KindOnce {
+		return "Once"
+	}
+	fields := strings.Fields(definition.Expression)
+	if definition.Kind == scheduler.KindCron && len(fields) == 6 && fields[0] == "0" {
+		if fields[1] == "0" && fields[2] == "*" && fields[3] == "*" && fields[4] == "*" && fields[5] == "*" {
+			return "Every hour"
+		}
+		minute, minuteErr := strconv.Atoi(fields[1])
+		hour, hourErr := strconv.Atoi(fields[2])
+		if minuteErr == nil && hourErr == nil && minute >= 0 && minute < 60 && hour >= 0 && hour < 24 && fields[3] == "*" && fields[4] == "*" && fields[5] == "*" {
+			return "Daily at " + time.Date(2000, 1, 1, hour, minute, 0, 0, time.UTC).Format("3:04 PM")
+		}
+	}
+	return string(definition.Kind) + " · " + definition.Expression
 }
 
 func legacyProviderActivity(eventType string) bool {

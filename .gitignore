@@ -12,6 +12,7 @@
 # Go build outputs
 bin/
 dist/
+/build/
 
 # swift / xcode build outputs
 ui/apple/**/.build/

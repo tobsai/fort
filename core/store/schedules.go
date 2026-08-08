@@ -83,3 +83,27 @@ func (s *Store) TransitionScheduleOccurrence(id string, from, to scheduler.Occur
 	changed, err := result.RowsAffected()
 	return changed == 1, err
 }
+
+func updateScheduleOccurrenceForRun(tx *sql.Tx, runID, runStatus, errorMessage, updatedAt string) error {
+	var state scheduler.OccurrenceState
+	switch runStatus {
+	case "queued", "blocked", "paused":
+		state = scheduler.OccurrenceFired
+	case "running":
+		state = scheduler.OccurrenceRunning
+	case "succeeded", "completed":
+		state = scheduler.OccurrenceSucceeded
+	case "failed", "error":
+		state = scheduler.OccurrenceFailed
+	case "canceled", "cancelled":
+		state = scheduler.OccurrenceCanceled
+	default:
+		return nil
+	}
+	if state != scheduler.OccurrenceFailed && state != scheduler.OccurrenceCanceled {
+		errorMessage = ""
+	}
+	_, err := tx.Exec(`UPDATE schedule_occurrence SET state=?,error=?,updated_at=? WHERE run_id=?`,
+		state, nullableString(errorMessage), updatedAt, runID)
+	return err
+}

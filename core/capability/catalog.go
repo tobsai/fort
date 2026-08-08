@@ -8,9 +8,9 @@ package capability
 import "strings"
 
 const (
-	ProtocolVersion       = 1
+	ProtocolVersion       = 2
 	CatalogVersion        = 2
-	ProfileMappingVersion = 2
+	ProfileMappingVersion = 3
 )
 
 // SelectionKind is the closed provider-selection strategy for a profile.
@@ -39,6 +39,12 @@ type ProfileDefinition struct {
 	Selection   ProfileSelection `json:"selection"`
 	DisplayName string           `json:"display_name"`
 	legacy      []string
+}
+
+// RequiresResolvedModel reports whether the provider's ambient configuration
+// must be resolved to an exact selector before this profile can be Ready.
+func (p ProfileDefinition) RequiresResolvedModel() bool {
+	return p.Selection.Kind == SelectionConfiguredDefault || p.Selection.Kind == SelectionConfiguredAgent
 }
 
 // CapabilityDefinition is one logical capability and its only v1 adapter.

@@ -5,11 +5,13 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/tobsai/fort/core/requestid"
 	"github.com/tobsai/fort/core/runtime"
+	"github.com/tobsai/fort/core/scheduler"
 	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/exec/fake"
 )
@@ -181,6 +183,229 @@ func TestGatePausesAndApproveResumes(t *testing.T) {
 	}
 }
 
+func TestScheduledGateKeepsOccurrenceTruthfulThroughResume(t *testing.T) {
+	ex, st, _ := newExec(t)
+	now := time.Date(2026, 8, 3, 3, 0, 0, 0, time.UTC)
+	definition := scheduler.Definition{
+		ID: "scheduled-gate", Kind: scheduler.KindOnce, Expression: now.Format(time.RFC3339),
+		FlowID: "g", Timezone: "UTC", Enabled: true, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := st.CreateSchedule(definition); err != nil {
+		t.Fatal(err)
+	}
+	runID := "schedule-" + scheduler.OccurrenceID(definition.ID, now)
+	if err := st.UpsertScheduleOccurrence(scheduler.Occurrence{
+		ID: scheduler.OccurrenceID(definition.ID, now), ScheduleID: definition.ID, RunID: runID,
+		ScheduledFor: now, State: scheduler.OccurrenceRunning, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ex.Start(context.Background(), gateFlow(), runID, "")
+	if err != nil || result.State != "paused" {
+		t.Fatalf("start = %+v err=%v, want paused", result, err)
+	}
+	occurrences, err := st.ScheduleOccurrencesBetween(now.Add(-time.Minute), now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(occurrences) != 1 || occurrences[0].State != scheduler.OccurrenceFired {
+		t.Fatalf("paused schedule occurrence = %+v, want fired", occurrences)
+	}
+
+	if err := ex.Approve(runID, "g1", ""); err != nil {
+		t.Fatal(err)
+	}
+	result, err = ex.Resume(context.Background(), gateFlow(), runID)
+	if err != nil || result.State != "completed" {
+		t.Fatalf("resume = %+v err=%v, want completed", result, err)
+	}
+	occurrences, err = st.ScheduleOccurrencesBetween(now.Add(-time.Minute), now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(occurrences) != 1 || occurrences[0].State != scheduler.OccurrenceSucceeded {
+		t.Fatalf("completed schedule occurrence = %+v, want succeeded", occurrences)
+	}
+}
+
+func TestResumeRejectsTerminalAndCanceledRuns(t *testing.T) {
+	for _, status := range []string{"succeeded", "failed", "canceled"} {
+		for _, async := range []bool{false, true} {
+			name := "sync"
+			if async {
+				name = "async"
+			}
+			t.Run(status+"/"+name, func(t *testing.T) {
+				ex, st, rt := newExec(t)
+				flow := Flow{ID: "terminal-resume", Start: "work", Nodes: []Node{{ID: "work", Type: Task, Agent: "codex"}}}
+				if err := st.CreateRun(store.Run{ID: "terminal-run", Title: "Terminal", Agent: "flow:" + flow.ID, Status: status, FlowID: flow.ID}); err != nil {
+					t.Fatal(err)
+				}
+				var resumeErr error
+				if async {
+					resumeErr = ex.ResumeAsync(context.Background(), flow, "terminal-run")
+					ex.Wait()
+				} else {
+					_, resumeErr = ex.Resume(context.Background(), flow, "terminal-run")
+				}
+				if resumeErr == nil {
+					t.Fatalf("Resume revived %s run", status)
+				}
+				run, err := st.GetRun("terminal-run")
+				if err != nil || run.Status != status {
+					t.Fatalf("terminal run = %+v err=%v, want status %s", run, err, status)
+				}
+				if got := rt.Dispatched(); len(got) != 0 {
+					t.Fatalf("terminal resume dispatched %d tasks", len(got))
+				}
+			})
+		}
+	}
+}
+
+func TestResumeRejectsUndecidedGateWithoutTransientRunMutation(t *testing.T) {
+	ex, st, _ := newExec(t)
+	flow := gateFlow()
+	if _, err := ex.Start(context.Background(), flow, "waiting-gate-run", "payload"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := st.GetRun("waiting-gate-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ex.Resume(context.Background(), flow, "waiting-gate-run"); err == nil {
+		t.Fatal("Resume accepted an undecided waiting gate")
+	}
+	after, err := st.GetRun("waiting-gate-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Status != "blocked" || !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("undecided resume mutated run: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestResumeRejectsMismatchedFlowWithoutClaimingRun(t *testing.T) {
+	ex, st, rt := newExec(t)
+	flow := gateFlow()
+	if _, err := ex.Start(context.Background(), flow, "mismatched-flow-run", "payload"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.Approve("mismatched-flow-run", "g1", ""); err != nil {
+		t.Fatal(err)
+	}
+	wrong := flow
+	wrong.ID = "different-flow"
+	if _, err := ex.Resume(context.Background(), wrong, "mismatched-flow-run"); err == nil {
+		t.Fatal("Resume accepted a different flow identity")
+	}
+	run, err := st.GetRun("mismatched-flow-run")
+	if err != nil || run.Status != "blocked" {
+		t.Fatalf("mismatched resume run = %+v err=%v, want blocked", run, err)
+	}
+	if got := rt.Dispatched(); len(got) != 0 {
+		t.Fatalf("mismatched resume dispatched %d tasks", len(got))
+	}
+}
+
+func TestInvalidResumeRestoresBlockedScheduleTruth(t *testing.T) {
+	ex, st, rt := newExec(t)
+	now := time.Date(2026, 8, 3, 3, 0, 0, 0, time.UTC)
+	definition := scheduler.Definition{
+		ID: "invalid-resume", Kind: scheduler.KindOnce, Expression: now.Format(time.RFC3339),
+		FlowID: "g", Timezone: "UTC", Enabled: true, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := st.CreateSchedule(definition); err != nil {
+		t.Fatal(err)
+	}
+	runID := "schedule-" + scheduler.OccurrenceID(definition.ID, now)
+	if err := st.UpsertScheduleOccurrence(scheduler.Occurrence{
+		ID: scheduler.OccurrenceID(definition.ID, now), ScheduleID: definition.ID, RunID: runID,
+		ScheduledFor: now, State: scheduler.OccurrenceRunning, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	flow := gateFlow()
+	if _, err := ex.Start(context.Background(), flow, runID, "payload"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.Approve(runID, "g1", ""); err != nil {
+		t.Fatal(err)
+	}
+	beforeRun, err := st.GetRun(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeOccurrences, err := st.ScheduleOccurrencesBetween(now.Add(-time.Minute), now.Add(time.Minute))
+	if err != nil || len(beforeOccurrences) != 1 {
+		t.Fatalf("occurrences before invalid resume = %+v err=%v", beforeOccurrences, err)
+	}
+	invalid := flow
+	invalid.Start = "missing"
+	if _, err := ex.Resume(context.Background(), invalid, runID); err == nil {
+		t.Fatal("Resume accepted an invalid flow start")
+	}
+	run, err := st.GetRun(runID)
+	if err != nil || run.Status != "blocked" {
+		t.Fatalf("invalid resume run = %+v err=%v, want blocked", run, err)
+	}
+	occurrences, err := st.ScheduleOccurrencesBetween(now.Add(-time.Minute), now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(occurrences) != 1 || occurrences[0].State != scheduler.OccurrenceFired {
+		t.Fatalf("invalid resume occurrence = %+v, want fired", occurrences)
+	}
+	if !run.UpdatedAt.Equal(beforeRun.UpdatedAt) || !occurrences[0].UpdatedAt.Equal(beforeOccurrences[0].UpdatedAt) {
+		t.Fatalf("invalid resume caused a transient durable mutation: run %s -> %s, occurrence %s -> %s",
+			beforeRun.UpdatedAt, run.UpdatedAt, beforeOccurrences[0].UpdatedAt, occurrences[0].UpdatedAt)
+	}
+	if got := rt.Dispatched(); len(got) != 0 {
+		t.Fatalf("invalid resume dispatched %d tasks", len(got))
+	}
+}
+
+func TestResumeWalkErrorFailsRunAndScheduleOccurrence(t *testing.T) {
+	ex, st, _ := newExec(t)
+	now := time.Date(2026, 8, 3, 3, 0, 0, 0, time.UTC)
+	definition := scheduler.Definition{
+		ID: "resume-error", Kind: scheduler.KindOnce, Expression: now.Format(time.RFC3339),
+		FlowID: "resume-error-flow", Timezone: "UTC", Enabled: true, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := st.CreateSchedule(definition); err != nil {
+		t.Fatal(err)
+	}
+	runID := "schedule-" + scheduler.OccurrenceID(definition.ID, now)
+	if err := st.UpsertScheduleOccurrence(scheduler.Occurrence{
+		ID: scheduler.OccurrenceID(definition.ID, now), ScheduleID: definition.ID, RunID: runID,
+		ScheduledFor: now, State: scheduler.OccurrenceRunning, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	flow := Flow{ID: definition.FlowID, Start: "approval", Nodes: []Node{
+		{ID: "approval", Type: Gate, Edges: []Edge{{On: OutApprove, To: "broken"}}},
+		{ID: "broken", Type: NodeType("unsupported")},
+	}}
+	if result, err := ex.Start(context.Background(), flow, runID, "payload"); err != nil || result.State != "paused" {
+		t.Fatalf("start = %+v err=%v, want paused", result, err)
+	}
+	if err := ex.Approve(runID, "approval", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ex.Resume(context.Background(), flow, runID); err == nil {
+		t.Fatal("Resume unexpectedly executed an unsupported node")
+	}
+	run, err := st.GetRun(runID)
+	if err != nil || run.Status != "failed" {
+		t.Fatalf("errored resume run = %+v err=%v, want failed", run, err)
+	}
+	occurrences, err := st.ScheduleOccurrencesBetween(now.Add(-time.Minute), now.Add(time.Minute))
+	if err != nil || len(occurrences) != 1 || occurrences[0].State != scheduler.OccurrenceFailed {
+		t.Fatalf("errored resume occurrence = %+v err=%v, want failed", occurrences, err)
+	}
+}
+
 func TestGateRejectTakesRejectEdge(t *testing.T) {
 	ex, st, _ := newExec(t)
 	f := gateFlow()
@@ -283,20 +508,75 @@ func TestGateDecisionsAppendEvents(t *testing.T) {
 }
 
 type blockingGraphDispatch struct {
-	started chan struct{}
-	release chan struct{}
+	started     chan struct{}
+	release     chan struct{}
+	startedOnce sync.Once
+	releaseOnce sync.Once
+	mu          sync.Mutex
+	calls       int
 }
 
 func (r *blockingGraphDispatch) Name() string { return "blocking-graph-dispatch" }
 
 func (r *blockingGraphDispatch) Dispatch(ctx context.Context, _ runtime.RunSpec) (runtime.Run, error) {
-	close(r.started)
+	r.mu.Lock()
+	r.calls++
+	r.mu.Unlock()
+	r.startedOnce.Do(func() { close(r.started) })
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-r.release:
 		return nil, errors.New("released dispatch failure")
 	}
+}
+
+func (r *blockingGraphDispatch) unblock() { r.releaseOnce.Do(func() { close(r.release) }) }
+
+func (r *blockingGraphDispatch) callCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
+
+func TestResumeAsyncIsSingleFlightPerRun(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "fort.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	rt := &blockingGraphDispatch{started: make(chan struct{}), release: make(chan struct{})}
+	ex := NewExecutor(rt, st)
+	t.Cleanup(func() {
+		rt.unblock()
+		ex.Wait()
+	})
+	flow := Flow{ID: "single-flight-resume", Start: "approval", Nodes: []Node{
+		{ID: "approval", Type: Gate, Edges: []Edge{{On: OutApprove, To: "work"}}},
+		{ID: "work", Type: Task, Agent: "codex"},
+	}}
+	if result, err := ex.Start(context.Background(), flow, "single-flight-run", "payload"); err != nil || result.State != "paused" {
+		t.Fatalf("start = %+v err=%v, want paused", result, err)
+	}
+	if err := ex.Approve("single-flight-run", "approval", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := ex.ResumeAsync(context.Background(), flow, "single-flight-run"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-rt.started:
+	case <-time.After(time.Second):
+		t.Fatal("first resume never reached dispatch")
+	}
+	if err := ex.ResumeAsync(context.Background(), flow, "single-flight-run"); err == nil {
+		t.Fatal("concurrent ResumeAsync accepted a second walker")
+	}
+	if got := rt.callCount(); got != 1 {
+		t.Fatalf("dispatch calls = %d, want one", got)
+	}
+	rt.unblock()
+	ex.Wait()
 }
 
 func TestStartAsyncPersistsRunBeforeBlockedProviderReturns(t *testing.T) {
@@ -322,7 +602,7 @@ func TestStartAsyncPersistsRunBeforeBlockedProviderReturns(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(250 * time.Millisecond):
-		close(rt.release)
+		rt.unblock()
 		t.Fatal("StartAsync waited for blocked provider dispatch")
 	}
 	run, err := st.GetRun("accepted-flow-run")
@@ -344,7 +624,7 @@ func TestStartAsyncPersistsRunBeforeBlockedProviderReturns(t *testing.T) {
 		t.Fatal("Wait returned while the asynchronous walk was still running")
 	case <-time.After(25 * time.Millisecond):
 	}
-	close(rt.release)
+	rt.unblock()
 	select {
 	case <-waited:
 	case <-time.After(time.Second):
@@ -521,7 +801,7 @@ func TestResumeAdvancesFromPersistedRunningTaskAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := ex.Resume(context.Background(), f, "crash-parent")
+	res, err := ex.RecoverInterrupted(context.Background(), f, "crash-parent")
 	if err != nil {
 		t.Fatal(err)
 	}

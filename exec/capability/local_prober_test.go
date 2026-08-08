@@ -2,6 +2,7 @@ package capability
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -38,17 +39,17 @@ func (f fakeCodexInspector) Inspect(context.Context) (CodexInspection, error) {
 func TestLocalProberAcceptsOnlyExactCodexContractAndModelCatalog(t *testing.T) {
 	commands := fakeCommandExecutor{results: map[string]CommandResult{
 		"codex\x00--version": {
-			Output: []byte("codex-cli 0.146.0-alpha.3.1\n"), ExecutableDigest: "codex-digest",
+			Output: []byte(codexVersion + "\n"), ExecutableDigest: "codex-digest",
 		},
 	}}
 	inspection := CodexInspection{
 		AccountReady: true, AccountHandle: "account-handle",
 		Models: map[string]bool{"gpt-5.5": true, "gpt-5.6-terra": true, "gpt-5.6-luna": true}, DefaultModel: "gpt-5.6-terra",
 		ExecutableDigest:         "codex-digest",
-		NormalSchemaDigest:       "ec03200a04738451ef53e33827913ffdcdd540ca32a00cc63d47c8793a5a93c6",
-		NormalSchemaFiles:        273,
-		ExperimentalSchemaDigest: "3db500cc34501d07369aca889d25d78254a2f239635f80867403d245f61f14cf",
-		ExperimentalSchemaFiles:  347,
+		NormalSchemaDigest:       codexNormalSchemaDigest,
+		NormalSchemaFiles:        codexNormalSchemaFiles,
+		ExperimentalSchemaDigest: codexExperimentalSchemaDigest,
+		ExperimentalSchemaFiles:  codexExperimentalSchemaFiles,
 	}
 	prober := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil)
 
@@ -66,6 +67,16 @@ func TestLocalProberAcceptsOnlyExactCodexContractAndModelCatalog(t *testing.T) {
 	if model.State != corecap.PredicateSatisfied {
 		t.Fatalf("model = %#v", model)
 	}
+	if model.ResolvedModel != "" {
+		t.Fatalf("explicit model leaked dynamic resolution = %#v", model)
+	}
+	configured := prober.Probe(context.Background(), ProbeRequest{
+		AdapterID: "profile.codex.native", TargetID: "codex:configured-default",
+		ProfileID: "codex:configured-default", PredicateID: "predicate.codex.model.codex:configured-default.v1",
+	})
+	if configured.State != corecap.PredicateSatisfied || configured.ResolvedModel != "gpt-5.6-terra" {
+		t.Fatalf("configured default = %#v", configured)
+	}
 	for _, profile := range []string{"codex:gpt-5.6-terra", "codex:gpt-5.6-luna"} {
 		model := prober.Probe(context.Background(), ProbeRequest{
 			AdapterID: "profile.codex.native", TargetID: profile,
@@ -81,6 +92,23 @@ func TestLocalProberAcceptsOnlyExactCodexContractAndModelCatalog(t *testing.T) {
 	})
 	if unavailable.State != corecap.PredicateUnsatisfied || unavailable.Reason != corecap.ReasonModelUnavailable {
 		t.Fatalf("unavailable = %#v", unavailable)
+	}
+}
+
+func TestLocalProberClassifiesStructuredLoggedOutClaudeStatusAsAuthRequired(t *testing.T) {
+	prober := NewLocalProber(fakeCommandExecutor{results: map[string]CommandResult{
+		"claude\x00auth\x00status\x00--json": {
+			Output: []byte(`{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`),
+			Err:    errors.New("exit status 1"),
+		},
+	}}, nil, nil, nil)
+
+	observation := prober.Probe(context.Background(), ProbeRequest{
+		AdapterID: "profile.claude.native", TargetID: "claude:configured-default",
+		PredicateID: "predicate.claude.authenticated-subject.v1",
+	})
+	if observation.State != corecap.PredicateUnsatisfied || observation.Reason != corecap.ReasonAuthRequired {
+		t.Fatalf("observation = %#v", observation)
 	}
 }
 
@@ -101,11 +129,11 @@ func TestLocalProberRejectsConfiguredCodexDefaultMissingFromRuntimeCatalog(t *te
 
 func TestLocalProberRejectsCodexFactsFromDifferentExecutableIdentity(t *testing.T) {
 	commands := fakeCommandExecutor{results: map[string]CommandResult{
-		"codex\x00--version": {Output: []byte("codex-cli 0.146.0-alpha.3.1\n"), ExecutableDigest: "version-digest"},
+		"codex\x00--version": {Output: []byte(codexVersion + "\n"), ExecutableDigest: "version-digest"},
 	}}
 	inspection := CodexInspection{
 		ExecutableDigest:   "schema-and-app-server-digest",
-		NormalSchemaDigest: codexNormalSchemaDigest, NormalSchemaFiles: 273,
+		NormalSchemaDigest: codexNormalSchemaDigest, NormalSchemaFiles: codexNormalSchemaFiles,
 	}
 	prober := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil)
 	observation := prober.Probe(context.Background(), ProbeRequest{
@@ -170,6 +198,40 @@ func TestLocalProberAcceptsHermesBuildDateSuffixWithoutAcceptingVersionDrift(t *
 				t.Fatalf("reason = %q", observation.Reason)
 			}
 		})
+	}
+}
+
+func TestLocalProberAcceptsLiveHermesOpenAICodexStatus(t *testing.T) {
+	const profile = "hermes:openai-codex/gpt-5.6-sol"
+	prober := NewLocalProber(fakeCommandExecutor{results: map[string]CommandResult{
+		"hermes\x00status\x00--deep": {
+			Output: []byte("Provider: OpenAI Codex\nModel: gpt-5.6-sol\n"), ExecutableDigest: "hermes-digest",
+		},
+	}}, nil, nil, nil)
+
+	observation := prober.Probe(context.Background(), ProbeRequest{
+		AdapterID: "profile.hermes.native", TargetID: profile, ProfileID: profile,
+		PredicateID: "predicate.hermes.provider-model." + profile + ".v1",
+	})
+	if observation.State != corecap.PredicateSatisfied {
+		t.Fatalf("observation = %#v, want satisfied", observation)
+	}
+}
+
+func TestLocalProberAcceptsAlignedLiveHermesOpenAICodexStatus(t *testing.T) {
+	const profile = "hermes:openai-codex/gpt-5.6-sol"
+	prober := NewLocalProber(fakeCommandExecutor{results: map[string]CommandResult{
+		"hermes\x00status\x00--deep": {
+			Output: []byte("  Provider:      OpenAI Codex\n  Model:         gpt-5.6-sol\n"), ExecutableDigest: "hermes-digest",
+		},
+	}}, nil, nil, nil)
+
+	observation := prober.Probe(context.Background(), ProbeRequest{
+		AdapterID: "profile.hermes.native", TargetID: profile, ProfileID: profile,
+		PredicateID: "predicate.hermes.provider-model." + profile + ".v1",
+	})
+	if observation.State != corecap.PredicateSatisfied {
+		t.Fatalf("observation = %#v, want satisfied", observation)
 	}
 }
 

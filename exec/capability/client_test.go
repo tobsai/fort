@@ -62,7 +62,7 @@ func TestClientRefreshBindsAuthenticatedNodeIdentity(t *testing.T) {
 
 	client := NewClient("mesh-token")
 	got, err := client.Refresh(context.Background(), server.URL, "enrolled-node", corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
 	})
 	if err != nil {
@@ -99,6 +99,35 @@ func TestClientClassifiesOldNode404WithoutParsingBody(t *testing.T) {
 	var discovery *DiscoveryError
 	if !errors.As(err, &discovery) || discovery.Reason != corecap.ReasonOldNode {
 		t.Fatalf("error = %#v", err)
+	}
+}
+
+func TestClientRejectsOldProtocolAndMappingPeers(t *testing.T) {
+	tests := []struct {
+		name     string
+		protocol int
+		mapping  int
+	}{
+		{name: "protocol v1", protocol: 1, mapping: corecap.ProfileMappingVersion},
+		{name: "mapping v2", protocol: corecap.ProtocolVersion, mapping: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_ = json.NewEncoder(w).Encode(corecap.NodeInventory{
+					ProtocolVersion: test.protocol, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: test.mapping,
+					NodeID: "node", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
+					Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{}, Bindings: []corecap.ExecutionBindingOffer{},
+				})
+			}))
+			t.Cleanup(server.Close)
+
+			_, err := NewClient("token").Get(context.Background(), server.URL, "node")
+			var discovery *DiscoveryError
+			if !errors.As(err, &discovery) || discovery.Reason != corecap.ReasonOldNode {
+				t.Fatalf("old peer error = %#v", err)
+			}
+		})
 	}
 }
 

@@ -154,6 +154,82 @@ func TestBoardHTMLConversationPromotionOnlyForCompletedDirectRuns(t *testing.T) 
 	}
 }
 
+func TestBoardHTMLRunModelLabelsUseOnlyPersistedRunTruth(t *testing.T) {
+	section := boardHTMLSection(t, "function agentModel", "function agentStatus")
+	vm := goja.New()
+	setup := `var model={playbooks:[{stages:[{assignments:[{agent:"codex",model:"gpt-5.5"}]}]}]};`
+	if _, err := vm.RunString(setup + section); err != nil {
+		t.Fatalf("execute run-model helpers: %v", err)
+	}
+	value, err := vm.RunString(`JSON.stringify({
+  explicit:runModelLabel({agent:"codex",model:"gpt-5.6-sol",profile:"codex:gpt-5.6-sol"}),
+  configured:runModelLabel({agent:"codex",profile:"codex:configured-default"}),
+  historical:runModelLabel({agent:"codex"}),
+  unrelatedPlaybookDefault:agentModel("codex")
+})`)
+	if err != nil {
+		t.Fatalf("evaluate run-model labels: %v", err)
+	}
+	const want = `{"explicit":"gpt-5.6-sol","configured":"Configured default","historical":"","unrelatedPlaybookDefault":"gpt-5.5"}`
+	if got := value.String(); got != want {
+		t.Fatalf("run-model labels = %s, want %s", got, want)
+	}
+	for _, stale := range []string{
+		"run.model||agentModel(agent)",
+		"run.model||agentModel(runAgent(run))",
+		"run&&run.model?run.model:agentModel(agent)",
+	} {
+		if strings.Contains(boardHTML, stale) {
+			t.Errorf("run-bound UI still guesses model from a playbook: %q", stale)
+		}
+	}
+}
+
+func TestBoardHTMLWorkingAgentRailUsesItsPersistedRunIdentity(t *testing.T) {
+	identityHelpers := boardHTMLSection(t, "function agentModel", "function agentStatus")
+	rail := boardHTMLSection(t, "function agentRailCard", "function runPrompt")
+	vm := goja.New()
+	setup := `
+var model={playbooks:[{stages:[{assignments:[{agent:"codex",model:"gpt-5.5"}]}]}]};
+var working={id:"run-configured",agent:"codex",profile:"codex:configured-default",status:"running"};
+function agentStatus(){return {state:"working",run:working};}
+function activitySentence(run){return "Working "+run.id;}
+function dispName(agent){return agent;}
+function esc(value){return String(value||"");}
+function orbClass(){return "fort-orb";}
+`
+	if _, err := vm.RunString(setup + identityHelpers + rail); err != nil {
+		t.Fatalf("execute agent-rail helpers: %v", err)
+	}
+	value, err := vm.RunString(`agentRailCard("codex",false,null)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := value.String()
+	if !strings.Contains(html, "Configured default") || strings.Contains(html, "gpt-5.5") {
+		t.Fatalf("working agent rail guessed an unrelated playbook model: %s", html)
+	}
+}
+
+func TestBoardHTMLEmptyConversationCopySelectsOneProfile(t *testing.T) {
+	for _, want := range []string{
+		"Choose an agent profile and machine",
+		"Choose an agent profile and eligible machine, then start the conversation.",
+	} {
+		if !strings.Contains(boardHTML, want) {
+			t.Errorf("boardHTML missing profile-based empty-state copy %q", want)
+		}
+	}
+	for _, stale := range []string{
+		"Choose an agent, model, and machine",
+		"Choose an agent, model, and eligible machine",
+	} {
+		if strings.Contains(boardHTML, stale) {
+			t.Errorf("boardHTML still presents separate agent/model selection %q", stale)
+		}
+	}
+}
+
 func TestBoardHTMLConversationPromotionPinsDefaultAssignmentRoute(t *testing.T) {
 	for _, want := range []string{
 		`turnConversationIntoWork(){prepareConversation('assignment',conversationSeed(),defaultAssignmentPlaybook());}`,

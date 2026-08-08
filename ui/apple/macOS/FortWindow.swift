@@ -659,6 +659,12 @@ struct FortWindow: View {
     }
 
     private func conversationResponse(_ run: RunSummary) -> String {
+        if let failure = exactFailureReason(for: run) { return failure }
+        if let message = meaningfulConversationEvents(for: run)
+            .last(where: { $0.type.lowercased() == "message" })?.data?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
+            return embeddedErrorMessage(message) ?? message
+        }
         switch conversationActivity(run) {
         case .pausedForReview:
             return "I reached a checkpoint and need your direction before I continue."

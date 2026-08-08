@@ -19,6 +19,7 @@ type OccurrenceState string
 
 const (
 	OccurrenceScheduled OccurrenceState = "scheduled"
+	OccurrenceFired     OccurrenceState = "fired"
 	OccurrenceRunning   OccurrenceState = "running"
 	OccurrenceSucceeded OccurrenceState = "succeeded"
 	OccurrenceFailed    OccurrenceState = "failed"

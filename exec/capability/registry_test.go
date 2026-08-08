@@ -45,6 +45,20 @@ type cancelablePredicateProber struct {
 	once    sync.Once
 }
 
+type cancelableBindingProber struct {
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (p *cancelableBindingProber) Probe(ctx context.Context, request ProbeRequest) ProbeObservation {
+	if request.BindingID == "" {
+		return satisfied("stable=" + request.PredicateID)
+	}
+	p.once.Do(func() { close(p.entered) })
+	<-ctx.Done()
+	return unsatisfied(corecap.ReasonProbeTimedOut)
+}
+
 func (p *cancelablePredicateProber) Probe(ctx context.Context, request ProbeRequest) ProbeObservation {
 	if request.PredicateID == "predicate.codex.native-contract.v1" {
 		p.mu.Lock()
@@ -120,6 +134,9 @@ func (f *fakeProber) Probe(ctx context.Context, request ProbeRequest) ProbeObser
 			State:         corecap.PredicateSatisfied,
 			StableBinding: []string{"stable:" + request.PredicateID},
 		}
+		if request.PredicateID == "predicate.codex.model.codex:configured-default.v1" {
+			observation.ResolvedModel = "gpt-5.6-sol"
+		}
 	}
 
 	f.mu.Lock()
@@ -158,7 +175,7 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 	if len(inventory.Profiles) != 11 || len(inventory.Offers) != 2 || len(inventory.Bindings) != 21 {
 		t.Fatalf("inventory sizes = profiles:%d offers:%d bindings:%d", len(inventory.Profiles), len(inventory.Offers), len(inventory.Bindings))
 	}
-	if inventory.State != corecap.MachineReady || inventory.Reason != "" {
+	if inventory.State != corecap.MachinePartial || inventory.Reason != corecap.ReasonModelUnavailable {
 		t.Fatalf("machine state = %s/%s", inventory.State, inventory.Reason)
 	}
 	if prober.maxActive > 2 {
@@ -170,8 +187,20 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 		}
 	}
 	for _, profile := range inventory.Profiles {
+		unsupportedDynamic := profile.ID == "claude:configured-default" ||
+			profile.ID == "hermes:configured-default" || profile.ID == "openclaw:main"
+		if unsupportedDynamic {
+			if profile.State != corecap.OfferSetupRequired || profile.Reason != corecap.ReasonModelUnavailable ||
+				profile.ResolvedModel != "" || profile.BindingRevision != "" {
+				t.Fatalf("unsupported dynamic profile = %#v", profile)
+			}
+			continue
+		}
 		if profile.State != corecap.OfferReady || !strings.HasPrefix(profile.BindingRevision, "opaque:") {
 			t.Fatalf("profile = %#v", profile)
+		}
+		if profile.ID == "codex:configured-default" && profile.ResolvedModel != "gpt-5.6-sol" {
+			t.Fatalf("Codex dynamic profile = %#v", profile)
 		}
 	}
 	encoded := mustJSON(t, inventory)
@@ -208,6 +237,126 @@ func TestRegistryBlocksUnavailableExactModelBeforeBinding(t *testing.T) {
 	}
 }
 
+func TestRegistryPublishesOnlyTypedDynamicResolvedModel(t *testing.T) {
+	modelPredicate := "predicate.codex.model.codex:configured-default.v1"
+	prober := &fakeProber{observations: map[string]ProbeObservation{
+		modelPredicate: {
+			State: corecap.PredicateSatisfied, StableBinding: []string{"model=PRIVATE-NOT-A-CONTRACT"},
+			ResolvedModel: "gpt-5.6-sol",
+		},
+	}}
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: prober,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dynamic := findProfile(t, inventory, "codex:configured-default")
+	if dynamic.State != corecap.OfferReady || dynamic.ResolvedModel != "gpt-5.6-sol" || dynamic.BindingRevision == "" {
+		t.Fatalf("dynamic profile = %#v", dynamic)
+	}
+	explicit := findProfile(t, inventory, "codex:gpt-5.6-sol")
+	if explicit.ResolvedModel != "" {
+		t.Fatalf("explicit profile published resolved_model = %#v", explicit)
+	}
+	encoded := mustJSON(t, dynamic)
+	if !strings.Contains(encoded, `"resolved_model":"gpt-5.6-sol"`) || strings.Contains(encoded, "PRIVATE-NOT-A-CONTRACT") {
+		t.Fatalf("public dynamic profile = %s", encoded)
+	}
+}
+
+func TestRegistryDoesNotParseDynamicModelFromStableBinding(t *testing.T) {
+	modelPredicate := "predicate.codex.model.codex:configured-default.v1"
+	prober := &fakeProber{observations: map[string]ProbeObservation{
+		modelPredicate: {
+			State:         corecap.PredicateSatisfied,
+			StableBinding: []string{"model=gpt-5.6-sol"},
+		},
+	}}
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: prober,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := findProfile(t, inventory, "codex:configured-default")
+	if profile.State != corecap.OfferSetupRequired || profile.Reason != corecap.ReasonModelUnavailable ||
+		profile.ResolvedModel != "" || profile.BindingRevision != "" {
+		t.Fatalf("unresolved dynamic profile = %#v", profile)
+	}
+}
+
+func TestRegistryKeepsUnsupportedDynamicProfilesUnready(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"claude:configured-default", "hermes:configured-default", "openclaw:main"} {
+		profile := findProfile(t, inventory, id)
+		if profile.State != corecap.OfferSetupRequired || profile.Reason != corecap.ReasonModelUnavailable ||
+			profile.ResolvedModel != "" || profile.BindingRevision != "" {
+			t.Errorf("unsupported dynamic profile %s = %#v", id, profile)
+		}
+	}
+}
+
+func TestRegistryResolvedModelChangesProfileBindingRevision(t *testing.T) {
+	modelPredicate := "predicate.codex.model.codex:configured-default.v1"
+	prober := &fakeProber{observations: map[string]ProbeObservation{
+		modelPredicate: {State: corecap.PredicateSatisfied, ResolvedModel: "gpt-5.6-sol"},
+	}}
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: prober,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRevision := findProfile(t, first, "codex:configured-default").BindingRevision
+	prober.mu.Lock()
+	prober.observations[modelPredicate] = ProbeObservation{State: corecap.PredicateSatisfied, ResolvedModel: "gpt-5.6-terra"}
+	prober.mu.Unlock()
+	second, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondProfile := findProfile(t, second, "codex:configured-default")
+	if secondProfile.ResolvedModel != "gpt-5.6-terra" || secondProfile.BindingRevision == firstRevision {
+		t.Fatalf("second profile = %#v, first revision = %q", secondProfile, firstRevision)
+	}
+}
+
+func TestNormalizeObservationClearsResolvedModelOnFailure(t *testing.T) {
+	got := normalizeObservation(ProbeObservation{
+		State: corecap.PredicateUnsatisfied, Reason: corecap.ReasonModelUnavailable,
+		StableBinding: []string{"private"}, ResolvedModel: "gpt-5.6-sol",
+	})
+	if got.ResolvedModel != "" || got.StableBinding != nil {
+		t.Fatalf("failed observation retained private facts: %#v", got)
+	}
+}
+
 func TestPlanningCacheAndUserRecheckSemantics(t *testing.T) {
 	now := time.Unix(1000, 0).UTC()
 	prober := &fakeProber{}
@@ -221,7 +370,7 @@ func TestPlanningCacheAndUserRecheckSemantics(t *testing.T) {
 	}
 	adapter := []string{"profile.codex.native"}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: adapter,
 	}
 	if _, err := registry.Refresh(context.Background(), request); err != nil {
@@ -238,7 +387,7 @@ func TestPlanningCacheAndUserRecheckSemantics(t *testing.T) {
 	}
 
 	user := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
 		MaxAgeSeconds: 0, Adapters: adapter,
 	}
 	if _, err := registry.Refresh(context.Background(), user); err != nil {
@@ -246,6 +395,108 @@ func TestPlanningCacheAndUserRecheckSemantics(t *testing.T) {
 	}
 	if got := prober.callCount(predicate); got <= first {
 		t.Fatalf("user Recheck did not bypass cache: %d -> %d", first, got)
+	}
+}
+
+func TestUserRecheckInvalidatesEverySelectedAdapterCacheKeyBeforeProbe(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"),
+		Prober:      &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString())); err != nil {
+		t.Fatal(err)
+	}
+
+	blocker := &blockingPredicateProber{
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	registry.prober = blocker
+	done := make(chan error, 1)
+	go func() {
+		_, err := registry.Refresh(context.Background(), corecap.RecheckRequest{
+			ProtocolVersion: corecap.ProtocolVersion,
+			RequestID:       uuid.NewString(),
+			Mode:            corecap.RefreshUserRecheck,
+			MaxAgeSeconds:   0,
+			Adapters:        []string{"profile.codex.native"},
+		})
+		done <- err
+	}()
+	select {
+	case <-blocker.entered:
+	case <-time.After(time.Second):
+		t.Fatal("selected adapter probe did not start")
+	}
+
+	registry.mu.Lock()
+	selectedKeys := 0
+	otherKeys := 0
+	for key := range registry.cache {
+		if strings.HasPrefix(key, "profile.codex.native\x00") {
+			selectedKeys++
+		} else {
+			otherKeys++
+		}
+	}
+	registry.mu.Unlock()
+	if selectedKeys != 0 {
+		t.Fatalf("user Recheck retained %d selected-adapter cache keys while its probe was running", selectedKeys)
+	}
+	if otherKeys == 0 {
+		t.Fatal("user Recheck cleared unrelated adapter cache keys")
+	}
+	close(blocker.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUserRecheckInvalidationPreservesFailureBackoffHistory(t *testing.T) {
+	now := time.Unix(1000, 0).UTC()
+	prober := &fakeProber{observations: map[string]ProbeObservation{
+		"predicate.codex.native-contract.v1": {
+			State: corecap.PredicateUnsatisfied, Reason: corecap.ReasonProbeFailed,
+		},
+	}}
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: prober,
+		Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := corecap.RecheckRequest{
+		ProtocolVersion: corecap.ProtocolVersion, Mode: corecap.RefreshUserRecheck, MaxAgeSeconds: 0,
+		Adapters: []string{"profile.codex.native"},
+	}
+	for range 3 {
+		request.RequestID = uuid.NewString()
+		if _, err := registry.Refresh(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		now = now.Add(time.Second)
+	}
+	before := prober.callCount("predicate.codex.native-contract.v1")
+	now = now.Add(61 * time.Second)
+	request.Mode = corecap.RefreshPlanning
+	request.MaxAgeSeconds = 60
+	request.RequestID = uuid.NewString()
+	inventory, err := registry.Refresh(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := prober.callCount("predicate.codex.native-contract.v1"); got != before {
+		t.Fatalf("user Recheck reset failure history: probes %d -> %d", before, got)
+	}
+	profile := findProfile(t, inventory, "codex:gpt-5.5")
+	if profile.State != corecap.OfferUnknown || profile.Reason != corecap.ReasonStale {
+		t.Fatalf("backoff profile = %#v, want unknown/stale", profile)
 	}
 }
 
@@ -259,7 +510,7 @@ func TestRegistrySingleFlightsSharedPredicatesWithinRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
 		MaxAgeSeconds: 0, Adapters: []string{"profile.codex.native"},
 	}
 	if _, err := registry.Refresh(context.Background(), request); err != nil {
@@ -284,7 +535,7 @@ func TestRegistrySingleFlightsSharedPredicateAcrossConcurrentRefreshes(t *testin
 	}
 	refresh := func() error {
 		_, err := registry.Refresh(context.Background(), corecap.RecheckRequest{
-			ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+			ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
 			MaxAgeSeconds: 0, Adapters: []string{"profile.codex.native"},
 		})
 		return err
@@ -327,7 +578,7 @@ func TestRegistrySemaphoreWaitHonorsRefreshCancellation(t *testing.T) {
 	defer cancel()
 	started := time.Now()
 	_, err = registry.Refresh(ctx, corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
 		MaxAgeSeconds: 0, Adapters: []string{"profile.codex.native"},
 	})
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -351,7 +602,7 @@ func TestCanceledRefreshDoesNotOverwriteCacheOrCurrentInventory(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
 		MaxAgeSeconds: 0, Adapters: []string{"profile.codex.native"},
 	}
 	before, err := registry.Refresh(context.Background(), request)
@@ -391,6 +642,245 @@ func TestCanceledRefreshDoesNotOverwriteCacheOrCurrentInventory(t *testing.T) {
 	}
 }
 
+func TestCanceledBindingRefreshDoesNotPublishOrDiscardInvalidatedCache(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prober := &cancelableBindingProber{entered: make(chan struct{})}
+	registry.prober = prober
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := registry.Refresh(ctx, RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+		done <- err
+	}()
+	select {
+	case <-prober.entered:
+	case <-time.After(time.Second):
+		t.Fatal("binding probe did not start")
+	}
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled binding refresh error = %v, want context canceled", err)
+	}
+	after := registry.Current()
+	if before.ObservedAt != after.ObservedAt || before.State != after.State || before.Reason != after.Reason {
+		t.Fatalf("canceled binding refresh replaced current inventory: before=%#v after=%#v", before, after)
+	}
+
+	probeAfterCancel := &fakeProber{}
+	registry.prober = probeAfterCancel
+	planning := RecheckAll(corecap.RefreshPlanning, uuid.NewString())
+	if _, err := registry.Refresh(context.Background(), planning); err != nil {
+		t.Fatal(err)
+	}
+	probeAfterCancel.mu.Lock()
+	calls := len(probeAfterCancel.calls)
+	probeAfterCancel.mu.Unlock()
+	if calls != 0 {
+		t.Fatalf("planning refresh reprobed %d predicates after canceled cache invalidation", calls)
+	}
+}
+
+func TestOverlappingCanceledRechecksRestoreNewestRollbackBaseline(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString())); err != nil {
+		t.Fatal(err)
+	}
+	prober := &cancelablePredicateProber{entered: make(chan struct{})}
+	prober.setBlocked()
+	registry.prober = prober
+
+	firstCtx, cancelFirst := context.WithCancel(context.Background())
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := registry.Refresh(firstCtx, corecap.RecheckRequest{
+			ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+			Adapters: []string{"profile.codex.native"},
+		})
+		firstDone <- err
+	}()
+	select {
+	case <-prober.entered:
+	case <-time.After(time.Second):
+		t.Fatal("first codex Recheck did not start")
+	}
+
+	secondCtx, cancelSecond := context.WithCancel(context.Background())
+	cancelSecond()
+	_, err = registry.Refresh(secondCtx, corecap.RecheckRequest{
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshUserRecheck,
+		Adapters: []string{"profile.codex.native"},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("newer Recheck error = %v, want context canceled", err)
+	}
+	registry.mu.Lock()
+	codexKeys := 0
+	for key := range registry.cache {
+		if strings.HasPrefix(key, "profile.codex.native\x00") {
+			codexKeys++
+		}
+	}
+	registry.mu.Unlock()
+	if codexKeys != 0 {
+		t.Fatalf("newer canceled Recheck restored %d stale keys while an older Recheck remained active", codexKeys)
+	}
+
+	cancelFirst()
+	if err := <-firstDone; !errors.Is(err, context.Canceled) {
+		t.Fatalf("first Recheck error = %v, want context canceled", err)
+	}
+	registry.mu.Lock()
+	codexKeys = 0
+	for key := range registry.cache {
+		if strings.HasPrefix(key, "profile.codex.native\x00") {
+			codexKeys++
+		}
+	}
+	registry.mu.Unlock()
+	if codexKeys == 0 {
+		t.Fatal("overlapping canceled Rechecks lost the original cache rollback baseline")
+	}
+
+	probeAfterCancel := &fakeProber{}
+	registry.prober = probeAfterCancel
+	planning := corecap.RecheckRequest{
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
+	}
+	if _, err := registry.Refresh(context.Background(), planning); err != nil {
+		t.Fatal(err)
+	}
+	probeAfterCancel.mu.Lock()
+	calls := len(probeAfterCancel.calls)
+	probeAfterCancel.mu.Unlock()
+	if calls != 0 {
+		t.Fatalf("planning refresh reprobed %d predicates after overlapping canceled Rechecks", calls)
+	}
+}
+
+func TestSuccessfulOverlapClosesInvalidationGroupBeforeNextRecheck(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString())); err != nil {
+		t.Fatal(err)
+	}
+	selected := map[string]bool{"profile.codex.native": true}
+	first := registry.invalidateAdapters(selected)
+	var refreshedKey string
+	var refreshed cachedProbe
+	for key, cached := range first.entries {
+		if strings.HasPrefix(key, "profile.codex.native\x00") {
+			refreshedKey, refreshed = key, cached
+			break
+		}
+	}
+	if refreshedKey == "" {
+		t.Fatal("seed refresh produced no codex cache key")
+	}
+	refreshed.failures++
+	refreshed.observedAt = refreshed.observedAt.Add(time.Second)
+	registry.mu.Lock()
+	registry.cache[refreshedKey] = refreshed
+	registry.mu.Unlock()
+	second := registry.invalidateAdapters(selected)
+	registry.restoreInvalidated(second)
+	registry.mu.Lock()
+	registry.commitInvalidatedLocked(first)
+	restored, retainedAfterSuccess := registry.cache[refreshedKey]
+	registry.mu.Unlock()
+	if !retainedAfterSuccess || restored.failures != refreshed.failures || restored.observedAt != refreshed.observedAt {
+		t.Fatalf("successful overlap lost its latest observation: got %#v, want %#v", restored, refreshed)
+	}
+
+	third := registry.invalidateAdapters(selected)
+	registry.mu.Lock()
+	_, retained := registry.cache[refreshedKey]
+	registry.mu.Unlock()
+	if retained {
+		t.Fatal("new Recheck retained cache from an already-successful overlap group")
+	}
+	if third.groups["profile.codex.native"] == first.groups["profile.codex.native"] {
+		t.Fatal("new Recheck joined an already-successful invalidation group")
+	}
+}
+
+func TestOverlappingRecheckInvalidatesCacheRepopulatedByActivePeer(t *testing.T) {
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: &fakeProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString())); err != nil {
+		t.Fatal(err)
+	}
+	selected := map[string]bool{"profile.codex.native": true}
+	first := registry.invalidateAdapters(selected)
+	var refreshedKey string
+	var refreshed cachedProbe
+	for key, cached := range first.entries {
+		if strings.HasPrefix(key, "profile.codex.native\x00") {
+			refreshedKey, refreshed = key, cached
+			break
+		}
+	}
+	if refreshedKey == "" {
+		t.Fatal("seed refresh produced no codex cache key")
+	}
+	original := refreshed
+	refreshed.failures++
+	refreshed.observedAt = refreshed.observedAt.Add(time.Second)
+	registry.mu.Lock()
+	registry.cache[refreshedKey] = refreshed
+	registry.mu.Unlock()
+
+	second := registry.invalidateAdapters(selected)
+	registry.mu.Lock()
+	_, retained := registry.cache[refreshedKey]
+	registry.mu.Unlock()
+	if retained {
+		t.Fatal("overlapping Recheck retained cache repopulated by its active peer")
+	}
+	if second.groups["profile.codex.native"] != first.groups["profile.codex.native"] {
+		t.Fatal("overlapping Recheck did not join the active invalidation group")
+	}
+	third := registry.invalidateAdapters(selected)
+	if got := third.entries[refreshedKey]; got.failures != refreshed.failures || got.observedAt != refreshed.observedAt {
+		t.Fatalf("later overlap inherited %#v, want latest removed observation %#v", got, refreshed)
+	}
+	registry.restoreInvalidated(third)
+	registry.restoreInvalidated(second)
+	registry.restoreInvalidated(first)
+	registry.mu.Lock()
+	rolledBack := registry.cache[refreshedKey]
+	registry.mu.Unlock()
+	if rolledBack.failures != original.failures || rolledBack.observedAt != original.observedAt {
+		t.Fatalf("all-canceled rollback = %#v, want original observation %#v", rolledBack, original)
+	}
+}
+
 func TestReachableMachineWithUnscheduledOffersIsPartial(t *testing.T) {
 	registry, err := NewRegistry(RegistryOptions{
 		NodeID: "node-laptop", Platform: "darwin/arm64",
@@ -400,7 +890,7 @@ func TestReachableMachineWithUnscheduledOffersIsPartial(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
 	}
 	inventory, err := registry.Refresh(context.Background(), request)
@@ -428,7 +918,7 @@ func TestPlanningBackoffPublishesStaleWithoutReprobe(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
 	}
 	for _, advance := range []time.Duration{0, 61 * time.Second, 61 * time.Second} {
@@ -470,7 +960,7 @@ func TestStableNegativeDoesNotEnterFailureBackoff(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, Mode: corecap.RefreshPlanning, MaxAgeSeconds: 60,
+		ProtocolVersion: corecap.ProtocolVersion, Mode: corecap.RefreshPlanning, MaxAgeSeconds: 60,
 		Adapters: []string{"profile.codex.native"},
 	}
 	var inventory corecap.NodeInventory
@@ -517,7 +1007,7 @@ func TestProbeFreshnessStartsWhenProbeSettles(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
 	}
 	if _, err := registry.Refresh(context.Background(), request); err != nil {
@@ -539,7 +1029,7 @@ func TestProbeFreshnessStartsWhenProbeSettles(t *testing.T) {
 
 func TestValidateRecheckRequestIsStrict(t *testing.T) {
 	valid := corecap.RecheckRequest{
-		ProtocolVersion: 1, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
+		ProtocolVersion: corecap.ProtocolVersion, RequestID: uuid.NewString(), Mode: corecap.RefreshPlanning,
 		MaxAgeSeconds: 60, Adapters: []string{"profile.codex.native"},
 	}
 	if err := ValidateRecheckRequest(valid); err != nil {
@@ -554,6 +1044,11 @@ func TestValidateRecheckRequestIsStrict(t *testing.T) {
 	invalid.Adapters = []string{"raw.shell"}
 	if err := ValidateRecheckRequest(invalid); err == nil {
 		t.Fatal("unknown adapter was accepted")
+	}
+	invalid = valid
+	invalid.ProtocolVersion = 1
+	if err := ValidateRecheckRequest(invalid); err == nil {
+		t.Fatal("protocol version 1 was accepted after the version-2 contract")
 	}
 }
 

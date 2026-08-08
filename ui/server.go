@@ -27,18 +27,20 @@ var fortAgentOrb []byte
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Dispatcher     Dispatcher       // required
-	Runner         FlowRunner       // nil in control-only mode
-	Store          *store.Store     // required
-	FlowIDs        []string         // available flow ids (for chat templates); empty in control-only
-	Machines       MachineLister    // nil in single-machine mode (spec 022)
-	Capabilities   CapabilityLister // nil until capability inventory is wired (spec 039)
-	Planner        Planner          // nil in control-only mode (spec 026)
-	Playbooks      PlaybookCatalog  // deterministic catalog + preview (spec 036)
-	PlaybookRunner PlaybookRunner   // nil in control-only mode
-	Conversations  ConversationPort // durable shared conversations (spec 041)
-	Today          TodayPort        // truthful right-rail projection (spec 041)
-	Schedules      SchedulePort     // durable daemon scheduler (spec 041)
+	Dispatcher     Dispatcher                // required
+	Runner         FlowRunner                // nil in control-only mode
+	Store          *store.Store              // required
+	FlowIDs        []string                  // available flow ids (for chat templates); empty in control-only
+	Machines       MachineLister             // nil in single-machine mode (spec 022)
+	Capabilities   CapabilityLister          // nil until capability inventory is wired (spec 039)
+	Planner        Planner                   // nil in control-only mode (spec 026)
+	Playbooks      PlaybookCatalog           // deterministic catalog + preview (spec 036)
+	PlaybookRunner PlaybookRunner            // nil in control-only mode
+	Conversations  ConversationPort          // durable shared conversations (spec 041)
+	SeatRechecker  ConversationSeatRechecker // nil without functional capability probes (spec 041)
+	Today          TodayPort                 // truthful right-rail projection (spec 041)
+	TodayLocation  *time.Location            // one Fort-configured IANA display timezone (spec 041)
+	Schedules      SchedulePort              // durable daemon scheduler (spec 041)
 }
 
 // Server holds the ui handlers.
@@ -85,6 +87,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/openclaw", s.handleOpenClaw)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("GET /api/conversation-seats", s.handleConversationSeats)
+	mux.HandleFunc("POST /api/conversation-seats/recheck", s.handleConversationSeatRecheck)
 	mux.HandleFunc("GET /api/today", s.handleToday)
 	mux.HandleFunc("POST /api/schedules", s.handleScheduleCreate)
 	mux.HandleFunc("GET /api/projects", s.handleProjectsList)

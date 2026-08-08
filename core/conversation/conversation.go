@@ -13,7 +13,35 @@ import (
 
 const MaxContextBytes = 65_536
 
-var ErrContextTooLarge = errors.New("conversation context exceeds 65536 bytes")
+var (
+	ErrContextTooLarge    = errors.New("conversation context exceeds 65536 bytes")
+	ErrConversationActive = errors.New("conversation has active targets")
+)
+
+type ErrorCode string
+
+const (
+	ErrorSeatUnknown        ErrorCode = "seat_unknown"
+	ErrorSeatUnready        ErrorCode = "seat_unready"
+	ErrorParticipantUnknown ErrorCode = "participant_unknown"
+	ErrorParticipantRemoved ErrorCode = "participant_removed"
+	ErrorConversationActive ErrorCode = "conversation_active"
+)
+
+// BoundedError carries one closed conversation error code without coupling the
+// domain to HTTP. Transports may project Code while errors.Is/As can still
+// inspect the underlying cause.
+type BoundedError struct {
+	Code ErrorCode
+	Err  error
+}
+
+func (e *BoundedError) Error() string { return e.Err.Error() }
+func (e *BoundedError) Unwrap() error { return e.Err }
+
+func NewBoundedError(code ErrorCode, err error) error {
+	return &BoundedError{Code: code, Err: err}
+}
 
 type AuthorKind string
 
@@ -155,10 +183,11 @@ func CanTransition(from, to TargetState) bool {
 }
 
 type compiledContext struct {
-	Version          int              `json:"version"`
-	ConversationID   string           `json:"conversation_id"`
-	ThroughMessageID int64            `json:"through_message_id"`
-	Messages         []contextMessage `json:"messages"`
+	Version          int                 `json:"version"`
+	ConversationID   string              `json:"conversation_id"`
+	ThroughMessageID int64               `json:"through_message_id"`
+	Participants     []promptParticipant `json:"participants"`
+	Messages         []contextMessage    `json:"messages"`
 }
 
 type contextMessage struct {
@@ -169,16 +198,31 @@ type contextMessage struct {
 }
 
 // CompileContext creates the frozen provider prompt shared by every target in
-// a turn. Sorting a copy by durable message ID makes the JSON canonical. The
-// size check rejects the whole turn; history is never silently truncated.
-func CompileContext(conversationID string, throughMessageID int64, messages []Message) (string, error) {
+// a turn. Sorting copies by durable participant position/ID and message ID
+// makes the JSON canonical. The size check rejects the whole turn; history is
+// never silently truncated.
+func CompileContext(conversationID string, throughMessageID int64, participants []Participant, messages []Message) (string, error) {
+	orderedParticipants := append([]Participant(nil), participants...)
+	sort.SliceStable(orderedParticipants, func(i, j int) bool {
+		if orderedParticipants[i].Position != orderedParticipants[j].Position {
+			return orderedParticipants[i].Position < orderedParticipants[j].Position
+		}
+		return orderedParticipants[i].ID < orderedParticipants[j].ID
+	})
 	ordered := append([]Message(nil), messages...)
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
 	envelope := compiledContext{
 		Version:          1,
 		ConversationID:   conversationID,
 		ThroughMessageID: throughMessageID,
+		Participants:     []promptParticipant{},
 		Messages:         []contextMessage{},
+	}
+	for _, participant := range orderedParticipants {
+		envelope.Participants = append(envelope.Participants, promptParticipant{
+			ParticipantID: participant.ID, Profile: participant.Profile, Agent: participant.Agent,
+			Model: participant.Model, Machine: participant.Machine, DisplayName: participant.DisplayName,
+		})
 	}
 	for _, message := range ordered {
 		if message.ID > throughMessageID {

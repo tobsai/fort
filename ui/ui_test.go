@@ -526,6 +526,27 @@ func TestProfilesExposeClosedCatalogChoices(t *testing.T) {
 	if len(want) != 0 {
 		t.Fatalf("closed Codex profiles missing: %#v", want)
 	}
+	var raw []map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	configuredDefaults := 0
+	for _, profile := range raw {
+		var id string
+		if err := json.Unmarshal(profile["id"], &id); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(id, ":configured-default") {
+			continue
+		}
+		configuredDefaults++
+		if _, present := profile["model"]; present {
+			t.Fatalf("configured-default profile %q invented a concrete model: %s", id, rec.Body.String())
+		}
+	}
+	if configuredDefaults == 0 {
+		t.Fatal("closed profile catalog exposed no configured-default profiles")
+	}
 }
 
 func TestProfilesAggregateReadyMachinesWithoutSubstitution(t *testing.T) {

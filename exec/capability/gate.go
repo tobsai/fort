@@ -47,23 +47,33 @@ func (g *ProfileGate) Name() string { return "profile-gate(" + g.next.Name() + "
 
 func (g *ProfileGate) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.Run, error) {
 	profileID := spec.Profile
+	var definition corecap.ProfileDefinition
+	var ok bool
 	if profileID != "" {
-		agent, model, ok := g.catalog.RuntimeSelection(profileID)
-		if !ok || spec.Agent != agent || spec.Model != model {
+		definition, ok = g.profile(profileID)
+		if !ok || spec.Agent != definition.Agent {
 			return nil, &ProfilePreflightError{ProfileID: profileID, Reason: corecap.ReasonProfileUnmapped}
 		}
+		if !definition.RequiresResolvedModel() {
+			agent, model, selected := g.catalog.RuntimeSelection(profileID)
+			if !selected || spec.Agent != agent || spec.Model != model {
+				return nil, &ProfilePreflightError{ProfileID: profileID, Reason: corecap.ReasonProfileUnmapped}
+			}
+		}
 	} else {
-		var ok bool
 		profileID, ok = g.catalog.MapLegacyProfile(spec.Agent, spec.Model)
 		if !ok {
 			return nil, &ProfilePreflightError{Reason: corecap.ReasonProfileUnmapped}
 		}
+		definition, ok = g.profile(profileID)
 	}
-	definition, ok := g.profile(profileID)
 	if !ok {
 		return nil, &ProfilePreflightError{ProfileID: profileID, Reason: corecap.ReasonProfileUnmapped}
 	}
-	machine, err := g.refresher.RefreshMachine(ctx, spec.Machine, corecap.RefreshPlanning, []string{definition.Adapter})
+	// The target guard must bypass the planning TTL and failure backoff. The
+	// protocol's zero-age recheck mode invalidates only this selected adapter on
+	// this already-selected machine; it does not change placement.
+	machine, err := g.refresher.RefreshMachine(ctx, spec.Machine, corecap.RefreshUserRecheck, []string{definition.Adapter})
 	if err != nil {
 		return nil, &ProfilePreflightError{ProfileID: profileID, Machine: spec.Machine, Reason: corecap.ReasonProbeFailed}
 	}
@@ -81,9 +91,19 @@ func (g *ProfileGate) Dispatch(ctx context.Context, spec runtime.RunSpec) (runti
 		if offer.State != corecap.OfferReady {
 			reason := offer.Reason
 			if corecap.FirstReason(reason) == "" {
-				reason = corecap.ReasonCommandContractChanged
+				if definition.RequiresResolvedModel() && offer.ResolvedModel == "" {
+					reason = corecap.ReasonModelUnavailable
+				} else {
+					reason = corecap.ReasonCommandContractChanged
+				}
 			}
 			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: reason}
+		}
+		if definition.RequiresResolvedModel() && offer.ResolvedModel == "" {
+			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonModelUnavailable}
+		}
+		if definition.RequiresResolvedModel() && spec.Model != "" && offer.ResolvedModel != spec.Model {
+			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonCapabilityDrift}
 		}
 		if offer.BindingRevision == "" {
 			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonCommandContractChanged}
@@ -94,6 +114,9 @@ func (g *ProfileGate) Dispatch(ctx context.Context, spec runtime.RunSpec) (runti
 		agent, model, ok := g.catalog.RuntimeSelection(profileID)
 		if !ok {
 			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonProfileUnmapped}
+		}
+		if definition.RequiresResolvedModel() && spec.Model != "" {
+			model = spec.Model
 		}
 		spec.Profile = ""
 		spec.Agent = agent

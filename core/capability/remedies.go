@@ -102,7 +102,7 @@ func remedyFor(instance predicateInstance) (remedy, bool) {
 	switch {
 	case instance.MatchTarget == "profile.codex.native" && predicate.ID == "predicate.codex.native-contract.v1" &&
 		oneOfReason(reason, ReasonAbsent, ReasonIncompatibleVersion, ReasonCommandContractChanged):
-		template, effect, summary = "setup.codex.capability-runtime-update.v1", "effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2", "Install the catalog-supported Codex capability runtime."
+		template, effect, summary = "setup.codex.capability-runtime-update.v1", codexCapabilityRuntimeEffectID, "Install the catalog-supported Codex capability runtime."
 	case instance.MatchTarget == "profile.codex.native" && predicate.ID == "predicate.codex.authenticated-subject.v1" && reason == ReasonAuthRequired:
 		template, effect, summary = "setup.codex.login.v1", "effect.codex.authenticated-subject.v1", "Authenticate the selected local Codex account."
 	case instance.Kind == "profile" && strings.HasPrefix(instance.ID, "codex:") &&
@@ -132,14 +132,14 @@ func remedyFor(instance predicateInstance) (remedy, bool) {
 		template, effect, summary = "setup.gmail.configure-readonly.v1", "effect.gmail.selected-imap-read.v1", "Configure read-only Gmail access for Fort."
 	case instance.MatchTarget == "database.supabase.inspect.codex-broker" && predicate.ID == "predicate.codex.capability-runtime.v1" &&
 		oneOfReason(reason, ReasonAbsent, ReasonIncompatibleVersion, ReasonCommandContractChanged):
-		template, effect, summary = "setup.codex.capability-runtime-update.v1", "effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2", "Install the catalog-supported Codex capability runtime."
+		template, effect, summary = "setup.codex.capability-runtime-update.v1", codexCapabilityRuntimeEffectID, "Install the catalog-supported Codex capability runtime."
 	case instance.MatchTarget == "database.supabase.inspect.codex-broker" && predicate.ID == "predicate.supabase.selected-project-readonly.v1" &&
 		oneOfReason(reason, ReasonAuthRequired, ReasonPluginUnready, ReasonProjectUnavailable):
 		template, effect, summary = "setup.supabase.connect-readonly-project.v1", "effect.supabase.selected-project-readonly.v1", "Connect one project-scoped read-only Supabase root."
 	case (instance.MatchTarget == "codex-appserver+gmail" || instance.MatchTarget == "codex-appserver+supabase") &&
 		predicate.ID == "predicate.binding."+instance.MatchTarget+".v1" &&
 		oneOfReason(reason, ReasonIncompatibleVersion, ReasonCommandContractChanged):
-		template, effect, summary = "setup.codex.capability-runtime-update.v1", "effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2", "Install the catalog-supported Codex capability runtime."
+		template, effect, summary = "setup.codex.capability-runtime-update.v1", codexCapabilityRuntimeEffectID, "Install the catalog-supported Codex capability runtime."
 	default:
 		return remedy{}, false
 	}
@@ -354,7 +354,7 @@ func operationDependenciesSatisfied(candidate remedyOperation, all, ordered []re
 func effectDependencies(effect string) []string {
 	switch {
 	case effect == "effect.codex.authenticated-subject.v1":
-		return []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}
+		return []string{codexCapabilityRuntimeEffectID}
 	case strings.HasPrefix(effect, "effect.codex.model-ready."):
 		return []string{"effect.codex.authenticated-subject.v1"}
 	case effect == "effect.claude.authenticated-subject.v1":
@@ -366,7 +366,7 @@ func effectDependencies(effect string) []string {
 	case effect == "effect.gmail.selected-imap-read.v1":
 		return []string{"effect.himalaya-1.2.0-preview.v1"}
 	case effect == "effect.supabase.selected-project-readonly.v1":
-		return []string{"effect.codex.capability-0.146.0-alpha.3.1-3db500cc.v2"}
+		return []string{codexCapabilityRuntimeEffectID}
 	default:
 		return nil
 	}

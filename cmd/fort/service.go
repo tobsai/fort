@@ -51,6 +51,9 @@ type serviceConfig struct {
 	// CapabilityPlanning preserves an explicit rollout override in launchd.
 	// Empty means use the binary default; "0" is the one-step rollback.
 	CapabilityPlanning string
+	// DisplayTimezone preserves an explicit shared Today timezone in launchd.
+	// Empty resolves from the daemon host at startup.
+	DisplayTimezone string
 }
 
 func plistPath(home, label string) string {
@@ -85,6 +88,9 @@ func renderPlist(sc serviceConfig) string {
 	}
 	if sc.CapabilityPlanning != "" {
 		b.WriteString("    <key>FORT_CAPABILITY_PLANNING</key>\n    <string>" + xmlEscape(sc.CapabilityPlanning) + "</string>\n")
+	}
+	if sc.DisplayTimezone != "" {
+		b.WriteString("    <key>FORT_DISPLAY_TIMEZONE</key>\n    <string>" + xmlEscape(sc.DisplayTimezone) + "</string>\n")
 	}
 	b.WriteString("  </dict>\n")
 	if sc.WorkDir != "" {
@@ -158,8 +164,16 @@ func buildServiceConfig() (serviceConfig, error) {
 		WorkDir:            home,
 		Path:               os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
 		CapabilityPlanning: os.Getenv("FORT_CAPABILITY_PLANNING"),
+		DisplayTimezone:    cfg.DisplayTimezone,
 		LogDir:             filepath.Join(home, "Library", "Logs", "Fort"),
 	}, nil
+}
+
+func validateServiceDisplayTimezone(sc serviceConfig) error {
+	if _, err := (config.Config{DisplayTimezone: sc.DisplayTimezone}).DisplayLocation(); err != nil {
+		return fmt.Errorf("service: %w", err)
+	}
+	return nil
 }
 
 // cmdService dispatches `fort service <verb>` (spec 032): the launchd
@@ -180,12 +194,18 @@ func cmdService(args []string) error {
 	}
 	switch args[0] {
 	case "install":
+		if err := validateServiceDisplayTimezone(sc); err != nil {
+			return err
+		}
 		return svcInstall(home, sc)
 	case "start":
 		return svcStart(sc)
 	case "stop":
 		return svcStop(sc)
 	case "restart":
+		if err := validateServiceDisplayTimezone(sc); err != nil {
+			return err
+		}
 		if runtime.GOOS == "darwin" {
 			if err := prepareServiceRestart(home, sc); err != nil {
 				return err

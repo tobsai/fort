@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ type ProbeObservation struct {
 	State         corecap.PredicateState
 	Reason        corecap.Reason
 	StableBinding []string
+	ResolvedModel string
 }
 
 type Prober interface {
@@ -49,9 +51,22 @@ type cachedProbe struct {
 	nextAllowed time.Time
 }
 
+type cacheInvalidation struct {
+	entries map[string]cachedProbe
+	groups  map[string]uint64
+}
+
+type adapterInvalidation struct {
+	id           uint64
+	participants int
+	baseline     map[string]cachedProbe
+	latest       map[string]cachedProbe
+}
+
 type refreshMemo struct {
-	mu     sync.Mutex
-	values map[string]*refreshMemoEntry
+	mu          sync.Mutex
+	values      map[string]*refreshMemoEntry
+	invalidated map[string]cachedProbe
 }
 
 type refreshMemoEntry struct {
@@ -89,9 +104,11 @@ type Registry struct {
 	catalog     corecap.Catalog
 	semaphore   chan struct{}
 
-	mu      sync.Mutex
-	cache   map[string]cachedProbe
-	current corecap.NodeInventory
+	mu                  sync.Mutex
+	cache               map[string]cachedProbe
+	nextInvalidation    uint64
+	activeInvalidations map[string]*adapterInvalidation
+	current             corecap.NodeInventory
 
 	flightMu     sync.Mutex
 	flights      map[string]*probeFlight
@@ -114,10 +131,15 @@ func NewRegistry(options RegistryOptions) (*Registry, error) {
 	}
 	return &Registry{
 		nodeID: options.NodeID, platform: options.Platform,
-		revisionKey: append([]byte(nil), options.RevisionKey...),
-		prober:      options.Prober, now: options.Now, catalog: corecap.CatalogV2(),
-		semaphore: make(chan struct{}, 2), cache: map[string]cachedProbe{},
-		flights: map[string]*probeFlight{}, adapterGates: map[string]chan struct{}{},
+		revisionKey:         append([]byte(nil), options.RevisionKey...),
+		prober:              options.Prober,
+		now:                 options.Now,
+		catalog:             corecap.CatalogV2(),
+		semaphore:           make(chan struct{}, 2),
+		cache:               map[string]cachedProbe{},
+		activeInvalidations: map[string]*adapterInvalidation{},
+		flights:             map[string]*probeFlight{},
+		adapterGates:        map[string]chan struct{}{},
 	}, nil
 }
 
@@ -202,7 +224,11 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 	for _, adapter := range request.Adapters {
 		selected[adapter] = true
 	}
-	memo := &refreshMemo{values: map[string]*refreshMemoEntry{}}
+	var invalidated cacheInvalidation
+	if request.Mode == corecap.RefreshUserRecheck {
+		invalidated = r.invalidateAdapters(selected)
+	}
+	memo := &refreshMemo{values: map[string]*refreshMemoEntry{}, invalidated: invalidated.entries}
 
 	profiles := make([]corecap.ProfileOffer, len(r.catalog.Profiles))
 	logicals := make([]corecap.LogicalOffer, len(r.catalog.Capabilities))
@@ -223,6 +249,7 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 	}
 	wg.Wait()
 	if err := ctx.Err(); err != nil {
+		r.restoreInvalidated(invalidated)
 		return corecap.NodeInventory{}, err
 	}
 
@@ -241,6 +268,10 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 	if bindings == nil {
 		bindings = []corecap.ExecutionBindingOffer{}
 	}
+	if err := ctx.Err(); err != nil {
+		r.restoreInvalidated(invalidated)
+		return corecap.NodeInventory{}, err
+	}
 	state, reason := machineSummary(profiles, logicals, bindings)
 	inventory := corecap.NodeInventory{
 		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion,
@@ -249,9 +280,104 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 		Profiles: profiles, Offers: logicals, Bindings: bindings,
 	}
 	r.mu.Lock()
+	r.commitInvalidatedLocked(invalidated)
 	r.current = inventory
 	r.mu.Unlock()
 	return inventory, nil
+}
+
+func (r *Registry) invalidateAdapters(selected map[string]bool) cacheInvalidation {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	invalidated := cacheInvalidation{
+		entries: map[string]cachedProbe{},
+		groups:  make(map[string]uint64, len(selected)),
+	}
+	for adapter := range selected {
+		group := r.activeInvalidations[adapter]
+		newGroup := group == nil
+		if group == nil {
+			r.nextInvalidation++
+			group = &adapterInvalidation{
+				id: r.nextInvalidation, baseline: map[string]cachedProbe{}, latest: map[string]cachedProbe{},
+			}
+			r.activeInvalidations[adapter] = group
+		}
+		for key, cached := range r.cache {
+			if !strings.HasPrefix(key, adapter+"\x00") {
+				continue
+			}
+			if newGroup {
+				group.baseline[key] = cached
+			} else {
+				// A later participant can invalidate a fresh observation produced
+				// by its active peer. Preserve that separately from the original
+				// rollback baseline so a successful peer can commit it atomically.
+				group.latest[key] = cached
+			}
+			// Every overlapping explicit Recheck invalidates observations that a
+			// peer may have repopulated after the group began. Its refresh-scoped
+			// copy still carries the newest failure history into the fresh probe.
+			invalidated.entries[key] = cached
+			delete(r.cache, key)
+		}
+		group.participants++
+		invalidated.groups[adapter] = group.id
+		for key, cached := range group.latest {
+			if _, ok := invalidated.entries[key]; !ok {
+				invalidated.entries[key] = cached
+			}
+		}
+		for key, cached := range group.baseline {
+			if _, ok := invalidated.entries[key]; !ok {
+				invalidated.entries[key] = cached
+			}
+		}
+	}
+	return invalidated
+}
+
+func (r *Registry) restoreInvalidated(invalidated cacheInvalidation) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.finishInvalidatedLocked(invalidated, false)
+}
+
+func (r *Registry) commitInvalidatedLocked(invalidated cacheInvalidation) {
+	r.finishInvalidatedLocked(invalidated, true)
+}
+
+func (r *Registry) finishInvalidatedLocked(invalidated cacheInvalidation, commit bool) {
+	for adapter, groupID := range invalidated.groups {
+		group := r.activeInvalidations[adapter]
+		if group == nil || group.id != groupID {
+			continue
+		}
+		if commit {
+			// One complete Recheck makes the old rollback baseline obsolete and
+			// closes this overlap group immediately. Older participants finish as
+			// no-ops by group ID; a later Recheck starts a fresh invalidation.
+			for key, cached := range group.latest {
+				if _, ok := r.cache[key]; !ok {
+					r.cache[key] = cached
+				}
+			}
+			delete(r.activeInvalidations, adapter)
+			continue
+		}
+		group.participants--
+		if group.participants > 0 {
+			continue
+		}
+		for key, cached := range group.baseline {
+			// A concurrent successful probe owns its newer observation. Restore
+			// only entries still absent after every overlapping Recheck canceled.
+			if _, ok := r.cache[key]; !ok {
+				r.cache[key] = cached
+			}
+		}
+		delete(r.activeInvalidations, adapter)
+	}
 }
 
 func (r *Registry) Current() corecap.NodeInventory {
@@ -262,30 +388,45 @@ func (r *Registry) Current() corecap.NodeInventory {
 
 func (r *Registry) buildProfile(ctx context.Context, refresh corecap.RecheckRequest, selected map[string]bool, memo *refreshMemo, definition corecap.ProfileDefinition) corecap.ProfileOffer {
 	templates, _ := r.catalog.ProfilePredicateTemplates(definition.ID)
-	predicates, material := r.resolvePredicates(
+	predicates, material, resolvedModels := r.resolvePredicates(
 		ctx, refresh, selected[definition.Adapter], memo,
 		ProbeRequest{AdapterID: definition.Adapter, TargetID: definition.ID, ProfileID: definition.ID},
 		templates, nil,
 	)
 	state, reason := offerSummary(predicates, nil)
+	resolvedModel := resolvedModels[resolvedModelPredicateID(definition)]
+	if state == corecap.OfferReady && definition.RequiresResolvedModel() && resolvedModel == "" {
+		state, reason = corecap.OfferSetupRequired, corecap.ReasonModelUnavailable
+	}
+	if state != corecap.OfferReady || !definition.RequiresResolvedModel() {
+		resolvedModel = ""
+	}
 	revision := ""
 	if state == corecap.OfferReady {
 		revision, _ = corecap.OpaqueRevision(r.revisionKey, "fort.profile-binding.v1", struct {
 			CatalogVersion        int                       `json:"catalog_version"`
 			ProfileMappingVersion int                       `json:"profile_mapping_version"`
 			Profile               corecap.ProfileDefinition `json:"profile"`
+			ResolvedModel         string                    `json:"resolved_model,omitempty"`
 			StableBinding         map[string][]string       `json:"stable_binding"`
-		}{corecap.CatalogVersion, corecap.ProfileMappingVersion, definition, material})
+		}{corecap.CatalogVersion, corecap.ProfileMappingVersion, definition, resolvedModel, material})
 	}
 	return corecap.ProfileOffer{
 		ID: definition.ID, Agent: definition.Agent, Adapter: definition.Adapter,
-		State: state, Reason: reason, BindingRevision: revision, Predicates: predicates,
+		ResolvedModel: resolvedModel, State: state, Reason: reason, BindingRevision: revision, Predicates: predicates,
 	}
+}
+
+func resolvedModelPredicateID(definition corecap.ProfileDefinition) string {
+	if !definition.RequiresResolvedModel() || definition.Agent != "codex" {
+		return ""
+	}
+	return "predicate.codex.model." + definition.ID + ".v1"
 }
 
 func (r *Registry) buildLogical(ctx context.Context, refresh corecap.RecheckRequest, selected map[string]bool, memo *refreshMemo, definition corecap.CapabilityDefinition) corecap.LogicalOffer {
 	templates, _ := r.catalog.LogicalPredicateTemplates(definition.ID)
-	predicates, material := r.resolvePredicates(
+	predicates, material, _ := r.resolvePredicates(
 		ctx, refresh, selected[definition.Adapter], memo,
 		ProbeRequest{AdapterID: definition.Adapter, TargetID: definition.ID},
 		templates, nil,
@@ -349,7 +490,7 @@ func (r *Registry) buildBinding(
 			}
 		}
 	}
-	predicates, material := r.resolvePredicates(
+	predicates, material, _ := r.resolvePredicates(
 		ctx, refresh, selected[definition.ID], memo,
 		ProbeRequest{
 			AdapterID: definition.ID, TargetID: definition.ID,
@@ -388,13 +529,14 @@ func (r *Registry) resolvePredicates(
 	base ProbeRequest,
 	templates []corecap.PredicateTemplate,
 	seed map[string]bool,
-) ([]corecap.Predicate, map[string][]string) {
+) ([]corecap.Predicate, map[string][]string, map[string]string) {
 	satisfied := map[string]bool{}
 	for key, value := range seed {
 		satisfied[key] = value
 	}
 	predicates := make([]corecap.Predicate, len(templates))
 	material := map[string][]string{}
+	resolvedModels := map[string]string{}
 	for i, template := range templates {
 		predicate := corecap.Predicate{
 			ID: template.ID, Resolution: template.Resolution,
@@ -423,10 +565,13 @@ func (r *Registry) resolvePredicates(
 			predicate.Reason = ""
 			satisfied[template.ID] = true
 			material[template.ID] = append([]string(nil), observation.StableBinding...)
+			if observation.ResolvedModel != "" {
+				resolvedModels[template.ID] = observation.ResolvedModel
+			}
 		}
 		predicates[i] = predicate
 	}
-	return predicates, material
+	return predicates, material, resolvedModels
 }
 
 func dependenciesReady(dependencies []string, satisfied map[string]bool) bool {
@@ -460,16 +605,23 @@ func contains(value, fragment string) bool {
 
 func (r *Registry) observe(ctx context.Context, refresh corecap.RecheckRequest, selected bool, memo *refreshMemo, request ProbeRequest) ProbeObservation {
 	key := probeKey(request)
+	prior, hadPrior := memo.invalidated[key]
 	return memo.observe(key, func() ProbeObservation {
-		return r.observeOnce(ctx, refresh, selected, key, request)
+		return r.observeOnce(ctx, refresh, selected, key, request, prior, hadPrior)
 	})
 }
 
-func (r *Registry) observeOnce(ctx context.Context, refresh corecap.RecheckRequest, selected bool, key string, request ProbeRequest) ProbeObservation {
+func (r *Registry) observeOnce(ctx context.Context, refresh corecap.RecheckRequest, selected bool, key string, request ProbeRequest, prior cachedProbe, hadPrior bool) ProbeObservation {
 	now := r.now()
 	r.mu.Lock()
 	cached, hasCached := r.cache[key]
 	r.mu.Unlock()
+	if !hasCached && hadPrior {
+		// Invalidation discards the observation but not failure history: a failed
+		// explicit Recheck bypasses the active delay without resetting its next
+		// exponential-backoff step. Only a successful probe resets failures.
+		cached = prior
+	}
 	if !selected {
 		if hasCached {
 			return cached.observation
@@ -585,6 +737,9 @@ func (r *Registry) singleFlight(ctx context.Context, key string, run func() Prob
 
 func normalizeObservation(observation ProbeObservation) ProbeObservation {
 	if observation.State == corecap.PredicateSatisfied {
+		if observation.ResolvedModel != strings.TrimSpace(observation.ResolvedModel) {
+			return ProbeObservation{State: corecap.PredicateUnsatisfied, Reason: corecap.ReasonCommandContractChanged}
+		}
 		observation.Reason = ""
 		return observation
 	}
@@ -593,6 +748,7 @@ func normalizeObservation(observation ProbeObservation) ProbeObservation {
 		return ProbeObservation{State: corecap.PredicateUnsatisfied, Reason: corecap.ReasonProbeFailed}
 	}
 	observation.StableBinding = nil
+	observation.ResolvedModel = ""
 	return observation
 }
 

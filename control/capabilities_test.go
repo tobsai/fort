@@ -2,11 +2,15 @@ package control
 
 import (
 	"context"
+	"errors"
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/machines"
 	"github.com/tobsai/fort/core/runtime"
@@ -18,10 +22,53 @@ type fakeLocalCapabilities struct {
 	inventory corecap.NodeInventory
 }
 
+type recordingLocalCapabilities struct {
+	inventory corecap.NodeInventory
+	request   corecap.RecheckRequest
+}
+
+func (f *recordingLocalCapabilities) Current() corecap.NodeInventory { return f.inventory }
+func (f *recordingLocalCapabilities) Refresh(_ context.Context, request corecap.RecheckRequest) (corecap.NodeInventory, error) {
+	f.request = request
+	return f.inventory, nil
+}
+
+type recordingPeerCapabilities struct {
+	inventory corecap.NodeInventory
+	request   corecap.RecheckRequest
+}
+
+func (f *recordingPeerCapabilities) Refresh(_ context.Context, _, _ string, request corecap.RecheckRequest) (corecap.NodeInventory, error) {
+	f.request = request
+	return f.inventory, nil
+}
+
 type blockingLocalCapabilities struct {
 	inventory corecap.NodeInventory
 	started   chan struct{}
 	release   chan struct{}
+}
+
+type sequencedLocalCapabilities struct {
+	calls         atomic.Int32
+	firstStarted  chan struct{}
+	secondStarted chan struct{}
+	releaseFirst  chan struct{}
+	first         corecap.NodeInventory
+	second        corecap.NodeInventory
+}
+
+func (f *sequencedLocalCapabilities) Current() corecap.NodeInventory { return f.first }
+func (f *sequencedLocalCapabilities) Refresh(context.Context, corecap.RecheckRequest) (corecap.NodeInventory, error) {
+	switch f.calls.Add(1) {
+	case 1:
+		close(f.firstStarted)
+		<-f.releaseFirst
+		return f.first, nil
+	default:
+		close(f.secondStarted)
+		return f.second, nil
+	}
 }
 
 func (f *blockingLocalCapabilities) Current() corecap.NodeInventory { return f.inventory }
@@ -33,11 +80,40 @@ func (f *blockingLocalCapabilities) Refresh(context.Context, corecap.RecheckRequ
 
 type readyCapabilityProber struct{}
 
-func (readyCapabilityProber) Probe(context.Context, execcap.ProbeRequest) execcap.ProbeObservation {
-	return execcap.ProbeObservation{
+func (readyCapabilityProber) Probe(_ context.Context, request execcap.ProbeRequest) execcap.ProbeObservation {
+	observation := execcap.ProbeObservation{
 		State:         corecap.PredicateSatisfied,
 		StableBinding: []string{"stable-test-binding"},
 	}
+	if request.ProfileID == "codex:configured-default" && request.PredicateID == "predicate.codex.model.codex:configured-default.v1" {
+		observation.ResolvedModel = "gpt-5.6-sol"
+	}
+	return observation
+}
+
+type mutableDynamicCapabilityProber struct {
+	mu    sync.Mutex
+	model string
+}
+
+func (p *mutableDynamicCapabilityProber) Probe(_ context.Context, request execcap.ProbeRequest) execcap.ProbeObservation {
+	p.mu.Lock()
+	model := p.model
+	p.mu.Unlock()
+	observation := execcap.ProbeObservation{
+		State:         corecap.PredicateSatisfied,
+		StableBinding: []string{"stable-test-binding"},
+	}
+	if request.ProfileID == "codex:configured-default" && request.PredicateID == "predicate.codex.model.codex:configured-default.v1" {
+		observation.ResolvedModel = model
+	}
+	return observation
+}
+
+func (p *mutableDynamicCapabilityProber) setModel(model string) {
+	p.mu.Lock()
+	p.model = model
+	p.mu.Unlock()
 }
 
 func (f fakeLocalCapabilities) Current() corecap.NodeInventory { return f.inventory }
@@ -129,6 +205,9 @@ machines:
 		snapshot.Machines[2].Reason != corecap.ReasonUnavailable || snapshot.Machines[2].Reachable {
 		t.Fatalf("offline row = %#v", snapshot.Machines[2])
 	}
+	if len(snapshot.Machines[2].Profiles) != 0 || len(snapshot.Machines[2].Offers) != 0 || len(snapshot.Machines[2].Bindings) != 0 {
+		t.Fatalf("first-seen offline registry claim became capability inventory: %#v", snapshot.Machines[2])
+	}
 	if peers.maxActive < 2 {
 		t.Fatalf("peer refresh was not concurrent; max active = %d", peers.maxActive)
 	}
@@ -191,6 +270,111 @@ machines:
 	}
 }
 
+func TestCapabilityCoordinatorPublishesRefreshesInRequestOrder(t *testing.T) {
+	local := &sequencedLocalCapabilities{
+		firstStarted: make(chan struct{}), secondStarted: make(chan struct{}), releaseFirst: make(chan struct{}),
+		first: minimalNodeInventory("laptop"), second: readyNodeInventory(t, "laptop"),
+	}
+	coordinator, err := NewCapabilityCoordinator(CapabilityCoordinatorOptions{
+		Live: &machines.Live{}, LocalName: "laptop", Local: local, Peers: &fakePeerCapabilities{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstDone := make(chan error, 1)
+	go func() {
+		_, _, refreshErr := coordinator.Refresh(context.Background(), corecap.RefreshPlanning, []string{"profile.codex.native"})
+		firstDone <- refreshErr
+	}()
+	<-local.firstStarted
+	secondDone := make(chan error, 1)
+	go func() {
+		_, _, refreshErr := coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+		secondDone <- refreshErr
+	}()
+	var secondErr error
+	secondCompleted := false
+	select {
+	case secondErr = <-secondDone:
+		secondCompleted = true
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(local.releaseFirst)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if !secondCompleted {
+		secondErr = <-secondDone
+	}
+	if secondErr != nil {
+		t.Fatal(secondErr)
+	}
+	select {
+	case <-local.secondStarted:
+	default:
+		t.Fatal("later refresh never reached the local registry")
+	}
+	snapshot, generation := coordinator.Current()
+	readyResolvedDefault := false
+	if len(snapshot.Machines) == 1 {
+		for _, profile := range snapshot.Machines[0].Profiles {
+			if profile.ID == "codex:configured-default" && profile.State == corecap.OfferReady && profile.ResolvedModel == "gpt-5.6-sol" {
+				readyResolvedDefault = true
+			}
+		}
+	}
+	if generation != 2 || !readyResolvedDefault {
+		t.Fatalf("current refresh generation=%d snapshot=%#v, want the later explicit recheck", generation, snapshot)
+	}
+}
+
+func TestConversationSeatRecheckPublishesExplicitProfileRefresh(t *testing.T) {
+	live := &machines.Live{}
+	registry, err := machines.Parse([]byte(`
+version: 1
+machines:
+  - {name: laptop, url: "http://laptop:4087", agents: [codex]}
+  - {name: mini, url: "http://mini:4087", agents: [codex]}
+`), "laptop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	live.Store(registry)
+	local := &recordingLocalCapabilities{inventory: minimalNodeInventory("laptop")}
+	peer := &recordingPeerCapabilities{inventory: minimalNodeInventory("mini")}
+	coordinator, err := NewCapabilityCoordinator(CapabilityCoordinatorOptions{
+		Live: live, LocalName: "laptop", Local: local, Peers: peer,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := coordinator.RecheckConversationSeats(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, generation := coordinator.Current()
+	if generation != 1 {
+		t.Fatalf("published generation = %d, want 1", generation)
+	}
+	wantAdapters := []string{
+		"profile.claude.native",
+		"profile.codex.native",
+		"profile.hermes.native",
+		"profile.openclaw.main",
+	}
+	for name, request := range map[string]corecap.RecheckRequest{"local": local.request, "peer": peer.request} {
+		if request.Mode != corecap.RefreshUserRecheck || request.MaxAgeSeconds != 0 {
+			t.Errorf("%s mode = %q max_age=%d, want explicit user recheck", name, request.Mode, request.MaxAgeSeconds)
+		}
+		if !reflect.DeepEqual(request.Adapters, wantAdapters) {
+			t.Errorf("%s adapters = %#v, want exact execution profiles %#v", name, request.Adapters, wantAdapters)
+		}
+		if request.RequestID == "" || request.RequestID != local.request.RequestID {
+			t.Errorf("%s request id = %q, want one shared non-empty refresh id", name, request.RequestID)
+		}
+	}
+}
+
 func TestCapabilityCoordinatorFreshnessStartsAfterRefreshSettles(t *testing.T) {
 	now := time.Unix(3000, 0).UTC()
 	local := &blockingLocalCapabilities{
@@ -243,6 +427,107 @@ func TestCapabilityCoordinatorGenerationAdvancesWithoutTimestampRevisionChurn(t 
 	current, currentGeneration := coordinator.Capabilities()
 	if currentGeneration != generation2 || current.Revision != second.Revision {
 		t.Fatalf("current generation=%d revision=%s", currentGeneration, current.Revision)
+	}
+}
+
+func TestCapabilityCoordinatorKeepsKnownPeerProfilesUnavailableWhenPeerGoesOffline(t *testing.T) {
+	live := &machines.Live{}
+	registry, err := machines.Parse([]byte(`
+version: 1
+machines:
+  - {name: laptop, url: "http://laptop:4087", agents: [codex]}
+  - {name: mini, url: "http://mini:4087", agents: [codex]}
+`), "laptop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	live.Store(registry)
+	peerInventory := readyNodeInventory(t, "mini")
+	peers := &fakePeerCapabilities{results: map[string]corecap.NodeInventory{"mini": peerInventory}, errors: map[string]error{}}
+	coordinator, err := NewCapabilityCoordinator(CapabilityCoordinatorOptions{
+		Live: live, LocalName: "laptop", Local: fakeLocalCapabilities{inventory: minimalNodeInventory("laptop")},
+		Peers: peers,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"}); err != nil {
+		t.Fatal(err)
+	}
+
+	peers.mu.Lock()
+	peers.errors["mini"] = &execcap.DiscoveryError{Reason: corecap.ReasonUnavailable}
+	peers.mu.Unlock()
+	snapshot, _, err := coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mini := snapshot.Machines[1]
+	if mini.Reachable || mini.State != corecap.MachineUnknown || mini.Reason != corecap.ReasonUnavailable {
+		t.Fatalf("offline machine = %#v", mini)
+	}
+	if len(mini.Profiles) == 0 {
+		t.Fatal("offline peer lost every previously verified profile identity")
+	}
+	if len(mini.Offers) != 0 || len(mini.Bindings) != 0 {
+		t.Fatalf("offline peer retained stale logical capabilities or bindings: offers=%#v bindings=%#v", mini.Offers, mini.Bindings)
+	}
+	for _, profile := range mini.Profiles {
+		if profile.State != corecap.OfferUnknown || profile.Reason != corecap.ReasonUnavailable || profile.BindingRevision != "" {
+			t.Fatalf("offline profile = %#v, want unknown/unreachable with no reusable revision", profile)
+		}
+		if len(profile.Predicates) == 0 {
+			t.Fatalf("offline profile lost its complete predicate shape: %#v", profile)
+		}
+		for _, predicate := range profile.Predicates {
+			if predicate.State == corecap.PredicateSatisfied {
+				t.Fatalf("offline profile retained a satisfied predicate: %#v", profile)
+			}
+		}
+	}
+	seats := (SnapshotConversationSeats{Source: coordinator}).ConversationSeats()
+	found := false
+	for _, seat := range seats {
+		if seat.Profile != "codex:gpt-5.6-sol" || seat.Model != "gpt-5.6-sol" || seat.Machine != "mini" {
+			continue
+		}
+		found = true
+		if !strings.HasPrefix(seat.ID, "seat:v1:") || strings.Contains(seat.ID, seat.Profile) ||
+			strings.Contains(seat.ID, seat.Machine) || seat.State != string(corecap.OfferUnavailable) ||
+			seat.Reason != string(corecap.ReasonUnavailable) {
+			t.Fatalf("offline conversation seat = %#v", seat)
+		}
+	}
+	if !found {
+		t.Fatalf("known offline seat missing from projection: %#v", seats)
+	}
+	snapshot, _, err = coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Machines[1].Profiles) != len(mini.Profiles) {
+		t.Fatalf("repeated outage lost known profile identities: first=%d second=%d", len(mini.Profiles), len(snapshot.Machines[1].Profiles))
+	}
+
+	peers.mu.Lock()
+	peers.errors["mini"] = &execcap.DiscoveryError{Reason: corecap.ReasonOldNode}
+	peers.mu.Unlock()
+	snapshot, _, err = coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profiles := snapshot.Machines[1].Profiles; len(profiles) != 0 {
+		t.Fatalf("old-node response retained hypothetical profile mappings: %#v", profiles)
+	}
+	peers.mu.Lock()
+	peers.errors["mini"] = &execcap.DiscoveryError{Reason: corecap.ReasonUnavailable}
+	peers.mu.Unlock()
+	snapshot, _, err = coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profiles := snapshot.Machines[1].Profiles; len(profiles) != 0 {
+		t.Fatalf("later outage resurrected profiles discarded after old-node result: %#v", profiles)
 	}
 }
 
@@ -369,6 +654,43 @@ machines:
 	}
 }
 
+func TestProfileGateBypassesPlanningCacheBeforeDynamicDispatch(t *testing.T) {
+	prober := &mutableDynamicCapabilityProber{model: "gpt-5.6-sol"}
+	registry, err := execcap.NewRegistry(execcap.RegistryOptions{
+		NodeID: "laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"),
+		Prober:      prober,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	coordinator, err := NewCapabilityCoordinator(CapabilityCoordinatorOptions{
+		Live: &machines.Live{}, LocalName: "laptop", Local: registry,
+		Peers: &fakePeerCapabilities{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := coordinator.Refresh(context.Background(), corecap.RefreshUserRecheck, []string{"profile.codex.native"}); err != nil {
+		t.Fatal(err)
+	}
+	prober.setModel("gpt-5.6-terra")
+
+	next := fake.New()
+	gate := execcap.NewProfileGate(next, coordinator)
+	_, err = gate.Dispatch(context.Background(), runtime.RunSpec{
+		RunID: "run-dynamic", Profile: "codex:configured-default", Agent: "codex",
+		Model: "gpt-5.6-sol", Machine: "laptop",
+	})
+	var blocked *execcap.ProfilePreflightError
+	if !errors.As(err, &blocked) || blocked.Reason != corecap.ReasonCapabilityDrift {
+		t.Fatalf("error=%v, want capability_drift", err)
+	}
+	if starts := len(next.Dispatched()); starts != 0 {
+		t.Fatalf("provider starts=%d, want 0", starts)
+	}
+}
+
 func TestCapabilityCoordinatorRejectsMoreThanSixteenMachines(t *testing.T) {
 	live := &machines.Live{}
 	registry := &machines.Registry{Version: 1}
@@ -394,4 +716,21 @@ func minimalNodeInventory(nodeID string) corecap.NodeInventory {
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
 		Bindings: []corecap.ExecutionBindingOffer{},
 	}
+}
+
+func readyNodeInventory(t *testing.T, nodeID string) corecap.NodeInventory {
+	t.Helper()
+	registry, err := execcap.NewRegistry(execcap.RegistryOptions{
+		NodeID: nodeID, Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"),
+		Prober:      readyCapabilityProber{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := registry.Refresh(context.Background(), execcap.RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return inventory
 }

@@ -121,6 +121,7 @@ type ProfileOffer struct {
 	ID              string      `json:"id"`
 	Agent           string      `json:"agent"`
 	Adapter         string      `json:"adapter"`
+	ResolvedModel   string      `json:"resolved_model,omitempty"`
 	State           OfferState  `json:"state"`
 	BindingRevision string      `json:"binding_revision"`
 	Reason          Reason      `json:"reason"`

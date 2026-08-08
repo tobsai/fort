@@ -147,7 +147,12 @@ func cmdSchedule(args []string) error {
 	if len(args) < 3 {
 		return fmt.Errorf("usage: fort schedule cron <spec> <flow> | once <duration> <flow>")
 	}
-	definition := scheduler.Definition{ID: uuid.NewString(), FlowID: args[2], Timezone: time.Local.String(), Enabled: true}
+	cfg := config.Load(os.Getenv)
+	displayLocation, err := cfg.DisplayLocation()
+	if err != nil {
+		return fmt.Errorf("schedule: %w", err)
+	}
+	definition := scheduler.Definition{ID: uuid.NewString(), FlowID: args[2], Timezone: displayLocation.String(), Enabled: true}
 	switch args[0] {
 	case "cron":
 		definition.Kind, definition.Expression = scheduler.KindCron, args[1]
@@ -171,7 +176,6 @@ func cmdSchedule(args []string) error {
 	if err != nil {
 		return err
 	}
-	cfg := config.Load(os.Getenv)
 	host, port, err := net.SplitHostPort(cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("invalid Fort address %q: %w", cfg.Addr, err)
@@ -182,7 +186,7 @@ func cmdSchedule(args []string) error {
 	endpoint := "http://" + net.JoinHostPort(host, port) + "/api/schedules"
 	response, err := http.Post(endpoint, "application/json", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("contact running Fort daemon at %s: %w", endpoint, err)
+		return fmt.Errorf("contact running Fort daemon at %s (start Fort with `fort serve` first): %w", endpoint, err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusCreated {

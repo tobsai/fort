@@ -75,6 +75,29 @@ func (s *Server) handleConversationSeats(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (s *Server) handleConversationSeatRecheck(w http.ResponseWriter, r *http.Request) {
+	if !s.requireConversations(w) {
+		return
+	}
+	if s.d.SeatRechecker == nil {
+		http.Error(w, "conversation seat recheck unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if err := s.d.SeatRechecker.RecheckConversationSeats(r.Context()); err != nil {
+		conversationAPIError(w, err)
+		return
+	}
+	items, err := s.d.Conversations.ConversationSeats(r.Context())
+	if err != nil {
+		conversationAPIError(w, err)
+		return
+	}
+	if items == nil {
+		items = []conversation.Seat{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	if !s.requireConversations(w) {
 		return
@@ -274,8 +297,13 @@ func (s *Server) handleConversationTargetRetry(w http.ResponseWriter, r *http.Re
 		return
 	}
 	targetID := r.PathValue("target_id")
+	conversationID := r.PathValue("id")
 	if targetID == "" {
-		targetID = r.PathValue("id")
+		targetID, conversationID = conversationID, ""
+	}
+	if err := s.requireConversationTarget(r, conversationID, targetID); err != nil {
+		conversationAPIError(w, err)
+		return
 	}
 	item, err := s.d.Conversations.RetryTarget(r.Context(), targetID)
 	if err != nil {
@@ -290,14 +318,35 @@ func (s *Server) handleConversationTargetCancel(w http.ResponseWriter, r *http.R
 		return
 	}
 	targetID := r.PathValue("target_id")
+	conversationID := r.PathValue("id")
 	if targetID == "" {
-		targetID = r.PathValue("id")
+		targetID, conversationID = conversationID, ""
+	}
+	if err := s.requireConversationTarget(r, conversationID, targetID); err != nil {
+		conversationAPIError(w, err)
+		return
 	}
 	if err := s.d.Conversations.CancelTarget(r.Context(), targetID); err != nil {
 		conversationAPIError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) requireConversationTarget(r *http.Request, conversationID, targetID string) error {
+	if conversationID == "" {
+		return nil
+	}
+	detail, err := s.d.Conversations.GetConversation(r.Context(), conversationID)
+	if err != nil {
+		return err
+	}
+	for _, target := range detail.Targets {
+		if target.ID == targetID {
+			return nil
+		}
+	}
+	return sql.ErrNoRows
 }
 
 func (s *Server) handleConversationEvents(w http.ResponseWriter, r *http.Request) {
@@ -338,14 +387,10 @@ func (s *Server) handleToday(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "today is unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	location := time.Local
-	if name := strings.TrimSpace(r.URL.Query().Get("timezone")); name != "" {
-		parsed, err := time.LoadLocation(name)
-		if err != nil {
-			http.Error(w, "unknown timezone", http.StatusBadRequest)
-			return
-		}
-		location = parsed
+	location := s.d.TodayLocation
+	if location == nil {
+		http.Error(w, "today timezone is unavailable", http.StatusServiceUnavailable)
+		return
 	}
 	view, err := s.d.Today.Today(r.Context(), time.Now(), location)
 	if err != nil {
@@ -381,17 +426,12 @@ func (s *Server) handleScheduleCreate(w http.ResponseWriter, r *http.Request) {
 		title = request.FlowID
 	}
 	definition := scheduler.Definition{ID: request.ID, Title: title, Kind: request.Kind, Expression: request.Expression, FlowID: request.FlowID, Timezone: request.Timezone, Enabled: enabled}
-	nextFireAt, err := scheduler.NextFire(definition, time.Now())
+	created, err := s.d.Schedules.Create(r.Context(), definition)
 	if err != nil {
 		conversationAPIError(w, err)
 		return
 	}
-	definition.NextFireAt = nextFireAt
-	if err := s.d.Schedules.Create(r.Context(), definition); err != nil {
-		conversationAPIError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, definition)
+	writeJSON(w, http.StatusCreated, created)
 }
 
 func decodeJSON(r *http.Request, target any) error {
@@ -404,11 +444,17 @@ func decodeJSON(r *http.Request, target any) error {
 }
 
 func conversationAPIError(w http.ResponseWriter, err error) {
+	var bounded *conversation.BoundedError
+	isBounded := errors.As(err, &bounded)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "not found", http.StatusNotFound)
 	case errors.Is(err, conversation.ErrContextTooLarge):
 		writeJSON(w, http.StatusConflict, map[string]string{"code": "conversation_context_limit", "error": err.Error()})
+	case isBounded && bounded.Code == conversation.ErrorConversationActive:
+		writeJSON(w, http.StatusConflict, map[string]string{"code": string(bounded.Code), "error": bounded.Error()})
+	case isBounded:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"code": string(bounded.Code), "error": bounded.Error()})
 	case strings.Contains(strings.ToLower(err.Error()), "unique constraint"):
 		http.Error(w, err.Error(), http.StatusConflict)
 	default:

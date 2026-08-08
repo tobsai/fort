@@ -7,7 +7,6 @@ import (
 	corecap "github.com/tobsai/fort/core/capability"
 	"github.com/tobsai/fort/core/conversation"
 	"github.com/tobsai/fort/core/scheduler"
-	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 	coretoday "github.com/tobsai/fort/core/today"
 )
@@ -15,8 +14,8 @@ import (
 // The ui module talks to the rest of Fort only through these ports. This is
 // what lets the control plane (board, chat, scheduler, all client surfaces) run
 // WITHOUT the deterministic components: ui imports neither the router, the
-// native runtime, nor the DAG engine — only core/store and core/task. Concrete
-// adapters live in package control and are wired in by cmd/fort.
+// native runtime, nor the DAG engine. Concrete adapters live in package control
+// and are wired in by cmd/fort.
 
 // RunRef identifies the run a submitted task produced.
 type RunRef struct {
@@ -52,6 +51,23 @@ type CapabilityLister interface {
 	Capabilities() (corecap.Snapshot, uint64)
 }
 
+// ConversationSeatRechecker runs the already-bounded functional probes used
+// to project shared-conversation seats. It must not install, authenticate, or
+// dispatch an agent runtime.
+type ConversationSeatRechecker interface {
+	RecheckConversationSeats(context.Context) error
+}
+
+// ConversationDetail is the bounded conversation wire projection. Persistence
+// aggregates are adapted to this type by package control before reaching ui.
+type ConversationDetail struct {
+	Conversation conversation.Conversation  `json:"conversation"`
+	Participants []conversation.Participant `json:"participants"`
+	Messages     []conversation.Message     `json:"messages"`
+	Turns        []conversation.Turn        `json:"turns"`
+	Targets      []conversation.Target      `json:"targets"`
+}
+
 type ConversationPort interface {
 	ConversationSeats(context.Context) ([]conversation.Seat, error)
 	ListProjects(context.Context) ([]conversation.Project, error)
@@ -59,8 +75,8 @@ type ConversationPort interface {
 	RenameProject(context.Context, string, string) error
 	DeleteProject(context.Context, string) error
 	ListConversations(context.Context, string) ([]conversation.Conversation, error)
-	GetConversation(context.Context, string) (store.ConversationDetail, error)
-	CreateConversation(context.Context, string, string, []string) (store.ConversationDetail, error)
+	GetConversation(context.Context, string) (ConversationDetail, error)
+	CreateConversation(context.Context, string, string, []string) (ConversationDetail, error)
 	AddConversationParticipant(context.Context, string, string) (conversation.Participant, error)
 	MoveConversation(context.Context, string, string) error
 	RenameConversation(context.Context, string, string) error
@@ -77,7 +93,7 @@ type TodayPort interface {
 }
 
 type SchedulePort interface {
-	Create(context.Context, scheduler.Definition) error
+	Create(context.Context, scheduler.Definition) (scheduler.Definition, error)
 }
 
 // RunResult is a flow run's state after a Start/Resume.

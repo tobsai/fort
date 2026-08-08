@@ -29,6 +29,10 @@ func cmdControl(args []string) error {
 	_ = fs.Parse(args)
 
 	cfg := config.Load(os.Getenv)
+	todayLocation, err := cfg.DisplayLocation()
+	if err != nil {
+		return err
+	}
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {
 		return err
@@ -44,7 +48,8 @@ func cmdControl(args []string) error {
 	conversationService := control.NewConversationService(st, nil, control.SnapshotConversationSeats{}, cfg.WorkRoot)
 	defer conversationService.Close()
 	deps.Conversations = conversationService
-	deps.Today = control.NewTodayService(st, nil, conversationService)
+	deps.Today = control.NewTodayService(st, conversationService)
+	deps.TodayLocation = todayLocation
 
 	// Multi-machine (spec 022/024): even without execution, show the machine
 	// roster so the control plane is aware of every host. The managed registry
