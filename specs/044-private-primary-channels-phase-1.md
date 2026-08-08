@@ -1,4 +1,4 @@
-# Spec 044 — Phase 1: One Primary Chat
+# Spec 044 — Phase 1: Private Primary Channels
 
 **Status:** proposed implementation contract — no production implementation is
 authorized until Toby approves this spec and selects the Web/macOS/iOS design
@@ -13,8 +13,17 @@ contract
 ## Decision
 
 Phase 1 is a design-gated, local-web implementation of multiple dependable
-conversations, each with exactly one immutable Primary Agent. “One Primary
-Chat” means one agent per chat, not one singleton conversation for all time.
+private Channels, each with exactly one immutable Primary Agent. A Channel is
+the durable user-owned context boundary, not a public messaging feature, a
+Project, or a provider session. It maps 1:1 to one existing canonical
+conversation row: `channel_id == conversation.id`.
+
+Messages, turns, targets, retries, and compiled model context are always scoped
+to that Channel ID. Nothing from another Channel enters the prompt unless a
+later explicit source-link contract permits it. Two Channels may use the same
+Primary Agent while retaining byte-disjoint transcripts and context.
+An existing durable schedule may have one explicit related-Channel link for
+navigation/provenance; that link never changes its actual execution target.
 
 Fort will continue to own the canonical conversation, exact agent identity,
 target lifecycle, readiness, and cross-machine dispatch. A stateless text-only
@@ -24,17 +33,21 @@ files, or a callback capable of mutating user-owned or connected resources.
 
 The default experience contains only:
 
-1. **Chats** — open primary chats ordered by newest durable activity;
+1. **Channels** — pinned and recent private Channels ordered by newest durable
+   activity;
 2. **Transcript** — canonical human and attributed agent messages;
-3. **Composer** — one input and Send action targeting the chat's one persisted
+3. **Composer** — one input and Send action targeting the Channel's one persisted
    participant;
-4. **Needs you** — unresolved latest failed targets that have a real recovery
-   action; and
-5. **Settings** — Primary Agent identity, text-only eligibility, readiness, and
+4. **Scheduled** — every durable schedule definition plus upcoming and recent
+   occurrence state;
+5. **Needs you** — unresolved latest failed Channel targets that have a real
+   recovery action; and
+6. **Settings** — Primary Agent identity, text-only eligibility, readiness, and
    explicit Recheck.
 
-Phase 1 does not implement Memory V1, Act, tasks, schedules, projects,
-playbooks, DAGs, or native Apple clients. Those are separate decisions.
+Phase 1 does not implement Memory V1, Act, new task records, schedule creation
+or mutation, projects, playbooks, DAG authoring, or native Apple clients. It
+does preserve and expose existing durable schedule execution truthfully.
 
 ## Authorization gate
 
@@ -160,13 +173,16 @@ still has host environment, policy, filesystem, and network visibility.
 ### Included
 
 - one persisted exact Primary Agent selection;
-- primary chats with exactly one immutable participant;
+- private Primary Channels with exactly one immutable participant;
+- Channel rename, pin, archive/reopen, and newest-first private navigation;
+- a read-only Scheduled destination backed by all durable definitions and
+  occurrences, not only today's projection;
 - a quiet local-web shell at `/`;
 - a narrow text-only runtime authority carried end to end;
 - fail-closed readiness, model, machine, policy, and adapter validation;
 - restart/reload, same-seat retry, cancellation, and SSE reconstruction;
 - truthful Needs-you projection for failed primary targets;
-- a `fort chat` composition that does not require legacy orchestration config;
+- the new shell in full `fort serve`, preserving scheduler ownership;
 - local and two-machine contract acceptance; and
 - three coordinated design mockup directions for Web, macOS, and iOS before
   implementation.
@@ -177,10 +193,13 @@ still has host environment, policy, filesystem, and network visibility.
   compaction, and transcript search;
 - Act, approvals, receipts, files, connectors, email, browser, and other
   external mutations;
-- durable tasks, schedules, Today, Projects, playbooks, routes, DAGs, planner,
-  solver, assignments, metrics, and raw run activity;
+- new task records; schedule create/edit/pause/resume/delete/Run-now;
+  Channel-bound scheduled prompts; Today/Week calendar boards; Projects;
+  playbook/route/DAG/planner/solver authoring; assignments, metrics, and raw run
+  activity;
 - multi-agent chats, participant management, Everyone, and Ask another agent;
-- pinning, search, folders, and chat deletion in the new shell;
+- cross-Channel full-text search, folders, and Channel deletion in the new
+  shell;
 - provider-native session continuation;
 - macOS, iOS, watch, CarPlay, gateway-web, TestFlight, or release work;
 - deletion of legacy code or data; and
@@ -215,9 +234,9 @@ Settings groups options by computer and shows:
 Recheck runs the existing bounded no-turn probes. It never installs software,
 authenticates, changes models, dispatches a turn, or reroutes a seat.
 
-### Normal chat
+### Normal Channel
 
-Creating a chat asks only for its title. Fort snapshots the configured Primary
+Creating a Channel asks only for its name. Fort snapshots the configured Primary
 Agent into exactly one participant. The header shows a compact identity such
 as:
 
@@ -227,18 +246,18 @@ Primary Agent · OpenAI GPT-5.6 Sol · MacBook Pro · Ready
 
 An identity disclosure shows the full stored seat, text-only policy, adapter,
 API-billing source, and retention disclosure. A compact **Text-only chat** label
-explains that the model receives only this conversation context and cannot use
+explains that the model receives only this Channel context and cannot use
 tools or change connected resources.
 
 The composer contains one text input and Send. It has no provider, model,
 computer, seat, participant, target, or Everyone control.
 
-Changing the Primary Agent in Settings affects only chats created afterward.
-It never updates, retargets, relabels, or silently migrates an existing chat.
+Changing the Primary Agent in Settings affects only Channels created afterward.
+It never updates, retargets, relabels, or silently migrates an existing Channel.
 
 ### State and recovery
 
-The transcript and chat list use only durable/event-derived state:
+The transcript and Channel list use only durable/event-derived state:
 
 - **Queued** — the target is durable but the provider has not produced current
   activity;
@@ -258,7 +277,7 @@ context. Fort never silently reroutes.
 ### Needs you
 
 Needs you is a projection, not a new task system. It includes only the latest
-unresolved Failed target for an open primary chat when that target has a
+unresolved Failed target for an open Primary Channel when that target has a
 current recovery action.
 
 - starting a retry removes the failed item while the latest attempt is Queued
@@ -271,17 +290,48 @@ current recovery action.
 Each item deep-links to the exact conversation and target. The badge/drawer is
 absent when the projection is empty.
 
+### Scheduled
+
+Scheduled is a top-level chronological destination, not a Today board or a
+permanent dashboard rail. It lists every persisted definition—including
+paused and non-today schedules—and its latest/upcoming occurrence evidence.
+Each row shows:
+
+- durable schedule ID and title;
+- **Active** or **Paused** definition state;
+- Once or recurring cadence in human language plus the stored IANA timezone;
+- exact next and last fire instants;
+- truthful target kind and identity, initially the existing `flow_id`;
+- latest occurrence state: **Upcoming, Fired, Running, Completed, Failed,** or
+  **Canceled**;
+- occurrence error and linked run/observed execution identity when available;
+- scheduler ownership state: **Active, Inactive,** or **Unknown**; and
+- projection freshness time.
+
+Unlinked flow schedules are labelled **System schedules**. An explicitly
+linked schedule may show Related Channel and Open Channel, while its actual
+flow target remains visible. Fort never guesses a Channel binding or implies
+that a flow result appeared in a Channel. Upcoming items offer View schedule;
+Fired/Running offer Open run; Completed offers View result; Failed offers
+Review failure. There is no Retry because silently replaying an already claimed
+occurrence would violate the once-only contract.
+
+All Scheduled operations in Phase 1 are reads. Creating, editing, enabling,
+pausing, resuming, deleting, or manually firing a schedule requires a later
+approved contract.
+
 ### Navigation and responsive behavior
 
-- `/` is the new primary-chat shell.
+- `/` is the new private-Channels and Scheduled shell.
 - `/shared` preserves the current Spec 041 multi-agent/shared-chat page in full
   `fort serve` mode.
 - `/legacy` preserves the Command Deck/board rollback surface.
-- `fort chat` does not mount legacy mutating APIs or present the old surfaces.
 
-Desktop web uses a Chats rail and one transcript. Needs you and Settings are
-temporary drawers, not permanent dashboard columns. Below approximately 860px,
-the Chats rail becomes a keyboard-accessible sheet.
+Desktop web uses a Channels rail with **New Channel**, pinned/recent Channels,
+Scheduled, Needs you, and Settings. Selecting Scheduled replaces the transcript
+with its chronological list; detail opens in a drawer. Needs you and Settings
+remain temporary drawers, not permanent dashboard columns. Below approximately
+860px, the Channels rail becomes a keyboard-accessible sheet.
 
 Acceptance viewports are 1280×720 and 390×844, with a compact-phone check at
 375×667 with the keyboard present. Interactive targets are at least 44 CSS
@@ -297,22 +347,27 @@ The three mockup directions must each show one coherent experience across:
 2. native macOS at approximately 1240×800; and
 3. native iPhone at approximately 393×852 without a device bezel.
 
-All three surfaces use the same sample conversation, exact Primary Agent,
-message order, and target state so the comparison is about design. The visual
-language may vary, but every option must show:
+All three surfaces use the same sample Channel, exact Primary Agent, message
+order, schedule IDs/order, and durable states so the comparison is about
+design. Each direction shows both the active Channel state and the Scheduled
+destination. The visual language may vary, but every option must show:
 
-- newest-first Chats;
+- unmistakable private Channels navigation with pinned and recent Channels;
 - one transcript and composer;
+- a distinct Scheduled destination showing upcoming, recent, paused, and
+  failed durable state;
 - full identity available without dominating the conversation;
 - the text-only boundary;
 - a small Needs-you entry point;
 - Settings with readiness and Recheck; and
 - truthful Queued, Working, Answered, Failed, and recovery states.
 
-The mockups must not show memory, Act, projects, Today, schedules, playbooks,
-DAGs, participant chips, metrics, or a public user directory. macOS and iOS
+The mockups must not show memory, Act, projects, Today/Week boards, schedule
+authoring, playbooks, DAGs, participant chips, metrics, or a public user
+directory. macOS and iOS
 mockups are labelled future design. They do not claim implementation or parity
-until FortKit consumes the canonical primary-chat contract.
+until FortKit consumes the canonical Primary Channel and schedule-read
+contracts.
 
 The preferred visual foundation is Fort's existing deep-navy/electric-blue
 intelligence-core language and real orb asset, simplified from a command center
@@ -370,10 +425,10 @@ meaning of legacy `seat:v1`. The credential reference is a user-chosen label
 that resolves only on the selected computer; no secret crosses the mesh or is
 stored in SQLite.
 
-### `primary_chat`
+### `primary_channel`
 
 ```sql
-CREATE TABLE IF NOT EXISTS primary_chat (
+CREATE TABLE IF NOT EXISTS primary_channel (
   conversation_id TEXT PRIMARY KEY,
   participant_id TEXT NOT NULL UNIQUE,
   policy_id TEXT NOT NULL,
@@ -402,15 +457,49 @@ CREATE TABLE IF NOT EXISTS primary_chat (
 
 The existing participant remains the canonical profile, provider/model, and
 computer snapshot. The marker adds the stable approved text-only policy and
-nonsecret disclosure snapshot. It is immutable after chat creation: application
+nonsecret disclosure snapshot. It is immutable after Channel creation: application
 code and database triggers reject update or delete.
 
-Creating a primary chat atomically inserts the conversation, exactly one
+Creating a Primary Channel atomically inserts the conversation, exactly one
 participant copied from the setting, and the marker. Existing conversations
 have no marker and are legacy shared conversations; there is no backfill.
 
-Participant add/remove operations reject a marked primary chat. Rename,
+Participant add/remove operations reject a marked Primary Channel. Rename,
 archive, and reopen remain allowed. The Phase 1 shell does not expose Delete.
+
+Pin state is intentionally separate from immutable Channel identity:
+
+```sql
+CREATE TABLE IF NOT EXISTS primary_channel_pin (
+  conversation_id TEXT PRIMARY KEY,
+  pinned_at TEXT NOT NULL,
+  FOREIGN KEY(conversation_id) REFERENCES primary_channel(conversation_id)
+    ON DELETE CASCADE
+);
+```
+
+Pinning is an idempotent upsert; unpinning deletes only this projection row.
+Lists order pinned Channels by `pinned_at DESC`, then unpinned Channels by
+durable conversation activity descending with stable ID tie-breaking.
+
+An optional explicit display/provenance link associates an existing durable
+schedule with a Channel without changing what the schedule executes:
+
+```sql
+CREATE TABLE IF NOT EXISTS schedule_channel_link (
+  schedule_id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(schedule_id) REFERENCES schedule(id) ON DELETE CASCADE,
+  FOREIGN KEY(conversation_id) REFERENCES primary_channel(conversation_id)
+    ON DELETE CASCADE
+);
+```
+
+Phase 1 does not expose link creation or mutation. When the row exists, the UI
+may show **Related Channel** and Open Channel; it must still display the
+truthful flow target separately. When absent, the schedule is **System**. Fort
+never derives this link from matching names, prompts, flow IDs, or model prose.
 
 ### Per-attempt authority provenance
 
@@ -440,12 +529,12 @@ cannot lack its claimed provenance. Unavailable values remain
 empty/`unknown`. The UI derives the authority label of each answer from its own
 target, never from the conversation marker alone.
 
-The policy revision is stable conversation behavior. Selected and observed
+The policy revision is stable Channel behavior. Selected and observed
 adapter revisions and SDK versions describe one execution attempt. Retry may
 select a newly approved compatible adapter only when it certifies the exact
-same chat policy revision; it creates a new target and records the new
+same Channel policy revision; it creates a new target and records the new
 selection. A changed policy revision fails closed and requires a future
-explicit migration or a new chat.
+explicit migration or a new Channel.
 
 ### Database enforcement against old code
 
@@ -454,16 +543,16 @@ Migrations add SQLite triggers that reject:
 - insert of a primary marker unless its participant belongs to the same
   conversation and that conversation has exactly one active participant;
 - update or delete of a primary marker;
-- insert, update, or delete of a participant in a marked primary chat;
+- insert, update, or delete of a participant in a marked Primary Channel;
 - deletion of a marked primary conversation; and
-- insertion of a target for a marked primary chat unless its authority,
+- insertion of a target for a marked Primary Channel unless its authority,
   policy id, policy revision, exact request-policy fields, credential
   reference, organization, and project exactly match the marker, and its
   selected-adapter identity is nonempty.
 
 These triggers are part of the invariant, not merely UI validation. An older
 binary omits the new target authority fields and therefore cannot append a
-tool-capable turn to a marked chat. Existing legacy targets remain policy
+tool-capable turn to a marked Channel. Existing legacy targets remain policy
 `unknown`; they are never relabelled text-only.
 
 Target authority, policy, request-policy, credential reference, and selected
@@ -471,8 +560,8 @@ adapter fields are immutable after insertion. Observed metadata may make one
 validated transition from empty to the terminal receipt in the same
 transaction as Answered/Failed/Canceled; it cannot be rewritten later.
 
-Rollback does not deploy an older binary against a database containing primary
-chats. Use the accepted new binary's full `fort serve` mode, or restore a
+Rollback does not deploy an older binary against a database containing Primary
+Channels. Use the accepted new binary's full `fort serve` mode, or restore a
 coordinated pre-Phase-1 database snapshot with the older binary.
 
 ## Text-only capability and policy
@@ -670,11 +759,11 @@ validate every enum, string identity, fixed value, and numeric bound; the
 credential reference resolves to a secret only on the selected computer and no
 secret enters this structure.
 
-A primary-chat dispatch always supplies `chat_text_only_v1`,
+A Primary Channel dispatch always supplies `chat_text_only_v1`,
 `openai-responses-text-v1`, the complete `TextOnlyPolicy`, and the expected
 policy revision. Hub-side preflight validates the revision and clears only the
 private expected field. Authority, runtime contract, and text-only policy cross
-the cluster/remote wire. Chat-mode nodes accept only that exact
+the cluster/remote wire. The text-only node branch accepts only that exact
 authority/contract/profile/adapter/policy combination; empty, legacy, unknown,
 wrong-contract, and other-provider requests start zero work.
 
@@ -686,14 +775,12 @@ The full `fort serve` composition uses a closed local runtime multiplexer:
   runtime; and
 - every cross-combination or unknown value fails before work starts.
 
-The same mux policy protects full-mode node execution. The `fort chat` variant
-contains only its text-only branch. Tests prove that no text-only request can
-reach a CLI and no legacy/native request can reach the Responses adapter.
-
-`fort chat` never mounts the unrestricted legacy node execution handler. It
-mounts a restricted text-only transport backed only by the text adapter. A mesh
-token holder may submit text-only model work, but cannot reach a shell, tool,
-provider CLI, filesystem, browser, or connected resource through that endpoint.
+The same mux policy protects full-mode node execution. Tests prove that no
+text-only request can reach a CLI and no legacy/native request can reach the
+Responses adapter. The new Primary Channel HTTP/port surface has no generic
+execution method and cannot construct an empty-authority request; existing
+legacy execution remains separately scoped to its established admin/node
+surface.
 
 The Responses adapter accepts only a terminal `completed` response containing
 exactly one assistant text result. It may observe the closed inert output set
@@ -716,8 +803,8 @@ returns `chat_policy_unavailable` with zero provider requests.
 
 ## HTTP and port contract
 
-Add a narrow `PrimaryChatPort`. Ordinary clients never supply participant IDs,
-seat arrays, or target arrays.
+Add narrow `PrimaryChannelPort` and `ScheduleReadPort` contracts. Ordinary
+clients never supply participant IDs, seat arrays, or target arrays.
 
 ### Primary Agent
 
@@ -743,43 +830,93 @@ seat ID plus independent policy fields.
 DELETE /api/settings/primary-agent
 ```
 
-Clears the default for future chats. Existing chat identity is unchanged.
+Clears the default for future Channels. Existing Channel identity is unchanged.
 
 Reuse `POST /api/conversation-seats/recheck` for an explicit fresh probe, or
 add a narrow alias that calls the same bounded port. It never dispatches an
 agent turn.
 
-### Chats
+### Channels
 
 ```text
-GET  /api/chats?state=open|archived|all
-POST /api/chats                 { "title": "..." }
-GET  /api/chats/{id}
-PATCH /api/chats/{id}           { "title": "..." }
-PATCH /api/chats/{id}           { "state": "open|archived" }
-POST /api/chats/{id}/turns      { "client_turn_id": "uuid", "text": "..." }
-POST /api/chats/{id}/targets/{target_id}/retry
-POST /api/chats/{id}/targets/{target_id}/cancel
-GET  /api/chats/{id}/events
+GET  /api/channels?state=open|archived|all
+POST /api/channels                 { "name": "..." }
+GET  /api/channels/{id}
+PATCH /api/channels/{id}           { "name": "..." }
+PATCH /api/channels/{id}           { "state": "open|archived" }
+PATCH /api/channels/{id}           { "pinned": true|false }
+POST /api/channels/{id}/turns      { "client_turn_id": "uuid", "text": "..." }
+POST /api/channels/{id}/targets/{target_id}/retry
+POST /api/channels/{id}/targets/{target_id}/cancel
+GET  /api/channels/{id}/events
 GET  /api/needs-you
 ```
 
-`GET /api/chats` defaults to `state=open`; `archived` and `all` are the only
-other accepted values. Every result is newest-first and emits `[]`, never
-`null`. This is the path for reopening an archived chat. `GET
-/api/chats/{id}` returns the canonical conversation detail plus the complete
-`primary_identity` snapshot.
+`GET /api/channels` defaults to `state=open`; `archived` and `all` are the only
+other accepted values. Every result emits `[]`, never `null`, with pinned
+Channels first and the remaining Channels newest-first. This is the path for
+reopening an archived Channel. `GET /api/channels/{id}` returns the canonical
+conversation detail plus the complete `primary_identity` snapshot.
 
-Turn creation resolves the marked chat's sole participant server-side. A
+Turn creation resolves the marked Channel's sole participant server-side. A
 client cannot select another target. `202 Accepted` means the prompt, frozen
 context boundary, target, and run identity are durable; it does not mean the
 provider succeeded.
 
-Retry/cancel validate that the nested chat and target match. Missing or foreign
+Retry/cancel validate that the nested Channel and target match. Missing or foreign
 IDs are `404`; valid IDs in the wrong current state are `409`.
 
 `GET /api/needs-you` returns the projection defined above with non-null arrays.
 It must not create, mutate, probe, or dispatch anything.
+
+### Scheduled
+
+```go
+type ScheduleReadPort interface {
+    List(context.Context, ScheduleFilter) (ScheduleList, error)
+    Get(context.Context, string) (ScheduleDetail, error)
+    Occurrences(context.Context, string, OccurrencePage) ([]scheduler.Occurrence, error)
+}
+```
+
+```text
+GET /api/schedules?state=active|paused|all
+GET /api/schedules/{id}
+GET /api/schedules/{id}/occurrences?limit=50&before=<RFC3339>&before_id=<id>
+```
+
+The list defaults to `state=all` and returns one read-transaction snapshot as
+`{"snapshot_id":"schedule-snapshot:v1:...","observed_at":"...","items":[]}`
+with non-null items. Phase 1 deliberately does not paginate this personal
+catalog because `next_fire_at` and `updated_at` change while the scheduler is
+running and cannot form a stable cross-page cursor. The snapshot has a hard
+1,000-definition bound; exceeding it returns `schedule_catalog_limit` without
+silently truncating. The snapshot ID is a versioned digest of the normalized
+returned rows, not a mutable database counter.
+
+The canonical ordering within that snapshot uses three closed buckets: active
+definitions with a next fire first, ordered by `next_fire_at ASC, id ASC`;
+active definitions without a next fire second, ordered by `updated_at DESC, id
+ASC`; paused definitions third with the same updated-time order. Clients render
+the server order and retain `snapshot_id` when comparing cross-surface state.
+
+A list item contains definition ID/title, enabled state, kind, expression plus
+human-readable recurrence, stored IANA timezone, exact next/last fire instants,
+`target_kind:"flow"`, `target_id:<flow_id>`, optional explicitly linked
+Channel ID/name, latest occurrence/error/run ID, scheduler ownership state,
+and `observed_at`.
+
+Detail includes the same definition plus exactly two non-null bounded
+projections at the same observed time: up to 10 upcoming occurrences ordered
+`scheduled_for ASC, id ASC`, and up to 10 recent occurrences ordered
+`scheduled_for DESC, id DESC`. The full occurrence endpoint is newest-first,
+uses a bounded `1..50` limit, and paginates by the exclusive tuple
+`(scheduled_for,before_id)` so equal instants cannot duplicate or skip rows.
+
+All three GETs are pure projections: zero writes, timer registration, probes,
+model calls, or dispatches. Missing schedules are `404`; invalid filters or
+cursors are `400`. The existing `POST /api/schedules` remains available only
+on the legacy/admin surface and is not mounted or linked by the new shell.
 
 Closed error codes added by Phase 1 are:
 
@@ -788,11 +925,14 @@ Closed error codes added by Phase 1 are:
 - `primary_agent_drift`;
 - `chat_policy_unavailable`;
 - `chat_authority_violation`;
-- `primary_chat_invariant`;
+- `primary_channel_invariant`;
 - `provider_result_unknown`;
 - `provider_incomplete`;
 - `provider_refusal`;
-- `provider_failed`.
+- `provider_failed`;
+- `schedule_catalog_limit`;
+- `schedule_inventory_unaccepted`; and
+- `schedule_inventory_drift`.
 
 A confirmed canceled request uses the existing Canceled target state rather
 than an error code.
@@ -800,36 +940,77 @@ than an error code.
 Retain `seat_unready`, `conversation_context_limit`, and existing bounded
 target errors.
 
-## `fort chat` composition
+## `fort serve` composition
 
-Add:
+Phase 1 does not add or promote a standalone `fort chat` service. A chat-only
+process that deliberately omits scheduler/flow ownership could display
+persisted schedules while leaving them inactive, which would be materially
+misleading. Reintroducing those dependencies would merely recreate `serve`
+under another command.
 
-```text
-fort chat
-```
+The accepted full `fort serve` composition therefore owns:
 
-It wires only what primary chat requires:
+- the existing durable scheduler, flow execution, and at-most-once occurrence
+  claim path unchanged;
+- the new schedule-read projection and explicit scheduler ownership state;
+- the OpenAI Responses/cluster/remote runtime with the text-only authority gate
+  and closed local/node runtime mux;
+- bounded capability/readiness and exact remote-seat transport;
+- Primary Agent and Primary Channel services; and
+- the new narrow Channels/Scheduled shell at `/`.
 
-- config, SQLite store, watchdog, and signal handling;
-- OpenAI Responses/cluster/remote runtime with the text-only authority gate;
-- the bounded capability/readiness subsystem;
-- restricted chat-node and direct mesh transport for exact remote seats;
-- the Primary Agent and primary-chat services; and
-- the new web shell and its narrow APIs.
+Legacy mutating schedule, flow, project, and board APIs remain reachable only
+through their existing admin/legacy surfaces. `/shared` and `/legacy` remain
+rollback surfaces. The new shell does not link or call them. Local web is the
+only Phase 1 shipping surface; relay/gateway publication remains deferred.
 
-It does not load or initialize rules, router, engine, inbox, flows, graph
-executor, scheduler, Today, planner, playbooks, setup solver UI, board, or
-legacy chat APIs. It must start when rules and flow directories are absent and
-when no schedule/playbook configuration exists.
+`FORT_PRIMARY_CHANNELS` is a closed startup mode:
 
-Relay/gateway web is not mounted by `fort chat` in Phase 1. The existing relay
-serves an identical mux and would otherwise publish UI and node APIs beyond the
-local-web scope.
+- `off` (default) — `/` retains the current shared surface;
+  `/channels-preview`, all `/api/channels*` routes, and the new Primary Agent
+  setting/Scheduled-read routes are not mounted and return `404`; no stale
+  Phase 1 client can create or dispatch work;
+- `preview` — `/` retains the current shared surface, the new shell is mounted
+  at `/channels-preview`, and its narrow Phase 1 APIs are enabled; and
+- `primary` — the new shell is mounted at `/`, `/channels-preview` redirects to
+  `/`, and the same narrow APIs are enabled.
 
-The accepted new binary's `fort serve` remains the full legacy rollback
-composition. The launchd service continues to use `serve` until Phase 1
-acceptance explicitly authorizes a switch. Chat-only startup must not weaken
-the full-mode test suite.
+Unknown or empty nondefault values fail startup rather than choosing a mode.
+Promotion changes only this same-binary mode; it never changes scheduler
+ownership or service command.
+
+Scheduler ownership is **Active** only when the same accepted process has
+successfully started the durable scheduler. If ownership is inactive or
+unknown, Scheduled says so and never presents future occurrences as assured.
+
+Schedule visibility does not reclassify legacy flow authority. Existing flows
+may use broader runtimes than Primary Channel text-only turns; each row must say
+`target_kind: flow`, show the exact flow ID and observed run identity, and never
+inherit the Channel's text-only badge. Before the Phase 1 trial, every enabled
+legacy definition is inventoried. Fort computes a
+`schedule-inventory:v1` digest over each enabled schedule's normalized ID,
+kind, expression, timezone, flow ID, and the canonical loaded flow-definition
+digest. The digest format is
+`schedule-inventory:v1:<lowercase-hex-sha256>`, where SHA-256 covers the exact
+UTF-8 bytes `schedule-inventory:v1\n` followed by the canonical JSON array and
+one final newline. The canonical array is sorted by schedule ID and contains no
+secrets or observation timestamps. The empty-inventory digest is therefore
+`schedule-inventory:v1:7d5bf4173fd97e9d036d7acd974925bbc4b2ed0553c0c8e9e9ed210d9cea7b76`,
+the digest of `schedule-inventory:v1\n[]\n`.
+
+Preview exposes the current digest and inventory rows for review. Toby records
+the exact digest and acceptance time in the approval record, then configures
+the same nonsecret value as `FORT_ACCEPTED_SCHEDULE_INVENTORY`. `primary`
+startup requires this input and compares it byte-for-byte with the freshly
+computed digest before mounting the new shell or Phase 1 APIs. A missing input
+fails startup with `schedule_inventory_unaccepted`; a mismatch, missing flow
+digest, or later changed definition/flow fails startup with
+`schedule_inventory_drift`. Preview may start with either condition but must
+show current digest, accepted digest or **Not accepted**, and the closed warning;
+it may not describe the trial as active. `off` does not require or evaluate the
+accepted digest. Phase 1 provides no disable path, authority upgrade, or other
+schedule mutation; any operational change requires separate authorization
+outside this spec.
 
 ## TDD delivery sequence
 
@@ -839,10 +1020,11 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
 
 1. **Baseline checkpoint** — commit the verified Spec 041/042 work and Spec
    043 direction before any Phase 1 code. Exclude generated Apple artifacts.
-2. **Domain and store** — setting round-trip/upsert; atomic chat, participant,
-   and marker creation; marker immutability; newest-first filtering; setting
-   changes leave prior chat identity byte-for-byte unchanged; legacy rows are
-   untouched.
+2. **Domain and store** — setting round-trip/upsert; atomic Channel,
+   participant, and marker creation; marker immutability; pin projection;
+   pinned/newest-first filtering; two Channels with the same seat retain
+   byte-disjoint context; setting changes leave prior Channel identity
+   byte-for-byte unchanged; legacy rows are untouched.
 3. **Capability policy** — new OpenAI Responses API profile and predicates;
    credential/project/disclosure binding; text-only catalog/policy validation;
    no-generation OpenAI auth/model probe; exact option projection; policy drift
@@ -856,27 +1038,32 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
    expected policy revision never crosses the wire; completed/reasoning,
    incomplete, failed, canceled, refusal, tool, and unknown output shapes have
    focused tests.
-5. **Control service** — configure the setting; create one-participant chat;
+5. **Control service** — configure the setting; create one-participant Channel;
    server-selected target; synchronously persist exact selected adapter and
    `RunSpec` policy before `202`; offline/drift causes zero starts; observed
    metadata commits atomically with the terminal state; same-seat retry retains
    identity, context, and authority; latest failure reducer is deterministic.
-6. **HTTP** — exact methods, bodies, statuses, codes, nested-ID validation, and
-   non-null arrays; GET and Settings operations invoke no runtime.
-7. **Web shell** — root contains only the five approved product concepts;
-   create/send single-flight and client-turn idempotency; reload/SSE rebuild;
-   Needs-you deep link; keyboard, focus, reduced-motion, and responsive tests.
-   Preserve `/shared` and `/legacy` in full mode.
-8. **Composition** — `fort chat` starts with missing legacy config; only the
-   text-only authority can invoke its runtime; full-mode local/node mux has no
-   cross-routing; restricted node, direct mesh, and capability remain
-   functional; generic exec and relay are absent; `fort serve` remains green.
-9. **Concurrency and canaries** — race tests, local/remote fake turns, daemon
+6. **Schedule read projection** — all active, paused, non-today, upcoming, and
+   recent schedules/occurrences; UTC persistence with configured-zone display;
+   exact flow target and ownership state; GETs cause zero writes, timer
+   registration, probes, runtime calls, or model calls.
+7. **HTTP** — exact Channel and Schedule methods, bodies, filters, pagination,
+   statuses, codes, nested-ID validation, and non-null arrays; GET and Settings
+   operations invoke no runtime.
+8. **Web shell** — root contains only the six approved product concepts;
+   Channel create/send single-flight and client-turn idempotency; Scheduled
+   navigation/detail; reload/SSE rebuild; Needs-you deep link; keyboard, focus,
+   reduced-motion, and responsive tests. Preserve `/shared` and `/legacy`.
+9. **Composition** — full `fort serve` owns the proven scheduler and new read
+   projection; only text-only authority reaches the Responses runtime;
+   full-mode local/node mux has no cross-routing; direct mesh and capabilities
+   remain functional; new UI invokes no legacy mutating APIs.
+10. **Concurrency and canaries** — race tests, local/remote fake turns, daemon
    restart, remote offline without reroute, exact retry, old-node failure,
    request/metadata capture, typed terminal-shape validation, and live prompts
    that request a tool/file action but receive no such capability or false
    completion claim.
-10. **Visual/live acceptance** — only after explicit authorization and design
+11. **Visual/live acceptance** — only after explicit authorization and design
     selection.
 
 ## Expected file boundary
@@ -884,19 +1071,21 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
 New files are expected in these bounded areas:
 
 ```text
-specs/044-one-primary-chat-phase-1.md
+specs/044-private-primary-channels-phase-1.md
 core/conversation/primary.go
 core/conversation/primary_test.go
-core/store/primary_chat.go
-core/store/primary_chat_test.go
-control/primary_chat.go
-control/primary_chat_test.go
-ui/primary_chat.go
-ui/primary_chat_api_test.go
-ui/primary_chat_page.go
-ui/primary_chat_page_test.go
-cmd/fort/chat.go
-cmd/fort/chat_test.go
+core/store/primary_channel.go
+core/store/primary_channel_test.go
+control/primary_channel.go
+control/primary_channel_test.go
+control/schedule_read.go
+control/schedule_read_test.go
+ui/primary_channel.go
+ui/primary_channel_api_test.go
+ui/primary_channel_page.go
+ui/primary_channel_page_test.go
+ui/schedule_read.go
+ui/schedule_read_test.go
 exec/openairesponses/runtime.go
 exec/openairesponses/runtime_test.go
 exec/runtime_mux.go
@@ -912,8 +1101,9 @@ Focused modifications are permitted in:
 - `go.mod` and `go.sum` for one pinned official OpenAI SDK;
 - `exec/cluster`, `exec/remote`, and a restricted `exec/node` chat path plus
   their tests; the existing native-provider commands remain unchanged;
-- `control/conversations.go` only where target execution must load/enforce the
-  primary marker;
+- `core/store/schedules.go`, `control/conversations.go`, and existing scheduler
+  status wiring only for bounded read projection and Primary Channel
+  enforcement; schedule claiming/execution semantics remain unchanged;
 - `ui/ports.go` and `ui/server.go`;
 - `cmd/fort/main.go`, `wire.go`, `capabilities.go`, `service.go`, and focused
   mesh/service tests; and
@@ -928,8 +1118,8 @@ amendment before implementation.
 ### Design gate
 
 - Toby selects or approves one cross-platform direction.
-- The selected first-run, active-chat, failure/Needs-you, Settings, and compact
-  layouts match this contract.
+- The selected first-run, active-Channel, Scheduled, failure/Needs-you,
+  Settings, and compact layouts match this contract.
 - Any product change is reflected here before code starts.
 
 ### Automated
@@ -948,10 +1138,14 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
 
 ### Local functional
 
-- configure a ready Primary Agent, create a chat, send a turn, and receive one
+- configure a ready Primary Agent, create a Channel, send a turn, and receive one
   attributed answer;
+- create two Channels with the same Primary Agent and prove that neither frozen
+  prompt contains the other Channel's messages or IDs;
 - reload and restart with no lost, duplicated, or reordered messages;
-- change Settings and prove the existing chat identity is unchanged;
+- pin/unpin, rename, archive/reopen, and prove ordering and Channel identity
+  remain deterministic;
+- change Settings and prove the existing Channel identity is unchanged;
 - disclose exact requested/resolved model, computer, policy, adapter/SDK
   version, credential/project identity, API billing source/provenance, and
   retention mode/source/observed-at; unavailable identity remains `unknown`,
@@ -967,17 +1161,28 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
   while reasoning is discarded; tool/unknown items and incomplete, failed,
   canceled, refusal, ambiguous-timeout, partial, or incoherent responses append
   no canonical answer and retain typed provenance;
-- full-mode and chat-only runtime mux tests prove authority/provider
-  cross-routing starts zero work;
-- missing rules, flows, schedules, planner, and playbooks do not prevent
-  `fort chat` startup; and
+- full-mode runtime mux tests prove authority/provider cross-routing starts zero
+  work;
+- Scheduled contains every durable definition, including paused and non-today
+  rows in one bounded `schedule-snapshot:v1`, with exact UTC instants rendered
+  in the configured IANA timezone;
+- schedule GETs produce zero writes, registrations, provider/runtime calls, or
+  model calls, and never invent a Channel binding;
+- active scheduler ownership and occurrence-to-run evidence survive reload and
+  restart without duplicate occurrence claims; and
+- `primary` promotion accepts only the reviewed `schedule-inventory:v1` digest;
+  a new/changed enabled definition or flow digest produces visible inventory
+  drift and invalidates the trial without mutating the schedule;
+- `off` mounts no preview or Phase 1 routes, `preview` exposes them only at the
+  preview shell, and `primary` promotes the same shell without changing
+  scheduler ownership;
 - the 65,536-byte context overflow fails before new turn/target persistence and
   provider dispatch.
 
 ### Two-machine, separately authorized
 
 - both machines run the same accepted text-only protocol/build;
-- one remote Primary Agent answers with exact attribution;
+- one remote Primary Agent answers in one exact Channel with exact attribution;
 - taking that computer offline produces `seat_unready` and no reroute;
 - Recheck and retry starts the same failed seat after readiness returns;
 - restart/reload preserves the canonical transcript and target history; and
@@ -1002,20 +1207,22 @@ prewritten rubrics. Continue only if:
 
 ## Rollback
 
-No destructive migration is permitted. Before service promotion, rollback is
-simply stopping `fort chat` and running the same accepted binary's `fort
-serve`. After promotion, restore the launchd command to `serve` on every
-participating machine.
+No destructive migration is permitted. The launchd command remains `fort
+serve`; Phase 1 never switches scheduler ownership to another composition.
+Before promotion the new shell is exercised in `preview` mode. Same-binary
+rollback sets `FORT_PRIMARY_CHANNELS=off` and restarts `serve`, which removes
+the preview and every Phase 1 route while preserving scheduler ownership;
+`/shared` and `/legacy` remain available throughout.
 
-Do not run a pre-Phase-1 binary against a database containing primary chats.
+Do not run a pre-Phase-1 binary against a database containing Primary Channels.
 If binary rollback is necessary, stop all writers and restore the coordinated
 pre-Phase-1 database snapshot together with the prior binary. The database
 triggers deliberately make unsupported old writes fail, but snapshot restore
 is the only rollback that removes new policy semantics completely.
 
 `/shared` and `/legacy` are not deleted. Historical runs, projects, schedules,
-and playbooks are not changed. The additive Primary Agent and primary-chat
-rows may remain unused without a data rewrite.
+and playbooks are not changed. The additive Primary Agent, Primary Channel,
+and pin rows may remain unused without a data rewrite.
 
 ## Current baseline warning
 
@@ -1062,5 +1269,6 @@ Credential ref / organization / project: ______
 Manual trial spend cap / billing source: _______
 Billing provenance: ____________________________
 Provider retention mode / source / date: _______
+Accepted schedule-inventory:v1 digest / date: __
 Implementation start commit: __________________
 ```

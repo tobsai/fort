@@ -138,6 +138,8 @@ A person should be able to say:
 - “Compaction or a restart never erases the canonical history.”
 - “A provider or machine is never swapped silently.”
 - “A task does not disappear into conversational prose.”
+- “I can separate ongoing work into private channels and see every durable
+  scheduled commitment without opening a board.”
 - “No user-owned or connected resource, durable memory, or durable workspace
   state changes unless I explicitly authorize an action.”
 - “Completed work has a receipt; otherwise Fort says it is unverified.”
@@ -161,7 +163,7 @@ unknown user's profile image.
 
 ### One primary agent, not a default swarm
 
-Every normal conversation targets one **Primary Agent** seat automatically.
+Every normal Channel targets one **Primary Agent** seat automatically.
 The person chooses that seat once in Settings. The binding remains the complete
 immutable identity from Spec 041:
 
@@ -174,10 +176,10 @@ header always makes the exact identity available. If the seat is unavailable,
 Fort fails closed and offers recheck or an explicit new choice. It never picks
 a substitute.
 
-The Primary Agent setting initializes new conversations only. An existing
-conversation retains its persisted participant seat until the user explicitly
-changes that conversation's membership. Changing Settings never retargets an
-existing conversation or rewrites its identity.
+The Primary Agent setting initializes new Channels only. An existing Channel
+retains its persisted participant seat until the user explicitly changes that
+Channel's membership. Changing Settings never retargets an existing Channel or
+rewrites its identity.
 
 ### Identity precision
 
@@ -201,13 +203,16 @@ Participant management and **Everyone** are not part of the ordinary composer.
 
 The default shell contains only:
 
-1. **Chats** — pinned and recent conversations, newest activity first;
+1. **Channels** — private durable context boundaries, pinned and recent by
+   newest activity;
 2. **Transcript** — canonical human, agent, system, task, approval, and receipt
    entries;
 3. **Composer** — one input and one Send action, targeting the Primary Agent;
-4. **Needs you** — a small badge or drawer that appears only when a durable
+4. **Scheduled** — a chronological read surface for durable definitions and
+   occurrences across channels;
+5. **Needs you** — a small badge or drawer that appears only when a durable
    question, approval, correction, or failed action is actually actionable;
-5. **Settings** — Primary Agent, agents, exact models, computers, readiness,
+6. **Settings** — Primary Agent, agents, exact models, computers, readiness,
    permissions, spend limits, and data boundaries.
 
 The primary surface does not show:
@@ -218,21 +223,44 @@ The primary surface does not show:
 - playbooks, DAGs, routers, planners, or setup solvers;
 - a raw event log;
 - participant or machine pickers on every message;
-- schedule controls; or
+- schedule authoring, mutation, or calendar/Today-board controls; or
 - watch, CarPlay, and voice-specific navigation.
 
 The underlying records can remain available to diagnostics and legacy/admin
 surfaces. They should not be deleted during the reset.
 
-### Conversation organization
+### Channel organization
 
-V1 uses one conversation per ongoing outcome, topic, or relationship. People
-can pin, rename, archive, and search their own chats. That supplies the useful
-“channels” behavior without introducing a Project object.
+V1 names the durable user-owned boundary **Channel**. A channel is one private
+ongoing outcome, topic, or relationship with one canonical transcript, one
+immutable Primary Agent seat, and optional explicitly linked schedules. The
+existing conversation record may implement that boundary 1:1, but the primary
+UI and API must consistently say Channel rather than treating “channel-like”
+behavior as an unstated side effect of a Chats list.
 
-Project folders may return only after observed use shows that pinning, search,
-and archive are insufficient. A Project must not become a second context or
-memory boundary.
+A provider session or bounded context segment is not a channel and never
+appears as top-level navigation. Phase 2 may add checkpoints or fresh execution
+segments without changing the channel ID or fragmenting its canonical history.
+
+People can pin, rename, archive, and search their own channels. Project folders
+may return only after observed use shows that those controls are insufficient.
+A Project must not become a second context or memory boundary.
+
+### Scheduled visibility
+
+Scheduled is a dedicated chronological destination, not a permanent dashboard
+rail. It shows each durable schedule's title, explicitly linked channel or
+**System** when no truthful channel link exists, recurrence, timezone, next
+fire, enabled/paused definition state, latest occurrence state, and observed
+execution identity when available. Opening an item deep-links to its channel,
+run, result, or failure evidence.
+
+Phase 1 schedule visibility is read-only. It does not create, edit, pause,
+resume, delete, or manually rerun a definition. In particular, it never labels
+an action Retry unless a later accepted contract creates a new occurrence;
+silently replaying the same occurrence would violate once-only scheduling.
+Legacy flow schedules remain visible as **System schedules** and Fort never
+guesses a channel binding.
 
 ### Needs you
 
@@ -472,9 +500,10 @@ review time when applicable, source conversation, and completion evidence.
 The ordinary UI renders a compact task card in the conversation. It does not
 open a board. Needs you shows only tasks that require a human decision.
 
-Schedules are durable triggers attached to a task, review, or conversation.
-They are not inferred from a model's prose and they fire once per occurrence.
-The person must approve new or materially changed commitments.
+Schedules are durable triggers attached to a task, review, or channel. They are
+not inferred from a model's prose and they fire once per occurrence. Phase 1
+exposes existing definitions and occurrences read-only; creating or materially
+changing a commitment remains a separately approved later capability.
 
 Visual DAGs, playbook selection, capacity planning, and autonomous task
 decomposition remain frozen until a measured use case cannot be represented by
@@ -581,21 +610,26 @@ A provider or SDK cost field is not billing actual unless the billing system
 confirms it. When usage or cost is unavailable, Fort stores **unknown**. It does
 not convert dispatch units into money or imply precision it does not have.
 
-### Gate A — Chat foundation
+### Gate A — Channel foundation
 
-The local-web chat foundation is ready for a 7–14 day advisory trial only when:
+The local-web Channel foundation is ready for a 7–14 day advisory trial only
+when:
 
-- a new conversation receives the configured Primary Agent while existing
-  conversation seats never change through Settings;
+- a new Channel receives the configured Primary Agent while existing Channel
+  seats never change through Settings;
+- two Channels using the same agent retain byte-disjoint transcript/context
+  boundaries;
 - the exact seat, model, and computer never change silently;
 - the runtime has verified OS/filesystem, tool, network, and provider-memory
   enforcement for its read-only or disposable-sandbox authority mode;
 - reload and restart produce no lost, duplicate, or reordered turns;
 - same-seat retry cannot rerun a successful peer;
 - an offline Primary Agent fails closed;
-- chat-only startup succeeds with legacy rules, flows, schedules, planner, and
-  playbooks disabled or absent; and
-- the local web surface uses the canonical conversation contract.
+- the accepted full service retains active durable-scheduler ownership;
+- every durable schedule, including paused and non-today definitions, is
+  truthfully visible without model calls or schedule mutation; and
+- the local web surface uses the canonical Channel/conversation and
+  schedule-read contracts.
 
 ### Gate B — Continuity and Memory V1
 
@@ -667,11 +701,14 @@ same canonical conversation contract and show the same:
 - context/memory provenance;
 - Needs you items;
 - action approvals and receipts; and
-- task state.
+- task state; and
+- schedule definitions, occurrence order/state, timezone rendering, and
+  scheduler ownership disclosure.
 
-FortKit must expose the real `/api/conversations` contract before a native
-client can claim feature parity. A web redirect or legacy `/api/chat` path is
-not native parity.
+FortKit must expose the real `/api/channels` contract—the canonical Primary
+Channel façade over existing conversation storage—before a native client can
+claim feature parity. `/api/conversations` remains the legacy shared/admin
+contract; a web redirect or legacy `/api/chat` path is not native parity.
 
 Phase 1 can accept local web alone. Gateway web, macOS, and iOS may remain
 clearly labeled legacy or unavailable until they use the same canonical
@@ -685,8 +722,8 @@ contract. They must not claim parity in the interim.
   evidence.
 - Make `/` versus `/legacy` and shared-chat versus board positioning explicit in
   the README and architecture docs.
-- Freeze Spec 039 planning work, Spec 042 Slice A, Projects, Today/schedule UI,
-  and new client expansion.
+- Freeze Spec 039 planning work, Spec 042 Slice A, Projects, Today/Week and
+  schedule-authoring UI, and new client expansion.
 - Preserve the current dirty checkpoint without folding unrelated work into
   this spec.
 - Run the two-stage harness screen and operate the proposed loop manually in
@@ -694,15 +731,20 @@ contract. They must not claim parity in the interim.
   proposals. Record which missing capability causes a measured failure before
   authorizing Fort work.
 
-### Phase 1 — One primary chat
+### Phase 1 — Private Primary Channels
 
 - Add a persisted Primary Agent setting without weakening immutable-seat
   identity.
-- Reduce the primary shell to Chats, Transcript, Composer, Needs you, and
-  Settings.
-- Decouple chat-only startup from legacy orchestration configuration.
+- Make Channel the explicit 1:1 private conversation/context boundary.
+- Reduce the primary shell to Channels, Transcript, Composer, Scheduled, Needs
+  you, and Settings.
+- Add a read-only all-schedules projection with truthful target, recurrence,
+  timezone, next/last fire, occurrence, and scheduler ownership state.
+- Preserve the proven full-service durable scheduler; do not promote a
+  chat-only service that would leave visible schedules inactive.
 - Establish the read-only Chat boundary.
-- Verify restart, retry, offline-seat, and cross-machine continuity.
+- Verify Channel isolation, restart, retry, offline-seat, schedule visibility,
+  at-most-once occurrence truth, and cross-machine continuity.
 
 Phase 1 requires its own surgical implementation spec and explicit approval.
 It targets local web first.
@@ -729,11 +771,11 @@ Phase 2 requires a separate approved schema and implementation spec.
 Phase 3 requires a separate approved authority, receipt, schema, and
 implementation spec.
 
-### Phase 4 — Explicit tasks and schedules
+### Phase 4 — Explicit tasks and schedule mutation
 
 - Add the minimal durable task card and Needs you projection.
-- Add one-fire schedule/review triggers only where a real personal loop needs
-  them.
+- Add Channel-bound scheduled prompts and schedule
+  create/edit/pause/resume/delete only where a real personal loop needs them.
 
 Phase 4 requires a separate approved task/schedule implementation spec.
 
@@ -793,8 +835,10 @@ does not automatically justify rebuilding the broader orchestration product.
    bake-off.
 5. Choose the first shipping surface; the recommendation is local web for
    contract acceptance, followed by native macOS/iOS through FortKit.
-6. Defer Memory V1, Act, tasks/schedules, and the first external workflow to
-   their own later decisions after the chat-foundation evidence exists.
+6. Defer Memory V1, Act, new task records, schedule mutation/Channel-bound
+   execution, and the first external workflow to their own later decisions
+   after the Channel foundation evidence exists; basic schedule visibility is
+   part of Phase 1.
 
 No code implementation is authorized by accepting this direction document.
 
