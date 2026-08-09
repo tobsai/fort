@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-const codexCapabilityRuntimeEffectID = "effect.codex.capability-0.146.0-alpha.9.2-16bb4744.v2"
+const codexCapabilityRuntimeEffectID = "effect.codex.capability-0.147.0-alpha.6.5-2b6fb0da.v3"
+const codexSubscriptionEffectID = "effect.codex-subscription-0.147.0-alpha.6.5.v1"
 
 // PredicateTemplate is the immutable catalog portion of a predicate row. A
 // node probe supplies only state/reason; it cannot alter dependencies or
@@ -19,6 +20,11 @@ type PredicateTemplate struct {
 
 func profilePredicateShapes(profile ProfileDefinition) []PredicateTemplate {
 	switch profile.Agent {
+	case "codex-subscription":
+		return []PredicateTemplate{{
+			ID: "predicate.codex-subscription.closed-contract.v1", Resolution: ResolutionProbe,
+			DependsOn: []string{}, RemedyEffectIDs: []string{codexSubscriptionEffectID},
+		}}
 	case "codex":
 		native := "predicate.codex.native-contract.v1"
 		auth := "predicate.codex.authenticated-subject.v1"
@@ -64,6 +70,11 @@ func profilePredicateShapes(profile ProfileDefinition) []PredicateTemplate {
 
 func logicalPredicateShapes(logical CapabilityDefinition) []PredicateTemplate {
 	switch logical.ID {
+	case "model.chat.text-only":
+		return []PredicateTemplate{{
+			ID: "predicate.codex-subscription.text-only-adapter.v1", Resolution: ResolutionDerived,
+			DependsOn: []string{}, RemedyEffectIDs: []string{},
+		}}
 	case "email.gmail.read":
 		preview := "predicate.himalaya.preview-contract.v1"
 		return []PredicateTemplate{

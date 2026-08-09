@@ -1,5 +1,59 @@
 # Fort Trustworthy Conversations — Design QA
 
+## Phase 1 Private Channels redesign — 2026-08-08
+
+### Comparison target and captures
+
+- Approved visual truth: `/Users/tobiasgunn/dev/fort/specs/assets/044/quiet-intelligence-original-core.png`.
+- Final desktop Channel: `/private/tmp/fort-phase1-qa.L8BwLY/phase1-final-desktop.png` at 1280 x 720 CSS px.
+- Final desktop schedule: `/private/tmp/fort-phase1-qa.L8BwLY/phase1-scheduled-desktop-fixed.png` at 1280 x 720 CSS px.
+- Final phone Channel: `/private/tmp/fort-phase1-qa.L8BwLY/phase1-channel-mobile-fixed.png` at 390 x 844 CSS px.
+- Final phone schedule: `/private/tmp/fort-phase1-qa.L8BwLY/phase1-scheduled-mobile-fixed.png` at 390 x 844 CSS px.
+- Final keyboard-present Channel: `/private/tmp/fort-phase1-qa.L8BwLY/phase1-channel-compact-focused.png` at 375 x 667 CSS px.
+- The approved reference and final desktop capture were opened together at original resolution after the responsive fixes. The implementation preserves the reference's quiet navy hierarchy, electric-blue intelligence core, restrained borders, dense type, explicit agent identity, private-channel focus, and readable schedule states while exposing the additional provenance and durability evidence required by Spec 044.
+
+#### Progressive turn-status follow-up — 2026-08-09
+
+- Approved references: the six `specs/assets/044/durable-turn-progressive-disclosure-{desktop,mobile}*.png` checkpoints for Quiet Intelligence, Private Channels, and Native Daylight. The corrected expanded mockups use the production `primary_agent_drift` code.
+- Final desktop recovery captures at 1280 x 720 CSS px: `/private/tmp/fort-phase1-qa.L8BwLY/progressive-quiet-desktop-refined.png`, `/private/tmp/fort-phase1-qa.L8BwLY/progressive-green-desktop-refined.png`, and `/private/tmp/fort-phase1-qa.L8BwLY/progressive-white-desktop-refined.png`.
+- Final phone recovery captures at 390 x 844 CSS px: `/private/tmp/fort-phase1-qa.L8BwLY/progressive-quiet-mobile-refined.png`, `/private/tmp/fort-phase1-qa.L8BwLY/progressive-green-mobile-refined.png`, and `/private/tmp/fort-phase1-qa.L8BwLY/progressive-white-mobile-refined.png`.
+- Compact focused-composer capture: `/private/tmp/fort-phase1-qa.L8BwLY/progressive-compact-focused.png` at 375 x 667 CSS px.
+- Each implementation capture was inspected in the same comparison input as its approved theme reference. The live fixture supplied a current `provider_failed` recovery while the approved references show `primary_agent_drift`; both use the same persistent recovery-card, action, and disclosure structure. Exact drift/interruption copy and action selection are covered by the pure presentation regression.
+
+### Visual and interaction findings
+
+No actionable Phase 1 visual or interaction mismatch remains in the verified preview states.
+
+- The desktop shell keeps Channels and Scheduled primary, one newest-first Channel rail, a single New Channel action, durable message attribution, and a fixed composer boundary without competing project or playbook navigation.
+- Schedule rows retain readable two-line titles, ownership, cadence, flow identity, state, freshness, occurrence evidence, and review actions. Status metadata remains stacked instead of compressing into an unreadable column.
+- At 390 CSS px, document, main surface, Channel, and schedule content all measure 390 px or less. The Channel feed measures 375 px and composer 368 px; schedule rows and filters measure 353 px. No horizontal overflow remains.
+- At 375 x 667, the focused composer ends exactly where the bottom navigation begins. Its focus ring remains visible and the transcript is not hidden behind the keyboard-present composition.
+- The phone Channel rail is inert while offscreen. When opened it is an `aria-modal` dialog, background navigation is inert, Close receives focus, and Escape closes the rail and restores focus to Menu.
+- The Identity dialog traps the immediate interaction correctly and restores focus to Identity after dismissal.
+- Needs you opens the exact failed target, preserves target focus through SSE refresh, and exposes retry only for the newest retryable attempt.
+- Answered targets now add no duplicate status UI. Only the latest attempt appears beside its initiating human message: Queued and Working stay compact, current failure remains recoverable, Canceled becomes a quiet note, and technical evidence is collapsed by default. Expanded Details exposes reason, attempt, friendly target, durable client-turn ID, computer, and exact error code; retry explicitly retains the client-turn ID and creates the next attempt.
+- Recovery Details stays keyboard-native, the latest card retains its exact deep-link target, and only a truthful Working orb animates. `daemon_interrupted` now projects Retry in both the transcript and Needs you.
+- A Channel whose immutable authority has drifted now disables its composer before submission and explains that a new Channel is required. A current-authority Channel remains writable; the exact stale/current pair was verified in the in-app browser with no console warnings or errors.
+- Settings shows both unavailable ordinary profiles with explicit reasons and the ready ChatGPT subscription option. The canonical schedule inventory rows, current digest, accepted digest state, and Recheck evidence are visible.
+- Quiet Intelligence, Private Channels, and Native Daylight switch without reload and share one DOM/behavior implementation. The final preview is in Quiet Intelligence.
+- Desktop and phone recovery states were checked in all three themes. The 390 px document had no horizontal overflow. At 375 x 667, the focused ready composer ended at 579 px, the bottom navigation began at 607 px, and document/client widths were both exactly 375 px.
+- The final console contains no warnings or errors. A single Channel SSE connection remained open during observation and closed only when the selected Channel changed; no reconnect loop was observed.
+
+### Functional evidence
+
+- A fresh ChatGPT Pro subscription-backed Channel completed the controlled prompt `Reply with exactly: Phase 1 subscription path is working.` with the exact requested answer. The terminal target retained its immutable authority, completed receipt, provider provenance, and usage; its per-target work directory was removed.
+- Restart verification preserved the Channel, exact answer, target state, receipt, and ready capability state. A separate Channel remained empty, establishing conversation isolation.
+- Mutation and read surfaces are loopback-only for Phase 1, mutations require same-origin JSON, transport decoding is strict and fail-closed, and active-target creation is transactionally single-flight across Store connections.
+- Browser QA covered desktop, phone, keyboard-present phone, Settings, Needs you, schedule detail/evidence, modal focus restoration, offscreen inertness, SSE stability, and horizontal-overflow measurements.
+- The final read-only audit found and closed three edge cases before handoff: Primary promotion now validates inventory/readiness before scheduler timers start, legacy conversations cannot escape through a Primary idempotency lookup, and a missing subscription runtime retains the closed `chat_policy_unavailable` recovery code.
+- Automated verification passed after the final visual fixes: `go test ./... -count=1`; targeted `go test -race` across command, control, capability, conversation, runtime, store, subscription, cluster, node, remote, runtime mux, and UI packages; `go vet ./...`; and `git diff --check`.
+- `gofmt -l cmd control core exec ui` reports only pre-existing, unmodified `exec/fake/fake.go`.
+- The final audited preview binary has SHA-256 `1658be7eeb592a8abfb9c0c8efcc86ddf57b8dd0c3910b9ecb49ea6373623fd0`; it was restarted against the isolated QA database and both `/health` and `/channels-preview` returned `200` on loopback port 4187.
+
+### Promotion boundary
+
+The redesign is complete in preview mode, not promoted or deployed. Promotion still requires explicit acceptance of schedule inventory digest `schedule-inventory:v1:dffc81763d022430019cabced85b415cb26aa300c8000735cea1d16acb7196ac`, two-machine acceptance, and the Spec 044 7–14 day / 40-turn trial. No API key was created or stored.
+
 ## Comparison target
 
 - Source visual truth: `/tmp/codex-remote-attachments/019fa0a0-4049-79e2-b385-eaa286e2947b/ECA7DB96-32CE-415B-9AE5-A195F2B54951/1-Photo-1.jpg`

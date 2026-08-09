@@ -11,7 +11,7 @@ func TestCodexPredicatePinsCurrentCapabilityRuntimeEffect(t *testing.T) {
 		t.Fatal("missing Codex profile")
 	}
 	predicates := profilePredicateShapes(profile)
-	want := "effect.codex.capability-0.146.0-alpha.9.2-16bb4744.v2"
+	want := "effect.codex.capability-0.147.0-alpha.6.5-2b6fb0da.v3"
 	if len(predicates) == 0 || len(predicates[0].RemedyEffectIDs) != 1 || predicates[0].RemedyEffectIDs[0] != want {
 		t.Fatalf("Codex runtime effect = %+v, want %q", predicates, want)
 	}
@@ -123,7 +123,8 @@ func readySnapshot() Snapshot {
 				State: OfferReady, BindingRevision: "opaque:profile-laptop",
 				Predicates: profilePredicates,
 			}},
-			Offers: []LogicalOffer{},
+			Offers:          []LogicalOffer{},
+			TextOnlyOptions: []TextOnlyOptionOffer{},
 			Bindings: []ExecutionBindingOffer{{
 				ID: "codex-native", Profile: "codex:gpt-5.5", Capabilities: []string{},
 				State: OfferReady, BindingRevision: "opaque:binding-laptop",

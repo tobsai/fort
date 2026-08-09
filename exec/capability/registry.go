@@ -26,10 +26,11 @@ type ProbeRequest struct {
 }
 
 type ProbeObservation struct {
-	State         corecap.PredicateState
-	Reason        corecap.Reason
-	StableBinding []string
-	ResolvedModel string
+	State          corecap.PredicateState
+	Reason         corecap.Reason
+	StableBinding  []string
+	ResolvedModel  string
+	TextOnlyOption *corecap.TextOnlyOptionOffer
 }
 
 type Prober interface {
@@ -231,13 +232,14 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 	memo := &refreshMemo{values: map[string]*refreshMemoEntry{}, invalidated: invalidated.entries}
 
 	profiles := make([]corecap.ProfileOffer, len(r.catalog.Profiles))
+	profileTextOnlyOptions := make([]*corecap.TextOnlyOptionOffer, len(r.catalog.Profiles))
 	logicals := make([]corecap.LogicalOffer, len(r.catalog.Capabilities))
 	var wg sync.WaitGroup
 	for i, definition := range r.catalog.Profiles {
 		wg.Add(1)
 		go func(index int, profile corecap.ProfileDefinition) {
 			defer wg.Done()
-			profiles[index] = r.buildProfile(ctx, request, selected, memo, profile)
+			profiles[index], profileTextOnlyOptions[index] = r.buildProfile(ctx, request, selected, memo, profile)
 		}(i, definition)
 	}
 	for i, definition := range r.catalog.Capabilities {
@@ -273,11 +275,27 @@ func (r *Registry) Refresh(ctx context.Context, request corecap.RecheckRequest) 
 		return corecap.NodeInventory{}, err
 	}
 	state, reason := machineSummary(profiles, logicals, bindings)
+	textOnlyOptions := []corecap.TextOnlyOptionOffer{}
+	for profileIndex, option := range profileTextOnlyOptions {
+		if option == nil || profiles[profileIndex].State != corecap.OfferReady {
+			continue
+		}
+		bindingReady := false
+		for _, binding := range bindings {
+			if binding.ID == "codex-subscription-chat" && binding.Profile == profiles[profileIndex].ID && binding.State == corecap.OfferReady {
+				bindingReady = true
+				break
+			}
+		}
+		if bindingReady {
+			textOnlyOptions = append(textOnlyOptions, *option)
+		}
+	}
 	inventory := corecap.NodeInventory{
 		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion,
 		ProfileMappingVersion: corecap.ProfileMappingVersion, NodeID: r.nodeID,
 		ObservedAt: r.now().UTC(), State: state, Reason: reason,
-		Profiles: profiles, Offers: logicals, Bindings: bindings,
+		Profiles: profiles, Offers: logicals, Bindings: bindings, TextOnlyOptions: textOnlyOptions,
 	}
 	r.mu.Lock()
 	r.commitInvalidatedLocked(invalidated)
@@ -386,14 +404,37 @@ func (r *Registry) Current() corecap.NodeInventory {
 	return r.current
 }
 
-func (r *Registry) buildProfile(ctx context.Context, refresh corecap.RecheckRequest, selected map[string]bool, memo *refreshMemo, definition corecap.ProfileDefinition) corecap.ProfileOffer {
+func (r *Registry) buildProfile(ctx context.Context, refresh corecap.RecheckRequest, selected map[string]bool, memo *refreshMemo, definition corecap.ProfileDefinition) (corecap.ProfileOffer, *corecap.TextOnlyOptionOffer) {
 	templates, _ := r.catalog.ProfilePredicateTemplates(definition.ID)
-	predicates, material, resolvedModels := r.resolvePredicates(
+	predicates, material, resolvedModels, textOnlyOption := r.resolvePredicates(
 		ctx, refresh, selected[definition.Adapter], memo,
 		ProbeRequest{AdapterID: definition.Adapter, TargetID: definition.ID, ProfileID: definition.ID},
 		templates, nil,
 	)
 	state, reason := offerSummary(predicates, nil)
+	if definition.Agent == "codex-subscription" && state == corecap.OfferReady {
+		if textOnlyOption != nil {
+			textOnlyOption.MachineID = r.nodeID
+			textOnlyOption.SeatID = corecap.TextOnlySeatID(textOnlyOption.ProfileID, r.nodeID, textOnlyOption.RequestedModel)
+			if normalized, _, err := corecap.NormalizeTextOnlyOptionOffer(*textOnlyOption, r.nodeID); err == nil {
+				textOnlyOption = &normalized
+			} else {
+				textOnlyOption = nil
+			}
+		}
+		if textOnlyOption == nil {
+			for index := range predicates {
+				if predicates[index].ID == "predicate.codex-subscription.closed-contract.v1" {
+					predicates[index].State = corecap.PredicateUnsatisfied
+					predicates[index].Reason = corecap.ReasonCommandContractChanged
+					delete(material, predicates[index].ID)
+				}
+			}
+			state, reason = offerSummary(predicates, nil)
+		}
+	} else {
+		textOnlyOption = nil
+	}
 	resolvedModel := resolvedModels[resolvedModelPredicateID(definition)]
 	if state == corecap.OfferReady && definition.RequiresResolvedModel() && resolvedModel == "" {
 		state, reason = corecap.OfferSetupRequired, corecap.ReasonModelUnavailable
@@ -414,7 +455,7 @@ func (r *Registry) buildProfile(ctx context.Context, refresh corecap.RecheckRequ
 	return corecap.ProfileOffer{
 		ID: definition.ID, Agent: definition.Agent, Adapter: definition.Adapter,
 		ResolvedModel: resolvedModel, State: state, Reason: reason, BindingRevision: revision, Predicates: predicates,
-	}
+	}, textOnlyOption
 }
 
 func resolvedModelPredicateID(definition corecap.ProfileDefinition) string {
@@ -426,7 +467,7 @@ func resolvedModelPredicateID(definition corecap.ProfileDefinition) string {
 
 func (r *Registry) buildLogical(ctx context.Context, refresh corecap.RecheckRequest, selected map[string]bool, memo *refreshMemo, definition corecap.CapabilityDefinition) corecap.LogicalOffer {
 	templates, _ := r.catalog.LogicalPredicateTemplates(definition.ID)
-	predicates, material, _ := r.resolvePredicates(
+	predicates, material, _, _ := r.resolvePredicates(
 		ctx, refresh, selected[definition.Adapter], memo,
 		ProbeRequest{AdapterID: definition.Adapter, TargetID: definition.ID},
 		templates, nil,
@@ -490,7 +531,7 @@ func (r *Registry) buildBinding(
 			}
 		}
 	}
-	predicates, material, _ := r.resolvePredicates(
+	predicates, material, _, _ := r.resolvePredicates(
 		ctx, refresh, selected[definition.ID], memo,
 		ProbeRequest{
 			AdapterID: definition.ID, TargetID: definition.ID,
@@ -529,7 +570,7 @@ func (r *Registry) resolvePredicates(
 	base ProbeRequest,
 	templates []corecap.PredicateTemplate,
 	seed map[string]bool,
-) ([]corecap.Predicate, map[string][]string, map[string]string) {
+) ([]corecap.Predicate, map[string][]string, map[string]string, *corecap.TextOnlyOptionOffer) {
 	satisfied := map[string]bool{}
 	for key, value := range seed {
 		satisfied[key] = value
@@ -537,6 +578,7 @@ func (r *Registry) resolvePredicates(
 	predicates := make([]corecap.Predicate, len(templates))
 	material := map[string][]string{}
 	resolvedModels := map[string]string{}
+	var textOnlyOption *corecap.TextOnlyOptionOffer
 	for i, template := range templates {
 		predicate := corecap.Predicate{
 			ID: template.ID, Resolution: template.Resolution,
@@ -568,10 +610,14 @@ func (r *Registry) resolvePredicates(
 			if observation.ResolvedModel != "" {
 				resolvedModels[template.ID] = observation.ResolvedModel
 			}
+			if observation.TextOnlyOption != nil {
+				copy := *observation.TextOnlyOption
+				textOnlyOption = &copy
+			}
 		}
 		predicates[i] = predicate
 	}
-	return predicates, material, resolvedModels
+	return predicates, material, resolvedModels, textOnlyOption
 }
 
 func dependenciesReady(dependencies []string, satisfied map[string]bool) bool {
@@ -749,6 +795,7 @@ func normalizeObservation(observation ProbeObservation) ProbeObservation {
 	}
 	observation.StableBinding = nil
 	observation.ResolvedModel = ""
+	observation.TextOnlyOption = nil
 	return observation
 }
 

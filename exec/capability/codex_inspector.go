@@ -185,7 +185,7 @@ func (i *CodexAppServerInspector) Inspect(ctx context.Context) (CodexInspection,
 	if err != nil {
 		return CodexInspection{}, err
 	}
-	accountReady, accountHandle, err := parseCodexAccount(accountResult)
+	accountReady, accountHandle, accountType, accountPlan, err := parseCodexAccount(accountResult)
 	if err != nil {
 		return CodexInspection{}, err
 	}
@@ -209,6 +209,7 @@ func (i *CodexAppServerInspector) Inspect(ctx context.Context) (CodexInspection,
 	}
 	return CodexInspection{
 		AccountReady: accountReady, AccountHandle: accountHandle,
+		AccountType: accountType, AccountPlan: accountPlan,
 		Models: models, DefaultModel: defaultModel,
 		ExecutableDigest:         process.ExecutableDigest(),
 		NormalSchemaDigest:       contract.NormalSchemaDigest,
@@ -428,35 +429,60 @@ func (s *codexAppServerSession) readModels(ctx context.Context, firstID int) (ma
 	return nil, "", codexProtocolError()
 }
 
-func parseCodexAccount(result json.RawMessage) (bool, string, error) {
+func parseCodexAccount(result json.RawMessage) (bool, string, string, string, error) {
 	var payload struct {
 		Account            json.RawMessage `json:"account"`
 		RequiresOpenAIAuth *bool           `json:"requiresOpenaiAuth"`
 	}
 	if err := json.Unmarshal(result, &payload); err != nil || payload.RequiresOpenAIAuth == nil {
-		return false, "", codexProtocolError()
+		return false, "", "", "", codexProtocolError()
 	}
+	accountType, accountPlan := "", ""
 	accountPresent := len(payload.Account) != 0 && !bytes.Equal(bytes.TrimSpace(payload.Account), []byte("null"))
 	if accountPresent {
 		var account struct {
-			Type string `json:"type"`
+			Type     string `json:"type"`
+			PlanType string `json:"planType"`
 		}
 		if err := json.Unmarshal(payload.Account, &account); err != nil || account.Type == "" {
-			return false, "", codexProtocolError()
+			return false, "", "", "", codexProtocolError()
 		}
 		switch account.Type {
 		case "apiKey", "chatgpt", "amazonBedrock":
 		default:
-			return false, "", codexProtocolError()
+			return false, "", "", "", codexProtocolError()
+		}
+		accountType = account.Type
+		if account.Type == "chatgpt" {
+			if account.PlanType == "" || account.PlanType != strings.TrimSpace(account.PlanType) {
+				return false, "", "", "", codexProtocolError()
+			}
+			accountPlan = normalizeCodexAccountPlan(account.PlanType)
 		}
 	}
 	if *payload.RequiresOpenAIAuth && !accountPresent {
-		return false, "", nil
+		return false, "", "", "", nil
 	}
 	if accountPresent {
-		return true, "authenticated", nil
+		return true, "authenticated", accountType, accountPlan, nil
 	}
-	return true, "not-required", nil
+	return true, "not-required", "", "", nil
+}
+
+func normalizeCodexAccountPlan(value string) string {
+	switch strings.ToLower(value) {
+	case "free", "go", "plus", "pro", "prolite", "team",
+		"self_serve_business_prolite", "self_serve_business_usage_based",
+		"business", "ent26", "enterprise_cbp_automation",
+		"enterprise_cbp_usage_based", "enterprise", "edu":
+		return strings.ToLower(value)
+	case "hc":
+		return "enterprise"
+	case "education":
+		return "edu"
+	default:
+		return ""
+	}
 }
 
 func validateCodexInitialize(result json.RawMessage) error {

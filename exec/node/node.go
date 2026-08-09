@@ -143,7 +143,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var spec runtime.RunSpec
-	if err := json.NewDecoder(r.Body).Decode(&spec); err != nil {
+	if err := decodeStrictBounded(r.Body, 1<<20, &spec); err != nil {
 		http.Error(w, "bad run spec", http.StatusBadRequest)
 		return
 	}

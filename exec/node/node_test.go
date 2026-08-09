@@ -314,6 +314,82 @@ type fakeCapabilityRegistry struct {
 	refreshCalls  int
 }
 
+type captureRunSpecRuntime struct {
+	mu    sync.Mutex
+	calls int
+	spec  runtime.RunSpec
+}
+
+func (r *captureRunSpecRuntime) Name() string { return "capture-run-spec" }
+
+func (r *captureRunSpecRuntime) Dispatch(ctx context.Context, spec runtime.RunSpec) (runtime.Run, error) {
+	r.mu.Lock()
+	r.calls++
+	r.spec = spec
+	r.mu.Unlock()
+	return fake.New().Dispatch(ctx, spec)
+}
+
+func (r *captureRunSpecRuntime) captured() (runtime.RunSpec, int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.spec, r.calls
+}
+
+func nodeSubscriptionSpec() runtime.RunSpec {
+	return runtime.RunSpec{
+		RunID: "primary-remote", Profile: "codex-subscription:gpt-5.6-sol", Agent: "codex-subscription",
+		Model: "gpt-5.6-sol", Prompt: "hello", Machine: "mini",
+		Authority: runtime.AuthorityChatSubscriptionIsolatedV1, RuntimeContract: runtime.RuntimeContractCodexSubscriptionExecV1,
+		TextOnlyPolicy: &runtime.TextOnlyPolicy{
+			PolicyID: runtime.PolicyCodexSubscriptionChatV1, PolicyRevision: "policy-v1", Model: "gpt-5.6-sol",
+			ReasoningEffort: runtime.ReasoningEffortMedium, ReasoningContext: runtime.ReasoningContextCurrentTurn,
+			RequestTimeoutMillis: 120000, DeveloperInstructionRevision: "developer-v1",
+			AccountType: runtime.AccountTypeChatGPT, AccountPlan: "pro", SelectedAdapterID: runtime.AdapterCodexSubscription,
+			SelectedAdapterRevision: "adapter-v1", SelectedCodexVersion: "codex-cli 0.147.0-alpha.6.5",
+			SelectedCodexExecutableRevision: strings.Repeat("a", 64), SelectedCodexSchemaRevision: strings.Repeat("b", 64),
+			ThreadMode: runtime.ThreadModeEphemeral, SandboxMode: runtime.SandboxModeReadOnly, ApprovalPolicy: runtime.ApprovalPolicyNever,
+			WorkdirMode: runtime.WorkdirModeEmptyPerTarget, DynamicToolsMode: runtime.ToolsModeNone, MCPMode: runtime.ToolsModeNone,
+			CommandPolicy: runtime.ResourcePolicyDenyAndFail, FileReadPolicy: runtime.ResourcePolicyDenyAndFail, IsolationRevision: "isolation-v1",
+		},
+	}
+}
+
+func TestExecCarriesCompleteSubscriptionAuthorityAndRejectsUnknownWireFields(t *testing.T) {
+	runtimeCapture := &captureRunSpecRuntime{}
+	server := New(runtimeCapture, func() string { return "token" })
+	mux := http.NewServeMux()
+	server.Register(mux)
+
+	spec := nodeSubscriptionSpec()
+	body, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/exec", bytes.NewReader(body))
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	got, calls := runtimeCapture.captured()
+	if calls != 1 || got.Profile != spec.Profile || got.Authority != spec.Authority || got.RuntimeContract != spec.RuntimeContract ||
+		got.TextOnlyPolicy == nil || got.TextOnlyPolicy.SelectedCodexSchemaRevision != spec.TextOnlyPolicy.SelectedCodexSchemaRevision ||
+		got.Machine != "" || got.Workdir != "" || got.ExpectedPolicyRevision != "" {
+		t.Fatalf("captured spec calls=%d spec=%#v", calls, got)
+	}
+
+	unknown := append(body[:len(body)-1], []byte(`,"private_expected_policy":"do-not-cross"}`)...)
+	request = httptest.NewRequest(http.MethodPost, "/api/exec", bytes.NewReader(unknown))
+	request.Header.Set("Authorization", "Bearer token")
+	recorder = httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if _, calls = runtimeCapture.captured(); recorder.Code != http.StatusBadRequest || calls != 1 {
+		t.Fatalf("unknown wire field status=%d calls=%d body=%s", recorder.Code, calls, recorder.Body.String())
+	}
+}
+
 func (f *fakeCapabilityRegistry) Current() corecap.NodeInventory { return f.current }
 func (f *fakeCapabilityRegistry) Refresh(_ context.Context, request corecap.RecheckRequest) (corecap.NodeInventory, error) {
 	f.refreshCalls++

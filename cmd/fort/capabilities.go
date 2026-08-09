@@ -20,6 +20,7 @@ const bundledCodexExecutable = "/Applications/ChatGPT.app/Contents/Resources/cod
 var executionProfileAdapters = []string{
 	"profile.claude.native",
 	"profile.codex.native",
+	"profile.codex-subscription.isolated",
 	"profile.hermes.native",
 	"profile.openclaw.main",
 }

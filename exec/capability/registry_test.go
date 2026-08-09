@@ -137,6 +137,10 @@ func (f *fakeProber) Probe(ctx context.Context, request ProbeRequest) ProbeObser
 		if request.PredicateID == "predicate.codex.model.codex:configured-default.v1" {
 			observation.ResolvedModel = "gpt-5.6-sol"
 		}
+		if request.PredicateID == "predicate.codex-subscription.closed-contract.v1" {
+			offer := validRegistryTextOnlyOption()
+			observation.TextOnlyOption = &offer
+		}
 	}
 
 	f.mu.Lock()
@@ -172,7 +176,7 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(inventory.Profiles) != 11 || len(inventory.Offers) != 2 || len(inventory.Bindings) != 21 {
+	if len(inventory.Profiles) != 12 || len(inventory.Offers) != 3 || len(inventory.Bindings) != 22 || len(inventory.TextOnlyOptions) != 1 {
 		t.Fatalf("inventory sizes = profiles:%d offers:%d bindings:%d", len(inventory.Profiles), len(inventory.Offers), len(inventory.Bindings))
 	}
 	if inventory.State != corecap.MachinePartial || inventory.Reason != corecap.ReasonModelUnavailable {
@@ -206,6 +210,68 @@ func TestRegistryBuildsCompleteClosedInventoryWithTwoProbeLimit(t *testing.T) {
 	encoded := mustJSON(t, inventory)
 	if strings.Contains(encoded, "stable:") || strings.Contains(encoded, "0123456789") {
 		t.Fatal("private probe material or revision key leaked into inventory")
+	}
+}
+
+func TestRegistryPublishesTextOnlyOptionOnlyFromTypedClosedProbe(t *testing.T) {
+	offer := validRegistryTextOnlyOption()
+	prober := &fakeProber{observations: map[string]ProbeObservation{
+		"predicate.codex-subscription.closed-contract.v1": {
+			State: corecap.PredicateSatisfied, StableBinding: []string{"closed=true"}, TextOnlyOption: &offer,
+		},
+	}}
+	registry, err := NewRegistry(RegistryOptions{
+		NodeID: "node-laptop", Platform: "darwin/arm64",
+		RevisionKey: []byte("01234567890123456789012345678901"), Prober: prober,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inventory.TextOnlyOptions) != 1 {
+		t.Fatalf("text-only options = %#v", inventory.TextOnlyOptions)
+	}
+	got := inventory.TextOnlyOptions[0]
+	if got.MachineID != "node-laptop" || got.SeatID != corecap.TextOnlySeatID(got.ProfileID, got.MachineID, got.RequestedModel) {
+		t.Fatalf("normalized option identity = %#v", got)
+	}
+
+	bad := offer
+	bad.AccountPlan = "unknown-private-plan"
+	prober.mu.Lock()
+	prober.observations["predicate.codex-subscription.closed-contract.v1"] = ProbeObservation{
+		State: corecap.PredicateSatisfied, TextOnlyOption: &bad,
+	}
+	prober.mu.Unlock()
+	second, err := registry.Refresh(context.Background(), RecheckAll(corecap.RefreshUserRecheck, uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.TextOnlyOptions == nil || len(second.TextOnlyOptions) != 0 {
+		t.Fatalf("invalid option escaped = %#v", second.TextOnlyOptions)
+	}
+	profile := findProfile(t, second, "codex-subscription:gpt-5.6-sol")
+	if profile.State == corecap.OfferReady || profile.Reason != corecap.ReasonCommandContractChanged {
+		t.Fatalf("invalid option retained ready profile = %#v", profile)
+	}
+}
+
+func validRegistryTextOnlyOption() corecap.TextOnlyOptionOffer {
+	return corecap.TextOnlyOptionOffer{
+		OfferVersion: 1, AgentKey: "codex-subscription",
+		ProfileID: "codex-subscription:gpt-5.6-sol", RequestedModel: "gpt-5.6-sol", ResolvedModel: "unknown",
+		AccountType: "chatgpt", AccountPlan: "pro",
+		PolicyID: "codex-subscription-chat-v1", PolicyRevision: strings.Repeat("a", 64),
+		RuntimeContract: "codex_subscription_exec_v1", ReasoningEffort: "medium", ReasoningContext: "current_turn",
+		RequestTimeoutMillis: 120000, DeveloperInstructionRevision: strings.Repeat("b", 64),
+		AdapterID: "model.chat.text-only.codex-subscription", AdapterRevision: strings.Repeat("c", 64),
+		CodexVersion: "codex-cli 0.147.0-alpha.6.5", CodexExecutableRevision: strings.Repeat("d", 64),
+		CodexSchemaRevision: strings.Repeat("e", 64), ThreadMode: "ephemeral", SandboxMode: "readOnly",
+		ApprovalPolicy: "never", WorkdirMode: "empty_per_target", DynamicToolsMode: "none", MCPMode: "none",
+		CommandPolicy: "deny_and_fail", FileReadPolicy: "deny_and_fail", IsolationRevision: strings.Repeat("f", 64),
 	}
 }
 

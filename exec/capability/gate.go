@@ -108,9 +108,9 @@ func (g *ProfileGate) Dispatch(ctx context.Context, spec runtime.RunSpec) (runti
 		if offer.BindingRevision == "" {
 			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonCommandContractChanged}
 		}
-		// Profile is a Fort control-plane identity, not part of the legacy node
-		// execution protocol. Lower it to the catalog's exact provider selector
-		// only after readiness passed, then keep it out of /api/exec.
+		// Profile is omitted from the legacy node protocol. The subscription
+		// authority is different: its exact profile is part of the closed wire
+		// identity and must survive through the runtime mux and remote node gate.
 		agent, model, ok := g.catalog.RuntimeSelection(profileID)
 		if !ok {
 			return nil, &ProfilePreflightError{ProfileID: profileID, Machine: target, Reason: corecap.ReasonProfileUnmapped}
@@ -118,7 +118,11 @@ func (g *ProfileGate) Dispatch(ctx context.Context, spec runtime.RunSpec) (runti
 		if definition.RequiresResolvedModel() && spec.Model != "" {
 			model = spec.Model
 		}
-		spec.Profile = ""
+		if spec.Authority == runtime.AuthorityChatSubscriptionIsolatedV1 {
+			spec.ExpectedPolicyRevision = ""
+		} else {
+			spec.Profile = ""
+		}
 		spec.Agent = agent
 		spec.Model = model
 		return g.next.Dispatch(ctx, spec)

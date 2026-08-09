@@ -8,9 +8,9 @@ package capability
 import "strings"
 
 const (
-	ProtocolVersion       = 2
-	CatalogVersion        = 2
-	ProfileMappingVersion = 3
+	ProtocolVersion       = 3
+	CatalogVersion        = 3
+	ProfileMappingVersion = 4
 )
 
 // SelectionKind is the closed provider-selection strategy for a profile.
@@ -71,7 +71,8 @@ type Catalog struct {
 	Bindings              []BindingDefinition    `json:"bindings"`
 }
 
-// CatalogV2 returns a fresh copy of the approved version-2 catalog.
+// CatalogV2 is the retained source-compatible constructor for the current
+// closed catalog. Its Version field is authoritative on the wire.
 func CatalogV2() Catalog {
 	return Catalog{
 		Version:               CatalogVersion,
@@ -85,6 +86,7 @@ func CatalogV2() Catalog {
 			{ID: "codex:gpt-5.6-sol", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-sol"}, DisplayName: "Codex · GPT-5.6 Sol", legacy: []string{"5.6 Sol"}},
 			{ID: "codex:gpt-5.6-terra", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-terra"}, DisplayName: "Codex · GPT-5.6 Terra"},
 			{ID: "codex:gpt-5.6-luna", Agent: "codex", Adapter: "profile.codex.native", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-luna"}, DisplayName: "Codex · GPT-5.6 Luna"},
+			{ID: "codex-subscription:gpt-5.6-sol", Agent: "codex-subscription", Adapter: "profile.codex-subscription.isolated", Selection: ProfileSelection{Kind: SelectionModel, ModelID: "gpt-5.6-sol"}, DisplayName: "Codex · GPT-5.6 Sol (subscription)"},
 			{ID: "hermes:configured-default", Agent: "hermes", Adapter: "profile.hermes.native", Selection: ProfileSelection{Kind: SelectionConfiguredDefault}, DisplayName: "Hermes · configured default", legacy: []string{""}},
 			{ID: "hermes:openai-codex/gpt-5.6-sol", Agent: "hermes", Adapter: "profile.hermes.native", Selection: ProfileSelection{Kind: SelectionProviderModel, ProviderID: "openai-codex", ModelID: "gpt-5.6-sol"}, DisplayName: "Hermes · Codex GPT-5.6 Sol", legacy: []string{"Codex 5.6 Sol"}},
 			{ID: "openclaw:main", Agent: "openclaw", Adapter: "profile.openclaw.main", Selection: ProfileSelection{Kind: SelectionConfiguredAgent, AgentID: "main"}, DisplayName: "OpenClaw · main", legacy: []string{"", "Fable"}},
@@ -92,6 +94,7 @@ func CatalogV2() Catalog {
 		Capabilities: []CapabilityDefinition{
 			{ID: "email.gmail.read", Adapter: "email.gmail.read.himalaya-broker"},
 			{ID: "database.supabase.inspect", Adapter: "database.supabase.inspect.codex-broker"},
+			{ID: "model.chat.text-only", Adapter: "model.chat.text-only.codex-subscription"},
 		},
 		Bindings: []BindingDefinition{
 			{ID: "claude-native", Agent: "claude", RuntimeContract: "native-cli", CapabilityIDs: []string{}, CapabilityAdapters: []string{}},
@@ -100,6 +103,7 @@ func CatalogV2() Catalog {
 			{ID: "openclaw-main", Agent: "openclaw", RuntimeContract: "openclaw-main", CapabilityIDs: []string{}, CapabilityAdapters: []string{}},
 			{ID: "codex-appserver+gmail", Agent: "codex", RuntimeContract: "codex-appserver", CapabilityIDs: []string{"email.gmail.read"}, CapabilityAdapters: []string{"email.gmail.read.himalaya-broker"}},
 			{ID: "codex-appserver+supabase", Agent: "codex", RuntimeContract: "codex-appserver", CapabilityIDs: []string{"database.supabase.inspect"}, CapabilityAdapters: []string{"database.supabase.inspect.codex-broker"}},
+			{ID: "codex-subscription-chat", Agent: "codex-subscription", RuntimeContract: "codex_subscription_exec_v1", CapabilityIDs: []string{"model.chat.text-only"}, CapabilityAdapters: []string{"model.chat.text-only.codex-subscription"}},
 		},
 	}
 }

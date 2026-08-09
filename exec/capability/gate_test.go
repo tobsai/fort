@@ -168,6 +168,44 @@ func TestProfileGatePreservesLegacyAmbientDynamicDispatch(t *testing.T) {
 	}
 }
 
+func TestProfileGatePreservesSubscriptionAuthorityProfileForClosedRuntimeMux(t *testing.T) {
+	next := fake.New()
+	refresh := &fakeSnapshotRefresher{machine: machineWithProfile(
+		"laptop", "codex-subscription:gpt-5.6-sol", corecap.OfferReady, "",
+	)}
+	gate := NewProfileGate(next, refresh)
+	revision := strings.Repeat("a", 64)
+	spec := runtime.RunSpec{
+		RunID: "run-subscription", Profile: "codex-subscription:gpt-5.6-sol",
+		Agent: "codex-subscription", Model: "gpt-5.6-sol", Machine: "laptop",
+		Authority:              runtime.AuthorityChatSubscriptionIsolatedV1,
+		RuntimeContract:        runtime.RuntimeContractCodexSubscriptionExecV1,
+		ExpectedPolicyRevision: revision,
+		TextOnlyPolicy: &runtime.TextOnlyPolicy{
+			PolicyID: runtime.PolicyCodexSubscriptionChatV1, PolicyRevision: revision,
+			Model: "gpt-5.6-sol", ReasoningEffort: runtime.ReasoningEffortMedium,
+			ReasoningContext: runtime.ReasoningContextCurrentTurn, RequestTimeoutMillis: 120000,
+			DeveloperInstructionRevision: revision, AccountType: runtime.AccountTypeChatGPT,
+			AccountPlan: "pro", SelectedAdapterID: runtime.AdapterCodexSubscription,
+			SelectedAdapterRevision: revision, SelectedCodexVersion: "codex-cli test",
+			SelectedCodexExecutableRevision: revision, SelectedCodexSchemaRevision: revision,
+			ThreadMode: runtime.ThreadModeEphemeral, SandboxMode: runtime.SandboxModeReadOnly,
+			ApprovalPolicy: runtime.ApprovalPolicyNever, WorkdirMode: runtime.WorkdirModeEmptyPerTarget,
+			DynamicToolsMode: runtime.ToolsModeNone, MCPMode: runtime.ToolsModeNone,
+			CommandPolicy: runtime.ResourcePolicyDenyAndFail, FileReadPolicy: runtime.ResourcePolicyDenyAndFail,
+			IsolationRevision: revision,
+		},
+	}
+	if _, err := gate.Dispatch(context.Background(), spec); err != nil {
+		t.Fatal(err)
+	}
+	got := next.Dispatched()
+	if len(got) != 1 || got[0].Profile != spec.Profile || got[0].Authority != spec.Authority ||
+		got[0].RuntimeContract != spec.RuntimeContract || got[0].TextOnlyPolicy == nil {
+		t.Fatalf("subscription dispatch = %+v, want complete authority preserved", got)
+	}
+}
+
 func TestProfileGateRejectsProfileIdentityMismatchWithoutProbe(t *testing.T) {
 	next := fake.New()
 	refresh := &fakeSnapshotRefresher{}

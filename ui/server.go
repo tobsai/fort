@@ -27,20 +27,24 @@ var fortAgentOrb []byte
 // queue Dispatcher this serves a full control plane (board, chat, scheduler,
 // gate inbox) that needs none of the deterministic execution components.
 type Deps struct {
-	Dispatcher     Dispatcher                // required
-	Runner         FlowRunner                // nil in control-only mode
-	Store          *store.Store              // required
-	FlowIDs        []string                  // available flow ids (for chat templates); empty in control-only
-	Machines       MachineLister             // nil in single-machine mode (spec 022)
-	Capabilities   CapabilityLister          // nil until capability inventory is wired (spec 039)
-	Planner        Planner                   // nil in control-only mode (spec 026)
-	Playbooks      PlaybookCatalog           // deterministic catalog + preview (spec 036)
-	PlaybookRunner PlaybookRunner            // nil in control-only mode
-	Conversations  ConversationPort          // durable shared conversations (spec 041)
-	SeatRechecker  ConversationSeatRechecker // nil without functional capability probes (spec 041)
-	Today          TodayPort                 // truthful right-rail projection (spec 041)
-	TodayLocation  *time.Location            // one Fort-configured IANA display timezone (spec 041)
-	Schedules      SchedulePort              // durable daemon scheduler (spec 041)
+	Dispatcher                Dispatcher                // required
+	Runner                    FlowRunner                // nil in control-only mode
+	Store                     *store.Store              // required
+	FlowIDs                   []string                  // available flow ids (for chat templates); empty in control-only
+	Machines                  MachineLister             // nil in single-machine mode (spec 022)
+	Capabilities              CapabilityLister          // nil until capability inventory is wired (spec 039)
+	Planner                   Planner                   // nil in control-only mode (spec 026)
+	Playbooks                 PlaybookCatalog           // deterministic catalog + preview (spec 036)
+	PlaybookRunner            PlaybookRunner            // nil in control-only mode
+	Conversations             ConversationPort          // durable shared conversations (spec 041)
+	Primary                   PrimaryChannelPort        // private subscription-backed Channels (spec 044)
+	SeatRechecker             ConversationSeatRechecker // nil without functional capability probes (spec 041)
+	Today                     TodayPort                 // truthful right-rail projection (spec 041)
+	TodayLocation             *time.Location            // one Fort-configured IANA display timezone (spec 041)
+	Schedules                 SchedulePort              // durable daemon scheduler (spec 041)
+	ScheduleRead              ScheduleReadPort          // Phase 1 read-only schedule projection
+	ScheduleInventory         ScheduleInventoryPort     // Phase 1 promotion/review boundary
+	AcceptedScheduleInventory string                    // exact operator-reviewed digest
 }
 
 // Server holds the ui handlers.
@@ -48,6 +52,14 @@ type Server struct {
 	d       Deps
 	flowIDs map[string]bool
 }
+
+type PrimaryChannelsMode string
+
+const (
+	PrimaryChannelsOff     PrimaryChannelsMode = "off"
+	PrimaryChannelsPreview PrimaryChannelsMode = "preview"
+	PrimaryChannelsPrimary PrimaryChannelsMode = "primary"
+)
 
 // New builds a ui server.
 func New(d Deps) *Server {
@@ -60,7 +72,61 @@ func New(d Deps) *Server {
 
 // Register mounts the ui routes onto mux.
 func (s *Server) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /", s.handlePage)
+	if err := s.RegisterMode(mux, PrimaryChannelsOff); err != nil {
+		panic(err)
+	}
+}
+
+// RegisterMode mounts the one closed Phase 1 presentation mode. Register is
+// retained as the off/default entry point for existing embeddings and tests.
+func (s *Server) RegisterMode(mux *http.ServeMux, mode PrimaryChannelsMode) error {
+	switch mode {
+	case PrimaryChannelsOff, PrimaryChannelsPreview, PrimaryChannelsPrimary:
+	default:
+		return fmt.Errorf("ui: unknown Primary Channels mode %q", mode)
+	}
+
+	mux.HandleFunc("GET /shared", s.handlePage)
+	switch mode {
+	case PrimaryChannelsOff:
+		mux.HandleFunc("GET /", s.handlePage)
+		s.registerPrimaryRouteTombstones(mux)
+	case PrimaryChannelsPreview:
+		mux.HandleFunc("GET /", s.handlePage)
+		mux.HandleFunc("GET /channels-preview", phase1LocalOnly(s.handlePrimaryPage))
+		s.RegisterPrimaryRoutes(mux)
+		s.RegisterScheduleReadRoutes(mux)
+	case PrimaryChannelsPrimary:
+		mux.HandleFunc("GET /", phase1LocalOnly(s.handlePrimaryPage))
+		mux.HandleFunc("GET /channels-preview", phase1LocalOnly(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		}))
+		s.RegisterPrimaryRoutes(mux)
+		s.RegisterScheduleReadRoutes(mux)
+	}
+	s.registerBaseRoutes(mux)
+	return nil
+}
+
+func (s *Server) registerPrimaryRouteTombstones(mux *http.ServeMux) {
+	notFound := func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }
+	for _, pattern := range []string{
+		"GET /channels-preview", "GET /channels-preview/",
+		"GET /api/settings/primary-agent", "PUT /api/settings/primary-agent", "DELETE /api/settings/primary-agent",
+		"POST /api/settings/primary-agent/recheck", "GET /api/settings/primary-agent/",
+		"GET /api/channels", "POST /api/channels", "GET /api/channels/{id}", "PATCH /api/channels/{id}",
+		"POST /api/channels/{id}/turns", "GET /api/channels/{id}/events",
+		"POST /api/channels/{id}/targets/{target_id}/retry",
+		"POST /api/channels/{id}/targets/{target_id}/recheck-and-retry",
+		"POST /api/channels/{id}/targets/{target_id}/cancel", "GET /api/channels/",
+		"GET /api/needs-you", "GET /api/needs-you/",
+		"GET /api/schedules", "GET /api/schedules/{id}", "GET /api/schedules/{id}/occurrences", "GET /api/schedules/",
+	} {
+		mux.HandleFunc(pattern, notFound)
+	}
+}
+
+func (s *Server) registerBaseRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /legacy", s.handleLegacyPage)
 	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
 	mux.HandleFunc("GET /fort-agent-orb.png", s.handleAgentOrb)
@@ -107,6 +173,15 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/conversations/{id}/events", s.handleConversationEvents)
 	mux.HandleFunc("POST /api/conversation-targets/{id}/retry", s.handleConversationTargetRetry)
 	mux.HandleFunc("POST /api/conversation-targets/{id}/cancel", s.handleConversationTargetCancel)
+}
+
+// RegisterScheduleReadRoutes mounts only the Phase 1 read surface. Composition
+// calls this in preview/primary mode; the legacy schedule POST remains mounted
+// by Register independently.
+func (s *Server) RegisterScheduleReadRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/schedules", phase1LocalOnly(s.handleScheduleList))
+	mux.HandleFunc("GET /api/schedules/{id}", phase1LocalOnly(s.handleScheduleGet))
+	mux.HandleFunc("GET /api/schedules/{id}/occurrences", phase1LocalOnly(s.handleScheduleOccurrences))
 }
 
 // HasExecution reports whether an execution plane is wired (for diagnostics).

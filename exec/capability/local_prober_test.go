@@ -2,15 +2,126 @@ package capability
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
 	corecap "github.com/tobsai/fort/core/capability"
+	"github.com/tobsai/fort/exec/codexsubscription"
 )
 
 type fakeCommandExecutor struct {
 	results map[string]CommandResult
+}
+
+func validSubscriptionProbeFixture() (fakeCommandExecutor, CodexInspection) {
+	help := strings.Join([]string{
+		"--json", "--sandbox", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config",
+		"--ignore-rules", "--strict-config", "--cd", "--model", "--config", "--disable",
+	}, "\n")
+	featureRows := make([]string, 0, len(codexsubscription.DisabledFeatures()))
+	for _, feature := range codexsubscription.DisabledFeatures() {
+		featureRows = append(featureRows, feature+" stable true")
+	}
+	commands := fakeCommandExecutor{results: map[string]CommandResult{
+		"codex\x00--version":      {Output: []byte(codexsubscription.CodexVersion + "\n"), ExecutableDigest: codexsubscription.CodexExecutableRevision},
+		"codex\x00exec\x00--help": {Output: []byte(help), ExecutableDigest: codexsubscription.CodexExecutableRevision},
+		"codex\x00features\x00list": {
+			Output: []byte(strings.Join(featureRows, "\n")), ExecutableDigest: codexsubscription.CodexExecutableRevision,
+		},
+	}}
+	inspection := CodexInspection{
+		AccountReady: true, AccountHandle: "PRIVATE-ACCOUNT", AccountType: "chatgpt", AccountPlan: "pro",
+		Models: map[string]bool{"gpt-5.6-sol": true}, ExecutableDigest: codexsubscription.CodexExecutableRevision,
+		NormalSchemaDigest: codexsubscription.CodexNormalSchemaRevision, NormalSchemaFiles: codexsubscription.CodexNormalSchemaFiles,
+		ExperimentalSchemaDigest: codexsubscription.CodexExperimentalSchemaRevision,
+		ExperimentalSchemaFiles:  codexsubscription.CodexExperimentalSchemaFiles,
+	}
+	return commands, inspection
+}
+
+func TestLocalProberPublishesOnlyExactClosedSubscriptionOffer(t *testing.T) {
+	commands, inspection := validSubscriptionProbeFixture()
+	observation := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil).Probe(
+		context.Background(), ProbeRequest{
+			AdapterID: "profile.codex-subscription.isolated", TargetID: "codex-subscription:gpt-5.6-sol",
+			ProfileID: "codex-subscription:gpt-5.6-sol", PredicateID: "predicate.codex-subscription.closed-contract.v1",
+		},
+	)
+	if observation.State != corecap.PredicateSatisfied || observation.TextOnlyOption == nil {
+		t.Fatalf("observation = %#v", observation)
+	}
+	offer := *observation.TextOnlyOption
+	if offer.AccountType != "chatgpt" || offer.AccountPlan != "pro" || offer.CodexVersion != codexsubscription.CodexVersion ||
+		offer.CodexExecutableRevision != codexsubscription.CodexExecutableRevision ||
+		offer.CodexSchemaRevision != codexsubscription.CodexSchemaRevision ||
+		offer.PolicyRevision != codexsubscription.PolicyRevision || offer.AdapterRevision != codexsubscription.AdapterRevision ||
+		offer.DeveloperInstructionRevision != codexsubscription.DeveloperInstructionRevision ||
+		offer.IsolationRevision != codexsubscription.IsolationRevision {
+		t.Fatalf("offer = %#v", offer)
+	}
+	encoded, _ := json.Marshal(observation)
+	if strings.Contains(string(encoded), "PRIVATE-ACCOUNT") {
+		t.Fatalf("private account identity leaked: %s", encoded)
+	}
+
+	offer.MachineID = "node"
+	offer.SeatID = corecap.TextOnlySeatID(offer.ProfileID, offer.MachineID, offer.RequestedModel)
+	if _, _, err := corecap.NormalizeTextOnlyOptionOffer(offer, "node"); err != nil {
+		t.Fatalf("published offer does not satisfy core contract: %v", err)
+	}
+}
+
+func TestLocalProberRejectsSubscriptionDriftBeforePublishingOffer(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(map[string]CommandResult, *CodexInspection)
+		reason corecap.Reason
+	}{
+		{name: "wrong executable bytes", mutate: func(results map[string]CommandResult, _ *CodexInspection) {
+			row := results["codex\x00--version"]
+			row.ExecutableDigest = strings.Repeat("0", 64)
+			results["codex\x00--version"] = row
+		}, reason: corecap.ReasonIncompatibleVersion},
+		{name: "missing exec flag", mutate: func(results map[string]CommandResult, _ *CodexInspection) {
+			row := results["codex\x00exec\x00--help"]
+			row.Output = []byte("--json\n--sandbox")
+			results["codex\x00exec\x00--help"] = row
+		}, reason: corecap.ReasonCommandContractChanged},
+		{name: "missing disabled feature", mutate: func(results map[string]CommandResult, _ *CodexInspection) {
+			row := results["codex\x00features\x00list"]
+			row.Output = []byte("shell_tool stable true")
+			results["codex\x00features\x00list"] = row
+		}, reason: corecap.ReasonCommandContractChanged},
+		{name: "API credential account", mutate: func(_ map[string]CommandResult, inspection *CodexInspection) {
+			inspection.AccountType = "apiKey"
+		}, reason: corecap.ReasonAuthRequired},
+		{name: "unknown plan", mutate: func(_ map[string]CommandResult, inspection *CodexInspection) {
+			inspection.AccountPlan = "future-secret-plan"
+		}, reason: corecap.ReasonCommandContractChanged},
+		{name: "model absent", mutate: func(_ map[string]CommandResult, inspection *CodexInspection) {
+			inspection.Models = map[string]bool{}
+		}, reason: corecap.ReasonModelUnavailable},
+		{name: "schema drift", mutate: func(_ map[string]CommandResult, inspection *CodexInspection) {
+			inspection.ExperimentalSchemaDigest = strings.Repeat("0", 64)
+		}, reason: corecap.ReasonIncompatibleVersion},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			commands, inspection := validSubscriptionProbeFixture()
+			test.mutate(commands.results, &inspection)
+			observation := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil).Probe(
+				context.Background(), ProbeRequest{
+					AdapterID: "profile.codex-subscription.isolated", ProfileID: "codex-subscription:gpt-5.6-sol",
+					PredicateID: "predicate.codex-subscription.closed-contract.v1",
+				},
+			)
+			if observation.State != corecap.PredicateUnsatisfied || observation.Reason != test.reason || observation.TextOnlyOption != nil {
+				t.Fatalf("observation = %#v", observation)
+			}
+		})
+	}
 }
 
 func (f fakeCommandExecutor) Run(_ context.Context, command string, args ...string) CommandResult {

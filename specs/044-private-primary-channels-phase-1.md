@@ -2,7 +2,8 @@
 
 **Status:** approved for implementation on 2026-08-08 — live provider use,
 `primary` promotion, and the trial remain blocked until the deployment-specific
-approval inputs below are complete
+Codex subscription, executable/schema, and schedule-inventory checks below are
+complete
 **Date:** 2026-08-08
 **Decision owner:** Toby
 **Depends on:** Spec 043 direction; Spec 041 durable conversation, immutable
@@ -26,10 +27,15 @@ An existing durable schedule may have one explicit related-Channel link for
 navigation/provenance; that link never changes its actual execution target.
 
 Fort will continue to own the canonical conversation, exact agent identity,
-target lifecycle, readiness, and cross-machine dispatch. A stateless text-only
-provider adapter will answer without a provider agent loop, tools,
-provider-authored cross-turn memory, session continuation, browser/MCP access,
-files, or a callback capable of mutating user-owned or connected resources.
+target lifecycle, readiness, and cross-machine dispatch. A dedicated
+ChatGPT-subscription-backed Codex execution adapter will answer each target in
+a fresh ephemeral thread. Fort never resumes that thread and supplies no MCP,
+dynamic-tool, browser, connected-app, environment, or multi-agent capability.
+The adapter uses an empty per-target work directory plus the closed sandbox,
+approval, and process-isolation contract below. A provider request for a
+command, tool, file read, file change, or other undeclared capability is an
+authority violation that fails the target; Fort does not claim that Codex's
+read-only sandbox alone makes file inspection impossible.
 
 The default experience contains only:
 
@@ -52,13 +58,14 @@ does preserve and expose existing durable schedule execution truthfully.
 ## Authorization gate
 
 This document is implementation-ready, but it is not self-authorizing.
-Production work starts only after both conditions are satisfied:
+Production work starts only after both conditions are satisfied. Toby has now:
 
-- Toby selects or approves one or more of the recorded visual treatments for
-  the shared Channel/Scheduled experience;
-  and
-- Toby explicitly approves this implementation contract, including the
-  OpenAI Responses text-only lane and its API-billing/retention disclosure.
+- approved all three recorded visual treatments as local Web presentation
+  themes for the one shared Channel/Scheduled behavior, with Quiet Intelligence
+  as the default; and
+- explicitly approved this implementation contract, including the
+  ChatGPT-subscription-backed Codex execution lane and its stated isolation
+  limits.
 
 If the selected mockup changes navigation, identity disclosure, status,
 recovery, or Settings behavior, update this spec before writing production UI
@@ -79,95 +86,144 @@ hop must enforce before a process starts.
 
 ## Initial provider decision
 
-Phase 1 makes **a stateless OpenAI Responses API adapter the only eligible
-Primary Agent provider**. This is an intentional experiment boundary, not a
-permanent provider preference and not a new general agent runtime.
+Phase 1 makes **a dedicated ChatGPT-subscription-backed Codex execution adapter
+the only eligible Primary Agent provider**. It uses app-server only for
+no-turn account/model/schema readiness and a separately closed `codex exec`
+contract for generation. This is an intentional experiment boundary, not a
+permanent provider preference and not the ordinary tool-capable Codex runtime.
 
-The adapter uses a pinned version of the official `openai-go/v3` client and
-exactly one Responses request per Fort target attempt. SDK transport retries
-are disabled with `option.WithMaxRetries(0)`, and the whole request has a
-cancelable 120-second deadline. A timeout or ambiguous transport result fails
-as `provider_result_unknown`; a user-selected Retry creates a new durable
-target and may incur another provider charge. The adapter exposes no tool
-callback or provider session to the model. The closed request policy is:
+The adapter starts the exact version-gated Codex executable as `codex
+app-server --stdio`, initializes the accepted experimental schema, sends
+`initialized`, and calls:
 
 ```text
-endpoint: official OpenAI Responses API
-model: exact configured model id; no fallback
-developer instruction: exact policy-revision text defined below
-input: exactly one Fort-compiled participant prompt
-tools: none
-store: false
-previous_response_id: absent
-provider conversation/session id: absent
-reasoning context: current turn
-max output tokens: bounded by the approved policy
-prompt cache mode: explicit; no cache breakpoints
-SDK retries: 0
-total request deadline: 120 seconds
+account/read {"refreshToken":false}
+model/list {"includeHidden":true}
 ```
 
-`CompileParticipantPrompt` already freezes the transcript through and
+`account/read` must return `account.type:"chatgpt"` and a nonempty, closed
+`account.planType`; every other, absent, malformed, or unknown account shape is
+ineligible. Fort persists and shows only the normalized account type
+and plan, never email, tokens, or another account identifier. The exact
+requested model must appear in the complete paginated model catalog.
+Readiness creates no thread and performs no generation. It proves current
+authentication and catalog advertisement, not that a later generation is
+entitled or available.
+
+Each Fort target attempt starts one new non-interactive Codex process and one
+fresh ephemeral thread. The adapter never invokes `resume`, `fork`, `review`,
+or an interactive session and never reuses a thread ID, including for Retry.
+It passes an argv vector directly, never through a shell, with the following
+closed semantics (line wrapping is illustrative):
+
+```text
+codex exec <exact Fort-compiled participant prompt>
+  --json
+  --sandbox read-only
+  --skip-git-repo-check
+  --ephemeral
+  --ignore-user-config
+  --ignore-rules
+  --strict-config
+  -C <fresh dedicated empty target directory>
+  --model <exact requested model>
+  -c approval_policy="never"
+  -c developer_instructions=<exact versioned policy text>
+  -c model_reasoning_effort=<exact approved effort>
+  -c web_search="disabled"
+  -c tools.update_plan.enabled=false
+  -c tools.experimental_request_user_input.enabled=false
+  -c skills.include_instructions=false
+  -c skills.bundled.enabled=false
+  -c include_apps_instructions=false
+  -c include_collaboration_mode_instructions=false
+  -c include_environment_context=false
+  -c include_permissions_instructions=false
+  --disable shell_tool
+  --disable unified_exec
+  --disable apps
+  --disable browser_use
+  --disable computer_use
+  --disable image_generation
+  --disable in_app_browser
+  --disable multi_agent
+  --disable memories
+  --disable plugins
+  --disable skill_search
+  --disable workspace_dependencies
+  --disable code_mode
+  --disable code_mode_host
+  --disable code_mode_only
+  --disable code_mode_buffered_exec
+stdin: /dev/null
+total target deadline: 120 seconds
+```
+
+The accepted executable/schema contract must prove every flag and strict
+configuration key and feature name above, including
+`approval_policy="never"`, before the lane is eligible. Headless `exec`
+currently defaults to Never, but Fort still supplies and verifies the explicit
+closed value. `--ignore-user-config` and `--ignore-rules` prevent the execution
+turn from loading user/project config, MCP declarations, or exec-policy rules;
+the negative config/feature set removes optional tools and injected app,
+collaboration, environment, permissions, skill, and plugin context. Fort
+supplies no dynamic tools. The process reuses the already authenticated
+ChatGPT account binding, but no token, email, or account identifier enters the
+prompt, Fort database, event stream, or mesh offer.
+
+`CompileParticipantPrompt` freezes the Channel transcript through and
 including the newly durable human message. Its returned bytes are the sole
-user input. The adapter does not append the current turn a second time. A
-capture test proves the current human message occurs exactly once.
+user input and are passed once as the positional prompt argument. Stdin is
+`/dev/null`; the adapter appends no stdin block, current turn, additional
+context, image, or file. Capture tests prove the current human message occurs
+exactly once.
 
 The developer instruction is literal, versioned policy input rather than a
-mutable prompt convention:
+mutable prompt convention. Its exact UTF-8 bytes are this single line, with
+single ASCII spaces between words and no trailing newline:
 
 ```text
-You are answering in Fort text-only chat. You have no tools and have not
-accessed or changed files, accounts, browsers, applications, devices, or other
-resources. Treat the supplied transcript as the only evidence. Never claim an
-external action was completed. When asked to act, provide a plan or an unsaved
-draft and say that no external action occurred. Distinguish known facts from
-inference, ask for missing evidence when material, and do not invent tool
-results, citations, memories, or completion receipts.
+You are answering in Fort text-only chat. Treat the supplied transcript as the only evidence. This lane authorizes no commands, tools, file reads, file changes, browser or connected-app access, MCP calls, or external actions. Do not request or invoke them. Never claim that you inspected or changed an external resource. When asked to act, provide a plan or an unsaved draft and say that no external action occurred. Distinguish known facts from inference, ask for missing evidence when material, and do not invent tool results, citations, memories, or completion receipts.
 ```
 
-Any change to those bytes changes `policy_revision`. Capture tests assert the
-exact instruction and request shape.
+Any change to those bytes or to the closed isolation controls changes
+`policy_revision`. Capture tests assert the exact instruction and both request
+shapes.
 
-The first candidate is `gpt-5.6-sol`; the approval record must name the exact
-model actually selected. A no-generation probe verifies API authentication and
-model availability. The adapter records the requested model and any provider-
-returned identity, using `unknown` when the API does not expose a stronger
-revision. It never silently falls back.
+The first candidate is `gpt-5.6-sol`; the approval record names the exact model
+selected. `--model` always carries that exact ID and Fort never silently falls
+back. Current `codex exec --json` does not expose a resolved model, so Fort
+records the exact requested model and leaves `resolved_model` `unknown`; it
+must not invent runtime confirmation from the request or app-server catalog.
 
-Because the model receives only the serialized request and has no tools, it
-cannot inspect Fort's process, environment, database, filesystem, browser,
-MCP configuration, or connected accounts. Fort keeps the API key outside the
-prompt and never emits it in events. The adapter allowlists the official API
-origin and rejects a custom base URL in Phase 1.
+`--sandbox read-only` prevents writes allowed by broader Codex sandbox modes;
+it does **not** prevent file inspection or make the host invisible. The
+dedicated `-C` directory starts empty, no additional directory is supplied,
+and user configuration/rules are ignored, but those facts are not described as
+a general file-read sandbox. The JSONL adapter treats any command execution,
+file read/change, MCP call, web search, plan/subagent action, dynamic-tool call,
+or other active item as `chat_authority_violation`, terminates that process,
+and appends no canonical answer even if a later `agent_message` appears. This
+fail-on-tool behavior is the claimed authority control. Capture and canary
+tests must prove detection and target failure; neither Settings nor the UI may
+claim that read-only mode makes an attempted inspection technically
+impossible.
 
-`store: false` prevents later retrieval as a stored response; it is not a
-promise of zero provider retention. Settings must disclose the configured
-OpenAI organization/project identity and its applicable retention/ZDR policy,
-including whether the disclosure is user-attested or independently observed
-and when it was last checked. Unknown remains `unknown`; Fort never infers ZDR
-from `store:false`, account type, or a successful request. Provider request IDs
-and token usage are Fort-observed metadata, not provider memory. Fort starts
-every turn as a fresh request and does not replay opaque provider reasoning
-items.
+This contract is about Fort's local context and authority boundary, not a claim
+about provider-side data controls. ChatGPT plan, data controls, rate limits,
+and service availability remain properties of the selected subscription
+outside Fort. Phase 1 persists no provider authentication material or service
+account identifier. It may persist provider-reported token usage as diagnostic
+provenance only and must not label it a bill or subscription balance. Opaque
+reasoning is not stored, shown, summarized, or replayed.
 
-Phase 1 requests explicit prompt-cache mode with no cache breakpoints. This is
-part of the accepted adapter contract and must be reverified against the live
-API. It is not described as zero provider-side state. Fort persists any
-provider-reported cache-read and cache-write token detail; nonzero or missing
-detail remains visible and is included in any local cost estimate.
-
-OpenAI API use is separately billed; it does not consume or inherit a Codex or
-ChatGPT subscription allowance. That distinction must appear before the user
-selects the provider. The user supplies a stable, nonsecret credential label
-and billing-source disclosure; Fort never persists the API-key value or calls
-an SDK estimate `billing_actual`.
-
-Claude Code, Codex, Hermes, and OpenClaw remain visible in Settings as **Not
-eligible for text-only chat**. Fort never substitutes one of them. A later
-provider may enter Phase 1 only through a separately reviewed adapter change
-that proves the same no-tools, no-session, prompt-only boundary. In particular,
-CLI read-only or safe-mode flags are insufficient because the provider process
-still has host environment, policy, filesystem, and network visibility.
+Claude Code, ordinary Codex CLI profiles, Hermes, and OpenClaw remain visible
+in Settings as **Not eligible for text-only chat**. Fort never substitutes one
+of them. A later provider may enter Phase 1 only through a separately reviewed
+adapter change that proves the same fresh-thread, exact-input, and authority
+boundary. Read-only or safe-mode labels alone are insufficient because a
+provider process may still be able to inspect host state unless the complete
+isolation contract is enforced and tested.
 
 ## Scope
 
@@ -185,8 +241,8 @@ still has host environment, policy, filesystem, and network visibility.
 - truthful Needs-you projection for failed primary targets;
 - the new shell in full `fort serve`, preserving scheduler ownership;
 - local and two-machine contract acceptance; and
-- three coordinated design mockup directions for Web, macOS, and iOS before
-  implementation.
+- three coordinated Web presentation themes with matching future macOS/iOS
+  design evidence and one shared behavior contract.
 
 ### Explicitly deferred
 
@@ -224,11 +280,14 @@ Settings groups options by computer and shows:
 - profile and provider;
 - exact requested/resolved model when available;
 - computer;
-- nonsecret credential label and organization/project identity;
-- adapter and observed SDK version;
+- ChatGPT subscription account type and plan from the current
+  `account/read` result;
+- adapter, Codex executable version/revision, and accepted app-server schema
+  revision;
 - text-only policy and adapter revision;
-- retention and billing disclosure with source and observed-at time; unknown is
-  shown explicitly;
+- ephemeral-thread, empty-workdir, read-only sandbox, never-approve,
+  no-dynamic-tools/MCP, command-denial, and file-read-denial isolation
+  provenance;
 - Ready, unavailable, setup-required, or ineligible text; and
 - Recheck.
 
@@ -242,13 +301,15 @@ Agent into exactly one participant. The header shows a compact identity such
 as:
 
 ```text
-Primary Agent · OpenAI GPT-5.6 Sol · MacBook Pro · Ready
+Primary Agent · Codex GPT-5.6 Sol · ChatGPT Pro · MacBook Pro · Ready
 ```
 
 An identity disclosure shows the full stored seat, text-only policy, adapter,
-API-billing source, and retention disclosure. A compact **Text-only chat** label
-explains that the model receives only this Channel context and cannot use
-tools or change connected resources.
+ChatGPT account type/plan, Codex executable/schema revisions, and isolation
+provenance. A compact **Text-only chat** label explains that Fort supplies only
+this Channel context, supplies no MCP or dynamic tools, and fails any command,
+tool, or file-access attempt. It does not claim that read-only sandboxing alone
+makes inspection impossible.
 
 The composer contains one text input and Send. It has no provider, model,
 computer, seat, participant, target, or Everyone control.
@@ -274,6 +335,29 @@ A current Queued or Working target offers Cancel. A current Failed target
 offers Retry or Recheck and retry according to its error code. Retry targets
 the same persisted participant, model, computer, text-only policy, and frozen
 context. Fort never silently reroutes.
+
+Turn status uses progressive disclosure beside the initiating human message;
+there is no permanent transcript-wide **Durable turn status** section:
+
+- **Answered** has no separate status card because the attributed durable
+  answer is already the completion evidence.
+- the latest **Queued** attempt shows a compact **Starting Primary Agent…** row;
+  the latest **Working** attempt shows **Primary Agent is working** and Cancel;
+- the latest **Failed** attempt remains as a recovery card. A failure that did
+  not begin says **This didn’t start**; `daemon_interrupted` says **Answer
+  interrupted**. The card keeps Retry or Recheck and retry visible and puts
+  technical evidence behind a collapsed **Details** disclosure;
+- **Canceled** becomes the compact transcript note **Canceled by you** with its
+  durable time and a collapsed Details disclosure; and
+- a newer attempt replaces the older attempt's status/recovery presentation.
+  Historical attempts remain durable but do not expose stale recovery actions.
+
+Expanded Details shows the bounded reason, attempt number, target label, client
+turn ID, computer, and exact error code. Raw target IDs and client turn IDs are
+not visible while Details is collapsed. Recovery copy states that retry keeps
+the same client turn ID and creates the next attempt. The disclosure and
+recovery controls remain keyboard accessible, use the same local theme tokens,
+and preserve the same behavior in all three Web themes.
 
 ### Needs you
 
@@ -342,7 +426,22 @@ messages.
 
 ## Cross-platform design gate
 
-The three mockup treatments must each show one coherent experience across:
+The three mockup treatments are approved presentation themes for one coherent
+experience. They share the same product hierarchy, behavior, API calls,
+identity, durable state, recovery actions, accessibility contract, and
+responsive breakpoints; no treatment may fork product semantics. Web users may
+select any of the three locally. **Quiet Intelligence** is the default. The
+choice is a local UI preference only: it is not synced through Fort, persisted
+as Channel or target identity, sent to the provider, exposed as an orchestration
+setting, or allowed to change another client.
+
+Web stores the choice only in browser-local storage under
+`fort.primary.theme.v1`, with closed values `quiet-intelligence`,
+`private-channels`, and `native-daylight`. Missing, unavailable, or invalid
+values select `quiet-intelligence`. There is no server endpoint, database row,
+cookie, event, or cross-device synchronization for this preference.
+
+Each treatment must show that same experience across:
 
 1. Web desktop at approximately 1440×900;
 2. native macOS at approximately 1240×800; and
@@ -398,10 +497,37 @@ future-design evidence; these images do not claim implementation or parity.
 
 ![Native Daylight Phase 1 mockups for Web, macOS, and iOS](assets/044/native-daylight-original-core.png)
 
-One, two, or all three treatments may be approved for Web Phase 1. Approval
-must name the included set; the shared product hierarchy, controls, state, and
-API behavior may not fork by treatment. Saving these references does not by
-itself approve implementation.
+All three treatments are approved for Web Phase 1 as user-selectable local
+presentation themes. Quiet Intelligence is the default. The shared product
+hierarchy, controls, state, and API behavior may not fork by treatment. Saving
+or changing the local theme preference is not a durable Fort domain event and
+does not alter a Channel, schedule, target, or provider request.
+
+### Progressive turn-status checkpoint — 2026-08-09
+
+These approved Web references replace the always-visible durable-status stack
+with the progressive-disclosure behavior in State and recovery. Desktop shows
+the default collapsed recovery state; mobile shows the same state with Details
+expanded. The palettes and orb material vary, while copy, hierarchy, durable
+semantics, recovery actions, and responsive behavior remain identical.
+
+#### Quiet Intelligence
+
+![Quiet Intelligence desktop progressive turn recovery](assets/044/durable-turn-progressive-disclosure-desktop.png)
+
+![Quiet Intelligence mobile expanded turn recovery details](assets/044/durable-turn-progressive-disclosure-mobile.png)
+
+#### Private Channels
+
+![Private Channels desktop progressive turn recovery](assets/044/durable-turn-progressive-disclosure-desktop-private-channels.png)
+
+![Private Channels mobile expanded turn recovery details](assets/044/durable-turn-progressive-disclosure-mobile-private-channels.png)
+
+#### Native Daylight
+
+![Native Daylight desktop progressive turn recovery](assets/044/durable-turn-progressive-disclosure-desktop-native-daylight.png)
+
+![Native Daylight mobile expanded turn recovery details](assets/044/durable-turn-progressive-disclosure-mobile-native-daylight.png)
 
 ## Persistence contract
 
@@ -417,41 +543,44 @@ CREATE TABLE IF NOT EXISTS primary_agent_setting (
   seat_id TEXT NOT NULL,
   profile TEXT NOT NULL,
   agent TEXT NOT NULL,
-  model TEXT,
+  model TEXT NOT NULL,
   machine TEXT NOT NULL,
   display_name TEXT NOT NULL,
-  policy_id TEXT NOT NULL,
+  authority TEXT NOT NULL CHECK(authority='chat_subscription_isolated_v1'),
+  policy_id TEXT NOT NULL CHECK(policy_id='codex-subscription-chat-v1'),
   policy_revision TEXT NOT NULL,
+  runtime_contract TEXT NOT NULL CHECK(runtime_contract='codex_subscription_exec_v1'),
   adapter_id TEXT NOT NULL,
   adapter_revision TEXT NOT NULL,
-  sdk_version TEXT,
   reasoning_effort TEXT NOT NULL,
-  reasoning_context TEXT NOT NULL,
-  max_output_tokens INTEGER NOT NULL,
-  store_responses INTEGER NOT NULL CHECK(store_responses=0),
-  prompt_cache_mode TEXT NOT NULL,
-  sdk_retries INTEGER NOT NULL CHECK(sdk_retries=0),
+  reasoning_context TEXT NOT NULL CHECK(reasoning_context='current_turn'),
   request_timeout_millis INTEGER NOT NULL,
   developer_instruction_revision TEXT NOT NULL,
-  credential_ref TEXT NOT NULL,
-  organization_id TEXT,
-  project_id TEXT,
-  retention_mode TEXT NOT NULL,
-  retention_source TEXT NOT NULL,
-  retention_observed_at TEXT,
-  billing_source TEXT NOT NULL,
-  billing_source_provenance TEXT NOT NULL,
+  account_type TEXT NOT NULL CHECK(account_type='chatgpt'),
+  account_plan TEXT NOT NULL CHECK(length(trim(account_plan))>0),
+  codex_version TEXT NOT NULL,
+  codex_executable_revision TEXT NOT NULL,
+  codex_schema_revision TEXT NOT NULL,
+  thread_mode TEXT NOT NULL CHECK(thread_mode='ephemeral'),
+  sandbox_mode TEXT NOT NULL CHECK(sandbox_mode='readOnly'),
+  approval_policy TEXT NOT NULL CHECK(approval_policy='never'),
+  workdir_mode TEXT NOT NULL CHECK(workdir_mode='empty_per_target'),
+  dynamic_tools_mode TEXT NOT NULL CHECK(dynamic_tools_mode='none'),
+  mcp_mode TEXT NOT NULL CHECK(mcp_mode='none'),
+  command_policy TEXT NOT NULL CHECK(command_policy='deny_and_fail'),
+  file_read_policy TEXT NOT NULL CHECK(file_read_policy='deny_and_fail'),
+  isolation_revision TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 ```
 
 The row is an atomic upsert of a currently ready text-only option. Readiness
 and failure reason are current projections and are not persisted as identity.
-`option_id` is a `primary-option:v1` digest over the exact seat, credential
-reference, organization/project, and policy identity. It does not change the
-meaning of legacy `seat:v1`. The credential reference is a user-chosen label
-that resolves only on the selected computer; no secret crosses the mesh or is
-stored in SQLite.
+`option_id` is a `primary-option:v1` digest over the exact seat, normalized
+ChatGPT account type/plan, Codex executable/schema identity, adapter, and
+authority policy. It does not change the meaning of legacy `seat:v1`. Email,
+ChatGPT tokens, local authentication paths, and provider account identifiers
+never cross the mesh or enter SQLite.
 
 ### `primary_channel`
 
@@ -459,24 +588,30 @@ stored in SQLite.
 CREATE TABLE IF NOT EXISTS primary_channel (
   conversation_id TEXT PRIMARY KEY,
   participant_id TEXT NOT NULL UNIQUE,
-  policy_id TEXT NOT NULL,
+  authority TEXT NOT NULL CHECK(authority='chat_subscription_isolated_v1'),
+  policy_id TEXT NOT NULL CHECK(policy_id='codex-subscription-chat-v1'),
   policy_revision TEXT NOT NULL,
+  adapter_id TEXT NOT NULL,
+  adapter_revision TEXT NOT NULL,
+  runtime_contract TEXT NOT NULL CHECK(runtime_contract='codex_subscription_exec_v1'),
   reasoning_effort TEXT NOT NULL,
-  reasoning_context TEXT NOT NULL,
-  max_output_tokens INTEGER NOT NULL,
-  store_responses INTEGER NOT NULL CHECK(store_responses=0),
-  prompt_cache_mode TEXT NOT NULL,
-  sdk_retries INTEGER NOT NULL CHECK(sdk_retries=0),
+  reasoning_context TEXT NOT NULL CHECK(reasoning_context='current_turn'),
   request_timeout_millis INTEGER NOT NULL,
   developer_instruction_revision TEXT NOT NULL,
-  credential_ref TEXT NOT NULL,
-  organization_id TEXT,
-  project_id TEXT,
-  retention_mode TEXT NOT NULL,
-  retention_source TEXT NOT NULL,
-  retention_observed_at TEXT,
-  billing_source TEXT NOT NULL,
-  billing_source_provenance TEXT NOT NULL,
+  account_type TEXT NOT NULL CHECK(account_type='chatgpt'),
+  account_plan TEXT NOT NULL CHECK(length(trim(account_plan))>0),
+  codex_version TEXT NOT NULL,
+  codex_executable_revision TEXT NOT NULL,
+  codex_schema_revision TEXT NOT NULL,
+  thread_mode TEXT NOT NULL CHECK(thread_mode='ephemeral'),
+  sandbox_mode TEXT NOT NULL CHECK(sandbox_mode='readOnly'),
+  approval_policy TEXT NOT NULL CHECK(approval_policy='never'),
+  workdir_mode TEXT NOT NULL CHECK(workdir_mode='empty_per_target'),
+  dynamic_tools_mode TEXT NOT NULL CHECK(dynamic_tools_mode='none'),
+  mcp_mode TEXT NOT NULL CHECK(mcp_mode='none'),
+  command_policy TEXT NOT NULL CHECK(command_policy='deny_and_fail'),
+  file_read_policy TEXT NOT NULL CHECK(file_read_policy='deny_and_fail'),
+  isolation_revision TEXT NOT NULL,
   created_at TEXT NOT NULL,
   FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
   FOREIGN KEY(participant_id) REFERENCES conversation_participant(id)
@@ -485,8 +620,9 @@ CREATE TABLE IF NOT EXISTS primary_channel (
 
 The existing participant remains the canonical profile, provider/model, and
 computer snapshot. The marker adds the stable approved text-only policy and
-nonsecret disclosure snapshot. It is immutable after Channel creation: application
-code and database triggers reject update or delete.
+nonsecret ChatGPT plan, Codex contract, and isolation snapshot. It is immutable
+after Channel creation: application code and database triggers reject update
+or delete.
 
 Creating a Primary Channel atomically inserts the conversation, exactly one
 participant copied from the setting, and the marker. Existing conversations
@@ -535,34 +671,63 @@ Add these columns to `conversation_target` through the existing idempotent
 column migration pattern:
 
 ```text
-authority, policy_id, policy_revision,
-selected_adapter_id, selected_adapter_revision, selected_sdk_version,
-requested_model, reasoning_effort, reasoning_context, max_output_tokens,
-store_responses, prompt_cache_mode, sdk_retries, request_timeout_millis,
+authority, policy_id, policy_revision, runtime_contract,
+selected_adapter_id, selected_adapter_revision,
+selected_codex_version, selected_codex_executable_revision,
+selected_codex_schema_revision,
+requested_model, reasoning_effort, reasoning_context, request_timeout_millis,
 developer_instruction_revision,
-credential_ref, organization_id, project_id,
-observed_adapter_id, observed_adapter_revision, observed_sdk_version,
-resolved_model, provider_request_id, provider_terminal_status,
-usage_source, input_tokens, cached_input_tokens, cache_write_tokens,
+account_type, account_plan, thread_mode, sandbox_mode, approval_policy,
+workdir_mode, dynamic_tools_mode, mcp_mode, command_policy, file_read_policy,
+isolation_revision,
+observed_adapter_id, observed_adapter_revision,
+observed_codex_version, observed_codex_executable_revision,
+observed_codex_schema_revision,
+resolved_model, provider_thread_id, provider_terminal_status,
+usage_source, input_tokens, cached_input_tokens,
 output_tokens, reasoning_tokens
 ```
 
-The policy, request-policy, credential reference, and selected-adapter fields
-are resolved synchronously and populated before target commit and `202
-Accepted`. Async dispatch must match that exact selection or fail drift before
-a provider request. Observed adapter, provider identity, terminal status, and
-usage fields are written only from a typed response-metadata receipt. They
-commit atomically with the terminal answer or failure so an Answered target
-cannot lack its claimed provenance. Unavailable values remain
+The policy, request-policy, ChatGPT account/plan, Codex contract, isolation,
+and selected-adapter fields are resolved synchronously and populated before
+target commit and `202 Accepted`. Async dispatch must match that exact
+selection or fail drift before starting `codex exec`. Observed adapter, Codex
+identity, ephemeral thread ID, terminal status, and usage fields are
+written only from a typed response-metadata receipt. They commit atomically
+with the terminal answer or failure so an Answered target cannot lack its
+claimed provenance. The provider thread ID is evidence only and is never fed
+to a later attempt. Current JSONL exposes no turn ID or resolved model; those
+facts remain absent/`unknown` rather than inferred. Unavailable values remain
 empty/`unknown`. The UI derives the authority label of each answer from its own
-target, never from the conversation marker alone.
+target, never from the
+conversation marker alone.
 
-The policy revision is stable Channel behavior. Selected and observed
-adapter revisions and SDK versions describe one execution attempt. Retry may
-select a newly approved compatible adapter only when it certifies the exact
-same Channel policy revision; it creates a new target and records the new
-selection. A changed policy revision fails closed and requires a future
-explicit migration or a new Channel.
+The policy revision is stable Channel behavior. Selected and observed adapter,
+Codex executable, schema, and isolation revisions describe one execution
+attempt. Retry may change only `selected_adapter_revision`, and only to a newly
+approved compatible revision with the exact same adapter ID, Channel policy,
+seat, ChatGPT account/plan, Codex version/executable/schema revisions, runtime
+contract, and isolation/request-policy snapshot. It creates a new target and
+fresh ephemeral thread and records the new adapter selection. Any other changed
+field fails closed and requires a future explicit migration or a new Channel.
+
+`codex_executable_revision` and `codex_schema_revision` are exact lowercase
+64-character SHA-256 values validated at every store, API, mesh, and runtime
+boundary. They identify the held executable bytes and accepted generated
+contract/schema bundle respectively; a version string alone is not authority.
+The accepted v1 schema revision is SHA-256 over these exact UTF-8 bytes:
+
+```text
+codex-schema-contract:v1
+normal:be9de4ce887d8338794dbd330202fb5bdbd43316cc73b721efacf4542c8607b9:285
+experimental:2b6fb0da3b974ed25389d021f274900837c3ae5d406ba85be8cde45a21d0214f:361
+```
+
+including the final newline. Its value is
+`c59b4927dfaaaddcd78fd581bbe4c18649bb9adc42453a23b719b9df403156f2`.
+`runtime_contract` is the immutable closed value
+`codex_subscription_exec_v1` and prevents a target from drifting to app-server
+turns, native Codex defaults, or another transport.
 
 ### Database enforcement against old code
 
@@ -574,8 +739,8 @@ Migrations add SQLite triggers that reject:
 - insert, update, or delete of a participant in a marked Primary Channel;
 - deletion of a marked primary conversation; and
 - insertion of a target for a marked Primary Channel unless its authority,
-  policy id, policy revision, exact request-policy fields, credential
-  reference, organization, and project exactly match the marker, and its
+  policy id, policy revision, exact request-policy fields, ChatGPT account/plan,
+  Codex contract, and isolation fields exactly match the marker, and its
   selected-adapter identity is nonempty.
 
 These triggers are part of the invariant, not merely UI validation. An older
@@ -583,10 +748,11 @@ binary omits the new target authority fields and therefore cannot append a
 tool-capable turn to a marked Channel. Existing legacy targets remain policy
 `unknown`; they are never relabelled text-only.
 
-Target authority, policy, request-policy, credential reference, and selected
-adapter fields are immutable after insertion. Observed metadata may make one
-validated transition from empty to the terminal receipt in the same
-transaction as Answered/Failed/Canceled; it cannot be rewritten later.
+Target authority, policy, request-policy, account/plan, Codex contract,
+isolation, and selected-adapter fields are immutable after insertion. Observed
+metadata may make one validated transition from empty to the terminal receipt
+in the same transaction as Answered/Failed/Canceled; it cannot be rewritten
+later.
 
 Rollback does not deploy an older binary against a database containing Primary
 Channels. Use the accepted new binary's full `fort serve` mode, or restore a
@@ -599,108 +765,99 @@ system.
 
 Add:
 
-- provider-agent key `openai-responses`;
-- exact profile `openai-responses:gpt-5.6-sol` using
+- provider-agent key `codex-subscription`;
+- exact profile `codex-subscription:gpt-5.6-sol` using
   `SelectionModel{ModelID: "gpt-5.6-sol"}`; provider identity remains the
-  separate `openai-responses` agent key and is never prefixed onto
+  separate `codex-subscription` agent key and is never prefixed onto
   `RunSpec.Model`;
 - logical capability `model.chat.text-only`;
-- adapter `model.chat.text-only.openai-responses`;
-- policy `openai-responses-text-v1`; and
-- a pinned official SDK/request-schema adapter revision.
+- adapter `model.chat.text-only.codex-subscription`;
+- policy `codex-subscription-chat-v1`;
+- runtime contract `codex_subscription_exec_v1`; and
+- pinned Codex executable and generated app-server/config schema revisions.
 
-This is a new API profile, not a Codex CLI seat. Its closed predicates require
-an API credential resolvable from the selected computer's nonsecret credential
-reference, an official OpenAI API origin, the configured organization/project
-identity, the exact requested model returned by the no-generation probe, and
-the accepted policy/adapter revision. `OPENAI_API_KEY` is one supported local
-secret source for the initial adapter; the value is never returned, logged,
-hashed into an identifier, persisted, or sent across the mesh. The initial
-configuration also names `FORT_OPENAI_CREDENTIAL_REF`, with optional
-`OPENAI_ORGANIZATION` and required approved project identity. A missing
-nonsecret identity or unverifiable policy remains ineligible rather than being
-guessed.
+This is a new authority profile, not the ordinary Codex CLI seat. Its closed
+predicates hold the exact executable bytes, reproduce the accepted schema
+bundle, verify every required `codex exec` flag and strict configuration key,
+and run the no-turn app-server handshake. `account/read` must report
+`type:"chatgpt"` and an explicit schema-known `planType`; the complete
+paginated `model/list` must contain the exact requested model. Every non-ChatGPT
+account type is ineligible. The account email and saved ChatGPT auth
+material are process-private and forbidden from normalized readiness,
+capability offers, events, logs, and persistence.
 
-The option also carries nonsecret, operator-supplied disclosure config:
-
-```text
-FORT_OPENAI_RETENTION_MODE=unknown|default_abuse_monitoring|modified_abuse_monitoring|zero_data_retention
-FORT_OPENAI_RETENTION_SOURCE=unknown|user_attested|admin_record|provider_admin_export
-FORT_OPENAI_RETENTION_OBSERVED_AT=<RFC3339 or empty>
-FORT_OPENAI_BILLING_SOURCE=<nonsecret API billing account label or unknown>
-FORT_OPENAI_BILLING_SOURCE_PROVENANCE=unknown|user_attested|admin_record|billing_export
-```
-
-These values describe the selected organization/project; the no-generation
-model probe does not discover them. `unknown` is a truthful selectable value
-only when Toby explicitly accepts that disclosure at the design/approval gate.
-Fort never upgrades a user-attested value to provider-observed provenance.
-
-The option composes that ready exact OpenAI API profile on one computer with a
-no-generation probe that verifies API authentication, exact model
-availability, official API origin, SDK/request schema, and the approved policy.
-A normally ready CLI profile is not automatically text-only eligible.
+The probe starts no Codex turn, consumes no generated tokens, changes no
+configuration, and does not authenticate the user. A normally ready Codex CLI
+profile is not automatically text-only eligible. The accepted executable and
+schema revisions are lowercase SHA-256 values; any changed bytes, flag/config
+shape, account type/plan, model advertisement, or isolation canary make the
+option unavailable until an explicit Recheck succeeds against a newly approved
+catalog revision.
 
 Primary Agent options combine current profile/model/computer readiness,
-credential/project identity, and a ready policy-certified adapter. Selection
-snapshots the disclosure and policy plus the currently observed adapter. Chat
-creation snapshots the policy and disclosure. Turn creation synchronously
-revalidates the same profile, model, computer, policy, and adapter and records
-that exact selected adapter on the target before returning `202`. Dispatch
-revalidates the selection once more. Missing or changed identity fails closed
-before a provider request, with no reroute or fallback.
+ChatGPT account type/plan, Codex executable/schema identity, and a ready
+policy-certified adapter. Selection snapshots those facts and the currently
+observed adapter. Channel creation snapshots the policy and authority facts.
+Turn creation synchronously revalidates the same profile, model, computer,
+account/plan, executable/schema, policy, runtime contract, and adapter and
+records that exact selection on the target before returning `202`. Dispatch
+revalidates it once more. Missing or changed identity fails closed before
+`codex exec`, with no reroute or fallback.
 
 Remote computers publish the same information through a new closed,
 secret-free capability wire type:
 
 ```go
 type TextOnlyOptionOffer struct {
-    ProtocolVersion          int
+    OfferVersion             int
     MachineID                string
     SeatID                   string
     AgentKey                 string
     ProfileID                string
     RequestedModel           string
     ResolvedModel            string
-    CredentialRef            string
-    OrganizationID           string
-    ProjectID                string
+    AccountType              string
+    AccountPlan              string
     PolicyID                 string
     PolicyRevision           string
+    RuntimeContract          string
     ReasoningEffort          string
     ReasoningContext         string
-    MaxOutputTokens          int
-    StoreResponses           bool
-    PromptCacheMode          string
-    SDKRetries               int
     RequestTimeoutMillis     int
     DeveloperInstructionRev  string
     AdapterID                string
     AdapterRevision          string
-    SDKVersion               string
-    RetentionMode            string
-    RetentionSource          string
-    RetentionObservedAt      string
-    BillingSource            string
-    BillingSourceProvenance  string
+    CodexVersion             string
+    CodexExecutableRevision  string
+    CodexSchemaRevision      string
+    ThreadMode               string
+    SandboxMode              string
+    ApprovalPolicy           string
+    WorkdirMode              string
+    DynamicToolsMode         string
+    MCPMode                  string
+    CommandPolicy            string
+    FileReadPolicy           string
+    IsolationRevision        string
 }
 ```
 
-The node emits this offer only from normalized local configuration plus a
-successful bounded readiness check. The hub validates closed enums, bounds,
-RFC3339 fields, exact profile/agent/model relationships, machine/seat identity,
-policy/adapter compatibility, and absence of secret material. It canonicalizes
-the fields in the order above and computes `primary-option:v1` as the
+The node emits this offer only from normalized local policy plus a successful
+bounded readiness check. The hub validates closed enums, bounds, lowercase
+SHA-256 revisions, exact profile/agent/model/account relationships,
+machine/seat identity, policy/runtime/adapter compatibility, and absence of
+secret material. It canonicalizes the fields in the order above and computes
+`primary-option:v1` as the
 versioned digest; a supplied or cached digest is never trusted. Duplicate or
-conflicting offers make that machine's text-only options ineligible. The API
-key value and its derivations are forbidden from the offer.
+conflicting offers make that machine's text-only options ineligible. ChatGPT
+tokens, email, auth paths, and derivations are forbidden from the offer.
 
 The capability protocol and inventory wire schema advance together. A peer
 that omits `TextOnlyOptionOffer`, sends an unknown offer version, or cannot
 validate its complete contract remains visible through ordinary profile
 inventory but is **Not eligible for text-only chat**. The hub never fills
-missing disclosure or adapter fields from its own environment and never hides
-them inside predicate IDs.
+missing account, Codex, isolation, or adapter fields from its own environment
+and never hides them inside predicate IDs.
 
 Capability protocol versions must advance because an old peer cannot enforce
 the new authority field. An old or unverified node is ineligible; Fort must not
@@ -718,9 +875,8 @@ free-form fields:
 ```go
 type AuthorityMode string
 type ReasoningEffort string
-type PromptCacheMode string
 
-const AuthorityChatTextOnlyV1 AuthorityMode = "chat_text_only_v1"
+const AuthorityChatSubscriptionIsolatedV1 AuthorityMode = "chat_subscription_isolated_v1"
 
 type TextOnlyPolicy struct {
     PolicyID                      string
@@ -728,18 +884,24 @@ type TextOnlyPolicy struct {
     Model                         string
     ReasoningEffort               ReasoningEffort
     ReasoningContext              string // exactly "current_turn"
-    MaxOutputTokens               int
-    Store                         bool   // exactly false
-    PromptCacheMode               PromptCacheMode // exactly "explicit"
-    SDKRetries                    int    // exactly 0
     RequestTimeoutMillis          int    // exactly 120000 in v1
     DeveloperInstructionRevision string
+    AccountType                   string // exactly "chatgpt"
+    AccountPlan                   string
     SelectedAdapterID             string
     SelectedAdapterRevision       string
-    SelectedSDKVersion            string
-    CredentialRef                 string
-    OrganizationID                string
-    ProjectID                     string
+    SelectedCodexVersion          string
+    SelectedCodexExecutableRevision string
+    SelectedCodexSchemaRevision   string
+    ThreadMode                    string // exactly "ephemeral"
+    SandboxMode                   string // exactly "readOnly"
+    ApprovalPolicy                string // exactly "never"
+    WorkdirMode                   string // exactly "empty_per_target"
+    DynamicToolsMode              string // exactly "none"
+    MCPMode                       string // exactly "none"
+    CommandPolicy                 string // exactly "deny_and_fail"
+    FileReadPolicy                string // exactly "deny_and_fail"
+    IsolationRevision             string
 }
 
 type RunSpec struct {
@@ -753,21 +915,24 @@ type RunSpec struct {
 type ProviderUsage struct {
     InputTokens       int64
     CachedInputTokens int64
-    CacheWriteTokens  int64
     OutputTokens      int64
     ReasoningTokens   int64
 }
 
 type ResponseMetadata struct {
-    ProviderRequestID       string
+    ProviderThreadID        string
     RequestedModel          string
-    ResolvedModel           string
+    ResolvedModel           string // "unknown" for current exec JSONL
     SelectedAdapterID       string
     SelectedAdapterRevision string
-    SelectedSDKVersion      string
+    SelectedCodexVersion    string
+    SelectedCodexExecutableRevision string
+    SelectedCodexSchemaRevision string
     ObservedAdapterID       string
     ObservedAdapterRevision string
-    ObservedSDKVersion      string
+    ObservedCodexVersion    string
+    ObservedCodexExecutableRevision string
+    ObservedCodexSchemaRevision string
     TerminalStatus          string
     UsageSource             string
     Usage                   ProviderUsage
@@ -784,50 +949,68 @@ mode only. Any unknown nonempty authority or mismatched runtime contract fails
 before a provider request. `TextOnlyPolicy` is required only for the exact
 text-only authority and is forbidden for legacy authority. Hub and node
 validate every enum, string identity, fixed value, and numeric bound; the
-credential reference resolves to a secret only on the selected computer and no
-secret enters this structure.
+ChatGPT authentication binding remains process-private on the selected computer
+and no token, email, or auth path enters this structure.
 
-A Primary Channel dispatch always supplies `chat_text_only_v1`,
-`openai-responses-text-v1`, the complete `TextOnlyPolicy`, and the expected
-policy revision. Hub-side preflight validates the revision and clears only the
-private expected field. Authority, runtime contract, and text-only policy cross
-the cluster/remote wire. The text-only node branch accepts only that exact
-authority/contract/profile/adapter/policy combination; empty, legacy, unknown,
-wrong-contract, and other-provider requests start zero work.
+A Primary Channel dispatch always supplies `chat_subscription_isolated_v1`,
+`codex_subscription_exec_v1`, `codex-subscription-chat-v1`, the complete
+`TextOnlyPolicy`, and the expected policy revision. Hub-side preflight validates
+the revision and clears only the private expected field. Authority, runtime
+contract, and text-only policy cross the cluster/remote wire. The text-only
+node branch accepts only that exact authority/contract/profile/adapter/policy
+combination; empty, legacy, unknown, wrong-contract, and other-provider
+requests start zero work.
 
 The full `fort serve` composition uses a closed local runtime multiplexer:
 
-- exact text-only authority plus the `openai-responses` agent key can route
-  only to `exec/openairesponses`;
+- exact text-only authority plus the `codex-subscription` agent key can route
+  only to `exec/codexsubscription`;
 - empty legacy authority can route only to the existing native-provider
   runtime; and
 - every cross-combination or unknown value fails before work starts.
 
 The same mux policy protects full-mode node execution. Tests prove that no
-text-only request can reach a CLI and no legacy/native request can reach the
-Responses adapter. The new Primary Channel HTTP/port surface has no generic
-execution method and cannot construct an empty-authority request; existing
-legacy execution remains separately scoped to its established admin/node
-surface.
+text-only request can reach `exec/native` and no legacy/native request can
+reach the subscription adapter. The new Primary Channel HTTP/port surface has
+no generic execution method and cannot construct an empty-authority request;
+existing legacy execution remains separately scoped to its established
+admin/node surface.
 
-The Responses adapter accepts only a terminal `completed` response containing
-exactly one assistant text result. It may observe the closed inert output set
-required by the approved model, including a `reasoning` item; opaque reasoning
-is discarded and is never stored, shown, summarized, or replayed. A tool,
-hosted-tool, computer, file-search, function-call, code/program, MCP,
-multi-agent, or unknown output item fails the target as
-`chat_authority_violation` and appends no agent answer.
+The subscription adapter parses bounded `codex exec --json` JSONL and buffers
+the answer until it has observed exactly one `thread.started`, the exact
+pre-turn fail-closed Code Mode diagnostic, one `turn.started`, exactly one
+completed `agent_message`, and one `turn.completed`. The pinned executable
+emits this inert diagnostic because the separately executable code-mode host is
+explicitly disabled:
 
-`incomplete` (including max-output exhaustion), `failed`, `cancelled`, and
-refusal terminal states are mapped to bounded non-Answered outcomes. Partial
-text is never appended as the canonical answer. A completed response with
-zero/multiple assistant text results, incoherent model/request/usage metadata,
-or an unknown terminal status fails closed. The typed `ResponseMetadata`
-receipt is the only transport for provider provenance; it is never encoded in
-free-form `Data`. Hub persistence validates that receipt and commits it
-atomically with the terminal answer or failure. A missing adapter, old
-protocol, unknown contract, custom API origin, or request-schema mismatch
-returns `chat_policy_unavailable` with zero provider requests.
+```text
+Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.
+```
+
+Fort requires that exact diagnostic as a runtime canary: its absence, a changed
+message, a duplicate, or any other pre-turn item fails closed and appends no
+answer. This proves the live process did not gain the optional code-mode host;
+Fort never stages or invokes that host. `thread.started` supplies the only provider thread ID;
+`turn.completed` supplies provider-reported usage. Inert `reasoning` items are
+allowed; their contents are discarded and never stored, shown, summarized, or
+replayed. Any `command_execution`, `file_change`, `mcp_tool_call`,
+`collab_tool_call`, `web_search`, `todo_list`, dynamic-tool, other active, or
+unknown item immediately fails the target as
+`chat_authority_violation`, terminates the process, and discards buffered text.
+
+Any other `error` item, failed/nonzero process, interrupted, canceled, malformed,
+truncated, duplicate, or unknown terminal stream maps to a bounded non-Answered
+outcome. Partial text is never appended as the canonical answer. A completed
+stream with zero or multiple
+agent messages, incoherent thread/usage metadata, or an unknown event fails
+closed. Current JSONL exposes neither resolved model nor turn ID; Fort stores
+`resolved_model:"unknown"` and does not invent a turn identifier. The typed
+`ResponseMetadata` receipt is the only transport for
+provider provenance; it is never encoded in free-form `Data`. Hub persistence
+validates that receipt and commits it atomically with the terminal answer or
+failure. A missing adapter, old protocol, unknown runtime contract,
+executable/schema drift, or unvalidated flag/config shape returns
+`chat_policy_unavailable` with zero generation turns.
 
 ## HTTP and port contract
 
@@ -849,10 +1032,11 @@ PUT /api/settings/primary-agent
 ```
 
 The server resolves a currently ready text-only option and persists the full
-seat, credential/project/disclosure, and policy snapshot. It returns the stored
-selection plus current state. Unknown, unready, drifted, or policy-ineligible
-choices fail closed. A caller cannot construct a new combination by sending a
-seat ID plus independent policy fields.
+seat, ChatGPT account/plan, Codex executable/schema, runtime, isolation, and
+policy snapshot. It returns the stored selection plus current state. Unknown,
+unready, drifted, or policy-ineligible choices fail closed. A caller cannot
+construct a new combination by sending a seat ID plus independent policy
+fields.
 
 ```text
 DELETE /api/settings/primary-agent
@@ -981,8 +1165,8 @@ The accepted full `fort serve` composition therefore owns:
 - the existing durable scheduler, flow execution, and at-most-once occurrence
   claim path unchanged;
 - the new schedule-read projection and explicit scheduler ownership state;
-- the OpenAI Responses/cluster/remote runtime with the text-only authority gate
-  and closed local/node runtime mux;
+- the Codex subscription/cluster/remote runtime with the text-only authority
+  gate and closed local/node runtime mux;
 - bounded capability/readiness and exact remote-seat transport;
 - Primary Agent and Primary Channel services; and
 - the new narrow Channels/Scheduled shell at `/`.
@@ -1018,11 +1202,19 @@ inherit the Channel's text-only badge. Before the Phase 1 trial, every enabled
 legacy definition is inventoried. Fort computes a
 `schedule-inventory:v1` digest over each enabled schedule's normalized ID,
 kind, expression, timezone, flow ID, and the canonical loaded flow-definition
-digest. The digest format is
+digest. A flow digest has format
+`flow-definition:v1:<lowercase-hex-sha256>` and hashes the exact UTF-8 bytes
+`flow-definition:v1\n`, followed by canonical `json.Marshal(graph.Flow)` for
+the loaded and validated `graph.Flow`, followed by one final `\n`.
+Semantically significant slice order is preserved; it is not resorted for the
+digest.
+
+Each schedule-inventory canonical row has exactly the JSON keys `id`, `kind`,
+`expression`, `timezone`, `flow_id`, and `flow_digest`. Rows are sorted by
+`id`; no secrets or observation timestamps appear. The inventory digest format is
 `schedule-inventory:v1:<lowercase-hex-sha256>`, where SHA-256 covers the exact
 UTF-8 bytes `schedule-inventory:v1\n` followed by the canonical JSON array and
-one final newline. The canonical array is sorted by schedule ID and contains no
-secrets or observation timestamps. The empty-inventory digest is therefore
+one final newline. The empty-inventory digest is therefore
 `schedule-inventory:v1:7d5bf4173fd97e9d036d7acd974925bbc4b2ed0553c0c8e9e9ed210d9cea7b76`,
 the digest of `schedule-inventory:v1\n[]\n`.
 
@@ -1053,19 +1245,21 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
    pinned/newest-first filtering; two Channels with the same seat retain
    byte-disjoint context; setting changes leave prior Channel identity
    byte-for-byte unchanged; legacy rows are untouched.
-3. **Capability policy** — new OpenAI Responses API profile and predicates;
-   credential/project/disclosure binding; text-only catalog/policy validation;
-   no-generation OpenAI auth/model probe; exact option projection; policy drift
-   and old peers fail closed; zero generated tokens during readiness.
-4. **Provider and transport authority** — closed enum validation; request
-   capture proves official origin, exact model, one canonical input, stable
-   developer instruction, no fallback/tools/session, `store:false`, explicit
-   cache mode, zero SDK retries, and bounded timeout; other providers reject
-   before a request; cluster/remote and the restricted chat node preserve the
+3. **Capability policy** — new Codex subscription profile and predicates;
+   ChatGPT account type/plan binding; held executable and generated-schema
+   revisions; no-turn app-server account/model probe; strict exec flag/config
+   validation; exact option projection; policy drift and old peers fail closed;
+   zero generated tokens during readiness.
+4. **Provider and transport authority** — closed enum validation; argv/stdin/
+   workdir capture proves exact model, one canonical prompt argument, stable
+   developer instruction, ephemeral/no-resume behavior, ignored user config and
+   rules, read-only sandbox, never approvals, disabled web search, no supplied
+   MCP/dynamic tools, and bounded timeout; other providers reject before a
+   process starts; cluster/remote and the restricted chat node preserve the
    complete typed request policy and typed response metadata; the private
    expected policy revision never crosses the wire; completed/reasoning,
-   incomplete, failed, canceled, refusal, tool, and unknown output shapes have
-   focused tests.
+   failed, canceled, malformed, command, file, MCP, web-search, plan/subagent,
+   tool, duplicate-message, and unknown JSONL shapes have focused tests.
 5. **Control service** — configure the setting; create one-participant Channel;
    server-selected target; synchronously persist exact selected adapter and
    `RunSpec` policy before `202`; offline/drift causes zero starts; observed
@@ -1083,16 +1277,16 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
    navigation/detail; reload/SSE rebuild; Needs-you deep link; keyboard, focus,
    reduced-motion, and responsive tests. Preserve `/shared` and `/legacy`.
 9. **Composition** — full `fort serve` owns the proven scheduler and new read
-   projection; only text-only authority reaches the Responses runtime;
+   projection; only text-only authority reaches the Codex subscription runtime;
    full-mode local/node mux has no cross-routing; direct mesh and capabilities
    remain functional; new UI invokes no legacy mutating APIs.
 10. **Concurrency and canaries** — race tests, local/remote fake turns, daemon
    restart, remote offline without reroute, exact retry, old-node failure,
    request/metadata capture, typed terminal-shape validation, and live prompts
-   that request a tool/file action but receive no such capability or false
-   completion claim.
-11. **Visual/live acceptance** — only after explicit authorization and design
-    selection.
+   that request a command/tool/file action produce an authority violation, no
+   canonical answer, and no false completion claim.
+11. **Visual/live acceptance** — only after the deployment checks in the
+    approval record are complete.
 
 ## Expected file boundary
 
@@ -1114,8 +1308,8 @@ ui/primary_channel_page.go
 ui/primary_channel_page_test.go
 ui/schedule_read.go
 ui/schedule_read_test.go
-exec/openairesponses/runtime.go
-exec/openairesponses/runtime_test.go
+exec/codexsubscription/runtime.go
+exec/codexsubscription/runtime_test.go
 exec/runtime_mux.go
 exec/runtime_mux_test.go
 ```
@@ -1126,7 +1320,6 @@ Focused modifications are permitted in:
 - `core/runtime/runtime.go`;
 - bounded capability catalog, predicate, version, probe, registry, and gate
   files plus their tests;
-- `go.mod` and `go.sum` for one pinned official OpenAI SDK;
 - `exec/cluster`, `exec/remote`, and a restricted `exec/node` chat path plus
   their tests; the existing native-provider commands remain unchanged;
 - `core/store/schedules.go`, `control/conversations.go`, and existing scheduler
@@ -1145,10 +1338,12 @@ amendment before implementation.
 
 ### Design gate
 
-- Toby selects or approves the shared cross-platform experience and names the
-  Web treatment set to implement.
-- Every approved treatment's first-run, active-Channel, Scheduled,
+- Toby has approved all three Web treatments as presentation themes, with
+  Quiet Intelligence as the default and a user-selectable local-only
+  preference.
+- Every treatment's first-run, active-Channel, Scheduled,
   failure/Needs-you, Settings, and compact layouts match this contract.
+- Theme changes alter no API request, durable identity, or provider input.
 - Any product change is reflected here before code starts.
 
 ### Automated
@@ -1156,7 +1351,7 @@ amendment before implementation.
 ```text
 go test ./...
 go test -race ./cmd/fort ./control ./core/capability ./core/conversation \
-  ./core/store ./exec/capability ./exec/openairesponses ./exec/cluster \
+  ./core/store ./exec/capability ./exec/codexsubscription ./exec/cluster \
   ./exec/remote ./exec/node ./ui
 go vet ./...
 git diff --check
@@ -1175,21 +1370,27 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
 - pin/unpin, rename, archive/reopen, and prove ordering and Channel identity
   remain deterministic;
 - change Settings and prove the existing Channel identity is unchanged;
-- disclose exact requested/resolved model, computer, policy, adapter/SDK
-  version, credential/project identity, API billing source/provenance, and
-  retention mode/source/observed-at; unavailable identity remains `unknown`,
+- disclose exact requested model, `resolved_model:unknown` for the current
+  runtime, computer, policy/runtime/adapter revisions, ChatGPT account type and
+  plan, Codex version plus executable/schema revisions, and the complete
+  sandbox/approval/isolation snapshot; unavailable identity remains `unknown`,
   never inferred;
 - an unavailable or drifted seat fails before provider start and never
   reroutes;
 - same-seat retry starts only the failed target;
-- captured requests contain no tool, MCP, browser, file, provider-session, or
-  previous-response field, use `store:false`, explicit cache mode, zero SDK
-  retries, and the bounded timeout; exactly one compiled input includes the
-  human turn once and no local material beyond the Fort prompt;
-- one inert reasoning item plus one completed assistant text result is accepted
-  while reasoning is discarded; tool/unknown items and incomplete, failed,
-  canceled, refusal, ambiguous-timeout, partial, or incoherent responses append
-  no canonical answer and retain typed provenance;
+- captured argv, stdin, environment, and cwd match the closed `codex exec`
+  contract: exact model, ephemeral, no resume, ignored config/rules, strict
+  config, read-only sandbox, explicit Never approval, disabled active features
+  and injected contexts, fresh empty target directory, `/dev/null` stdin, and
+  bounded deadline; the exact compiled prompt is the sole user input and
+  includes the human turn once;
+- the exact fail-closed Code Mode diagnostic, one inert reasoning item, exactly
+  one terminal `agent_message`, and `turn.completed` are accepted while
+  reasoning is discarded;
+  command/file/MCP/collab/web-search/todo/tool/unknown items fail as
+  `chat_authority_violation`, and error, nonzero, timeout, canceled, partial,
+  malformed, duplicate, or incoherent streams append no canonical answer and
+  retain typed provenance;
 - full-mode runtime mux tests prove authority/provider cross-routing starts zero
   work;
 - Scheduled contains every durable definition, including paused and non-today
@@ -1215,8 +1416,8 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
 - taking that computer offline produces `seat_unready` and no reroute;
 - Recheck and retry starts the same failed seat after readiness returns;
 - restart/reload preserves the canonical transcript and target history; and
-- an old or unverified policy/adapter is not selectable and sends zero provider
-  requests.
+- an old or unverified policy/adapter is not selectable and starts zero
+  generation turns.
 
 ### Trial gate
 
@@ -1226,12 +1427,10 @@ prewritten rubrics. Continue only if:
 - at least 38 of 40 ordinary turns pass;
 - there are zero lost/duplicate turns, silent identity changes, authority
   violations, unapproved mutations, or false external-completion claims;
-- provider token usage, including reported cache-read/cache-write detail, is
-  recorded as `provider_usage`; any dollar conversion is labelled
-  `local_estimate`, and billing actual is reconciled manually against the
-  OpenAI billing source named in the approval record;
-- manually reconciled spend remains inside the separately chosen trial cap;
-  Fort does not claim to enforce a dollar cap in Phase 1; and
+- provider-reported usage is recorded as diagnostic `provider_usage` without a
+  dollar conversion, bill, or subscription-balance claim;
+- ChatGPT plan state, service limits, and rate-limit behavior remain external
+  subscription facts and any limit failure is surfaced truthfully; and
 - time saved exceeds maintenance and recovery time.
 
 ## Rollback
@@ -1256,51 +1455,59 @@ and pin rows may remain unused without a data rewrite.
 ## Current baseline warning
 
 The Spec 041/042 checkpoint captured in commit `b4bd10c` is internally
-test-green, but it is not a live-release claim. As of 2026-08-08, Fort's
-changed capability catalog pins the bundled Codex command contract to
-`codex-cli 0.146.0-alpha.9.2`, while the current ChatGPT-bundled executable
-reports `0.147.0-alpha.6.5` and therefore fails closed as
-`incompatible_version`. The PATH Codex is `0.143.0`.
+test-green, but it is not a live-release claim. As of 2026-08-08, the Phase 1
+implementation catalog pins the current ChatGPT-bundled executable as
+`codex-cli 0.147.0-alpha.6.5`, executable revision
+`e4432c0c085e4a2e5b9cf982e4dd2ebdb44ed33c422827b6e6c64353778e773b`,
+and the exact schema contract above. This resolves the earlier local
+`0.146.0-alpha.9.2` catalog drift for implementation. The PATH Codex remains
+`0.143.0` and is not an eligible substitute.
 
-That drift does not authorize loosening the check and does not affect the
-Responses API Phase 1 lane, but it must be resolved through the accepted
-catalog update process before anyone calls the broader build live-ready. Spec
-041's remaining live-status wording must likewise be reconciled before release.
+These accepted pins do not constitute live readiness. Live provider use still
+requires a fresh successful account/plan/model Recheck against the same held
+executable, the remaining deployment inputs below, and the complete acceptance
+suite. Spec 041's remaining live-status wording must likewise be reconciled
+before release.
 
 ## Current provider references
 
 These are time-sensitive implementation inputs, not reliability guarantees.
-The accepted adapter revision must retest the live API/SDK contract:
+The accepted adapter revision must reverify the installed executable and
+generated schemas:
 
-- OpenAI [current model guidance](https://developers.openai.com/api/docs/guides/latest-model)
-  for exact model IDs, `store:false`, reasoning context, prompt-cache policy,
-  and manual context replay behavior;
-- OpenAI [model catalog](https://developers.openai.com/api/docs/models) for the
-  currently available GPT-5.6 variants;
-- the official [OpenAI Go SDK](https://github.com/openai/openai-go) for the
-  bounded Responses client, explicit retry disabling, and request timeout;
-- OpenAI [API data controls](https://platform.openai.com/docs/models/default-usage-policies-by-endpoint)
-  for application-state, abuse-monitoring, and ZDR distinctions; and
-- OpenAI [billing separation guidance](https://help.openai.com/en/articles/8156019-how-can-i-move-my-chatgpt-subscription-to-the-api)
-  for the independent API billing account.
+- OpenAI [Codex CLI reference](https://developers.openai.com/codex/cli/reference)
+  for non-interactive `exec`, sandbox, ephemeral, config, and model flags;
+- OpenAI [Codex app-server protocol](https://learn.chatgpt.com/docs/developer-commands?surface=cli#cli-codex-app-server)
+  for the no-turn initialize, `account/read`, and `model/list` readiness
+  handshake; and
+- the exact locally generated CLI/app-server/config schema bundle accepted by
+  Fort's capability catalog. A documentation statement never substitutes for
+  the executable/schema and negative-contract tests.
 
 ## Approval record
 
-Record the implementation decision here. Deployment-specific blanks must be
-completed before a live provider request, `primary` promotion, or trial start;
-they do not authorize Fort to infer credentials, billing, retention, or spend
-policy.
+Record the implementation decision here. Provider-authority blanks must be
+completed before a live provider request. Schedule-inventory acceptance must
+be completed before `primary` promotion or trial start. A blank never
+authorizes Fort to infer account plan, executable/schema identity, isolation
+compatibility, or reviewed schedule ownership.
 
 ```text
-Approved Web visual treatment set: Quiet Intelligence, Private Channels, Native Daylight / 2026-08-08
+Approved Web themes: Quiet Intelligence, Private Channels, Native Daylight / 2026-08-08
+Default theme / preference scope: Quiet Intelligence / local UI only
 Spec 044 approved by Toby: 2026-08-08
-Initial exact OpenAI profile/model: openai-responses:gpt-5.6-sol / gpt-5.6-sol
-Accepted policy / adapter / SDK: openai-responses-text-v1 / implementation must pin exact adapter and SDK
-Reasoning effort / max output tokens: medium / 4096
-Credential ref / organization / project: deployment configuration required
-Manual trial spend cap / billing source: pending / unknown
-Billing provenance: unknown
-Provider retention mode / source / date: unknown / user accepted unknown for implementation only / 2026-08-08
-Accepted schedule-inventory:v1 digest / date: pending preview inventory
-Implementation start commit: pending visual checkpoint commit
+Subscription-lane amendment approved by Toby: 2026-08-08
+Initial exact profile / requested model: codex-subscription:gpt-5.6-sol / gpt-5.6-sol
+Authority / policy / runtime: chat_subscription_isolated_v1 / codex-subscription-chat-v1 / codex_subscription_exec_v1
+Policy revision: 4ee11ff5bc8c7ab3332d6a7d90124fe8a0f84e3564d44a759dc9d2bdafff000d
+Adapter / revision: model.chat.text-only.codex-subscription / 2b417c00d7e5b831eed5121e896aade874610b9df2b505e142baf97cc2c02412
+Developer-instruction revision: 0aa9805087e459f9566e74e5283555a207fa2f3defcab3f20929457e64c564bc
+ChatGPT account type / plan: chatgpt / pro (live Recheck 2026-08-08)
+Codex version / executable revision: codex-cli 0.147.0-alpha.6.5 / e4432c0c085e4a2e5b9cf982e4dd2ebdb44ed33c422827b6e6c64353778e773b
+Codex schema revision: c59b4927dfaaaddcd78fd581bbe4c18649bb9adc42453a23b719b9df403156f2
+Reasoning effort / target deadline: medium / 120000 ms
+Isolation revision: ec32ed5aa097ce69223769027987bd7ddd647f097b7e5ab47a67d90f59c2aab5
+Observed preview schedule-inventory:v1 digest / date: schedule-inventory:v1:dffc81763d022430019cabced85b415cb26aa300c8000735cea1d16acb7196ac / 2026-08-08
+Accepted schedule-inventory:v1 digest / date: pending Toby review
+Implementation start commit: a31530fe652f3df89d0ebc921fb4f02f2abae7cf
 ```

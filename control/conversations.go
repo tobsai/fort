@@ -38,6 +38,9 @@ func FakeConversationSeats(machine string) ConversationSeatSource {
 	catalog := corecap.CatalogV2()
 	seats := make(fixedReadySeats, 0, len(catalog.Profiles))
 	for _, definition := range catalog.Profiles {
+		if definition.Agent == "codex-subscription" {
+			continue
+		}
 		agent, model, ok := catalog.RuntimeSelection(definition.ID)
 		if !ok || model == "" {
 			continue
@@ -77,7 +80,7 @@ func (s SnapshotConversationSeats) ConversationSeats() []conversation.Seat {
 	for _, machine := range snapshot.Machines {
 		for _, offer := range machine.Profiles {
 			definition, defined := definitions[offer.ID]
-			if !defined {
+			if !defined || definition.Agent == "codex-subscription" {
 				continue
 			}
 			agent, model, ok := catalog.RuntimeSelection(offer.ID)

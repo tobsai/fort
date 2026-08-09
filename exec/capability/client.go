@@ -101,7 +101,7 @@ func (c *Client) do(request *http.Request, expectedNodeID string) (corecap.NodeI
 		inventory.ProfileMappingVersion != corecap.ProfileMappingVersion {
 		return corecap.NodeInventory{}, &DiscoveryError{Reason: corecap.ReasonOldNode}
 	}
-	if inventory.Profiles == nil || inventory.Offers == nil || inventory.Bindings == nil {
+	if inventory.Profiles == nil || inventory.Offers == nil || inventory.Bindings == nil || inventory.TextOnlyOptions == nil {
 		return corecap.NodeInventory{}, &DiscoveryError{Reason: corecap.ReasonCommandContractChanged}
 	}
 	// Reuse the core's exact offer/predicate validator. Coordinator-owned fields
@@ -115,6 +115,7 @@ func (c *Client) do(request *http.Request, expectedNodeID string) (corecap.NodeI
 			ProfileMappingVersion: inventory.ProfileMappingVersion,
 			State:                 inventory.State, Reason: inventory.Reason, ObservedAt: inventory.ObservedAt,
 			Profiles: inventory.Profiles, Offers: inventory.Offers, Bindings: inventory.Bindings,
+			TextOnlyOptions: inventory.TextOnlyOptions,
 		}},
 	})
 	if err != nil {

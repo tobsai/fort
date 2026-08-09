@@ -170,6 +170,7 @@ type MachineInventory struct {
 	Profiles              []ProfileOffer          `json:"profiles"`
 	Offers                []LogicalOffer          `json:"offers"`
 	Bindings              []ExecutionBindingOffer `json:"bindings"`
+	TextOnlyOptions       []TextOnlyOptionOffer   `json:"text_only_options"`
 }
 
 type Snapshot struct {
@@ -195,6 +196,7 @@ type NodeInventory struct {
 	Profiles              []ProfileOffer          `json:"profiles"`
 	Offers                []LogicalOffer          `json:"offers"`
 	Bindings              []ExecutionBindingOffer `json:"bindings"`
+	TextOnlyOptions       []TextOnlyOptionOffer   `json:"text_only_options"`
 }
 
 type RefreshMode string

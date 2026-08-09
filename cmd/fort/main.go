@@ -172,6 +172,10 @@ func cmdServe(args []string) error {
 	inboxDir := fs.String("inbox", ".fort-native/inbox", "task inbox directory to watch")
 	_ = fs.Parse(args)
 
+	primaryMode, err := primaryChannelsMode(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
 	todayLocation, err := config.Load(os.Getenv).DisplayLocation()
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
@@ -248,14 +252,55 @@ func cmdServe(args []string) error {
 		}
 		return nil
 	}, todayLocation)
-	if err := durableSchedules.Start(ctx); err != nil {
-		return fmt.Errorf("start durable scheduler: %w", err)
-	}
-	defer durableSchedules.Stop()
 	deps.Conversations = conversationService
 	deps.Today = control.NewTodayService(a.store, conversationService)
 	deps.TodayLocation = todayLocation
 	deps.Schedules = control.NewScheduleService(durableSchedules, ids)
+	var (
+		flowDigests       map[string]string
+		primaryChannels   *control.PrimaryChannelService
+		inventory         ui.ScheduleInventory
+		inventoryErr      error
+		acceptedInventory string
+	)
+	if primaryMode != ui.PrimaryChannelsOff {
+		var digestErr error
+		flowDigests, digestErr = control.FlowDefinitionDigests(flows)
+		if digestErr != nil {
+			return fmt.Errorf("Phase 1 flow inventory: %w", digestErr)
+		}
+		preflightScheduleRead := control.NewScheduleReadAdapter(control.NewScheduleReadService(
+			a.store, control.SchedulerOwnershipInactive, flowDigests,
+		))
+		acceptedInventory = os.Getenv("FORT_ACCEPTED_SCHEDULE_INVENTORY")
+		inventory, inventoryErr = preflightScheduleRead.Inventory(ctx, acceptedInventory)
+
+		var primaryCapabilities control.PrimaryOptionCapabilities
+		if a.caps != nil {
+			primaryCapabilities = a.caps.coordinator
+		}
+		primaryChannels = control.NewPrimaryChannelService(a.store, a.rt, primaryCapabilities)
+		defer primaryChannels.Close()
+	}
+	var primaryRecheck primaryAgentRecheck
+	if primaryChannels != nil {
+		primaryRecheck = primaryChannels.RecheckPrimaryAgent
+	}
+	if err := startDurableSchedulerAfterPrimaryPromotion(
+		ctx, primaryMode, inventory, inventoryErr, primaryRecheck, durableSchedules.Start,
+	); err != nil {
+		return err
+	}
+	defer durableSchedules.Stop()
+	if primaryMode != ui.PrimaryChannelsOff {
+		scheduleRead := control.NewScheduleReadAdapter(control.NewScheduleReadService(
+			a.store, control.SchedulerOwnershipActive, flowDigests,
+		))
+		deps.Primary = primaryChannels
+		deps.ScheduleRead = scheduleRead
+		deps.ScheduleInventory = scheduleRead
+		deps.AcceptedScheduleInventory = acceptedInventory
+	}
 	// Task breakdown (spec 026): a planner agent decomposes a goal into backlog
 	// sub-tasks. FORT_PLANNER selects the agent (default claude). Only wired in
 	// serve — breakdown is a real agent run, so it 409s in control-only mode.
@@ -308,11 +353,12 @@ func cmdServe(args []string) error {
 	if a.caps != nil {
 		nodeSrv.UseCapabilities(a.caps.local)
 	}
-	mount := func(mux *http.ServeMux) {
-		uiSrv.Register(mux)
+	mountMode := func(mux *http.ServeMux, mode ui.PrimaryChannelsMode) {
+		_ = uiSrv.RegisterMode(mux, mode)
 		nodeSrv.Register(mux)
 		meshSrv.Register(mux)
 	}
+	mount := func(mux *http.ServeMux) { mountMode(mux, primaryMode) }
 
 	// Remote gateway (spec 028): when this machine has joined a gateway,
 	// maintain the outbound tunnel and serve the SAME mux through it — a fresh
@@ -321,7 +367,9 @@ func cmdServe(args []string) error {
 	// may import exec/relay.
 	if rc, err := config.LoadRelay(a.cfg.DataDir()); err == nil {
 		rmux := http.NewServeMux()
-		mount(rmux)
+		// Phase 1 is local-web only. The relay keeps the off/shared UI while
+		// node and mesh control routes remain unchanged.
+		mountMode(rmux, ui.PrimaryChannelsOff)
 		relayHandler := server.ObserveRequests(rmux, func(event server.RequestEvent) {
 			slog.Info("fort relay request", "request_id", event.ID, "method", event.Method,
 				"path", event.Path, "status", event.Status, "duration", event.Duration)

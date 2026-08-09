@@ -131,16 +131,18 @@ type Turn struct {
 }
 
 type Target struct {
-	ID            string      `json:"id"`
-	TurnID        string      `json:"turn_id"`
-	ParticipantID string      `json:"participant_id"`
-	RunID         string      `json:"run_id"`
-	Attempt       int         `json:"attempt"`
-	State         TargetState `json:"state"`
-	ErrorCode     string      `json:"error_code,omitempty"`
-	Error         string      `json:"error,omitempty"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at"`
+	ID            string           `json:"id"`
+	TurnID        string           `json:"turn_id"`
+	ParticipantID string           `json:"participant_id"`
+	RunID         string           `json:"run_id"`
+	Attempt       int              `json:"attempt"`
+	State         TargetState      `json:"state"`
+	ErrorCode     string           `json:"error_code,omitempty"`
+	Error         string           `json:"error,omitempty"`
+	Authority     *TargetAuthority `json:"authority,omitempty"`
+	Receipt       *TargetReceipt   `json:"receipt,omitempty"`
+	CreatedAt     time.Time        `json:"created_at"`
+	UpdatedAt     time.Time        `json:"updated_at"`
 }
 
 func ValidateProjectName(name string) (string, error) {

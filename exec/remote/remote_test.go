@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -94,6 +95,46 @@ func TestNonZeroExitFails(t *testing.T) {
 	st := run.Wait()
 	if st.State != runtime.StateFailed || st.ExitCode != 2 {
 		t.Fatalf("status = %+v, want failed/2", st)
+	}
+}
+
+func TestRemoteStreamFailsClosedBeforeLaterSuccessFrame(t *testing.T) {
+	now := time.Now().UTC()
+	exited, err := json.Marshal(runtime.RunEvent{RunID: "closed", Type: runtime.EventExited, Time: now, Code: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name  string
+		first string
+	}{
+		{name: "malformed", first: `{"run_id":"closed","type":`},
+		{name: "unknown field", first: fmt.Sprintf(`{"run_id":"closed","type":"started","time":%q,"undeclared":true}`, now.Format(time.RFC3339Nano))},
+		{name: "foreign run", first: fmt.Sprintf(`{"run_id":"other","type":"started","time":%q}`, now.Format(time.RFC3339Nano))},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("POST /api/exec", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = fmt.Fprintf(w, "%s\n%s\n", test.first, exited)
+			})
+			server := httptest.NewServer(mux)
+			defer server.Close()
+			run, err := New("mini", server.URL, "token").Dispatch(context.Background(), runtime.RunSpec{RunID: "closed", Agent: "codex"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			events := drain(run)
+			status := run.Wait()
+			if status.State != runtime.StateFailed {
+				t.Fatalf("status=%+v events=%+v, want failed", status, events)
+			}
+			for _, event := range events {
+				if event.Type == runtime.EventExited {
+					t.Fatalf("later success frame crossed protocol failure: %+v", events)
+				}
+			}
+		})
 	}
 }
 

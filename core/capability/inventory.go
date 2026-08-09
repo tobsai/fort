@@ -42,10 +42,10 @@ func NormalizeSnapshot(snapshot Snapshot) (Snapshot, error) {
 				return Snapshot{}, fmt.Errorf("capability: local machine identity/rank mismatch")
 			}
 		}
-		if len(machine.Profiles) > 64 || len(machine.Offers) > 64 || len(machine.Bindings) > 128 {
+		if len(machine.Profiles) > 64 || len(machine.Offers) > 64 || len(machine.Bindings) > 128 || len(machine.TextOnlyOptions) > 8 {
 			return Snapshot{}, fmt.Errorf("capability: machine offer bounds exceeded")
 		}
-		if machine.Profiles == nil || machine.Offers == nil || machine.Bindings == nil {
+		if machine.Profiles == nil || machine.Offers == nil || machine.Bindings == nil || machine.TextOnlyOptions == nil {
 			return Snapshot{}, fmt.Errorf("capability: machine %q offer arrays must be non-null", machine.Name)
 		}
 		if err := normalizeMachine(machine, catalog); err != nil {
@@ -173,6 +173,33 @@ func normalizeMachine(machine *MachineInventory, catalog Catalog) error {
 		return catalog.profileRank(bindings[i].Profile) < catalog.profileRank(bindings[j].Profile)
 	})
 	machine.Bindings = bindings
+
+	type textOnlyOptionRow struct {
+		offer TextOnlyOptionOffer
+		id    string
+	}
+	textOnlyOptions := make([]textOnlyOptionRow, len(machine.TextOnlyOptions))
+	optionIDs := make(map[string]bool, len(textOnlyOptions))
+	seatIDs := make(map[string]bool, len(textOnlyOptions))
+	for index, candidate := range machine.TextOnlyOptions {
+		normalized, optionID, err := NormalizeTextOnlyOptionOffer(candidate, machine.Name)
+		if err != nil {
+			return fmt.Errorf("text-only option %d: %w", index, err)
+		}
+		if optionIDs[optionID] || seatIDs[normalized.SeatID] {
+			return fmt.Errorf("duplicate or conflicting text-only option")
+		}
+		optionIDs[optionID] = true
+		seatIDs[normalized.SeatID] = true
+		textOnlyOptions[index] = textOnlyOptionRow{offer: normalized, id: optionID}
+	}
+	sort.Slice(textOnlyOptions, func(i, j int) bool {
+		return textOnlyOptions[i].id < textOnlyOptions[j].id
+	})
+	machine.TextOnlyOptions = make([]TextOnlyOptionOffer, len(textOnlyOptions))
+	for index := range textOnlyOptions {
+		machine.TextOnlyOptions[index] = textOnlyOptions[index].offer
+	}
 	return nil
 }
 
@@ -265,6 +292,7 @@ func SnapshotRevision(snapshot Snapshot) (string, error) {
 		Profiles              []ProfileOffer          `json:"profiles"`
 		Offers                []LogicalOffer          `json:"offers"`
 		Bindings              []ExecutionBindingOffer `json:"bindings"`
+		TextOnlyOptions       []TextOnlyOptionOffer   `json:"text_only_options"`
 	}
 	machines := make([]machineProjection, len(normalized.Machines))
 	for i, machine := range normalized.Machines {
@@ -273,7 +301,7 @@ func SnapshotRevision(snapshot Snapshot) (string, error) {
 			Reachable: machine.Reachable, ProtocolVersion: machine.ProtocolVersion,
 			CatalogVersion: machine.CatalogVersion, ProfileMappingVersion: machine.ProfileMappingVersion,
 			State: machine.State, Reason: machine.Reason, Profiles: machine.Profiles,
-			Offers: machine.Offers, Bindings: machine.Bindings,
+			Offers: machine.Offers, Bindings: machine.Bindings, TextOnlyOptions: machine.TextOnlyOptions,
 		}
 	}
 	return controlHash("fort.capability-inventory.v1", struct {

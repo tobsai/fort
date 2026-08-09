@@ -129,7 +129,8 @@ func TestCodexAppServerInspectorReadsAuthenticatedPaginatedCatalogWithoutTurn(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !inspection.AccountReady || inspection.AccountHandle != "authenticated" {
+	if !inspection.AccountReady || inspection.AccountHandle != "authenticated" ||
+		inspection.AccountType != "chatgpt" || inspection.AccountPlan != "pro" {
 		t.Fatalf("account = %#v", inspection)
 	}
 	if len(inspection.Models) != 4 || !inspection.Models["gpt-5.6-sol"] ||

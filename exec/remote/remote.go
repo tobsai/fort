@@ -111,19 +111,25 @@ func (rr *remoteRun) pump() {
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	sawTerminal := false
 	sawError := false
+	sawExited := false
+	protocolFailed := false
 	fatalErr := ""
+stream:
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 {
-			continue
+			protocolFailed = true
+			break stream
 		}
 		var ev runtime.RunEvent
-		if err := json.Unmarshal(line, &ev); err != nil {
-			continue // skip a malformed frame rather than kill the stream
+		if err := decodeRemoteEvent(line, &ev); err != nil || !validRemoteEvent(ev, rr.id) || sawExited {
+			protocolFailed = true
+			break stream
 		}
 		switch ev.Type {
 		case runtime.EventExited:
 			sawTerminal = true
+			sawExited = true
 			if ev.Code == 0 && !sawError {
 				rr.setStatus(runtime.StateSucceeded, 0, "")
 			} else {
@@ -143,6 +149,14 @@ func (rr *remoteRun) pump() {
 		}
 		rr.events <- ev
 	}
+	if protocolFailed {
+		message := "remote stream protocol violation"
+		rr.setStatus(runtime.StateFailed, -1, message)
+		rr.events <- runtime.RunEvent{
+			RunID: rr.id, Type: runtime.EventError, Time: time.Now().UTC(),
+			Data: message, ErrorCode: runtime.ErrorProviderFailed,
+		}
+	}
 
 	rr.mu.Lock()
 	canceled := rr.canceled
@@ -150,6 +164,8 @@ func (rr *remoteRun) pump() {
 	switch {
 	case canceled:
 		rr.setStatus(runtime.StateCanceled, -1, "canceled")
+	case protocolFailed:
+		// The bounded synthetic error above is the only terminal projection.
 	case !sawTerminal:
 		// The connection dropped before the run reported a terminal event.
 		msg := "remote stream ended before completion"
@@ -159,6 +175,39 @@ func (rr *remoteRun) pump() {
 		rr.setStatus(runtime.StateFailed, -1, msg)
 		rr.events <- runtime.RunEvent{RunID: rr.id, Type: runtime.EventError, Time: time.Now(), Data: msg}
 	}
+}
+
+func decodeRemoteEvent(line []byte, event *runtime.RunEvent) error {
+	decoder := json.NewDecoder(bytes.NewReader(line))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(event); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("remote stream contains trailing JSON")
+		}
+		return err
+	}
+	return nil
+}
+
+func validRemoteEvent(event runtime.RunEvent, runID string) bool {
+	if event.RunID != runID || event.Time.IsZero() {
+		return false
+	}
+	switch event.Type {
+	case runtime.EventStarted, runtime.EventStdout, runtime.EventStderr,
+		runtime.EventMessage, runtime.EventExited, runtime.EventError,
+		runtime.EventTool, runtime.EventSubagent:
+	default:
+		return false
+	}
+	if event.Response != nil {
+		return event.Type == runtime.EventMessage && event.Response.Validate() == nil
+	}
+	return true
 }
 
 func (rr *remoteRun) setStatus(state runtime.State, code int, errMsg string) {

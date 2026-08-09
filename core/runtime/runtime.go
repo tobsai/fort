@@ -13,7 +13,7 @@ import (
 // RunSpec describes one agent invocation.
 type RunSpec struct {
 	RunID   string   // caller-assigned id, echoed back on the Run
-	Profile string   `json:"-"` // exact Fort-owned profile, lowered before local/remote transport
+	Profile string   `json:"-"` // exact Fort-owned profile; subscription authority crosses it through the conditional wire contract
 	Agent   string   // provider key: claude | codex | openclaw | hermes
 	Model   string   // optional provider-specific model override; empty uses provider default
 	Prompt  string   // the task body handed to the CLI
@@ -23,6 +23,13 @@ type RunSpec struct {
 	// local runtime handles it. A non-local name routes the spec to that
 	// machine's runtime (exec/cluster). Providers ignore this field.
 	Machine string
+
+	// Authority and RuntimeContract are empty together for legacy execution.
+	// Primary Channel turns carry the one closed subscription authority below.
+	Authority              AuthorityMode   `json:"authority,omitempty"`
+	RuntimeContract        string          `json:"runtime_contract,omitempty"`
+	TextOnlyPolicy         *TextOnlyPolicy `json:"text_only_policy,omitempty"`
+	ExpectedPolicyRevision string          `json:"-"`
 }
 
 // EventType enumerates normalized run events streamed from any runtime.
@@ -45,11 +52,13 @@ const (
 
 // RunEvent is one normalized event in a run's stream.
 type RunEvent struct {
-	RunID string    `json:"run_id"`
-	Type  EventType `json:"type"`
-	Time  time.Time `json:"time"`
-	Data  string    `json:"data,omitempty"`
-	Code  int       `json:"code,omitempty"` // exit code for EventExited
+	RunID     string            `json:"run_id"`
+	Type      EventType         `json:"type"`
+	Time      time.Time         `json:"time"`
+	Data      string            `json:"data,omitempty"`
+	Code      int               `json:"code,omitempty"` // exit code for EventExited
+	ErrorCode string            `json:"error_code,omitempty"`
+	Response  *ResponseMetadata `json:"response,omitempty"`
 }
 
 // State is a run's lifecycle state.

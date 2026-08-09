@@ -25,7 +25,7 @@ func TestClientReadsLiveTokenForEveryRequest(t *testing.T) {
 			ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 			NodeID: "node", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
 			Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
-			Bindings: []corecap.ExecutionBindingOffer{},
+			Bindings: []corecap.ExecutionBindingOffer{}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 		})
 	}))
 	t.Cleanup(server.Close)
@@ -49,7 +49,7 @@ func TestClientRefreshBindsAuthenticatedNodeIdentity(t *testing.T) {
 		NodeID: "enrolled-node", ObservedAt: time.Unix(1, 0).UTC(),
 		State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
-		Bindings: []corecap.ExecutionBindingOffer{},
+		Bindings: []corecap.ExecutionBindingOffer{}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/node/capabilities/recheck" || r.Header.Get("Authorization") != "Bearer mesh-token" {
@@ -79,7 +79,7 @@ func TestClientRejectsNodeIdentityMismatch(t *testing.T) {
 			ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 			NodeID: "other", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
 			Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
-			Bindings: []corecap.ExecutionBindingOffer{},
+			Bindings: []corecap.ExecutionBindingOffer{}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 		})
 	}))
 	t.Cleanup(server.Close)
@@ -118,6 +118,7 @@ func TestClientRejectsOldProtocolAndMappingPeers(t *testing.T) {
 					ProtocolVersion: test.protocol, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: test.mapping,
 					NodeID: "node", State: corecap.MachineUnknown, Reason: corecap.ReasonStale,
 					Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{}, Bindings: []corecap.ExecutionBindingOffer{},
+					TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 				})
 			}))
 			t.Cleanup(server.Close)

@@ -160,6 +160,9 @@ func (c *CapabilityCoordinator) RecheckConversationSeats(ctx context.Context) er
 	seen := map[string]bool{}
 	adapters := make([]string, 0, len(catalog.Profiles))
 	for _, profile := range catalog.Profiles {
+		if profile.Agent == "codex-subscription" {
+			continue
+		}
 		if seen[profile.Adapter] {
 			continue
 		}
@@ -174,6 +177,8 @@ func (c *CapabilityCoordinator) RecheckConversationSeats(ctx context.Context) er
 // this path so an unrelated slow or unavailable peer cannot delay provider
 // startup or influence deterministic placement.
 func (c *CapabilityCoordinator) RefreshMachine(ctx context.Context, target string, mode corecap.RefreshMode, adapters []string) (corecap.MachineInventory, error) {
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
 	registry := c.live.Load()
 	if registry != nil && len(registry.Machines) > 16 {
 		return corecap.MachineInventory{}, fmt.Errorf("control capability: registry exceeds 16 machines")
@@ -195,7 +200,8 @@ func (c *CapabilityCoordinator) RefreshMachine(ctx context.Context, target strin
 		if inventory.NodeID != c.localName {
 			inventory = unknownNode(c.localName, corecap.ReasonCommandContractChanged)
 		}
-		return bindInventory(inventory, c.localName, true, 0, receiptTime), nil
+		row := bindInventory(inventory, c.localName, true, 0, receiptTime)
+		return row, c.publishRefreshedMachine(row)
 	}
 
 	peerRank := 1
@@ -214,10 +220,58 @@ func (c *CapabilityCoordinator) RefreshMachine(ctx context.Context, target strin
 			} else if inventory.NodeID != machine.Name {
 				inventory = unknownNode(machine.Name, corecap.ReasonCommandContractChanged)
 			}
-			return bindInventory(inventory, machine.Name, false, peerRank, receiptTime), nil
+			row := bindInventory(inventory, machine.Name, false, peerRank, receiptTime)
+			return row, c.publishRefreshedMachine(row)
 		}
 	}
 	return corecap.MachineInventory{}, fmt.Errorf("control capability: selected machine %q is not in the registry", target)
+}
+
+// publishRefreshedMachine replaces only the selected machine in the current
+// snapshot. RefreshMachine holds refreshMu, so a targeted dispatch preflight
+// cannot race a full refresh and leave UI readiness behind the decision that
+// admitted or rejected the turn.
+func (c *CapabilityCoordinator) publishRefreshedMachine(row corecap.MachineInventory) error {
+	c.mu.Lock()
+	if c.generation == 0 {
+		c.mu.Unlock()
+		return nil
+	}
+	snapshot := c.current
+	c.mu.Unlock()
+
+	machines := append([]corecap.MachineInventory(nil), snapshot.Machines...)
+	index := -1
+	for candidate := range machines {
+		if strings.EqualFold(machines[candidate].Name, row.Name) {
+			index = candidate
+			break
+		}
+	}
+	if index < 0 {
+		return nil
+	}
+	machines[index] = row
+	snapshot.Machines = machines
+	snapshot.Revision = ""
+	if row.ObservedAt.After(snapshot.ObservedAt) {
+		snapshot.ObservedAt = row.ObservedAt
+	}
+	normalized, err := corecap.NormalizeSnapshot(snapshot)
+	if err != nil {
+		return err
+	}
+	revision, err := corecap.SnapshotRevision(normalized)
+	if err != nil {
+		return err
+	}
+	normalized.Revision = revision
+
+	c.mu.Lock()
+	c.generation++
+	c.current = normalized
+	c.mu.Unlock()
+	return nil
 }
 
 func (c *CapabilityCoordinator) Current() (corecap.Snapshot, uint64) {
@@ -250,7 +304,7 @@ func bindInventory(inventory corecap.NodeInventory, name string, local bool, ran
 		ProfileMappingVersion: inventory.ProfileMappingVersion,
 		State:                 inventory.State, Reason: inventory.Reason, ObservedAt: receiptTime,
 		Profiles: nonnilProfiles(inventory.Profiles), Offers: nonnilOffers(inventory.Offers),
-		Bindings: nonnilBindings(inventory.Bindings),
+		Bindings: nonnilBindings(inventory.Bindings), TextOnlyOptions: validTextOnlyOptions(inventory.TextOnlyOptions, name),
 	}
 }
 
@@ -258,7 +312,7 @@ func unknownNode(nodeID string, reason corecap.Reason) corecap.NodeInventory {
 	return corecap.NodeInventory{
 		NodeID: nodeID, State: corecap.MachineUnknown, Reason: reason,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
-		Bindings: []corecap.ExecutionBindingOffer{},
+		Bindings: []corecap.ExecutionBindingOffer{}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 	}
 }
 
@@ -282,6 +336,7 @@ func unknownNodeWithPrevious(nodeID string, reason corecap.Reason, previous core
 		ProfileMappingVersion: previous.ProfileMappingVersion, NodeID: nodeID,
 		State: corecap.MachineUnknown, Reason: reason,
 		Profiles: profiles, Offers: []corecap.LogicalOffer{}, Bindings: []corecap.ExecutionBindingOffer{},
+		TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
 	}
 }
 
@@ -328,4 +383,23 @@ func nonnilBindings(values []corecap.ExecutionBindingOffer) []corecap.ExecutionB
 		return []corecap.ExecutionBindingOffer{}
 	}
 	return values
+}
+
+func validTextOnlyOptions(values []corecap.TextOnlyOptionOffer, machine string) []corecap.TextOnlyOptionOffer {
+	if values == nil || len(values) > 8 {
+		return []corecap.TextOnlyOptionOffer{}
+	}
+	out := make([]corecap.TextOnlyOptionOffer, len(values))
+	ids := make(map[string]bool, len(values))
+	seats := make(map[string]bool, len(values))
+	for index, offer := range values {
+		normalized, id, err := corecap.NormalizeTextOnlyOptionOffer(offer, machine)
+		if err != nil || ids[id] || seats[normalized.SeatID] {
+			return []corecap.TextOnlyOptionOffer{}
+		}
+		ids[id] = true
+		seats[normalized.SeatID] = true
+		out[index] = normalized
+	}
+	return out
 }

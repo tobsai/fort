@@ -430,6 +430,38 @@ func TestCapabilityCoordinatorGenerationAdvancesWithoutTimestampRevisionChurn(t 
 	}
 }
 
+func TestCapabilityCoordinatorRefreshMachinePublishesFreshTargetGeneration(t *testing.T) {
+	now := time.Unix(3500, 0).UTC()
+	local := &recordingLocalCapabilities{inventory: minimalNodeInventory("laptop")}
+	coordinator, err := NewCapabilityCoordinator(CapabilityCoordinatorOptions{
+		Live: &machines.Live{}, LocalName: "laptop", Local: local,
+		Peers: &fakePeerCapabilities{}, Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, beforeGeneration, err := coordinator.Refresh(context.Background(), corecap.RefreshPlanning, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if beforeGeneration != 1 || before.Machines[0].Reason != corecap.ReasonAuthRequired {
+		t.Fatalf("initial snapshot = generation %d, machine %#v", beforeGeneration, before.Machines[0])
+	}
+
+	now = now.Add(time.Minute)
+	local.inventory.Reason = corecap.ReasonProbeFailed
+	row, err := coordinator.RefreshMachine(context.Background(), "laptop", corecap.RefreshUserRecheck, []string{"profile.codex.native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, currentGeneration := coordinator.Capabilities()
+	if row.Reason != corecap.ReasonProbeFailed || currentGeneration != beforeGeneration+1 ||
+		len(current.Machines) != 1 || current.Machines[0].Reason != row.Reason ||
+		!current.Machines[0].ObservedAt.Equal(row.ObservedAt) || current.Revision == before.Revision {
+		t.Fatalf("target refresh row=%#v current=%#v generation=%d, want freshly published generation", row, current, currentGeneration)
+	}
+}
+
 func TestCapabilityCoordinatorKeepsKnownPeerProfilesUnavailableWhenPeerGoesOffline(t *testing.T) {
 	live := &machines.Live{}
 	registry, err := machines.Parse([]byte(`
@@ -714,7 +746,34 @@ func minimalNodeInventory(nodeID string) corecap.NodeInventory {
 		ProtocolVersion: corecap.ProtocolVersion, CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
 		NodeID: nodeID, State: corecap.MachinePartial, Reason: corecap.ReasonAuthRequired,
 		Profiles: []corecap.ProfileOffer{}, Offers: []corecap.LogicalOffer{},
-		Bindings: []corecap.ExecutionBindingOffer{},
+		Bindings: []corecap.ExecutionBindingOffer{}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
+	}
+}
+
+func TestBindInventoryKeepsOrdinaryOffersButDropsInvalidTextOnlyVector(t *testing.T) {
+	inventory := minimalNodeInventory("mini")
+	inventory.Profiles = []corecap.ProfileOffer{{ID: "ordinary-visible"}}
+	offer := corecap.TextOnlyOptionOffer{
+		OfferVersion: 1, MachineID: "mini", SeatID: corecap.TextOnlySeatID("codex-subscription:gpt-5.6-sol", "mini", "gpt-5.6-sol"),
+		AgentKey: "codex-subscription", ProfileID: "codex-subscription:gpt-5.6-sol",
+		RequestedModel: "gpt-5.6-sol", ResolvedModel: "unknown", AccountType: "chatgpt", AccountPlan: "unknown-plan",
+		PolicyID: "codex-subscription-chat-v1", PolicyRevision: strings.Repeat("a", 64), RuntimeContract: "codex_subscription_exec_v1",
+		ReasoningEffort: "medium", ReasoningContext: "current_turn", RequestTimeoutMillis: 120000,
+		DeveloperInstructionRevision: strings.Repeat("b", 64), AdapterID: "model.chat.text-only.codex-subscription",
+		AdapterRevision: strings.Repeat("c", 64), CodexVersion: "codex-cli 0.147.0-alpha.6.5",
+		CodexExecutableRevision: strings.Repeat("d", 64), CodexSchemaRevision: strings.Repeat("e", 64),
+		ThreadMode: "ephemeral", SandboxMode: "readOnly", ApprovalPolicy: "never", WorkdirMode: "empty_per_target",
+		DynamicToolsMode: "none", MCPMode: "none", CommandPolicy: "deny_and_fail", FileReadPolicy: "deny_and_fail",
+		IsolationRevision: strings.Repeat("f", 64),
+	}
+	inventory.TextOnlyOptions = []corecap.TextOnlyOptionOffer{offer}
+
+	bound := bindInventory(inventory, "mini", false, 1, time.Unix(1, 0).UTC())
+	if len(bound.Profiles) != 1 || bound.Profiles[0].ID != "ordinary-visible" {
+		t.Fatalf("ordinary inventory lost = %#v", bound.Profiles)
+	}
+	if bound.TextOnlyOptions == nil || len(bound.TextOnlyOptions) != 0 {
+		t.Fatalf("invalid text-only vector retained = %#v", bound.TextOnlyOptions)
 	}
 }
 

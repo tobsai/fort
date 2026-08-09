@@ -93,7 +93,7 @@ func TestCapabilityStartupRefreshIsAsynchronous(t *testing.T) {
 	if err := os.Mkdir(binDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf '%s\\n' 'codex-cli 0.146.0-alpha.9.2'\n  exit 0\nfi\nexit 1\n"
+	script := "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf '%s\\n' 'codex-cli 0.147.0-alpha.6.5'\n  exit 0\nfi\nexit 1\n"
 	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -129,6 +129,16 @@ func TestCapabilityStartupRefreshIsAsynchronous(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("background inventory did not stop after cancellation")
 	}
+}
+
+func TestCapabilityPlanningRefreshIncludesIsolatedSubscriptionProfile(t *testing.T) {
+	want := "profile.codex-subscription.isolated"
+	for _, adapter := range executionProfileAdapters {
+		if adapter == want {
+			return
+		}
+	}
+	t.Fatalf("execution profile adapters = %#v, missing %q", executionProfileAdapters, want)
 }
 
 func TestCapabilityPollWaitsFullIntervalAfterRefreshSettles(t *testing.T) {

@@ -133,6 +133,41 @@ CREATE TABLE IF NOT EXISTS project (
   id TEXT PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_project_name_unique ON project(name COLLATE NOCASE);
+CREATE TABLE IF NOT EXISTS primary_agent_setting (
+  singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+  option_id TEXT NOT NULL,
+  seat_id TEXT NOT NULL,
+  profile TEXT NOT NULL CHECK(profile='codex-subscription:'||model),
+  agent TEXT NOT NULL CHECK(agent='codex-subscription'),
+  model TEXT NOT NULL CHECK(length(trim(model))>0),
+  machine TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  authority TEXT NOT NULL CHECK(authority='chat_subscription_isolated_v1'),
+  policy_id TEXT NOT NULL CHECK(policy_id='codex-subscription-chat-v1'),
+  policy_revision TEXT NOT NULL CHECK(length(trim(policy_revision))>0),
+  adapter_id TEXT NOT NULL CHECK(adapter_id='model.chat.text-only.codex-subscription'),
+  adapter_revision TEXT NOT NULL CHECK(length(trim(adapter_revision))>0),
+  codex_version TEXT NOT NULL,
+  codex_executable_revision TEXT NOT NULL CHECK(length(codex_executable_revision)=64 AND codex_executable_revision NOT GLOB '*[^0-9a-f]*'),
+  codex_schema_revision TEXT NOT NULL CHECK(length(codex_schema_revision)=64 AND codex_schema_revision NOT GLOB '*[^0-9a-f]*'),
+  runtime_contract TEXT NOT NULL CHECK(runtime_contract='codex_subscription_exec_v1'),
+  reasoning_effort TEXT NOT NULL CHECK(reasoning_effort='medium'),
+  reasoning_context TEXT NOT NULL CHECK(reasoning_context='current_turn'),
+  request_timeout_millis INTEGER NOT NULL CHECK(request_timeout_millis=120000),
+  developer_instruction_revision TEXT NOT NULL,
+  account_type TEXT NOT NULL CHECK(account_type='chatgpt'),
+  account_plan TEXT NOT NULL CHECK(length(trim(account_plan))>0 AND account_plan=trim(account_plan)),
+  thread_mode TEXT NOT NULL CHECK(thread_mode='ephemeral'),
+  sandbox_mode TEXT NOT NULL CHECK(sandbox_mode='readOnly'),
+  approval_policy TEXT NOT NULL CHECK(approval_policy='never'),
+  workdir_mode TEXT NOT NULL CHECK(workdir_mode='empty_per_target'),
+  dynamic_tools_mode TEXT NOT NULL CHECK(dynamic_tools_mode='none'),
+  mcp_mode TEXT NOT NULL CHECK(mcp_mode='none'),
+  command_policy TEXT NOT NULL CHECK(command_policy='deny_and_fail'),
+  file_read_policy TEXT NOT NULL CHECK(file_read_policy='deny_and_fail'),
+  isolation_revision TEXT NOT NULL CHECK(length(trim(isolation_revision))>0),
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS conversation (
   id TEXT PRIMARY KEY, project_id TEXT, title TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open',
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -149,6 +184,42 @@ CREATE TABLE IF NOT EXISTS conversation_participant (
 );
 CREATE INDEX IF NOT EXISTS idx_conversation_participant_conversation
   ON conversation_participant(conversation_id, position);
+CREATE TABLE IF NOT EXISTS primary_channel (
+  conversation_id TEXT PRIMARY KEY,
+  participant_id TEXT NOT NULL UNIQUE,
+  authority TEXT NOT NULL CHECK(authority='chat_subscription_isolated_v1'),
+  policy_id TEXT NOT NULL CHECK(policy_id='codex-subscription-chat-v1'),
+  policy_revision TEXT NOT NULL CHECK(length(trim(policy_revision))>0),
+  adapter_id TEXT NOT NULL CHECK(adapter_id='model.chat.text-only.codex-subscription'),
+  adapter_revision TEXT NOT NULL CHECK(length(trim(adapter_revision))>0),
+  codex_version TEXT NOT NULL,
+  codex_executable_revision TEXT NOT NULL CHECK(length(codex_executable_revision)=64 AND codex_executable_revision NOT GLOB '*[^0-9a-f]*'),
+  codex_schema_revision TEXT NOT NULL CHECK(length(codex_schema_revision)=64 AND codex_schema_revision NOT GLOB '*[^0-9a-f]*'),
+  runtime_contract TEXT NOT NULL CHECK(runtime_contract='codex_subscription_exec_v1'),
+  reasoning_effort TEXT NOT NULL CHECK(reasoning_effort='medium'),
+  reasoning_context TEXT NOT NULL CHECK(reasoning_context='current_turn'),
+  request_timeout_millis INTEGER NOT NULL CHECK(request_timeout_millis=120000),
+  developer_instruction_revision TEXT NOT NULL,
+  account_type TEXT NOT NULL CHECK(account_type='chatgpt'),
+  account_plan TEXT NOT NULL CHECK(length(trim(account_plan))>0 AND account_plan=trim(account_plan)),
+  thread_mode TEXT NOT NULL CHECK(thread_mode='ephemeral'),
+  sandbox_mode TEXT NOT NULL CHECK(sandbox_mode='readOnly'),
+  approval_policy TEXT NOT NULL CHECK(approval_policy='never'),
+  workdir_mode TEXT NOT NULL CHECK(workdir_mode='empty_per_target'),
+  dynamic_tools_mode TEXT NOT NULL CHECK(dynamic_tools_mode='none'),
+  mcp_mode TEXT NOT NULL CHECK(mcp_mode='none'),
+  command_policy TEXT NOT NULL CHECK(command_policy='deny_and_fail'),
+  file_read_policy TEXT NOT NULL CHECK(file_read_policy='deny_and_fail'),
+  isolation_revision TEXT NOT NULL CHECK(length(trim(isolation_revision))>0),
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
+  FOREIGN KEY(participant_id) REFERENCES conversation_participant(id)
+);
+CREATE TABLE IF NOT EXISTS primary_channel_pin (
+  conversation_id TEXT PRIMARY KEY,
+  pinned_at TEXT NOT NULL,
+  FOREIGN KEY(conversation_id) REFERENCES primary_channel(conversation_id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS conversation_message (
   id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, turn_id TEXT,
   target_id TEXT, author_kind TEXT NOT NULL, author_id TEXT NOT NULL,
@@ -170,6 +241,18 @@ CREATE TABLE IF NOT EXISTS conversation_target (
   id TEXT PRIMARY KEY, turn_id TEXT NOT NULL, participant_id TEXT NOT NULL,
   run_id TEXT NOT NULL UNIQUE, attempt INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL,
   error_code TEXT, error TEXT,
+  authority TEXT, policy_id TEXT, policy_revision TEXT,
+  selected_adapter_id TEXT, selected_adapter_revision TEXT,
+  selected_codex_version TEXT, selected_codex_executable_revision TEXT, selected_codex_schema_revision TEXT,
+  runtime_contract TEXT, requested_model TEXT, reasoning_effort TEXT, reasoning_context TEXT,
+  request_timeout_millis INTEGER, developer_instruction_revision TEXT,
+  account_type TEXT, account_plan TEXT, thread_mode TEXT, sandbox_mode TEXT, approval_policy TEXT,
+  workdir_mode TEXT, dynamic_tools_mode TEXT, mcp_mode TEXT, command_policy TEXT, file_read_policy TEXT,
+  isolation_revision TEXT,
+  observed_adapter_id TEXT, observed_adapter_revision TEXT,
+  observed_codex_version TEXT, observed_codex_executable_revision TEXT, observed_codex_schema_revision TEXT,
+  resolved_model TEXT, provider_thread_id TEXT, provider_terminal_status TEXT,
+  usage_source TEXT, input_tokens INTEGER, cached_input_tokens INTEGER, output_tokens INTEGER, reasoning_tokens INTEGER,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
   FOREIGN KEY(turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE,
   FOREIGN KEY(participant_id) REFERENCES conversation_participant(id)
@@ -180,6 +263,13 @@ CREATE TABLE IF NOT EXISTS schedule (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL, expression TEXT NOT NULL, flow_id TEXT NOT NULL,
   timezone TEXT NOT NULL, enabled INTEGER NOT NULL, next_fire_at TEXT, last_fire_at TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schedule_channel_link (
+  schedule_id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(schedule_id) REFERENCES schedule(id) ON DELETE CASCADE,
+  FOREIGN KEY(conversation_id) REFERENCES primary_channel(conversation_id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS schedule_occurrence (
   id TEXT PRIMARY KEY, schedule_id TEXT NOT NULL, run_id TEXT,
@@ -231,6 +321,54 @@ CREATE INDEX IF NOT EXISTS idx_schedule_occurrence_day
 	if err := s.addColumn("conversation_target", "error_code", "TEXT"); err != nil {
 		return fmt.Errorf("store: migrate conversation_target.error_code: %w", err)
 	}
+	primaryTargetColumns := []struct {
+		name string
+		typ  string
+	}{
+		{"authority", "TEXT"},
+		{"policy_id", "TEXT"},
+		{"policy_revision", "TEXT"},
+		{"selected_adapter_id", "TEXT"},
+		{"selected_adapter_revision", "TEXT"},
+		{"selected_codex_version", "TEXT"},
+		{"selected_codex_executable_revision", "TEXT"},
+		{"selected_codex_schema_revision", "TEXT"},
+		{"runtime_contract", "TEXT"},
+		{"requested_model", "TEXT"},
+		{"reasoning_effort", "TEXT"},
+		{"reasoning_context", "TEXT"},
+		{"request_timeout_millis", "INTEGER"},
+		{"developer_instruction_revision", "TEXT"},
+		{"account_type", "TEXT"},
+		{"account_plan", "TEXT"},
+		{"thread_mode", "TEXT"},
+		{"sandbox_mode", "TEXT"},
+		{"approval_policy", "TEXT"},
+		{"workdir_mode", "TEXT"},
+		{"dynamic_tools_mode", "TEXT"},
+		{"mcp_mode", "TEXT"},
+		{"command_policy", "TEXT"},
+		{"file_read_policy", "TEXT"},
+		{"isolation_revision", "TEXT"},
+		{"observed_adapter_id", "TEXT"},
+		{"observed_adapter_revision", "TEXT"},
+		{"observed_codex_version", "TEXT"},
+		{"observed_codex_executable_revision", "TEXT"},
+		{"observed_codex_schema_revision", "TEXT"},
+		{"resolved_model", "TEXT"},
+		{"provider_thread_id", "TEXT"},
+		{"provider_terminal_status", "TEXT"},
+		{"usage_source", "TEXT"},
+		{"input_tokens", "INTEGER"},
+		{"cached_input_tokens", "INTEGER"},
+		{"output_tokens", "INTEGER"},
+		{"reasoning_tokens", "INTEGER"},
+	}
+	for _, column := range primaryTargetColumns {
+		if err := s.addColumn("conversation_target", column.name, column.typ); err != nil {
+			return fmt.Errorf("store: migrate conversation_target.%s: %w", column.name, err)
+		}
+	}
 	if err := s.addColumn("schedule", "title", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return fmt.Errorf("store: migrate schedule.title: %w", err)
 	}
@@ -245,13 +383,295 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_turn_client
   ON conversation_turn(conversation_id, client_turn_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_target_attempt
   ON conversation_target(turn_id, participant_id, attempt);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_primary_channel_active_target
+  ON conversation_target(participant_id)
+  WHERE authority='chat_subscription_isolated_v1' AND state IN ('queued','working');
 CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_occurrence_unique
   ON schedule_occurrence(schedule_id, scheduled_for);
 `); err != nil {
 		return fmt.Errorf("store: migrate conversation indexes: %w", err)
 	}
+	if _, err := s.db.Exec(primaryChannelTriggers); err != nil {
+		return fmt.Errorf("store: migrate primary Channel invariants: %w", err)
+	}
 	return nil
 }
+
+const primaryChannelTriggers = `
+CREATE TRIGGER IF NOT EXISTS primary_channel_insert_invariant
+BEFORE INSERT ON primary_channel
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM conversation_participant selected
+  WHERE selected.id=NEW.participant_id
+    AND selected.conversation_id=NEW.conversation_id
+    AND selected.state='active'
+    AND selected.agent='codex-subscription'
+    AND selected.model IS NOT NULL AND length(trim(selected.model))>0
+    AND selected.profile='codex-subscription:'||selected.model
+    AND (SELECT COUNT(*) FROM conversation_participant active
+         WHERE active.conversation_id=NEW.conversation_id AND active.state='active')=1
+)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_update_immutable
+BEFORE UPDATE ON primary_channel
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_delete_immutable
+BEFORE DELETE ON primary_channel
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_participant_insert_immutable
+BEFORE INSERT ON conversation_participant
+WHEN EXISTS (SELECT 1 FROM primary_channel WHERE conversation_id=NEW.conversation_id)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_participant_update_immutable
+BEFORE UPDATE ON conversation_participant
+WHEN EXISTS (SELECT 1 FROM primary_channel WHERE conversation_id=OLD.conversation_id OR conversation_id=NEW.conversation_id)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_participant_delete_immutable
+BEFORE DELETE ON conversation_participant
+WHEN EXISTS (SELECT 1 FROM primary_channel WHERE conversation_id=OLD.conversation_id)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_conversation_delete_immutable
+BEFORE DELETE ON conversation
+WHEN EXISTS (SELECT 1 FROM primary_channel WHERE conversation_id=OLD.id)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_target_insert_authority
+BEFORE INSERT ON conversation_target
+WHEN EXISTS (
+  SELECT 1 FROM conversation_turn turn
+  JOIN primary_channel channel ON channel.conversation_id=turn.conversation_id
+  WHERE turn.id=NEW.turn_id
+)
+AND NOT EXISTS (
+  SELECT 1 FROM conversation_turn turn
+  JOIN primary_channel channel ON channel.conversation_id=turn.conversation_id
+  JOIN conversation_participant participant ON participant.id=channel.participant_id
+  WHERE turn.id=NEW.turn_id
+    AND NEW.participant_id=channel.participant_id
+    AND NEW.authority=channel.authority
+    AND NEW.policy_id=channel.policy_id
+    AND NEW.policy_revision=channel.policy_revision
+    AND NEW.selected_adapter_id=channel.adapter_id
+    AND length(trim(NEW.selected_adapter_revision))>0
+    AND NEW.selected_codex_version=channel.codex_version
+    AND NEW.selected_codex_executable_revision=channel.codex_executable_revision
+    AND NEW.selected_codex_schema_revision=channel.codex_schema_revision
+    AND NEW.runtime_contract=channel.runtime_contract
+    AND NEW.requested_model=participant.model
+    AND NEW.reasoning_effort=channel.reasoning_effort
+    AND NEW.reasoning_context=channel.reasoning_context
+    AND NEW.request_timeout_millis=channel.request_timeout_millis
+    AND NEW.developer_instruction_revision=channel.developer_instruction_revision
+    AND NEW.account_type=channel.account_type
+    AND NEW.account_plan=channel.account_plan
+    AND NEW.thread_mode=channel.thread_mode
+    AND NEW.sandbox_mode=channel.sandbox_mode
+    AND NEW.approval_policy=channel.approval_policy
+    AND NEW.workdir_mode=channel.workdir_mode
+    AND NEW.dynamic_tools_mode=channel.dynamic_tools_mode
+    AND NEW.mcp_mode=channel.mcp_mode
+    AND NEW.command_policy=channel.command_policy
+    AND NEW.file_read_policy=channel.file_read_policy
+    AND NEW.isolation_revision=channel.isolation_revision
+)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_target_single_flight
+BEFORE INSERT ON conversation_target
+WHEN EXISTS (
+  SELECT 1
+  FROM conversation_turn incoming_turn
+  JOIN primary_channel channel ON channel.conversation_id=incoming_turn.conversation_id
+  WHERE incoming_turn.id=NEW.turn_id
+)
+AND EXISTS (
+  SELECT 1
+  FROM conversation_target active_target
+  JOIN conversation_turn active_turn ON active_turn.id=active_target.turn_id
+  JOIN conversation_turn incoming_turn ON incoming_turn.id=NEW.turn_id
+  WHERE active_turn.conversation_id=incoming_turn.conversation_id
+    AND active_target.state IN ('queued','working')
+)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_active_target');
+END;
+
+CREATE TRIGGER IF NOT EXISTS legacy_conversation_target_authority
+BEFORE INSERT ON conversation_target
+WHEN COALESCE(NEW.authority,'')<>''
+AND NOT EXISTS (
+  SELECT 1 FROM conversation_turn turn
+  JOIN primary_channel channel ON channel.conversation_id=turn.conversation_id
+  WHERE turn.id=NEW.turn_id
+)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversation_target_authority_immutable
+BEFORE UPDATE OF
+  turn_id,participant_id,authority,policy_id,policy_revision,selected_adapter_id,selected_adapter_revision,
+  selected_codex_version,selected_codex_executable_revision,selected_codex_schema_revision,
+  runtime_contract,requested_model,reasoning_effort,reasoning_context,request_timeout_millis,
+  developer_instruction_revision,account_type,account_plan,thread_mode,sandbox_mode,
+  approval_policy,workdir_mode,dynamic_tools_mode,mcp_mode,command_policy,file_read_policy,
+  isolation_revision
+ON conversation_target
+WHEN OLD.turn_id IS NOT NEW.turn_id
+  OR OLD.participant_id IS NOT NEW.participant_id
+  OR OLD.authority IS NOT NEW.authority
+  OR OLD.policy_id IS NOT NEW.policy_id
+  OR OLD.policy_revision IS NOT NEW.policy_revision
+  OR OLD.selected_adapter_id IS NOT NEW.selected_adapter_id
+  OR OLD.selected_adapter_revision IS NOT NEW.selected_adapter_revision
+  OR OLD.selected_codex_version IS NOT NEW.selected_codex_version
+  OR OLD.selected_codex_executable_revision IS NOT NEW.selected_codex_executable_revision
+  OR OLD.selected_codex_schema_revision IS NOT NEW.selected_codex_schema_revision
+  OR OLD.runtime_contract IS NOT NEW.runtime_contract
+  OR OLD.requested_model IS NOT NEW.requested_model
+  OR OLD.reasoning_effort IS NOT NEW.reasoning_effort
+  OR OLD.reasoning_context IS NOT NEW.reasoning_context
+  OR OLD.request_timeout_millis IS NOT NEW.request_timeout_millis
+  OR OLD.developer_instruction_revision IS NOT NEW.developer_instruction_revision
+  OR OLD.account_type IS NOT NEW.account_type
+  OR OLD.account_plan IS NOT NEW.account_plan
+  OR OLD.thread_mode IS NOT NEW.thread_mode
+  OR OLD.sandbox_mode IS NOT NEW.sandbox_mode
+  OR OLD.approval_policy IS NOT NEW.approval_policy
+  OR OLD.workdir_mode IS NOT NEW.workdir_mode
+  OR OLD.dynamic_tools_mode IS NOT NEW.dynamic_tools_mode
+  OR OLD.mcp_mode IS NOT NEW.mcp_mode
+  OR OLD.command_policy IS NOT NEW.command_policy
+  OR OLD.file_read_policy IS NOT NEW.file_read_policy
+  OR OLD.isolation_revision IS NOT NEW.isolation_revision
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversation_target_receipt_insert_empty
+BEFORE INSERT ON conversation_target
+WHEN NEW.observed_adapter_id IS NOT NULL
+  OR NEW.observed_adapter_revision IS NOT NULL
+  OR NEW.observed_codex_version IS NOT NULL
+  OR NEW.observed_codex_executable_revision IS NOT NULL
+  OR NEW.observed_codex_schema_revision IS NOT NULL
+  OR NEW.resolved_model IS NOT NULL
+  OR NEW.provider_thread_id IS NOT NULL
+  OR NEW.provider_terminal_status IS NOT NULL
+  OR NEW.usage_source IS NOT NULL
+  OR NEW.input_tokens IS NOT NULL
+  OR NEW.cached_input_tokens IS NOT NULL
+  OR NEW.output_tokens IS NOT NULL
+  OR NEW.reasoning_tokens IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversation_target_receipt_terminal_only
+BEFORE UPDATE OF
+  observed_adapter_id,observed_adapter_revision,observed_codex_version,
+  observed_codex_executable_revision,observed_codex_schema_revision,resolved_model,
+  provider_thread_id,provider_terminal_status,usage_source,input_tokens,cached_input_tokens,
+  output_tokens,reasoning_tokens
+ON conversation_target
+WHEN NEW.state NOT IN ('answered','failed','canceled')
+  AND (OLD.observed_adapter_id IS NOT NEW.observed_adapter_id
+    OR OLD.observed_adapter_revision IS NOT NEW.observed_adapter_revision
+    OR OLD.observed_codex_version IS NOT NEW.observed_codex_version
+    OR OLD.observed_codex_executable_revision IS NOT NEW.observed_codex_executable_revision
+    OR OLD.observed_codex_schema_revision IS NOT NEW.observed_codex_schema_revision
+    OR OLD.resolved_model IS NOT NEW.resolved_model
+    OR OLD.provider_thread_id IS NOT NEW.provider_thread_id
+    OR OLD.provider_terminal_status IS NOT NEW.provider_terminal_status
+    OR OLD.usage_source IS NOT NEW.usage_source
+    OR OLD.input_tokens IS NOT NEW.input_tokens
+    OR OLD.cached_input_tokens IS NOT NEW.cached_input_tokens
+    OR OLD.output_tokens IS NOT NEW.output_tokens
+    OR OLD.reasoning_tokens IS NOT NEW.reasoning_tokens)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversation_target_receipt_immutable
+BEFORE UPDATE OF
+  observed_adapter_id,observed_adapter_revision,observed_codex_version,
+  observed_codex_executable_revision,observed_codex_schema_revision,resolved_model,
+  provider_thread_id,provider_terminal_status,usage_source,input_tokens,cached_input_tokens,
+  output_tokens,reasoning_tokens
+ON conversation_target
+WHEN OLD.provider_terminal_status IS NOT NULL
+  AND (OLD.observed_adapter_id IS NOT NEW.observed_adapter_id
+    OR OLD.observed_adapter_revision IS NOT NEW.observed_adapter_revision
+    OR OLD.observed_codex_version IS NOT NEW.observed_codex_version
+    OR OLD.observed_codex_executable_revision IS NOT NEW.observed_codex_executable_revision
+    OR OLD.observed_codex_schema_revision IS NOT NEW.observed_codex_schema_revision
+    OR OLD.resolved_model IS NOT NEW.resolved_model
+    OR OLD.provider_thread_id IS NOT NEW.provider_thread_id
+    OR OLD.provider_terminal_status IS NOT NEW.provider_terminal_status
+    OR OLD.usage_source IS NOT NEW.usage_source
+    OR OLD.input_tokens IS NOT NEW.input_tokens
+    OR OLD.cached_input_tokens IS NOT NEW.cached_input_tokens
+    OR OLD.output_tokens IS NOT NEW.output_tokens
+    OR OLD.reasoning_tokens IS NOT NEW.reasoning_tokens)
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+
+CREATE TRIGGER IF NOT EXISTS primary_channel_target_terminal_receipt
+BEFORE UPDATE OF state ON conversation_target
+WHEN NEW.authority='chat_subscription_isolated_v1'
+  AND NEW.state IN ('answered','failed','canceled')
+  AND (COALESCE(NEW.observed_adapter_id,'')=''
+    OR COALESCE(NEW.observed_adapter_revision,'')=''
+    OR COALESCE(NEW.observed_codex_version,'')=''
+    OR COALESCE(NEW.observed_codex_executable_revision,'')=''
+    OR COALESCE(NEW.observed_codex_schema_revision,'')=''
+    OR COALESCE(NEW.provider_terminal_status,'')=''
+    OR COALESCE(NEW.usage_source,'')=''
+    OR NEW.input_tokens IS NULL OR NEW.input_tokens<0
+    OR NEW.cached_input_tokens IS NULL OR NEW.cached_input_tokens<0
+    OR NEW.output_tokens IS NULL OR NEW.output_tokens<0
+    OR NEW.reasoning_tokens IS NULL OR NEW.reasoning_tokens<0
+    OR NEW.observed_adapter_id NOT IN (NEW.selected_adapter_id,'unknown')
+    OR NEW.observed_adapter_revision NOT IN (NEW.selected_adapter_revision,'unknown')
+    OR NEW.observed_codex_version NOT IN (NEW.selected_codex_version,'unknown')
+    OR NEW.observed_codex_executable_revision NOT IN (NEW.selected_codex_executable_revision,'unknown')
+    OR NEW.observed_codex_schema_revision NOT IN (NEW.selected_codex_schema_revision,'unknown')
+    OR COALESCE(NEW.resolved_model,'') NOT IN ('','unknown')
+    OR (NEW.provider_terminal_status='completed' AND NEW.observed_adapter_id<>NEW.selected_adapter_id)
+    OR (NEW.provider_terminal_status='completed' AND NEW.observed_adapter_revision<>NEW.selected_adapter_revision)
+    OR (NEW.provider_terminal_status='completed' AND NEW.observed_codex_version<>NEW.selected_codex_version)
+    OR (NEW.provider_terminal_status='completed' AND NEW.observed_codex_executable_revision<>NEW.selected_codex_executable_revision)
+    OR (NEW.provider_terminal_status='completed' AND NEW.observed_codex_schema_revision<>NEW.selected_codex_schema_revision)
+    OR (NEW.provider_terminal_status='completed' AND NEW.usage_source<>'codex_exec_jsonl')
+    OR (NEW.provider_terminal_status='completed' AND COALESCE(NEW.provider_thread_id,'')=''))
+BEGIN
+  SELECT RAISE(ABORT, 'primary_channel_invariant');
+END;
+`
 
 // addColumn adds col to table if it is not already present (idempotent).
 func (s *Store) addColumn(table, col, typ string) error {

@@ -8,19 +8,20 @@ import (
 	"time"
 
 	corecap "github.com/tobsai/fort/core/capability"
+	"github.com/tobsai/fort/exec/codexsubscription"
 )
 
 const (
-	codexVersion    = "codex-cli 0.146.0-alpha.9.2"
+	codexVersion    = codexsubscription.CodexVersion
 	claudeVersion   = "2.1.207 (Claude Code)"
 	hermesVersion   = "Hermes Agent v0.15.1"
 	openClawVersion = "2026.7.1-2"
 	himalayaVersion = "1.2.0"
 
-	codexNormalSchemaDigest       = "617822e63708afdfcfd539255f34ffb31f07cd4172743bcfc62fc7e88bf976aa"
-	codexNormalSchemaFiles        = 275
-	codexExperimentalSchemaDigest = "16bb47445caca91a3316a8b60ff9e0f9918918b3bb352cfa00f07c825a958130"
-	codexExperimentalSchemaFiles  = 349
+	codexNormalSchemaDigest       = codexsubscription.CodexNormalSchemaRevision
+	codexNormalSchemaFiles        = codexsubscription.CodexNormalSchemaFiles
+	codexExperimentalSchemaDigest = codexsubscription.CodexExperimentalSchemaRevision
+	codexExperimentalSchemaFiles  = codexsubscription.CodexExperimentalSchemaFiles
 )
 
 // CodexInspection contains normalized process-private facts extracted from one
@@ -29,6 +30,8 @@ const (
 type CodexInspection struct {
 	AccountReady             bool
 	AccountHandle            string
+	AccountType              string
+	AccountPlan              string
 	Models                   map[string]bool
 	DefaultModel             string
 	ExecutableDigest         string
@@ -90,6 +93,8 @@ func NewLocalProber(commands CommandExecutor, codex CodexInspector, gmail GmailI
 
 func (p *LocalProber) Probe(ctx context.Context, request ProbeRequest) ProbeObservation {
 	switch {
+	case request.PredicateID == "predicate.codex-subscription.closed-contract.v1":
+		return p.codexSubscription(ctx)
 	case request.PredicateID == "predicate.codex.native-contract.v1":
 		return p.codexNative(ctx, false)
 	case request.PredicateID == "predicate.codex.capability-runtime.v1":
@@ -123,6 +128,117 @@ func (p *LocalProber) Probe(ctx context.Context, request ProbeRequest) ProbeObse
 	default:
 		return unsatisfied(corecap.ReasonProbeFailed)
 	}
+}
+
+func (p *LocalProber) codexSubscription(ctx context.Context) ProbeObservation {
+	version := p.run(ctx, "codex", "--version")
+	if version.Err != nil {
+		return commandFailure(version.Err)
+	}
+	if strings.TrimSpace(string(version.Output)) != codexsubscription.CodexVersion ||
+		version.ExecutableDigest != codexsubscription.CodexExecutableRevision {
+		return unsatisfied(corecap.ReasonIncompatibleVersion)
+	}
+
+	help := p.run(ctx, "codex", "exec", "--help")
+	if help.Err != nil {
+		return commandFailure(help.Err)
+	}
+	if help.ExecutableDigest != version.ExecutableDigest || !codexExecHelpAccepted(help.Output) {
+		return unsatisfied(corecap.ReasonCommandContractChanged)
+	}
+	features := p.run(ctx, "codex", "features", "list")
+	if features.Err != nil {
+		return commandFailure(features.Err)
+	}
+	if features.ExecutableDigest != version.ExecutableDigest || !codexFeaturesAccepted(features.Output) {
+		return unsatisfied(corecap.ReasonCommandContractChanged)
+	}
+
+	inspection, observation := p.inspectCodex(ctx)
+	if observation.State != "" {
+		return observation
+	}
+	if inspection.ExecutableDigest != version.ExecutableDigest ||
+		inspection.NormalSchemaDigest != codexsubscription.CodexNormalSchemaRevision ||
+		inspection.NormalSchemaFiles != codexsubscription.CodexNormalSchemaFiles ||
+		inspection.ExperimentalSchemaDigest != codexsubscription.CodexExperimentalSchemaRevision ||
+		inspection.ExperimentalSchemaFiles != codexsubscription.CodexExperimentalSchemaFiles {
+		return unsatisfied(corecap.ReasonIncompatibleVersion)
+	}
+	if !inspection.AccountReady || inspection.AccountType != "chatgpt" {
+		return unsatisfied(corecap.ReasonAuthRequired)
+	}
+	if !inspection.Models["gpt-5.6-sol"] {
+		return unsatisfied(corecap.ReasonModelUnavailable)
+	}
+
+	offer := corecap.TextOnlyOptionOffer{
+		OfferVersion: 1, AgentKey: "codex-subscription",
+		ProfileID: "codex-subscription:gpt-5.6-sol", RequestedModel: "gpt-5.6-sol", ResolvedModel: "unknown",
+		AccountType: inspection.AccountType, AccountPlan: inspection.AccountPlan,
+		PolicyID: "codex-subscription-chat-v1", PolicyRevision: codexsubscription.PolicyRevision,
+		RuntimeContract: "codex_subscription_exec_v1", ReasoningEffort: "medium", ReasoningContext: "current_turn",
+		RequestTimeoutMillis:         codexsubscription.TargetTimeoutMillis,
+		DeveloperInstructionRevision: codexsubscription.DeveloperInstructionRevision,
+		AdapterID:                    "model.chat.text-only.codex-subscription", AdapterRevision: codexsubscription.AdapterRevision,
+		CodexVersion: codexsubscription.CodexVersion, CodexExecutableRevision: codexsubscription.CodexExecutableRevision,
+		CodexSchemaRevision: codexsubscription.CodexSchemaRevision,
+		ThreadMode:          "ephemeral", SandboxMode: "readOnly", ApprovalPolicy: "never", WorkdirMode: "empty_per_target",
+		DynamicToolsMode: "none", MCPMode: "none", CommandPolicy: "deny_and_fail", FileReadPolicy: "deny_and_fail",
+		IsolationRevision: codexsubscription.IsolationRevision,
+	}
+	probeOffer := offer
+	probeOffer.MachineID = "local-probe"
+	probeOffer.SeatID = corecap.TextOnlySeatID(probeOffer.ProfileID, probeOffer.MachineID, probeOffer.RequestedModel)
+	if _, _, err := corecap.NormalizeTextOnlyOptionOffer(probeOffer, probeOffer.MachineID); err != nil {
+		return unsatisfied(corecap.ReasonCommandContractChanged)
+	}
+	if !p.authorizeExecutable("codex", version.ExecutableDigest) {
+		return unsatisfied(corecap.ReasonCapabilityDrift)
+	}
+	return ProbeObservation{
+		State: corecap.PredicateSatisfied,
+		StableBinding: []string{
+			"account_type=" + offer.AccountType, "account_plan=" + offer.AccountPlan,
+			"codex_version=" + offer.CodexVersion, "executable=" + offer.CodexExecutableRevision,
+			"schema=" + offer.CodexSchemaRevision, "policy=" + offer.PolicyRevision,
+			"adapter=" + offer.AdapterRevision, "isolation=" + offer.IsolationRevision,
+		},
+		TextOnlyOption: &offer,
+	}
+}
+
+func codexExecHelpAccepted(output []byte) bool {
+	available := make(map[string]bool)
+	for _, field := range strings.Fields(string(output)) {
+		available[strings.TrimSuffix(field, ",")] = true
+	}
+	for _, required := range []string{
+		"--json", "--sandbox", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config",
+		"--ignore-rules", "--strict-config", "--cd", "--model", "--config", "--disable",
+	} {
+		if !available[required] {
+			return false
+		}
+	}
+	return true
+}
+
+func codexFeaturesAccepted(output []byte) bool {
+	available := make(map[string]bool)
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			available[fields[0]] = true
+		}
+	}
+	for _, feature := range codexsubscription.DisabledFeatures() {
+		if !available[feature] {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *LocalProber) exactVersion(ctx context.Context, command string, args []string, expected string) ProbeObservation {

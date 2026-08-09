@@ -88,12 +88,172 @@ type ConversationPort interface {
 	CancelTarget(context.Context, string) error
 }
 
+// PrimaryAgentOption is one visible profile/model/computer inventory row.
+// Only ready subscription-backed rows carry selectable authority; ordinary
+// and unready profiles remain visible with a closed state and reason. Clients
+// select only OptionID and cannot combine independent seat and policy fields.
+type PrimaryAgentOption struct {
+	ID          string                      `json:"option_id"`
+	State       string                      `json:"state"`
+	Reason      string                      `json:"reason,omitempty"`
+	Seat        conversation.Seat           `json:"seat"`
+	Offer       corecap.TextOnlyOptionOffer `json:"authority"`
+	DisplayName string                      `json:"display_name"`
+}
+
+type PrimaryAgentView struct {
+	Selection         *conversation.PrimaryAgentSetting `json:"selection"`
+	State             string                            `json:"state"`
+	Reason            string                            `json:"reason,omitempty"`
+	Options           []PrimaryAgentOption              `json:"options"`
+	ScheduleInventory *ScheduleInventory                `json:"schedule_inventory,omitempty"`
+}
+
+type PrimaryNeedsYouItem struct {
+	Channel         conversation.PrimaryChannelSummary `json:"channel"`
+	Target          conversation.Target                `json:"target"`
+	RecoveryActions []string                           `json:"recovery_actions"`
+}
+
+// PrimaryChannelReadiness is a read-only projection of the latest capability
+// inventory for a Channel's immutable stored identity. It never retargets or
+// rewrites the participant or authority snapshot.
+type PrimaryChannelReadiness struct {
+	State      string    `json:"state"`
+	Reason     string    `json:"reason,omitempty"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+// PrimaryChannelDetail is the bounded wire projection for one marked private
+// Channel. Persistence remains behind the control adapter.
+type PrimaryChannelDetail struct {
+	Conversation   conversation.Conversation    `json:"conversation"`
+	Participants   []conversation.Participant   `json:"participants"`
+	Messages       []conversation.Message       `json:"messages"`
+	Turns          []conversation.Turn          `json:"turns"`
+	Targets        []conversation.Target        `json:"targets"`
+	PrimaryChannel *conversation.PrimaryChannel `json:"primary_identity,omitempty"`
+	Readiness      PrimaryChannelReadiness      `json:"readiness"`
+}
+
+// PrimaryChannelPort deliberately has no generic participant selection or
+// execution method. Its implementation resolves the one stored Primary Agent
+// and sole Channel participant server-side.
+type PrimaryChannelPort interface {
+	PrimaryAgent(context.Context) (PrimaryAgentView, error)
+	SetPrimaryAgent(context.Context, string) (PrimaryAgentView, error)
+	ClearPrimaryAgent(context.Context) error
+	RecheckPrimaryAgent(context.Context) (PrimaryAgentView, error)
+	ListChannels(context.Context, string) ([]conversation.PrimaryChannelSummary, error)
+	GetChannel(context.Context, string) (PrimaryChannelDetail, error)
+	CreateChannel(context.Context, string) (PrimaryChannelDetail, error)
+	RenameChannel(context.Context, string, string) error
+	SetChannelState(context.Context, string, conversation.ConversationState) error
+	SetChannelPinned(context.Context, string, bool) error
+	PostTurn(context.Context, string, string, string) (conversation.TurnResult, error)
+	RetryTarget(context.Context, string, string) (conversation.Target, error)
+	RecheckAndRetryTarget(context.Context, string, string) (conversation.Target, error)
+	CancelTarget(context.Context, string, string) error
+	NeedsYou(context.Context) ([]PrimaryNeedsYouItem, error)
+}
+
 type TodayPort interface {
 	Today(context.Context, time.Time, *time.Location) (coretoday.View, error)
 }
 
 type SchedulePort interface {
 	Create(context.Context, scheduler.Definition) (scheduler.Definition, error)
+}
+
+type ScheduleFilter string
+
+const (
+	ScheduleFilterAll    ScheduleFilter = "all"
+	ScheduleFilterActive ScheduleFilter = "active"
+	ScheduleFilterPaused ScheduleFilter = "paused"
+)
+
+type SchedulerOwnership string
+
+const (
+	SchedulerOwnershipActive   SchedulerOwnership = "active"
+	SchedulerOwnershipInactive SchedulerOwnership = "inactive"
+	SchedulerOwnershipUnknown  SchedulerOwnership = "unknown"
+)
+
+type OccurrencePage struct {
+	Limit    int
+	Before   time.Time
+	BeforeID string
+}
+
+type RelatedChannel struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ScheduleItem struct {
+	ID                 string                `json:"id"`
+	Title              string                `json:"title"`
+	Enabled            bool                  `json:"enabled"`
+	Kind               scheduler.Kind        `json:"kind"`
+	Expression         string                `json:"expression"`
+	Recurrence         string                `json:"recurrence"`
+	Timezone           string                `json:"timezone"`
+	NextFireAt         *time.Time            `json:"next_fire_at"`
+	LastFireAt         *time.Time            `json:"last_fire_at"`
+	TargetKind         string                `json:"target_kind"`
+	TargetID           string                `json:"target_id"`
+	RelatedChannel     *RelatedChannel       `json:"related_channel,omitempty"`
+	LatestOccurrence   *scheduler.Occurrence `json:"latest_occurrence,omitempty"`
+	SchedulerOwnership SchedulerOwnership    `json:"scheduler_ownership"`
+	ObservedAt         time.Time             `json:"observed_at"`
+}
+
+type ScheduleList struct {
+	SnapshotID string         `json:"snapshot_id"`
+	ObservedAt time.Time      `json:"observed_at"`
+	Items      []ScheduleItem `json:"items"`
+}
+
+type ScheduleDetail struct {
+	Item     ScheduleItem           `json:"item"`
+	Upcoming []scheduler.Occurrence `json:"upcoming"`
+	Recent   []scheduler.Occurrence `json:"recent"`
+}
+
+type ScheduleReadPort interface {
+	List(context.Context, ScheduleFilter) (ScheduleList, error)
+	Get(context.Context, string) (ScheduleDetail, error)
+	Occurrences(context.Context, string, OccurrencePage) ([]scheduler.Occurrence, error)
+}
+
+type ScheduleInventoryState string
+
+const (
+	ScheduleInventoryAccepted   ScheduleInventoryState = "accepted"
+	ScheduleInventoryUnaccepted ScheduleInventoryState = "unaccepted"
+	ScheduleInventoryDrift      ScheduleInventoryState = "drift"
+)
+
+type ScheduleInventoryItem struct {
+	ID         string         `json:"id"`
+	Kind       scheduler.Kind `json:"kind"`
+	Expression string         `json:"expression"`
+	Timezone   string         `json:"timezone"`
+	FlowID     string         `json:"flow_id"`
+	FlowDigest string         `json:"flow_digest"`
+}
+
+type ScheduleInventory struct {
+	CurrentDigest  string                  `json:"current_digest"`
+	AcceptedDigest string                  `json:"accepted_digest,omitempty"`
+	State          ScheduleInventoryState  `json:"state"`
+	Items          []ScheduleInventoryItem `json:"items"`
+}
+
+type ScheduleInventoryPort interface {
+	Inventory(context.Context, string) (ScheduleInventory, error)
 }
 
 // RunResult is a flow run's state after a Start/Resume.

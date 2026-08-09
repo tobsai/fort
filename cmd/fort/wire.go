@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	goruntime "runtime"
 	"strconv"
 	"time"
@@ -15,12 +16,15 @@ import (
 	"github.com/tobsai/fort/core/rules"
 	"github.com/tobsai/fort/core/runtime"
 	"github.com/tobsai/fort/core/store"
+	execcap "github.com/tobsai/fort/exec/capability"
 	"github.com/tobsai/fort/exec/cluster"
+	"github.com/tobsai/fort/exec/codexsubscription"
 	"github.com/tobsai/fort/exec/fake"
 	"github.com/tobsai/fort/exec/gateway"
 	"github.com/tobsai/fort/exec/meshjoin"
 	"github.com/tobsai/fort/exec/native"
 	"github.com/tobsai/fort/exec/remote"
+	"github.com/tobsai/fort/exec/runtimemux"
 	"github.com/tobsai/fort/exec/watchdog"
 )
 
@@ -87,13 +91,13 @@ func buildApp() (*app, error) {
 	}
 
 	// The local execution runtime spawns CLIs on this machine.
-	var localRT runtime.Runtime
+	var legacyLocalRT runtime.Runtime
 	var localNative *native.Runtime
 	if os.Getenv("FORT_FAKE") == "1" {
-		localRT = fake.New() // token-free mode for demos/CI
+		legacyLocalRT = fake.New() // token-free mode for demos/CI
 	} else {
 		localNative = native.New(cfg.WorkRoot, native.DefaultProviders()...)
-		localRT = localNative
+		legacyLocalRT = localNative
 	}
 
 	// Multi-machine (spec 022/024): the registry lives behind a Live pointer so
@@ -109,6 +113,40 @@ func buildApp() (*app, error) {
 		}
 		live.Store(r)
 	}
+	var caps *capabilitySubsystem
+	var subscriptionRT runtime.Runtime
+	if capabilityPlanningEnabled(os.Getenv) {
+		revisionKey, err := config.LoadOrCreateCapabilityKey(cfg.DataDir())
+		if err != nil {
+			return nil, err
+		}
+		caps, err = buildCapabilitySubsystem(
+			cfg, live, legacyLocalRT, revisionKey, os.Environ(),
+			goruntime.GOOS+"/"+goruntime.GOARCH, tokens.Get,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if localNative != nil {
+			localNative.UseVerifiedExecutables(caps.executables)
+		}
+		subscriptionWorkRoot, err := filepath.Abs(filepath.Join(cfg.WorkRoot, "primary-targets"))
+		if err != nil {
+			return nil, fmt.Errorf("subscription work root: %w", err)
+		}
+		subscriptionRT, err = codexsubscription.New(codexsubscription.Options{
+			WorkRoot: subscriptionWorkRoot,
+			Resolver: execcap.NewCodexSubscriptionResolver(caps.executables),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Every local entry point, including the node endpoint, crosses the same
+	// authority/provider mux. With capability planning disabled the
+	// subscription branch is absent and therefore fails closed.
+	localRT := runtimemux.New(legacyLocalRT, subscriptionRT)
 	clus := cluster.New(localName(live, cfg), localRT, nil)
 	if r := live.Load(); r != nil {
 		for _, m := range r.Machines {
@@ -128,21 +166,9 @@ func buildApp() (*app, error) {
 		}
 	}
 	rt = watchdog.New(rt, runtimeSilenceTimeout)
-	var caps *capabilitySubsystem
-	if capabilityPlanningEnabled(os.Getenv) {
-		revisionKey, err := config.LoadOrCreateCapabilityKey(cfg.DataDir())
-		if err != nil {
-			return nil, err
-		}
-		caps, err = buildCapabilitySubsystem(
-			cfg, live, rt, revisionKey, os.Environ(),
-			goruntime.GOOS+"/"+goruntime.GOARCH, tokens.Get,
-		)
-		if err != nil {
-			return nil, err
-		}
-		localNative.UseVerifiedExecutables(caps.executables)
-		rt = caps.runtime
+	if caps != nil {
+		rt = execcap.NewProfileGate(rt, caps.coordinator)
+		caps.runtime = rt
 	}
 
 	r := router.New(rs)

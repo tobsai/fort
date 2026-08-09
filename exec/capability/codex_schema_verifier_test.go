@@ -26,18 +26,18 @@ type fakeCodexSchemaGenerator struct {
 }
 
 func TestCodexSchemaV2ExpectationPinsCurrentBundledContract(t *testing.T) {
-	if codexVersion != "codex-cli 0.146.0-alpha.9.2" {
+	if codexVersion != "codex-cli 0.147.0-alpha.6.5" {
 		t.Fatalf("version = %q", codexVersion)
 	}
 	if codexSchemaV2Expectation.normal != (codexBundleExpectation{
-		digest: "617822e63708afdfcfd539255f34ffb31f07cd4172743bcfc62fc7e88bf976aa",
-		files:  275,
+		digest: "be9de4ce887d8338794dbd330202fb5bdbd43316cc73b721efacf4542c8607b9",
+		files:  285,
 	}) {
 		t.Fatalf("normal expectation = %#v", codexSchemaV2Expectation.normal)
 	}
 	if codexSchemaV2Expectation.experimental != (codexBundleExpectation{
-		digest: "16bb47445caca91a3316a8b60ff9e0f9918918b3bb352cfa00f07c825a958130",
-		files:  349,
+		digest: "2b6fb0da3b974ed25389d021f274900837c3ae5d406ba85be8cde45a21d0214f",
+		files:  361,
 	}) {
 		t.Fatalf("experimental expectation = %#v", codexSchemaV2Expectation.experimental)
 	}
