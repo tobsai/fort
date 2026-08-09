@@ -9,11 +9,11 @@ complete
 **Depends on:** Spec 043 direction; Spec 041 durable conversation, immutable
 seat, retry, cancellation, and restart contracts; Spec 042 Slice B exact-model
 contract
-**First shipping surface:** local web only
+**Shipping surfaces:** local Web, native macOS, and native iPhone/TestFlight
 
 ## Decision
 
-Phase 1 is a design-gated, local-web implementation of multiple dependable
+Phase 1 is a design-gated, cross-platform implementation of multiple dependable
 private Channels, each with exactly one immutable Primary Agent. A Channel is
 the durable user-owned context boundary, not a public messaging feature, a
 Project, or a provider session. It maps 1:1 to one existing canonical
@@ -52,8 +52,10 @@ The default experience contains only:
    explicit Recheck.
 
 Phase 1 does not implement Memory V1, Act, new task records, schedule creation
-or mutation, projects, playbooks, DAG authoring, or native Apple clients. It
-does preserve and expose existing durable schedule execution truthfully.
+or mutation, projects, playbooks, or DAG authoring. It preserves and exposes
+existing durable schedule execution truthfully through the same typed contract
+on Web, macOS, and iPhone. Watch and CarPlay retain their existing glance-only
+surfaces and do not claim Primary Channel parity in this release.
 
 ## Authorization gate
 
@@ -65,7 +67,12 @@ Production work starts only after both conditions are satisfied. Toby has now:
   as the default; and
 - explicitly approved this implementation contract, including the
   ChatGPT-subscription-backed Codex execution lane and its stated isolation
-  limits.
+  limits; and
+- on 2026-08-09 explicitly authorized shipping the approved Phase 1 experience
+  to GitHub, the signed Mac app on this machine, and iPhone/TestFlight. That
+  authorization expands production UI scope to `ui/apple/**`; it does not
+  silently accept an unnamed schedule inventory digest or waive provider,
+  signing, processing, or live acceptance evidence.
 
 If the selected mockup changes navigation, identity disclosure, status,
 recovery, or Settings behavior, update this spec before writing production UI
@@ -234,15 +241,15 @@ isolation contract is enforced and tested.
 - Channel rename, pin, archive/reopen, and newest-first private navigation;
 - a read-only Scheduled destination backed by all durable definitions and
   occurrences, not only today's projection;
-- a quiet local-web shell at `/`;
+- a quiet local-Web shell at `/` plus native macOS and iPhone containers;
 - a narrow text-only runtime authority carried end to end;
 - fail-closed readiness, model, machine, policy, and adapter validation;
 - restart/reload, same-seat retry, cancellation, and SSE reconstruction;
 - truthful Needs-you projection for failed primary targets;
 - the new shell in full `fort serve`, preserving scheduler ownership;
 - local and two-machine contract acceptance; and
-- three coordinated Web presentation themes with matching future macOS/iOS
-  design evidence and one shared behavior contract.
+- three coordinated presentation themes across Web, macOS, and iPhone with one
+  shared behavior contract.
 
 ### Explicitly deferred
 
@@ -258,7 +265,7 @@ isolation contract is enforced and tested.
 - cross-Channel full-text search, folders, and Channel deletion in the new
   shell;
 - provider-native session continuation;
-- macOS, iOS, watch, CarPlay, gateway-web, TestFlight, or release work;
+- Phase 1 UI on watch or CarPlay, and public gateway-Web presentation;
 - deletion of legacy code or data; and
 - further Spec 039 planner, solver, or setup expansion.
 
@@ -465,10 +472,9 @@ show:
 
 The mockups must not show memory, Act, projects, Today/Week boards, schedule
 authoring, playbooks, DAGs, participant chips, metrics, or a public user
-directory. macOS and iOS
-mockups are labelled future design. They do not claim implementation or parity
-until FortKit consumes the canonical Primary Channel and schedule-read
-contracts.
+directory. The macOS and iOS mockups are now implementation references. They
+claim parity only after FortKit consumes the canonical Primary Channel and
+schedule-read contracts and the platform acceptance below passes.
 
 The Fort mark retains the existing orbital intelligence-core aesthetic: dense
 concentric rings, fine technical arcs, luminous nodes, and a bright central
@@ -482,8 +488,8 @@ language while keeping the product structure identical.
 
 These are the current Phase 1 visual references. They intentionally preserve
 one Channel/Scheduled UX and the original Fort orbital-core aesthetic. Only the
-surface palette/material and matching orb colors vary. macOS and iOS remain
-future-design evidence; these images do not claim implementation or parity.
+surface palette/material and matching orb colors vary. macOS and iOS are now
+authorized release targets subject to the same evidence and acceptance gates.
 
 #### Quiet Intelligence — original blue core
 
@@ -1173,8 +1179,18 @@ The accepted full `fort serve` composition therefore owns:
 
 Legacy mutating schedule, flow, project, and board APIs remain reachable only
 through their existing admin/legacy surfaces. `/shared` and `/legacy` remain
-rollback surfaces. The new shell does not link or call them. Local web is the
-only Phase 1 shipping surface; relay/gateway publication remains deferred.
+rollback surfaces. The new shell does not link or call them. The HTML shell
+remains loopback-only. The macOS client may call only the typed Phase 1 JSON/SSE
+APIs over same-host loopback; it may not wrap the HTML shell or use direct LAN.
+An iPhone/TestFlight client may call those APIs only through Fort's
+authenticated, end-to-end encrypted gateway relay, whose outer endpoint must
+use HTTPS. The server accepts the relay path only through an unforgeable
+in-process request context set after the Noise session opens a sealed request;
+no Host, `RemoteAddr`, header, query value, cookie, or public gateway-Web
+request may assert it. Direct LAN clients and forged relay headers remain
+forbidden. An `Origin`-bearing relayed mutation is rejected, while native
+requests carry no browser Origin. Watch and CarPlay do not receive this
+authority in Phase 1.
 
 `FORT_PRIMARY_CHANNELS` is a closed startup mode:
 
@@ -1330,17 +1346,21 @@ Focused modifications are permitted in:
   mesh/service tests; and
 - README/governing-spec references only after acceptance.
 
-`ui/apple/**` is excluded from Phase 1 production implementation. Mockups are
-design evidence, not Swift code authorization. Scope expansion requires a spec
-amendment before implementation.
+`ui/apple/FortKit/**`, `ui/apple/iOS/**`, `ui/apple/macOS/**`, the Apple project
+and release configuration, and focused native tests are authorized by Toby's
+2026-08-09 all-channel shipment instruction. The implementation must use the
+typed Phase 1 APIs and may not wrap the loopback Web shell or reuse `/api/chat`.
+`ui/apple/watch/**` and `ui/apple/CarPlay/**` remain outside Primary Channel UI
+scope except for build/version compatibility required by the embedded iOS
+archive.
 
 ## Acceptance
 
 ### Design gate
 
-- Toby has approved all three Web treatments as presentation themes, with
-  Quiet Intelligence as the default and a user-selectable local-only
-  preference.
+- Toby has approved all three treatments as Web, macOS, and iPhone presentation
+  themes, with Quiet Intelligence as the default and a user-selectable
+  device-local preference.
 - Every treatment's first-run, active-Channel, Scheduled,
   failure/Needs-you, Settings, and compact layouts match this contract.
 - Theme changes alter no API request, durable identity, or provider input.
@@ -1351,10 +1371,19 @@ amendment before implementation.
 ```text
 go test ./...
 go test -race ./cmd/fort ./control ./core/capability ./core/conversation \
-  ./core/store ./exec/capability ./exec/codexsubscription ./exec/cluster \
-  ./exec/remote ./exec/node ./ui
+  ./core/store ./core/transporttrust ./exec/capability \
+  ./exec/codexsubscription ./exec/cluster ./exec/remote ./exec/node \
+  ./exec/relay ./ui ./ui/apple
 go vet ./...
 git diff --check
+(cd ui/apple/FortKit && swift run FortKitContractChecks)
+(cd ui/apple && xcodegen generate)
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project ui/apple/Fort.xcodeproj -scheme Fort \
+  -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project ui/apple/Fort.xcodeproj -scheme FortMac \
+  -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 ```
 
 Architecture tests must continue to prove that `core` imports no `ui` or
@@ -1407,7 +1436,42 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
   preview shell, and `primary` promotes the same shell without changing
   scheduler ownership;
 - the 65,536-byte context overflow fails before new turn/target persistence and
-  provider dispatch.
+  provider dispatch;
+- FortKit decodes every Primary Agent, Channel, target/receipt, Needs-you,
+  schedule, and occurrence response; sends the exact method/path/body for every
+  typed action; and preserves one client-turn UUID across an ambiguous failure;
+- direct LAN, forged-header, and unmarked in-process requests remain forbidden;
+  same-host macOS loopback and a sealed authenticated native-relay GET,
+  mutation, and SSE request are accepted; the HTML shell remains
+  loopback-only; and
+- native source contains no Primary Channel `/api/chat` call or agent/model/
+  machine picker and no wrapper around the local HTML shell.
+
+### Native functional and release
+
+- macOS at 1240×800 and iPhone at 393×852 show the same canonical Channel,
+  message order, latest-attempt status, schedule order, Needs-you recovery, and
+  Primary Agent identity as Web in all three device-local themes;
+- Answered has no durable-status card; Queued/Working, Failed, interrupted, and
+  Canceled use the approved progressive disclosure and exact action allowlist;
+- VoiceOver, Dynamic Type, Reduce Motion, keyboard/focus, reconnect, and compact
+  composer checks pass without duplicate announcements or horizontal overflow;
+- the physical iPhone reads and mutates the same Channel through the encrypted
+  authenticated relay, while an unsupported/off server shows a closed upgrade
+  or enablement message and never falls back to legacy `/api/chat`;
+- an app-driven `fort service install/restart` preserves the existing closed
+  Fort operational environment (`PATH`, address, database/work roots,
+  rules/flows, capability/timezone, mesh registry/name, Primary mode, and
+  accepted schedule digest) unless that exact key was explicitly supplied by
+  the new process, while updating the bundled binary path; unknown plist keys
+  are not copied, the mesh bearer token remains only in its atomic `0600`
+  `node.yaml`, and Fort never invents a digest;
+- the signed installed Mac app, its bundled daemon, the archived iOS/watch
+  bundle, and the committed source report the intended release/build identity;
+- the Mac app is replaced on this machine and its live API plus one canonical
+  Channel read are verified after restart; and
+- TestFlight completion requires successful stable-Xcode archive/export/upload,
+  Apple processing, and an independent signed-in TestFlight listing check.
 
 ### Two-machine, separately authorized
 
@@ -1497,6 +1561,8 @@ Approved Web themes: Quiet Intelligence, Private Channels, Native Daylight / 202
 Default theme / preference scope: Quiet Intelligence / local UI only
 Spec 044 approved by Toby: 2026-08-08
 Subscription-lane amendment approved by Toby: 2026-08-08
+Native macOS + iPhone/TestFlight shipment amendment approved by Toby: 2026-08-09
+Native transport: macOS typed APIs over same-host loopback; iPhone typed APIs over authenticated encrypted HTTPS relay; HTML remains local
 Initial exact profile / requested model: codex-subscription:gpt-5.6-sol / gpt-5.6-sol
 Authority / policy / runtime: chat_subscription_isolated_v1 / codex-subscription-chat-v1 / codex_subscription_exec_v1
 Policy revision: 4ee11ff5bc8c7ab3332d6a7d90124fe8a0f84e3564d44a759dc9d2bdafff000d

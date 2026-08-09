@@ -3,20 +3,32 @@ import XCTest
 final class FortMacNavigationTests: XCTestCase {
     func testPrimarySidebarChangesDetail() {
         let app = XCUIApplication()
+        let qaHost = ProcessInfo.processInfo.environment["FORT_DIRECT_HOST_URL"]
+            ?? "http://127.0.0.1:4187"
+        guard let qaURL = URL(string: qaHost),
+              ["http", "https"].contains(qaURL.scheme?.lowercased() ?? ""),
+              qaURL.host != nil else {
+            XCTFail("FORT_DIRECT_HOST_URL must be an HTTP(S) fixture URL")
+            return
+        }
+        XCTAssertNotEqual(qaURL.port, 4087, "UI QA must not target the real launchd service")
+        app.launchEnvironment["FORT_DIRECT_HOST_URL"] = qaHost
         app.launch()
 
-        let projects = app.staticTexts["Projects"]
-        XCTAssertTrue(projects.waitForExistence(timeout: 5), "Projects sidebar item did not appear")
-        projects.click()
+        XCTAssertTrue(app.staticTexts["FORT"].waitForExistence(timeout: 5), "Primary Channels sidebar did not appear")
+
+        let needsYou = app.staticTexts["Needs You"].firstMatch
+        XCTAssertTrue(needsYou.waitForExistence(timeout: 2), "Needs You sidebar item did not appear")
+        needsYou.click()
         XCTAssertTrue(
-            app.staticTexts["Project rooms"].waitForExistence(timeout: 2),
-            "Projects selection did not change the detail pane"
+            app.staticTexts["Only current, recoverable failed Primary Channel attempts"].waitForExistence(timeout: 2),
+            "Needs You selection did not change the detail pane"
         )
 
-        app.staticTexts["Playbooks"].click()
+        app.staticTexts["Settings"].firstMatch.click()
         XCTAssertTrue(
-            app.staticTexts["who does what, with which model"].waitForExistence(timeout: 2),
-            "Playbooks selection did not change the detail pane"
+            app.staticTexts["Appearance on this device"].waitForExistence(timeout: 2),
+            "Settings selection did not change the detail pane"
         )
     }
 }

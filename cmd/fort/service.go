@@ -5,8 +5,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -45,8 +48,10 @@ type serviceConfig struct {
 	// PATH (/usr/bin:/bin:/usr/sbin:/sbin), which contains no agent CLI — neither
 	// Homebrew's /opt/homebrew/bin nor a user's ~/.local/bin. Without this the
 	// daemon probes zero agents and every dispatch fails placement. We inherit the
-	// PATH of the shell running `fort service install`, so the daemon can run
-	// exactly what the operator can.
+	// PATH of the shell running the first `fort service install`, so the daemon
+	// can run exactly what the operator can. A later binary-only/app-driven
+	// rollout preserves that installed PATH instead of replacing it with the
+	// GUI process's restricted environment.
 	Path string
 	// CapabilityPlanning preserves an explicit rollout override in launchd.
 	// Empty means use the binary default; "0" is the one-step rollback.
@@ -54,6 +59,39 @@ type serviceConfig struct {
 	// DisplayTimezone preserves an explicit shared Today timezone in launchd.
 	// Empty resolves from the daemon host at startup.
 	DisplayTimezone string
+	// Explicit configuration paths and mesh identity are carried only through
+	// their closed FORT_* keys. App-driven binary rollouts preserve an existing
+	// value when the launching app did not explicitly supply a replacement.
+	RulesPath    string
+	FlowsPath    string
+	MachinesPath string
+	NodeName     string
+	// PrimaryChannels is the closed Phase 1 startup mode. Empty is deliberately
+	// omitted so the binary's off-by-default behavior remains authoritative.
+	PrimaryChannels string
+	// AcceptedScheduleInventory is the exact nonsecret digest reviewed by the
+	// operator. Fort never derives or substitutes this value during rollout.
+	AcceptedScheduleInventory string
+	// explicitEnvironment is populated by buildServiceConfig from LookupEnv.
+	// A nil map means manually supplied nonempty fields are explicit (tests and
+	// direct callers); a nonnil map distinguishes process defaults from actual
+	// operator overrides during an app-driven restart.
+	explicitEnvironment map[string]bool
+}
+
+var serviceEnvironmentKeys = []string{
+	"PATH",
+	"FORT_ADDR",
+	"FORT_DB",
+	"FORT_WORKROOT",
+	"FORT_RULES",
+	"FORT_FLOWS",
+	"FORT_CAPABILITY_PLANNING",
+	"FORT_DISPLAY_TIMEZONE",
+	"FORT_MACHINES",
+	"FORT_NODE_NAME",
+	"FORT_PRIMARY_CHANNELS",
+	"FORT_ACCEPTED_SCHEDULE_INVENTORY",
 }
 
 func plistPath(home, label string) string {
@@ -74,23 +112,10 @@ func renderPlist(sc serviceConfig) string {
 	b.WriteString("  </array>\n")
 	// Environment
 	b.WriteString("  <key>EnvironmentVariables</key>\n  <dict>\n")
-	if sc.Path != "" {
-		b.WriteString("    <key>PATH</key>\n    <string>" + xmlEscape(sc.Path) + "</string>\n")
-	}
-	if sc.Addr != "" {
-		b.WriteString("    <key>FORT_ADDR</key>\n    <string>" + xmlEscape(sc.Addr) + "</string>\n")
-	}
-	if sc.DBPath != "" {
-		b.WriteString("    <key>FORT_DB</key>\n    <string>" + xmlEscape(sc.DBPath) + "</string>\n")
-	}
-	if sc.WorkRoot != "" {
-		b.WriteString("    <key>FORT_WORKROOT</key>\n    <string>" + xmlEscape(sc.WorkRoot) + "</string>\n")
-	}
-	if sc.CapabilityPlanning != "" {
-		b.WriteString("    <key>FORT_CAPABILITY_PLANNING</key>\n    <string>" + xmlEscape(sc.CapabilityPlanning) + "</string>\n")
-	}
-	if sc.DisplayTimezone != "" {
-		b.WriteString("    <key>FORT_DISPLAY_TIMEZONE</key>\n    <string>" + xmlEscape(sc.DisplayTimezone) + "</string>\n")
+	for _, key := range serviceEnvironmentKeys {
+		if value := sc.environmentValue(key); value != "" {
+			b.WriteString("    <key>" + key + "</key>\n    <string>" + xmlEscape(value) + "</string>\n")
+		}
 	}
 	b.WriteString("  </dict>\n")
 	if sc.WorkDir != "" {
@@ -104,6 +129,73 @@ func renderPlist(sc serviceConfig) string {
 	}
 	b.WriteString("</dict>\n</plist>\n")
 	return b.String()
+}
+
+func (sc serviceConfig) environmentValue(key string) string {
+	switch key {
+	case "PATH":
+		return sc.Path
+	case "FORT_ADDR":
+		return sc.Addr
+	case "FORT_DB":
+		return sc.DBPath
+	case "FORT_WORKROOT":
+		return sc.WorkRoot
+	case "FORT_RULES":
+		return sc.RulesPath
+	case "FORT_FLOWS":
+		return sc.FlowsPath
+	case "FORT_CAPABILITY_PLANNING":
+		return sc.CapabilityPlanning
+	case "FORT_DISPLAY_TIMEZONE":
+		return sc.DisplayTimezone
+	case "FORT_MACHINES":
+		return sc.MachinesPath
+	case "FORT_NODE_NAME":
+		return sc.NodeName
+	case "FORT_PRIMARY_CHANNELS":
+		return sc.PrimaryChannels
+	case "FORT_ACCEPTED_SCHEDULE_INVENTORY":
+		return sc.AcceptedScheduleInventory
+	default:
+		return ""
+	}
+}
+
+func (sc *serviceConfig) setEnvironmentValue(key, value string) {
+	switch key {
+	case "PATH":
+		sc.Path = value
+	case "FORT_ADDR":
+		sc.Addr = value
+	case "FORT_DB":
+		sc.DBPath = value
+	case "FORT_WORKROOT":
+		sc.WorkRoot = value
+	case "FORT_RULES":
+		sc.RulesPath = value
+	case "FORT_FLOWS":
+		sc.FlowsPath = value
+	case "FORT_CAPABILITY_PLANNING":
+		sc.CapabilityPlanning = value
+	case "FORT_DISPLAY_TIMEZONE":
+		sc.DisplayTimezone = value
+	case "FORT_MACHINES":
+		sc.MachinesPath = value
+	case "FORT_NODE_NAME":
+		sc.NodeName = value
+	case "FORT_PRIMARY_CHANNELS":
+		sc.PrimaryChannels = value
+	case "FORT_ACCEPTED_SCHEDULE_INVENTORY":
+		sc.AcceptedScheduleInventory = value
+	}
+}
+
+func (sc serviceConfig) environmentExplicit(key string) bool {
+	if sc.explicitEnvironment != nil {
+		return sc.explicitEnvironment[key]
+	}
+	return sc.environmentValue(key) != ""
 }
 
 // absUnderHome anchors a relative config path to home. An already-absolute path
@@ -152,6 +244,13 @@ func buildServiceConfig() (serviceConfig, error) {
 	if err != nil {
 		return serviceConfig{}, fmt.Errorf("service: resolving home directory: %w", err)
 	}
+	explicitEnvironment := make(map[string]bool, len(serviceEnvironmentKeys))
+	for _, key := range serviceEnvironmentKeys {
+		if key == "PATH" {
+			continue
+		}
+		_, explicitEnvironment[key] = os.LookupEnv(key)
+	}
 	return serviceConfig{
 		Label:   defaultServiceLabel,
 		BinPath: bin,
@@ -159,13 +258,20 @@ func buildServiceConfig() (serviceConfig, error) {
 		Addr:    cfg.Addr,
 		// Relative config paths resolve against launchd's read-only "/" cwd, so
 		// anchor them to $HOME and give the agent a writable WorkingDirectory.
-		DBPath:             absUnderHome(home, cfg.DBPath),
-		WorkRoot:           absUnderHome(home, cfg.WorkRoot),
-		WorkDir:            home,
-		Path:               os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
-		CapabilityPlanning: os.Getenv("FORT_CAPABILITY_PLANNING"),
-		DisplayTimezone:    cfg.DisplayTimezone,
-		LogDir:             filepath.Join(home, "Library", "Logs", "Fort"),
+		DBPath:                    absUnderHome(home, cfg.DBPath),
+		WorkRoot:                  absUnderHome(home, cfg.WorkRoot),
+		WorkDir:                   home,
+		Path:                      os.Getenv("PATH"), // inherit the installing shell's PATH (agent CLI discovery)
+		RulesPath:                 os.Getenv("FORT_RULES"),
+		FlowsPath:                 os.Getenv("FORT_FLOWS"),
+		CapabilityPlanning:        os.Getenv("FORT_CAPABILITY_PLANNING"),
+		DisplayTimezone:           cfg.DisplayTimezone,
+		MachinesPath:              os.Getenv("FORT_MACHINES"),
+		NodeName:                  os.Getenv("FORT_NODE_NAME"),
+		PrimaryChannels:           os.Getenv("FORT_PRIMARY_CHANNELS"),
+		AcceptedScheduleInventory: os.Getenv("FORT_ACCEPTED_SCHEDULE_INVENTORY"),
+		explicitEnvironment:       explicitEnvironment,
+		LogDir:                    filepath.Join(home, "Library", "Logs", "Fort"),
 	}, nil
 }
 
@@ -221,19 +327,127 @@ func cmdService(args []string) error {
 	}
 }
 
+// parseServiceEnvironment reads only Fort's closed launchd environment
+// contract. Unknown keys are intentionally discarded instead of being copied
+// into a refreshed service definition.
+func parseServiceEnvironment(raw []byte) (map[string]string, error) {
+	decoder := xml.NewDecoder(bytes.NewReader(raw))
+	result := make(map[string]string, len(serviceEnvironmentKeys))
+	var currentKey string
+	pendingEnvironmentDictionary := false
+	inEnvironmentDictionary := false
+	environmentDepth := 0
+
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			return result, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("parse service plist: %w", err)
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			switch element.Name.Local {
+			case "key":
+				var key string
+				if err := decoder.DecodeElement(&key, &element); err != nil {
+					return nil, fmt.Errorf("parse service plist key: %w", err)
+				}
+				if !inEnvironmentDictionary && key == "EnvironmentVariables" {
+					pendingEnvironmentDictionary = true
+				} else if inEnvironmentDictionary && environmentDepth == 1 {
+					currentKey = key
+				}
+			case "dict":
+				if pendingEnvironmentDictionary {
+					pendingEnvironmentDictionary = false
+					inEnvironmentDictionary = true
+					environmentDepth = 1
+				} else if inEnvironmentDictionary {
+					environmentDepth++
+				}
+			case "string":
+				if !inEnvironmentDictionary || environmentDepth != 1 || currentKey == "" {
+					continue
+				}
+				var value string
+				if err := decoder.DecodeElement(&value, &element); err != nil {
+					return nil, fmt.Errorf("parse service plist value: %w", err)
+				}
+				for _, allowed := range serviceEnvironmentKeys {
+					if currentKey == allowed {
+						result[currentKey] = value
+						break
+					}
+				}
+				currentKey = ""
+			}
+		case xml.EndElement:
+			if inEnvironmentDictionary && element.Name.Local == "dict" {
+				environmentDepth--
+				if environmentDepth == 0 {
+					return result, nil
+				}
+			}
+		}
+	}
+}
+
+func preserveServiceEnvironment(home string, sc serviceConfig) (serviceConfig, error) {
+	raw, err := os.ReadFile(plistPath(home, sc.Label))
+	if os.IsNotExist(err) {
+		return sc, nil
+	}
+	if err != nil {
+		return serviceConfig{}, fmt.Errorf("read existing service plist: %w", err)
+	}
+	existing, err := parseServiceEnvironment(raw)
+	if err != nil {
+		return serviceConfig{}, err
+	}
+	for _, key := range serviceEnvironmentKeys {
+		if sc.environmentExplicit(key) {
+			continue
+		}
+		if value, ok := existing[key]; ok {
+			sc.setEnvironmentValue(key, value)
+		}
+	}
+	return sc, nil
+}
+
+func prepareServiceDefinition(home string, sc serviceConfig) error {
+	preserved, err := preserveServiceEnvironment(home, sc)
+	if err != nil {
+		return err
+	}
+	if err := validateServiceDisplayTimezone(preserved); err != nil {
+		return err
+	}
+	return writePlist(home, preserved)
+}
+
+func prepareServiceInstall(home string, sc serviceConfig) error {
+	if err := prepareServiceDefinition(home, sc); err != nil {
+		return fmt.Errorf("service install: refreshing plist: %w", err)
+	}
+	return nil
+}
+
 // prepareServiceRestart refreshes the installed definition before kickstart.
-// This makes an explicit environment rollback take effect on restart instead
-// of silently reusing a stale launchd plist.
+// Explicit new values win; otherwise the prior closed operational environment
+// survives while the bundled binary path advances.
 func prepareServiceRestart(home string, sc serviceConfig) error {
-	if err := writePlist(home, sc); err != nil {
+	if err := prepareServiceDefinition(home, sc); err != nil {
 		return fmt.Errorf("service restart: refreshing plist: %w", err)
 	}
 	return nil
 }
 
 func svcInstall(home string, sc serviceConfig) error {
-	if err := writePlist(home, sc); err != nil {
-		return fmt.Errorf("service install: writing plist: %w", err)
+	if err := prepareServiceInstall(home, sc); err != nil {
+		return err
 	}
 	if runtime.GOOS != "darwin" {
 		fmt.Println("service install: plist written; launchctl unsupported on", runtime.GOOS)

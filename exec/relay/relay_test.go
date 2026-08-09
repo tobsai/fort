@@ -16,8 +16,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/tobsai/fort/core/conversation"
 	"github.com/tobsai/fort/exec/relay"
 	"github.com/tobsai/fort/exec/relay/secure"
+	"github.com/tobsai/fort/ui"
 )
 
 // --- fake broker ---------------------------------------------------------
@@ -229,6 +231,220 @@ func enc(b []byte) string          { return base64.StdEncoding.EncodeToString(b)
 func dec(s string) ([]byte, error) { return base64.StdEncoding.DecodeString(s) }
 
 // --- tests ---------------------------------------------------------------
+
+type primaryRelayFake struct {
+	ui.PrimaryChannelPort
+	mu          sync.Mutex
+	createdName string
+}
+
+func (f *primaryRelayFake) ListChannels(context.Context, string) ([]conversation.PrimaryChannelSummary, error) {
+	return []conversation.PrimaryChannelSummary{}, nil
+}
+func (f *primaryRelayFake) CreateChannel(_ context.Context, name string) (ui.PrimaryChannelDetail, error) {
+	f.mu.Lock()
+	f.createdName = name
+	f.mu.Unlock()
+	return ui.PrimaryChannelDetail{Conversation: conversation.Conversation{
+		ID: "relay-channel", Title: name, State: conversation.ConversationOpen,
+	}}, nil
+}
+func (f *primaryRelayFake) GetChannel(_ context.Context, id string) (ui.PrimaryChannelDetail, error) {
+	return ui.PrimaryChannelDetail{Conversation: conversation.Conversation{
+		ID: id, Title: "Relay channel", State: conversation.ConversationOpen,
+	}}, nil
+}
+
+func (f *primaryRelayFake) created() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.createdName
+}
+
+// TestPrimaryChannelsRequireLoopbackOrSealedRelay pins the Phase 1 transport
+// boundary: a direct LAN request cannot self-assert trust with an HTTP header,
+// while GET and mutation requests decoded from an authenticated Noise session
+// reach the same in-process handler.
+func TestPrimaryChannelsRequireLoopbackOrSealedRelay(t *testing.T) {
+	primary := &primaryRelayFake{}
+	mux := http.NewServeMux()
+	ui.New(ui.Deps{Primary: primary}).RegisterPrimaryRoutes(mux)
+
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		var body io.Reader
+		if method == http.MethodPost {
+			body = strings.NewReader(`{"name":"Spoofed"}`)
+		}
+		req := httptest.NewRequest(method, "/api/channels", body)
+		req.RemoteAddr = "192.0.2.25:4000"
+		req.Host = "127.0.0.1:4087"
+		req.Header.Set("X-Fort-Trusted-Transport", "relay")
+		if method == http.MethodPost {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("spoofed %s status=%d want=%d body=%s", method, rec.Code, http.StatusForbidden, rec.Body.String())
+		}
+	}
+	if created := primary.created(); created != "" {
+		t.Fatalf("spoofed mutation reached service with name %q", created)
+	}
+
+	daemonKey, _ := secure.GenerateKeypair()
+	clientKey, _ := secure.GenerateKeypair()
+	b := newBroker(t, "primary-token")
+	tr := relay.New(mux, relay.Config{
+		URL: b.url(), Token: "primary-token", Key: daemonKey, MinBackoff: 50 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+	b.waitAttach(t)
+
+	cl := b.newClient("primary-stream")
+	if err := cl.handshake(ctx, clientKey, daemonKey.Public); err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	roundTrip := func(request relay.ReqPayload) relay.ResPayload {
+		t.Helper()
+		if err := cl.sendSealed(ctx, "req", mustJSON(request)); err != nil {
+			t.Fatalf("send %s: %v", request.ID, err)
+		}
+		frame, err := cl.recv(ctx)
+		if err != nil {
+			t.Fatalf("receive %s: %v", request.ID, err)
+		}
+		plaintext, err := cl.open(frame)
+		if err != nil {
+			t.Fatalf("open %s: %v", request.ID, err)
+		}
+		var response relay.ResPayload
+		if err := json.Unmarshal(plaintext, &response); err != nil {
+			t.Fatalf("decode %s: %v", request.ID, err)
+		}
+		return response
+	}
+
+	read := roundTrip(relay.ReqPayload{ID: "primary-read", Method: http.MethodGet, Path: "/api/channels"})
+	if read.Status != http.StatusOK {
+		t.Fatalf("sealed Phase 1 GET status=%d want=%d body=%s", read.Status, http.StatusOK, read.Body)
+	}
+	mutation := roundTrip(relay.ReqPayload{
+		ID: "primary-create", Method: http.MethodPost, Path: "/api/channels",
+		Headers: map[string]string{"Content-Type": "application/json"},
+		Body:    []byte(`{"name":"Relay channel"}`),
+	})
+	if created := primary.created(); mutation.Status != http.StatusCreated || created != "Relay channel" {
+		t.Fatalf("sealed Phase 1 mutation status=%d name=%q body=%s", mutation.Status, created, mutation.Body)
+	}
+	b.assertNoPlaintext(t, "Relay channel")
+
+	cancel()
+	<-runDone
+}
+
+// TestPrimaryChannelEventsStreamThroughSealedRelayOnly proves the native
+// Phase 1 SSE route receives trusted in-process provenance from a decoded Noise
+// request, while a direct LAN caller cannot forge that provenance in a header.
+func TestPrimaryChannelEventsStreamThroughSealedRelayOnly(t *testing.T) {
+	primary := &primaryRelayFake{}
+	mux := http.NewServeMux()
+	ui.New(ui.Deps{Primary: primary}).RegisterPrimaryRoutes(mux)
+
+	spoof := httptest.NewRequest(http.MethodGet, "/api/channels/relay-channel/events", nil)
+	spoof.RemoteAddr = "192.0.2.25:4000"
+	spoof.Host = "127.0.0.1:4087"
+	spoof.Header.Set("Accept", "text/event-stream")
+	spoof.Header.Set("X-Fort-Trusted-Transport", "relay")
+	spoofed := httptest.NewRecorder()
+	mux.ServeHTTP(spoofed, spoof)
+	if spoofed.Code != http.StatusForbidden {
+		t.Fatalf("spoofed Phase 1 SSE status=%d want=%d body=%s", spoofed.Code, http.StatusForbidden, spoofed.Body.String())
+	}
+
+	daemonKey, _ := secure.GenerateKeypair()
+	clientKey, _ := secure.GenerateKeypair()
+	b := newBroker(t, "primary-sse-token")
+	tr := relay.New(mux, relay.Config{
+		URL: b.url(), Token: "primary-sse-token", Key: daemonKey, MinBackoff: 50 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+	b.waitAttach(t)
+
+	cl := b.newClient("primary-sse-stream")
+	if err := cl.handshake(ctx, clientKey, daemonKey.Public); err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	if err := cl.sendSealed(ctx, "req", mustJSON(relay.ReqPayload{
+		ID: "primary-events", Method: http.MethodGet, Path: "/api/channels/relay-channel/events",
+		Headers: map[string]string{"Accept": "text/event-stream"},
+	})); err != nil {
+		t.Fatalf("send Phase 1 SSE request: %v", err)
+	}
+
+	responseFrame, err := cl.recv(ctx)
+	if err != nil {
+		t.Fatalf("receive Phase 1 SSE response: %v", err)
+	}
+	responsePlaintext, err := cl.open(responseFrame)
+	if err != nil {
+		t.Fatalf("open Phase 1 SSE response: %v", err)
+	}
+	var response relay.ResPayload
+	if err := json.Unmarshal(responsePlaintext, &response); err != nil {
+		t.Fatalf("decode Phase 1 SSE response: %v", err)
+	}
+	if responseFrame.Kind != "res" || response.Status != http.StatusOK || !response.Stream ||
+		response.Headers["Content-Type"] != "text/event-stream" {
+		t.Fatalf("Phase 1 SSE response kind=%q status=%d stream=%v headers=%v", responseFrame.Kind, response.Status, response.Stream, response.Headers)
+	}
+
+	chunkFrame, err := cl.recv(ctx)
+	if err != nil {
+		t.Fatalf("receive Phase 1 SSE chunk: %v", err)
+	}
+	chunkPlaintext, err := cl.open(chunkFrame)
+	if err != nil {
+		t.Fatalf("open Phase 1 SSE chunk: %v", err)
+	}
+	var chunk relay.ChunkPayload
+	if err := json.Unmarshal(chunkPlaintext, &chunk); err != nil {
+		t.Fatalf("decode Phase 1 SSE chunk: %v", err)
+	}
+	if chunkFrame.Kind != "chunk" || chunk.ID != "primary-events" || chunk.End ||
+		!bytes.Contains(chunk.Data, []byte(`"id":"relay-channel"`)) {
+		t.Fatalf("Phase 1 SSE chunk kind=%q payload=%+v data=%s", chunkFrame.Kind, chunk, chunk.Data)
+	}
+
+	if err := cl.sendSealed(ctx, "end", mustJSON(relay.ChunkPayload{ID: "primary-events"})); err != nil {
+		t.Fatalf("end Phase 1 SSE request: %v", err)
+	}
+	endFrame, err := cl.recv(ctx)
+	if err != nil {
+		t.Fatalf("receive Phase 1 SSE end: %v", err)
+	}
+	endPlaintext, err := cl.open(endFrame)
+	if err != nil {
+		t.Fatalf("open Phase 1 SSE end: %v", err)
+	}
+	var end relay.ChunkPayload
+	if err := json.Unmarshal(endPlaintext, &end); err != nil {
+		t.Fatalf("decode Phase 1 SSE end: %v", err)
+	}
+	if endFrame.Kind != "chunk" || !end.End || end.ID != "primary-events" {
+		t.Fatalf("Phase 1 SSE end kind=%q payload=%+v", endFrame.Kind, end)
+	}
+	b.assertNoPlaintext(t, "relay-channel")
+
+	cancel()
+	<-runDone
+}
 
 // TestDialAuthAndProxyRoundTrip: the transport dials with the bearer token, a
 // client pins the daemon's public key and handshakes, a sealed GET round-trips

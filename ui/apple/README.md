@@ -1,14 +1,13 @@
 # Fort Apple clients
 
 Native control-plane clients for Fort, all sharing one Swift package. They speak
-the same HTTP/SSE contract as the web board (`docs/notes/event-contract.md`) and
-adapt to control-only mode (`Summary.execution == false`).
+the same typed Primary Channels HTTP/SSE contract as the local Web surface.
 
 ```
 ui/apple/
   FortKit/           shared Swift package — models + direct/pinned-relay client
-  iOS/               iPhone app: five-tab Command Deck + Playbooks/Feed in More
-  macOS/             windowed Command Deck + Playbooks + MenuBarExtra inbox
+  iOS/               iPhone app: private Channels, Scheduled, Needs You, Settings
+  macOS/             windowed Primary Channels + bounded MenuBarExtra glance
   watch/             watchOS app (glance + approve) + WidgetKit complication
   CarPlay/           CPListTemplate scene: gates + status (driving-safe)
   Support/           complication @main bundle + generated Info.plist
@@ -16,6 +15,10 @@ ui/apple/
 ```
 
 Every surface `import FortKit` — none redefine the models or client.
+
+The shipping iPhone and Mac roots share `PrimaryChannelsView`. Watch and
+CarPlay retain their separately bounded glance surfaces; they do not provide a
+second Primary Channels implementation.
 
 ## Build / verify
 
@@ -43,11 +46,21 @@ CarPlay code compiles and runs in the simulator but may not ship.
 The iOS app starts in native connection setup, not against localhost. Set
 `FORT_GATEWAY_URL` for the build or enter the deployed gateway origin in the
 app, sign in with Google, choose a registered machine, and compare its
-fingerprint with `fort relay join` output. Direct LAN/simulator mode is an
-explicit fallback in Connection Settings.
+fingerprint with `fort relay join` output. Physical iPhone and TestFlight builds
+expose Primary Channels only through this authenticated encrypted gateway relay.
+Direct-host UI and actions are never available on a physical iPhone.
 
 For the production app, enter the public web gateway origin
 `https://fort-gateway.vercel.app`. The app accepts an accidental trailing
 `/native` and canonicalizes it to the origin. Do not enter the daemon's
 Cloudflare relay address: that endpoint carries the machine tunnel and is not
 the iOS sign-in/API origin.
+
+## Isolated native QA host
+
+DEBUG builds of FortMac and the DEBUG iOS Simulator accept
+`FORT_DIRECT_HOST_URL` so UI QA can target an isolated fixture without
+installing, restarting, or reading from the real launchd service. Set it in the
+Xcode scheme, for example to `http://127.0.0.1:4187`. Release iPhone builds
+compile this override and every direct-host control out; FortMac Release keeps
+its normal loopback behavior.

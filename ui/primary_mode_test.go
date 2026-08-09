@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/tobsai/fort/core/transporttrust"
 )
 
 func modeResponse(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
@@ -104,6 +106,25 @@ func TestPrimaryShellRequiresLoopbackPeerAndHostWithoutChangingSharedOrLegacy(t 
 				t.Fatalf("status=%d want=%d body=%s", result.Code, test.want, result.Body.String())
 			}
 		})
+	}
+}
+
+func TestPrimaryHTMLShellRejectsAuthenticatedRelayContext(t *testing.T) {
+	for _, test := range []struct {
+		mode PrimaryChannelsMode
+		path string
+	}{
+		{mode: PrimaryChannelsPreview, path: "/channels-preview"},
+		{mode: PrimaryChannelsPrimary, path: "/"},
+	} {
+		request := httptest.NewRequest(http.MethodGet, test.path, nil)
+		request.RemoteAddr, request.Host = "192.0.2.25:4000", "127.0.0.1:4087"
+		request = request.WithContext(transporttrust.WithTrusted(request.Context()))
+		result := httptest.NewRecorder()
+		modeMux(t, test.mode).ServeHTTP(result, request)
+		if result.Code != http.StatusForbidden {
+			t.Errorf("%s shell status=%d want=%d", test.path, result.Code, http.StatusForbidden)
+		}
 	}
 }
 

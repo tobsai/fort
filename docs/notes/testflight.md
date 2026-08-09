@@ -31,16 +31,12 @@ there, selects a registered machine, verifies its fingerprint, and carries API
 commands through the end-to-end encrypted relay. The Cloudflare worker address
 is daemon-only and must not be entered in the app.
 
-The explicit direct-host development fallback may point at a simulator or LAN
-host. **On a real device `127.0.0.1` is the device itself** — it cannot see your
-Mac. Plain **HTTP** to a LAN IP needs an **App Transport Security** exception.
-Add the narrowest appropriate exception to the app's Info.plist via
-`project.yml` (`info.properties`):
-  ```yaml
-  NSAppTransportSecurity:
-    NSAllowsArbitraryLoads: true   # or a scoped NSExceptionDomains entry
-  ```
-  App Review prefers a **scoped** exception (or HTTPS) with a justification.
+Physical iPhone and TestFlight builds expose Phase 1 only through the
+authenticated encrypted gateway relay. Direct-host configuration, UI, and
+actions are compiled out and never available on a physical iPhone, including
+reachable LAN hosts. The DEBUG iOS Simulator alone retains
+`FORT_DIRECT_HOST_URL` for an isolated local QA fixture. This boundary does not
+change FortMac's local loopback client.
 
 ## 3 · Version numbers
 `MARKETING_VERSION` + `CURRENT_PROJECT_VERSION` (build). **Every upload
@@ -50,23 +46,25 @@ needs a higher build number** — bump `CURRENT_PROJECT_VERSION` in `project.yml
 ## 4 · Archive & upload
 **GUI (simplest):** select the **Fort** scheme + **Any iOS Device (arm64)** ▸
 **Product ▸ Archive** ▸ Organizer ▸ **Distribute App ▸ TestFlight & App Store ▸
-Upload**. Repeat with the **FortMac** scheme (**My Mac**) and **FortWatch**.
+Upload**. The Fort archive already embeds the watch app and complication.
+Do not upload `FortWatch` separately. FortMac is a separate macOS distribution.
 
 **CLI:**
 ```sh
 cd ui/apple
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
-  -configuration Release -archivePath build/Fort.xcarchive archive DEVELOPMENT_TEAM=ABCDE12345
+  -configuration Release -archivePath build/Fort.xcarchive \
+  -allowProvisioningUpdates archive DEVELOPMENT_TEAM=ABCDE12345
 # NB: use -destination, NOT `-sdk iphoneos` — forcing the SDK poisons the
 # embedded watch targets (iOS DTPlatformName/UIDeviceFamily/arch → App Store
 # validation rejects the build).
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
-  -exportPath build/export -exportOptionsPlist ExportOptions.plist
-# upload with an App Store Connect API key (Users and Access ▸ Keys):
-xcrun altool --upload-app -f build/export/Fort.ipa -t ios \
-  --apiKey <KEY_ID> --apiIssuer <ISSUER_ID>
+  -exportPath build/Fort-upload -exportOptionsPlist ExportOptions.plist \
+  -allowProvisioningUpdates
 ```
-`ExportOptions.plist`: `method = app-store-connect`, `destination = upload`.
+`ExportOptions.plist` has `method = app-store-connect` and
+`destination=upload`, so a successful `-exportArchive` performs the upload.
+It does not produce an IPA that should be uploaded a second time.
 
 ## 5 · In App Store Connect
 - Create the app record (or it appears on first upload); set the bundle ID.
@@ -127,7 +125,7 @@ xcodegen generate
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
   -archivePath build/Fort.xcarchive -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=T3JB5MYZ93 archive
-# 4. export a signed App Store .ipa (build/Fort-ipa/Fort.ipa) …
+# 4. export and upload once through App Store Connect
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
   -exportOptionsPlist ExportOptions.plist -exportPath build/Fort-upload \
   -allowProvisioningUpdates   # ExportOptions.plist has destination=upload
@@ -139,14 +137,17 @@ as the **literals** `1.0`/`1` into the generated Info.plists, which SHADOW the
 each target's `info.properties` to `$(MARKETING_VERSION)`/`$(CURRENT_PROJECT_VERSION)`
 so a version bump actually reaches the build (phone + watch + complication all match).
 
-## Blocker: "You do not have required contracts to perform an operation"
+## One upload, then independent verification
 
-The 2026-07-12 upload signed, authenticated to App Store Connect, and uploaded the
-binary — then the **final delivery step** failed with *"You do not have required
-contracts."* This is a **team-level gate**: the **Account Holder** (tobias@mtree.io)
-must accept the **updated Apple Developer Program License Agreement** at
-<https://appstoreconnect.apple.com/agreements> (or the yellow banner on the ASC
-home page). No signing/build/auth problem — everything else works. Once accepted,
-re-run step 4 (the archive at `build/Fort.xcarchive` is reusable) to deliver the
-already-built `1.0.1 (260712)` binary. Cannot be worked around by altool/Transporter —
-the same contract gate applies to every upload path.
+Before archiving, confirm that `CURRENT_PROJECT_VERSION` is higher than every
+build already visible in App Store Connect/TestFlight. After a successful
+`-exportArchive`, inspect the archive `Info.plist`: its distribution receipt
+must record the intended `uploadedBuildNumber`, a successful upload event, and
+no errors or warnings. Do not run altool, Transporter, or a second export for
+that build after this receipt exists.
+
+Apple processing is separate from upload acceptance. Completion requires an
+independent signed-in TestFlight check showing the exact marketing version and
+build number after processing. If Apple reports a new agreement gate, the
+Account Holder must resolve it in App Store Connect before retrying; first check
+the archive receipt so an already-successful upload is not duplicated.

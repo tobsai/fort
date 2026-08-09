@@ -2,13 +2,14 @@
 
 Fort ships a native macOS app (`FortMac`) that both **runs** Fort — a `fort
 service` launchd daemon manager — and **drives** it — a windowed SwiftUI mirror
-of the 031 dashboard (Define / Ready / In progress, gate approve-reject, live
-per-run activity) over the existing HTTP/SSE control-plane contract.
+of private Primary Channels, Scheduled, Needs You, and Settings over the typed
+Phase 1 HTTP/SSE contract.
 
 The app has two scenes:
-- a **menu-bar** item (`MenuBarExtra`) — the glanceable summary + gate inbox;
-- a **window** (`Window("Fort")` → `FortWindow`) — the sidebar (service controls
-  + machine roster) beside the dashboard.
+- a **menu-bar** item (`MenuBarExtra`) — open-Channel counts plus current
+  recoverable Needs You rows;
+- a **window** (`Window("Fort")` → `PrimaryChannelsView`) — the shared native
+  Primary Channels surface, with daemon controls in Settings.
 
 Both share one `FortClient` (default `http://127.0.0.1:4087`). The window's
 "Service" section is wired to `FortKit.ServiceController`, which shells out to the
@@ -49,8 +50,8 @@ The `.xcodeproj` is git-ignored and regenerated from `ui/apple/project.yml`:
 cd ui/apple && xcodegen generate
 ```
 
-FortMac globs `macOS/*.swift` (excluding `*.md`), so `FortWindow.swift` and
-`FortMacApp.swift` are picked up automatically.
+FortMac globs `macOS/*.swift` (excluding `*.md`), and its local FortKit package
+supplies the shared `PrimaryChannelsView` automatically.
 
 ## Compile-verify (no signing, CI-safe)
 
@@ -63,6 +64,20 @@ xcodebuild -project Fort.xcodeproj -scheme FortMac \
 
 Expect `** BUILD SUCCEEDED **`. (`make apple-build` runs this for every Apple
 target.)
+
+## Isolated DEBUG UI QA
+
+FortMac DEBUG builds accept `FORT_DIRECT_HOST_URL` as a direct HTTP(S) client
+base URL. This is intentionally compiled out of Release builds and changes only
+the in-process `FortClient`; it never installs or restarts the launchd service.
+Use an isolated fixture rather than port 4087:
+
+```text
+Xcode scheme → Run → Arguments → Environment Variables
+FORT_DIRECT_HOST_URL = http://127.0.0.1:4187
+```
+
+The macOS UI test uses the same launch environment and defaults to port 4187.
 
 ## The bundled `fort` daemon
 
@@ -83,12 +98,15 @@ One target does archive → inject the daemon → export a Developer ID–signed
 `.app` → DMG → notarize → staple:
 
 ```sh
-make mac-dmg           # -> ./build/Fort.dmg
+make mac-dmg VERSION=<release-version>  # -> ./build/Fort.dmg
 # override the notarytool profile name if you didn't use the default:
-make mac-dmg NOTARY_PROFILE=my-profile
+make mac-dmg VERSION=<release-version> NOTARY_PROFILE=my-profile
 # if the keychain contains duplicate certificate names, select one by SHA-1:
-make mac-dmg DEVELOPER_ID=<CERTIFICATE_SHA1>
+make mac-dmg VERSION=<release-version> DEVELOPER_ID=<CERTIFICATE_SHA1>
 ```
+
+Do not omit `VERSION`: the Makefile's development default is not a release
+identity, and that value is embedded in the bundled daemon.
 
 What it runs (see the `mac-dmg` target in the `Makefile`):
 
@@ -147,7 +165,7 @@ cp -R "$APP" /Applications/FortMac.app && open /Applications/FortMac.app
 
 The daemon must be injected into `Contents/Resources/fort` and signed **before**
 the outer bundle is re-signed (adding a file invalidates the signature). FortMac
-is `LSUIElement` — it appears in the menu bar, not the Dock.
+is a windowed app with a Dock icon and also supplies its MenuBarExtra glance.
 
 ## Deferred (honest v1 boundary)
 

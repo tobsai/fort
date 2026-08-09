@@ -17,6 +17,21 @@ struct FortKitContractChecks {
         try routePreviewDecodesResolvedStages()
         try chatOverrideEncodesAndAnswerDecodes()
         try await clientUsesPlaybookEndpoints()
+        try primaryWireModelsDecodeCanonicalFixtures()
+        try await clientUsesPrimaryEndpointsAndNoContentCommands()
+        try await clientSurfacesTypedPrimaryErrorCodes()
+        try await primaryChannelEventsDecodeStrictReplacementSnapshots()
+        try await primaryChannelEventsUseGatewayRelayPath()
+        primaryStatusProgressivelyDisclosesLatestAttempt()
+        primaryRecoveryActionsStayClosed()
+        primaryPendingTurnPreservesClientTurnID()
+        try primaryPendingTurnsPersistAndReconcileAuthoritativeTurns()
+        try primarySendOutcomeDistinguishesAcceptedDeterministicAndAmbiguous()
+        primarySchedulesUseCanonicalLabelsAndConfiguredTimezones()
+        try primaryScheduleDetailAndOccurrenceActionsStayTruthful()
+        primaryModelDisclosurePreservesRequestedAndResolvedModels()
+        try primarySettingsGroupsOptionsByComputer()
+        try primaryTransportGenerationChangesAcrossSameOriginMachineSwitch()
         try await clientSurfacesRequestIDOnHTTPFailure()
         try gatewayAccountPersistsNativeSession()
         try gatewayAddressNormalizesProductionOrigin()
@@ -40,6 +55,7 @@ struct FortKitContractChecks {
         try macConversationUXContractIsActionable()
         try iPhoneConversationUXContractIsActionable()
         try iPhoneSimulatorSupportsDeterministicVisualQAHost()
+        try iPhonePhysicalReleaseUsesOnlyAuthenticatedRelay()
         try nativeOrbMotionUsesTheRasterAndHonorsReduceMotion()
         try appleClientsRemoveProjectsPresentation()
         try macConversationConsumesLiveEventsAndRendersTimeline()
@@ -288,6 +304,7 @@ struct FortKitContractChecks {
         }
         for invalid in [
             "fort-gateway.vercel.app",
+            "http://fort-gateway.vercel.app",
             "ftp://fort-gateway.vercel.app",
             "https://user:secret@fort-gateway.vercel.app",
             "https://fort-gateway.vercel.app/not-native",
@@ -835,13 +852,86 @@ struct FortKitContractChecks {
             contentsOf: appleRoot.appendingPathComponent("iOS/GatewayCoordinator.swift"),
             encoding: .utf8
         )
-        expect(source.contains("#if targetEnvironment(simulator)"), "iPhone simulator no longer has an isolated direct-host QA path")
+        expect(source.contains("#if DEBUG && targetEnvironment(simulator)"), "iPhone direct-host QA path must stay DEBUG Simulator-only")
         expect(source.contains("FORT_DIRECT_HOST_URL"), "visual QA cannot point the simulator at a deterministic Fort fixture")
         let boardSource = try String(
             contentsOf: appleRoot.appendingPathComponent("iOS/BoardView.swift"),
             encoding: .utf8
         )
         expect(boardSource.contains("FORT_QA_SCREEN"), "visual QA cannot open deterministic New and approval states")
+    }
+
+    private static func iPhonePhysicalReleaseUsesOnlyAuthenticatedRelay() throws {
+        let appleRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let app = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/FortApp.swift"),
+            encoding: .utf8
+        )
+        let coordinator = try String(
+            contentsOf: appleRoot.appendingPathComponent("iOS/GatewayCoordinator.swift"),
+            encoding: .utf8
+        )
+        let clientSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("FortKit/Sources/FortKit/FortClient.swift"),
+            encoding: .utf8
+        )
+        let physicalRelease = removingDebugSimulatorBlocks(app)
+            + removingDebugSimulatorBlocks(coordinator)
+
+        expect(app.contains("FortClient.gatewayOnly()"), "physical iPhone does not start with a fail-closed client")
+        expect(coordinator.contains("client.disconnectGateway()"), "iPhone gateway sign-out does not clear transport fail-closed")
+        expect(
+            clientSource.contains("#if os(macOS) || (DEBUG && targetEnvironment(simulator))\n    public func useDirectHost"),
+            "FortClient direct-host action is compiled into physical iPhone"
+        )
+        for forbidden in [
+            "FORT_DIRECT_HOST_URL",
+            "directHostEnabled",
+            "useDirectHost(",
+            "Section(\"Control-plane host\")",
+            "Button(\"Use direct host\")",
+            "127.0.0.1:4087",
+        ] {
+            expect(!physicalRelease.contains(forbidden), "physical iPhone Release exposes direct-host surface \(forbidden)")
+        }
+
+        let disconnected = FortClient.gatewayOnly()
+        expect(disconnected.baseURL.scheme == "fort-gateway-required", "gateway-only client did not start inert")
+        #if os(macOS)
+        disconnected.useDirectHost(URL(string: "http://192.168.1.10:4087")!)
+        disconnected.disconnectGateway()
+        expect(disconnected.baseURL.scheme == "fort-gateway-required", "gateway disconnect fell back to LAN transport")
+        #endif
+    }
+
+    private static func removingDebugSimulatorBlocks(_ source: String) -> String {
+        let guardLine = "#if DEBUG && targetEnvironment(simulator)"
+        var kept: [Substring] = []
+        var depth = 0
+        var seen = false
+        for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if depth == 0 && trimmed == guardLine {
+                depth = 1
+                seen = true
+                continue
+            }
+            if depth > 0 {
+                if trimmed.hasPrefix("#if ") {
+                    depth += 1
+                } else if trimmed == "#endif" {
+                    depth -= 1
+                }
+                continue
+            }
+            kept.append(line)
+        }
+        expect(seen && depth == 0, "iPhone DEBUG Simulator guard is missing or unbalanced")
+        return kept.joined(separator: "\n")
     }
 
     private static func conversationPromotionOnlyAllowsFinishedDirectRuns() {

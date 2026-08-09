@@ -2,9 +2,10 @@
 //  FortApp.swift
 //  Fort (iOS)
 //
-//  The iOS control-plane client for Fort. The Command Deck folds sign-offs,
-//  projects, direction and Today into one thumb-reachable native surface;
-//  Playbooks, crew, week, activity, and settings remain available through More.
+//  The iOS client for Fort's private Primary Channels. Connection setup stays
+//  at the app root so physical/TestFlight builds reach the shared Phase 1
+//  surface only through a pinned encrypted gateway relay. An isolated direct
+//  host exists solely in DEBUG iOS Simulator builds.
 //
 //  A single FortClient is held at the app root as a @StateObject and injected
 //  into the environment; every tab talks to Fort only through it.
@@ -15,9 +16,10 @@ import FortKit
 
 @main
 struct FortApp: App {
-    /// One client for the whole app. Default base URL is the local control
-    /// endpoint (http://127.0.0.1:4087); it's settable in Settings below.
-    @StateObject private var client = FortClient()
+    /// Physical/TestFlight builds start fail-closed and acquire a usable
+    /// transport only after an authenticated, fingerprint-pinned gateway relay
+    /// is selected. DEBUG Simulator builds retain the isolated QA host seam.
+    @StateObject private var client = FortApp.makeClient()
     @StateObject private var gateway = GatewayCoordinator()
 
     var body: some Scene {
@@ -25,15 +27,20 @@ struct FortApp: App {
             RootTabView()
                 .environmentObject(client)
                 .environmentObject(gateway)
-                .tint(FortPalette.brass)
-                .preferredColorScheme(.dark)
                 .task { await gateway.restore(client: client) }
         }
     }
+
+    private static func makeClient() -> FortClient {
+        #if DEBUG && targetEnvironment(simulator)
+        return FortClient()
+        #endif
+        return FortClient.gatewayOnly()
+    }
 }
 
-/// The Command Deck owns the canonical five-item mobile navigation. Keeping the
-/// root as one NavigationStack prevents a second, competing system tab bar.
+/// Connection state is deliberately outside the shared Channels hierarchy.
+/// Once connected, macOS and iPhone render the same Primary Channels view.
 struct RootTabView: View {
     @EnvironmentObject private var client: FortClient
     @EnvironmentObject private var gateway: GatewayCoordinator
@@ -44,8 +51,9 @@ struct RootTabView: View {
         Group {
             if !gateway.restoreComplete {
                 ProgressView("Connecting to Fort…")
-            } else if gateway.connectedMachineID != nil || gateway.directHostEnabled {
-                NavigationStack { BoardView() }
+            } else if gateway.hasPrimaryTransport {
+                PrimaryChannelsView()
+                    .primaryConnectionSettings { showConnectionSettings = true }
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "lock.shield").font(.system(size: 42)).foregroundStyle(FortPalette.brass)
@@ -57,21 +65,24 @@ struct RootTabView: View {
                     Button("Open connection settings") { showConnectionSettings = true }
                         .buttonStyle(.borderedProminent)
                 }
-                .sheet(isPresented: $showConnectionSettings) { SettingsView() }
             }
         }
+        .sheet(isPresented: $showConnectionSettings) { SettingsView() }
     }
 }
 
-/// Minimal host editor. FortClient.baseURL is @Published, so committing a valid
-/// URL here re-points every tab's next poll and SSE reconnect.
+/// Gateway connection editor. The DEBUG iOS Simulator adds an isolated fixture
+/// host section; physical/TestFlight builds compile that entire section out.
 struct SettingsView: View {
     @EnvironmentObject private var client: FortClient
     @EnvironmentObject private var gateway: GatewayCoordinator
     @Environment(\.dismiss) private var dismiss
-    @State private var urlText: String = ""
     @State private var gatewayText: String = ""
     @State private var pendingTrust: GatewayMachine?
+
+    #if DEBUG && targetEnvironment(simulator)
+    @State private var urlText: String = ""
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -111,6 +122,7 @@ struct SettingsView: View {
                     }
                     if let error = gateway.errorMessage { Text(error).foregroundStyle(.red).font(.footnote) }
                 }
+                #if DEBUG && targetEnvironment(simulator)
                 Section("Control-plane host") {
                     TextField("http://127.0.0.1:4087", text: $urlText)
                         .textInputAutocapitalization(.never)
@@ -122,10 +134,11 @@ struct SettingsView: View {
                         .disabled(URL(string: urlText) == nil)
                 }
                 Section {
-                    Text("Direct-host mode is for the simulator or a reachable LAN host. A physical iPhone cannot reach your Mac at 127.0.0.1.")
+                    Text("Direct-host mode exists only in DEBUG iOS Simulator builds for isolated QA fixtures.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                #endif
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -135,8 +148,10 @@ struct SettingsView: View {
                 }
             }
             .onAppear {
-                urlText = client.baseURL.absoluteString
                 gatewayText = gateway.account.gatewayURL?.absoluteString ?? ""
+                #if DEBUG && targetEnvironment(simulator)
+                urlText = client.baseURL.absoluteString
+                #endif
             }
             .confirmationDialog(
                 "Trust this Fort?",
@@ -154,10 +169,12 @@ struct SettingsView: View {
         }
     }
 
+    #if DEBUG && targetEnvironment(simulator)
     private func commit() {
         if let url = URL(string: urlText.trimmingCharacters(in: .whitespacesAndNewlines)) {
             gateway.useDirectHost(url, client: client)
         }
         dismiss()
     }
+    #endif
 }

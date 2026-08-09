@@ -50,6 +50,35 @@ func TestMacReleaseSignsDiskImageBeforeNotarizing(t *testing.T) {
 	}
 }
 
+func TestMacServiceControllerUsesPromotionPreservingLifecycle(t *testing.T) {
+	controller, err := os.ReadFile("FortKit/Sources/FortKit/ServiceController.swift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := os.ReadFile("../../cmd/fort/service.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{
+		`run(["service", "install"])`,
+		`run(["service", "restart"])`,
+	} {
+		if !strings.Contains(string(controller), command) {
+			t.Fatalf("ServiceController must delegate %s through the bundled service contract", command)
+		}
+	}
+	for _, required := range []string{
+		`"FORT_PRIMARY_CHANNELS"`,
+		`"FORT_ACCEPTED_SCHEDULE_INVENTORY"`,
+		"prepareServiceInstall",
+		"prepareServiceRestart",
+	} {
+		if !strings.Contains(string(service), required) {
+			t.Fatalf("bundled service lifecycle must contain %q", required)
+		}
+	}
+}
+
 func between(t *testing.T, value, start, end string) string {
 	t.Helper()
 	startIndex := strings.Index(value, start)

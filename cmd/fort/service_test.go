@@ -72,6 +72,287 @@ func TestPlistCarriesConfiguredDisplayTimezone(t *testing.T) {
 	}
 }
 
+func TestPlistCarriesExplicitPrimaryPromotionConfiguration(t *testing.T) {
+	sc := serviceConfig{
+		Label: "io.tobsai.fort", BinPath: "/Applications/FortMac.app/Contents/Resources/fort",
+		Args: []string{"serve"}, PrimaryChannels: "primary",
+		AcceptedScheduleInventory: "schedule-inventory:v1:reviewed-on-this-machine",
+	}
+	got := renderPlist(sc)
+	for _, want := range []string{
+		"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>primary</string>",
+		"<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>schedule-inventory:v1:reviewed-on-this-machine</string>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("plist missing %q\n%s", want, got)
+		}
+	}
+
+	closed := renderPlist(serviceConfig{Label: "l", BinPath: "/new/fort"})
+	for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
+		if strings.Contains(closed, "<key>"+key+"</key>") {
+			t.Errorf("unset %s must remain omitted so startup stays off/fail-closed:\n%s", key, closed)
+		}
+	}
+}
+
+func TestServicePlistNeverPersistsNodeToken(t *testing.T) {
+	t.Setenv("FORT_NODE_TOKEN", "do-not-write-this-secret-to-a-plist")
+	sc, err := buildServiceConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := renderPlist(sc)
+	if strings.Contains(definition, "FORT_NODE_TOKEN") || strings.Contains(definition, "do-not-write-this-secret-to-a-plist") {
+		t.Fatalf("service plist persisted the mesh bearer token instead of relying on 0600 node.yaml:\n%s", definition)
+	}
+}
+
+func TestBuildServiceConfigCarriesOnlyExplicitPrimaryPromotionConfiguration(t *testing.T) {
+	t.Setenv("FORT_PRIMARY_CHANNELS", "preview")
+	t.Setenv("FORT_ACCEPTED_SCHEDULE_INVENTORY", "schedule-inventory:v1:explicit-review")
+	sc, err := buildServiceConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.PrimaryChannels != "preview" {
+		t.Fatalf("primary channels = %q, want preview", sc.PrimaryChannels)
+	}
+	if sc.AcceptedScheduleInventory != "schedule-inventory:v1:explicit-review" {
+		t.Fatalf("accepted schedule inventory = %q", sc.AcceptedScheduleInventory)
+	}
+}
+
+func TestServiceDefinitionRolloutPreservesPromotionAndUpdatesBinary(t *testing.T) {
+	preparers := map[string]func(string, serviceConfig) error{
+		"install": prepareServiceInstall,
+		"restart": prepareServiceRestart,
+	}
+	for name, prepare := range preparers {
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			label := "io.tobsai.fort.test"
+			accepted := "schedule-inventory:v1:operator-reviewed-value-" + name
+			if err := writePlist(home, serviceConfig{
+				Label: label, BinPath: "/old/fort", Args: []string{"serve"},
+				PrimaryChannels: "primary", AcceptedScheduleInventory: accepted,
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := prepare(home, serviceConfig{
+				Label: label, BinPath: "/Applications/FortMac.app/Contents/Resources/fort", Args: []string{"serve"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(plistPath(home, label))
+			if err != nil {
+				t.Fatal(err)
+			}
+			definition := string(raw)
+			for _, want := range []string{
+				"<string>/Applications/FortMac.app/Contents/Resources/fort</string>",
+				"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>primary</string>",
+				"<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>" + accepted + "</string>",
+			} {
+				if !strings.Contains(definition, want) {
+					t.Errorf("rolled-out plist missing %q\n%s", want, definition)
+				}
+			}
+			if strings.Contains(definition, "<string>/old/fort</string>") {
+				t.Fatalf("rollout retained the old binary path:\n%s", definition)
+			}
+		})
+	}
+}
+
+func TestAppDrivenServiceRolloutPreservesClosedOperationalEnvironment(t *testing.T) {
+	home := t.TempDir()
+	label := "io.tobsai.fort.test"
+	existing := serviceConfig{
+		Label: label, BinPath: "/old/fort", Args: []string{"serve"},
+		Addr: "0.0.0.0:4087", DBPath: filepath.Join(home, ".fort", ".fort-native", "fort.db"),
+		WorkRoot:           filepath.Join(home, ".fort", ".fort-native", "work"),
+		Path:               "/Users/test/.local/bin:/opt/homebrew/bin:/usr/bin:/bin",
+		FlowsPath:          "/Users/test/.local/share/fort/v0.13.0/flows",
+		CapabilityPlanning: "1", DisplayTimezone: "America/Chicago",
+		PrimaryChannels: "preview",
+	}
+	if err := writePlist(home, existing); err != nil {
+		t.Fatal(err)
+	}
+	// Unknown values in an existing plist are never carried into the refreshed
+	// definition; preservation is a closed Fort-owned contract.
+	path := plistPath(home, label)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = []byte(strings.Replace(
+		string(raw), "  </dict>\n  <key>WorkingDirectory</key>",
+		"    <key>UNRECOGNIZED_SECRET</key>\n    <string>do-not-copy</string>\n  </dict>\n  <key>WorkingDirectory</key>", 1,
+	))
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// This models FortMac launching its bundled binary: defaults are populated,
+	// but no FORT_* override was explicitly supplied by the app process.
+	next := serviceConfig{
+		Label: label, BinPath: "/Applications/FortMac.app/Contents/Resources/fort", Args: []string{"serve"},
+		Addr: "127.0.0.1:4087", DBPath: filepath.Join(home, ".fort-native", "fort.db"),
+		WorkRoot: filepath.Join(home, ".fort-native", "work"), Path: "/usr/bin:/bin",
+		explicitEnvironment: map[string]bool{},
+	}
+	if err := prepareServiceRestart(home, next); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := string(refreshed)
+	for _, want := range []string{
+		"<string>/Applications/FortMac.app/Contents/Resources/fort</string>",
+		"<key>FORT_ADDR</key>\n    <string>0.0.0.0:4087</string>",
+		"<key>FORT_DB</key>\n    <string>" + existing.DBPath + "</string>",
+		"<key>FORT_WORKROOT</key>\n    <string>" + existing.WorkRoot + "</string>",
+		"<key>FORT_FLOWS</key>\n    <string>" + existing.FlowsPath + "</string>",
+		"<key>PATH</key>\n    <string>" + existing.Path + "</string>",
+		"<key>FORT_CAPABILITY_PLANNING</key>\n    <string>1</string>",
+		"<key>FORT_DISPLAY_TIMEZONE</key>\n    <string>America/Chicago</string>",
+		"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>preview</string>",
+	} {
+		if !strings.Contains(definition, want) {
+			t.Errorf("refreshed service missing %q\n%s", want, definition)
+		}
+	}
+	if strings.Contains(definition, "UNRECOGNIZED_SECRET") || strings.Contains(definition, "do-not-copy") {
+		t.Fatalf("refreshed service copied an unknown environment key:\n%s", definition)
+	}
+}
+
+func TestExplicitOperationalEnvironmentWinsAndCanClearExistingValue(t *testing.T) {
+	home := t.TempDir()
+	label := "io.tobsai.fort.test"
+	if err := writePlist(home, serviceConfig{
+		Label: label, BinPath: "/old/fort", Args: []string{"serve"},
+		Addr: "0.0.0.0:4087", DBPath: "/existing/fort.db", FlowsPath: "/existing/flows",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	next := serviceConfig{
+		Label: label, BinPath: "/new/fort", Args: []string{"serve"},
+		Addr: "127.0.0.1:4187", FlowsPath: "",
+		explicitEnvironment: map[string]bool{
+			"FORT_ADDR":  true,
+			"FORT_FLOWS": true,
+		},
+	}
+	if err := prepareServiceRestart(home, next); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(plistPath(home, label))
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := string(raw)
+	if !strings.Contains(definition, "<key>FORT_ADDR</key>\n    <string>127.0.0.1:4187</string>") {
+		t.Fatalf("explicit address did not replace existing value:\n%s", definition)
+	}
+	if !strings.Contains(definition, "<key>FORT_DB</key>\n    <string>/existing/fort.db</string>") {
+		t.Fatalf("non-explicit database was not preserved:\n%s", definition)
+	}
+	if strings.Contains(definition, "FORT_FLOWS") || strings.Contains(definition, "/existing/flows") {
+		t.Fatalf("explicit empty flow path did not clear existing value:\n%s", definition)
+	}
+}
+
+func TestServiceRolloutRejectsInvalidPreservedTimezoneBeforeRewrite(t *testing.T) {
+	home := t.TempDir()
+	label := "io.tobsai.fort.test"
+	existing := serviceConfig{
+		Label: label, BinPath: "/old/fort", Args: []string{"serve"},
+		DisplayTimezone: "Not/A_Zone",
+	}
+	if err := writePlist(home, existing); err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.ReadFile(plistPath(home, label))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = prepareServiceRestart(home, serviceConfig{
+		Label: label, BinPath: "/new/fort", Args: []string{"serve"},
+		explicitEnvironment: map[string]bool{},
+	})
+	if err == nil || !strings.Contains(err.Error(), `display timezone "Not/A_Zone"`) {
+		t.Fatalf("invalid preserved timezone error = %v", err)
+	}
+	after, readErr := os.ReadFile(plistPath(home, label))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !reflect.DeepEqual(after, original) {
+		t.Fatal("invalid preserved service definition was rewritten before validation")
+	}
+}
+
+func TestServiceDefinitionRolloutDoesNotInventPromotionConfiguration(t *testing.T) {
+	preparers := map[string]func(string, serviceConfig) error{
+		"install": prepareServiceInstall,
+		"restart": prepareServiceRestart,
+	}
+	for name, prepare := range preparers {
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			label := "io.tobsai.fort.test"
+			if err := prepare(home, serviceConfig{Label: label, BinPath: "/new/fort", Args: []string{"serve"}}); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(plistPath(home, label))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
+				if strings.Contains(string(raw), "<key>"+key+"</key>") {
+					t.Fatalf("%s invented %s instead of remaining off/fail-closed:\n%s", name, key, raw)
+				}
+			}
+		})
+	}
+}
+
+func TestExplicitPrimaryPromotionConfigurationWinsDuringRollout(t *testing.T) {
+	home := t.TempDir()
+	label := "io.tobsai.fort.test"
+	if err := writePlist(home, serviceConfig{
+		Label: label, BinPath: "/old/fort", Args: []string{"serve"},
+		PrimaryChannels: "primary", AcceptedScheduleInventory: "schedule-inventory:v1:old-review",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := prepareServiceRestart(home, serviceConfig{
+		Label: label, BinPath: "/new/fort", Args: []string{"serve"},
+		PrimaryChannels: "off", AcceptedScheduleInventory: "schedule-inventory:v1:new-review",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(plistPath(home, label))
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := string(raw)
+	if !strings.Contains(definition, "<key>FORT_PRIMARY_CHANNELS</key>\n    <string>off</string>") {
+		t.Fatalf("explicit rollback mode did not win:\n%s", definition)
+	}
+	if !strings.Contains(definition, "<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>schedule-inventory:v1:new-review</string>") {
+		t.Fatalf("explicit accepted inventory did not win:\n%s", definition)
+	}
+}
+
 func TestServiceInstallRejectsInvalidDisplayTimezoneBeforeLaunchd(t *testing.T) {
 	err := validateServiceDisplayTimezone(serviceConfig{DisplayTimezone: "Not/A_Zone"})
 	if err == nil {

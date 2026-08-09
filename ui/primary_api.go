@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tobsai/fort/core/conversation"
+	"github.com/tobsai/fort/core/transporttrust"
 )
 
 const primaryRequestLimit = conversation.MaxContextBytes + 4_096
@@ -80,8 +81,8 @@ func (s *Server) RegisterPrimaryRoutes(mux *http.ServeMux) {
 
 func phase1LocalOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !loopbackRequest(r) || !primaryLoopbackHost(r.Host) {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "Primary Channels are local only"})
+		if !phase1TrustedRequest(r) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "Primary Channels require loopback or authenticated relay transport"})
 			return
 		}
 		next(w, r)
@@ -90,8 +91,8 @@ func phase1LocalOnly(next http.HandlerFunc) http.HandlerFunc {
 
 func primaryMutation(next http.HandlerFunc, jsonBody bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !loopbackRequest(r) || !primaryLoopbackHost(r.Host) {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "Primary Channels are local only"})
+		if !phase1TrustedRequest(r) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "Primary Channels require loopback or authenticated relay transport"})
 			return
 		}
 		if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" {
@@ -116,6 +117,13 @@ func primaryMutation(next http.HandlerFunc, jsonBody bool) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+func phase1TrustedRequest(r *http.Request) bool {
+	if loopbackRequest(r) && primaryLoopbackHost(r.Host) {
+		return true
+	}
+	return strings.HasPrefix(r.URL.Path, "/api/") && transporttrust.Trusted(r.Context())
 }
 
 func primaryLoopbackHost(authority string) bool {

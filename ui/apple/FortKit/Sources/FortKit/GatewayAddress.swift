@@ -8,9 +8,9 @@ public enum GatewayAddressError: Error, Sendable {
     case daemonRelayAddress
 }
 
-/// Canonicalizes the public web-gateway origin used by native authentication
-/// and relay requests. The Cloudflare worker address belongs to the daemon and
-/// must never be entered here.
+/// Canonicalizes the public HTTPS web-gateway origin used by native
+/// authentication and relay requests. The Cloudflare worker address belongs
+/// to the daemon and must never be entered here.
 public enum GatewayAddress {
     public static func normalize(_ raw: String) throws -> URL {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -24,7 +24,7 @@ public enum GatewayAddress {
               let host = components.host?.lowercased(),
               !host.isEmpty
         else { throw GatewayAddressError.invalidURL }
-        guard scheme == "https" || scheme == "http" else {
+        guard scheme == "https" else {
             throw GatewayAddressError.unsupportedScheme
         }
         guard components.user == nil, components.password == nil else {

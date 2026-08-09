@@ -42,6 +42,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/tobsai/fort/core/transporttrust"
 	"github.com/tobsai/fort/exec/relay/secure"
 )
 
@@ -249,11 +250,14 @@ func (c *conn) handleReq(f Frame) {
 	if err := json.Unmarshal(pt, &rp); err != nil {
 		return
 	}
+	// This in-process provenance exists only after the authenticated session
+	// opened and decoded the sealed request; it is never copied from headers.
+	requestCtx := transporttrust.WithTrusted(c.ctx)
 	c.wg.Add(1)
 	if wantsStream(rp.Headers) {
-		go c.serveStream(f.Stream, sess, rp)
+		go c.serveStream(requestCtx, f.Stream, sess, rp)
 	} else {
-		go c.serveBuffered(f.Stream, sess, rp)
+		go c.serveBuffered(requestCtx, f.Stream, sess, rp)
 	}
 }
 
@@ -282,7 +286,7 @@ func (c *conn) handleBye(f Frame) {
 
 // serveBuffered runs a non-streaming request against the handler and replies
 // with a single sealed res. A panicking handler never kills the tunnel.
-func (c *conn) serveBuffered(stream string, sess *secure.Session, rp ReqPayload) {
+func (c *conn) serveBuffered(ctx context.Context, stream string, sess *secure.Session, rp ReqPayload) {
 	defer c.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -291,7 +295,7 @@ func (c *conn) serveBuffered(stream string, sess *secure.Session, rp ReqPayload)
 			}))
 		}
 	}()
-	req := buildRequest(c.ctx, rp)
+	req := buildRequest(ctx, rp)
 	rec := httptest.NewRecorder()
 	c.handler.ServeHTTP(rec, req)
 	res := rec.Result()
@@ -307,9 +311,9 @@ func (c *conn) serveBuffered(stream string, sess *secure.Session, rp ReqPayload)
 // serveStream runs a streaming (SSE) request. WriteHeader emits res{Stream:true}
 // and each Flush emits a chunk; an "end" frame (or a socket drop) cancels the
 // request context, and a final chunk{End:true} closes the stream.
-func (c *conn) serveStream(stream string, sess *secure.Session, rp ReqPayload) {
+func (c *conn) serveStream(ctx context.Context, stream string, sess *secure.Session, rp ReqPayload) {
 	defer c.wg.Done() // registered first so it runs last — even if a later defer panics
-	reqCtx, cancel := context.WithCancel(c.ctx)
+	reqCtx, cancel := context.WithCancel(ctx)
 	key := stream + "|" + rp.ID
 	c.regCancel(key, cancel)
 	defer func() {
