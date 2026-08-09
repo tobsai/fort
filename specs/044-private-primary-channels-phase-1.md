@@ -54,8 +54,9 @@ The default experience contains only:
 Phase 1 does not implement Memory V1, Act, new task records, schedule creation
 or mutation, projects, playbooks, or DAG authoring. It preserves and exposes
 existing durable schedule execution truthfully through the same typed contract
-on Web, macOS, and iPhone. Watch and CarPlay retain their existing glance-only
-surfaces and do not claim Primary Channel parity in this release.
+on Web, macOS, and iPhone. The Phase 1 iPhone archive contains no watchOS app,
+complication, or CarPlay scene. Those constrained surfaces require a separately
+approved Primary contract and transport before they may return.
 
 ## Authorization gate
 
@@ -72,7 +73,10 @@ Production work starts only after both conditions are satisfied. Toby has now:
   to GitHub, the signed Mac app on this machine, and iPhone/TestFlight. That
   authorization expands production UI scope to `ui/apple/**`; it does not
   silently accept an unnamed schedule inventory digest or waive provider,
-  signing, processing, or live acceptance evidence.
+  signing, processing, or live acceptance evidence; and
+- on 2026-08-09 explicitly authorized removing presentation and compiled client
+  functionality outside this Phase 1 allowlist across Web and Apple channels.
+  Durable legacy data and server-side administrative contracts remain intact.
 
 If the selected mockup changes navigation, identity disclosure, status,
 recovery, or Settings behavior, update this spec before writing production UI
@@ -265,8 +269,9 @@ isolation contract is enforced and tested.
 - cross-Channel full-text search, folders, and Channel deletion in the new
   shell;
 - provider-native session continuation;
-- Phase 1 UI on watch or CarPlay, and public gateway-Web presentation;
-- deletion of legacy code or data; and
+- any watchOS, complication, or CarPlay product, and public gateway-Web
+  presentation;
+- deletion of durable legacy data or server-side administrative contracts; and
 - further Spec 039 planner, solver, or setup expansion.
 
 The existing 65,536-byte frozen-context limit remains unchanged and visible.
@@ -415,9 +420,11 @@ approved contract.
 ### Navigation and responsive behavior
 
 - `/` is the new private-Channels and Scheduled shell.
-- `/shared` preserves the current Spec 041 multi-agent/shared-chat page in full
-  `fort serve` mode.
-- `/legacy` preserves the Command Deck/board rollback surface.
+- while `FORT_PRIMARY_CHANNELS` is `preview` or `primary`, `/shared`, `/legacy`,
+  and their presentation-only APIs are not mounted;
+- setting `FORT_PRIMARY_CHANNELS=off` and restarting is the only supported
+  same-binary presentation rollback. In that mode `/` retains the current
+  shared surface and the existing rollback/admin routes may be mounted.
 
 Desktop web uses a Channels rail with **New Channel**, pinned/recent Channels,
 Scheduled, Needs you, and Settings. Selecting Scheduled replaces the transcript
@@ -1177,10 +1184,11 @@ The accepted full `fort serve` composition therefore owns:
 - Primary Agent and Primary Channel services; and
 - the new narrow Channels/Scheduled shell at `/`.
 
-Legacy mutating schedule, flow, project, and board APIs remain reachable only
-through their existing admin/legacy surfaces. `/shared` and `/legacy` remain
-rollback surfaces. The new shell does not link or call them. The HTML shell
-remains loopback-only. The macOS client may call only the typed Phase 1 JSON/SSE
+Legacy mutating schedule, flow, project, and board contracts remain implemented
+for off-mode rollback and CLI/internal administration, but their Web pages and
+presentation APIs are not mounted in `preview`, `primary`, or the sealed native
+relay mux. The HTML shell remains loopback-only. The macOS client may call only
+the typed Phase 1 JSON/SSE
 APIs over same-host loopback; it may not wrap the HTML shell or use direct LAN.
 An iPhone/TestFlight client may call those APIs only through Fort's
 authenticated, end-to-end encrypted gateway relay, whose outer endpoint must
@@ -1189,8 +1197,8 @@ in-process request context set after the Noise session opens a sealed request;
 no Host, `RemoteAddr`, header, query value, cookie, or public gateway-Web
 request may assert it. Direct LAN clients and forged relay headers remain
 forbidden. An `Origin`-bearing relayed mutation is rejected, while native
-requests carry no browser Origin. Watch and CarPlay do not receive this
-authority in Phase 1.
+requests carry no browser Origin. No watchOS app, complication, or CarPlay scene
+ships in Phase 1, and none receives this authority.
 
 `FORT_PRIMARY_CHANNELS` is a closed startup mode:
 
@@ -1198,10 +1206,12 @@ authority in Phase 1.
   `/channels-preview`, all `/api/channels*` routes, and the new Primary Agent
   setting/Scheduled-read routes are not mounted and return `404`; no stale
   Phase 1 client can create or dispatch work;
-- `preview` — `/` retains the current shared surface, the new shell is mounted
-  at `/channels-preview`, and its narrow Phase 1 APIs are enabled; and
-- `primary` — the new shell is mounted at `/`, `/channels-preview` redirects to
-  `/`, and the same narrow APIs are enabled.
+- `preview` — the new shell is mounted at `/`, `/channels-preview` redirects to
+  `/`, its narrow Phase 1 APIs are enabled, and legacy presentation routes are
+  absent; and
+- `primary` — the same closed shell and route set are mounted, with promotion's
+  additional readiness and accepted-inventory startup gates. Promotion changes
+  operational guarantees, not the visible product surface.
 
 Unknown or empty nondefault values fail startup rather than choosing a mode.
 Promotion changes only this same-binary mode; it never changes scheduler
@@ -1291,7 +1301,8 @@ the minimum code to pass. Keep `go test ./...` green after each slice and run
 8. **Web shell** — root contains only the six approved product concepts;
    Channel create/send single-flight and client-turn idempotency; Scheduled
    navigation/detail; reload/SSE rebuild; Needs-you deep link; keyboard, focus,
-   reduced-motion, and responsive tests. Preserve `/shared` and `/legacy`.
+   reduced-motion, and responsive tests. Preview and primary mount no legacy
+   presentation; off mode is the explicit rollback.
 9. **Composition** — full `fort serve` owns the proven scheduler and new read
    projection; only text-only authority reaches the Codex subscription runtime;
    full-mode local/node mux has no cross-routing; direct mesh and capabilities
@@ -1350,9 +1361,12 @@ Focused modifications are permitted in:
 and release configuration, and focused native tests are authorized by Toby's
 2026-08-09 all-channel shipment instruction. The implementation must use the
 typed Phase 1 APIs and may not wrap the loopback Web shell or reuse `/api/chat`.
-`ui/apple/watch/**` and `ui/apple/CarPlay/**` remain outside Primary Channel UI
-scope except for build/version compatibility required by the embedded iOS
-archive.
+Dormant Command Deck screens and their unused public FortKit client/model
+contracts are removed from the shipping targets. The iPhone project has no
+watchOS, complication, or CarPlay target, source, dependency, or scene manifest.
+macOS may retain the daemon status and contextual Install, Start, or Restart
+recovery needed to operate the same-host service, but does not expose Stop,
+Uninstall, or raw service administration as Phase 1 product actions.
 
 ## Acceptance
 
@@ -1432,9 +1446,12 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
 - `primary` promotion accepts only the reviewed `schedule-inventory:v1` digest;
   a new/changed enabled definition or flow digest produces visible inventory
   drift and invalidates the trial without mutating the schedule;
-- `off` mounts no preview or Phase 1 routes, `preview` exposes them only at the
-  preview shell, and `primary` promotes the same shell without changing
+- `off` mounts no Phase 1 routes, while `preview` and `primary` expose the same
+  closed shell at `/`; promotion adds gates without changing product routes or
   scheduler ownership;
+- `preview`, `primary`, and the sealed native-relay composition mount no shared
+  chat, Command Deck, board, gate, route, playbook, backlog, metrics, raw-run,
+  or global-event presentation route; off mode remains the explicit rollback;
 - the 65,536-byte context overflow fails before new turn/target persistence and
   provider dispatch;
 - FortKit decodes every Primary Agent, Channel, target/receipt, Needs-you,
@@ -1445,7 +1462,10 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
   mutation, and SSE request are accepted; the HTML shell remains
   loopback-only; and
 - native source contains no Primary Channel `/api/chat` call or agent/model/
-  machine picker and no wrapper around the local HTML shell.
+  machine picker and no wrapper around the local HTML shell;
+- shipping Apple source and the generated project are closed allowlists: no
+  dormant Command Deck screens or legacy client endpoints are compiled, and
+  the iPhone archive contains no `Watch/` payload or CarPlay scene manifest.
 
 ### Native functional and release
 
@@ -1466,8 +1486,9 @@ concrete executor and `ui` imports no engine, graph, router, or native package.
   the new process, while updating the bundled binary path; unknown plist keys
   are not copied, the mesh bearer token remains only in its atomic `0600`
   `node.yaml`, and Fort never invents a digest;
-- the signed installed Mac app, its bundled daemon, the archived iOS/watch
-  bundle, and the committed source report the intended release/build identity;
+- the signed installed Mac app, its bundled daemon, the archived iPhone bundle,
+  and the committed source report the intended release/build identity, with no
+  Watch payload or CarPlay scene;
 - the Mac app is replaced on this machine and its live API plus one canonical
   Channel read are verified after restart; and
 - TestFlight completion requires successful stable-Xcode archive/export/upload,
@@ -1503,8 +1524,9 @@ No destructive migration is permitted. The launchd command remains `fort
 serve`; Phase 1 never switches scheduler ownership to another composition.
 Before promotion the new shell is exercised in `preview` mode. Same-binary
 rollback sets `FORT_PRIMARY_CHANNELS=off` and restarts `serve`, which removes
-the preview and every Phase 1 route while preserving scheduler ownership;
-`/shared` and `/legacy` remain available throughout.
+the preview and every Phase 1 route while preserving scheduler ownership. The
+old shared/admin presentation is available only after that explicit rollback;
+it is not kept mounted beside the Phase 1 product.
 
 Do not run a pre-Phase-1 binary against a database containing Primary Channels.
 If binary rollback is necessary, stop all writers and restore the coordinated
@@ -1512,9 +1534,11 @@ pre-Phase-1 database snapshot together with the prior binary. The database
 triggers deliberately make unsupported old writes fail, but snapshot restore
 is the only rollback that removes new policy semantics completely.
 
-`/shared` and `/legacy` are not deleted. Historical runs, projects, schedules,
-and playbooks are not changed. The additive Primary Agent, Primary Channel,
-and pin rows may remain unused without a data rewrite.
+Historical runs, projects, schedules, and playbooks are not changed. Their
+server-side contracts may remain for off-mode rollback and administration even
+though their Phase 1 presentation and unused native client code are removed.
+The additive Primary Agent, Primary Channel, and pin rows may remain unused
+without a data rewrite.
 
 ## Current baseline warning
 
@@ -1562,6 +1586,7 @@ Default theme / preference scope: Quiet Intelligence / local UI only
 Spec 044 approved by Toby: 2026-08-08
 Subscription-lane amendment approved by Toby: 2026-08-08
 Native macOS + iPhone/TestFlight shipment amendment approved by Toby: 2026-08-09
+Phase 1 presentation cleanup across all shipping channels approved by Toby: 2026-08-09
 Native transport: macOS typed APIs over same-host loopback; iPhone typed APIs over authenticated encrypted HTTPS relay; HTML remains local
 Initial exact profile / requested model: codex-subscription:gpt-5.6-sol / gpt-5.6-sol
 Authority / policy / runtime: chat_subscription_isolated_v1 / codex-subscription-chat-v1 / codex_subscription_exec_v1

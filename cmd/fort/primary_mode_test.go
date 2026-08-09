@@ -29,3 +29,19 @@ func TestPrimaryChannelsModeIsClosedAndOffByDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestPrimaryUISurfaceLabelMatchesMountedProduct(t *testing.T) {
+	tests := []struct {
+		mode ui.PrimaryChannelsMode
+		want string
+	}{
+		{mode: ui.PrimaryChannelsOff, want: "legacy admin"},
+		{mode: ui.PrimaryChannelsPreview, want: "private Channels · Scheduled · Needs you · Settings"},
+		{mode: ui.PrimaryChannelsPrimary, want: "private Channels · Scheduled · Needs you · Settings"},
+	}
+	for _, test := range tests {
+		if got := primaryUISurfaceLabel(test.mode); got != test.want {
+			t.Errorf("mode %q UI label = %q, want %q", test.mode, got, test.want)
+		}
+	}
+}

@@ -1,9 +1,7 @@
 # Deploying the Fort clients via TestFlight
 
-The Apple clients live in `ui/apple` (shared **FortKit** package + **iOS**,
-**macOS**, **watchOS** apps, **CarPlay** scene, watch **complication**). All five
-compile today (`make apple-build`). This is what you do to get them onto
-TestFlight.
+The Apple clients live in `ui/apple`: one shared **FortKit** package and the
+Phase 1 **iOS** and **macOS** apps. Both compile with `make apple-build`.
 
 ## What you need first
 - **Apple Developer Program** membership ($99/yr) — required for TestFlight.
@@ -21,8 +19,8 @@ settings:
 cd ui/apple && xcodegen generate && open Fort.xcodeproj
 ```
 Or, in Xcode, enable **Automatically manage signing** per target and pick your
-team — Xcode registers the bundle IDs (`io.mtree.fort`, `.mac`, `.watch`,
-`.watch.complication`) for you. Change the `io.mtree` prefix if you don't own it.
+team — Xcode registers the `io.mtree.fort` and `io.mtree.fort.mac` bundle IDs
+for you. Change the `io.mtree` prefix if you don't own it.
 
 ## 2 · Production gateway and direct development
 
@@ -46,8 +44,7 @@ needs a higher build number** — bump `CURRENT_PROJECT_VERSION` in `project.yml
 ## 4 · Archive & upload
 **GUI (simplest):** select the **Fort** scheme + **Any iOS Device (arm64)** ▸
 **Product ▸ Archive** ▸ Organizer ▸ **Distribute App ▸ TestFlight & App Store ▸
-Upload**. The Fort archive already embeds the watch app and complication.
-Do not upload `FortWatch` separately. FortMac is a separate macOS distribution.
+Upload**. FortMac is a separate macOS distribution.
 
 **CLI:**
 ```sh
@@ -55,9 +52,7 @@ cd ui/apple
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
   -configuration Release -archivePath build/Fort.xcarchive \
   -allowProvisioningUpdates archive DEVELOPMENT_TEAM=ABCDE12345
-# NB: use -destination, NOT `-sdk iphoneos` — forcing the SDK poisons the
-# embedded watch targets (iOS DTPlatformName/UIDeviceFamily/arch → App Store
-# validation rejects the build).
+# Use an explicit generic iOS destination for the archive.
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
   -exportPath build/Fort-upload -exportOptionsPlist ExportOptions.plist \
   -allowProvisioningUpdates
@@ -79,26 +74,7 @@ It does not produce an IPA that should be uploaded a second time.
 | Surface | TestFlight path |
 |---|---|
 | **iOS** (`Fort`) | Standard iOS build. Primary. |
-| **watchOS** (`FortWatch`) | Ship **embedded in the iOS app** (add `FortWatch` as a target dependency of `Fort` with `embed: true`, and embed `FortComplication` in `FortWatch`) so it installs with the phone app. A standalone watch app is also allowed but needs more setup. |
 | **macOS** (`FortMac`) | A **separate** App Store Connect macOS record; TestFlight supports macOS. Archive with **My Mac**, then Distribute ▸ TestFlight. |
-
-## CarPlay — read this before you count on it
-The CarPlay scene (`ui/apple/CarPlay`) **compiles** and runs in the CarPlay
-Simulator during development, but shipping it is gated by Apple:
-- The CarPlay app entitlement (`com.apple.developer.carplay-*`) is granted **only
-  for specific app categories** — navigation, audio, communication (VoIP), EV
-  charging, parking, quick-food ordering, fueling, driving-task. **A dev/ops
-  control-plane dashboard doesn't fit an approved category**, so Apple is unlikely
-  to grant it. Request at developer.apple.com/contact/request/carplay.
-- **Without the entitlement the CarPlay scene simply won't activate** — the iOS
-  app still ships to TestFlight fine. Treat CarPlay as a **dev/simulator-only**
-  surface unless Fort is reframed into an approved category and Apple approves it.
-
-**Local CarPlay testing:** add the CarPlay scene manifest to the iOS Info.plist
-(a `CPTemplateApplicationSceneSessionRoleApplication` with delegate
-`FortCarPlaySceneDelegate`) + the carplay entitlement to a dev profile, then use
-the CarPlay Simulator (Simulator ▸ I/O ▸ External Displays ▸ CarPlay). See
-`ui/apple/CarPlay/Info-CarPlay-notes.md`.
 
 ## The one environment fix on this Mac
 `xcodebuild` reported *"CoreSimulator is out of date"* — that only disables
@@ -120,8 +96,8 @@ security import ~/.appstoreconnect/nimbus-dist-cert-backup/P4B9AKSW76.cer \
   -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign -T /usr/bin/xcodebuild
 # 2. bump the version in project.yml, then regenerate
 xcodegen generate
-# 3. archive (embeds watch + complication). -allowProvisioningUpdates uses the
-#    Xcode-signed-in tobias@mtree.io session to create App Store profiles.
+# 3. archive. -allowProvisioningUpdates uses the Xcode-signed-in
+#    tobias@mtree.io session to create App Store profiles.
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
   -archivePath build/Fort.xcarchive -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=T3JB5MYZ93 archive
@@ -135,7 +111,7 @@ xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
 as the **literals** `1.0`/`1` into the generated Info.plists, which SHADOW the
 `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` build settings. project.yml now sets
 each target's `info.properties` to `$(MARKETING_VERSION)`/`$(CURRENT_PROJECT_VERSION)`
-so a version bump actually reaches the build (phone + watch + complication all match).
+so a version bump actually reaches the shipping build.
 
 ## One upload, then independent verification
 

@@ -361,15 +361,14 @@ func cmdServe(args []string) error {
 	mount := func(mux *http.ServeMux) { mountMode(mux, primaryMode) }
 
 	// Remote gateway (spec 028): when this machine has joined a gateway,
-	// maintain the outbound tunnel and serve the SAME mux through it — a fresh
-	// ServeMux with the identical mounts, since the transport moves bytes and
-	// never imports ui. cmd/fort is the composition root, so it (and only it)
-	// may import exec/relay.
+	// maintain the outbound tunnel with only the native Phase 1 API contract.
+	// The transport moves sealed bytes and never imports ui; cmd/fort remains the
+	// composition root that selects the closed route set.
 	if rc, err := config.LoadRelay(a.cfg.DataDir()); err == nil {
 		rmux := http.NewServeMux()
-		// Phase 1 is local-web only. The relay keeps the off/shared UI while
-		// node and mesh control routes remain unchanged.
-		mountMode(rmux, ui.PrimaryChannelsOff)
+		if err := registerNativeRelayRoutes(rmux, uiSrv, primaryMode); err != nil {
+			return fmt.Errorf("serve: register native relay routes: %w", err)
+		}
 		relayHandler := server.ObserveRequests(rmux, func(event server.RequestEvent) {
 			slog.Info("fort relay request", "request_id", event.ID, "method", event.Method,
 				"path", event.Path, "status", event.Status, "duration", event.Duration)
@@ -396,7 +395,7 @@ func cmdServe(args []string) error {
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
 	fmt.Printf("fort-core on http://%s  (runtime=%s · node=%s)\n", a.cfg.Addr, a.rt.Name(), a.cfg.NodeName)
-	fmt.Printf("fort-ui   on http://%s/  (conversations · projects · computers · today)\n", a.cfg.Addr)
+	fmt.Printf("fort-ui   on http://%s/  (%s)\n", a.cfg.Addr, primaryUISurfaceLabel(primaryMode))
 	if reg := a.live.Load(); reg != nil {
 		exec := "off"
 		if a.cfg.NodeToken != "" {

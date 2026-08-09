@@ -141,7 +141,7 @@ func TestNativeGatewayRequiresHTTPSAndPublishesTransportReplacement(t *testing.T
 	}
 }
 
-func TestPrimaryAppleReleaseBumpsEveryEmbeddedBuild(t *testing.T) {
+func TestPrimaryAppleReleaseBumpsEveryShippingBuild(t *testing.T) {
 	project := readAppleSource(t, "project.yml")
 	const buildMarker = `CURRENT_PROJECT_VERSION: "`
 	start := strings.Index(project, buildMarker)
@@ -154,12 +154,12 @@ func TestPrimaryAppleReleaseBumpsEveryEmbeddedBuild(t *testing.T) {
 		t.Fatal("project version terminator missing")
 	}
 	build, err := strconv.Atoi(project[start : start+end])
-	if err != nil || build <= 2608011 {
-		t.Fatalf("Apple release build = %q, must be newer than shipped 2608011", project[start:start+end])
+	if err != nil || build <= 2608091 {
+		t.Fatalf("Apple release build = %q, must be newer than legacy-bearing uploaded 2608091", project[start:start+end])
 	}
-	for _, target := range []string{"Fort:", "FortMac:", "FortWatch:", "FortComplication:"} {
+	for _, target := range []string{"Fort:", "FortMac:"} {
 		if !strings.Contains(project, target) {
-			t.Fatalf("embedded release target %q disappeared", target)
+			t.Fatalf("shipping release target %q disappeared", target)
 		}
 	}
 }

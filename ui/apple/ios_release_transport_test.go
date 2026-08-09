@@ -15,6 +15,7 @@ func TestIPhonePhysicalReleaseCompilesOutDirectHost(t *testing.T) {
 
 	for _, required := range []string{
 		"FortClient.gatewayOnly()",
+		"#else\n        return FortClient.gatewayOnly()",
 		"gateway.hasPrimaryTransport",
 		"client.disconnectGateway()",
 		debugSimulatorGuard,

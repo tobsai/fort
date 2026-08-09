@@ -1,6 +1,7 @@
-# AO-031 · fort-ui ↔ fort-core event/command contract
+# AO-031 · legacy off-mode event/command contract
 
-The interface fort-ui subscribes to (events) and calls back (commands). The
+This is the preserved legacy administration interface mounted only when the
+Primary Channels mode is `off`. No Phase 1 Web or Apple client consumes it. The
 authoritative Go types live in [`ui/contract.go`](../../ui/contract.go); this is
 the human-readable summary. Informed by the Agent Portal SSE/WS model
 (`interface-contracts.md`), reimplemented natively over fort-core's append-only
@@ -28,7 +29,7 @@ A single run is also fetchable whole (replay without streaming):
 | Method & path | Body | Result |
 |---|---|---|
 | `GET /api/board` | — | `{runs[], gates[]}` — live board (AO-032) |
-| `GET /api/summary` | — | `{total,running,queued,blocked,succeeded,failed,execution,gates[]}` — glanceable (watch/CarPlay) |
+| `GET /api/summary` | — | `{total,running,queued,blocked,succeeded,failed,execution,gates[]}` — compact legacy summary |
 | `GET /api/runs/{id}` | — | `{run, nodes[], events[]}` — replayable |
 | `GET /api/gates` | — | `[{run_id,node_id,input}]` — gate inbox |
 | `POST /api/gate` | `{run_id,node_id,decision:"approve"\|"reject",edit?}` | `{state,paused_node?}` (AO-035) · **409** in control-only mode |
@@ -54,6 +55,9 @@ run's full history by reading `GET /api/runs/{id}` or by streaming
 `GET /api/events?since=0`. The board is derived state (`run`/`node_run`),
 rebuildable from the log.
 
-## iOS (AO-037)
-The iOS shell (`ui/ios/`) consumes the same `GET /api/board` + `POST /api/gate`
-contract; `Codable` structs mirror `ui/contract.go`.
+## Shipping-client boundary
+
+The Phase 1 Web, iPhone, and Mac clients do not call these endpoints. They use
+only the typed Primary Agent, Channels, Needs You, Schedule-read, and Channel
+SSE contracts recorded in Spec 044. Watch, complication, and CarPlay consumers
+are not present in the Phase 1 build.

@@ -80,32 +80,71 @@ func (s *Server) Register(mux *http.ServeMux) {
 // RegisterMode mounts the one closed Phase 1 presentation mode. Register is
 // retained as the off/default entry point for existing embeddings and tests.
 func (s *Server) RegisterMode(mux *http.ServeMux, mode PrimaryChannelsMode) error {
+	if err := validatePrimaryChannelsMode(mode); err != nil {
+		return err
+	}
+
+	switch mode {
+	case PrimaryChannelsOff:
+		mux.HandleFunc("GET /shared", s.handlePage)
+		mux.HandleFunc("GET /", s.handlePage)
+		s.registerPrimaryRouteTombstones(mux)
+		s.registerLegacyRoutes(mux)
+	case PrimaryChannelsPreview, PrimaryChannelsPrimary:
+		s.registerPrimaryWebRoutes(mux)
+	}
+	return nil
+}
+
+// RegisterNativeRelayRoutes mounts the Phase 1 native-client contract without
+// any HTML, legacy control-plane route, node route, or mesh route. The relay
+// transport marks requests trusted only after opening the authenticated sealed
+// session; the handlers retain their own transport checks.
+func (s *Server) RegisterNativeRelayRoutes(mux *http.ServeMux, mode PrimaryChannelsMode) error {
+	if err := validatePrimaryChannelsMode(mode); err != nil {
+		return err
+	}
+	if mode == PrimaryChannelsOff {
+		return nil
+	}
+	s.RegisterPrimaryRoutes(mux)
+	s.RegisterScheduleReadRoutes(mux)
+	s.registerPhaseOneLegacyMethodTombstones(mux)
+	return nil
+}
+
+func validatePrimaryChannelsMode(mode PrimaryChannelsMode) error {
 	switch mode {
 	case PrimaryChannelsOff, PrimaryChannelsPreview, PrimaryChannelsPrimary:
+		return nil
 	default:
 		return fmt.Errorf("ui: unknown Primary Channels mode %q", mode)
 	}
+}
 
-	mux.HandleFunc("GET /shared", s.handlePage)
-	switch mode {
-	case PrimaryChannelsOff:
-		mux.HandleFunc("GET /", s.handlePage)
-		s.registerPrimaryRouteTombstones(mux)
-	case PrimaryChannelsPreview:
-		mux.HandleFunc("GET /", s.handlePage)
-		mux.HandleFunc("GET /channels-preview", phase1LocalOnly(s.handlePrimaryPage))
-		s.RegisterPrimaryRoutes(mux)
-		s.RegisterScheduleReadRoutes(mux)
-	case PrimaryChannelsPrimary:
-		mux.HandleFunc("GET /", phase1LocalOnly(s.handlePrimaryPage))
-		mux.HandleFunc("GET /channels-preview", phase1LocalOnly(func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		}))
-		s.RegisterPrimaryRoutes(mux)
-		s.RegisterScheduleReadRoutes(mux)
-	}
-	s.registerBaseRoutes(mux)
-	return nil
+func (s *Server) registerPrimaryWebRoutes(mux *http.ServeMux) {
+	localPage := phase1LocalOnly(s.handlePrimaryPage)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		localPage(w, r)
+	})
+	mux.HandleFunc("GET /channels-preview", phase1LocalOnly(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	}))
+	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
+	mux.HandleFunc("GET /fort-agent-orb.png", s.handleAgentOrb)
+	s.RegisterPrimaryRoutes(mux)
+	s.RegisterScheduleReadRoutes(mux)
+	s.registerPhaseOneLegacyMethodTombstones(mux)
+}
+
+func (s *Server) registerPhaseOneLegacyMethodTombstones(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/schedules", func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
 }
 
 func (s *Server) registerPrimaryRouteTombstones(mux *http.ServeMux) {
@@ -126,7 +165,7 @@ func (s *Server) registerPrimaryRouteTombstones(mux *http.ServeMux) {
 	}
 }
 
-func (s *Server) registerBaseRoutes(mux *http.ServeMux) {
+func (s *Server) registerLegacyRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /legacy", s.handleLegacyPage)
 	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
 	mux.HandleFunc("GET /fort-agent-orb.png", s.handleAgentOrb)
@@ -176,8 +215,8 @@ func (s *Server) registerBaseRoutes(mux *http.ServeMux) {
 }
 
 // RegisterScheduleReadRoutes mounts only the Phase 1 read surface. Composition
-// calls this in preview/primary mode; the legacy schedule POST remains mounted
-// by Register independently.
+// calls this in preview/primary mode; the legacy schedule POST exists only in
+// the separate off-mode route set.
 func (s *Server) RegisterScheduleReadRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/schedules", phase1LocalOnly(s.handleScheduleList))
 	mux.HandleFunc("GET /api/schedules/{id}", phase1LocalOnly(s.handleScheduleGet))

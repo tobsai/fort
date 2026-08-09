@@ -164,7 +164,7 @@ func TestScheduleOccurrenceRouteValidatesBoundedExclusiveCursorAndNonNullArray(t
 	scheduleHTTP(t, mux, "/api/schedules/missing/occurrences", http.StatusNotFound)
 }
 
-func TestScheduleReadRoutesPreserveLegacyPostAndMapUnknownFailures(t *testing.T) {
+func TestScheduleReadRoutesRejectLegacyPostAndMapUnknownFailures(t *testing.T) {
 	readPort := &scheduleReadAPI{listErr: errors.New("read failed")}
 	legacy := &legacyScheduleAPI{}
 	server := ui.New(ui.Deps{ScheduleRead: readPort, Schedules: legacy})
@@ -177,7 +177,7 @@ func TestScheduleReadRoutesPreserveLegacyPostAndMapUnknownFailures(t *testing.T)
 	request.RemoteAddr = "127.0.0.1:4000"
 	result := httptest.NewRecorder()
 	mux.ServeHTTP(result, request)
-	if result.Code != http.StatusCreated || legacy.calls != 1 {
+	if result.Code != http.StatusNotFound || legacy.calls != 0 {
 		t.Fatalf("legacy POST status=%d calls=%d body=%s", result.Code, legacy.calls, result.Body.String())
 	}
 	scheduleHTTP(t, mux, "/api/schedules", http.StatusInternalServerError)

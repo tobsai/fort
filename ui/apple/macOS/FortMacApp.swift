@@ -22,8 +22,8 @@ struct FortMacApp: App {
     /// the menu is closed.
     @StateObject private var model = MenuModel()
 
-    /// Drives the `fort service` launchd daemon (install/start/stop/restart).
-    /// Bound to the window's sidebar "Service" controls.
+    /// Drives bounded launchd status and Install/Start/Restart recovery from
+    /// Primary Settings. Administrative teardown remains CLI-only.
     @StateObject private var service = ServiceController(fortBinaryURL: FortMacApp.bundledFort())
 
     var body: some Scene {

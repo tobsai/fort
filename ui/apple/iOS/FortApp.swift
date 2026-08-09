@@ -34,8 +34,9 @@ struct FortApp: App {
     private static func makeClient() -> FortClient {
         #if DEBUG && targetEnvironment(simulator)
         return FortClient()
-        #endif
+        #else
         return FortClient.gatewayOnly()
+        #endif
     }
 }
 

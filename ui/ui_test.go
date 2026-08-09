@@ -190,7 +190,6 @@ func TestShippingAppIconAssetsConformToCanonicalIdentity(t *testing.T) {
 	requireDimensions(canonical, 1024, 1024)
 	shipping1024 := []pngAsset{
 		readPNG(filepath.Join("apple", "iOS", "Assets.xcassets", "AppIcon.appiconset", "icon-1024.png")),
-		readPNG(filepath.Join("apple", "watch", "Assets.xcassets", "AppIcon.appiconset", "icon-1024.png")),
 		readPNG(filepath.Join("apple", "macOS", "Assets.xcassets", "AppIcon.appiconset", "icon_512x512@2x.png")),
 	}
 	for _, asset := range shipping1024 {

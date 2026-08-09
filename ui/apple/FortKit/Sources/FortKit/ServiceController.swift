@@ -3,11 +3,12 @@
 //  FortKit
 //
 //  Drives the Fort daemon's launchd lifecycle by shelling out to the
-//  `fort service <verb>` subcommand (spec 032). The macOS app binds its
-//  install / start / stop / restart / uninstall controls to this and reads
-//  `status.running` for the running/stopped indicator.
+//  `fort service <verb>` subcommand (spec 032). The macOS Phase 1 recovery
+//  surface can install, start, or restart the service and reads
+//  `status.running` for the running/stopped indicator. Administrative teardown
+//  remains available through the CLI rather than the product UI.
 //
-//  Available on macOS only — `Process` is not present on iOS/watchOS.
+//  Available on macOS only — `Process` is not present on iOS.
 //
 
 #if os(macOS)
@@ -46,7 +47,7 @@ public final class ServiceController: ObservableObject {
 
     /// Runs `fort <args>` and returns its exit code and combined stdout+stderr.
     @discardableResult
-    public func run(_ args: [String]) async -> (Int32, String) {
+    private func run(_ args: [String]) async -> (Int32, String) {
         let binary = fortBinaryURL
         return await withCheckedContinuation { cont in
             let p = Process()
@@ -69,9 +70,7 @@ public final class ServiceController: ObservableObject {
 
     public func install() async { _ = await run(["service", "install"]);   await refresh() }
     public func start()   async { _ = await run(["service", "start"]);     await refresh() }
-    public func stop()    async { _ = await run(["service", "stop"]);      await refresh() }
     public func restart() async { _ = await run(["service", "restart"]);   await refresh() }
-    public func uninstall() async { _ = await run(["service", "uninstall"]); await refresh() }
 
     /// Refreshes `status` from `fort service status` — running iff the command
     /// exits 0 and its output mentions "running".

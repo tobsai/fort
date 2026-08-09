@@ -10,7 +10,7 @@ Fort takes a task, routes it to the right agent by fixed rules (no model in the
 routing path), runs it by spawning the agent CLIs itself, and sequences
 multi-step work as a DAG that pauses at human gates. It runs as one native Go
 binary and exposes a control plane you can drive from the web, iOS, macOS,
-CarPlay, and Apple Watch.
+or the CLI. The Phase 1 shipping UI is Private Channels on Web, iPhone, and Mac.
 
 > Built native per the [Agent Ops Backlog](./Agent%20Ops%20Backlog/) (rev. 2).
 > The original TypeScript prototype was an experiment; this Go build is the
@@ -20,12 +20,13 @@ CarPlay, and Apple Watch.
 
 ```sh
 fort serve      # full plane: control + deterministic execution
-fort control    # CONTROL PLANE ONLY — board, chat, scheduler, gate inbox, feed
-                # no router/runtime/DAG, no agent CLIs needed; tasks are boarded
+fort control    # LEGACY ADMIN / ROLLBACK CONTROL PLANE ONLY
+                # no router/runtime/DAG or agent CLIs needed
 ```
 
-- **Control plane** — the human surfaces: Kanban board, chat, scheduler, gate
-  inbox, live feed, and the client apps. Depends on nothing but the store.
+- **Control plane** — the typed Primary Channels surface plus the durable
+  scheduler, state APIs, and explicit off-mode legacy administration. Depends
+  on nothing but the store.
 - **Execution plane** (deterministic) — the router, the native runtime that
   spawns `claude`/`codex`/`hermes`/`openclaw`, and the DAG engine. Optional —
   plug it in for `fort serve`, leave it out for `fort control`.
@@ -38,11 +39,11 @@ One Go module, hard module seams (enforced by `core/arch_test.go`):
 |---|---|
 | `core/` | deterministic orchestration: rules, router, runtime interface, store, engine, graph, inbox, flow, scheduler, server |
 | `exec/` | native execution: `NativeRuntime` (PTY-less CLI executor), `FakeRuntime`, `gateway` (budgets/tracing/failover) |
-| `ui/` | control-plane HTTP/SSE API + web board; imports **none** of the execution components |
+| `ui/` | Primary Channels HTTP/SSE + Web, with off-mode legacy administration; imports **none** of the execution components |
 | `control/` | adapters wiring execution into the ui ports (or a queue-only dispatcher) |
 | `rules/`, `flows/` | the routing ruleset and flow definitions (YAML) |
 | `cmd/fort/` | the `fort` CLI |
-| `ui/apple/` | FortKit Swift package + iOS / macOS / CarPlay / watch clients |
+| `ui/apple/` | Phase 1 FortKit package + explicit iPhone and Mac clients |
 
 Design tenets: **routing is deterministic** (proven by tests, zero model calls);
 **only `task` nodes invoke inference**; **every state change is an append-only
@@ -54,15 +55,17 @@ event** (the feed + board are derived, replayable).
 # install
 brew install tobsai/tap/fort     # or: make build -> ./bin/fort (needs Go 1.22+)
 
-fort control                     # control plane at http://127.0.0.1:4087/
-# or, with the execution plane + agent CLIs installed:
-fort serve
+fort control                                  # explicit legacy admin/rollback
+# Phase 1 preview, with the execution plane + required readiness inputs:
+FORT_PRIMARY_CHANNELS=preview fort serve
 ```
 
 The binary embeds a default ruleset, so `fort serve` works from any directory
 with no checked-out repo.
 
-Then open the board at `/`, or drive the API:
+Then open `/` for Private Channels. Setting `FORT_PRIMARY_CHANNELS=off` (the
+default) intentionally restores the legacy admin surface instead. The CLI
+continues to expose deterministic orchestration commands:
 
 ```sh
 fort route --dry-run --label bug "null deref"      # -> codex
@@ -74,27 +77,25 @@ fort gate approve <run> plan_gate
 
 `FORT_FAKE=1` runs a token-free fake runtime for demos/CI.
 
-Break a goal into backlog sub-tasks with the board's **Break down** button or
-`fort task breakdown "<goal>"` — a planner agent (`FORT_PLANNER`, default
-`claude`) decomposes it into `source=agent` items you curate and drag onto the
-board to run. It's a normal, visible run and needs the execution plane (`fort
-serve`); in control-only mode it 409s, like gates.
+Break a goal into backlog sub-tasks with `fort task breakdown "<goal>"` (or the
+explicit off-mode legacy admin board). A planner agent (`FORT_PLANNER`, default
+`claude`) decomposes it into `source=agent` items for deterministic dispatch.
+It needs the execution plane (`fort serve`); control-only mode returns 409.
 
 ## Clients
 
-All surfaces speak one HTTP/SSE contract ([`docs/notes/event-contract.md`](./docs/notes/event-contract.md)):
+The shipping clients share the typed Spec 044 Primary HTTP/SSE contract. The
+older orchestration contract remains documented only for off-mode rollback and
+administration in [`docs/notes/event-contract.md`](./docs/notes/event-contract.md).
 
-- **Web** — served at `GET /`: a three-zone dashboard (Define · Ready · In
-  progress) — markdown compose with breakdown, Start buttons on ready work,
-  live runs with nested tool/subagent activity and inline gate approvals, plus
-  a light/dark theme toggle.
-  Click any run to open a detail drawer: a flow shows its DAG steps and each
-  step's own live log; a single run shows its live log.
-  Task and backlog bodies render a safe markdown subset (headings, emphasis,
-  code, lists, http(s) links).
-- **Apple** — [`ui/apple`](./ui/apple): a shared **FortKit** package reused by iOS,
-  macOS (menu bar), CarPlay, and watchOS (app + complication). `make apple-build`
-  compiles them all. Deploy: [`docs/notes/testflight.md`](./docs/notes/testflight.md).
+- **Web** — served at `GET /` in `preview` or `primary`: private Channels,
+  canonical transcripts, a text-only composer, read-only Scheduled, Needs you,
+  and Settings/Recheck in the three device-local themes.
+- **Apple** — [`ui/apple`](./ui/apple): the same Phase 1 contract in native
+  iPhone and Mac clients through one closed **FortKit** package. The iPhone
+  archive contains no Watch, complication, or CarPlay scene. `make apple-build`
+  compiles both shipping targets. Deploy:
+  [`docs/notes/testflight.md`](./docs/notes/testflight.md).
 
 ## Multi-machine ([spec 022](./specs/022-multi-machine-orchestration.md), [spec 024](./specs/024-mesh-enrollment.md))
 
@@ -126,8 +127,8 @@ machine from the registry — see the token-rotation runbook in
 [`docs/notes/threat-model.md`](./docs/notes/threat-model.md) for what it does
 *not* do.
 
-The board shows every host (with reachability) and tags each run with the machine
-it ran on; chat and `fort task add --machine <host>` can pin a target. Placement
+The off-mode admin board shows every host and tags each run with its machine;
+legacy chat and `fort task add --machine <host>` can pin a target. Placement
 is deterministic: an explicit pin, else the local host if it offers the agent,
 else the first host in the registry that does. Inter-host `/api/exec` is
 bearer-token authenticated; keep it on a trusted LAN.
@@ -157,8 +158,6 @@ set, `fort mesh` refuses to write to it (it only manages its own file).
   invocation is a **best guess** ([spec 023](./specs/023-openclaw-provider.md))
   until the CLI is installed and probed; correct one line in
   `exec/native/providers.go` if it differs.
-- CarPlay ships only with Apple's category-gated entitlement (see the TestFlight
-  note); the code compiles and runs in the simulator regardless.
 
 ## Docs
 

@@ -1,22 +1,21 @@
 # Control plane vs execution plane
 
-Fort separates the human-facing **control plane** (board, chat, scheduler, gate
-inbox, live feed — and the client surfaces: web, iOS, Mac, CarPlay, watch) from
-the deterministic **execution plane** (router + native runtime + DAG engine).
-You can run the control plane on its own — no router, no native runtime, no DAG,
-and no agent CLIs installed.
+Fort separates durable **control-plane state and APIs** from the deterministic
+**execution plane** (router + native runtime + DAG engine). The Phase 1 shipping
+clients present only private Channels, Scheduled reads, Needs You, and Settings.
+The older board/chat/gate/feed surface is an explicit off-mode administration
+and rollback contract, not a sibling Phase 1 destination.
 
 ## Two run modes (one binary)
 
 ```sh
-fort serve      # full plane: control + execution (routes + runs natively)
-fort control    # CONTROL PLANE ONLY: board, chat, scheduler, gate inbox, feed
+fort serve      # full plane; FORT_PRIMARY_CHANNELS selects Primary or off mode
+fort control    # legacy off-mode administration without an execution plane
 ```
 
 `fort control` needs nothing but the `fort` binary itself — no `claude`/`codex`/
-`hermes`/`openclaw`, no ruleset, no flows. Submitted tasks are **boarded as
-`queued`**; an execution plane can pick them up later (run `fort serve` against
-the same `FORT_DB`).
+`hermes`/`openclaw`, no ruleset, no flows. It exists for legacy administration
+and rollback; it is not the Phase 1 client experience.
 
 ## How the seam works
 
@@ -43,18 +42,12 @@ The `ui` module talks to the rest of Fort only through two ports
 
 ## Client surfaces
 
-All surfaces speak the same HTTP/SSE contract
-([`event-contract.md`](./event-contract.md)); the Apple clients share one Swift
-package, **FortKit** (`ui/apple/FortKit`).
+The shipping clients share the typed Primary HTTP/SSE contract in Spec 044 and
+one Swift package, **FortKit** (`ui/apple/FortKit`). The separate legacy
+off-mode API is documented in [`event-contract.md`](./event-contract.md).
 
 | Surface | Path | Consumes |
 |---|---|---|
-| Web | served at `GET /` | board + summary + SSE feed + chat + gates |
-| iOS | `ui/apple/iOS` | board, chat, gates, feed (FortKit) |
-| macOS | `ui/apple/macOS` | menu-bar summary + gate quick-approve (FortKit) |
-| CarPlay | `ui/apple/CarPlay` | `CPListTemplate` gates + status, glanceable (FortKit) |
-| watch | `ui/apple/watch` | glance counts + gate approve + complication (FortKit) |
-
-`GET /api/summary` exists specifically for the constrained surfaces (watch
-complication, CarPlay lists): a small counts payload + the pending gates, with an
-`execution` flag so a client can show whether an execution plane is attached.
+| Web | served at `GET /` | private Channels, Scheduled, Needs you, Settings |
+| iOS | `ui/apple/iOS` | private Channels over the authenticated relay (FortKit) |
+| macOS | `ui/apple/macOS` | private Channels plus a bounded menu-bar glance (FortKit) |

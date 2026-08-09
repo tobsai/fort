@@ -2,11 +2,12 @@
 //  FortClient.swift
 //  FortKit
 //
-//  The single HTTP/SSE client every Apple surface (iOS app, macOS app,
-//  watch complication, CarPlay) uses to talk to Fort's control plane.
+//  The bounded HTTP/SSE client used by the native iPhone and Mac Phase 1
+//  surfaces.
 //
-//  Reads and commands use URLSession's async APIs; the live feed uses
-//  URLSession.bytes(for:) to stream and parse Server-Sent Events into `Event`s.
+//  Reads and commands use URLSession's async APIs; selected-Channel updates use
+//  URLSession.bytes(for:) to decode replacement snapshots from Server-Sent
+//  Events.
 //
 
 import Foundation
@@ -116,9 +117,9 @@ public protocol FortRelayTransporting: Sendable {
 
 extension GatewayRelayTransport: FortRelayTransporting {}
 
-/// The control-plane client. One instance per base URL; safe to share and
-/// mutate `baseURL` (guarded internally). Conforms to `ObservableObject` so
-/// SwiftUI surfaces can hold it as `@StateObject` / `@EnvironmentObject`.
+/// The control-plane client. One instance owns one currently selected
+/// direct-or-relay transport. Conforms to `ObservableObject` so SwiftUI
+/// surfaces can hold it as `@StateObject` / `@EnvironmentObject`.
 public final class FortClient: ObservableObject, @unchecked Sendable {
 
     /// An inert URL used by gateway-only clients before an authenticated relay
@@ -126,9 +127,9 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     /// attempts a request while disconnected.
     private static let gatewayRequiredBaseURL = URL(string: "fort-gateway-required://disconnected")!
 
-    /// The control-plane base URL. Default is the local control endpoint.
-    /// Publishes changes so views bound to it refresh.
-    @Published public var baseURL: URL
+    /// The selected transport origin. Callers may observe it for identity and
+    /// refresh behavior; only the closed transport actions below may change it.
+    @Published public private(set) var baseURL: URL
 
     /// Monotonically changes whenever the underlying direct/relay transport is
     /// replaced, even when two gateway machines share the same public origin.
@@ -217,60 +218,7 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         transportGeneration &+= 1
     }
 
-    // MARK: - Reads
-
-    /// `GET /api/summary` — the glanceable control-plane snapshot.
-    public func summary() async throws -> Summary {
-        try await get("/api/summary")
-    }
-
-    /// `GET /api/board` — runs plus waiting gates.
-    public func board() async throws -> Board {
-        try await get("/api/board")
-    }
-
-    /// `GET /api/gates` — the gate inbox.
-    public func gates() async throws -> [GateItem] {
-        try await get("/api/gates")
-    }
-
-    /// `GET /api/runs/{id}` — a replayable run detail.
-    public func runDetail(_ id: String) async throws -> RunDetail {
-        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return try await get("/api/runs/\(escaped)")
-    }
-
-    /// `GET /api/backlog` — the pending-task backlog (spec 025).
-    public func backlog() async throws -> [BacklogItem] {
-        try await get("/api/backlog")
-    }
-
-    /// `GET /api/machines` — the machine roster + reachability (spec 022).
-    /// Empty in single-machine mode; the server always emits `[]`, never null.
-    public func machines() async throws -> [MachineSummary] {
-        try await get("/api/machines")
-    }
-
-    /// `GET /api/profiles` — closed Fort-owned profile choices with current
-    /// readiness and the machines that can execute each exact profile.
-    public func profiles() async throws -> [ProfileOption] {
-        try await get("/api/profiles")
-    }
-
-    /// `GET /api/metrics` — human-decision scorecards for the crew.
-    public func metrics(days: Int = 30, lane: String? = nil) async throws -> MetricsResponse {
-        var path = "/api/metrics?days=\(days)"
-        if let lane, !lane.isEmpty {
-            let escaped = lane.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? lane
-            path += "&lane=\(escaped)"
-        }
-        return try await get(path)
-    }
-
-    /// `GET /api/playbooks` — latest immutable revision of every playbook.
-    public func playbooks() async throws -> [Playbook] {
-        try await get("/api/playbooks")
-    }
+    // MARK: - Phase 1 reads
 
     /// `GET /api/settings/primary-agent` — exact selected authority and inventory.
     public func primaryAgent() async throws -> PrimaryAgentView {
@@ -410,226 +358,6 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         )
     }
 
-    /// `POST /api/chat` — submit a chat turn. Returns the resulting route.
-    @discardableResult
-    public func chat(
-        _ text: String,
-        agent: String? = nil,
-        profile: String? = nil,
-        machine: String? = nil,
-        playbookID: String? = nil,
-        playbookRevision: Int? = nil,
-        taskType: String? = nil,
-        planGate: Bool? = nil
-    ) async throws -> ChatResult {
-        try await chat(ChatRequest(
-            text: text,
-            agent: agent,
-            profile: profile,
-            machine: machine,
-            playbookID: playbookID,
-            playbookRevision: playbookRevision,
-            taskType: taskType,
-            planGate: planGate
-        ))
-    }
-
-    /// `POST /api/chat` — submit a fully resolved playbook handoff.
-    @discardableResult
-    public func chat(_ request: ChatRequest) async throws -> ChatResult {
-        try await post("/api/chat", body: request)
-    }
-
-    /// `POST /api/route` — resolve a route without dispatching or persisting.
-    public func route(_ request: RouteRequest) async throws -> RoutePreview {
-        try await post("/api/route", body: request)
-    }
-
-    /// `PUT /api/playbooks` — append a new immutable revision.
-    @discardableResult
-    public func savePlaybook(_ playbook: Playbook) async throws -> Playbook {
-        try await put("/api/playbooks", body: playbook)
-    }
-
-    /// `POST /api/playbooks/{id}/duplicate` — create an editable copy.
-    @discardableResult
-    public func duplicatePlaybook(_ id: String) async throws -> Playbook {
-        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return try await post("/api/playbooks/\(escaped)/duplicate", body: Optional<NoBody>.none)
-    }
-
-    /// `POST /api/openclaw` — deliver an inbound OpenClaw message.
-    @discardableResult
-    public func openclaw(from: String, text: String) async throws -> ChatResult {
-        let body = OpenClawMessage(from: from, text: text)
-        return try await post("/api/openclaw", body: body)
-    }
-
-    /// `POST /api/backlog/{id}/dispatch` — promote a backlog item to a run
-    /// (spec 025). The body is empty; the item is identified by path.
-    @discardableResult
-    public func dispatchBacklog(_ id: String) async throws -> ChatResult {
-        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return try await post("/api/backlog/\(escaped)/dispatch", body: Optional<NoBody>.none)
-    }
-
-    /// `POST /api/backlog` — add a task to Ready (spec 025). `title` is the
-    /// first line of the compose field; `body` the rest. Returns the created item.
-    @discardableResult
-    public func addBacklog(
-        title: String,
-        body: String? = nil,
-        agent: String? = nil,
-        machine: String? = nil
-    ) async throws -> BacklogItem {
-        let request = BacklogRequest(title: title, body: body, agent: agent, machine: machine)
-        return try await post("/api/backlog", body: request)
-    }
-
-    /// `PATCH /api/backlog/{id}` — pin or reassign Up-next work.
-    @discardableResult
-    public func reassignBacklog(_ id: String, agent: String) async throws -> BacklogItem {
-        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return try await patch("/api/backlog/\(escaped)", body: BacklogPatch(agent: agent))
-    }
-
-    /// `POST /api/breakdown` — ask the planner to decompose a goal into backlog
-    /// sub-tasks (spec 026). Returns the visible planner run's id.
-    @discardableResult
-    public func breakdown(_ text: String, agent: String? = nil) async throws -> BreakdownResult {
-        let body = BreakdownRequest(text: text, agent: agent)
-        return try await post("/api/breakdown", body: body)
-    }
-
-    /// `POST /api/gate` — decide a gate.
-    ///
-    /// Returns `false` when the server replies HTTP 409 (no execution plane —
-    /// control-only mode), and `true` on success. Non-409 error statuses throw.
-    @discardableResult
-    public func decideGate(
-        run: String,
-        node: String,
-        decision: String,
-        edit: String? = nil,
-        note: String? = nil
-    ) async throws -> Bool {
-        let body = GateDecision(runID: run, nodeID: node, decision: decision, edit: edit, note: note)
-        let data = try encoder.encode(body)
-        let response = try await perform(path: "/api/gate", method: "POST", body: data)
-        if response.status == 409 {
-            return false // no execution plane; caller shows "no execution plane"
-        }
-        try Self.throwIfNotOK(
-            status: response.status,
-            data: response.data,
-            requestID: response.requestID
-        )
-        return true
-    }
-
-    // MARK: - Live feed
-
-    /// `GET /api/events?since=N` — the SSE live feed, as an async sequence of
-    /// ``Event``s parsed from the stream. Each server frame looks like:
-    ///
-    /// ```
-    /// id: <n>
-    /// event: <type>
-    /// data: <Event json>
-    ///
-    /// ```
-    ///
-    /// The stream ends when the server closes the connection or the task is
-    /// cancelled; transport/parse failures finish the stream with the error.
-    public func events(since: Int = 0) -> AsyncThrowingStream<Event, Error> {
-        if let relayTransport {
-            return relayEvents(since: since, transport: relayTransport)
-        }
-        // Snapshot the base URL up front so the stream is stable if it changes.
-        let base = baseURL
-        let session = self.session
-        let decoder = self.decoder
-        let requestID = FortRequestID.make()
-
-        return AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    var components = URLComponents(
-                        url: base.appendingPathComponent("api/events"),
-                        resolvingAgainstBaseURL: false
-                    )
-                    components?.queryItems = [URLQueryItem(name: "since", value: String(since))]
-                    guard let url = components?.url else {
-                        continuation.finish(throwing: URLError(.badURL))
-                        return
-                    }
-
-                    var request = URLRequest(url: url)
-                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                    request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-                    request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
-
-                    let (bytes, response) = try await session.bytes(for: request)
-                    if let http = response as? HTTPURLResponse,
-                       !(200...299).contains(http.statusCode) {
-                        continuation.finish(
-                            throwing: FortClientError.httpStatus(
-                                status: http.statusCode,
-                                body: "",
-                                requestID: requestID
-                            )
-                        )
-                        return
-                    }
-
-                    // Accumulate the `data:` payload of the current frame. A
-                    // blank line terminates a frame; other fields (id/event) are
-                    // carried by the Event JSON itself, so we ignore them.
-                    var dataBuffer = ""
-
-                    for try await line in bytes.lines {
-                        if line.isEmpty {
-                            // Frame boundary — emit if we collected a data payload.
-                            if !dataBuffer.isEmpty {
-                                if let event = Self.decodeEvent(dataBuffer, using: decoder) {
-                                    continuation.yield(event)
-                                }
-                                dataBuffer = ""
-                            }
-                            continue
-                        }
-
-                        if line.hasPrefix(":") {
-                            continue // SSE comment / heartbeat
-                        }
-
-                        if let payload = Self.value(ofField: "data", in: line) {
-                            // Multiple data: lines in one frame are newline-joined per spec.
-                            dataBuffer += dataBuffer.isEmpty ? payload : "\n" + payload
-                        }
-                        // id: and event: fields are informational here; the Event
-                        // JSON already carries id/type, so we don't need them.
-                    }
-
-                    // Stream closed by the server — flush any trailing frame.
-                    if !dataBuffer.isEmpty,
-                       let event = Self.decodeEvent(dataBuffer, using: decoder) {
-                        continuation.yield(event)
-                    }
-                    continuation.finish()
-                } catch is CancellationError {
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-
     /// `GET /api/channels/{id}/events` — replacement snapshots for one Primary
     /// Channel. Every data frame must decode; malformed snapshots terminate the
     /// stream instead of leaving a native client on silently stale state.
@@ -701,9 +429,6 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
 
     // MARK: - HTTP plumbing
 
-    /// Empty stand-in for no-body command endpoints.
-    private struct NoBody: Encodable {}
-
     private struct PrimaryAgentSelectionRequest: Encodable {
         let optionID: String
         enum CodingKeys: String, CodingKey { case optionID = "option_id" }
@@ -744,12 +469,6 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
 
     private func put<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
         let response = try await perform(path: path, method: "PUT", body: try encoder.encode(body))
-        try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
-        return try decoder.decode(T.self, from: response.data)
-    }
-
-    private func patch<Body: Encodable, T: Decodable>(_ path: String, body: Body) async throws -> T {
-        let response = try await perform(path: path, method: "PATCH", body: try encoder.encode(body))
         try Self.throwIfNotOK(status: response.status, data: response.data, requestID: response.requestID)
         return try decoder.decode(T.self, from: response.data)
     }
@@ -829,42 +548,6 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    private func relayEvents(
-        since: Int,
-        transport: any FortRelayTransporting
-    ) -> AsyncThrowingStream<Event, Error> {
-        let decoder = self.decoder
-        return AsyncThrowingStream { continuation in
-            let task = Task {
-                var buffer = ""
-                do {
-                    for try await chunk in transport.events(
-                        path: "/api/events?since=\(since)",
-                        requestID: FortRequestID.make()
-                    ) {
-                        buffer += String(decoding: chunk, as: UTF8.self).replacingOccurrences(of: "\r\n", with: "\n")
-                        while let boundary = buffer.range(of: "\n\n") {
-                            let frame = String(buffer[..<boundary.lowerBound])
-                            buffer.removeSubrange(..<boundary.upperBound)
-                            let payload = frame.split(separator: "\n").compactMap {
-                                Self.value(ofField: "data", in: String($0))
-                            }.joined(separator: "\n")
-                            if !payload.isEmpty, let event = Self.decodeEvent(payload, using: decoder) {
-                                continuation.yield(event)
-                            }
-                        }
-                    }
-                    continuation.finish()
-                } catch is CancellationError {
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
     private func relayPrimaryChannelEvents(
         path: String,
         transport: any FortRelayTransporting
@@ -916,11 +599,6 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
             value = value.dropFirst() // drop the single optional leading space
         }
         return String(value)
-    }
-
-    private static func decodeEvent(_ json: String, using decoder: JSONDecoder) -> Event? {
-        guard let data = json.data(using: .utf8) else { return nil }
-        return try? decoder.decode(Event.self, from: data)
     }
 
     private static func primaryDataPayload(in frame: String) -> String? {

@@ -1,7 +1,7 @@
 // fort service manages the fort daemon as a launchd user agent on macOS
-// (spec 032): install/start/stop/restart/status/uninstall, so the Mac app can
-// shell out to a single Go-tested subcommand rather than reimplementing
-// launchd plumbing in Swift.
+// (spec 032): install/start/stop/restart/status/uninstall. The Mac Phase 1 app
+// uses only status plus Install/Start/Restart recovery; teardown remains an
+// explicit CLI operation. Both paths reuse this Go-tested launchd plumbing.
 package main
 
 import (

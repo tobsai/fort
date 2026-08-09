@@ -28,10 +28,9 @@ release: ## cut a release + push the Homebrew formula; needs a git tag + GITHUB_
 apple-project: ## generate ui/apple/Fort.xcodeproj from project.yml (needs xcodegen)
 	cd ui/apple && xcodegen generate
 
-apple-build: apple-project ## compile-verify FortKit + all Apple client targets (unsigned)
+apple-build: apple-project ## compile-verify FortKit + shipping Apple client targets (unsigned)
 	cd ui/apple/FortKit && swift build
-	# Do not force an iOS SDK: Fort embeds watchOS targets, so Xcode must select
-	# the matching simulator SDK for each dependency from the destination.
+	# Use the generic simulator destination so Xcode selects the matching iOS SDK.
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -1
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortMac -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO | tail -1
 

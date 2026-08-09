@@ -8,38 +8,31 @@ ui/apple/
   FortKit/           shared Swift package — models + direct/pinned-relay client
   iOS/               iPhone app: private Channels, Scheduled, Needs You, Settings
   macOS/             windowed Primary Channels + bounded MenuBarExtra glance
-  watch/             watchOS app (glance + approve) + WidgetKit complication
-  CarPlay/           CPListTemplate scene: gates + status (driving-safe)
-  Support/           complication @main bundle + generated Info.plist
-  project.yml        XcodeGen spec (all targets + FortKit dependency)
+  Support/           generated iPhone and Mac Info.plists
+  project.yml        XcodeGen spec with explicit Phase 1 source allowlists
 ```
 
 Every surface `import FortKit` — none redefine the models or client.
 
-The shipping iPhone and Mac roots share `PrimaryChannelsView`. Watch and
-CarPlay retain their separately bounded glance surfaces; they do not provide a
-second Primary Channels implementation.
+The shipping iPhone and Mac roots share `PrimaryChannelsView`. No additional
+Apple presentation target is included in the Phase 1 archive.
 
 ## Build / verify
 
 ```sh
-make apple-build          # from repo root: generate project + compile all targets
+make apple-build          # from repo root: generate project + compile both targets
 # or manually:
 cd ui/apple && xcodegen generate      # -> Fort.xcodeproj (git-ignored)
 cd FortKit && swift build             # the shared package
 xcodebuild -scheme Fort         -sdk iphonesimulator  -destination 'generic/platform=iOS Simulator'  build CODE_SIGNING_ALLOWED=NO
 xcodebuild -scheme FortMac      -destination 'platform=macOS'                                          build CODE_SIGNING_ALLOWED=NO
-xcodebuild -scheme FortWatch    -sdk watchsimulator   -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO
-xcodebuild -scheme FortComplication -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' build CODE_SIGNING_ALLOWED=NO
 ```
 
-All five compile against Xcode's iOS 26 / watchOS 26 / macOS SDKs. FortKit is
-also verified against a live `fort control` server (decode round-trip).
+Both apps compile against Xcode's iOS 26 and macOS SDKs. FortKit is also
+verified against a live `fort control` server (decode round-trip).
 
 ## Deploy
-See [`docs/notes/testflight.md`](../../docs/notes/testflight.md). Note the CarPlay
-entitlement is category-gated by Apple and unlikely for a control-plane app — the
-CarPlay code compiles and runs in the simulator but may not ship.
+See [`docs/notes/testflight.md`](../../docs/notes/testflight.md).
 
 ## Connect iOS
 

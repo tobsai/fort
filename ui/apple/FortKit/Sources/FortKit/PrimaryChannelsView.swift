@@ -13,11 +13,6 @@ import SwiftUI
 import Combine
 #endif
 
-// Watch and CarPlay retain their existing glance-only surfaces in Phase 1.
-// Keep the wire/client contract in PrimaryChannels.swift available everywhere,
-// but do not compile this macOS/iPhone presentation into watchOS.
-#if !os(watchOS)
-
 // MARK: - Local presentation themes
 
 public enum PrimaryTheme: String, CaseIterable, Identifiable {
@@ -155,7 +150,8 @@ private extension EnvironmentValues {
 }
 
 public extension View {
-    /// Keeps iPhone relay/direct-host management reachable from Phase 1 Settings.
+    /// Keeps iPhone encrypted-machine connection management reachable from
+    /// Phase 1 Settings.
     func primaryConnectionSettings(_ action: @escaping () -> Void) -> some View {
         environment(\.primaryConnectionSettings, action)
     }
@@ -166,7 +162,7 @@ public extension View {
 private struct PrimaryOrb: View {
     @Environment(\.primaryTheme) private var theme
     let name: String
-    let state: FortProjectState
+    let state: PrimaryOrbState
     let size: CGFloat
 
     var body: some View {
@@ -1542,7 +1538,6 @@ struct PrimaryAgentSettings: View {
     let choose: (String) async -> Void
     let recheck: () async -> Void
     @State private var busy = false
-    @State private var confirmServiceUninstall = false
 
     #if os(macOS)
     @Environment(\.primaryServiceController) private var service
@@ -1627,7 +1622,7 @@ struct PrimaryAgentSettings: View {
             if let connectionSettings {
                 Section("Connection") {
                     Button("Open connection settings", action: connectionSettings)
-                    Text("Switch or reconnect the pinned encrypted Fort machine, or choose an explicit direct host.")
+                    Text("Switch or reconnect the pinned encrypted Fort machine.")
                         .font(.caption)
                         .foregroundStyle(theme.secondaryText)
                 }
@@ -1652,28 +1647,17 @@ struct PrimaryAgentSettings: View {
                             .frame(width: 8, height: 8)
                         Text(service.status.running ? "Running" : "Stopped")
                     }
-                    HStack {
-                        Button("Install") { Task { await service.install() } }
-                        Button("Start") { Task { await service.start() } }
-                        Button("Stop") { Task { await service.stop() } }
+                    if service.status.running {
                         Button("Restart") { Task { await service.restart() } }
-                        Spacer()
-                        Button("Uninstall", role: .destructive) { confirmServiceUninstall = true }
-                    }
-                    .confirmationDialog(
-                        "Uninstall the Fort background service?",
-                        isPresented: $confirmServiceUninstall,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Uninstall service", role: .destructive) {
-                            Task { await service.uninstall() }
+                    } else {
+                        HStack {
+                            Button("Install") { Task { await service.install() } }
+                            Button("Start") { Task { await service.start() } }
                         }
-                        Button("Cancel", role: .cancel) {}
+                        Text("Install a missing service or start an existing stopped service.")
+                            .font(.caption)
+                            .foregroundStyle(theme.secondaryText)
                     }
-                    Text(service.status.detail)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(theme.secondaryText)
-                        .textSelection(.enabled)
                 }
                 .task { await service.refresh() }
             }
@@ -2309,5 +2293,3 @@ private enum PrimaryErrorText {
         return error.localizedDescription
     }
 }
-
-#endif

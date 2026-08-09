@@ -1,11 +1,8 @@
 # XcodeGen spec for the Fort Apple clients. Generate the project with:
 #   cd ui/apple && xcodegen generate
 # then open Fort.xcodeproj. The generated .xcodeproj is git-ignored (regenerable
-# from this spec). All targets depend on the local FortKit Swift package.
-#
-# Shipping shape: the iOS app (Fort) embeds the watchOS app (FortWatch), which in
-# turn embeds the complication (FortComplication) — so one TestFlight iOS build
-# delivers phone + watch + complication. FortMac ships as its own record.
+# from this spec). Both shipping targets depend on the local FortKit Swift
+# package. Phase 1 ships only the iPhone and Mac Primary Channels surfaces.
 name: Fort
 options:
   bundleIdPrefix: io.mtree
@@ -13,12 +10,11 @@ options:
   deploymentTarget:
     iOS: "16.0"
     macOS: "13.0"
-    watchOS: "10.0" # widget-preview macros (#Preview(as:)) require watchOS 10
 
 settings:
   base:
     MARKETING_VERSION: "1.0.2"
-    CURRENT_PROJECT_VERSION: "2608091"
+    CURRENT_PROJECT_VERSION: "2608092"
     SWIFT_VERSION: "5.0"
     # Set to the deployed HTTPS gateway origin for a pre-filled native sign-in URL.
     # Users can still enter it in Connection Settings when this is empty.
@@ -33,25 +29,23 @@ packages:
     path: FortKit
 
 targets:
-  # iOS app — five-item Command Deck; Playbooks + Feed live in More. Embeds the watch app, and includes the
-  # CarPlay scene delegate (compiles; running CarPlay needs Apple's entitlement).
+  # iOS app — Phase 1 Primary Channels only. Keep this source list explicit so
+  # dormant Command Deck or constrained-surface files cannot enter the archive.
   Fort:
     type: application
     platform: iOS
     sources:
-      - path: iOS
-        excludes: ["*.md"]
-      - path: CarPlay/FortCarPlaySceneDelegate.swift
+      - path: iOS/FortApp.swift
+      - path: iOS/GatewayCoordinator.swift
+      - path: iOS/Assets.xcassets
     dependencies:
       - package: FortKit
-      - target: FortWatch
-        embed: true # deliver the watch app inside the iOS app
     info:
       path: Support/Fort-iOS-Info.plist
       properties:
         # Follow the build settings (settings.base) instead of xcodegen's literal
         # "1.0"/"1" defaults, so a project.yml version bump reaches the built app
-        # and TestFlight sees the new build (embedded watch/complication match).
+        # and TestFlight sees the new build.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
@@ -68,33 +62,20 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # Allow http to LAN / .local hosts (the control plane), without fully
-        # disabling ATS. Point the app at your host via the Settings screen.
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
-        NSLocalNetworkUsageDescription: Fort connects to your Mac's control plane when you choose direct-host mode.
-        # CarPlay scene. SwiftUI still provides the phone window scene; this only
-        # adds the CarPlay role. Inert until the CarPlay entitlement is granted
-        # (see docs/notes/testflight.md) — remove this block to ship without it.
-        UIApplicationSceneManifest:
-          UIApplicationSupportsMultipleScenes: true
-          UISceneConfigurations:
-            CPTemplateApplicationSceneSessionRoleApplication:
-              - UISceneConfigurationName: FortCarPlay
-                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).FortCarPlaySceneDelegate
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
-  # macOS menu-bar app (LSUIElement — no dock icon). Ships as its own record.
+  # Windowed macOS Primary Channels app with a bounded MenuBarExtra glance.
   FortMac:
     type: application
     platform: macOS
     sources:
-      - path: macOS
-        excludes: ["*.md"]
+      - path: macOS/FortMacApp.swift
+      - path: macOS/MenuContent.swift
+      - path: macOS/Assets.xcassets
     dependencies:
       - package: FortKit
     info:
@@ -127,57 +108,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.mac.uitests
         GENERATE_INFOPLIST_FILE: YES
-
-  # watchOS app — glance + gate quick-approve. Embedded in the iOS app; embeds
-  # the complication. Its bundle id is a child of the iOS app id.
-  FortWatch:
-    type: application
-    platform: watchOS
-    sources:
-      - path: watch/FortWatchApp.swift
-      - path: watch/GlanceView.swift
-      - path: watch/Assets.xcassets
-    dependencies:
-      - package: FortKit
-      - target: FortComplication
-        embed: true
-    info:
-      path: Support/FortWatch-Info.plist
-      properties:
-        CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        WKApplication: true
-        WKCompanionAppBundleIdentifier: io.mtree.fort # pair with the iOS app
-        ITSAppUsesNonExemptEncryption: false
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.watch
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-
-  # watchOS WidgetKit complication (pending-gate count).
-  FortComplication:
-    type: app-extension
-    platform: watchOS
-    sources:
-      - path: watch/FortComplication.swift
-      - path: Support/FortComplicationBundle.swift
-    dependencies:
-      - package: FortKit
-    info:
-      path: Support/Complication-Info.plist
-      properties:
-        CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        CFBundleDisplayName: Fort # required by App Store validation
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    settings:
-      base:
-        # NOTE: io.mtree.fort.watch.complication is unavailable (App ID taken,
-        # Apple 409) — hence .widgets.
-        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort.watch.widgets
 
 schemes:
   FortMac:

@@ -12,9 +12,10 @@ The app has two scenes:
   Primary Channels surface, with daemon controls in Settings.
 
 Both share one `FortClient` (default `http://127.0.0.1:4087`). The window's
-"Service" section is wired to `FortKit.ServiceController`, which shells out to the
-bundled `fort` binary's `service install|start|stop|restart|status|uninstall`
-subcommand (see `cmd/fort/service.go`).
+"Service" section is wired to `FortKit.ServiceController`, which reads status
+and invokes only Install, Start, or Restart recovery through the bundled `fort`
+binary. Stop and Uninstall remain CLI-only administrative commands (see
+`cmd/fort/service.go`).
 
 > **Notarization is the operator's step.** Signing, notarization, and the
 > Developer ID certificate require Apple credentials and cannot run headless / in
@@ -50,8 +51,10 @@ The `.xcodeproj` is git-ignored and regenerated from `ui/apple/project.yml`:
 cd ui/apple && xcodegen generate
 ```
 
-FortMac globs `macOS/*.swift` (excluding `*.md`), and its local FortKit package
-supplies the shared `PrimaryChannelsView` automatically.
+The `FortMac` target uses an explicit source allowlist: `FortMacApp.swift`,
+`MenuContent.swift`, and `Assets.xcassets`. Its local FortKit package supplies
+the shared `PrimaryChannelsView`; adding an unrelated Swift file does not add
+it to the shipping app.
 
 ## Compile-verify (no signing, CI-safe)
 
@@ -167,10 +170,10 @@ The daemon must be injected into `Contents/Resources/fort` and signed **before**
 the outer bundle is re-signed (adding a file invalidates the signature). FortMac
 is a windowed app with a Dock icon and also supplies its MenuBarExtra glance.
 
-## Deferred (honest v1 boundary)
+## Deferred (honest Phase 1 boundary)
 
-In-app Google sign-in for the 028 gateway is scaffolded only
-(`FortKit.GatewayAccount` persists a gateway base URL + selected machine). The
-full `ASWebAuthenticationSession` OAuth flow is a documented follow-on — it needs
-the deployed 028 gateway. Local + mesh machines (the sidebar roster from
-`/api/machines`) work fully today without any auth.
+FortMac connects only to the same-host daemon over loopback. It does not expose
+a gateway sign-in, remote-machine picker, mesh roster, Command Deck, or legacy
+admin surface. A remote Mac connection experience requires its own approved
+product and trust contract; the iPhone's authenticated gateway flow does not
+silently broaden the Mac UI.
