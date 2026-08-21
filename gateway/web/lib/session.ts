@@ -7,6 +7,20 @@ import { auth } from "@/auth";
 import { isAllowed } from "@/lib/allowlist";
 import { verifyNativeToken } from "@/lib/native-token";
 
+export async function nativeSessionIdentity(request: Request): Promise<{ email: string } | null> {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Bearer ")) return null;
+  try {
+    const identity = await verifyNativeToken(
+      authorization.slice("Bearer ".length),
+      process.env.AUTH_SECRET ?? "",
+    );
+    return isAllowed(identity.email, process.env.FORT_ALLOWLIST) ? identity : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * requireSession returns null when the caller has a valid session, or a 401
  * Response to return immediately when they do not.
@@ -14,16 +28,7 @@ import { verifyNativeToken } from "@/lib/native-token";
 export async function requireSession(request?: Request): Promise<Response | null> {
   const authorization = request?.headers.get("authorization") ?? "";
   if (authorization.startsWith("Bearer ")) {
-    try {
-      const identity = await verifyNativeToken(
-        authorization.slice("Bearer ".length),
-        process.env.AUTH_SECRET ?? "",
-      );
-      if (isAllowed(identity.email, process.env.FORT_ALLOWLIST)) return null;
-    } catch {
-      // Fall through to the same closed 401 used for an absent web session.
-    }
-    return unauthorized();
+    return (await nativeSessionIdentity(request!)) ? null : unauthorized();
   }
   const session = await auth();
   if (!session?.user) {

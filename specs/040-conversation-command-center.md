@@ -92,14 +92,12 @@ continue to fail closed and their exact reason must be visible.
    flight dispatches nothing. Transport and HTTP failures appear in the same
    inline status region and restore the control; success opens the resulting
    conversation, whose event timeline remains the evidence that work continued.
-11. The Fort intelligence-core raster moves only when its associated agent is
-   truthfully Working: the run is still live and Fort has persisted or streamed
-   provider activity for it. The motion is a restrained core drift and energy
-   pulse, not a generic spinner. Starting, paused, approval, terminal, and idle
-   states remain still. Reduced-motion settings suppress spatial drift, rotation,
-   and scaling but preserve a slow non-spatial energy/glow pulse for truthfully
-   Working agents, so visible work feedback is never reduced to a spinner or
-   removed entirely.
+11. Superseded for the Fort orbital mark by Spec 045: the intelligence-core
+   raster always carries restrained ambient drift and energy, while truthful
+   Working state increases that energy and retains explicit text. It is not a
+   generic spinner and motion alone never communicates runtime status. Reduced-
+   motion settings suppress spatial drift, rotation, and scaling but preserve a
+   slow non-spatial glow pulse.
 12. **Turn this into work** is a one-way promotion offered only on a completed
    direct conversation with no `flow_id`. It never appears on starting, working,
    paused, gated, failed, canceled, or already routed flow/playbook assignments;
@@ -180,10 +178,9 @@ continue to fail closed and their exact reason must be visible.
 - Handoff interaction tests prove immediate visible busy state, an accessible
   live status message, duplicate-click suppression, inline transport failure,
   and control restoration after the request settles.
-- Orb-motion tests prove that the existing raster identity receives its motion
-  class only from evidence-backed Working state, never from a bare running flag;
-  reduced-motion web and native clients preserve only the slow non-spatial
-  energy pulse while every non-Working orb remains static.
+- Orb-motion tests prove the existing raster identity retains ambient motion,
+  evidence-backed Working state is more energetic, and reduced-motion clients
+  preserve only the slow non-spatial energy pulse.
 - Conversation-promotion tests prove only a completed direct conversation can
   show **Turn this into work**, that promotion pins the default non-answer
   playbook revision, and that its resulting playbook assignment cannot enter the

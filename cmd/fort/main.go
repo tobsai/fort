@@ -22,6 +22,7 @@ import (
 	"github.com/tobsai/fort/core/inbox"
 	"github.com/tobsai/fort/core/scheduler"
 	"github.com/tobsai/fort/core/server"
+	"github.com/tobsai/fort/core/store"
 	"github.com/tobsai/fort/core/task"
 	"github.com/tobsai/fort/exec/meshjoin"
 	"github.com/tobsai/fort/exec/node"
@@ -176,6 +177,17 @@ func cmdServe(args []string) error {
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
 	}
+	agentMode, err := agentChannelsMode(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	productMode := ui.ProductMode{
+		PrimaryChannels: primaryMode,
+		AgentChannels:   agentMode,
+	}
+	if err := validateAgentChannelsCutover(productMode); err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
 	todayLocation, err := config.Load(os.Getenv).DisplayLocation()
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
@@ -258,7 +270,6 @@ func cmdServe(args []string) error {
 	deps.Schedules = control.NewScheduleService(durableSchedules, ids)
 	var (
 		flowDigests       map[string]string
-		primaryChannels   *control.PrimaryChannelService
 		inventory         ui.ScheduleInventory
 		inventoryErr      error
 		acceptedInventory string
@@ -274,17 +285,30 @@ func cmdServe(args []string) error {
 		))
 		acceptedInventory = os.Getenv("FORT_ACCEPTED_SCHEDULE_INVENTORY")
 		inventory, inventoryErr = preflightScheduleRead.Inventory(ctx, acceptedInventory)
-
-		var primaryCapabilities control.PrimaryOptionCapabilities
-		if a.caps != nil {
-			primaryCapabilities = a.caps.coordinator
-		}
-		primaryChannels = control.NewPrimaryChannelService(a.store, a.rt, primaryCapabilities)
-		defer primaryChannels.Close()
+	}
+	var primaryCapabilities control.PrimaryOptionCapabilities
+	if a.caps != nil {
+		primaryCapabilities = a.caps.coordinator
+	}
+	channelProducts, err := wireChannelProducts(&deps, a.store, a.rt, primaryCapabilities, productMode,
+		func(preview store.AgentChannelMigrationReport) error {
+			slog.Info("Agent Channel migration preview", "report", preview)
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	defer channelProducts.Close()
+	if channelProducts.Migration != nil {
+		slog.Info("migrated Primary Channels into Agent Channels",
+			"channels", len(channelProducts.Migration.Channels),
+			"conversations", len(channelProducts.Migration.Conversations),
+			"pins", len(channelProducts.Migration.Pins),
+			"skipped", len(channelProducts.Migration.Skipped))
 	}
 	var primaryRecheck primaryAgentRecheck
-	if primaryChannels != nil {
-		primaryRecheck = primaryChannels.RecheckPrimaryAgent
+	if channelProducts.Primary != nil {
+		primaryRecheck = channelProducts.Primary.RecheckPrimaryAgent
 	}
 	if err := startDurableSchedulerAfterPrimaryPromotion(
 		ctx, primaryMode, inventory, inventoryErr, primaryRecheck, durableSchedules.Start,
@@ -296,7 +320,6 @@ func cmdServe(args []string) error {
 		scheduleRead := control.NewScheduleReadAdapter(control.NewScheduleReadService(
 			a.store, control.SchedulerOwnershipActive, flowDigests,
 		))
-		deps.Primary = primaryChannels
 		deps.ScheduleRead = scheduleRead
 		deps.ScheduleInventory = scheduleRead
 		deps.AcceptedScheduleInventory = acceptedInventory
@@ -353,12 +376,12 @@ func cmdServe(args []string) error {
 	if a.caps != nil {
 		nodeSrv.UseCapabilities(a.caps.local)
 	}
-	mountMode := func(mux *http.ServeMux, mode ui.PrimaryChannelsMode) {
-		_ = uiSrv.RegisterMode(mux, mode)
+	mountMode := func(mux *http.ServeMux, mode ui.ProductMode) {
+		_ = uiSrv.RegisterProductMode(mux, mode)
 		nodeSrv.Register(mux)
 		meshSrv.Register(mux)
 	}
-	mount := func(mux *http.ServeMux) { mountMode(mux, primaryMode) }
+	mount := func(mux *http.ServeMux) { mountMode(mux, productMode) }
 
 	// Remote gateway (spec 028): when this machine has joined a gateway,
 	// maintain the outbound tunnel with only the native Phase 1 API contract.
@@ -366,7 +389,7 @@ func cmdServe(args []string) error {
 	// composition root that selects the closed route set.
 	if rc, err := config.LoadRelay(a.cfg.DataDir()); err == nil {
 		rmux := http.NewServeMux()
-		if err := registerNativeRelayRoutes(rmux, uiSrv, primaryMode); err != nil {
+		if err := registerNativeProductRoutes(rmux, uiSrv, productMode); err != nil {
 			return fmt.Errorf("serve: register native relay routes: %w", err)
 		}
 		relayHandler := server.ObserveRequests(rmux, func(event server.RequestEvent) {
@@ -395,7 +418,7 @@ func cmdServe(args []string) error {
 
 	srv := server.New(server.Deps{Config: a.cfg, Engine: a.engine, Store: a.store, Mount: mount})
 	fmt.Printf("fort-core on http://%s  (runtime=%s · node=%s)\n", a.cfg.Addr, a.rt.Name(), a.cfg.NodeName)
-	fmt.Printf("fort-ui   on http://%s/  (%s)\n", a.cfg.Addr, primaryUISurfaceLabel(primaryMode))
+	fmt.Printf("fort-ui   on http://%s/  (%s)\n", a.cfg.Addr, productUISurfaceLabel(productMode))
 	if reg := a.live.Load(); reg != nil {
 		exec := "off"
 		if a.cfg.NodeToken != "" {

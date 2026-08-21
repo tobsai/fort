@@ -83,6 +83,10 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("store: open: %w", err)
 	}
 	db.SetMaxOpenConns(1) // serialize writes; SQLite single-writer
+	if _, err := db.Exec(`PRAGMA busy_timeout=5000`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: configure SQLite busy timeout: %w", err)
+	}
 	s := &Store{db: db}
 	if err := s.migrate(); err != nil {
 		db.Close()
@@ -393,6 +397,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_occurrence_unique
 	}
 	if _, err := s.db.Exec(primaryChannelTriggers); err != nil {
 		return fmt.Errorf("store: migrate primary Channel invariants: %w", err)
+	}
+	if err := s.migrateAgentChannels(); err != nil {
+		return fmt.Errorf("store: migrate Agent Channels: %w", err)
 	}
 	return nil
 }

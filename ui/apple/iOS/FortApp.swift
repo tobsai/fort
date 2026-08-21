@@ -41,30 +41,40 @@ struct FortApp: App {
 }
 
 /// Connection state is deliberately outside the shared Channels hierarchy.
-/// Once connected, macOS and iPhone render the same Primary Channels view.
+/// Once connected, iPhone renders the exact closed Agent/Primary product root.
 struct RootTabView: View {
     @EnvironmentObject private var client: FortClient
     @EnvironmentObject private var gateway: GatewayCoordinator
 
     @State private var showConnectionSettings = false
+    private let presentationMode = AgentChannelsPresentationMode.configured
 
     var body: some View {
-        Group {
-            if !gateway.restoreComplete {
-                ProgressView("Connecting to Fort…")
-            } else if gateway.hasPrimaryTransport {
-                PrimaryChannelsView()
-                    .primaryConnectionSettings { showConnectionSettings = true }
-            } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "lock.shield").font(.system(size: 42)).foregroundStyle(FortPalette.brass)
-                    Text("Connect to Fort").font(.title2.bold())
-                    Text("Sign in to your gateway and choose a machine. Fort will verify and pin its encrypted relay identity.")
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 32)
-                    Button("Open connection settings") { showConnectionSettings = true }
-                        .buttonStyle(.borderedProminent)
+        FortMarkSurface {
+            Group {
+                if !gateway.restoreComplete {
+                    VStack(spacing: 14) {
+                        FortProductMarkView(activity: .ambient, size: 58, decorative: true)
+                        ProgressView("Connecting to Fort…")
+                    }
+                } else if gateway.hasPrimaryTransport {
+                    FortNativeChatView(mode: presentationMode)
+                        .primaryConnectionSettings { showConnectionSettings = true }
+                        .agentConnectionSettings { showConnectionSettings = true }
+                } else {
+                    VStack(spacing: 16) {
+                        FortProductMarkView(activity: .ambient, size: 62, decorative: true)
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 42))
+                            .foregroundStyle(FortPalette.brass)
+                        Text("Connect to Fort").font(.title2.bold())
+                        Text("Sign in to your gateway and choose a machine. Fort will verify and pin its encrypted relay identity.")
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 32)
+                        Button("Open connection settings") { showConnectionSettings = true }
+                            .buttonStyle(.borderedProminent)
+                    }
                 }
             }
         }
@@ -153,6 +163,18 @@ struct SettingsView: View {
                 #if DEBUG && targetEnvironment(simulator)
                 urlText = client.baseURL.absoluteString
                 #endif
+            }
+            .onChange(of: gateway.machines) { machines in
+                guard pendingTrust == nil,
+                      !gateway.hasPrimaryTransport,
+                      machines.count == 1,
+                      let machine = machines.first,
+                      gateway.account.pinnedPublicKeys[machine.machineID] == nil
+                else { return }
+                pendingTrust = machine
+            }
+            .onChange(of: gateway.connectedMachineID) { machineID in
+                if machineID != nil { dismiss() }
             }
             .confirmationDialog(
                 "Trust this Fort?",

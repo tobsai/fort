@@ -157,6 +157,80 @@ type PrimaryChannelPort interface {
 	NeedsYou(context.Context) ([]PrimaryNeedsYouItem, error)
 }
 
+// AgentOption is one provider-neutral, server-resolved option for creating an
+// Agent Channel. Clients submit only ID; Binding is inspectable evidence and
+// cannot be reconstructed from independently selected fields.
+type AgentOption struct {
+	ID          string                    `json:"agent_option_id"`
+	State       string                    `json:"state"`
+	Reason      string                    `json:"reason,omitempty"`
+	DisplayName string                    `json:"display_name"`
+	Binding     conversation.AgentBinding `json:"binding"`
+}
+
+// AgentChannelSummary is sufficient for the agent-first rail: one immutable
+// agent destination plus its pinned/recent Conversation shortcuts and current
+// observational readiness. The conversations remain separate transcripts.
+type AgentChannelSummary struct {
+	Channel       conversation.AgentChannel               `json:"channel"`
+	Conversations []conversation.AgentConversationSummary `json:"conversations"`
+	Readiness     PrimaryChannelReadiness                 `json:"readiness"`
+}
+
+type AgentChannelDetail = AgentChannelSummary
+
+// AgentConversationDetail is the canonical transcript projection beneath one
+// owning Agent Channel. Parent-qualified service methods prevent a client from
+// using a valid Conversation through the wrong agent identity.
+type AgentConversationDetail struct {
+	ChannelID    string                    `json:"agent_channel_id"`
+	Conversation conversation.Conversation `json:"conversation"`
+	Participant  conversation.Participant  `json:"participant"`
+	Messages     []conversation.Message    `json:"messages"`
+	Turns        []conversation.Turn       `json:"turns"`
+	Targets      []conversation.Target     `json:"targets"`
+	Readiness    PrimaryChannelReadiness   `json:"readiness"`
+	Binding      conversation.AgentBinding `json:"binding"`
+	Pinned       bool                      `json:"pinned"`
+	PinnedAt     time.Time                 `json:"pinned_at,omitempty"`
+}
+
+type AgentFirstTurnResult struct {
+	Conversation AgentConversationDetail `json:"conversation"`
+	Turn         conversation.Turn       `json:"turn"`
+	Targets      []conversation.Target   `json:"targets"`
+}
+
+type AgentNeedsYouItem struct {
+	AgentChannel conversation.AgentChannel `json:"agent_channel"`
+	Conversation conversation.Conversation `json:"conversation"`
+	Target       conversation.Target       `json:"target"`
+	Actions      []string                  `json:"recovery_actions"`
+}
+
+// AgentChannelPort is the new agent-first product seam. The legacy
+// PrimaryChannelPort remains unchanged for rollback and older clients.
+type AgentChannelPort interface {
+	AgentOptions(context.Context) ([]AgentOption, error)
+	RecheckAgentOptions(context.Context) ([]AgentOption, error)
+	ListAgentChannels(context.Context, string) ([]AgentChannelSummary, error)
+	GetAgentChannel(context.Context, string) (AgentChannelDetail, error)
+	CreateAgentChannel(context.Context, string, string) (AgentChannelDetail, error)
+	RenameAgentChannel(context.Context, string, string) error
+	SetAgentChannelState(context.Context, string, conversation.AgentChannelState) error
+	ListAgentConversations(context.Context, string, string) ([]conversation.AgentConversationSummary, error)
+	GetAgentConversation(context.Context, string, string) (AgentConversationDetail, error)
+	CreateAgentConversation(context.Context, string, string) (AgentConversationDetail, error)
+	RenameAgentConversation(context.Context, string, string, string) error
+	SetAgentConversationState(context.Context, string, string, conversation.ConversationState) error
+	SetAgentConversationPinned(context.Context, string, string, bool) error
+	PostFirstAgentTurn(context.Context, string, string, string, string) (AgentFirstTurnResult, error)
+	PostAgentTurn(context.Context, string, string, string, string) (conversation.TurnResult, error)
+	RetryAgentTarget(context.Context, string, string, string) (conversation.Target, error)
+	CancelAgentTarget(context.Context, string, string, string) error
+	AgentNeedsYou(context.Context) ([]AgentNeedsYouItem, error)
+}
+
 type TodayPort interface {
 	Today(context.Context, time.Time, *time.Location) (coretoday.View, error)
 }

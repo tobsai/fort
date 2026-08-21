@@ -21,6 +21,7 @@ import (
 type primaryCapabilityFixture struct {
 	mu               sync.Mutex
 	snapshot         corecap.Snapshot
+	machineOverride  *corecap.MachineInventory
 	generation       uint64
 	refreshes        [][]string
 	machineRefreshes [][]string
@@ -49,6 +50,9 @@ func (f *primaryCapabilityFixture) RefreshMachine(_ context.Context, machine str
 		panic("primary machine preflight was not fresh")
 	}
 	f.machineRefreshes = append(f.machineRefreshes, append([]string(nil), adapters...))
+	if f.machineOverride != nil && f.machineOverride.Name == machine {
+		return *f.machineOverride, nil
+	}
 	for _, item := range f.snapshot.Machines {
 		if item.Name == machine {
 			return item, nil

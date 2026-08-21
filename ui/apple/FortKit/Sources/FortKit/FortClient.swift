@@ -242,6 +242,46 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         try await get("/api/needs-you")
     }
 
+    // MARK: - Agent Channel reads
+
+    /// `GET /api/agent-options` — provider-neutral, server-resolved choices.
+    public func agentOptions() async throws -> [AgentOption] {
+        try await get("/api/agent-options")
+    }
+
+    /// `GET /api/agent-channels?state=…` — durable agent destinations.
+    public func agentChannels(
+        state: AgentChannelFilter = .open
+    ) async throws -> [AgentChannelSummary] {
+        try await get("/api/agent-channels?state=\(state.rawValue)")
+    }
+
+    /// `GET /api/agent-channels/{channel_id}` — one agent and its shortcuts.
+    public func agentChannel(id: String) async throws -> AgentChannelDetail {
+        try await get(agentChannelPath(channelID: id))
+    }
+
+    /// `GET /api/agent-channels/{channel_id}/conversations?state=…`.
+    public func agentConversations(
+        channelID: String,
+        state: AgentConversationFilter = .open
+    ) async throws -> [AgentConversationSummary] {
+        try await get("\(agentChannelPath(channelID: channelID))/conversations?state=\(state.rawValue)")
+    }
+
+    /// `GET /api/agent-channels/{channel_id}/conversations/{conversation_id}`.
+    public func agentConversation(
+        channelID: String,
+        conversationID: String
+    ) async throws -> AgentConversationDetail {
+        try await get(agentConversationPath(channelID: channelID, conversationID: conversationID))
+    }
+
+    /// `GET /api/agent-needs-you` — failures with their owning agent and transcript.
+    public func agentNeedsYou() async throws -> [AgentNeedsYouItem] {
+        try await get("/api/agent-needs-you")
+    }
+
     /// `GET /api/schedules?state=…` — durable schedule snapshot.
     public func primarySchedules(
         filter: PrimaryScheduleFilter = .all
@@ -289,6 +329,137 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     @discardableResult
     public func recheckPrimaryAgent() async throws -> PrimaryAgentView {
         try await postEmpty("/api/settings/primary-agent/recheck")
+    }
+
+    // MARK: - Agent Channel commands
+
+    /// `POST /api/agent-options/recheck` — bounded readiness probes only.
+    @discardableResult
+    public func recheckAgentOptions() async throws -> [AgentOption] {
+        try await postEmpty("/api/agent-options/recheck")
+    }
+
+    /// `POST /api/agent-channels` — create from one opaque server option.
+    @discardableResult
+    public func createAgentChannel(optionID: String, name: String) async throws -> AgentChannelDetail {
+        try await post(
+            "/api/agent-channels",
+            body: AgentChannelCreateRequest(agentOptionID: optionID, name: name)
+        )
+    }
+
+    /// `PATCH /api/agent-channels/{channel_id}` — change name or state, never identity.
+    public func updateAgentChannel(
+        id: String,
+        name: String? = nil,
+        state: AgentChannelState? = nil
+    ) async throws {
+        let changes = [name != nil, state != nil].filter { $0 }.count
+        guard changes == 1 else { throw AgentChannelRequestError.exactlyOneChangeRequired }
+        try await requestNoContent(
+            path: agentChannelPath(channelID: id),
+            method: "PATCH",
+            body: try encoder.encode(AgentChannelUpdateRequest(name: name, state: state?.rawValue))
+        )
+    }
+
+    /// `POST /api/agent-channels/{channel_id}/conversations` — create an empty transcript.
+    @discardableResult
+    public func createAgentConversation(
+        channelID: String,
+        name: String
+    ) async throws -> AgentConversationDetail {
+        try await post(
+            "\(agentChannelPath(channelID: channelID))/conversations",
+            body: AgentConversationCreateRequest(name: name)
+        )
+    }
+
+    /// `PATCH .../conversations/{conversation_id}` — change one presentation field or pin.
+    public func updateAgentConversation(
+        channelID: String,
+        conversationID: String,
+        name: String? = nil,
+        state: AgentConversationState? = nil,
+        pinned: Bool? = nil
+    ) async throws {
+        let changes = [name != nil, state != nil, pinned != nil].filter { $0 }.count
+        guard changes == 1 else { throw AgentConversationRequestError.exactlyOneChangeRequired }
+        let body = AgentConversationUpdateRequest(
+            name: name,
+            state: state?.rawValue,
+            pinned: pinned
+        )
+        try await requestNoContent(
+            path: agentConversationPath(channelID: channelID, conversationID: conversationID),
+            method: "PATCH",
+            body: try encoder.encode(body)
+        )
+    }
+
+    /// `POST /api/agent-channels/{channel_id}/turns` — atomically create a
+    /// Conversation and its first durable turn.
+    @discardableResult
+    public func postFirstAgentTurn(
+        channelID: String,
+        name: String,
+        clientTurnID: String,
+        text: String
+    ) async throws -> AgentFirstTurnResult {
+        try await post(
+            "\(agentChannelPath(channelID: channelID))/turns",
+            body: AgentFirstTurnRequest(
+                name: name,
+                clientTurnID: clientTurnID,
+                text: text
+            )
+        )
+    }
+
+    /// `POST .../conversations/{conversation_id}/turns` — one nested durable turn.
+    @discardableResult
+    public func postAgentTurn(
+        channelID: String,
+        conversationID: String,
+        clientTurnID: String,
+        text: String
+    ) async throws -> AgentTurnResult {
+        try await post(
+            "\(agentConversationPath(channelID: channelID, conversationID: conversationID))/turns",
+            body: AgentTurnRequest(clientTurnID: clientTurnID, text: text)
+        )
+    }
+
+    /// `POST .../targets/{target_id}/retry` — retries under the same parent identity.
+    @discardableResult
+    public func retryAgentTarget(
+        channelID: String,
+        conversationID: String,
+        targetID: String
+    ) async throws -> AgentTarget {
+        try await postEmpty(agentTargetPath(
+            channelID: channelID,
+            conversationID: conversationID,
+            targetID: targetID,
+            action: "retry"
+        ))
+    }
+
+    /// `POST .../targets/{target_id}/cancel`.
+    public func cancelAgentTarget(
+        channelID: String,
+        conversationID: String,
+        targetID: String
+    ) async throws {
+        try await requestNoContent(
+            path: agentTargetPath(
+                channelID: channelID,
+                conversationID: conversationID,
+                targetID: targetID,
+                action: "cancel"
+            ),
+            method: "POST"
+        )
     }
 
     /// `POST /api/channels` — create one private Channel.
@@ -427,6 +598,75 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// `GET .../conversations/{conversation_id}/events` — strict replacement
+    /// snapshots scoped by both the owning Agent Channel and Conversation.
+    public func agentConversationEvents(
+        channelID: String,
+        conversationID: String
+    ) -> AsyncThrowingStream<AgentConversationDetail, Error> {
+        let path = "\(agentConversationPath(channelID: channelID, conversationID: conversationID))/events"
+        if let relayTransport {
+            return relayAgentConversationEvents(path: path, transport: relayTransport)
+        }
+
+        let session = self.session
+        let decoder = self.decoder
+        let requestID = FortRequestID.make()
+        let requestResult = Result {
+            var request = try makeRequest(
+                path: path,
+                method: "GET",
+                rawBody: nil,
+                requestID: requestID
+            )
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+            return request
+        }
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let request = try requestResult.get()
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse else {
+                        throw FortClientError.nonHTTPResponse
+                    }
+                    guard (200...299).contains(http.statusCode) else {
+                        throw FortClientError.httpStatus(
+                            status: http.statusCode,
+                            body: "",
+                            requestID: requestID
+                        )
+                    }
+
+                    var buffer = Data()
+                    for try await byte in bytes {
+                        buffer.append(byte)
+                        while let frame = Self.takePrimarySSEFrame(from: &buffer) {
+                            if let payload = Self.primaryDataPayload(in: frame) {
+                                continuation.yield(try Self.decodeAgentConversationSnapshot(payload, using: decoder))
+                            }
+                        }
+                    }
+                    if !buffer.isEmpty,
+                       let payload = Self.primaryDataPayload(
+                        in: String(decoding: buffer, as: UTF8.self)
+                            .replacingOccurrences(of: "\r\n", with: "\n")
+                       ) {
+                        continuation.yield(try Self.decodeAgentConversationSnapshot(payload, using: decoder))
+                    }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     // MARK: - HTTP plumbing
 
     private struct PrimaryAgentSelectionRequest: Encodable {
@@ -442,6 +682,42 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         let name: String?
         let state: String?
         let pinned: Bool?
+    }
+
+    private struct AgentChannelCreateRequest: Encodable {
+        let agentOptionID: String
+        let name: String
+        enum CodingKeys: String, CodingKey {
+            case agentOptionID = "agent_option_id"
+            case name
+        }
+    }
+
+    private struct AgentChannelUpdateRequest: Encodable {
+        let name: String?
+        let state: String?
+    }
+
+    private struct AgentConversationCreateRequest: Encodable {
+        let name: String
+    }
+
+    private struct AgentConversationUpdateRequest: Encodable {
+        let name: String?
+        let state: String?
+        let pinned: Bool?
+    }
+
+    private struct AgentFirstTurnRequest: Encodable {
+        let name: String
+        let clientTurnID: String
+        let text: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case clientTurnID = "client_turn_id"
+            case text
+        }
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
@@ -536,6 +812,23 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         "/api/channels/\(Self.primaryPathComponent(channelID))/targets/\(Self.primaryPathComponent(targetID))/\(action)"
     }
 
+    private func agentChannelPath(channelID: String) -> String {
+        "/api/agent-channels/\(Self.primaryPathComponent(channelID))"
+    }
+
+    private func agentConversationPath(channelID: String, conversationID: String) -> String {
+        "\(agentChannelPath(channelID: channelID))/conversations/\(Self.primaryPathComponent(conversationID))"
+    }
+
+    private func agentTargetPath(
+        channelID: String,
+        conversationID: String,
+        targetID: String,
+        action: String
+    ) -> String {
+        "\(agentConversationPath(channelID: channelID, conversationID: conversationID))/targets/\(Self.primaryPathComponent(targetID))/\(action)"
+    }
+
     private static func primaryPathComponent(_ value: String) -> String {
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "/?#")
@@ -573,6 +866,43 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
                     }
                     if let payload = Self.primaryDataPayload(in: buffer) {
                         continuation.yield(try Self.decodePrimarySnapshot(payload, using: decoder))
+                    }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func relayAgentConversationEvents(
+        path: String,
+        transport: any FortRelayTransporting
+    ) -> AsyncThrowingStream<AgentConversationDetail, Error> {
+        let decoder = self.decoder
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                var buffer = ""
+                do {
+                    for try await chunk in transport.events(
+                        path: path,
+                        requestID: FortRequestID.make()
+                    ) {
+                        buffer += String(decoding: chunk, as: UTF8.self)
+                        buffer = buffer.replacingOccurrences(of: "\r\n", with: "\n")
+                        while let boundary = buffer.range(of: "\n\n") {
+                            let frame = String(buffer[..<boundary.lowerBound])
+                            buffer.removeSubrange(..<boundary.upperBound)
+                            if let payload = Self.primaryDataPayload(in: frame) {
+                                continuation.yield(try Self.decodeAgentConversationSnapshot(payload, using: decoder))
+                            }
+                        }
+                    }
+                    if let payload = Self.primaryDataPayload(in: buffer) {
+                        continuation.yield(try Self.decodeAgentConversationSnapshot(payload, using: decoder))
                     }
                     continuation.finish()
                 } catch is CancellationError {
@@ -637,6 +967,13 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
     ) throws -> PrimaryChannelDetail {
         try decoder.decode(PrimaryChannelDetail.self, from: Data(json.utf8))
     }
+
+    private static func decodeAgentConversationSnapshot(
+        _ json: String,
+        using decoder: JSONDecoder
+    ) throws -> AgentConversationDetail {
+        try decoder.decode(AgentConversationDetail.self, from: Data(json.utf8))
+    }
 }
 
 public enum PrimaryChannelRequestError: Error, Sendable, Equatable {
@@ -644,6 +981,26 @@ public enum PrimaryChannelRequestError: Error, Sendable, Equatable {
 }
 
 extension PrimaryChannelRequestError: LocalizedError {
+    public var errorDescription: String? {
+        "Exactly one of name, state, or pinned is required."
+    }
+}
+
+public enum AgentChannelRequestError: Error, Sendable, Equatable {
+    case exactlyOneChangeRequired
+}
+
+extension AgentChannelRequestError: LocalizedError {
+    public var errorDescription: String? {
+        "Exactly one of name or state is required."
+    }
+}
+
+public enum AgentConversationRequestError: Error, Sendable, Equatable {
+    case exactlyOneChangeRequired
+}
+
+extension AgentConversationRequestError: LocalizedError {
     public var errorDescription: String? {
         "Exactly one of name, state, or pinned is required."
     }

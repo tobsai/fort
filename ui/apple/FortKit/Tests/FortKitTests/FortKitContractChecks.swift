@@ -8,6 +8,19 @@ import FoundationNetworking
 @main
 struct FortKitContractChecks {
     static func main() async throws {
+        agentChannelsActivationIsClosedAndOffByDefault()
+        try agentChannelsStartupRestoresOnlyOwnedOpenConversation()
+        try agentChannelsSelectionPersistsPerAgentConversation()
+        try await agentChannelsModelUsesAtomicFirstSendAndOwnedMutations()
+        try await agentPendingSendsPersistAndReuseIdempotencyKeys()
+        try await agentArchivedConversationsRemainReopenable()
+        try agentTargetRecoveryStaysClosedAndDurable()
+        try agentIdentityInspectionKeepsExactAuthority()
+        try agentChannelsNativeSurfaceKeepsIdentityHierarchy()
+        try agentChannelWireModelsDecodeCanonicalFixtures()
+        try await clientUsesAgentChannelEndpointsAndClosedBodies()
+        try await agentChannelPatchesRequireExactlyOneMutableField()
+        try await agentConversationEventsDecodeStrictNestedSnapshots()
         try primaryWireModelsDecodeCanonicalFixtures()
         try await clientUsesPrimaryEndpointsAndNoContentCommands()
         try await clientSurfacesTypedPrimaryErrorCodes()
@@ -27,10 +40,16 @@ struct FortKitContractChecks {
         try gatewayAccountPersistsNativeSession()
         try gatewayAddressNormalizesProductionOrigin()
         try await gatewayRequestsCarryCanonicalCorrelationIDs()
+        try await gatewaySessionRenewalUsesBearerPost()
         try await gatewayRelayRetriesHandshakeAndExplainsFailures()
         try secureRelayMatchesGoNoiseVector()
         orbMotionSeparatesEnergyFromSpatialMovement()
+        fortMarkMotionUsesAmbientAndDurableWorking()
+        fortMarkMotionHonorsAccessibilityLifecycleAndPower()
+        fortMarkClockResumesWithoutCatchUp()
+        try fortMarksShareOneSurfaceClock()
         try nativeOrbUsesRasterAndHonorsReduceMotion()
+        try productMarkAndAgentIdentityRemainDistinct()
         try iPhoneSimulatorSupportsDeterministicVisualQAHost()
         try iPhonePhysicalReleaseUsesOnlyAuthenticatedRelay()
         print("FortKit Phase 1 contract checks passed")
@@ -215,6 +234,39 @@ struct FortKitContractChecks {
         }
     }
 
+    private static func gatewaySessionRenewalUsesBearerPost() async throws {
+        ContractURLProtocol.requests = []
+        ContractURLProtocol.handler = { request in
+            expect(request.httpMethod == "POST", "native session renewal must use POST")
+            expect(
+                request.value(forHTTPHeaderField: "Authorization") == "Bearer current-native-token",
+                "native session renewal omitted its bearer"
+            )
+            expect(request.url?.path == "/api/native/session", "native session renewal used the wrong endpoint")
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"token":"renewed-native-token"}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ContractURLProtocol.self]
+        let token = try await GatewayService.renewSession(
+            at: URL(string: "https://fort-gateway.test")!,
+            bearerToken: "current-native-token",
+            session: URLSession(configuration: configuration)
+        )
+
+        expect(token == "renewed-native-token", "native session renewal lost the replacement token")
+        expectCanonicalRequestID(
+            ContractURLProtocol.requests.last?.value(forHTTPHeaderField: FortRequestID.header),
+            "native session renewal"
+        )
+    }
+
     private static func expectCanonicalRequestID(_ requestID: String?, _ context: String) {
         guard let requestID, let uuid = UUID(uuidString: requestID) else {
             fatalError("\(context) omitted a canonical X-Fort-Request-ID")
@@ -268,23 +320,133 @@ struct FortKitContractChecks {
             !FortOrbMotion.allowsSpatialMotion(state: .working, reduceMotion: true),
             "Reduce Motion must suppress Fort orb rotation, scale, and drift"
         )
-        expect(!FortOrbMotion.shouldPulse(state: .idle), "idle Fort orb must not pulse")
+        expect(FortOrbMotion.shouldPulse(state: .idle), "idle Fort mark should retain ambient energy")
         expect(
-            !FortOrbMotion.allowsSpatialMotion(state: .idle, reduceMotion: false),
-            "idle Fort orb must not move"
+            FortOrbMotion.allowsSpatialMotion(state: .idle, reduceMotion: false),
+            "idle Fort mark should move when spatial motion is allowed"
         )
+        expect(
+            !FortOrbMotion.allowsSpatialMotion(state: .idle, reduceMotion: true),
+            "Reduce Motion must suppress idle Fort mark rotation, scale, and drift"
+        )
+        expect(
+            FortOrbMotion.energyRate(state: .working) > FortOrbMotion.energyRate(state: .idle),
+            "Working must remain more energetic than ambient Fort mark motion"
+        )
+    }
+
+    private static func fortMarkMotionUsesAmbientAndDurableWorking() {
+        let normal = FortMarkMotionEnvironment()
+        let ambientStart = FortMarkMotion.frame(activity: .ambient, phase: 0, environment: normal)
+        let ambientLater = FortMarkMotion.frame(activity: .ambient, phase: 1, environment: normal)
+        let workingLater = FortMarkMotion.frame(activity: .working, phase: 1, environment: normal)
+
+        expect(ambientStart.isAnimating, "foreground ambient Fort mark must remain alive")
+        expect(ambientStart != ambientLater, "ambient Fort mark did not change over time")
+        expect(
+            abs(workingLater.rotationDegrees) > abs(ambientLater.rotationDegrees),
+            "durable Working did not increase Fort mark spatial energy"
+        )
+        expect(
+            FortMarkActivity.fromDurableTargetState("working") == .working,
+            "durable Working target did not select Working mark energy"
+        )
+        for state in [nil, "queued", "loading", "optimistic", "answered", "failed", "canceled", "gated", "offline"] {
+            expect(
+                FortMarkActivity.fromDurableTargetState(state) == .ambient,
+                "non-Working target state \(state ?? "nil") selected Working mark energy"
+            )
+        }
+    }
+
+    private static func fortMarkMotionHonorsAccessibilityLifecycleAndPower() {
+        let reduced = FortMarkMotionEnvironment(reduceMotion: true)
+        let reducedStart = FortMarkMotion.frame(activity: .ambient, phase: 0, environment: reduced)
+        let reducedLater = FortMarkMotion.frame(activity: .ambient, phase: 2, environment: reduced)
+        expect(reducedStart.rotationDegrees == 0, "Reduce Motion left Fort mark rotation enabled")
+        expect(reducedStart.scale == 1, "Reduce Motion left Fort mark scaling enabled")
+        expect(reducedStart.orbitDegrees == 0, "Reduce Motion left Fort mark orbit enabled")
+        expect(reducedStart.glowOpacity != reducedLater.glowOpacity, "Reduce Motion stopped the slow Fort glow")
+        expect(FortMarkMotion.glowPeriod(activity: .working) >= 4, "Working glow is fast enough to flash")
+        expect(FortMarkMotion.glowPeriod(activity: .ambient) >= 4, "ambient glow is fast enough to flash")
+
+        for inactive in [
+            FortMarkMotionEnvironment(isOnscreen: false),
+            FortMarkMotionEnvironment(isSceneActive: false),
+            FortMarkMotionEnvironment(isWindowVisible: false),
+        ] {
+            let frame = FortMarkMotion.frame(activity: .working, phase: 2, environment: inactive)
+            expect(!frame.isAnimating, "hidden or background Fort mark kept animating")
+            expect(frame.frameInterval == nil, "hidden or background Fort mark retained animation ticks")
+        }
+
+        let normal = FortMarkMotion.frame(
+            activity: .ambient,
+            phase: 2,
+            environment: FortMarkMotionEnvironment()
+        )
+        let lowPower = FortMarkMotion.frame(
+            activity: .ambient,
+            phase: 2,
+            environment: FortMarkMotionEnvironment(isLowPower: true)
+        )
+        let thermal = FortMarkMotion.frame(
+            activity: .ambient,
+            phase: 2,
+            environment: FortMarkMotionEnvironment(thermalState: .serious)
+        )
+        expect(lowPower.isAnimating && thermal.isAnimating, "power pressure froze a visible Fort mark")
+        expect(
+            lowPower.frameInterval! > normal.frameInterval!,
+            "Low Power Mode did not reduce Fort mark cadence"
+        )
+        expect(
+            thermal.frameInterval! > normal.frameInterval!,
+            "thermal pressure did not reduce Fort mark cadence"
+        )
+    }
+
+    private static func fortMarkClockResumesWithoutCatchUp() {
+        var clock = FortMarkPhaseClock()
+        expect(clock.sample(at: 10, isActive: true) == 0, "Fort mark clock did not establish its baseline")
+        expect(clock.sample(at: 11, isActive: true) == 1, "Fort mark clock did not advance while visible")
+        expect(clock.sample(at: 100, isActive: false) == 1, "paused Fort mark clock changed phase")
+        expect(clock.sample(at: 200, isActive: true) == 1, "resumed Fort mark clock caught up in one jump")
+        expect(clock.sample(at: 201, isActive: true) == 2, "resumed Fort mark clock did not continue normally")
+    }
+
+    private static func fortMarksShareOneSurfaceClock() throws {
+        let source = try String(
+            contentsOf: appleRootURL().appendingPathComponent("FortKit/Sources/FortKit/FortMarkView.swift"),
+            encoding: .utf8
+        )
+        expect(source.contains("public struct FortMarkSurface"), "Fort marks have no shareable surface clock owner")
+        expect(
+            source.components(separatedBy: "TimelineView").count - 1 == 1,
+            "Fort mark module creates more than one animation timeline"
+        )
+        let markStart = source.range(of: "public struct FortProductMarkView")!.lowerBound
+        let markSource = String(source[markStart...])
+        expect(!markSource.contains("@StateObject private var clock"), "each Fort product mark still owns a clock")
+        expect(!markSource.contains("TimelineView"), "each Fort product mark still owns an animation timeline")
     }
 
     private static func nativeOrbUsesRasterAndHonorsReduceMotion() throws {
         let appleRoot = appleRootURL()
-        let styleSource = try String(
+        let compatibilitySource = try String(
             contentsOf: appleRoot.appendingPathComponent("FortKit/Sources/FortKit/PrimaryChannelsStyle.swift"),
             encoding: .utf8
         )
+        let markSource = try String(
+            contentsOf: appleRoot.appendingPathComponent("FortKit/Sources/FortKit/FortMarkView.swift"),
+            encoding: .utf8
+        )
+        let styleSource = compatibilitySource + markSource
         for required in [
             "@Environment(\\.accessibilityReduceMotion)",
-            "FortOrbMotion.shouldPulse",
-            "FortOrbMotion.allowsSpatialMotion",
+            "@Environment(\\.scenePhase)",
+            "FortMarkMotion.frame",
+            "FortMarkPhaseClock",
             "Image(\"FortAgentOrb\")",
             ".rotationEffect",
             ".scaleEffect",
@@ -292,6 +454,32 @@ struct FortKitContractChecks {
             expect(styleSource.contains(required), "Phase 1 orb motion missing \(required)")
         }
         expect(!styleSource.contains("FortProjectState"), "Phase 1 orb still depends on legacy project state")
+    }
+
+    private static func productMarkAndAgentIdentityRemainDistinct() throws {
+        expect(AgentIdentityFallback.initials(for: "Open Claw") == "OC", "agent fallback lost its name")
+        expect(AgentIdentityFallback.initials(for: "OpenClaw") == "O", "single-word agent fallback drifted")
+        expect(
+            AgentIdentityFallback.paletteIndex(for: "agent:openclaw", paletteCount: 8) == 3,
+            "agent fallback identity hash is not stable"
+        )
+
+        let root = appleRootURL().appendingPathComponent("FortKit/Sources/FortKit")
+        let mark = try String(contentsOf: root.appendingPathComponent("FortMarkView.swift"), encoding: .utf8)
+        let agent = try String(contentsOf: root.appendingPathComponent("AgentIdentityView.swift"), encoding: .utf8)
+        let compatibility = try String(
+            contentsOf: root.appendingPathComponent("PrimaryChannelsStyle.swift"),
+            encoding: .utf8
+        )
+        expect(mark.contains("public struct FortProductMarkView"), "Fort product mark has no distinct view")
+        expect(mark.contains(".accessibilityLabel(\"Fort\")"), "standalone product mark is not named simply Fort")
+        expect(agent.contains("public struct AgentIdentityView"), "agent identity fallback has no distinct view")
+        expect(!agent.contains("FortAgentOrb"), "agent identity fallback still uses the Fort product artwork")
+        expect(!agent.contains("FortProductMarkView"), "agent identity fallback still embeds the Fort mark")
+        expect(
+            compatibility.contains("FortProductMarkView"),
+            "legacy FortAgentOrbView is not a compatibility adapter over the product mark"
+        )
     }
 
     private static func iPhoneSimulatorSupportsDeterministicVisualQAHost() throws {

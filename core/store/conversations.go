@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -31,6 +32,10 @@ type CreateConversationTurnParams struct {
 	TurnID         string
 	ClientTurnID   string
 	ConversationID string
+	// AgentChannelID activates the exact parent/child open-state check at the
+	// same immediate transaction boundary as a nested Agent Conversation turn.
+	// Legacy and non-Agent callers leave it empty.
+	AgentChannelID string
 	HumanID        string
 	Body           string
 	Targets        []ConversationTurnTarget
@@ -489,6 +494,45 @@ FROM conversation_turn WHERE conversation_id=? AND client_turn_id=?`, params.Con
 	if !errors.Is(err, sql.ErrNoRows) {
 		return conversation.Turn{}, nil, "", err
 	}
+	agentChannelID := params.AgentChannelID
+	if agentChannelID == "" {
+		err := tx.QueryRow(`SELECT ownership.agent_channel_id
+FROM agent_channel_created_conversation created
+JOIN agent_channel_conversation ownership ON ownership.conversation_id=created.conversation_id
+WHERE created.conversation_id=?`, params.ConversationID).Scan(&agentChannelID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return conversation.Turn{}, nil, "", err
+		}
+	}
+	if agentChannelID != "" {
+		var channelState, childState, bindingJSON string
+		err := tx.QueryRow(`SELECT channel.state,child.state,channel.binding_json
+FROM agent_channel_conversation ownership
+JOIN agent_channel channel ON channel.id=ownership.agent_channel_id
+JOIN conversation child ON child.id=ownership.conversation_id
+WHERE ownership.agent_channel_id=? AND ownership.conversation_id=?`,
+			agentChannelID, params.ConversationID,
+		).Scan(&channelState, &childState, &bindingJSON)
+		if errors.Is(err, sql.ErrNoRows) {
+			return conversation.Turn{}, nil, "", fmt.Errorf("agent_channel_invariant: Conversation %s is not owned by Agent Channel %s", params.ConversationID, agentChannelID)
+		}
+		if err != nil {
+			return conversation.Turn{}, nil, "", err
+		}
+		if conversation.AgentChannelState(channelState) != conversation.AgentChannelOpen ||
+			conversation.ConversationState(childState) != conversation.ConversationOpen {
+			return conversation.Turn{}, nil, "", fmt.Errorf("%w: Agent Channel %s or Conversation %s is archived", ErrAgentChannelState, agentChannelID, params.ConversationID)
+		}
+		var binding conversation.AgentBinding
+		if err := json.Unmarshal([]byte(bindingJSON), &binding); err != nil {
+			return conversation.Turn{}, nil, "", fmt.Errorf("decode Agent Channel binding: %w", err)
+		}
+		for _, requested := range params.Targets {
+			if !agentTargetAuthorityMatchesBinding(requested.Authority, binding) {
+				return conversation.Turn{}, nil, "", fmt.Errorf("agent_channel_invariant: target authority does not match Agent Channel %s", agentChannelID)
+			}
+		}
+	}
 	if params.PrimarySingleFlight {
 		var marked, active int
 		if err := tx.QueryRow(`SELECT
@@ -903,17 +947,35 @@ WHERE tr.id=?`, target.ParticipantID, target.TurnID)
 }
 
 func (s *Store) RetryConversationTarget(originalID, newID, newRunID string, createdAt time.Time) (ConversationTargetDispatch, error) {
-	return s.retryConversationTarget(originalID, newID, newRunID, "", createdAt, false)
+	return s.retryConversationTarget(originalID, newID, newRunID, "", createdAt, false, "")
 }
 
 func (s *Store) RetryConversationTargetWithAdapterRevision(originalID, newID, newRunID, selectedAdapterRevision string, createdAt time.Time) (ConversationTargetDispatch, error) {
 	if strings.TrimSpace(selectedAdapterRevision) == "" {
 		return ConversationTargetDispatch{}, fmt.Errorf("selected adapter revision is required")
 	}
-	return s.retryConversationTarget(originalID, newID, newRunID, selectedAdapterRevision, createdAt, true)
+	return s.retryConversationTarget(originalID, newID, newRunID, selectedAdapterRevision, createdAt, true, "")
 }
 
-func (s *Store) retryConversationTarget(originalID, newID, newRunID, selectedAdapterRevision string, createdAt time.Time, primarySingleFlight bool) (ConversationTargetDispatch, error) {
+func (s *Store) RetryAgentConversationTargetWithAdapterRevision(
+	agentChannelID, originalID, newID, newRunID, selectedAdapterRevision string,
+	createdAt time.Time,
+) (ConversationTargetDispatch, error) {
+	if strings.TrimSpace(agentChannelID) == "" {
+		return ConversationTargetDispatch{}, fmt.Errorf("Agent Channel id is required")
+	}
+	if strings.TrimSpace(selectedAdapterRevision) == "" {
+		return ConversationTargetDispatch{}, fmt.Errorf("selected adapter revision is required")
+	}
+	return s.retryConversationTarget(originalID, newID, newRunID, selectedAdapterRevision, createdAt, true, agentChannelID)
+}
+
+func (s *Store) retryConversationTarget(
+	originalID, newID, newRunID, selectedAdapterRevision string,
+	createdAt time.Time,
+	primarySingleFlight bool,
+	agentChannelID string,
+) (ConversationTargetDispatch, error) {
 	tx, err := s.beginConversationTurnTransaction(primarySingleFlight)
 	if err != nil {
 		return ConversationTargetDispatch{}, err
@@ -926,6 +988,41 @@ func (s *Store) retryConversationTarget(originalID, newID, newRunID, selectedAda
 	if original.State != conversation.TargetFailed && original.State != conversation.TargetCanceled {
 		return ConversationTargetDispatch{}, fmt.Errorf("target %s is %s; only failed or canceled targets can be retried", originalID, original.State)
 	}
+	if agentChannelID == "" {
+		err := tx.QueryRow(`SELECT ownership.agent_channel_id
+FROM conversation_turn turn
+JOIN agent_channel_created_conversation created ON created.conversation_id=turn.conversation_id
+JOIN agent_channel_conversation ownership ON ownership.conversation_id=created.conversation_id
+WHERE turn.id=?`, original.TurnID).Scan(&agentChannelID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return ConversationTargetDispatch{}, err
+		}
+	}
+	var agentBinding *conversation.AgentBinding
+	if agentChannelID != "" {
+		var channelState, childState, bindingJSON string
+		err := tx.QueryRow(`SELECT channel.state,child.state,channel.binding_json
+FROM conversation_turn turn
+JOIN agent_channel_conversation ownership ON ownership.conversation_id=turn.conversation_id
+JOIN agent_channel channel ON channel.id=ownership.agent_channel_id
+JOIN conversation child ON child.id=ownership.conversation_id
+WHERE turn.id=? AND ownership.agent_channel_id=?`, original.TurnID, agentChannelID).Scan(&channelState, &childState, &bindingJSON)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ConversationTargetDispatch{}, fmt.Errorf("agent_channel_invariant: target %s is not owned by Agent Channel %s", originalID, agentChannelID)
+		}
+		if err != nil {
+			return ConversationTargetDispatch{}, err
+		}
+		if conversation.AgentChannelState(channelState) != conversation.AgentChannelOpen ||
+			conversation.ConversationState(childState) != conversation.ConversationOpen {
+			return ConversationTargetDispatch{}, fmt.Errorf("%w: Agent Channel %s or target Conversation is archived", ErrAgentChannelState, agentChannelID)
+		}
+		var binding conversation.AgentBinding
+		if err := json.Unmarshal([]byte(bindingJSON), &binding); err != nil {
+			return ConversationTargetDispatch{}, fmt.Errorf("decode Agent Channel binding: %w", err)
+		}
+		agentBinding = &binding
+	}
 	retry := original
 	retry.ID, retry.RunID, retry.Attempt, retry.State = newID, newRunID, original.Attempt+1, conversation.TargetQueued
 	retry.ErrorCode, retry.Error, retry.Receipt = "", "", nil
@@ -935,6 +1032,9 @@ func (s *Store) retryConversationTarget(originalID, newID, newRunID, selectedAda
 		}
 		retry.Authority = cloneTargetAuthority(retry.Authority)
 		retry.Authority.Policy.AdapterRevision = selectedAdapterRevision
+	}
+	if agentBinding != nil && !agentTargetAuthorityMatchesBinding(retry.Authority, *agentBinding) {
+		return ConversationTargetDispatch{}, fmt.Errorf("agent_channel_invariant: retry target authority does not match Agent Channel %s", agentChannelID)
 	}
 	retry.CreatedAt, retry.UpdatedAt = createdAt, createdAt
 	if err := insertConversationTarget(tx, retry); err != nil {

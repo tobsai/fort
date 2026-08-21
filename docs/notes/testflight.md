@@ -1,7 +1,8 @@
 # Deploying the Fort clients via TestFlight
 
 The Apple clients live in `ui/apple`: one shared **FortKit** package and the
-Phase 1 **iOS** and **macOS** apps. Both compile with `make apple-build`.
+agent-first **iOS** and **macOS** apps. Both compile with `make apple-build` and
+retain Primary Channels as the closed rollback presentation.
 
 ## What you need first
 - **Apple Developer Program** membership ($99/yr) — required for TestFlight.
@@ -29,12 +30,16 @@ there, selects a registered machine, verifies its fingerprint, and carries API
 commands through the end-to-end encrypted relay. The Cloudflare worker address
 is daemon-only and must not be entered in the app.
 
-Physical iPhone and TestFlight builds expose Phase 1 only through the
-authenticated encrypted gateway relay. Direct-host configuration, UI, and
-actions are compiled out and never available on a physical iPhone, including
-reachable LAN hosts. The DEBUG iOS Simulator alone retains
-`FORT_DIRECT_HOST_URL` for an isolated local QA fixture. This boundary does not
-change FortMac's local loopback client.
+Physical iPhone and TestFlight builds use only the authenticated encrypted
+gateway relay. Direct-host configuration, UI, and actions are compiled out and
+never available on a physical iPhone, including reachable LAN hosts. The DEBUG
+iOS Simulator alone retains `FORT_DIRECT_HOST_URL` for an isolated local QA
+fixture. This boundary does not change FortMac's local loopback client.
+
+Source defaults `FORT_AGENT_CHANNELS` to `off`. An Agent Channels release must
+pass `FORT_AGENT_CHANNELS=primary` to the archive command and verify the
+archived app's Info.plist before uploading. Missing or invalid values preserve
+the Primary Channels rollback presentation.
 
 ## 3 · Version numbers
 `MARKETING_VERSION` + `CURRENT_PROJECT_VERSION` (build). **Every upload
@@ -51,7 +56,8 @@ Upload**. FortMac is a separate macOS distribution.
 cd ui/apple
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
   -configuration Release -archivePath build/Fort.xcarchive \
-  -allowProvisioningUpdates archive DEVELOPMENT_TEAM=ABCDE12345
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=ABCDE12345 \
+  FORT_AGENT_CHANNELS=primary archive
 # Use an explicit generic iOS destination for the archive.
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
   -exportPath build/Fort-upload -exportOptionsPlist ExportOptions.plist \
@@ -100,7 +106,8 @@ xcodegen generate
 #    tobias@mtree.io session to create App Store profiles.
 xcodebuild -project Fort.xcodeproj -scheme Fort -destination 'generic/platform=iOS' \
   -archivePath build/Fort.xcarchive -allowProvisioningUpdates \
-  CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=T3JB5MYZ93 archive
+  CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=T3JB5MYZ93 \
+  FORT_AGENT_CHANNELS=primary archive
 # 4. export and upload once through App Store Connect
 xcodebuild -exportArchive -archivePath build/Fort.xcarchive \
   -exportOptionsPlist ExportOptions.plist -exportPath build/Fort-upload \

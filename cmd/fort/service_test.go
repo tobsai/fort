@@ -72,15 +72,16 @@ func TestPlistCarriesConfiguredDisplayTimezone(t *testing.T) {
 	}
 }
 
-func TestPlistCarriesExplicitPrimaryPromotionConfiguration(t *testing.T) {
+func TestPlistCarriesExplicitChannelProductConfiguration(t *testing.T) {
 	sc := serviceConfig{
 		Label: "io.tobsai.fort", BinPath: "/Applications/FortMac.app/Contents/Resources/fort",
-		Args: []string{"serve"}, PrimaryChannels: "primary",
+		Args: []string{"serve"}, PrimaryChannels: "primary", AgentChannels: "primary",
 		AcceptedScheduleInventory: "schedule-inventory:v1:reviewed-on-this-machine",
 	}
 	got := renderPlist(sc)
 	for _, want := range []string{
 		"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>primary</string>",
+		"<key>FORT_AGENT_CHANNELS</key>\n    <string>primary</string>",
 		"<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>schedule-inventory:v1:reviewed-on-this-machine</string>",
 	} {
 		if !strings.Contains(got, want) {
@@ -89,7 +90,7 @@ func TestPlistCarriesExplicitPrimaryPromotionConfiguration(t *testing.T) {
 	}
 
 	closed := renderPlist(serviceConfig{Label: "l", BinPath: "/new/fort"})
-	for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
+	for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_AGENT_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
 		if strings.Contains(closed, "<key>"+key+"</key>") {
 			t.Errorf("unset %s must remain omitted so startup stays off/fail-closed:\n%s", key, closed)
 		}
@@ -110,6 +111,7 @@ func TestServicePlistNeverPersistsNodeToken(t *testing.T) {
 
 func TestBuildServiceConfigCarriesOnlyExplicitPrimaryPromotionConfiguration(t *testing.T) {
 	t.Setenv("FORT_PRIMARY_CHANNELS", "preview")
+	t.Setenv("FORT_AGENT_CHANNELS", "primary")
 	t.Setenv("FORT_ACCEPTED_SCHEDULE_INVENTORY", "schedule-inventory:v1:explicit-review")
 	sc, err := buildServiceConfig()
 	if err != nil {
@@ -117,6 +119,9 @@ func TestBuildServiceConfigCarriesOnlyExplicitPrimaryPromotionConfiguration(t *t
 	}
 	if sc.PrimaryChannels != "preview" {
 		t.Fatalf("primary channels = %q, want preview", sc.PrimaryChannels)
+	}
+	if sc.AgentChannels != "primary" {
+		t.Fatalf("agent channels = %q, want primary", sc.AgentChannels)
 	}
 	if sc.AcceptedScheduleInventory != "schedule-inventory:v1:explicit-review" {
 		t.Fatalf("accepted schedule inventory = %q", sc.AcceptedScheduleInventory)
@@ -135,7 +140,7 @@ func TestServiceDefinitionRolloutPreservesPromotionAndUpdatesBinary(t *testing.T
 			accepted := "schedule-inventory:v1:operator-reviewed-value-" + name
 			if err := writePlist(home, serviceConfig{
 				Label: label, BinPath: "/old/fort", Args: []string{"serve"},
-				PrimaryChannels: "primary", AcceptedScheduleInventory: accepted,
+				PrimaryChannels: "primary", AgentChannels: "primary", AcceptedScheduleInventory: accepted,
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -153,6 +158,7 @@ func TestServiceDefinitionRolloutPreservesPromotionAndUpdatesBinary(t *testing.T
 			for _, want := range []string{
 				"<string>/Applications/FortMac.app/Contents/Resources/fort</string>",
 				"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>primary</string>",
+				"<key>FORT_AGENT_CHANNELS</key>\n    <string>primary</string>",
 				"<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>" + accepted + "</string>",
 			} {
 				if !strings.Contains(definition, want) {
@@ -176,7 +182,7 @@ func TestAppDrivenServiceRolloutPreservesClosedOperationalEnvironment(t *testing
 		Path:               "/Users/test/.local/bin:/opt/homebrew/bin:/usr/bin:/bin",
 		FlowsPath:          "/Users/test/.local/share/fort/v0.13.0/flows",
 		CapabilityPlanning: "1", DisplayTimezone: "America/Chicago",
-		PrimaryChannels: "preview",
+		PrimaryChannels: "preview", AgentChannels: "primary",
 	}
 	if err := writePlist(home, existing); err != nil {
 		t.Fatal(err)
@@ -222,6 +228,7 @@ func TestAppDrivenServiceRolloutPreservesClosedOperationalEnvironment(t *testing
 		"<key>FORT_CAPABILITY_PLANNING</key>\n    <string>1</string>",
 		"<key>FORT_DISPLAY_TIMEZONE</key>\n    <string>America/Chicago</string>",
 		"<key>FORT_PRIMARY_CHANNELS</key>\n    <string>preview</string>",
+		"<key>FORT_AGENT_CHANNELS</key>\n    <string>primary</string>",
 	} {
 		if !strings.Contains(definition, want) {
 			t.Errorf("refreshed service missing %q\n%s", want, definition)
@@ -316,7 +323,7 @@ func TestServiceDefinitionRolloutDoesNotInventPromotionConfiguration(t *testing.
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
+			for _, key := range []string{"FORT_PRIMARY_CHANNELS", "FORT_AGENT_CHANNELS", "FORT_ACCEPTED_SCHEDULE_INVENTORY"} {
 				if strings.Contains(string(raw), "<key>"+key+"</key>") {
 					t.Fatalf("%s invented %s instead of remaining off/fail-closed:\n%s", name, key, raw)
 				}
@@ -330,13 +337,13 @@ func TestExplicitPrimaryPromotionConfigurationWinsDuringRollout(t *testing.T) {
 	label := "io.tobsai.fort.test"
 	if err := writePlist(home, serviceConfig{
 		Label: label, BinPath: "/old/fort", Args: []string{"serve"},
-		PrimaryChannels: "primary", AcceptedScheduleInventory: "schedule-inventory:v1:old-review",
+		PrimaryChannels: "primary", AgentChannels: "primary", AcceptedScheduleInventory: "schedule-inventory:v1:old-review",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := prepareServiceRestart(home, serviceConfig{
 		Label: label, BinPath: "/new/fort", Args: []string{"serve"},
-		PrimaryChannels: "off", AcceptedScheduleInventory: "schedule-inventory:v1:new-review",
+		PrimaryChannels: "off", AgentChannels: "off", AcceptedScheduleInventory: "schedule-inventory:v1:new-review",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -347,6 +354,9 @@ func TestExplicitPrimaryPromotionConfigurationWinsDuringRollout(t *testing.T) {
 	definition := string(raw)
 	if !strings.Contains(definition, "<key>FORT_PRIMARY_CHANNELS</key>\n    <string>off</string>") {
 		t.Fatalf("explicit rollback mode did not win:\n%s", definition)
+	}
+	if !strings.Contains(definition, "<key>FORT_AGENT_CHANNELS</key>\n    <string>off</string>") {
+		t.Fatalf("explicit Agent Channels rollback mode did not win:\n%s", definition)
 	}
 	if !strings.Contains(definition, "<key>FORT_ACCEPTED_SCHEDULE_INVENTORY</key>\n    <string>schedule-inventory:v1:new-review</string>") {
 		t.Fatalf("explicit accepted inventory did not win:\n%s", definition)

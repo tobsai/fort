@@ -5,8 +5,10 @@
 //  Where the client points itself: a gateway base URL (the 028 tunnel proxy or
 //  a local/mesh host) plus the machine the user has selected in the sidebar.
 //
-//  The iOS app obtains a short-lived bearer credential through Google sign-in.
-//  The selected daemon key is pinned here before FortKit opens its Noise tunnel.
+//  The iOS app obtains a renewable bearer credential through Google sign-in.
+//  Its coordinator stores that secret in the device-only Keychain while this
+//  value carries it in memory. The selected daemon key is pinned here before
+//  FortKit opens its Noise tunnel.
 //
 
 import Foundation
@@ -19,7 +21,7 @@ public struct GatewayAccount: Codable, Sendable, Hashable {
     public var gatewayURL: URL?
     /// The machine id chosen in the sidebar, when set.
     public var selectedMachineID: String?
-    /// Short-lived native credential issued by the gateway after Google sign-in.
+    /// Renewable native credential issued by the gateway after Google sign-in.
     public var bearerToken: String?
     /// TOFU pins, keyed by gateway machine id; values are base64 X25519 keys.
     public var pinnedPublicKeys: [String: String]

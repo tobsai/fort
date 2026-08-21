@@ -44,6 +44,7 @@ apple-build: apple-project ## compile-verify FortKit + shipping Apple client tar
 #         --apple-id <APPLE_ID> --team-id T3JB5MYZ93 --password <APP_SPECIFIC_PASSWORD>
 NOTARY_PROFILE ?= fort-notary
 DEVELOPER_ID    ?= Developer ID Application: Maple Tree Enterprises LLC (T3JB5MYZ93)
+AGENT_CHANNELS_MODE ?= off
 MAC_ARCHIVE    := build/FortMac.xcarchive
 MAC_EXPORT     := build/FortMac-export
 MAC_DMG        := build/Fort.dmg
@@ -55,7 +56,8 @@ mac-dmg: build apple-project ## archive → sign → notarize → staple → For
 	# 2. Archive the FortMac scheme (uses the operator's Developer ID signing).
 	cd ui/apple && xcodebuild -project Fort.xcodeproj -scheme FortMac \
 		-configuration Release -destination 'platform=macOS' \
-		-archivePath ../../$(MAC_ARCHIVE) archive
+		-archivePath ../../$(MAC_ARCHIVE) \
+		FORT_AGENT_CHANNELS=$(AGENT_CHANNELS_MODE) archive
 	# 3. Place the bundled daemon into the archived .app before export/sign so it
 	#    is covered by the app signature.
 	cp bin/fort $(MAC_ARCHIVE)/Products/Applications/FortMac.app/Contents/Resources/fort

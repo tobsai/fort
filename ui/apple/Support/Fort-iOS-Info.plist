@@ -29,6 +29,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>FORT_AGENT_CHANNELS</key>
+	<string>$(FORT_AGENT_CHANNELS)</string>
 	<key>FortGatewayURL</key>
 	<string>$(FORT_GATEWAY_URL)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

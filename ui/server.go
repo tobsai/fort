@@ -38,6 +38,7 @@ type Deps struct {
 	PlaybookRunner            PlaybookRunner            // nil in control-only mode
 	Conversations             ConversationPort          // durable shared conversations (spec 041)
 	Primary                   PrimaryChannelPort        // private subscription-backed Channels (spec 044)
+	AgentChannels             AgentChannelPort          // agent-first Channels and their nested conversations (spec 046)
 	SeatRechecker             ConversationSeatRechecker // nil without functional capability probes (spec 041)
 	Today                     TodayPort                 // truthful right-rail projection (spec 041)
 	TodayLocation             *time.Location            // one Fort-configured IANA display timezone (spec 041)
@@ -61,6 +62,21 @@ const (
 	PrimaryChannelsPrimary PrimaryChannelsMode = "primary"
 )
 
+type AgentChannelsMode string
+
+const (
+	AgentChannelsOff     AgentChannelsMode = "off"
+	AgentChannelsPrimary AgentChannelsMode = "primary"
+)
+
+// ProductMode selects the Agent Channels cutover while retaining Primary
+// Channels as its one-switch rollback surface. AgentChannelsOff is the
+// compatibility default.
+type ProductMode struct {
+	PrimaryChannels PrimaryChannelsMode
+	AgentChannels   AgentChannelsMode
+}
+
 // New builds a ui server.
 func New(d Deps) *Server {
 	set := map[string]bool{}
@@ -80,11 +96,27 @@ func (s *Server) Register(mux *http.ServeMux) {
 // RegisterMode mounts the one closed Phase 1 presentation mode. Register is
 // retained as the off/default entry point for existing embeddings and tests.
 func (s *Server) RegisterMode(mux *http.ServeMux, mode PrimaryChannelsMode) error {
-	if err := validatePrimaryChannelsMode(mode); err != nil {
+	return s.RegisterProductMode(mux, ProductMode{
+		PrimaryChannels: mode,
+		AgentChannels:   AgentChannelsOff,
+	})
+}
+
+// RegisterProductMode mounts the selected product surface. Agent Channels
+// changes only the root presentation here; the legacy Primary Channels routes
+// remain mounted according to their independent compatibility mode.
+func (s *Server) RegisterProductMode(mux *http.ServeMux, mode ProductMode) error {
+	if err := validateProductMode(mode); err != nil {
 		return err
 	}
+	if mode.AgentChannels == AgentChannelsOff {
+		s.registerAgentChannelRouteTombstones(mux)
+	} else {
+		s.registerAgentChannelWebRoutes(mux, mode.PrimaryChannels)
+		return nil
+	}
 
-	switch mode {
+	switch mode.PrimaryChannels {
 	case PrimaryChannelsOff:
 		mux.HandleFunc("GET /shared", s.handlePage)
 		mux.HandleFunc("GET /", s.handlePage)
@@ -96,15 +128,67 @@ func (s *Server) RegisterMode(mux *http.ServeMux, mode PrimaryChannelsMode) erro
 	return nil
 }
 
+func (s *Server) registerAgentChannelWebRoutes(mux *http.ServeMux, primaryMode PrimaryChannelsMode) {
+	localPage := phase1LocalOnly(s.handleAgentChannelPage)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		localPage(w, r)
+	})
+	mux.HandleFunc("GET /fort-icon.png", s.handleIcon)
+	mux.HandleFunc("GET /fort-agent-orb.png", s.handleAgentOrb)
+	s.RegisterAgentChannelRoutes(mux)
+	if primaryMode == PrimaryChannelsOff {
+		s.RegisterPrimaryRoutes(mux)
+		return
+	}
+	mux.HandleFunc("GET /channels-preview", phase1LocalOnly(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	}))
+	s.RegisterPrimaryRoutes(mux)
+	s.RegisterScheduleReadRoutes(mux)
+	s.registerPhaseOneLegacyMethodTombstones(mux)
+}
+
+func validateProductMode(mode ProductMode) error {
+	if err := validatePrimaryChannelsMode(mode.PrimaryChannels); err != nil {
+		return err
+	}
+	if err := validateAgentChannelsMode(mode.AgentChannels); err != nil {
+		return err
+	}
+	if mode.AgentChannels == AgentChannelsPrimary && mode.PrimaryChannels == PrimaryChannelsOff {
+		return fmt.Errorf("ui: Agent Channels require a Primary Channels rollback surface")
+	}
+	return nil
+}
+
 // RegisterNativeRelayRoutes mounts the Phase 1 native-client contract without
 // any HTML, legacy control-plane route, node route, or mesh route. The relay
 // transport marks requests trusted only after opening the authenticated sealed
 // session; the handlers retain their own transport checks.
 func (s *Server) RegisterNativeRelayRoutes(mux *http.ServeMux, mode PrimaryChannelsMode) error {
-	if err := validatePrimaryChannelsMode(mode); err != nil {
+	return s.RegisterNativeProductRoutes(mux, ProductMode{
+		PrimaryChannels: mode,
+		AgentChannels:   AgentChannelsOff,
+	})
+}
+
+// RegisterNativeProductRoutes is the native-relay counterpart to
+// RegisterProductMode. The compatibility wrapper always supplies Agent off.
+func (s *Server) RegisterNativeProductRoutes(mux *http.ServeMux, mode ProductMode) error {
+	if err := validateProductMode(mode); err != nil {
 		return err
 	}
-	if mode == PrimaryChannelsOff {
+	if mode.AgentChannels == AgentChannelsPrimary {
+		s.RegisterAgentChannelRoutes(mux)
+		if mode.PrimaryChannels == PrimaryChannelsOff {
+			s.RegisterPrimaryRoutes(mux)
+		}
+	}
+	if mode.PrimaryChannels == PrimaryChannelsOff {
 		return nil
 	}
 	s.RegisterPrimaryRoutes(mux)
@@ -119,6 +203,15 @@ func validatePrimaryChannelsMode(mode PrimaryChannelsMode) error {
 		return nil
 	default:
 		return fmt.Errorf("ui: unknown Primary Channels mode %q", mode)
+	}
+}
+
+func validateAgentChannelsMode(mode AgentChannelsMode) error {
+	switch mode {
+	case AgentChannelsOff, AgentChannelsPrimary:
+		return nil
+	default:
+		return fmt.Errorf("ui: unknown Agent Channels mode %q", mode)
 	}
 }
 
@@ -160,6 +253,27 @@ func (s *Server) registerPrimaryRouteTombstones(mux *http.ServeMux) {
 		"POST /api/channels/{id}/targets/{target_id}/cancel", "GET /api/channels/",
 		"GET /api/needs-you", "GET /api/needs-you/",
 		"GET /api/schedules", "GET /api/schedules/{id}", "GET /api/schedules/{id}/occurrences", "GET /api/schedules/",
+	} {
+		mux.HandleFunc(pattern, notFound)
+	}
+}
+
+func (s *Server) registerAgentChannelRouteTombstones(mux *http.ServeMux) {
+	notFound := func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }
+	for _, pattern := range []string{
+		"GET /api/agent-options", "POST /api/agent-options/recheck", "GET /api/agent-options/",
+		"GET /api/agent-needs-you", "GET /api/agent-needs-you/",
+		"GET /api/agent-channels", "POST /api/agent-channels",
+		"GET /api/agent-channels/{channel_id}", "PATCH /api/agent-channels/{channel_id}",
+		"POST /api/agent-channels/{channel_id}/turns",
+		"GET /api/agent-channels/{channel_id}/conversations", "POST /api/agent-channels/{channel_id}/conversations",
+		"GET /api/agent-channels/{channel_id}/conversations/{conversation_id}",
+		"PATCH /api/agent-channels/{channel_id}/conversations/{conversation_id}",
+		"POST /api/agent-channels/{channel_id}/conversations/{conversation_id}/turns",
+		"POST /api/agent-channels/{channel_id}/conversations/{conversation_id}/targets/{target_id}/retry",
+		"POST /api/agent-channels/{channel_id}/conversations/{conversation_id}/targets/{target_id}/cancel",
+		"GET /api/agent-channels/{channel_id}/conversations/{conversation_id}/events",
+		"GET /api/agent-channels/",
 	} {
 		mux.HandleFunc(pattern, notFound)
 	}

@@ -144,8 +144,42 @@ func TestGatewayIdentityReplacementFailsClosedBeforeMachineRefresh(t *testing.T)
 	if disconnect == -1 || useGateway == -1 || disconnect > useGateway {
 		t.Error("same-origin machine switch installs B before disconnecting A")
 	}
-	if !strings.Contains(coordinator, "if self.machines.count == 1") {
+	if !strings.Contains(coordinator, "if machines.count == 1") {
 		t.Error("gateway re-auth can auto-connect zero or multiple machine choices")
+	}
+}
+
+func TestIPhonePersistsSessionSecurelyAndEntersChatAfterConnection(t *testing.T) {
+	app := readAppleSource(t, "iOS/FortApp.swift")
+	coordinator := readAppleSource(t, "iOS/GatewayCoordinator.swift")
+	credentials := readAppleSource(t, "iOS/GatewaySessionTokenStore.swift")
+	channels := readAppleSource(t, "FortKit/Sources/FortKit/PrimaryChannelsView.swift")
+
+	for _, required := range []string{
+		"kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly",
+		"SecItemCopyMatching",
+		"SecItemUpdate",
+		"SecItemAdd",
+		"SecItemDelete",
+		"GatewaySessionTokenStore.load()",
+		"GatewaySessionTokenStore.save(account.bearerToken)",
+	} {
+		if !strings.Contains(credentials+coordinator, required) {
+			t.Errorf("durable native session missing %q", required)
+		}
+	}
+	if strings.Contains(coordinator, "account.bearerToken = nil\n            account.selectedMachineID = nil") {
+		t.Error("expired credential still discards the trusted machine selection")
+	}
+	for _, required := range []string{
+		".onChange(of: gateway.connectedMachineID)",
+		"dismiss()",
+		"destination = .channel(selectedID)",
+		"await loadChannel(id: selectedID, client: client)",
+	} {
+		if !strings.Contains(app+channels, required) {
+			t.Errorf("direct-to-chat entry missing %q", required)
+		}
 	}
 }
 

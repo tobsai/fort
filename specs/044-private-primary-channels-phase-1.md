@@ -340,8 +340,10 @@ The transcript and Channel list use only durable/event-derived state:
 - **Failed** — the durable target contains a bounded failure;
 - **Canceled** — cancellation is durable.
 
-The Fort orb may animate only while a target is truthfully Working. Status is
-always shown in text and never by color or motion alone.
+Spec 045 supersedes the Working-only animation restriction: the Fort mark has
+restrained ambient motion in every state and becomes more energetic while a
+target is truthfully Working. Status is always shown in text and never by color
+or motion alone.
 
 A current Queued or Working target offers Cancel. A current Failed target
 offers Retry or Recheck and retry according to its error code. Retry targets

@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 
 const audience = "fort-native";
-const lifetimeSeconds = 15 * 60;
+export const nativeSessionLifetimeSeconds = 30 * 24 * 60 * 60;
 
 function key(secret: string): Uint8Array {
   if (!secret) throw new Error("AUTH_SECRET is not set");
@@ -17,7 +17,8 @@ export async function issueNativeToken(
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setAudience(audience)
     .setIssuedAt(nowSeconds)
-    .setExpirationTime(nowSeconds + lifetimeSeconds)
+    .setJti(crypto.randomUUID())
+    .setExpirationTime(nowSeconds + nativeSessionLifetimeSeconds)
     .sign(key(secret));
 }
 

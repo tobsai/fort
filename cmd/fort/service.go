@@ -69,6 +69,9 @@ type serviceConfig struct {
 	// PrimaryChannels is the closed Phase 1 startup mode. Empty is deliberately
 	// omitted so the binary's off-by-default behavior remains authoritative.
 	PrimaryChannels string
+	// AgentChannels is the independent agent-first startup mode. Empty remains
+	// off; launchd restarts must preserve an explicit primary cutover.
+	AgentChannels string
 	// AcceptedScheduleInventory is the exact nonsecret digest reviewed by the
 	// operator. Fort never derives or substitutes this value during rollout.
 	AcceptedScheduleInventory string
@@ -91,6 +94,7 @@ var serviceEnvironmentKeys = []string{
 	"FORT_MACHINES",
 	"FORT_NODE_NAME",
 	"FORT_PRIMARY_CHANNELS",
+	"FORT_AGENT_CHANNELS",
 	"FORT_ACCEPTED_SCHEDULE_INVENTORY",
 }
 
@@ -155,6 +159,8 @@ func (sc serviceConfig) environmentValue(key string) string {
 		return sc.NodeName
 	case "FORT_PRIMARY_CHANNELS":
 		return sc.PrimaryChannels
+	case "FORT_AGENT_CHANNELS":
+		return sc.AgentChannels
 	case "FORT_ACCEPTED_SCHEDULE_INVENTORY":
 		return sc.AcceptedScheduleInventory
 	default:
@@ -186,6 +192,8 @@ func (sc *serviceConfig) setEnvironmentValue(key, value string) {
 		sc.NodeName = value
 	case "FORT_PRIMARY_CHANNELS":
 		sc.PrimaryChannels = value
+	case "FORT_AGENT_CHANNELS":
+		sc.AgentChannels = value
 	case "FORT_ACCEPTED_SCHEDULE_INVENTORY":
 		sc.AcceptedScheduleInventory = value
 	}
@@ -269,6 +277,7 @@ func buildServiceConfig() (serviceConfig, error) {
 		MachinesPath:              os.Getenv("FORT_MACHINES"),
 		NodeName:                  os.Getenv("FORT_NODE_NAME"),
 		PrimaryChannels:           os.Getenv("FORT_PRIMARY_CHANNELS"),
+		AgentChannels:             os.Getenv("FORT_AGENT_CHANNELS"),
 		AcceptedScheduleInventory: os.Getenv("FORT_ACCEPTED_SCHEDULE_INVENTORY"),
 		explicitEnvironment:       explicitEnvironment,
 		LogDir:                    filepath.Join(home, "Library", "Logs", "Fort"),

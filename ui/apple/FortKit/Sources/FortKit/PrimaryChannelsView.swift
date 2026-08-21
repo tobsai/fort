@@ -158,7 +158,7 @@ public extension View {
 }
 
 /// Applies only the approved material treatment to the existing Fort orbital
-/// core. Geometry and Working-only motion remain owned by FortAgentOrbView.
+/// core. Geometry and ambient/Working motion remain owned by FortAgentOrbView.
 private struct PrimaryOrb: View {
     @Environment(\.primaryTheme) private var theme
     let name: String

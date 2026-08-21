@@ -22,7 +22,14 @@ func primaryChannelsMode(getenv func(string) string) (ui.PrimaryChannelsMode, er
 }
 
 func registerNativeRelayRoutes(mux *http.ServeMux, server *ui.Server, mode ui.PrimaryChannelsMode) error {
-	return server.RegisterNativeRelayRoutes(mux, mode)
+	return registerNativeProductRoutes(mux, server, ui.ProductMode{
+		PrimaryChannels: mode,
+		AgentChannels:   ui.AgentChannelsOff,
+	})
+}
+
+func registerNativeProductRoutes(mux *http.ServeMux, server *ui.Server, mode ui.ProductMode) error {
+	return server.RegisterNativeProductRoutes(mux, mode)
 }
 
 func primaryUISurfaceLabel(mode ui.PrimaryChannelsMode) string {

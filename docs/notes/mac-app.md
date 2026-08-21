@@ -1,15 +1,16 @@
 # Fort for Mac — build, sign, notarize, distribute (spec 032)
 
 Fort ships a native macOS app (`FortMac`) that both **runs** Fort — a `fort
-service` launchd daemon manager — and **drives** it — a windowed SwiftUI mirror
-of private Primary Channels, Scheduled, Needs You, and Settings over the typed
-Phase 1 HTTP/SSE contract.
+service` launchd daemon manager — and **drives** it — a windowed SwiftUI
+Agent Channels chat client with nested Conversations, Needs You, and Settings
+over the typed HTTP/SSE contract. Primary Channels remain the closed rollback
+presentation.
 
 The app has two scenes:
 - a **menu-bar** item (`MenuBarExtra`) — open-Channel counts plus current
   recoverable Needs You rows;
-- a **window** (`Window("Fort")` → `PrimaryChannelsView`) — the shared native
-  Primary Channels surface, with daemon controls in Settings.
+- a **window** (`Window("Fort")` → `FortNativeChatView`) — the shared native
+  agent-first surface, with daemon controls in Settings.
 
 Both share one `FortClient` (default `http://127.0.0.1:4087`). The window's
 "Service" section is wired to `FortKit.ServiceController`, which reads status
@@ -101,7 +102,8 @@ One target does archive → inject the daemon → export a Developer ID–signed
 `.app` → DMG → notarize → staple:
 
 ```sh
-make mac-dmg VERSION=<release-version>  # -> ./build/Fort.dmg
+make mac-dmg VERSION=<release-version> AGENT_CHANNELS_MODE=primary
+                                            # -> ./build/Fort.dmg
 # override the notarytool profile name if you didn't use the default:
 make mac-dmg VERSION=<release-version> NOTARY_PROFILE=my-profile
 # if the keychain contains duplicate certificate names, select one by SHA-1:
@@ -109,7 +111,10 @@ make mac-dmg VERSION=<release-version> DEVELOPER_ID=<CERTIFICATE_SHA1>
 ```
 
 Do not omit `VERSION`: the Makefile's development default is not a release
-identity, and that value is embedded in the bundled daemon.
+identity, and that value is embedded in the bundled daemon. Source and the
+Makefile default Agent Channels to `off`; the explicit `primary` value above is
+embedded in the signed app archive. Verify the exported app's Info.plist before
+distribution.
 
 What it runs (see the `mac-dmg` target in the `Makefile`):
 
@@ -170,7 +175,7 @@ The daemon must be injected into `Contents/Resources/fort` and signed **before**
 the outer bundle is re-signed (adding a file invalidates the signature). FortMac
 is a windowed app with a Dock icon and also supplies its MenuBarExtra glance.
 
-## Deferred (honest Phase 1 boundary)
+## Deferred trust boundary
 
 FortMac connects only to the same-host daemon over loopback. It does not expose
 a gateway sign-in, remote-machine picker, mesh roster, Command Deck, or legacy

@@ -34,6 +34,8 @@ var primaryConflictCodes = map[string]bool{
 	"provider_refusal":             true,
 	"provider_failed":              true,
 	"seat_unready":                 true,
+	"agent_channel_state":          true,
+	"agent_recovery_unavailable":   true,
 }
 
 type primaryChannelCodedError interface {

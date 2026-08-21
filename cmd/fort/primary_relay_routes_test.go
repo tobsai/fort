@@ -103,3 +103,53 @@ func TestNativeRelayCompositionRejectsUnknownMode(t *testing.T) {
 		t.Fatal("unknown native relay mode was accepted")
 	}
 }
+
+func TestNativeRelayProductCompositionPreservesPrimaryContractDuringAgentCutover(t *testing.T) {
+	mux := http.NewServeMux()
+	if err := registerNativeProductRoutes(mux, ui.New(ui.Deps{}), ui.ProductMode{
+		PrimaryChannels: ui.PrimaryChannelsPreview,
+		AgentChannels:   ui.AgentChannelsPrimary,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if response := relayRouteResponse(t, mux, http.MethodGet, "/api/channels", true); response.Code == http.StatusNotFound {
+		t.Fatalf("existing /api/channels contract was not mounted during Agent Channels cutover")
+	}
+}
+
+func TestProductCompositionMountsAgentContractOnWebAndNativeWithPrimaryRollback(t *testing.T) {
+	mode := ui.ProductMode{
+		PrimaryChannels: ui.PrimaryChannelsPreview,
+		AgentChannels:   ui.AgentChannelsPrimary,
+	}
+	for _, surface := range []struct {
+		name     string
+		register func(*http.ServeMux, *ui.Server) error
+	}{
+		{name: "web", register: func(mux *http.ServeMux, server *ui.Server) error {
+			return server.RegisterProductMode(mux, mode)
+		}},
+		{name: "native", register: func(mux *http.ServeMux, server *ui.Server) error {
+			return registerNativeProductRoutes(mux, server, mode)
+		}},
+	} {
+		t.Run(surface.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			if err := surface.register(mux, ui.New(ui.Deps{})); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range []string{
+				"/api/agent-options",
+				"/api/agent-needs-you",
+				"/api/agent-channels",
+				"/api/agent-channels/channel-1",
+				"/api/agent-channels/channel-1/conversations",
+				"/api/agent-channels/channel-1/conversations/conversation-1",
+			} {
+				if response := relayRouteResponse(t, mux, http.MethodGet, path, true); response.Code == http.StatusNotFound {
+					t.Errorf("trusted GET %s was not mounted", path)
+				}
+			}
+		})
+	}
+}

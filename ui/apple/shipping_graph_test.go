@@ -26,6 +26,7 @@ func TestPhase1AppleProjectShipsOnlyApprovedTargetsAndSources(t *testing.T) {
 	for _, required := range []string{
 		"- path: iOS/FortApp.swift",
 		"- path: iOS/GatewayCoordinator.swift",
+		"- path: iOS/GatewaySessionTokenStore.swift",
 		"- path: iOS/Assets.xcassets",
 	} {
 		if !strings.Contains(phone, required) {

@@ -50,6 +50,21 @@ func TestMacReleaseSignsDiskImageBeforeNotarizing(t *testing.T) {
 	}
 }
 
+func TestMacReleasePinsAgentChannelsMode(t *testing.T) {
+	makefile, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(makefile)
+	macTarget := between(t, contents, "mac-dmg:", "\nclean:")
+	if !strings.Contains(contents, "AGENT_CHANNELS_MODE ?= off") {
+		t.Fatal("Mac release must keep Agent Channels closed by default")
+	}
+	if !strings.Contains(macTarget, "FORT_AGENT_CHANNELS=$(AGENT_CHANNELS_MODE)") {
+		t.Fatal("mac-dmg must pin the requested Agent Channels mode in the archive")
+	}
+}
+
 func TestMacServiceControllerUsesPromotionPreservingLifecycle(t *testing.T) {
 	controller, err := os.ReadFile("FortKit/Sources/FortKit/ServiceController.swift")
 	if err != nil {

@@ -29,6 +29,10 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
 
     override init() {
         var saved = GatewayAccount.load()
+        let legacyToken = saved.bearerToken
+        if let securedToken = GatewaySessionTokenStore.load() {
+            saved.bearerToken = securedToken
+        }
         if let savedURL = saved.gatewayURL {
             saved.gatewayURL = try? GatewayAddress.normalize(savedURL)
         }
@@ -40,6 +44,9 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
         }
         account = saved
         super.init()
+        if legacyToken != nil {
+            persistAccount()
+        }
     }
 
     func restore(client: FortClient) async {
@@ -59,11 +66,7 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
 #endif
         guard account.gatewayURL != nil, account.bearerToken != nil else { return }
         await refreshMachines(client: client)
-        guard let selected = account.selectedMachineID,
-              account.pinnedPublicKeys[selected] != nil,
-              let machine = machines.first(where: { $0.machineID == selected })
-        else { return }
-        connect(machine, client: client, trustIfNeeded: false)
+        connectPreferredMachine(client: client)
     }
 
     func signIn(gatewayURL: URL, client: FortClient) {
@@ -94,17 +97,18 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
                     return
                 }
                 self.disconnectPrimaryTransport(client: client)
+                if self.account.gatewayURL != normalized {
+                    self.account.selectedMachineID = nil
+                    self.account.pinnedPublicKeys = [:]
+                }
                 self.account.gatewayURL = normalized
                 self.account.bearerToken = token
-                self.account.selectedMachineID = nil
-                self.account.save()
+                self.persistAccount()
                 #if DEBUG && targetEnvironment(simulator)
                 self.directHostEnabled = false
                 #endif
                 await self.refreshMachines(client: client)
-                if self.machines.count == 1, let machine = self.machines.first {
-                    self.connect(machine, client: client, trustIfNeeded: false)
-                }
+                self.connectPreferredMachine(client: client)
             }
         }
         session.presentationContextProvider = self
@@ -120,11 +124,17 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
         defer { isLoading = false }
         do {
             machines = try await GatewayService.machines(at: gatewayURL, bearerToken: token)
+            if let renewedToken = try? await GatewayService.renewSession(
+                at: gatewayURL,
+                bearerToken: token
+            ) {
+                account.bearerToken = renewedToken
+                persistAccount()
+            }
             errorMessage = nil
         } catch let error as GatewayRelayError where error.statusCode == 401 {
             account.bearerToken = nil
-            account.selectedMachineID = nil
-            account.save()
+            persistAccount()
             machines = []
             disconnectPrimaryTransport(client: client)
             errorMessage = error.localizedDescription
@@ -148,7 +158,7 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
             #if DEBUG && targetEnvironment(simulator)
             directHostEnabled = false
             #endif
-            account.save()
+            persistAccount()
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -165,7 +175,7 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
 
     func disconnect(client: FortClient) {
         account = GatewayAccount()
-        account.save()
+        persistAccount()
         machines = []
         disconnectPrimaryTransport(client: client)
     }
@@ -173,13 +183,34 @@ final class GatewayCoordinator: NSObject, ObservableObject, ASWebAuthenticationP
     #if DEBUG && targetEnvironment(simulator)
     func useDirectHost(_ url: URL, client: FortClient) {
         account = GatewayAccount()
-        account.save()
+        persistAccount()
         machines = []
         connectedMachineID = nil
         directHostEnabled = true
         client.useDirectHost(url)
     }
     #endif
+
+    private func connectPreferredMachine(client: FortClient) {
+        if let selected = account.selectedMachineID,
+           account.pinnedPublicKeys[selected] != nil,
+           let machine = machines.first(where: { $0.machineID == selected }) {
+            connect(machine, client: client, trustIfNeeded: false)
+            return
+        }
+        if machines.count == 1,
+           let machine = machines.first,
+           account.pinnedPublicKeys[machine.machineID] != nil {
+            connect(machine, client: client, trustIfNeeded: false)
+        }
+    }
+
+    private func persistAccount() {
+        GatewaySessionTokenStore.save(account.bearerToken)
+        var metadata = account
+        metadata.bearerToken = nil
+        metadata.save()
+    }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         UIApplication.shared.connectedScenes

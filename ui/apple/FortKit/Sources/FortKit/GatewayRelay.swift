@@ -167,8 +167,40 @@ public enum GatewayRelayRetry {
 }
 
 private struct GatewayMachinesResponse: Decodable { let machines: [GatewayMachine] }
+private struct GatewaySessionResponse: Decodable { let token: String }
 
 public enum GatewayService {
+    public static func renewSession(
+        at gatewayURL: URL,
+        bearerToken: String,
+        session: URLSession = .shared
+    ) async throws -> String {
+        let requestID = FortRequestID.make()
+        let endpoint = gatewayURL
+            .appendingPathComponent("api")
+            .appendingPathComponent("native")
+            .appendingPathComponent("session")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(requestID, forHTTPHeaderField: FortRequestID.header)
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw GatewayRelayError.invalidGatewayResponse }
+            guard (200...299).contains(http.statusCode) else {
+                throw GatewayRelayError.httpStatus(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+            }
+            let token = try JSONDecoder().decode(GatewaySessionResponse.self, from: data).token
+            guard !token.isEmpty else { throw GatewayRelayError.invalidGatewayResponse }
+            return token
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw GatewayRelayError.correlated(error, requestID: requestID)
+        }
+    }
+
     public static func machines(
         at gatewayURL: URL,
         bearerToken: String,

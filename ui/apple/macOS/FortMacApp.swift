@@ -2,9 +2,9 @@
 //  FortMacApp.swift
 //  FortMac
 //
-//  Fort's macOS surface: the shared private Primary Channels window plus the
-//  existing glanceable menu-bar inbox. Settings retains daemon controls via
-//  the existing ServiceController.
+//  Fort's macOS surface: one closed Agent/Primary chat window plus the matching
+//  glanceable menu-bar inbox. Settings retains daemon controls via the existing
+//  ServiceController.
 //
 
 import SwiftUI
@@ -17,7 +17,7 @@ struct FortMacApp: App {
     /// hold it as `@StateObject` so it lives for the app's lifetime.
     @StateObject private var client = FortMacApp.makeClient()
 
-    /// The latest bounded Primary glance, refreshed on a timer by `MenuContent`.
+    /// The latest bounded mode-matched glance, refreshed by `MenuContent`.
     /// Kept at the app root so the menu-bar label can badge Needs You even while
     /// the menu is closed.
     @StateObject private var model = MenuModel()
@@ -25,6 +25,8 @@ struct FortMacApp: App {
     /// Drives bounded launchd status and Install/Start/Restart recovery from
     /// Primary Settings. Administrative teardown remains CLI-only.
     @StateObject private var service = ServiceController(fortBinaryURL: FortMacApp.bundledFort())
+    @State private var mainWindowVisible = false
+    private let presentationMode = AgentChannelsPresentationMode.configured
 
     var body: some Scene {
         // Window FIRST so it opens on launch — SwiftUI treats the first scene as
@@ -32,7 +34,14 @@ struct FortMacApp: App {
         // so double-clicking the app "did nothing".) The menu-bar item still
         // appears via the MenuBarExtra scene below.
         Window("Fort", id: "main") {
-            PrimaryChannelsView()
+            FortMarkSurface {
+                FortNativeChatView(mode: presentationMode)
+            }
+                .fortMarkWindowVisible(mainWindowVisible)
+                .background {
+                    FortWindowVisibilityObserver(isVisible: $mainWindowVisible)
+                        .frame(width: 0, height: 0)
+                }
                 .primaryServiceController(service)
                 .environmentObject(client)
                 .environmentObject(service)
@@ -41,7 +50,7 @@ struct FortMacApp: App {
         .defaultSize(width: 1200, height: 800)
 
         MenuBarExtra {
-            MenuContent()
+            MenuContent(mode: presentationMode)
                 .environmentObject(client)
                 .environmentObject(model)
         } label: {
@@ -88,13 +97,38 @@ struct FortMacApp: App {
 final class MenuModel: ObservableObject {
     @Published var needsYou: [PrimaryNeedsYouItem] = []
     @Published var channels: [PrimaryChannelSummary] = []
+    @Published var agentNeedsYou: [AgentNeedsYouItem] = []
+    @Published var agentChannels: [AgentChannelSummary] = []
+    @Published private(set) var activeNeedsYouCount = 0
     @Published var lastError: String?
 
-    var pendingNeedsYou: Int { needsYou.count }
+    var pendingNeedsYou: Int { activeNeedsYouCount }
 
     /// Text shown next to the menu-bar icon. Empty when there is nothing
     /// pending, so the icon stands alone.
     var badgeText: String {
         pendingNeedsYou > 0 ? "\(pendingNeedsYou)" : ""
+    }
+
+    func acceptPrimary(
+        needsYou nextNeedsYou: [PrimaryNeedsYouItem],
+        channels nextChannels: [PrimaryChannelSummary]
+    ) {
+        needsYou = nextNeedsYou
+        channels = nextChannels
+        agentNeedsYou = []
+        agentChannels = []
+        activeNeedsYouCount = nextNeedsYou.count
+    }
+
+    func acceptAgentChannels(
+        needsYou nextNeedsYou: [AgentNeedsYouItem],
+        channels nextChannels: [AgentChannelSummary]
+    ) {
+        agentNeedsYou = nextNeedsYou
+        agentChannels = nextChannels
+        needsYou = []
+        channels = []
+        activeNeedsYouCount = nextNeedsYou.count
     }
 }

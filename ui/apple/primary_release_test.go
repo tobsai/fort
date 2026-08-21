@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-func TestPrimaryChannelsAreTheShippingAppleRoot(t *testing.T) {
+func TestPrimaryChannelsRemainTheClosedAppleRollbackRoot(t *testing.T) {
 	shared := readAppleSource(t, "FortKit/Sources/FortKit/PrimaryChannelsView.swift")
+	productRoot := readAppleSource(t, "FortKit/Sources/FortKit/AgentChannelsView.swift")
 	mac := readAppleSource(t, "macOS/FortMacApp.swift")
 	phone := readAppleSource(t, "iOS/FortApp.swift")
 
@@ -32,11 +33,14 @@ func TestPrimaryChannelsAreTheShippingAppleRoot(t *testing.T) {
 	if strings.Contains(shared, "/api/chat") {
 		t.Fatal("Primary Channels UI must never use the legacy chat endpoint")
 	}
-	if !strings.Contains(mac, "PrimaryChannelsView()") || strings.Contains(mac, "FortWindow()") {
-		t.Fatal("macOS shipping root must be Primary Channels, not the legacy Command Deck")
+	if !strings.Contains(productRoot, "case .off:") || !strings.Contains(productRoot, "PrimaryChannelsView()") {
+		t.Fatal("closed product root must retain Primary Channels as the explicit rollback shell")
 	}
-	if !strings.Contains(phone, "PrimaryChannelsView()") || strings.Contains(phone, "NavigationStack { BoardView() }") {
-		t.Fatal("iPhone shipping root must be Primary Channels, not the legacy Command Deck")
+	if !strings.Contains(mac, "FortNativeChatView(mode: presentationMode)") || strings.Contains(mac, "FortWindow()") {
+		t.Fatal("macOS shipping host must use the closed native chat root, not the legacy Command Deck")
+	}
+	if !strings.Contains(phone, "FortNativeChatView(mode: presentationMode)") || strings.Contains(phone, "NavigationStack { BoardView() }") {
+		t.Fatal("iPhone shipping host must use the closed native chat root, not the legacy Command Deck")
 	}
 }
 
@@ -154,8 +158,8 @@ func TestPrimaryAppleReleaseBumpsEveryShippingBuild(t *testing.T) {
 		t.Fatal("project version terminator missing")
 	}
 	build, err := strconv.Atoi(project[start : start+end])
-	if err != nil || build <= 2608091 {
-		t.Fatalf("Apple release build = %q, must be newer than legacy-bearing uploaded 2608091", project[start:start+end])
+	if err != nil || build <= 2608151 {
+		t.Fatalf("Apple release build = %q, must be newer than uploaded TestFlight build 2608151", project[start:start+end])
 	}
 	for _, target := range []string{"Fort:", "FortMac:"} {
 		if !strings.Contains(project, target) {

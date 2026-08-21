@@ -1,15 +1,16 @@
 # Fort — iPhone client
 
-The iPhone app is the native Phase 1 Primary Channels surface. It exposes only
-private Channels, the canonical transcript and composer, read-only Scheduled
-state, Needs You recovery, and Primary Agent Settings through FortKit's typed
-contract.
+The iPhone app is Fort's native agent-first chat surface. Agent Channels are
+the top-level destinations; each owns durable, independently pinnable
+Conversations. Exact identity/readiness and bounded Needs You recovery are
+exposed through FortKit's typed contract. Primary Channels remain available as
+the closed rollback presentation.
 
 - **Platform:** iOS 16+
 - **Shipping bundle:** `io.mtree.fort`
 - **Production transport:** authenticated HTTPS gateway plus the pinned,
   end-to-end encrypted machine relay
-- **Shared presentation:** `PrimaryChannelsView`, also used by the Mac app
+- **Shared presentation:** `FortNativeChatView`, also used by the Mac app
 
 ## Shipping sources
 
@@ -17,8 +18,9 @@ The XcodeGen target has an explicit source allowlist in `../project.yml`:
 
 | File | Role |
 |---|---|
-| `FortApp.swift` | App entry point, fail-closed client construction, connection setup, and the `PrimaryChannelsView` root. |
+| `FortApp.swift` | App entry point, fail-closed client construction, connection setup, and the closed native chat root. |
 | `GatewayCoordinator.swift` | Web-auth handoff, persisted gateway session, machine discovery, fingerprint confirmation, and startup restoration. |
+| `GatewaySessionTokenStore.swift` | Device-only Keychain storage for the renewable native session credential. |
 | `Assets.xcassets` | The canonical Fort app icon and orbital agent artwork. |
 
 Adding another presentation file requires an intentional project manifest
@@ -30,8 +32,15 @@ shipping app.
 Physical-device and TestFlight builds start with `FortClient.gatewayOnly()`.
 They remain inert until the user authenticates, selects a registered machine,
 and accepts its fingerprint. Fort then carries typed API requests through that
-machine's encrypted relay. Signing out or losing authorization clears the
-transport rather than falling back to another host.
+machine's encrypted relay. A valid session renews on app restoration, the
+trusted machine reconnects automatically, and Fort restores the last valid
+Agent Channel and open Conversation or shows the Agent Channel list. Signing
+out or losing authorization clears the transport rather than falling back to
+another host.
+
+Source defaults `FORT_AGENT_CHANNELS` to `off`. An Agent Channels release must
+set the exact build setting to `primary`; missing or invalid values retain the
+Primary Channels rollback surface.
 
 The configured production origin is:
 

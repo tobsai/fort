@@ -37,6 +37,8 @@ const (
 	ErrorProviderIncomplete        = "provider_incomplete"
 	ErrorProviderRefusal           = "provider_refusal"
 	ErrorProviderFailed            = "provider_failed"
+	ErrorAgentChannelState         = "agent_channel_state"
+	ErrorAgentRecoveryUnavailable  = "agent_recovery_unavailable"
 )
 
 var primaryCapabilityAdapters = []string{
@@ -267,8 +269,25 @@ func (s *PrimaryChannelService) SetChannelPinned(ctx context.Context, id string,
 }
 
 func (s *PrimaryChannelService) PostTurn(ctx context.Context, channelID, clientTurnID, text string) (conversation.TurnResult, error) {
+	return s.postTurn(ctx, channelID, clientTurnID, text, "", "")
+}
+
+func (s *PrimaryChannelService) postTurn(
+	ctx context.Context,
+	channelID, clientTurnID, text, requiredAdapterRevision, agentChannelID string,
+) (conversation.TurnResult, error) {
 	if strings.TrimSpace(clientTurnID) == "" {
 		return conversation.TurnResult{}, fmt.Errorf("client_turn_id is required")
+	}
+	if agentChannelID == "" {
+		createdChannel, found, err := s.store.AgentCreatedConversationChannel(channelID)
+		if err != nil {
+			return conversation.TurnResult{}, err
+		}
+		if found {
+			agentChannelID = createdChannel.ID
+			requiredAdapterRevision = createdChannel.Binding.Authority.AdapterRevision
+		}
 	}
 	detail, err := s.GetChannel(ctx, channelID)
 	if err != nil {
@@ -292,7 +311,7 @@ func (s *PrimaryChannelService) PostTurn(ctx context.Context, channelID, clientT
 		}
 	}
 	participant := detail.Participants[0]
-	offer, err := s.freshCompatibleOption(ctx, participant.Machine, participant, *detail.PrimaryChannel, "")
+	offer, err := s.freshCompatibleOption(ctx, participant.Machine, participant, *detail.PrimaryChannel, requiredAdapterRevision)
 	if err != nil {
 		return conversation.TurnResult{}, err
 	}
@@ -300,12 +319,16 @@ func (s *PrimaryChannelService) PostTurn(ctx context.Context, channelID, clientT
 	now := s.now().UTC()
 	turn, targets, prompt, err := s.store.CreateConversationTurn(store.CreateConversationTurnParams{
 		TurnID: uuid.NewString(), ClientTurnID: clientTurnID, ConversationID: channelID,
-		HumanID: "human", Body: text, CreatedAt: now, PrimarySingleFlight: true,
+		AgentChannelID: agentChannelID,
+		HumanID:        "human", Body: text, CreatedAt: now, PrimarySingleFlight: true,
 		Targets: []store.ConversationTurnTarget{{
 			ID: uuid.NewString(), ParticipantID: participant.ID, RunID: uuid.NewString(), Authority: authority,
 		}},
 	})
 	if err != nil {
+		if agentChannelID != "" {
+			err = agentChannelStoreError(err)
+		}
 		return conversation.TurnResult{}, err
 	}
 	result := conversation.TurnResult{Turn: turn, Targets: nonnilTargets(targets)}
@@ -359,14 +382,24 @@ func (s *PrimaryChannelService) CancelTarget(ctx context.Context, channelID, tar
 }
 
 func (s *PrimaryChannelService) RetryTarget(ctx context.Context, channelID, targetID string) (conversation.Target, error) {
-	return s.retryTarget(ctx, channelID, targetID)
+	return s.retryTarget(ctx, channelID, targetID, "", "")
 }
 
 func (s *PrimaryChannelService) RecheckAndRetryTarget(ctx context.Context, channelID, targetID string) (conversation.Target, error) {
-	return s.retryTarget(ctx, channelID, targetID)
+	return s.retryTarget(ctx, channelID, targetID, "", "")
 }
 
-func (s *PrimaryChannelService) retryTarget(ctx context.Context, channelID, targetID string) (conversation.Target, error) {
+func (s *PrimaryChannelService) retryTarget(ctx context.Context, channelID, targetID, requiredAdapterRevision, agentChannelID string) (conversation.Target, error) {
+	if agentChannelID == "" {
+		createdChannel, found, err := s.store.AgentCreatedConversationChannel(channelID)
+		if err != nil {
+			return conversation.Target{}, err
+		}
+		if found {
+			agentChannelID = createdChannel.ID
+			requiredAdapterRevision = createdChannel.Binding.Authority.AdapterRevision
+		}
+	}
 	original, err := s.nestedTarget(ctx, channelID, targetID)
 	if err != nil {
 		return conversation.Target{}, err
@@ -381,14 +414,24 @@ func (s *PrimaryChannelService) retryTarget(ctx context.Context, channelID, targ
 	if !isLatestAttempt(detail.Targets, original.Target) {
 		return conversation.Target{}, fmt.Errorf("target %s has a newer attempt", targetID)
 	}
-	offer, err := s.freshCompatibleOption(ctx, original.Participant.Machine, original.Participant, *detail.PrimaryChannel, "")
+	offer, err := s.freshCompatibleOption(ctx, original.Participant.Machine, original.Participant, *detail.PrimaryChannel, requiredAdapterRevision)
 	if err != nil {
 		return conversation.Target{}, err
 	}
-	retry, err := s.store.RetryConversationTargetWithAdapterRevision(
-		targetID, uuid.NewString(), uuid.NewString(), offer.AdapterRevision, s.now().UTC(),
-	)
+	var retry store.ConversationTargetDispatch
+	if agentChannelID == "" {
+		retry, err = s.store.RetryConversationTargetWithAdapterRevision(
+			targetID, uuid.NewString(), uuid.NewString(), offer.AdapterRevision, s.now().UTC(),
+		)
+	} else {
+		retry, err = s.store.RetryAgentConversationTargetWithAdapterRevision(
+			agentChannelID, targetID, uuid.NewString(), uuid.NewString(), offer.AdapterRevision, s.now().UTC(),
+		)
+	}
 	if err != nil {
+		if agentChannelID != "" {
+			err = agentChannelStoreError(err)
+		}
 		return conversation.Target{}, err
 	}
 	prompt, err := s.store.ConversationContext(channelID, retry.Turn.ThroughMessageID)
