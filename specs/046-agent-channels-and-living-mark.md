@@ -1,15 +1,15 @@
 # Spec 046 — Agent Channels and the Living Fort Mark
 
-**Status:** implemented behind the closed `FORT_AGENT_CHANNELS` gate;
-publication and production deployment authorized by Toby on 2026-08-21;
-provider enablement remains unauthorized
+**Status:** implemented and production-deployed behind the closed
+`FORT_AGENT_CHANNELS` gate on 2026-08-21; provider enablement remains
+unauthorized
 **Date:** 2026-08-20
 **Decision owner:** Toby
 **Depends on:** Specs 041 and 042 for durable conversations, immutable exact
 seats, target lifecycle, exact-model attribution, readiness, and retry; Spec 044
 for the currently shipped private-chat authority boundary; Spec 045 for native
 session continuity and the living-mark decision
-**Proposed shipping surfaces:** local Web, native macOS, and native iPhone
+**Shipping surfaces:** local Web, native macOS, and native iPhone
 
 ## Goal
 
@@ -575,8 +575,37 @@ git diff --check
 ```
 
 Production publication and deployment were authorized on 2026-08-21. Exact
-deployment evidence is recorded only after each live target is independently
-verified.
+deployment evidence after independent verification:
+
+- Source commit `b7e32e063c979fc6b701fd5e6bd1237e34c605e0` was fast-forwarded
+  to both `main` and `codex/phase1-consistent-agent`.
+- Vercel deployment `dpl_EpDbB8HTdmbJovd5VbFHvaiVFExw` was promoted to
+  `https://fort-gateway.vercel.app`. The authenticated renewal route exists
+  and fails closed with `401` without a bearer; the root still redirects to
+  sign-in.
+- The live launchd service runs the signed bundled daemon
+  `fort 0.14.0+b7e32e0` with `FORT_PRIMARY_CHANNELS=preview` and
+  `FORT_AGENT_CHANNELS=primary`. The migration produced one Agent Channel and
+  one ownership link, retained the legacy Channel projection, and left zero
+  queued or Working targets. The pre-cutover database backup is
+  `fort-pre-agent-channels-b7e32e0-20260821.db` with SHA-256
+  `42073df5a4e400e6ec2a5cb1052468a8089fadcaf322ed2d19a7a19b0b6100a2`.
+- macOS `1.0.3 (2608211)` was signed, notarized under submission
+  `6463d7be-4c7c-4729-9bc6-dbdd6a91ca70`, stapled, Gatekeeper-accepted, and
+  installed at `/Applications/FortMac.app`. The release DMG SHA-256 is
+  `15d15aa369053424f86d66695247edc475e043104abf9b204931453f9c28daa9`;
+  the previous bundle remains recoverable at
+  `/Applications/FortMac.backup-20260821T1545Z.app`.
+- iOS `1.0.3 (2608211)` was uploaded once under delivery
+  `7c06f888-d6c3-45ba-a259-a04c76d2528b`. App Store Connect independently
+  reports `VALID`, internal `IN_BETA_TESTING`, and external
+  `READY_FOR_BETA_SUBMISSION`.
+- Live health, Agent options, Agent Channels, the legacy Channels contract,
+  and the agent-first root all returned `200` after restart. No provider smoke
+  turn was issued: the installed `codex-cli 0.143.0` does not match the
+  accepted `codex-cli 0.147.0-alpha.6.5` adapter contract, so readiness remains
+  `setup_required / incompatible_version`. No provider setting was changed and
+  no fallback provider was substituted.
 
 ## Approval record
 

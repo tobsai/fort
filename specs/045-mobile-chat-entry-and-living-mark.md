@@ -1,7 +1,7 @@
 # 045 — Durable mobile chat entry and living Fort mark
 
-**Status:** implemented; combined production deployment authorized by Toby on
-2026-08-21.
+**Status:** implemented and production-deployed with the combined Agent
+Channels release on 2026-08-21.
 **Governed by:** [028-remote-gateway](028-remote-gateway.md) · [044-private-primary-channels-phase-1](044-private-primary-channels-phase-1.md).
 
 ## Goal
@@ -68,3 +68,11 @@ server-side data migration is required.
 - Combined Agent Channels release candidate: `2608211`
 - Release scope: durable native session renewal, direct chat entry after
   connection, ambient Fort mark motion, and the Spec 046 agent-first shell.
+- Production gateway deployment: `dpl_EpDbB8HTdmbJovd5VbFHvaiVFExw`, promoted
+  to `https://fort-gateway.vercel.app`. An unauthenticated renewal POST returns
+  `401`; the root retains its sign-in redirect.
+- TestFlight delivery: `7c06f888-d6c3-45ba-a259-a04c76d2528b`. Apple
+  independently reports `1.0.3 (2608211)` as `VALID`, available to internal
+  testers, and ready for external beta submission.
+- The notarized macOS build carries the same `1.0.3 (2608211)` release identity
+  and compiles `FORT_AGENT_CHANNELS=primary`; source defaults remain closed.
