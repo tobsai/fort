@@ -14,8 +14,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "1.0.3"
-    CURRENT_PROJECT_VERSION: "2608211"
+    MARKETING_VERSION: "1.0.4"
+    CURRENT_PROJECT_VERSION: "2608212"
     SWIFT_VERSION: "5.0"
     # Closed product-shell activation. Missing/invalid values also resolve off.
     FORT_AGENT_CHANNELS: "off"

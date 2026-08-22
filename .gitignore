@@ -32,3 +32,5 @@ gateway/**/.vercel/
 gateway/web/.next/
 gateway/**/package-lock.json
 !gateway/package-lock.json
+/.vercel/
+/.env.local

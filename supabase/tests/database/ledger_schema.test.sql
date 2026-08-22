@@ -4,12 +4,36 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(64);
 
+create function pg_temp.has_named_constraint(
+  schema_name name,
+  table_name name,
+  constraint_name name,
+  description text
+) returns text
+language sql
+as $$
+  select ok(
+    exists (
+      select 1
+        from pg_catalog.pg_constraint as constraint_item
+        join pg_catalog.pg_class as relation
+          on relation.oid = constraint_item.conrelid
+        join pg_catalog.pg_namespace as namespace
+          on namespace.oid = relation.relnamespace
+       where namespace.nspname = schema_name
+         and relation.relname = table_name
+         and constraint_item.conname = constraint_name
+    ),
+    description
+  )
+$$;
+
 select has_schema('fort_private', 'Fort ledger is isolated in a private schema');
 select has_table('fort_private', 'stable_agent', 'stable Agents are durable ledger roots');
 select has_table('fort_private', 'agent_profile_revision', 'Agent presentation history is revisioned');
 select has_table('fort_private', 'agent_behavior_revision', 'Agent behavior is revisioned');
 select has_table('fort_private', 'agent_binding_revision', 'Agent execution bindings are revisioned');
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'stable_agent',
   'stable_agent_current_behavior_binding_fk',
@@ -47,7 +71,7 @@ select has_trigger(
   'Execution Source configuration observations are append-only'
 );
 select has_table('fort_private', 'conversation', 'Conversations are durable ledger roots');
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'conversation_participant',
   'conversation_participant_behavior_binding_fk',
@@ -118,43 +142,43 @@ select has_column(
   'source_execution_attempt_id',
   'Agent-created Handoffs retain their exact source execution attempt'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_source_behavior_binding_fk',
   'a Handoff source Binding is database-bound to its Behavior'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_recipient_behavior_binding_fk',
   'a Handoff recipient Binding is database-bound to its Behavior'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_emitter_exact_source_command_fk',
   'an Agent Handoff binds its emitter receipt to the exact source attempt, revisions, and command'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_source_conversation_message_fk',
   'a Handoff source message belongs to its source Conversation'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_source_turn_message_fk',
   'a Handoff source Turn is the Turn that owns its source message'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_parent_source_binding_fk',
   'a nested Handoff source is its parent recipient revision pair'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'handoff',
   'handoff_parent_result_message_fk',
@@ -173,37 +197,37 @@ select ok(
 );
 select has_table('fort_private', 'handoff_projection', 'Handoff projections are reference-only records');
 select has_table('fort_private', 'routine', 'Agent-owned Routines are durable');
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_revision',
   'routine_revision_behavior_binding_fk',
   'a Routine Revision Binding is database-bound to its Behavior'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_import_receipt',
   'routine_import_receipt_revision_fk',
   'a Routine import receipt binds one Revision of the same Routine'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_occurrence',
   'routine_occurrence_revision_fk',
   'a Routine occurrence binds one Revision of the same Routine'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_run',
   'routine_run_occurrence_fk',
   'a Routine run binds its exact occurrence, Routine, and Revision chain'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_run',
   'routine_run_revision_fk',
   'a Routine run binds its exact Behavior, Binding, and result Conversation to its Revision'
 );
-select has_constraint(
+select pg_temp.has_named_constraint(
   'fort_private',
   'routine_run',
   'routine_run_target_chain_fk',
