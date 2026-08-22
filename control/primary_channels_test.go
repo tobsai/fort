@@ -359,6 +359,65 @@ func TestPrimaryAgentInventoryKeepsIneligibleAndUnreadyProfilesVisible(t *testin
 	}
 }
 
+func TestPrimaryAgentOptionsGroupMachinesAndPresentReadyBeforeNonReadyInventory(t *testing.T) {
+	st := openPrimaryStore(t)
+	capabilities, readyOptionID := primaryCapability("zeta")
+	capabilities.snapshot.Machines[0].Profiles = []corecap.ProfileOffer{
+		{ID: "claude:sonnet", Agent: "claude", Adapter: "profile.claude.native", State: corecap.OfferReady},
+		{ID: "codex:gpt-5.6-sol", Agent: "codex", Adapter: "profile.codex.native", State: corecap.OfferReady},
+	}
+	capabilities.snapshot.Machines = append(capabilities.snapshot.Machines,
+		corecap.MachineInventory{
+			Name: "alpha", Reachable: true, ProtocolVersion: corecap.ProtocolVersion,
+			CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
+			Profiles: []corecap.ProfileOffer{
+				{ID: "claude:sonnet", Agent: "claude", Adapter: "profile.claude.native", State: corecap.OfferReady},
+				{ID: "codex-subscription:gpt-5.6-sol", Agent: "codex-subscription", Adapter: "profile.codex-subscription.isolated", State: corecap.OfferSetupRequired, Reason: corecap.ReasonAuthRequired},
+			}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
+		},
+		corecap.MachineInventory{
+			Name: "middle", Reachable: true, ProtocolVersion: corecap.ProtocolVersion,
+			CatalogVersion: corecap.CatalogVersion, ProfileMappingVersion: corecap.ProfileMappingVersion,
+			Profiles: []corecap.ProfileOffer{{
+				ID: "codex-subscription:gpt-5.6-sol", Agent: "codex-subscription", Adapter: "profile.codex-subscription.isolated",
+				State: corecap.OfferUnavailable, Reason: corecap.ReasonProbeFailed,
+			}}, TextOnlyOptions: []corecap.TextOnlyOptionOffer{},
+		},
+	)
+
+	view, err := NewPrimaryChannelService(st, nil, capabilities).PrimaryAgent(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantMachines := []string{"alpha", "alpha", "middle", "zeta", "zeta", "zeta"}
+	gotMachines := make([]string, 0, len(view.Options))
+	states := map[string]bool{}
+	sawNonReady := map[string]bool{}
+	for _, option := range view.Options {
+		machine := option.Seat.Machine
+		gotMachines = append(gotMachines, machine)
+		states[option.State] = true
+		if option.State == PrimaryAgentReady {
+			if sawNonReady[machine] {
+				t.Fatalf("ready option followed non-ready inventory on %q: %+v", machine, view.Options)
+			}
+		} else {
+			sawNonReady[machine] = true
+		}
+	}
+	if !reflect.DeepEqual(gotMachines, wantMachines) {
+		t.Fatalf("primary option machines = %v, want grouped order %v", gotMachines, wantMachines)
+	}
+	for _, state := range []string{PrimaryAgentReady, string(corecap.OfferSetupRequired), string(corecap.OfferUnavailable), PrimaryAgentIneligible} {
+		if !states[state] {
+			t.Fatalf("primary options = %+v, missing state %q", view.Options, state)
+		}
+	}
+	if firstOnZeta := view.Options[3]; firstOnZeta.ID != readyOptionID || firstOnZeta.State != PrimaryAgentReady {
+		t.Fatalf("first zeta option = %+v, want ready choice %q", firstOnZeta, readyOptionID)
+	}
+}
+
 func TestPrimaryChannelReadinessProjectsCurrentInventoryWithoutRetargetingIdentity(t *testing.T) {
 	st := openPrimaryStore(t)
 	capabilities, optionID := primaryCapability("studio")

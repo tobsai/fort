@@ -501,6 +501,9 @@ func (s *PrimaryChannelService) currentOptions() []PrimaryAgentOption {
 		if options[i].Seat.Machine != options[j].Seat.Machine {
 			return options[i].Seat.Machine < options[j].Seat.Machine
 		}
+		if (options[i].State == PrimaryAgentReady) != (options[j].State == PrimaryAgentReady) {
+			return options[i].State == PrimaryAgentReady
+		}
 		return options[i].ID < options[j].ID
 	})
 	return options

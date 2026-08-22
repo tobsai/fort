@@ -50,6 +50,8 @@ model, computer, or execution contract.
 
 - The existing contract test fails against the old pin, then passes against
   the exact evidence above.
+- Agent enrollment keeps deterministic computer grouping and presents ready
+  options before setup, unavailable, and ineligible inventory on each computer.
 - `go test ./...`, focused race tests, `go vet ./...`, Swift contract checks,
   and release configuration checks pass.
 - Both gateway origins produce Google authorization redirects with a nonempty
