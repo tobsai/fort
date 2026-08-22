@@ -4,9 +4,25 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 )
+
+type vercelControlConfig struct {
+	Regions   []string `json:"regions"`
+	Functions map[string]struct {
+		MaxDuration int `json:"maxDuration"`
+	} `json:"functions"`
+	Crons []struct {
+		Path     string `json:"path"`
+		Schedule string `json:"schedule"`
+	} `json:"crons"`
+	Rewrites []struct {
+		Source      string `json:"source"`
+		Destination string `json:"destination"`
+	} `json:"rewrites"`
+}
 
 func TestControlProjectPinsBoundedGoFunctionsToIAD(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
@@ -17,20 +33,7 @@ func TestControlProjectPinsBoundedGoFunctionsToIAD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read vercel.json: %v", err)
 	}
-	var config struct {
-		Regions   []string `json:"regions"`
-		Functions map[string]struct {
-			MaxDuration int `json:"maxDuration"`
-		} `json:"functions"`
-		Crons []struct {
-			Path     string `json:"path"`
-			Schedule string `json:"schedule"`
-		} `json:"crons"`
-		Rewrites []struct {
-			Source      string `json:"source"`
-			Destination string `json:"destination"`
-		} `json:"rewrites"`
-	}
+	var config vercelControlConfig
 	if err := json.Unmarshal(payload, &config); err != nil {
 		t.Fatalf("decode vercel.json: %v", err)
 	}
@@ -77,5 +80,36 @@ func TestControlProjectPinsBoundedGoFunctionsToIAD(t *testing.T) {
 	}
 	if len(wantRewrites) != 0 {
 		t.Fatalf("missing semantic v2 rewrites: %v", wantRewrites)
+	}
+}
+
+func TestControlPreviewRetainsRoutesWithoutRegisteringPaidCron(t *testing.T) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate test file")
+	}
+	root := filepath.Join(filepath.Dir(filename), "..")
+	load := func(name string) vercelControlConfig {
+		t.Helper()
+		payload, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		var config vercelControlConfig
+		if err := json.Unmarshal(payload, &config); err != nil {
+			t.Fatalf("decode %s: %v", name, err)
+		}
+		return config
+	}
+
+	production := load("vercel.json")
+	preview := load("vercel.preview.json")
+	if !reflect.DeepEqual(preview.Regions, production.Regions) ||
+		!reflect.DeepEqual(preview.Functions, production.Functions) ||
+		!reflect.DeepEqual(preview.Rewrites, production.Rewrites) {
+		t.Fatal("preview control deployment must retain production regions, function bounds, and routes")
+	}
+	if len(preview.Crons) != 0 {
+		t.Fatalf("preview Crons = %+v, want no registered schedule", preview.Crons)
 	}
 }
