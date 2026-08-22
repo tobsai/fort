@@ -30,10 +30,20 @@ func TestControlDeploymentExcludesNonServerArtifacts(t *testing.T) {
 		"gateway":      false,
 		"ui":           false,
 	}
+	serverSource := map[string]bool{
+		"cmd":     true,
+		"control": true,
+		"exec":    true,
+		"rules":   true,
+	}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		if _, ok := want[scanner.Text()]; ok {
-			want[scanner.Text()] = true
+		path := scanner.Text()
+		if _, ok := want[path]; ok {
+			want[path] = true
+		}
+		if serverSource[path] {
+			t.Errorf(".vercelignore must retain Go module source %q for Vercel's go mod tidy", path)
 		}
 	}
 	if err := scanner.Err(); err != nil {

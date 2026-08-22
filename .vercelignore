@@ -7,15 +7,11 @@
 assets
 bin
 build
-cmd
-control
 design_handoff_channels_as_agents_and_living_logo.md
 dist
 docs
-exec
 flows
 gateway
-rules
 scripts
 specs
 supabase
