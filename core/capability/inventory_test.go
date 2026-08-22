@@ -11,7 +11,7 @@ func TestCodexPredicatePinsCurrentCapabilityRuntimeEffect(t *testing.T) {
 		t.Fatal("missing Codex profile")
 	}
 	predicates := profilePredicateShapes(profile)
-	want := "effect.codex.capability-0.147.0-alpha.6.5-2b6fb0da.v3"
+	want := "effect.codex.capability-0.149.0-alpha.4.1-780383c8.v4"
 	if len(predicates) == 0 || len(predicates[0].RemedyEffectIDs) != 1 || predicates[0].RemedyEffectIDs[0] != want {
 		t.Fatalf("Codex runtime effect = %+v, want %q", predicates, want)
 	}

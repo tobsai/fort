@@ -67,12 +67,12 @@ func TestExportedContractProvidesExactRuntimeInvocation(t *testing.T) {
 }
 
 func TestCurrentCodexContractPinsApprovedInstalledEvidence(t *testing.T) {
-	if CodexVersion != "codex-cli 0.147.0-alpha.6.5" ||
-		CodexExecutableRevision != "e4432c0c085e4a2e5b9cf982e4dd2ebdb44ed33c422827b6e6c64353778e773b" ||
-		CodexNormalSchemaRevision != "be9de4ce887d8338794dbd330202fb5bdbd43316cc73b721efacf4542c8607b9" ||
-		CodexNormalSchemaFiles != 285 ||
-		CodexExperimentalSchemaRevision != "2b6fb0da3b974ed25389d021f274900837c3ae5d406ba85be8cde45a21d0214f" ||
-		CodexExperimentalSchemaFiles != 361 {
+	if CodexVersion != "codex-cli 0.149.0-alpha.4.1" ||
+		CodexExecutableRevision != "fa8b41f0e7ae971171d05ca55451a3ffb8b7e74e01837a2f5c177513a5403c5d" ||
+		CodexNormalSchemaRevision != "bfa21213f862696b6919e8ddf60c454be5f24e6f432735651fc4fbaa7d2b3919" ||
+		CodexNormalSchemaFiles != 291 ||
+		CodexExperimentalSchemaRevision != "780383c87746e4840e0eaeef83f636030c291ed05b44be2cb233c39e757a144a" ||
+		CodexExperimentalSchemaFiles != 401 {
 		t.Fatal("Codex contract pins changed without an explicit catalog revision")
 	}
 }

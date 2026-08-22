@@ -147,6 +147,9 @@ func TestNativeGatewayRequiresHTTPSAndPublishesTransportReplacement(t *testing.T
 
 func TestPrimaryAppleReleaseBumpsEveryShippingBuild(t *testing.T) {
 	project := readAppleSource(t, "project.yml")
+	if !strings.Contains(project, `MARKETING_VERSION: "1.0.5"`) {
+		t.Fatal("Apple repair release must use marketing version 1.0.5")
+	}
 	const buildMarker = `CURRENT_PROJECT_VERSION: "`
 	start := strings.Index(project, buildMarker)
 	if start == -1 {
@@ -158,8 +161,8 @@ func TestPrimaryAppleReleaseBumpsEveryShippingBuild(t *testing.T) {
 		t.Fatal("project version terminator missing")
 	}
 	build, err := strconv.Atoi(project[start : start+end])
-	if err != nil || build <= 2608151 {
-		t.Fatalf("Apple release build = %q, must be newer than uploaded TestFlight build 2608151", project[start:start+end])
+	if err != nil || build != 2608221 {
+		t.Fatalf("Apple repair release build = %q, want 2608221", project[start:start+end])
 	}
 	for _, target := range []string{"Fort:", "FortMac:"} {
 		if !strings.Contains(project, target) {

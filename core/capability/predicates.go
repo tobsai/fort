@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-const codexCapabilityRuntimeEffectID = "effect.codex.capability-0.147.0-alpha.6.5-2b6fb0da.v3"
-const codexSubscriptionEffectID = "effect.codex-subscription-0.147.0-alpha.6.5.v1"
+const codexCapabilityRuntimeEffectID = "effect.codex.capability-0.149.0-alpha.4.1-780383c8.v4"
+const codexSubscriptionEffectID = "effect.codex-subscription-0.149.0-alpha.4.1.v2"
 
 // PredicateTemplate is the immutable catalog portion of a predicate row. A
 // node probe supplies only state/reason; it cannot alter dependencies or

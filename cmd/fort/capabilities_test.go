@@ -93,7 +93,7 @@ func TestCapabilityStartupRefreshIsAsynchronous(t *testing.T) {
 	if err := os.Mkdir(binDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf '%s\\n' 'codex-cli 0.147.0-alpha.6.5'\n  exit 0\nfi\nexit 1\n"
+	script := "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf '%s\\n' 'codex-cli 0.149.0-alpha.4.1'\n  exit 0\nfi\nexit 1\n"
 	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -9,14 +9,14 @@ const (
 
 	DeveloperInstructionRevision = "0aa9805087e459f9566e74e5283555a207fa2f3defcab3f20929457e64c564bc"
 
-	CodexVersion            = "codex-cli 0.147.0-alpha.6.5"
-	CodexExecutableRevision = "e4432c0c085e4a2e5b9cf982e4dd2ebdb44ed33c422827b6e6c64353778e773b"
+	CodexVersion            = "codex-cli 0.149.0-alpha.4.1"
+	CodexExecutableRevision = "fa8b41f0e7ae971171d05ca55451a3ffb8b7e74e01837a2f5c177513a5403c5d"
 
-	CodexNormalSchemaRevision       = "be9de4ce887d8338794dbd330202fb5bdbd43316cc73b721efacf4542c8607b9"
-	CodexNormalSchemaFiles          = 285
-	CodexExperimentalSchemaRevision = "2b6fb0da3b974ed25389d021f274900837c3ae5d406ba85be8cde45a21d0214f"
-	CodexExperimentalSchemaFiles    = 361
-	CodexSchemaRevision             = "c59b4927dfaaaddcd78fd581bbe4c18649bb9adc42453a23b719b9df403156f2"
+	CodexNormalSchemaRevision       = "bfa21213f862696b6919e8ddf60c454be5f24e6f432735651fc4fbaa7d2b3919"
+	CodexNormalSchemaFiles          = 291
+	CodexExperimentalSchemaRevision = "780383c87746e4840e0eaeef83f636030c291ed05b44be2cb233c39e757a144a"
+	CodexExperimentalSchemaFiles    = 401
+	CodexSchemaRevision             = "8d0cb6c2ce8aa47a0866d17c28f2adea2b562f0b8d69ad6e876c06010efac35b"
 
 	TargetTimeoutMillis = 120_000
 
@@ -26,8 +26,8 @@ const (
 )
 
 const schemaContract = "codex-schema-contract:v1\n" +
-	"normal:" + CodexNormalSchemaRevision + ":285\n" +
-	"experimental:" + CodexExperimentalSchemaRevision + ":361\n"
+	"normal:" + CodexNormalSchemaRevision + ":291\n" +
+	"experimental:" + CodexExperimentalSchemaRevision + ":401\n"
 
 const isolationContract = "codex-subscription-isolation:v1\n" +
 	"process=direct-argv,no-shell,process-group-cancel\n" +

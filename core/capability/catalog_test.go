@@ -80,7 +80,7 @@ func TestSubscriptionCatalogUsesOneClosedProbeAndDerivedAdapterComposition(t *te
 	profile, ok := catalog.ProfilePredicateTemplates("codex-subscription:gpt-5.6-sol")
 	if !ok || !reflect.DeepEqual(profile, []PredicateTemplate{{
 		ID: "predicate.codex-subscription.closed-contract.v1", Resolution: ResolutionProbe,
-		DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex-subscription-0.147.0-alpha.6.5.v1"},
+		DependsOn: []string{}, RemedyEffectIDs: []string{"effect.codex-subscription-0.149.0-alpha.4.1.v2"},
 	}}) {
 		t.Fatalf("profile predicates = %#v,%v", profile, ok)
 	}
