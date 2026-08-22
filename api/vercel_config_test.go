@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,6 +9,42 @@ import (
 	"runtime"
 	"testing"
 )
+
+func TestControlDeploymentExcludesNonServerArtifacts(t *testing.T) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate test file")
+	}
+	file, err := os.Open(filepath.Join(filepath.Dir(filename), "..", ".vercelignore"))
+	if err != nil {
+		t.Fatalf("open .vercelignore: %v", err)
+	}
+	defer file.Close()
+
+	want := map[string]bool{
+		".git":         false,
+		".claude":      false,
+		".fort-native": false,
+		"build":        false,
+		"dist":         false,
+		"gateway":      false,
+		"ui":           false,
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if _, ok := want[scanner.Text()]; ok {
+			want[scanner.Text()] = true
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("read .vercelignore: %v", err)
+	}
+	for path, found := range want {
+		if !found {
+			t.Errorf(".vercelignore must exclude %q", path)
+		}
+	}
+}
 
 type vercelControlConfig struct {
 	Regions   []string `json:"regions"`
