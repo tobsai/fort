@@ -22,19 +22,22 @@ func TestControlDeploymentExcludesNonServerArtifacts(t *testing.T) {
 	defer file.Close()
 
 	want := map[string]bool{
-		".git":         false,
-		".claude":      false,
-		".fort-native": false,
-		"build":        false,
-		"dist":         false,
-		"gateway":      false,
-		"ui":           false,
+		".git":                     false,
+		".claude":                  false,
+		".fort-native":             false,
+		"/gateway":                 false,
+		"/ui/apple/build":          false,
+		"/ui/apple/FortKit/.build": false,
+		"build":                    false,
+		"dist":                     false,
 	}
 	serverSource := map[string]bool{
 		"cmd":     true,
 		"control": true,
 		"exec":    true,
 		"rules":   true,
+		"gateway": true,
+		"ui":      true,
 	}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

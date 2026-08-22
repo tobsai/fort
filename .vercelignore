@@ -11,8 +11,11 @@ design_handoff_channels_as_agents_and_living_logo.md
 dist
 docs
 flows
-gateway
+/gateway
 scripts
 specs
 supabase
-ui
+/ui/apple/build
+/ui/apple/FortKit/.build
+/ui/apple/FortKit/build
+/ui/apple/Fort.xcodeproj
