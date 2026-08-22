@@ -41,6 +41,7 @@ usage:
   fort control [--inbox DIR]       boot the CONTROL PLANE ONLY (board, chat,
                                    scheduler, gate inbox) — no router/runtime/DAG,
                                    no agent CLIs needed; tasks are boarded as queued
+  fort worker --config PATH [--once] run an enrolled outbound cloud execution worker
   fort route --dry-run [taskflags] print the matched rule + target agent
   fort task add [taskflags]        route + dispatch a task natively
   fort task breakdown "<goal>"     plan a goal into backlog sub-tasks (needs fort serve)
@@ -57,6 +58,10 @@ usage:
   fort relay join <gateway-url> --code XXXX-XXXX [--name N]   tunnel this machine through a remote gateway (spec 028)
   fort relay status                print the joined gateway + key fingerprint
   fort relay remove                stop tunneling; delete relay.yaml (gateway revocation is authoritative)
+  fort db export-sqlite --frozen --source PATH --out ARCHIVE
+  fort db import-postgres --dry-run --archive ARCHIVE
+  fort db verify-migration --sqlite-archive SOURCE --postgres-archive TARGET
+  fort db export-postgres --frozen --out ARCHIVE
   fort service install             install + start the launchd user agent
   fort service start|stop|restart  control the running daemon
   fort service status              report running/stopped + address
@@ -85,6 +90,8 @@ func main() {
 		err = cmdServe(os.Args[2:])
 	case "control":
 		err = cmdControl(os.Args[2:])
+	case "worker":
+		err = cmdWorker(os.Args[2:])
 	case "route":
 		err = cmdRoute(os.Args[2:])
 	case "task":
@@ -103,6 +110,8 @@ func main() {
 		err = cmdMesh(os.Args[2:])
 	case "relay":
 		err = cmdRelay(os.Args[2:])
+	case "db":
+		err = cmdDB(os.Args[2:])
 	case "service":
 		err = cmdService(os.Args[2:])
 	case "version", "--version", "-v":

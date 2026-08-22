@@ -4,17 +4,29 @@
 
 # Fort
 
-**Deterministic agent orchestration — route work, run it natively, gate it at humans.**
+**A durable chat service for agents — across frameworks, conversations, and computers.**
 
-Fort takes a task, routes it to the right agent by fixed rules (no model in the
-routing path), runs it by spawning the agent CLIs itself, and sequences
-multi-step work as a DAG that pauses at human gates. It runs as one native Go
-binary and exposes a control plane you can drive from the web, iOS, macOS,
-or the CLI. The Phase 1 shipping UI is Private Channels on Web, iPhone, and Mac.
+In Fort, each Channel is a stable named **Agent** with one permanent Home
+Conversation and optional pinned secondary Conversations. Groups put two to
+six exact Agents in one durable chat. Additional Agent-to-Agent work happens
+only through explicit, attributed, bounded **Handoffs**; it is never inferred
+from prose or silently rerouted. Agent-owned Routines return their result to an
+exact Conversation.
+
+Under that product surface, Fort retains deterministic orchestration: routing
+uses fixed rules (no model in the routing path), every execution pins an exact
+behavior, framework profile, model, adapter, authority, and computer revision,
+and multi-step work pauses at human gates. Native workers run local agent CLIs;
+the approved cloud architecture uses Vercel for the stateless application tier
+and Supabase Postgres for the durable ledger.
 
 > Built native per the [Agent Ops Backlog](./Agent%20Ops%20Backlog/) (rev. 2).
 > The original TypeScript prototype was an experiment; this Go build is the
-> delivered project. Governing spec: [`specs/021-fort-native.md`](./specs/021-fort-native.md).
+> delivered project. The native foundation remains governed by
+> [`specs/021-fort-native.md`](./specs/021-fort-native.md); the cloud Agent,
+> Group, Handoff, and Routine model is governed by
+> [`specs/047-vercel-supabase-cloud-control-plane.md`](./specs/047-vercel-supabase-cloud-control-plane.md)
+> and [`specs/048-stable-agents-group-chats-and-handoffs.md`](./specs/048-stable-agents-group-chats-and-handoffs.md).
 
 ## Two planes, two modes (one binary)
 
@@ -38,9 +50,13 @@ One Go module, hard module seams (enforced by `core/arch_test.go`):
 | Module | Role |
 |---|---|
 | `core/` | deterministic orchestration: rules, router, runtime interface, store, engine, graph, inbox, flow, scheduler, server |
+| `cloud/` | stateless cloud-control contracts, signed service trust, and application-encrypted bodies |
+| `api/` | bounded Vercel Go Function entrypoints; never starts a native runtime or permanent loop |
 | `exec/` | native execution: `NativeRuntime` (PTY-less CLI executor), `FakeRuntime`, `gateway` (budgets/tracing/failover) |
 | `ui/` | Primary Channels HTTP/SSE + Web, with off-mode legacy administration; imports **none** of the execution components |
 | `control/` | adapters wiring execution into the ui ports (or a queue-only dispatcher) |
+| `gateway/` | authenticated Next.js gateway and bounded reconnecting Node SSE transport |
+| `supabase/` | private Postgres ledger migrations and database contract tests |
 | `rules/`, `flows/` | the routing ruleset and flow definitions (YAML) |
 | `cmd/fort/` | the `fort` CLI |
 | `ui/apple/` | Phase 1 FortKit package + explicit iPhone and Mac clients |
@@ -151,13 +167,16 @@ FORT_MACHINES=machines.yaml FORT_NODE_TOKEN=shared-secret \
 Unset `FORT_MACHINES` ⇒ classic single-machine mode. When `FORT_MACHINES` is
 set, `fort mesh` refuses to write to it (it only manages its own file).
 
-## What needs you
+## Provider boundary
 
-- The execution plane spawns real agent CLIs (`claude`, `codex`, `hermes`,
-  `openclaw`) with your provider keys — see `.env.example`. The `openclaw`
-  invocation is a **best guess** ([spec 023](./specs/023-openclaw-provider.md))
-  until the CLI is installed and probed; correct one line in
-  `exec/native/providers.go` if it differs.
+- Discovering an installed framework does not authorize it for production.
+  Every real runtime family keeps its own reviewed identity, readiness,
+  lifecycle, authority, and terminal-normalization contract. Fake runtimes can
+  prove deterministic state transitions but cannot satisfy cross-framework
+  production acceptance.
+- Provider credentials, CLI OAuth state, workspace files, browser sessions,
+  and source-managed memory remain on the enrolled worker unless a later
+  approved contract says otherwise.
 
 ## Docs
 

@@ -5,12 +5,13 @@
 > load-bearing rules so they're not missed.
 
 ## What Fort is
-Deterministic agent orchestration in **Go**: route a task by fixed rules (no
-model in the routing path), run it by spawning agent CLIs natively, sequence
-multi-step work as a DAG that pauses at human gates. One binary; a control plane
-for web / iOS / macOS / CarPlay / watch. The earlier TypeScript prototype was an
-experiment and has been removed (git history preserves it). Governing spec:
-`specs/021-fort-native.md`.
+A durable chat service for stable named Agents across frameworks and computers,
+with canonical Home Conversations, secondary Conversations, multi-Agent Groups,
+bounded durable Handoffs, and Agent-owned Routines. Execution remains
+deterministic Go orchestration: route by fixed rules (no model in the routing
+path), run exact approved agent CLI bindings natively, and pause DAGs at human
+gates. Specs `047` and `048` govern the cloud product model;
+`specs/021-fort-native.md` remains the native execution foundation.
 
 ## Non-negotiables
 - **Test-first (TDD).** Write the failing `go test` first, watch it fail, then
@@ -29,7 +30,8 @@ experiment and has been removed (git history preserves it). Governing spec:
   guidelines.
 
 ## Layout
-`core/` (rules, router, runtime iface, store, engine, graph, inbox, flow,
-scheduler, server) · `exec/` (native, fake, gateway) · `ui/` (control-plane
-HTTP/SSE + web) · `control/` (port adapters) · `cmd/fort/` (CLI) · `rules/` +
-`flows/` (YAML) · `ui/apple/` (FortKit + Apple clients).
+`core/` (domain, rules, runtime iface, ledger/store, engine, graph, scheduler) ·
+`cloud/` + `api/` (stateless Vercel control) · `supabase/` (private Postgres
+ledger) · `gateway/` (authenticated web + bounded SSE) · `exec/` (native, fake,
+gateway) · `ui/` + `ui/apple/` (local/Apple clients) · `control/` (ports) ·
+`cmd/fort/` (CLI) · `rules/` + `flows/` (YAML).

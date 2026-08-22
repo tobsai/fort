@@ -1,0 +1,2 @@
+-- Intentionally empty. Production and migration rehearsals never use seed data;
+-- tests create transaction-local fixtures and roll them back.

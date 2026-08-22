@@ -346,7 +346,7 @@ describe("gateway Command Deck presentation", () => {
     const client = readFileSync(`${root}/components/board-client.tsx`, "utf8");
     const surface = readFileSync(`${root}/components/command-deck-surface.tsx`, "utf8");
     const playbooks = readFileSync(`${root}/components/playbooks-surface.tsx`, "utf8");
-    const machinesPage = readFileSync(`${root}/app/page.tsx`, "utf8");
+    const machinesPage = readFileSync(`${root}/app/legacy/page.tsx`, "utf8");
     const commandDeckSource = `${client}\n${surface}\n${playbooks}`;
     const css = readFileSync(`${root}/app/globals.css`, "utf8");
 

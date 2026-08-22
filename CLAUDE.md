@@ -1,16 +1,18 @@
 # Fort — Claude Code Directives
 
 ## Project Overview
-Fort is deterministic agent orchestration: it routes a task to the right agent by
-fixed rules (no model in the routing path), runs it by spawning the agent CLIs
-natively, and sequences multi-step work as a DAG that pauses at human gates. One
-native **Go** binary, with a control plane driven from web / iOS / macOS /
-CarPlay / watch.
+Fort is a durable chat service for stable named Agents across frameworks and
+computers. Every Agent has one permanent Home Conversation; Groups use explicit
+frozen recipients; additional Agent-to-Agent work is a bounded durable Handoff;
+Agent-owned Routines report to an exact Conversation. Under that surface, Fort
+routes by fixed rules (no model in the routing path), runs exact approved agent
+CLI bindings natively, and sequences DAG work through human gates.
 
 > This Go build (`fort-native`) is the delivered project, built per the
 > `Agent Ops Backlog/` (rev. 2). The earlier TypeScript prototype was an
 > experiment and has been removed (recover from git history if ever needed).
-> Governing spec: `specs/021-fort-native.md`.
+> Governing native spec: `specs/021-fort-native.md`. Specs `047` and `048`
+> govern the Vercel/Supabase control plane and stable-Agent product model.
 
 ## Architecture
 One Go module (`github.com/tobsai/fort`), hard module seams enforced by
@@ -18,6 +20,10 @@ One Go module (`github.com/tobsai/fort`), hard module seams enforced by
 - `core/` — deterministic orchestration: `rules`, `router`, `runtime` (the
   executor interface), `store` (SQLite), `engine`, `graph` (DAG), `inbox`,
   `flow`, `scheduler`, `server`, `config`.
+- `cloud/` + `api/` — stateless cloud-control contracts and bounded Vercel Go
+  Function entrypoints; never native execution or permanent loops.
+- `supabase/` — private Postgres ledger migrations and database contract tests.
+- `gateway/` — authenticated Next.js application tier and bounded Node SSE.
 - `exec/` — native execution: `native.NativeRuntime` (spawns CLIs), `fake`
   (tests), `gateway` (budgets/tracing/failover). Implements `core/runtime.Runtime`.
 - `ui/` — control-plane HTTP/SSE API + web board. Talks to the rest of Fort only

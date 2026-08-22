@@ -1,0 +1,104 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["iad1"],
+  "functions": {
+    "api/*.go": {
+      "maxDuration": 60
+    },
+    "api/**/*.go": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/v2/worker",
+      "destination": "/api/v2/worker/index.go"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations/:conversation_id/targets/:target_id/retry",
+      "destination": "/api/v2/chat?resource=retry&agent_id=:agent_id&conversation_id=:conversation_id&target_id=:target_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations/:conversation_id/targets/:target_id/cancel",
+      "destination": "/api/v2/chat?resource=cancel&agent_id=:agent_id&conversation_id=:conversation_id&target_id=:target_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations/:conversation_id/turns",
+      "destination": "/api/v2/chat?resource=turns&agent_id=:agent_id&conversation_id=:conversation_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations/canonical",
+      "destination": "/api/v2/owner?resource=agent_canonical_conversation&agent_id=:agent_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations/:conversation_id",
+      "destination": "/api/v2/chat?resource=conversation&agent_id=:agent_id&conversation_id=:conversation_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/conversations",
+      "destination": "/api/v2/owner?resource=agent_conversations&agent_id=:agent_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/routines/:routine_id/test",
+      "destination": "/api/v2/owner?resource=routine_test&agent_id=:agent_id&routine_id=:routine_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/routines/:routine_id/runs",
+      "destination": "/api/v2/owner?resource=routine_runs&agent_id=:agent_id&routine_id=:routine_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/routines/:routine_id",
+      "destination": "/api/v2/owner?resource=routine_detail&agent_id=:agent_id&routine_id=:routine_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/routines",
+      "destination": "/api/v2/owner?resource=routines&agent_id=:agent_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id/rebind",
+      "destination": "/api/v2/owner?resource=agent_rebind&agent_id=:agent_id"
+    },
+    {
+      "source": "/api/v2/agents/:agent_id",
+      "destination": "/api/v2/owner?resource=agent&agent_id=:agent_id"
+    },
+    {
+      "source": "/api/v2/agents",
+      "destination": "/api/v2/owner?resource=agents"
+    },
+    {
+      "source": "/api/v2/handoffs/:handoff_id/cancel",
+      "destination": "/api/v2/owner?resource=handoff_cancel&handoff_id=:handoff_id"
+    },
+    {
+      "source": "/api/v2/handoffs/:handoff_id",
+      "destination": "/api/v2/owner?resource=handoff_detail&handoff_id=:handoff_id"
+    },
+    {
+      "source": "/api/v2/handoffs",
+      "destination": "/api/v2/owner?resource=handoffs"
+    },
+    {
+      "source": "/api/v2/groups/:group_id/turns",
+      "destination": "/api/v2/owner?resource=group_turns&group_id=:group_id"
+    },
+    {
+      "source": "/api/v2/groups/:group_id/members",
+      "destination": "/api/v2/owner?resource=group_members&group_id=:group_id"
+    },
+    {
+      "source": "/api/v2/groups/:group_id",
+      "destination": "/api/v2/owner?resource=group_detail&group_id=:group_id"
+    },
+    {
+      "source": "/api/v2/groups",
+      "destination": "/api/v2/owner?resource=groups"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/v2/cron/tick",
+      "schedule": "* * * * *"
+    }
+  ]
+}

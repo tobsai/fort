@@ -5,8 +5,8 @@ import "./globals.css";
 import { auth, signOut } from "@/auth";
 
 export const metadata: Metadata = {
-  title: "Fort — Remote Command Deck",
-  description: "Drive your Forts from anywhere through an end-to-end encrypted Command Deck.",
+  title: "Fort — Chat with your Agents",
+  description: "Durable conversations, Groups, Routines, and Handoffs across exact agent frameworks and computers.",
 };
 
 export default async function RootLayout({
@@ -20,12 +20,19 @@ export default async function RootLayout({
       <body>
         <header className="topbar">
           <Link href="/" className="brand">
-            FORT <span className="brand-context">REMOTE</span>
+            <span className="fort-mark" aria-hidden="true" data-motion="ambient">
+              <span className="fort-mark-core" />
+              <span className="fort-mark-orbit fort-mark-orbit-a" />
+              <span className="fort-mark-orbit fort-mark-orbit-b" />
+            </span>
+            <span>FORT</span> <span className="brand-context">AGENT CHAT</span>
           </Link>
           {session?.user ? (
             <nav className="nav">
-              <Link href="/">Forts</Link>
-              <Link href="/add">Add a Fort</Link>
+              <Link href="/">Agents</Link>
+              <Link href="/groups">Groups</Link>
+              <Link href="/handoffs">Handoffs</Link>
+              <Link href="/legacy">Legacy</Link>
               <form
                 action={async () => {
                   "use server";
