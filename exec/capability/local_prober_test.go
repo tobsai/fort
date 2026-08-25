@@ -73,6 +73,29 @@ func TestLocalProberPublishesOnlyExactClosedSubscriptionOffer(t *testing.T) {
 	}
 }
 
+func TestLocalProberPublishesValidatedMachineSpecificSubscriptionExecutable(t *testing.T) {
+	commands, inspection := validSubscriptionProbeFixture()
+	revision := codexsubscription.CodexExecutableRevisionBuild6962
+	for key, result := range commands.results {
+		result.ExecutableDigest = revision
+		commands.results[key] = result
+	}
+	inspection.ExecutableDigest = revision
+
+	observation := NewLocalProber(commands, fakeCodexInspector{result: inspection}, nil, nil).Probe(
+		context.Background(), ProbeRequest{
+			AdapterID: "profile.codex-subscription.isolated", TargetID: "codex-subscription:gpt-5.6-sol",
+			ProfileID: "codex-subscription:gpt-5.6-sol", PredicateID: "predicate.codex-subscription.closed-contract.v1",
+		},
+	)
+	if observation.State != corecap.PredicateSatisfied || observation.TextOnlyOption == nil {
+		t.Fatalf("observation = %#v", observation)
+	}
+	if got := observation.TextOnlyOption.CodexExecutableRevision; got != revision {
+		t.Fatalf("published executable revision = %q, want %q", got, revision)
+	}
+}
+
 func TestLocalProberRejectsSubscriptionDriftBeforePublishingOffer(t *testing.T) {
 	tests := []struct {
 		name   string

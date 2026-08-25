@@ -352,6 +352,11 @@ func cmdServe(args []string) error {
 		deps.SeatRechecker = a.caps.coordinator
 		a.caps.start(ctx, time.Minute)
 	}
+	hermesMessaging, err := wireHermesMessaging(a.cfg.DataDir(), localName(a.live, a.cfg))
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	deps.Messaging = hermesMessaging.Service
 	uiSrv := ui.New(deps)
 
 	// Mesh enrollment (spec 024): the token store holds the durable mesh token
@@ -387,6 +392,9 @@ func cmdServe(args []string) error {
 	}
 	mountMode := func(mux *http.ServeMux, mode ui.ProductMode) {
 		_ = uiSrv.RegisterProductMode(mux, mode)
+		if hermesMessaging.LocalRelay != nil {
+			mux.Handle(hermesMessaging.LocalPath, hermesMessaging.LocalRelay)
+		}
 		nodeSrv.Register(mux)
 		meshSrv.Register(mux)
 	}

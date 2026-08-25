@@ -136,7 +136,7 @@ func (p *LocalProber) codexSubscription(ctx context.Context) ProbeObservation {
 		return commandFailure(version.Err)
 	}
 	if strings.TrimSpace(string(version.Output)) != codexsubscription.CodexVersion ||
-		version.ExecutableDigest != codexsubscription.CodexExecutableRevision {
+		!codexsubscription.AcceptsCodexExecutableRevision(version.ExecutableDigest) {
 		return unsatisfied(corecap.ReasonIncompatibleVersion)
 	}
 
@@ -182,7 +182,7 @@ func (p *LocalProber) codexSubscription(ctx context.Context) ProbeObservation {
 		RequestTimeoutMillis:         codexsubscription.TargetTimeoutMillis,
 		DeveloperInstructionRevision: codexsubscription.DeveloperInstructionRevision,
 		AdapterID:                    "model.chat.text-only.codex-subscription", AdapterRevision: codexsubscription.AdapterRevision,
-		CodexVersion: codexsubscription.CodexVersion, CodexExecutableRevision: codexsubscription.CodexExecutableRevision,
+		CodexVersion: codexsubscription.CodexVersion, CodexExecutableRevision: version.ExecutableDigest,
 		CodexSchemaRevision: codexsubscription.CodexSchemaRevision,
 		ThreadMode:          "ephemeral", SandboxMode: "readOnly", ApprovalPolicy: "never", WorkdirMode: "empty_per_target",
 		DynamicToolsMode: "none", MCPMode: "none", CommandPolicy: "deny_and_fail", FileReadPolicy: "deny_and_fail",

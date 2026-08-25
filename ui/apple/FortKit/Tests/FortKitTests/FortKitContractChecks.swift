@@ -58,6 +58,8 @@ struct FortKitContractChecks {
         try productMarkAndAgentIdentityRemainDistinct()
         try iPhoneSimulatorSupportsDeterministicVisualQAHost()
         try iPhonePhysicalReleaseUsesOnlyAuthenticatedRelay()
+        ReleaseIdentityContractTests.run()
+        try await MessagingContractTests.run()
         print("FortKit Phase 1 contract checks passed")
     }
 

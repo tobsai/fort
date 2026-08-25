@@ -37,9 +37,20 @@ authority, policy, source configuration, and accepted capabilities.
 _Avoid_: Agent name, mutable preference, silent fallback
 
 **Agent Channel**:
-User-facing compatibility language for selecting an Agent as a top-level chat
-destination.
-_Avoid_: Conversation, Binding Revision, provider session
+One top-level chat destination for a durable Fort Agent and its exact execution
+identity. It is not the umbrella type for external Messaging Channels.
+_Avoid_: Messaging Channel, Conversation, Binding Revision, provider session
+
+**Messaging Source**:
+One authenticated external messaging-platform adapter instance qualified by
+the stable Fort machine through which it communicates.
+_Avoid_: Execution Source, provider, machine display name, relay socket
+
+**Messaging Channel**:
+One stable top-level chat destination for one external bot or profile through
+one exact Messaging Source. It owns a Conversation but creates no Agent,
+execution target, Binding Revision, or run.
+_Avoid_: Agent Channel, provider session, relay connection
 
 **Conversation**:
 One durable transcript and context boundary.

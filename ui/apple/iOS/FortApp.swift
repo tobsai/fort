@@ -58,7 +58,12 @@ struct RootTabView: View {
                         ProgressView("Connecting to Fort…")
                     }
                 } else if gateway.hasPrimaryTransport {
-                    FortNativeChatView(mode: presentationMode)
+                    TabView {
+                        FortNativeChatView(mode: presentationMode)
+                            .tabItem { Label("Fort", systemImage: "person.2") }
+                        MessagingChannelsView(sourceResolution: messagingChannelSourceResolution)
+                            .tabItem { Label("Channels", systemImage: "bubble.left.and.bubble.right") }
+                    }
                         .primaryConnectionSettings { showConnectionSettings = true }
                         .agentConnectionSettings { showConnectionSettings = true }
                 } else {
@@ -79,6 +84,10 @@ struct RootTabView: View {
             }
         }
         .sheet(isPresented: $showConnectionSettings) { SettingsView() }
+    }
+
+    private var messagingChannelSourceResolution: MessagingChannelSourceResolution {
+        MessagingChannelSourceResolution(account: gateway.account, machines: gateway.machines)
     }
 }
 
@@ -132,6 +141,9 @@ struct SettingsView: View {
                         Button("Disconnect gateway", role: .destructive) { gateway.disconnect(client: client) }
                     }
                     if let error = gateway.errorMessage { Text(error).foregroundStyle(.red).font(.footnote) }
+                }
+                Section("About") {
+                    FortReleaseIdentityView()
                 }
                 #if DEBUG && targetEnvironment(simulator)
                 Section("Control-plane host") {

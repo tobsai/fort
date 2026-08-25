@@ -78,6 +78,31 @@ func TestAgentSourceInventorySnapshotRejectsCrossSourceAndAmbiguousEvidence(t *t
 	}
 }
 
+func TestAgentSourceInventorySnapshotAllowsAllocatedEmptyCapabilitiesOnlyWhenUnready(t *testing.T) {
+	t.Parallel()
+
+	unready := validInventorySnapshot()
+	unready.Agents[0].Readiness.Ready = false
+	unready.Agents[0].Capabilities = []string{}
+	if err := unready.Validate(); err != nil {
+		t.Fatalf("unready snapshot rejected allocated empty capabilities: %v", err)
+	}
+
+	missing := unready
+	missing.Agents = append([]runtime.SourceAgentInventory{}, unready.Agents...)
+	missing.Agents[0].Capabilities = nil
+	if err := missing.Validate(); err == nil {
+		t.Fatal("snapshot accepted a nil capability list")
+	}
+
+	ready := unready
+	ready.Agents = append([]runtime.SourceAgentInventory{}, unready.Agents...)
+	ready.Agents[0].Readiness.Ready = true
+	if err := ready.Validate(); err == nil {
+		t.Fatal("ready snapshot accepted no capabilities")
+	}
+}
+
 type fakeAgentSourceInventory struct {
 	snapshot runtime.AgentSourceInventorySnapshot
 }

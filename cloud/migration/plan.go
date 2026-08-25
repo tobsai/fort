@@ -67,6 +67,7 @@ var postgresImportRules = map[string]mappingRule{
 	// block a migration plan while non-empty.
 	"execution_source":                      {MappingNeedsExplicitChoice, "execution_source", "local computer identity must be matched to an enrolled cloud worker"},
 	"source_agent":                          {MappingNeedsExplicitChoice, "source_agent", "source inventory evidence needs an approved worker mapping"},
+	"agent_source_inventory_observation":    {MappingNeedsExplicitChoice, "source_agent", "append-only source inventory evidence needs an approved worker mapping"},
 	"agent_binding_revision":                {MappingNeedsExplicitChoice, "agent_binding_revision", "Binding computer and capability evidence need an enrolled worker choice"},
 	"agent_profile_revision":                {MappingNeedsExplicitChoice, "agent_profile_revision", "cloud created-by evidence is absent from the local profile revision"},
 	"agent_behavior_revision":               {MappingNeedsExplicitChoice, "agent_behavior_revision", "cloud created-by and behavior-digest evidence need an approved deterministic mapping"},
@@ -109,6 +110,8 @@ var postgresImportRules = map[string]mappingRule{
 	"stable_agent_context_manifest_message": {MappingNeedsExplicitChoice, "context_manifest_message", "local context membership needs cloud message identity mapping"},
 	"stable_agent_direct_turn":              {MappingNeedsExplicitChoice, "conversation_turn", "direct turn needs exact v2 grant and policy snapshots"},
 	"stable_agent_direct_target_binding":    {MappingNeedsExplicitChoice, "conversation_target_binding", "direct target needs immutable v2 pin evidence"},
+	"channel_turn_attempt":                  {MappingNeedsExplicitChoice, "conversation_target", "relay attempt and plaintext intent require an approved encrypted cloud turn and target mapping"},
+	"channel_turn_event":                    {MappingNeedsExplicitChoice, "ledger_event", "relay event ordering requires an approved durable cloud event projection"},
 
 	// v1 operational evidence stays recoverable in the encrypted archive but is
 	// not projected into the cloud-v2 product ledger.

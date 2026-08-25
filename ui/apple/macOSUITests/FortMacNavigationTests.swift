@@ -16,6 +16,22 @@ final class FortMacNavigationTests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["FORT"].waitForExistence(timeout: 5), "Primary Channels sidebar did not appear")
+        let readyAgent = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", "Ready")
+        ).firstMatch
+        XCTAssertTrue(readyAgent.waitForExistence(timeout: 2), "No ready Agent Channel appeared")
+        readyAgent.click()
+        XCTAssertEqual(app.alerts.count, 0, "Fort launched with a blocking UI alert")
+        for rawErrorCode in ["incompatible_version", "setup_required"] {
+            XCTAssertFalse(app.staticTexts[rawErrorCode].exists, "Fort exposed raw UI error \(rawErrorCode)")
+        }
+
+        let textView = app.textViews.firstMatch
+        let composer = textView.waitForExistence(timeout: 2) ? textView : app.textFields.firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 2), "Ready Channel composer did not appear")
+        composer.click()
+        composer.typeText("Release UI gate")
+        XCTAssertTrue(app.buttons["Send"].isEnabled, "Send stayed disabled after valid input")
 
         let needsYou = app.staticTexts["Needs You"].firstMatch
         XCTAssertTrue(needsYou.waitForExistence(timeout: 2), "Needs You sidebar item did not appear")

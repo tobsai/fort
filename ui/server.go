@@ -39,6 +39,7 @@ type Deps struct {
 	Conversations             ConversationPort          // durable shared conversations (spec 041)
 	Primary                   PrimaryChannelPort        // private subscription-backed Channels (spec 044)
 	AgentChannels             AgentChannelPort          // agent-first Channels and their nested conversations (spec 046)
+	Messaging                 MessagingPort             // external messaging peers proof (spec 052)
 	SeatRechecker             ConversationSeatRechecker // nil without functional capability probes (spec 041)
 	Today                     TodayPort                 // truthful right-rail projection (spec 041)
 	TodayLocation             *time.Location            // one Fort-configured IANA display timezone (spec 041)
@@ -109,6 +110,7 @@ func (s *Server) RegisterProductMode(mux *http.ServeMux, mode ProductMode) error
 	if err := validateProductMode(mode); err != nil {
 		return err
 	}
+	s.registerConfiguredMessagingRoutes(mux)
 	if mode.AgentChannels == AgentChannelsOff {
 		s.registerAgentChannelRouteTombstones(mux)
 	} else {
@@ -182,6 +184,7 @@ func (s *Server) RegisterNativeProductRoutes(mux *http.ServeMux, mode ProductMod
 	if err := validateProductMode(mode); err != nil {
 		return err
 	}
+	s.registerConfiguredMessagingRoutes(mux)
 	if mode.AgentChannels == AgentChannelsPrimary {
 		s.RegisterAgentChannelRoutes(mux)
 		if mode.PrimaryChannels == PrimaryChannelsOff {

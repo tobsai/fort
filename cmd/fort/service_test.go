@@ -520,3 +520,22 @@ func TestRunServiceRestartRetriesTransientBootstrapError(t *testing.T) {
 		t.Fatalf("retry delays = %v, want [%v]", delays, serviceRestartRetryDelay)
 	}
 }
+
+func TestRunServiceRestartToleratesAlreadyStoppedLaunchdJob(t *testing.T) {
+	sc := serviceConfig{Label: "io.tobsai.fort"}
+	var got [][]string
+	run := func(command []string) ([]byte, error) {
+		got = append(got, append([]string(nil), command...))
+		if len(command) > 1 && command[1] == "bootout" {
+			return []byte("Boot-out failed: 3: No such process"), errors.New("exit status 3")
+		}
+		return nil, nil
+	}
+
+	if err := runServiceRestart("/Users/x", sc, run, func(time.Duration) {}); err != nil {
+		t.Fatalf("restart rejected an already stopped launchd job: %v", err)
+	}
+	if want := serviceRestartCommands("/Users/x", sc); !reflect.DeepEqual(got, want) {
+		t.Fatalf("restart commands = %#v, want %#v", got, want)
+	}
+}

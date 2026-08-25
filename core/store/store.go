@@ -404,6 +404,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_occurrence_unique
 	if err := s.migrateStableAgents(); err != nil {
 		return fmt.Errorf("store: migrate stable Agents: %w", err)
 	}
+	if err := s.migrateAgentSourceInventory(); err != nil {
+		return fmt.Errorf("store: migrate Agent Source inventory: %w", err)
+	}
+	if err := s.migrateChannelTurns(); err != nil {
+		return fmt.Errorf("store: migrate channel turns: %w", err)
+	}
 	if err := s.migrateCollaboration(); err != nil {
 		return fmt.Errorf("store: migrate collaboration ledger: %w", err)
 	}

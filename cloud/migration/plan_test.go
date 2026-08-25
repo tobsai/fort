@@ -59,6 +59,19 @@ func TestDryRunDoesNotCallRowsReadyWhenCloudRequiresMissingEvidence(t *testing.T
 	}
 }
 
+func TestDryRunRequiresExplicitChoiceForAgentSourceInventoryObservations(t *testing.T) {
+	t.Parallel()
+
+	key := bytes.Repeat([]byte{0x42}, migration.ArchiveKeyBytes)
+	archive := migrationArchiveFixture(t, key, []migration.Table{
+		oneTextRow("agent_source_inventory_observation", "observation:1"),
+	})
+	report := migration.PlanPostgresImport(archive)
+	if len(report.Tables) != 1 || report.Tables[0].Class != migration.MappingNeedsExplicitChoice || report.Tables[0].TargetTable != "source_agent" {
+		t.Fatalf("inventory observation mapping = %+v", report.Tables)
+	}
+}
+
 func TestDryRunFailsClosedOnAnUnknownEmptyTable(t *testing.T) {
 	t.Parallel()
 

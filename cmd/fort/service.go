@@ -522,7 +522,7 @@ func runServiceRestart(home string, sc serviceConfig, run serviceCommandRunner, 
 	for index, command := range serviceRestartCommands(home, sc) {
 		for attempt := 1; ; attempt++ {
 			out, err := run(command)
-			if index == 0 && err != nil && (strings.Contains(string(out), "not loaded") || strings.Contains(string(out), "Could not find")) {
+			if index == 0 && err != nil && (strings.Contains(string(out), "not loaded") || strings.Contains(string(out), "Could not find") || strings.Contains(string(out), "No such process")) {
 				break
 			}
 			if err == nil {

@@ -775,6 +775,17 @@ public final class FortClient: ObservableObject, @unchecked Sendable {
         return (data, http.statusCode, requestID)
     }
 
+    /// Narrow raw transport seam for the separate Spec 052 messaging proof.
+    /// It preserves the selected pinned gateway transport on physical iPhone;
+    /// callers remain responsible for their bounded JSON contract.
+    package func messagingTransportRequest(
+        path: String,
+        method: String,
+        body: Data?
+    ) async throws -> (data: Data, status: Int, requestID: String) {
+        try await perform(path: path, method: method, body: body)
+    }
+
     private func makeRequest(
         path: String,
         method: String,

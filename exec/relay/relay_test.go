@@ -512,6 +512,67 @@ func TestDialAuthAndProxyRoundTrip(t *testing.T) {
 	<-runDone
 }
 
+// TestBodylessGETProvidesReadableServerRequestBody pins the server-side HTTP
+// invariant across the sealed relay: handlers may always read Request.Body,
+// including when the client sent a bodyless GET.
+func TestBodylessGETProvidesReadableServerRequestBody(t *testing.T) {
+	daemonKey, _ := secure.GenerateKeypair()
+	clientKey, _ := secure.GenerateKeypair()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/bodyless", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "could not read request body", http.StatusBadRequest)
+			return
+		}
+		if len(body) != 0 {
+			http.Error(w, "request body was not empty", http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	b := newBroker(t, "bodyless-token")
+	tr := relay.New(mux, relay.Config{
+		URL: b.url(), Token: "bodyless-token", Key: daemonKey, MinBackoff: 50 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	runDone := make(chan struct{})
+	go func() { _ = tr.Run(ctx); close(runDone) }()
+	defer func() {
+		cancel()
+		<-runDone
+	}()
+	b.waitAttach(t)
+
+	cl := b.newClient("bodyless-stream")
+	if err := cl.handshake(ctx, clientKey, daemonKey.Public); err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	if err := cl.sendSealed(ctx, "req", mustJSON(relay.ReqPayload{
+		ID: "bodyless-get", Method: http.MethodGet, Path: "/api/bodyless",
+	})); err != nil {
+		t.Fatalf("send bodyless GET: %v", err)
+	}
+	frame, err := cl.recv(ctx)
+	if err != nil {
+		t.Fatalf("receive bodyless GET response: %v", err)
+	}
+	plaintext, err := cl.open(frame)
+	if err != nil {
+		t.Fatalf("open bodyless GET response: %v", err)
+	}
+	var response relay.ResPayload
+	if err := json.Unmarshal(plaintext, &response); err != nil {
+		t.Fatalf("decode bodyless GET response: %v", err)
+	}
+	if response.Status != http.StatusOK {
+		t.Fatalf("bodyless GET status=%d want=%d body=%s", response.Status, http.StatusOK, response.Body)
+	}
+}
+
 // TestCommandPostRoundTrip pins the native command path, not just read-only
 // snapshots: method, JSON body, and content type must survive the sealed relay
 // and the command response must return through the reverse cipher direction.

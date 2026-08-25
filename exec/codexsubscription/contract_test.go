@@ -76,3 +76,17 @@ func TestCurrentCodexContractPinsApprovedInstalledEvidence(t *testing.T) {
 		t.Fatal("Codex contract pins changed without an explicit catalog revision")
 	}
 }
+
+func TestCodexContractAcceptsOnlyValidatedExecutableRevisions(t *testing.T) {
+	for _, revision := range []string{
+		"fa8b41f0e7ae971171d05ca55451a3ffb8b7e74e01837a2f5c177513a5403c5d",
+		"09db9560f6f9dec139d3324254fb3c8fdbad5ecce1d8c794113dc15294f6aefd",
+	} {
+		if !AcceptsCodexExecutableRevision(revision) {
+			t.Fatalf("validated executable revision %q rejected", revision)
+		}
+	}
+	if AcceptsCodexExecutableRevision("9070e47d422129106bc41ca651a9998b06a6c55bd42a7c3362b48f1d2850766f") {
+		t.Fatal("unvalidated Homebrew Codex executable accepted")
+	}
+}

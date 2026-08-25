@@ -71,7 +71,7 @@ func (r *Runtime) Dispatch(parent context.Context, spec coreruntime.RunSpec) (co
 		policy.DeveloperInstructionRevision != DeveloperInstructionRevision ||
 		policy.IsolationRevision != IsolationRevision ||
 		policy.SelectedCodexVersion != CodexVersion ||
-		policy.SelectedCodexExecutableRevision != CodexExecutableRevision ||
+		!AcceptsCodexExecutableRevision(policy.SelectedCodexExecutableRevision) ||
 		policy.SelectedCodexSchemaRevision != CodexSchemaRevision {
 		return nil, policyUnavailable()
 	}

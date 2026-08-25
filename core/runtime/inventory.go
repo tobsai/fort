@@ -65,7 +65,7 @@ func (snapshot AgentSourceInventorySnapshot) Validate() error {
 			return fmt.Errorf("Source Agent identity is duplicated")
 		}
 		identities[identity] = struct{}{}
-		if err := validateInventoryStrings("capability", item.Capabilities, true); err != nil {
+		if err := validateInventoryStrings("capability", item.Capabilities, item.Readiness.Ready); err != nil {
 			return err
 		}
 		if strings.TrimSpace(item.Readiness.ContractID) == "" || strings.TrimSpace(item.Readiness.ContractRevision) == "" {
@@ -79,6 +79,9 @@ func (snapshot AgentSourceInventorySnapshot) Validate() error {
 }
 
 func validateInventoryStrings(subject string, values []string, required bool) error {
+	if values == nil {
+		return fmt.Errorf("Source Agent %s must be an allocated list", subject)
+	}
 	if required && len(values) == 0 {
 		return fmt.Errorf("Source Agent %s is required", subject)
 	}

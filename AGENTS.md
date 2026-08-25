@@ -28,6 +28,11 @@ gates. Specs `047` and `048` govern the cloud product model;
 - **Spec-driven, surgical, simple.** Spec in `specs/` first; touch only what the
   task requires; minimum code that solves it. See CLAUDE.md's behavioral
   guidelines.
+- **Live UI signoff.** For UI or release work, inspect the exact installed app
+  through its accessibility surface and a screenshot before completion. Any
+  visible error/alert, raw error code, non-ready selected Agent, duplicate Fort
+  app bundle, disabled primary action after valid input, or failed real smoke
+  action blocks signoff; source/build/package success is not a substitute.
 
 ## Layout
 `core/` (domain, rules, runtime iface, ledger/store, engine, graph, scheduler) ·

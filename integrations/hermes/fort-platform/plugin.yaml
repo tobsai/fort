@@ -1,0 +1,24 @@
+name: fort-platform
+label: Fort
+kind: platform
+version: 0.1.0
+description: Connects one Hermes profile to Fort as a messaging channel.
+author: Fort
+requires_env:
+  - name: FORT_PLATFORM_URL
+    description: Authenticated Fort platform WebSocket URL
+    prompt: Fort platform URL
+    password: false
+  - name: FORT_PLATFORM_TOKEN
+    description: Derived credential for this exact canonical Hermes profile
+    prompt: Fort platform token
+    password: true
+optional_env:
+  - name: FORT_ALLOWED_USERS
+    description: Comma-separated Fort principal IDs allowed to talk to this profile
+    prompt: Allowed Fort users
+    password: false
+  - name: FORT_ALLOW_ALL_USERS
+    description: Explicitly allow every Fort principal to talk to this profile
+    prompt: Allow all Fort users
+    password: false

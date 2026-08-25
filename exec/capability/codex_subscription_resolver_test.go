@@ -46,6 +46,22 @@ func TestCodexSubscriptionResolverReturnsOnlyAuthorizedCatalogBytes(t *testing.T
 	}
 }
 
+func TestCodexSubscriptionResolverReturnsValidatedMachineSpecificBytes(t *testing.T) {
+	held := &HeldCommand{
+		path:   "/private/staged/codex-build-6962",
+		digest: codexsubscription.CodexExecutableRevisionBuild6962,
+	}
+	got, err := newCodexSubscriptionResolver(fakeVerifiedCodexCommands{
+		held: held, verifiedPath: held.path,
+	}).ResolveCodex(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ExecutableRevision != held.digest {
+		t.Fatalf("resolved executable revision = %q, want %q", got.ExecutableRevision, held.digest)
+	}
+}
+
 func TestCodexSubscriptionResolverFailsClosedOnIdentityOrAuthorizationDrift(t *testing.T) {
 	valid := &HeldCommand{path: "/private/staged/codex", digest: codexsubscription.CodexExecutableRevision}
 	tests := []fakeVerifiedCodexCommands{

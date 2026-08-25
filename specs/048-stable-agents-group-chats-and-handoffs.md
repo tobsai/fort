@@ -363,6 +363,12 @@ documentation informs the Fort product model but exposes no accepted dispatch
 API. Hermes Bot Mode or OpenClaw behavior does not bypass Fort's provider,
 authority, tool, readiness, or exact-model gates.
 
+[Spec 050](./050-hermes-bot-source-adapter.md) defines the proposed first
+concrete Hermes Bot Source Agent inventory adapter and its separate
+execution-authority gates. It does not make Hermes eligible unless and until
+the applicable execution and eligibility gates are separately approved and
+satisfied.
+
 The first cloud release is not accepted until two independently approved real
 `runtime.Runtime` adapter families can join one Group Conversation, and one
 separately approved adapter implements the structured `HandoffEmitter`

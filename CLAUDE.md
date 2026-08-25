@@ -107,6 +107,13 @@ For multi-step tasks, state a brief plan (`step → verify: check`). Strong succ
 4. **Respect the seams**: `core` must not import `ui` or a concrete `exec` package (only `runtime.Runtime`); `ui` must not import `engine`/`graph`/`router`/`native`. `core/arch_test.go` and `go list -deps` enforce this.
 5. **Git discipline**: feature branches for non-trivial work; every meaningful change committed. Commit/push only when asked.
 6. **Inspectability**: structured logs; the append-only `event` log + `route_decision` make every dispatch and decision traceable and replayable.
+7. **Live UI signoff**: UI or release work is not complete until the exact
+   installed app is inspected through its live accessibility surface and a
+   screenshot. Any visible error or alert, raw error code, selected Agent that
+   is not `ready`, duplicate Fort app bundle, primary action disabled after
+   valid input, or failed real smoke action blocks signoff. Source tests,
+   successful builds, API health, signing, notarization, and upload receipts do
+   not substitute for this installed-product check.
 
 ## Key Patterns
 - `runtime.Runtime` interface is the only path from `core` to execution; `cmd/fort` injects the concrete `exec/native` (or `exec/fake`) runtime.

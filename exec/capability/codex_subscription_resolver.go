@@ -37,7 +37,7 @@ func (r *CodexSubscriptionResolver) ResolveCodex(ctx context.Context) (codexsubs
 		return codexsubscription.HeldExecutable{}, fmt.Errorf("capability command: Codex subscription authority unavailable")
 	}
 	held, err := r.commands.Hold("codex")
-	if err != nil || held == nil || held.Digest() != codexsubscription.CodexExecutableRevision {
+	if err != nil || held == nil || !codexsubscription.AcceptsCodexExecutableRevision(held.Digest()) {
 		return codexsubscription.HeldExecutable{}, fmt.Errorf("capability command: Codex subscription authority unavailable")
 	}
 	verifiedPath, err := r.commands.ResolveVerifiedExecutable("codex")

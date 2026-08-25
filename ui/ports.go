@@ -231,6 +231,74 @@ type AgentChannelPort interface {
 	AgentNeedsYou(context.Context) ([]AgentNeedsYouItem, error)
 }
 
+// MessagingPeer is one authenticated external messaging destination.
+// MachineName is the exact Fort node hosting its messaging relay; unlike an
+// Agent binding it makes no provider, model, or native-execution claim.
+type MessagingPeer struct {
+	ID                 string `json:"id"`
+	SourceID           string `json:"source_id,omitempty"`
+	CanonicalProfileID string `json:"canonical_profile_id,omitempty"`
+	DisplayName        string `json:"display_name"`
+	MachineName        string `json:"machine_name"`
+	ConversationID     string `json:"conversation_id"`
+	State              string `json:"state"`
+	Reason             string `json:"reason,omitempty"`
+}
+
+type MessagingMessage struct {
+	ID                 string    `json:"id"`
+	ConversationID     string    `json:"conversation_id"`
+	AuthorKind         string    `json:"author_kind"`
+	AuthorID           string    `json:"author_id"`
+	Body               string    `json:"body"`
+	InReplyToMessageID string    `json:"in_reply_to_message_id,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+type MessagingEvent struct {
+	Sequence int64            `json:"sequence"`
+	Message  MessagingMessage `json:"message"`
+}
+
+type MessagingEventPage struct {
+	ConversationID string           `json:"conversation_id"`
+	Events         []MessagingEvent `json:"events"`
+	NextAfter      int64            `json:"next_after"`
+}
+
+type MessagingDeliveryState string
+
+const (
+	// MessagingDeliveryPending means Fort accepted the message and completed
+	// the current relay write without claiming downstream processing.
+	MessagingDeliveryPending MessagingDeliveryState = "pending"
+	// MessagingDeliveryUnknown means Fort accepted the message but cannot
+	// safely determine the relay write outcome, so it will not auto-resend.
+	MessagingDeliveryUnknown MessagingDeliveryState = "unknown"
+)
+
+type MessagingPostReceipt struct {
+	Message          MessagingMessage       `json:"message"`
+	AcceptedSequence int64                  `json:"accepted_sequence"`
+	DeliveryState    MessagingDeliveryState `json:"delivery_state"`
+	DeliveryCode     string                 `json:"delivery_code,omitempty"`
+}
+
+// MessagingPort is the deliberately small Spec 052 proof seam. Identity is
+// configured server-side; the client may choose only the exposed Conversation.
+type MessagingPort interface {
+	MessagingPeers(context.Context) ([]MessagingPeer, error)
+	MessagingEvents(context.Context, string, int64) (MessagingEventPage, error)
+	PostMessagingMessage(context.Context, string, string, string) (MessagingPostReceipt, error)
+}
+
+// MessagingChannelDirectory is the Spec 053 roster seam. It is deliberately
+// separate from MessagingPort so the completed single-peer proof cannot claim
+// dynamic channel discovery merely because it can still serve its transcript.
+type MessagingChannelDirectory interface {
+	MessagingChannels(context.Context) ([]MessagingPeer, error)
+}
+
 type TodayPort interface {
 	Today(context.Context, time.Time, *time.Location) (coretoday.View, error)
 }

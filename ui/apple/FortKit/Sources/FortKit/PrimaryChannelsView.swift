@@ -1628,6 +1628,10 @@ struct PrimaryAgentSettings: View {
                 }
             }
 
+            Section("About") {
+                FortReleaseIdentityView()
+            }
+
             if let inventory = agent?.scheduleInventory {
                 Section("Schedule inventory") {
                     LabeledContent("State", value: inventory.state.capitalized)

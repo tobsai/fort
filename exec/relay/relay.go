@@ -454,13 +454,13 @@ func buildRequest(ctx context.Context, rp ReqPayload) *http.Request {
 	if method == "" {
 		method = http.MethodGet
 	}
-	var body io.Reader
+	var body io.Reader = http.NoBody
 	if len(rp.Body) > 0 {
 		body = bytes.NewReader(rp.Body)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, rp.Path, body)
 	if err != nil {
-		req, _ = http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+		req, _ = http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
 	}
 	for k, v := range rp.Headers {
 		req.Header.Set(k, v)

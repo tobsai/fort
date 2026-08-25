@@ -14,6 +14,10 @@ bin/
 dist/
 /build/
 
+# Python bytecode caches
+__pycache__/
+*.py[cod]
+
 # swift / xcode build outputs
 ui/apple/**/.build/
 ui/apple/FortKit/build/

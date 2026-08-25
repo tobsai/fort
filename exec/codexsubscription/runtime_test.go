@@ -287,6 +287,30 @@ func TestRuntimeUsesExactEphemeralInvocationAndValidatedJSONL(t *testing.T) {
 	}
 }
 
+func TestRuntimeAcceptsValidatedMachineSpecificExecutableRevision(t *testing.T) {
+	held := heldExecutable()
+	held.ExecutableRevision = CodexExecutableRevisionBuild6962
+	spec := validSpec()
+	spec.TextOnlyPolicy.SelectedCodexExecutableRevision = held.ExecutableRevision
+	starter := &fakeStarter{process: &fakeProcess{
+		stdout: strings.NewReader(successJSONL("answer")), stderr: strings.NewReader(""),
+	}}
+	runtime, err := New(Options{
+		WorkRoot: t.TempDir(), Resolver: fakeResolver{held: held}, Starter: starter,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := runtime.Dispatch(context.Background(), spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, status := collect(run)
+	if status.State != coreruntime.StateSucceeded || len(starter.captured()) != 1 {
+		t.Fatalf("status = %#v, starts = %d", status, len(starter.captured()))
+	}
+}
+
 func TestRuntimeAcceptsOnlyPinnedFailClosedCodeModeDiagnostic(t *testing.T) {
 	process := &fakeProcess{stdout: strings.NewReader(liveSuccessJSONL("answer")), stderr: strings.NewReader("")}
 	runtime := newTestRuntime(t, &fakeStarter{process: process})

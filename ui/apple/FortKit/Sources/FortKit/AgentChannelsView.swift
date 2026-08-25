@@ -1063,6 +1063,9 @@ private struct AgentSettingsView: View {
                     Button("Connection settings", action: connectionSettings)
                 }
             }
+            Section("About") {
+                FortReleaseIdentityView()
+            }
         }
         .navigationTitle("Settings")
     }

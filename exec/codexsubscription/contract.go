@@ -9,8 +9,9 @@ const (
 
 	DeveloperInstructionRevision = "0aa9805087e459f9566e74e5283555a207fa2f3defcab3f20929457e64c564bc"
 
-	CodexVersion            = "codex-cli 0.149.0-alpha.4.1"
-	CodexExecutableRevision = "fa8b41f0e7ae971171d05ca55451a3ffb8b7e74e01837a2f5c177513a5403c5d"
+	CodexVersion                     = "codex-cli 0.149.0-alpha.4.1"
+	CodexExecutableRevision          = "fa8b41f0e7ae971171d05ca55451a3ffb8b7e74e01837a2f5c177513a5403c5d"
+	CodexExecutableRevisionBuild6962 = "09db9560f6f9dec139d3324254fb3c8fdbad5ecce1d8c794113dc15294f6aefd"
 
 	CodexNormalSchemaRevision       = "bfa21213f862696b6919e8ddf60c454be5f24e6f432735651fc4fbaa7d2b3919"
 	CodexNormalSchemaFiles          = 291
@@ -24,6 +25,17 @@ const (
 	AdapterRevision   = "2b417c00d7e5b831eed5121e896aade874610b9df2b505e142baf97cc2c02412"
 	PolicyRevision    = "4ee11ff5bc8c7ab3332d6a7d90124fe8a0f84e3564d44a759dc9d2bdafff000d"
 )
+
+// AcceptsCodexExecutableRevision reports whether the exact executable bytes
+// completed Fort's closed version, command, feature, and schema validation.
+func AcceptsCodexExecutableRevision(revision string) bool {
+	switch revision {
+	case CodexExecutableRevision, CodexExecutableRevisionBuild6962:
+		return true
+	default:
+		return false
+	}
+}
 
 const schemaContract = "codex-schema-contract:v1\n" +
 	"normal:" + CodexNormalSchemaRevision + ":291\n" +

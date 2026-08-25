@@ -1,0 +1,22 @@
+{
+  "jsonrpc": "2.0",
+  "id": "inventory-request-1",
+  "result": {
+    "profiles": [
+      {
+        "name": "researcher",
+        "path": "/private/discarded/hermes/profiles/researcher",
+        "is_default": false,
+        "model": null,
+        "provider": null,
+        "description": "Private upstream description",
+        "display_name": "Researcher",
+        "skill_count": 12,
+        "ui_meta": {"accent": "private"},
+        "ui_meta_revisions": {},
+        "has_avatar": true
+      }
+    ],
+    "bot_mode_protocol": true
+  }
+}

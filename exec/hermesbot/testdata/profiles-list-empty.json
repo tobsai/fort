@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": "inventory-request-1",
+  "result": {
+    "profiles": [],
+    "bot_mode_protocol": true
+  }
+}

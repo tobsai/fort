@@ -16,9 +16,9 @@ import (
 )
 
 // AgentOptionSource is the bounded inventory seam for the agent-first
-// product. Production projects the already accepted Primary option contract;
-// tests and future approved adapters can supply provider-neutral bindings
-// without weakening that production eligibility boundary.
+// product. The accepted Primary option contract remains the default; an
+// explicitly supplied source composes additively and cannot weaken the
+// service's ready-only enrollment boundary.
 type AgentOptionSource interface {
 	AgentOptions(context.Context) ([]ui.AgentOption, error)
 	RecheckAgentOptions(context.Context) ([]ui.AgentOption, error)
@@ -59,6 +59,8 @@ type AgentChannelService struct {
 func NewAgentChannelService(st *store.Store, primary *PrimaryChannelService, options AgentOptionSource) *AgentChannelService {
 	if options == nil {
 		options = primaryAgentOptionSource{primary: primary}
+	} else if primary != nil {
+		options = NewCompositeAgentOptionSource(primaryAgentOptionSource{primary: primary}, options)
 	}
 	return &AgentChannelService{store: st, primary: primary, options: options, now: time.Now}
 }
