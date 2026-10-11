@@ -19,3 +19,6 @@ test('service-loopback auth cannot reach Slack worker mutation or read routes', 
  assert.equal(serviceAllowed('GET', '/api/health'), true);
  assert.equal(serviceAllowed('POST', '/api/health'), false);
 });
+test('server entry gate executes the source-only refusal', async () => {
+ await assert.rejects(import('./server/fort-foundation-gate.ts'), /source-only/);
+});

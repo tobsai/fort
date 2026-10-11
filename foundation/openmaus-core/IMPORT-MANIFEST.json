@@ -8,7 +8,7 @@
     },
     {
       "path": "FORK-DECISION.md",
-      "sha256": "43b39588eb882a8e152eae38b70792950a66dbdebf87bcf829afb27c6e101bf2"
+      "sha256": "60161f6ebcc225966d914fc792061ead902adc65a7ff3f221f32d1c903e78c3c"
     },
     {
       "path": "LICENSE",
@@ -1716,7 +1716,7 @@
     },
     {
       "path": "foundation.test.mjs",
-      "sha256": "4b93ebe22df8ef1e0150211a17d29afa4e15c6a0d55006cb9924cf6512f6700a"
+      "sha256": "173adaaecca37a6ab8774b422d1fa09c9e941d439559448529cb9ad6aaaab3bf"
     },
     {
       "path": "index.html",
@@ -3428,7 +3428,7 @@
     },
     {
       "path": "server/fort-foundation-gate.ts",
-      "sha256": "fbaf0bc8a7f581e21d1276fd427fabab584c51ec3613b397185db0061f77c802"
+      "sha256": "6bcad5302a4ba688b323e9769d12895fed7750d23cfff26a736eef933c205bf4"
     },
     {
       "path": "server/full-access-workflows.e2e.test.ts",

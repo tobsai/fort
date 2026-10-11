@@ -84,7 +84,7 @@ provider setup, optional-service settings and auto-update paths before enabling 
 ## Validation
 
 Observed red: foundation tests failed because policy module did not exist.
-Observed green: `node --experimental-strip-types --test foundation.test.mjs` passes all three policy/authorization behaviors.
+Observed green: `node --experimental-strip-types --test foundation.test.mjs` passes all four policy/authorization behaviors.
 This proves only restricted route decisions and source-only launch behavior.
 Static integrity/security checks are recorded in VALIDATION.md.
 No dependency install, upstream suite, typecheck, build, HTTP fixture, provider
