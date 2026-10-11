@@ -92,3 +92,37 @@ smoke, UI/accessibility, packaging, deployment or installed-product signoff ran.
 Installed Node 22.22.3 is below upstream >=24; pnpm 10.28.0 differs from upstream
 10.33.0. Active dependency graph needs a new lock and audited script-free install
 in an isolated environment after extraction; current source is not a working app.
+
+## Quarantine correction after independent review
+
+The independent review is retained unchanged in
+`reviews/fort-foundation-20261011/`. It correctly found alternate executable
+entries and ambient owner-loopback authority despite the initial gates.
+The initial four checks were insufficient; they are not complete quarantine proof.
+
+`QUARANTINE-ENTRYPOINTS.json` inventories 72 refusal-only entry modules: server,
+CLI/pair alias, supervisor, cloud-secret/bootstrap loader, MCP/permission/computer
+proxies, workers, provider extension, hooks, server test helpers, frontend/preview,
+frontend fixtures and Vite configuration. Their previous contents are preserved
+beside them as `*.quarantined-source.txt`, with hashes. Refusal stubs contain no
+imports, so missing packages or imported side effects cannot precede refusal.
+No environment variable unlocks them. Imported upstream test suites are historical
+source and remain unrun; only the two foundation test files are exposed by scripts.
+This is not an OS sandbox against deliberately invoking library functions or
+restoring archived code. Runtime enablement requires a separately reviewed slice.
+
+All HTTP route decisions and request authentication now fail closed, including
+health, owner/service loopback, desktop/CLI capabilities and presented sessions.
+Authorization refuses before looking up or renewing credentials. There is no
+quarantine route exception and no approved live HTTP server. Archived monolith
+source is reference material, not an installed active handler.
+
+Before any future runtime unlock, require explicit child environment allowlists
+rather than inherited-environment secret denylists for both Claude and Codex;
+credential-canary regression fixtures; a fresh Fort data root with no legacy
+migration/discovery; selected provider-owned configuration/credential scope; and
+an enforced host-runner boundary protecting owner authority and the ledger.
+Unknown parent credentials currently survive in the archived native adapters.
+No adapter environment redesign or provider verification occurred in this fix.
+The protocol seam is `server/contracts.ts` (the earlier `drivers/driver.ts` map
+entry was incorrect). TypeScript/backend/client redesign remains review work.

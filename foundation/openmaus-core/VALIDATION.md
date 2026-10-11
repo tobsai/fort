@@ -28,3 +28,25 @@ Confirmed against the pristine upstream public seam: serviceAllowed POST
 Server gate import itself is also tested to reject with the source-only error.
 Passed committed change scope: all 2,435 added files reside under foundation;
 no pre-existing Fort file changed. Worktree clean after commit.
+
+## Quarantine correction validation
+
+Observed red: two targeted tests reproduced route admission and owner-loopback
+admin/client authority under the earlier implementation. Both now pass.
+Current suite: `node --experimental-strip-types --test foundation.test.mjs quarantine.test.mjs`:
+7/7 tests pass, including 324 authorization cases (3 trust variants × 9 paths ×
+3 methods × 4 credential variants), without touching a credential store.
+All sampled route and service decisions deny, including retained connector,
+TTS, computer, approval/respond, guarded-message, pairing and internal paths.
+
+72 inventoried entry sources exactly match refusal-only stubs and their archived
+contents match recorded SHA-256. Node-supported entries were launched in separate
+processes with an empty environment, exited 1, emitted only the refusal error and
+no stdout. Six TSX/browser entry sources were evaluated as identical JavaScript
+through data-URL imports; this does not claim a browser/TSX build or UI test.
+No runtime dependency graph or archived implementation was loaded.
+
+Previous health exception and four-test scope descriptions above are historical;
+current policy denies every route and every authorization attempt. HTTP handlers,
+provider environment canaries, real providers, builds, installation and deployment
+remain unrun. Review artifacts and unrelated work were preserved unchanged.

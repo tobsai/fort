@@ -8,7 +8,7 @@
     },
     {
       "path": "FORK-DECISION.md",
-      "sha256": "60161f6ebcc225966d914fc792061ead902adc65a7ff3f221f32d1c903e78c3c"
+      "sha256": "f3dc80ac75e737a6a7d44f79ec2015d2cbf1bf804ac6cf8a3221375ce47c74d4"
     },
     {
       "path": "LICENSE",
@@ -23,12 +23,20 @@
       "sha256": "213df2eadc33b98132d5f5be7cdb055eab69a4dfeb6da34eda54670a8259c64d"
     },
     {
+      "path": "QUARANTINE-ENTRYPOINTS.json",
+      "sha256": "069a92d55ee95c8975c2f4ae78aa09ecabea7574b9062cbc2a24fc18e4b41828"
+    },
+    {
       "path": "README.md",
       "sha256": "b2d061a83da5d8e15bb8423d56f961160010025d5381eb283bf6216ec19977f4"
     },
     {
       "path": "SECURITY.md",
       "sha256": "7db52d832ce79e202f9208d3d0750aef7b5cfd62453dcac68d7895f3ecbdc837"
+    },
+    {
+      "path": "VALIDATION.md",
+      "sha256": "cf825f605aef69da924921759f41b373ed9051f65aa61612880f9714441fbffb"
     },
     {
       "path": "docs/approval-levels.md",
@@ -1712,11 +1720,11 @@
     },
     {
       "path": "foundation-policy.mjs",
-      "sha256": "6c6261db46310eb56bba0426fd03ddbaa08aa8267b84fedf8c665c6ad1b625a4"
+      "sha256": "4e3ec105ad0a0a358b76525af7cd5d0e8baf1a040e1e662ede228af06007dda8"
     },
     {
       "path": "foundation.test.mjs",
-      "sha256": "173adaaecca37a6ab8774b422d1fa09c9e941d439559448529cb9ad6aaaab3bf"
+      "sha256": "1f78cfd5c3d0f09e4ce74a1fb9f9adba0ca4a504efb8cb4c9d42c4484be0c859"
     },
     {
       "path": "index.html",
@@ -1724,7 +1732,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "a4dd581cae0a3794550ff73337f14b2f0126dbfe9ae2119fe8d27c18e2e77dea"
+      "sha256": "d2f373a8c5bdc9bd11ea00675987dccc558715b6c5d1b4d3eeac41c01772df48"
     },
     {
       "path": "package.upstream.json.txt",
@@ -1745,6 +1753,10 @@
     {
       "path": "public/novnc-NOTICE.txt",
       "sha256": "d9d212fa1610e05dced8ccc248c91a4567a3e4c1a8f87b947b0ffbec79d1336a"
+    },
+    {
+      "path": "quarantine.test.mjs",
+      "sha256": "9e47717d1850195c3774642bb2dffaef7ba61db880e9716fcb79a4d27b777aed"
     },
     {
       "path": "server/account-signin.test.ts",
@@ -2256,6 +2268,10 @@
     },
     {
       "path": "server/cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/cli.ts.quarantined-source.txt",
       "sha256": "1ab2769cc0f75aca3204fd56b47fa577bc0f215ec3baf445387754aa1dade2bd"
     },
     {
@@ -2304,6 +2320,10 @@
     },
     {
       "path": "server/cloud-home-start.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/cloud-home-start.ts.quarantined-source.txt",
       "sha256": "3efa820ea2f48d1760348e2bd418155ae99a60ca38bf8de5b9749c7f5e650287"
     },
     {
@@ -2360,6 +2380,10 @@
     },
     {
       "path": "server/cloud-secrets-boot.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/cloud-secrets-boot.ts.quarantined-source.txt",
       "sha256": "d7a30de6ca2e8d1071275c2095bc7881b0bba1573de366fb0c1b7e057820451a"
     },
     {
@@ -2500,6 +2524,10 @@
     },
     {
       "path": "server/connector-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/connector-proxy.ts.quarantined-source.txt",
       "sha256": "42a69b37abfd61b79292da0e0c4a61309b15be1ef0473434831199cd2c7b908e"
     },
     {
@@ -2536,6 +2564,10 @@
     },
     {
       "path": "server/container-mcp.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/container-mcp.ts.quarantined-source.txt",
       "sha256": "32cd3fcd2b9c814d3738153d845ccf5e6e8fb33c81dc937f7e4a3a51e41bc51f"
     },
     {
@@ -2992,6 +3024,10 @@
     },
     {
       "path": "server/drivers/agents-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/drivers/agents-proxy.ts.quarantined-source.txt",
       "sha256": "fb8af6aa8455d88ada5186153ce600b7cc54bdb5cec3056777f8cb720031a3ee"
     },
     {
@@ -3192,6 +3228,10 @@
     },
     {
       "path": "server/drivers/dweb-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/drivers/dweb-proxy.ts.quarantined-source.txt",
       "sha256": "bd57dfeee6ca981548d1bce93512eba61e9170b33377ae1500ef10442a884bf9"
     },
     {
@@ -3288,6 +3328,10 @@
     },
     {
       "path": "server/drivers/phone-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/drivers/phone-proxy.ts.quarantined-source.txt",
       "sha256": "835a987a25bd9a4a217a483b5c5d978b898464d28735964585fcdd1073422781"
     },
     {
@@ -3296,6 +3340,10 @@
     },
     {
       "path": "server/drivers/pi-mcp-extension.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/drivers/pi-mcp-extension.ts.quarantined-source.txt",
       "sha256": "1572812b900ca3df597a6a4be56d44dad48c01ec10f083c69ff72b8662710be8"
     },
     {
@@ -3536,14 +3584,26 @@
     },
     {
       "path": "server/harness-mcp-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/harness-mcp-proxy.ts.quarantined-source.txt",
       "sha256": "b0b77fde12094d8cfa2f311b5ce44f81e69b7a71b94bc9eef529a80587796d8c"
     },
     {
       "path": "server/hooks/omb-hook.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/hooks/omb-hook.test.ts.quarantined-source.txt",
       "sha256": "25f96cc1e089941f5185e66854fc6d8ebcd32bcf6300c08b702a0d9d0c78f4d1"
     },
     {
       "path": "server/hooks/omb-hook.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/hooks/omb-hook.ts.quarantined-source.txt",
       "sha256": "323954983c85858a3015eed68419316b6cb340d98d34c35b8613f8049d4bbc9d"
     },
     {
@@ -3620,6 +3680,10 @@
     },
     {
       "path": "server/index.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/index.ts.quarantined-source.txt",
       "sha256": "b48b8ee938fcfc39c584f76fa367b213d09f43a50b2d57e7218730e8352ae304"
     },
     {
@@ -3700,6 +3764,10 @@
     },
     {
       "path": "server/local-computer-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/local-computer-proxy.ts.quarantined-source.txt",
       "sha256": "e161a3a133579aef78987bb88a78773b4530c1fa76a2a2230c04d2e5890bc2ce"
     },
     {
@@ -3824,6 +3892,10 @@
     },
     {
       "path": "server/mcp-gate.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/mcp-gate.ts.quarantined-source.txt",
       "sha256": "b4804d99e45111a927149459e21505dbc2c45ab5eb0d20d312675690b484886d"
     },
     {
@@ -3880,6 +3952,10 @@
     },
     {
       "path": "server/mcp-remote-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/mcp-remote-proxy.ts.quarantined-source.txt",
       "sha256": "be5be2d1a532984c6f3eaeeed107550ebba0837f2dcdf2771978fa826e9a12ae"
     },
     {
@@ -4028,6 +4104,10 @@
     },
     {
       "path": "server/message-search.worker.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/message-search.worker.ts.quarantined-source.txt",
       "sha256": "417b72af7b50471c279830ad3a8062506d25f38de99c681a8239bc9f609d29d1"
     },
     {
@@ -4156,6 +4236,10 @@
     },
     {
       "path": "server/openmausbot.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/openmausbot.ts.quarantined-source.txt",
       "sha256": "26f84c104b639dc7e4d1f308c66706d8debbc17090ea7da0b165ffb64f40a9df"
     },
     {
@@ -4216,6 +4300,10 @@
     },
     {
       "path": "server/pair-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/pair-cli.ts.quarantined-source.txt",
       "sha256": "f22dd6527c45502827a7866d6c251b71e545aeb494d086e1f842189c3bd6607e"
     },
     {
@@ -4276,6 +4364,10 @@
     },
     {
       "path": "server/permission-proxy.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/permission-proxy.ts.quarantined-source.txt",
       "sha256": "34cbaac2d80c5aaa1e4c7db8fb0d6a6c3353fee7fa8fd078c5cb13e6f39c28d3"
     },
     {
@@ -4472,6 +4564,10 @@
     },
     {
       "path": "server/request-auth.ts",
+      "sha256": "41bc528e94d58d438791b37dc8352f7ff066efb6d8a31c3a09134391cab24d5b"
+    },
+    {
+      "path": "server/request-auth.ts.quarantined-source.txt",
       "sha256": "fd731883401660e0ec5a44194368589a1ca2fd99692461efe5f37a23016978c4"
     },
     {
@@ -4724,6 +4820,10 @@
     },
     {
       "path": "server/server-launcher.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/server-launcher.ts.quarantined-source.txt",
       "sha256": "d406e68f3520395afbcc0e2883291c01615923192188044563cc870caf9e4ebd"
     },
     {
@@ -5016,166 +5116,330 @@
     },
     {
       "path": "server/testing/approval-clock-hooks.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/approval-clock-hooks.mjs.quarantined-source.txt",
       "sha256": "1002ca1748aee790cd1d2582a8e1c288f417d1ec9bb984bb268fb099f6cd1485"
     },
     {
       "path": "server/testing/cleanup.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/cleanup.ts.quarantined-source.txt",
       "sha256": "7ca8e1eb9205359560f7d312d8ae424957d7cbd13a10dead2d50effab09d9deb"
     },
     {
       "path": "server/testing/cloud-left-behind.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/cloud-left-behind.ts.quarantined-source.txt",
       "sha256": "f1d0db88e6a036d8c4dfb442d11ef859e85da96a86528df699fce68e23520132"
     },
     {
       "path": "server/testing/control-plane-stub.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/control-plane-stub.ts.quarantined-source.txt",
       "sha256": "3f1b2b552e9f15d12b216a8c34d8045eac6cb50094c776e519609fd911701963"
     },
     {
       "path": "server/testing/desktop-parent.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/desktop-parent.mjs.quarantined-source.txt",
       "sha256": "a0ff90b73627223858007009e2c98a51c3c0c5ad1cc81d9e4c019c83492524c2"
     },
     {
       "path": "server/testing/events.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/events.ts.quarantined-source.txt",
       "sha256": "6c1709b713c5665d8d85f1a415fc58e2cb08c408688443531eb7adfb52bce9ad"
     },
     {
       "path": "server/testing/fail-audio-append-once.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fail-audio-append-once.mjs.quarantined-source.txt",
       "sha256": "f436a9fc276dd4e935f55b98af81ad39e8202c90c69fa81c623c42db13dba57a"
     },
     {
       "path": "server/testing/fake-acp-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-acp-cli.ts.quarantined-source.txt",
       "sha256": "3555ece3f7856ef77649cfa9bc97766b3aefd25e50cb79eb4de9de335f7a41e8"
     },
     {
       "path": "server/testing/fake-agy-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-agy-cli.ts.quarantined-source.txt",
       "sha256": "e466aca1e72b1dcd81c2900e43017ee33302b9da7e4a2ad63d36d47f1c5e056a"
     },
     {
       "path": "server/testing/fake-claude-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-claude-cli.ts.quarantined-source.txt",
       "sha256": "5554877b1b7b375690dfc7695be6db3e68847894db92ccf3612015bbae4633c3"
     },
     {
       "path": "server/testing/fake-claude-dump.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-claude-dump.test.ts.quarantined-source.txt",
       "sha256": "b2892dc4addaa9683e37f6b09b3c3804a98d7f8c3febe326ce5075257b0a438a"
     },
     {
       "path": "server/testing/fake-codex-app-server.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-codex-app-server.ts.quarantined-source.txt",
       "sha256": "9ef64b6a4c143c5099affd2a7a39a5ab82b18954c1391924205ed0a3ef74356d"
     },
     {
       "path": "server/testing/fake-codex-dump.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-codex-dump.test.ts.quarantined-source.txt",
       "sha256": "a12d8b60ad72f6a79c7b91d1494a04307667598324d29de56da277b417da64de"
     },
     {
       "path": "server/testing/fake-codex-login-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-codex-login-cli.ts.quarantined-source.txt",
       "sha256": "33b41275aa9f4cd1f0441fbd7318e35c7951322f04c3c4bfe7513c96f22b90ca"
     },
     {
       "path": "server/testing/fake-data-database.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-data-database.ts.quarantined-source.txt",
       "sha256": "011c123146914df12d5de831226895feb1f33167a6176d0893f6bb0b348420a2"
     },
     {
       "path": "server/testing/fake-driver.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-driver.ts.quarantined-source.txt",
       "sha256": "4b1ca14e9211c81f365db2ba2f09e34858a559f2e6f992e04a8ab01560929b13"
     },
     {
       "path": "server/testing/fake-grok-login-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-grok-login-cli.ts.quarantined-source.txt",
       "sha256": "ec9c4b01393aeaf565c40476f0301400ce454e84aae0ca307cfb5fabd3ac14b6"
     },
     {
       "path": "server/testing/fake-http-mcp-server.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-http-mcp-server.ts.quarantined-source.txt",
       "sha256": "2d8d4f7c2ea796cdbc11d8ba67620279c4eda7f5e8ed059979179d76c2a49bc2"
     },
     {
       "path": "server/testing/fake-mcp-server.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-mcp-server.ts.quarantined-source.txt",
       "sha256": "39cd1f4347f872ffa3f8a5de8ed95d2ebe9ca9f2fcc063d85a12d4924c78e633"
     },
     {
       "path": "server/testing/fake-oauth-server.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-oauth-server.ts.quarantined-source.txt",
       "sha256": "793d550f3b7758d44a97f4f0271d4609f349c7fa0c7e6ea3f39878409b4638cb"
     },
     {
       "path": "server/testing/fake-openai-live.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-openai-live.test.ts.quarantined-source.txt",
       "sha256": "b11889f659f56cae287eb1dbff961c268d762fae7fd21be724b7ffc9fc7ba3b1"
     },
     {
       "path": "server/testing/fake-openai-live.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-openai-live.ts.quarantined-source.txt",
       "sha256": "62b2e15ebc7bf2ae64b47d7d86e4b3c705ad42063fe92db44b5c8f827379cd0d"
     },
     {
       "path": "server/testing/fake-parent-lifecycle.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-parent-lifecycle.test.ts.quarantined-source.txt",
       "sha256": "7f9e9f3963f46e224e47319541b06a383a7eb61eaf107678761e61ba602e3ecf"
     },
     {
       "path": "server/testing/fake-pi-cli.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fake-pi-cli.ts.quarantined-source.txt",
       "sha256": "57b0dfd5b516a940103ed0ad26e6449cdae7fc8211d58e71dba9eaa16370e0a7"
     },
     {
       "path": "server/testing/fakes-self-contained.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/fakes-self-contained.test.ts.quarantined-source.txt",
       "sha256": "ea398359a9359646ac6e2662fe078e1b897fd6e601669ec592e0f2af5940a3a1"
     },
     {
       "path": "server/testing/group-local-vm-hooks.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/group-local-vm-hooks.mjs.quarantined-source.txt",
       "sha256": "5909a0359f5a6e182bede7ef3515184e77d0bc216edc01a236f83030c4f53115"
     },
     {
       "path": "server/testing/hold-search-result.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/hold-search-result.ts.quarantined-source.txt",
       "sha256": "067867b601eb437d5bf08b692fbd39b64fbcc61a0062365a779f0c734a653fe3"
     },
     {
       "path": "server/testing/host-timeout.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/host-timeout.ts.quarantined-source.txt",
       "sha256": "bf674ba2e7148ece3373b07370bea4fa943e1802892434e44479cd96c75d2efc"
     },
     {
       "path": "server/testing/omb-env.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/omb-env.ts.quarantined-source.txt",
       "sha256": "44db34990f48ba0e28f729bf59dbbd4b97df0a9376322f4a77066bcd54ed8a6d"
     },
     {
       "path": "server/testing/peer-approval-hooks.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/peer-approval-hooks.mjs.quarantined-source.txt",
       "sha256": "09b64e1c5cf4f6cb156d23227affa92b0f7180639b38a08ba0b536c059593a81"
     },
     {
       "path": "server/testing/ports.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/ports.ts.quarantined-source.txt",
       "sha256": "208b13c17cb0ae39e775279d10cc02cd4c0f5bb61169d02b29054b83d4de1442"
     },
     {
       "path": "server/testing/room-handoff-agent.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/room-handoff-agent.test.ts.quarantined-source.txt",
       "sha256": "e9b51e6d597d81031cd9a05ac4bb3431cb4ddc59e1139397b5ecd5d4917e821e"
     },
     {
       "path": "server/testing/room-handoff-agent.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/room-handoff-agent.ts.quarantined-source.txt",
       "sha256": "b0bc6094811528624d64e6f8fa8d5af4c3b67924ac1a12d3ddb03cf84ec731a3"
     },
     {
       "path": "server/testing/scrub-ambient-omb-env.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/scrub-ambient-omb-env.ts.quarantined-source.txt",
       "sha256": "ebc5bb2a7d338ba2fb1b51e859e60cec98540f9f36707d2581647526f7f3c3a5"
     },
     {
       "path": "server/testing/setup.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/setup.ts.quarantined-source.txt",
       "sha256": "1626aff2217b42cead8177b2a2190b1b32f7b32c8152313ea8a3f16c32c073cc"
     },
     {
       "path": "server/testing/sse.test.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/sse.test.ts.quarantined-source.txt",
       "sha256": "11b92d31e8d777db11f281347c17f3c8b1a6d7350a7e0743aacf634ec09539b8"
     },
     {
       "path": "server/testing/sse.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/sse.ts.quarantined-source.txt",
       "sha256": "9c744a6fe038086944f82565e953101ef56babdec55e5fde0f95a7bd4e6f3a45"
     },
     {
       "path": "server/testing/stall-clock-hooks.mjs",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/stall-clock-hooks.mjs.quarantined-source.txt",
       "sha256": "d9b71eeebb97ed3dd7dc0922e8951ae547ed07659ac57bfb12018c9c7574878f"
     },
     {
       "path": "server/testing/test-tls.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/test-tls.ts.quarantined-source.txt",
       "sha256": "a791c7bcaed034b1b7449f8288f74cbf4b7a6611d57a4ddcdee9fe30f0bd4863"
     },
     {
       "path": "server/testing/turn-clock-text.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/turn-clock-text.ts.quarantined-source.txt",
       "sha256": "741eee4d5f78da0aff1ada00dd8c04d92d2931cf3f4263418f223fae296e2bdf"
     },
     {
       "path": "server/testing/whop-like-catalog.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/testing/whop-like-catalog.ts.quarantined-source.txt",
       "sha256": "45b6981c609fbfd0696b58ff22f064afe9093e7134fb2d5ec7ffad7c62073d7a"
     },
     {
@@ -5452,6 +5716,10 @@
     },
     {
       "path": "server/vps-container-mcp.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/vps-container-mcp.ts.quarantined-source.txt",
       "sha256": "a534b6f424c6c76c9d16836ca34622ffac7469518ab09eeff5ee281a14d8502b"
     },
     {
@@ -5548,6 +5816,10 @@
     },
     {
       "path": "server/workspace-backup.worker.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "server/workspace-backup.worker.ts.quarantined-source.txt",
       "sha256": "d0d41b96809eef3a60a0ad85b0a1775304e21d993c44cc2a641c3fef21cc1afb"
     },
     {
@@ -9192,6 +9464,10 @@
     },
     {
       "path": "src/lib/table-file.worker.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/lib/table-file.worker.ts.quarantined-source.txt",
       "sha256": "854956217f6ea4b6eac17dffac71a37ad9fc79e506c4fd99b6784956f3897752"
     },
     {
@@ -9460,6 +9736,10 @@
     },
     {
       "path": "src/main.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/main.tsx.quarantined-source.txt",
       "sha256": "dcaa01d0a88272f28f369bd44327ac214f3aeaa9629d02fe975ead70e0062bd6"
     },
     {
@@ -9468,6 +9748,10 @@
     },
     {
       "path": "src/onboarding-preview.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/onboarding-preview.tsx.quarantined-source.txt",
       "sha256": "a64a9bdc7d92e626a90b42882761c653649cf0dab61976b92c3e99183c2f4d95"
     },
     {
@@ -9552,18 +9836,34 @@
     },
     {
       "path": "src/testing/avatar-providers.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/testing/avatar-providers.tsx.quarantined-source.txt",
       "sha256": "cff328b9195ce185a5d1ec2ced84e8f9639596b4e813e39f69546035724556ba"
     },
     {
       "path": "src/testing/bot-settings.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/testing/bot-settings.tsx.quarantined-source.txt",
       "sha256": "e505c24cc69d437a6e135eafb515f474a78d1be4a775e6b6f2f28f0fea7ca320"
     },
     {
       "path": "src/testing/mentions.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/testing/mentions.tsx.quarantined-source.txt",
       "sha256": "840f1c63678a7576e350263ee8b24713829dffb9f25bf81ef19e21968b79676f"
     },
     {
       "path": "src/testing/thread-approvals.tsx",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "src/testing/thread-approvals.tsx.quarantined-source.txt",
       "sha256": "b631acf0d10bff86366e0306e8e7aa974de5525b54405fba34c358ded0f7d56e"
     },
     {
@@ -9732,6 +10032,10 @@
     },
     {
       "path": "vite.config.ts",
+      "sha256": "a4e2f79062ca2324ddc9d7c0d8bdb8f95f5d1b2ea3e9dc598cc7252f59438305"
+    },
+    {
+      "path": "vite.config.ts.quarantined-source.txt",
       "sha256": "a6dbd5e25189f77a8fb370581e5881998cc21b634169a16ca3481cb613a36393"
     }
   ]

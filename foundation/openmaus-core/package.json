@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "test:foundation": "node --experimental-strip-types --test foundation.test.mjs"
+    "test:foundation": "node --experimental-strip-types --test foundation.test.mjs quarantine.test.mjs"
   },
   "dependencies": {
     "@clack/prompts": "1.7.0",

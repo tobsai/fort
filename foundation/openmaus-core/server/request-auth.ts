@@ -66,9 +66,7 @@ const SERVICE_SCOPES: readonly Scope[] = ["client"];
  * the Slack worker holds, so these routes stop answering session-less
  * loopback at all. */
 // Fort: no Slack worker exemptions; localhost is not an agent authorization boundary.
-export const SERVICE_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: RegExp }> = [
-  { methods: ["GET"], path: /^\/api\/health$/ },
-];
+export const SERVICE_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: RegExp }> = [];
 
 export function serviceAllowed(method: string, path: string): boolean {
   const upper = method.toUpperCase();
@@ -447,99 +445,6 @@ function secureTokenMatch(actual: string | undefined, expected: string): boolean
 }
 
 /** Decide how this request is authenticated. Never throws. */
-export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions): RequestAuthResult {
-  const method = req.method ?? "GET";
-  const path = options.url.pathname;
-  const deny = (status: 401 | 403, error: string): RequestAuthResult => ({ auth: null, status, error });
-
-  // A presented session credential wins over the loopback rule so the served
-  // web UI behaves the same on 127.0.0.1 and on a public domain.
-  const bearer = bearerToken(req.headers.authorization);
-  const cookie = parseCookies(headerValue(req.headers.cookie)).get(options.cookieName);
-  const ticket = path === options.streamPath ? options.url.searchParams.get("ticket") : null;
-  let session: SessionRecord | null = null;
-  let via: "bearer" | "cookie" | "ticket" | null = null;
-  if (bearer?.startsWith("omb_sess_")) {
-    session = options.sessions.authenticate(bearer);
-    via = "bearer";
-  } else if (ticket) {
-    session = options.sessions.redeemStreamTicket(ticket);
-    via = "ticket";
-  } else if (cookie) {
-    session = options.sessions.authenticate(cookie);
-    via = "cookie";
-  }
-
-  if (session && via) {
-    if (via === "cookie" && !isSameOrigin(req)) return deny(403, "forbidden: cross-origin request");
-    // A browser sign-in's session is its browser's cookie, never a bearer token, and
-    // its changes come from this origin's own page, which a browser says so.
-    if (via === "bearer" && session.cookieOnly) return deny(401, "unauthorized: this session belongs to a browser; sign in with a pairing code");
-    if (via === "cookie" && session.cookieOnly && !["GET", "HEAD", "OPTIONS"].includes(method) && !provesSameOrigin(req)) {
-      return deny(403, "forbidden: this browser's session makes changes only from its own page");
-    }
-    const needed = requiredScope(method, path, options.features ?? {});
-    if (!session.scopes.includes(needed)) {
-      return deny(403, `forbidden: this session lacks the ${needed} scope`);
-    }
-    // Only a request that passed both checks counts as use of the session,
-    // and only a request the client made itself: redeeming a stream ticket
-    // is the tail of an API call that already counted, and a stream left
-    // open unattended must not keep a session alive on its own.
-    if (via !== "ticket") options.sessions.renew(session.id);
-    return { auth: { kind: "session", session, via, scopes: session.scopes }, status: 401, error: "" };
-  }
-
-  // A removed email member must not become the loopback owner merely because
-  // their now-invalid cookie or bearer was presented to a local address.
-  if (via) {
-    return deny(401, "unauthorized: this session has expired or was revoked; pair this device again");
-  }
-
-  const proxied = isProxied(req);
-  const loopback = !proxied && isLoopbackHost(headerValue(req.headers.host)) && isAllowedOrigin(headerValue(req.headers.origin));
-  if (loopback) {
-    const companionToken = headerValue(req.headers["x-openmausbot-companion-auth"]);
-    if (companionToken && options.loopbackMutationToken !== undefined) {
-      if (
-        !secureTokenMatch(companionToken, options.companionMutationToken ?? "") ||
-        req.headers["x-openmausbot-companion"] !== "1" ||
-        !/^[\w-]{1,128}$/.test(headerValue(req.headers["x-openmausbot-companion-device"]) ?? "") ||
-        // a phone's allowlisted route, or the companion's own notice (an unpaired phone)
-        (companionDenial({ path, method, authenticated: true }) && !isCompanionNotice(method, path))
-      ) return deny(403, "forbidden: invalid companion request");
-      return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
-    }
-    if (
-      options.loopbackMutationToken !== undefined &&
-      mutatingPublicRoute(method, path) &&
-      !secureTokenMatch(headerValue(req.headers[DESKTOP_OWNER_HEADER]), options.loopbackMutationToken)
-    ) {
-      return deny(403, "forbidden: this change must come from the desktop app or a paired device");
-    }
-    if (options.loopbackMutationToken === undefined && options.loopbackTrust === "service") {
-      // The CLI that started this server may still print a pairing code.
-      if (
-        options.cliOwnerToken && CLI_OWNER_ROUTE.test(path) && ["GET", "POST"].includes(method.toUpperCase()) &&
-        secureTokenMatch(headerValue(req.headers[CLI_OWNER_HEADER]), options.cliOwnerToken)
-      ) {
-        return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
-      }
-      // On a shared server "local" includes every bot's shell. Default deny:
-      // only the service routes, never an admin change, without a session.
-      if (!serviceAllowed(method, path)) {
-        return deny(403, "forbidden: on this shared server a local request without a session may only use the service routes; sign in to change settings, people or access");
-      }
-      return { auth: { kind: "loopback", scopes: SERVICE_SCOPES, trust: "service" }, status: 401, error: "" };
-    }
-    return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
-  }
-
-  if (proxied) {
-    return deny(403, "forbidden: this request came through a proxy (pair this device to use the server remotely)");
-  }
-  if (!isLoopbackHost(headerValue(req.headers.host))) {
-    return deny(403, "forbidden: loopback host required (pair this device to use the server remotely)");
-  }
-  return deny(403, "forbidden: cross-origin request");
+export function resolveRequestAuth(_req: IncomingMessage, _options: ResolveOptions): RequestAuthResult {
+  return { auth: null, status: 403, error: "Fort foundation is quarantined; request authorization disabled" };
 }
