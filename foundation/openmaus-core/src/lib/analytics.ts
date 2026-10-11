@@ -1,0 +1,10 @@
+export type OptAction = "init" | "opt-in" | "opt-out" | "none";
+export const analyticsEnabled = () => false;
+export const optAction = (_enabled: boolean, _running: boolean): OptAction => "none";
+export const setAnalyticsEnabled = (_enabled: boolean) => {};
+export const initAnalytics = async () => {};
+export const track = (_event: string, _props?: Record<string, unknown>) => {};
+export const identifyEmail = (_email: string) => {};
+export const analyticsSurface = (): "local" | "server" => "local";
+export const emailGateDone = () => true;
+export const setEmailGateDone = (_status: "submitted" | "skipped") => {};
