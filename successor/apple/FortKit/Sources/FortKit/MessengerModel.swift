@@ -22,7 +22,7 @@ import Observation
     private var client: FortClient?
     private var pendingStore: PendingStore?
     public var selectedAgent: Agent? { agents.first { $0.agentId == selectedAgentID } }
-    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && selectedAgent?.binding.enabled == true && installation?.supportsCommands == true && !isBusy }
+    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && selectedAgent?.binding.enabled == true && installation?.supportsCommands == true }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
     init(storage: DeviceStorage, session: URLSession) { self.storage = storage; self.session = session }
     public func restore() async {

@@ -16,6 +16,10 @@ private actor FixtureHTTP {
     }
     let installation = Installation(contractVersion:"1.0",installationId:"fixture-installation",recoveryEpoch:"epoch-one",mode:"fixture",serviceName:"Fort Fixture")
     let agent = Agent(agentId:"agent",name:"Fixture Agent",homeConversationId:"home",binding:Binding(bindingRevisionId:"binding",provider:"fixture",runtimeVersion:"1",selectedModel:"fixture-echo-v1",hostId:"fixture-local",enabled:true),readiness:"fixtureReady")
+    var pauseInstallation = false
+    var installationWaiter: CheckedContinuation<Void,Never>?
+    func pauseInstallationReads() { pauseInstallation = true }
+    func releaseReads() { pauseInstallation = false; installationWaiter?.resume(); installationWaiter = nil }
     var offline = false
     var disconnectAfterAcceptance = false
     var rejectSubmission = false
@@ -25,7 +29,8 @@ private actor FixtureHTTP {
     func rejectNextSubmission() { rejectSubmission = true }
     func addExternalMessage() { messages.append(Message(messageId:"external",conversationId:"home",requestId:"external-request",role:"assistant",text:"New shared history",sequence:2,createdAt:"2026-10-12T00:00:01.000Z")) }
     func snapshot() -> Snapshot { Snapshot(installationId:installation.installationId,recoveryEpoch:installation.recoveryEpoch,conversationId:"home",cursor:messages.count,messages:messages,runs:[],lastReadMessageSequence:0) }
-    func response(_ request: URLRequest) throws -> (Int,Data) {
+    func response(_ request: URLRequest) async throws -> (Int,Data) {
+        if request.url!.path == "/v1/installation" && pauseInstallation { await withCheckedContinuation { installationWaiter = $0 } }
         if offline { throw URLError(.notConnectedToInternet) }
         let encoder = JSONEncoder()
         switch request.url!.path {
@@ -119,4 +124,18 @@ private final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(model.pending.first?.text == "Immutable pending conflict")
     #expect(model.snapshot?.messages.last?.text == "New shared history")
     #expect(model.status.contains("review"))
+}
+
+@Test @MainActor func sendPersistsImmediatelyWhileBackgroundRefreshWaits() async throws {
+    let (model,storage,session,fixture) = try await setup()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await fixture.pauseInstallationReads()
+    let refresh = Task { await model.refresh() }
+    while !model.isBusy { await Task.yield() }
+    model.draft = "Save locally during refresh"
+    await model.send()
+    #expect(model.draft.isEmpty)
+    #expect(model.pending.first?.text == "Save locally during refresh")
+    await fixture.releaseReads()
+    await refresh.value
 }
