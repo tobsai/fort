@@ -1,0 +1,1 @@
+successor/runner/codex.test.ts(131,35): error TS2322: Type '"changed"' is not assignable to type '"synthetic-selected-model"'.

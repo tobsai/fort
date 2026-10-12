@@ -129,3 +129,25 @@ recovery, approval/cancellation and uncertainty closure against the byte-identic
 Mac test selector that matched both the dialog and Touch Bar Cancel buttons.
 The corrected runner passed; all broader provider, physical-device and release
 gates remain open, and no provider execution is enabled.
+
+## Stage 2 protocol preparation
+
+`f6a968e` adds an unwired, in-memory Codex turn adapter and private runtime evidence
+types, based on current official protocol documentation and synthetic fixtures.
+It copies no donor/provider source. It preserves exact input/attempt correlation,
+bounded framing, final versus provisional output and reported message phases;
+unsupported authority/tool requests, rerouting and uncertain outcomes fail closed.
+All 21 new tests and the complete 67-test Node suite pass, along with strict
+TypeScript checking. Red failures, source/log hashes and exact limits are in the
+[protocol evidence record](evidence/2026-10-12-codex-protocol.md).
+
+The adapter does not launch or authenticate a runtime, initialize a thread, read
+provider configuration, implement runner enrollment, or commit provider events.
+Correlation metadata and requested read-only policy are not authentication or OS
+isolation. The service/public/native contract remains fixture-only and unchanged.
+Candidate CLI symlink metadata suggests 0.157.1; the binary was not executed and
+its protocol compatibility is unverified. Stage 2 still requires enforced OS and
+credential confinement, authenticated/fenced runner integration, exact-runtime
+conformance and provider-native feasibility/real-turn evidence. See the
+[enclosing-boundary requirements](runner/README.md). No new owner intervention is
+needed for further deterministic work; provider activation remains gated.

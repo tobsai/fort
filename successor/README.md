@@ -3,6 +3,7 @@
 This is the implemented Stage 1 **fixture increment**: a fresh authenticated
 TypeScript/SQLite service, constrained deterministic fixture worker, FortKit,
 and native SwiftUI iPhone and Mac apps. It does not enable official providers.
+Stage 2 has a separately tested, unwired Codex turn adapter; it launches no runtime.
 
 - [Implementation decisions and remaining gates](IMPLEMENTATION.md)
 - [HTTP contract and shared fixtures](contracts/README.md)
@@ -11,11 +12,13 @@ and native SwiftUI iPhone and Mac apps. It does not enable official providers.
 - [Review fixes and historical validation](evidence/2026-10-12-review-followup.md)
 - [Spec 058 acceptance map](evidence/2026-10-12-spec058-matrix.md)
 - [Latest Mac fixture and regression evidence](evidence/2026-10-12-mac-and-contracts.md)
+- [Codex protocol preparation and open boundaries](runner/README.md)
+- [Codex protocol validation](evidence/2026-10-12-codex-protocol.md)
 
 The runtime and behavior tests need no dependency installation. Run from this worktree's root:
 
 ```sh
-/opt/homebrew/opt/node@26/bin/node --test successor/service/service.test.ts successor/runner/fixture.test.ts
+/opt/homebrew/opt/node@26/bin/node --test successor/service/service.test.ts successor/runner/fixture.test.ts successor/runner/codex.test.ts
 swift test --package-path successor/apple/FortKit --scratch-path /tmp/fort058-swift-build
 ```
 
