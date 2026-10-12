@@ -1,0 +1,188 @@
+{
+  "recordedAt": "2026-10-12T16:44:09.984545+00:00",
+  "base": "5b4d35f15165e4bef56cb927363ff1f268297f6e",
+  "sourceCommit": "e2ecd0a0eda19e0ffac61097fbee0add4af71f47",
+  "node": "26.5.0",
+  "tests": {
+    "passed": 138,
+    "failed": 0,
+    "skipped": 0
+  },
+  "productionIsolationProven": false,
+  "restrictiveSandbox": "failed SIGABRT before probe report",
+  "diagnosticPolicy": "allow-default with synthetic-target and operation denials; not host confinement",
+  "inheritedDescriptor": "readable despite path denial",
+  "supervisorDeath": "owned worker remained alive until outer harness cleanup",
+  "sources": [
+    {
+      "path": "successor/package.json",
+      "sha256": "2ce566010a32c0496e3d34ef50ffaa5c2e8f8621b3bf63737dff003c6512f979"
+    },
+    {
+      "path": "successor/runner/confinement-canary.test.ts",
+      "sha256": "b4340a5d37438c35e84bbd12dd97ef8f99e5b0de724991deb602dc5aaa1fa9d4"
+    },
+    {
+      "path": "successor/runner/confinement-canary.ts",
+      "sha256": "9ff5a78e02f63c5af1688616acccf489440246b39788d166e86cb1393a422557"
+    },
+    {
+      "path": "successor/runner/confinement-probe.c",
+      "sha256": "4bd2882d30f5c074e54bd0ab7aa07cd7630c56a354f3e859a13c570516ac16a3"
+    },
+    {
+      "path": "successor/runner/process-fixture.mjs",
+      "sha256": "34aed8e0bf5ab04a2c7a06222ba5c3567e441c041fcb45434d1ef8261e4e0363"
+    },
+    {
+      "path": "successor/runner/synthetic-process-host.ts",
+      "sha256": "6804643b1bd3936165c9af643c3e43447f9fde437ae8e6e6218e4f3044d6427f"
+    },
+    {
+      "path": "successor/runner/synthetic-process.test.ts",
+      "sha256": "49fbc30921ab6a660fb63fc60ee888f7ed9f6461522a6b77d1ce357bafa92396"
+    },
+    {
+      "path": "successor/runner/synthetic-process.ts",
+      "sha256": "d9fc9523479d5f293ba6d32b33cb731ab96157e91b03162a0793921193bf1556"
+    },
+    {
+      "path": "successor/runner/synthetic-transport.test.ts",
+      "sha256": "6c58e754255b9759c70ce0a2ce4efefb0a346c8051a4e3420767c85915cf6e0b"
+    },
+    {
+      "path": "successor/runner/synthetic-transport.ts",
+      "sha256": "88111b8cf2aa49b47cf6f61550d0219a53bce0cc81f76b7b9bf2902c2c890a36"
+    },
+    {
+      "path": "successor/service/synthetic-runner.test.ts",
+      "sha256": "af6b4fcb78cf6691e57dc22ceb97774f24104d260bddbdf52b1c35b6a83000dc"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/deadline-red.log.gz",
+      "sha256": "35af3c12ac9df57c5d2469a6240aa28550390a66beabdf8bcd4024fda0605d09",
+      "exitCode": 1,
+      "description": "behavioral red: shortened deadline ignored",
+      "uncompressedSha256": "76d60ec532515b9dbfa073b1201c92558eb193d334997d2a8f39ef735f028233"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/deadline-green.log",
+      "sha256": "193712b3790fb156f84734884b2655e8c3fb855577295bf31f78ef27b3eb4145",
+      "exitCode": 0,
+      "description": "transport deadline regression green"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/first-process-red.log",
+      "sha256": "22f5994e0dada84d4daa782dacde23921fe58bff140f1e1520f92b40bae583e1",
+      "exitCode": 1,
+      "description": "scaffolding only: module did not exist"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/first-process-green.log",
+      "sha256": "964ad899011f7182ea8b716c115305859454b9fd8d1eff1ee5e6ff8aa656bd59",
+      "exitCode": 0,
+      "description": "initial fragmented real pipe case"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/frame-deadline-red.log.gz",
+      "sha256": "5e295e6973674f380f1370232b1a0e2f80c903050b06d977b1bff8ec99826b73",
+      "exitCode": 1,
+      "description": "behavioral red: timeout renewed per chunk",
+      "uncompressedSha256": "be324a158114ac331b6cfed79b6d5d014591b981a3ea0d4c463b394726d569d7"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/frame-deadline-green.log",
+      "sha256": "512a7da8d429f913798a09b735266a44563194cb5ba5bf763d068d946272078f",
+      "exitCode": 0,
+      "description": "15 process cases"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/backlog-red.log.gz",
+      "sha256": "aa7aa388dab37f8522f0dc4835d231eac013d16be068180ac1cea49c0eeffa26",
+      "exitCode": 1,
+      "description": "behavioral red: queued evidence extended shutdown",
+      "uncompressedSha256": "e7961e7cb23a06ef8ef1c86f41e69bae8ff7085a2a8006aee44a96fa79b58978"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/backlog-green.log",
+      "sha256": "05989de07e3277f117d268ddf240666cd4e2e5e8f46bf7d7cdbba89b9b9c4764",
+      "exitCode": 0,
+      "description": "17 final process cases"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/native-canary-scaffold-red.log",
+      "sha256": "a04559f73c93bbdb4ccc3712033d602ff6201c644b9dcd76fb47cb7cf3e36958",
+      "exitCode": 1,
+      "description": "scaffolding only: module did not exist"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/native-canary-restrictive.log.gz",
+      "sha256": "f4ee135d12723c2751b275416fbde32fd2302a66ea142fedecd9ef21e9af1b6a",
+      "exitCode": 1,
+      "description": "restrictive profile aborted before report",
+      "uncompressedSha256": "363e5fc581d273d87a7f03c936909b9a7ffc424fcf614b70ce1c35529aca59af"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/native-canary-runtime.log.gz",
+      "sha256": "8434585b1985a2e60ab9759da663fd4a99694fe4fb04708acfa17b29799eef89",
+      "exitCode": 1,
+      "description": "metadata and sysctl allowances still aborted",
+      "uncompressedSha256": "57953b9bbf01d3b1c36fd0364c85d1fd09fec6720d9aecb28291a51724624d0e"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/native-canary-devices.log.gz",
+      "sha256": "c14c920943cd679d89358608d86f8e10ebb6451349817f1b362652ef4bc98a4b",
+      "exitCode": 1,
+      "description": "standard null/random device allowances still aborted",
+      "uncompressedSha256": "4b3f3cfc4a3c92ea3c58a1932352370a38cf1e244b15f81be07a6090c97663ff"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/native-canary-diagnostic.log",
+      "sha256": "8af85dd0030aafe7589e2ff4e93b1360e80f33337bf71291bedae2eaf4a7cb61",
+      "exitCode": 0,
+      "description": "targeted denials work; inherited descriptor remains readable"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/bridge.log",
+      "sha256": "3ff5a438959a6fa31d7d284357f2bf9f5be4f8ee77f865d03275d14f28d4e1b2",
+      "exitCode": 0,
+      "description": "three actual process-to-HTTP ledger cases"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/supervisor-crash.log",
+      "sha256": "9b4f5254328515e9a8183ba11f329b5fac58543e674383ce4e896916c1017acc",
+      "exitCode": 0,
+      "description": "worker survives host death until explicit outer cleanup"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/supervisor-scaffold-red.log",
+      "sha256": "2528692a10cb08cb80579e4a924fbca4ba7d1e3f184195df1a150948bdddfe2b",
+      "exitCode": 1,
+      "description": "missing host fixture left test waiting; exact owned test PIDs explicitly terminated, not behavioral proof"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/node-tests.log",
+      "sha256": "ed7846d715248066c2eb736e9581e820845ba92a0ff0f53c2b13646940652fec",
+      "exitCode": 0,
+      "description": "complete final backend suite: 138 passed"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0,
+      "description": "strict TypeScript no diagnostics"
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
+    },
+    {
+      "path": "successor/evidence/process-confinement-2026-10-12/unchanged-scope.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
+    }
+  ]
+}

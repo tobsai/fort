@@ -1,0 +1,17 @@
+✔ synthetic handshake must bind the exact thread before one immutable turn start (1.310084ms)
+✔ handshake and turn deadlines produce unknown evidence and never repeat a start (0.572833ms)
+✔ cancellation ACK and connection closure are not terminal evidence; the stop deadline remains bounded (0.242208ms)
+✔ correlated interrupted terminal wins before timeout and teardown cannot invent another result (0.324333ms)
+✔ unsupported requests are rejected and interrupted before the ordered close action (0.2155ms)
+✔ a wrong handshake or transport loss remains unknown, while pre-dispatch cancellation is explicit (0.263917ms)
+✔ synthetic transport refuses changed runtime/model bindings and leaks no dispatch credential into actions (0.402875ms)
+✔ a late cancellation cannot extend an already expired handshake or turn deadline (0.172083ms)
+✔ fixture I/O tests may shorten deadlines but cannot widen the accepted lifecycle policy (0.206042ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 108.756167

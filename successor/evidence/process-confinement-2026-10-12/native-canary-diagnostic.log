@@ -1,0 +1,10 @@
+✔ native syscall controls and temporary sandbox expose each tested authority boundary (579.266541ms)
+ℹ {"restrictiveStartup":"Native synthetic probe failed (SIGABRT): ","platform":"darwin","mechanism":"sandbox-exec-deprecated","productionIsolationProven":false,"control":{"workspace":true,"owner":true,"ledger":true,"sibling":true,"provider":true,"home":true,"symlink":true,"environment":true,"descriptor":true,"process":true,"ipc":true,"network":true,"exec":true},"tool":{"workspace":true,"owner":false,"ledger":false,"sibling":false,"provider":false,"home":false,"symlink":false,"environment":false,"descriptor":false,"process":false,"ipc":false,"network":false,"exec":false},"host":{"workspace":true,"owner":false,"ledger":false,"sibling":false,"provider":true,"home":false,"symlink":false,"environment":false,"descriptor":false,"process":false,"ipc":false,"network":false,"exec":false},"inheritedDescriptor":true,"closedDescriptor":false,"cleaned":true}
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 673.462417

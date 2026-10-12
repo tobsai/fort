@@ -139,3 +139,75 @@ The synthetic binding stays visibly `provider: fixture`, version `1`, model
 wire codec; it is not evidence that an official runtime or selected model ran.
 See [service seam and scope](../service/README.md#synthetic-runner-bridge) and
 [crash/replay evidence](../evidence/2026-10-12-synthetic-runner-bridge.md).
+
+## Bounded synthetic process experiment
+
+`startSyntheticProcess` is an opt-in test harness, not a provider launcher or an
+active service dispatch path. It launches only the fixed, newly authored
+`process-fixture.mjs` with pinned Node 26.5.0, a fresh private empty directory,
+explicit LANG/TZ, and pipes. No command, executable, shell, inherited environment,
+provider configuration or credential can be selected through this API. The trusted
+parent holds the dispatch/session credentials and delivers normalized evidence;
+the worker receives only the synthetic protocol, exact text and thread identity.
+The worker runs without Node permission flags so these tests do not mistake that
+API policy for an OS boundary. It is trusted fixture code with ambient host-user
+OS authority, and must never be replaced with an official or untrusted runtime.
+
+Limits are enforced on real pipes: 5-second handshake, 30-second turn, 2-second
+interrupt, 2-second teardown and 2-second cleanup observation. A complete outgoing
+frame gets one 2-second write deadline, independent of chunk count; queued bytes
+are capped at 524,288. Reads are fed incrementally with backpressure. Stdout is
+capped at 1,000,000 bytes and stderr is drained/discarded up to 65,536; diagnostics
+retain only bounded counters and categorical trace entries. One evidence upload
+is active, at most two nonterminal events wait, and one terminal result is held
+until cleanup. Each upload permits two bounded 2-second attempts of the identical
+event, never another process start. These are separate asynchronous deadlines,
+not a hard real-time scheduling guarantee. Tests may shorten but never enlarge
+these limits. No timeout or acknowledgement proves an external effect succeeded.
+
+A released pre-start evidence burst exceeding the queue cap fails closed, stops
+the worker and marks evidence unconfirmed. It does not drop sequence numbers and
+pretend a later event committed. The service's existing claim lease/restart fence
+must resolve that ledger attempt to unknown; no replacement is dispatched.
+Sustained real-provider progress and production upload recovery remain future work.
+
+Cancellation, upload and write waits are independent. Closing first tries EOF and
+TERM, then KILL for the one POSIX group created by this harness. Success requires
+root exit, pipe closure and observed absence of that group before terminal upload.
+Unverified cleanup downgrades a held terminal to uncertainty. Group absence proves
+only that group absent; descendants able to change session/group could escape.
+No broad process-name kill is used. Supervisor SIGKILL can leave a worker alive;
+the crash test's outer owner explicitly kills and observes the trusted reported
+group. There is no production outer supervisor or crash-proof process container.
+
+## Temporary native canaries: incomplete confinement
+
+`confinement-probe.c` is a test-only native syscall probe, compiled into a temporary
+root with the Mac's existing clang. No C source is linked into the product. It runs
+outside Node permission checks against synthetic files, an owned sentinel, and
+owned Unix/127.0.0.1 sockets. The installed `sandbox-exec` manual marks that tool
+**deprecated**. This experiment cannot establish a supported production boundary.
+
+The restrictive deny-default profile aborts with SIGABRT before producing a probe
+report. Adding metadata, sysctl and standard null/random device permissions did
+not make it runnable. The separately labeled **diagnostic targeted-denial policy**
+starts from allow-default and denies the synthetic targets and selected operations.
+It demonstrates those denials only; unrelated host paths are not confined.
+It allows workspace read/write, denies the owner/ledger/sibling/home/symlink canaries,
+and denies the owned-process signal check, fork/exec, Unix IPC and loopback network.
+A separate synthetic host actor may read the provider canary while its tool actor
+cannot. This is a trust-boundary experiment, not provider credential integration.
+
+The deliberately inherited file descriptor **bypasses the path denial**. Passing
+only explicit stdin/stdout/stderr and closing other descriptors prevents that tested
+leak. Clearing the synthetic environment secret is launcher hygiene, not sandbox
+proof. Workspace success and unsandboxed positive controls verify each probe ran.
+Global Keychain/TCC, Mach IPC, arbitrary host files, sockets to external hosts,
+escaped process groups, real provider runtime/tool behavior and Linux confinement
+are untested. No existing secret, account, permission or provider was accessed.
+
+T07 and Stage 2 remain open. A supported enclosing process/credential arrangement
+must be designed, approved for any concrete host changes, and independently tested
+before exact official-runtime conformance or provider-native sign-in. The current
+experiments need no new installation or persistent grant and request none.
+See the [retained I/O and canary evidence](../evidence/2026-10-12-process-confinement.md).

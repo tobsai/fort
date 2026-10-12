@@ -1,0 +1,9 @@
+✔ owned synthetic process preserves exact fragmented UTF-8 and waits for observed cleanup before terminal delivery (59.383083ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.669041

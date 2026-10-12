@@ -179,3 +179,20 @@ No UI session, real provider invocation, credential read/copy, login, persistent
 permission, deployment or push occurred. Stage 2 remains incomplete; production
 host enrollment/TLS, enforced OS isolation, actual process I/O/deadlines and exact
 runtime/provider/native feasibility evidence remain open.
+
+## Bounded synthetic process I/O and confinement experiment
+
+The next backend-only increment adds a fixed synthetic process supervisor with
+bounded pipe writes, output and evidence queues, explicit environment, separate
+cancellation/upload handling, and observed owned-group cleanup before terminal
+evidence. Authenticated bridge tests preserve exact text, acknowledgement replay,
+owner cancellation, restart fencing and the existing uncertainty barrier. The
+service still enables no official runtime; public/native contracts are unchanged.
+
+Temporary C syscall canaries test synthetic actor boundaries outside Node's
+permission checks. The restrictive macOS profile aborts; a separate allow-default
+diagnostic profile proves only its named denials. An inherited descriptor bypasses
+a path denial, and supervisor death can leave its worker running until an outer
+owner reaps it. Neither result is production isolation. `sandbox-exec` is deprecated;
+no supported enclosing arrangement, provider credential boundary or crash-proof
+process container is accepted. See the [exact results and remaining gates](evidence/2026-10-12-process-confinement.md).
