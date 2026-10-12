@@ -389,3 +389,35 @@ test('approval expiry before dispatch releases only that fixture step and contin
   assert.equal(snapshot.messages.length, 2);
   assert.equal(snapshot.approvals[0].state, 'expired');
 });
+
+test('resolving an expired approval releases later queued work without another command', async t => {
+  let time = Date.now();
+  const h = await setup(t, { autoRun: true, fixtureBehavior: 'approval', now: () => time });
+  const first = await h.submit('This gate will expire', 'expired-decision-first');
+  const snapshotPath = `/v1/conversations/${h.agent.homeConversationId}/snapshot`;
+  let snapshot = (await h.api(snapshotPath)).body;
+  for (let n = 0; n < 100 && snapshot.runs[0].state !== 'waitingForApproval'; n++) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    snapshot = (await h.api(snapshotPath)).body;
+  }
+  assert.equal(snapshot.runs[0].state, 'waitingForApproval');
+  const approval = snapshot.approvals[0];
+  const second = await h.submit('This turn must proceed after expiry', 'expired-decision-second');
+  assert.equal(second.status, 201);
+  time = Date.parse(approval.expiresAt) + 1;
+  const result = await h.api(`/v1/approvals/${approval.approvalId}/resolve`, {
+    recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId,
+    bindingRevisionId: approval.bindingRevisionId, actionDigest: approval.actionDigest,
+    resourceScope: approval.resourceScope, decision: 'approve',
+  });
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error.code, 'approvalExpired');
+  for (let n = 0; n < 100; n++) {
+    snapshot = (await h.api(snapshotPath)).body;
+    if (snapshot.runs[1].state === 'waitingForApproval') break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.deepEqual(snapshot.runs.map((run: { state: string }) => run.state), ['canceled', 'waitingForApproval']);
+  assert.equal(snapshot.approvals[0].state, 'expired');
+  assert.equal(snapshot.messages.some((message: { requestId: string; role: string }) => message.requestId === first.body.receipt.requestId && message.role === 'assistant'), false);
+});

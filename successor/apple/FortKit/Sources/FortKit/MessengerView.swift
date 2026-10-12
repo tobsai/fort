@@ -87,10 +87,10 @@ public struct MessengerView: View {
         VStack(alignment:.leading) {
             Text(run.displayState).font(.caption)
             if ["queued","running","waitingForApproval"].contains(run.state) {
-                Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy)
+                Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }
             if run.state == "outcomeUnknown" {
-                Button("Close without retry") { uncertainRun = run }.disabled(model.isBusy)
+                Button("Close without retry") { uncertainRun = run }.disabled(model.isBusy || !model.supportsCommands)
             }
             if run.state == "completed" {
                 Text(run.effectiveModel.map { "Reported model: \($0) (fixture evidence)" } ?? "Effective model was not reported").font(.caption2)
@@ -106,7 +106,7 @@ public struct MessengerView: View {
                 HStack {
                     Button("Approve fixture reply") { Task { await model.decide(approval,approve:true) } }
                     Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }
-                }.disabled(!approval.canDecide || model.isBusy)
+                }.disabled(!approval.canDecide || model.isBusy || !model.supportsCommands)
             }
         }.padding().background(.quaternary,in:RoundedRectangle(cornerRadius:12))
     }

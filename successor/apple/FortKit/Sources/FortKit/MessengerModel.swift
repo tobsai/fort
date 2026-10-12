@@ -22,7 +22,8 @@ import Observation
     private var client: FortClient?
     private var pendingStore: PendingStore?
     public var selectedAgent: Agent? { agents.first { $0.agentId == selectedAgentID } }
-    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && selectedAgent?.binding.enabled == true && installation?.supportsCommands == true }
+    public var supportsCommands: Bool { installation?.supportsCommands == true }
+    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && selectedAgent?.binding.enabled == true && supportsCommands }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
     init(storage: DeviceStorage, session: URLSession) { self.storage = storage; self.session = session }
     public func restore() async {
@@ -95,7 +96,7 @@ import Observation
                 try persist(incoming,conversationID:agent.homeConversationId,epoch:current.recoveryEpoch)
             }
             connected = true
-            status = pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Installation was restored. Pending work needs review and will not resend." : pendingErrors.isEmpty ? "Connected · fixture only" : "Pending work needs review · history is up to date"
+            status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Installation was restored. Pending work needs review and will not resend." : pendingErrors.isEmpty ? "Connected · fixture only" : "Pending work needs review · history is up to date"
         } catch {
             connected = false; status = error.localizedDescription
             if snapshot == nil, let agent = selectedAgent { snapshot = try? storage.snapshot(installationID:expectedInstallation,conversationID:agent.homeConversationId) }
@@ -121,7 +122,7 @@ import Observation
         } catch { status = "Your message could not be saved on this device. Keep the draft and try again." }
     }
     public func decide(_ approval: Approval, approve: Bool) async {
-        guard !isBusy, approval.canDecide, let client, approval.installationId == installation?.installationId, approval.recoveryEpoch == installation?.recoveryEpoch else { return }
+        guard supportsCommands, !isBusy, approval.canDecide, let client, approval.installationId == installation?.installationId, approval.recoveryEpoch == installation?.recoveryEpoch else { return }
         isBusy = true
         do {
             let result = try await client.resolve(approval,approve:approve)
@@ -131,7 +132,7 @@ import Observation
         await refresh()
     }
     public func cancel(_ run: Run) async {
-        guard !isBusy, let client, let installation else { return }
+        guard supportsCommands, !isBusy, let client, let installation else { return }
         isBusy = true
         do { let result = try await client.cancel(runID:run.runId,recoveryEpoch:installation.recoveryEpoch); status = result.displayState }
         catch { status = error.localizedDescription }
@@ -139,7 +140,7 @@ import Observation
         await refresh()
     }
     public func closeUnknown(_ run: Run) async {
-        guard !isBusy, run.state == "outcomeUnknown", let client, let installation else { return }
+        guard supportsCommands, !isBusy, run.state == "outcomeUnknown", let client, let installation else { return }
         isBusy = true
         do { let result = try await client.closeUnknown(runID:run.runId,recoveryEpoch:installation.recoveryEpoch); status = result.displayState }
         catch { status = error.localizedDescription }
@@ -147,7 +148,7 @@ import Observation
         await refresh()
     }
     public func markRead(_ message: Message) async {
-        guard let client, let snapshot, message.conversationId == snapshot.conversationId else { return }
+        guard supportsCommands, let client, let snapshot, message.conversationId == snapshot.conversationId else { return }
         do { try await client.acknowledgeRead(conversationID:message.conversationId,messageID:message.messageId,cursor:snapshot.cursor,recoveryEpoch:snapshot.recoveryEpoch) }
         catch { /* Read state will be retried when the message is presented again. */ }
     }

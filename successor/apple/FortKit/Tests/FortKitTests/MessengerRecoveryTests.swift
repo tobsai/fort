@@ -16,6 +16,10 @@ private actor FixtureHTTP {
     }
     let installation = Installation(contractVersion:"1.0",installationId:"fixture-installation",recoveryEpoch:"epoch-one",mode:"fixture",serviceName:"Fort Fixture")
     let agent = Agent(agentId:"agent",name:"Fixture Agent",homeConversationId:"home",binding:Binding(bindingRevisionId:"binding",provider:"fixture",runtimeVersion:"1",selectedModel:"fixture-echo-v1",hostId:"fixture-local",enabled:true),readiness:"fixtureReady")
+    var version = "1.0"
+    var ownerControlRequests: [String] = []
+    func advertiseIncompatibleVersion() { version = "2.0" }
+    func controlRequests() -> [String] { ownerControlRequests }
     var pauseInstallation = false
     var installationWaiter: CheckedContinuation<Void,Never>?
     func pauseInstallationReads() { pauseInstallation = true }
@@ -33,9 +37,13 @@ private actor FixtureHTTP {
         if request.url!.path == "/v1/installation" && pauseInstallation { await withCheckedContinuation { installationWaiter = $0 } }
         if offline { throw URLError(.notConnectedToInternet) }
         let encoder = JSONEncoder()
+        if request.httpMethod == "POST", request.url!.path.contains("/approvals/") || request.url!.path.contains("/runs/") || request.url!.path.hasSuffix("/read") {
+            ownerControlRequests.append(request.url!.path)
+            return (409,Data(#"{"error":{"code":"unsupportedContract","message":"Read-only fixture"}}"#.utf8))
+        }
         switch request.url!.path {
         case "/v1/devices/enroll": return (200,try encoder.encode(Enrollment(installation:installation,deviceId:"device",deviceToken:"synthetic-fixture-token",expiresAt:"2027-01-01T00:00:00Z")))
-        case "/v1/installation": return (200,try encoder.encode(installation))
+        case "/v1/installation": return (200,try encoder.encode(Installation(contractVersion:version,installationId:installation.installationId,recoveryEpoch:installation.recoveryEpoch,mode:installation.mode,serviceName:installation.serviceName)))
         case "/v1/agents": return (200,try encoder.encode(AgentList(agents:[agent])))
         case "/v1/conversations/home/snapshot": return (200,try encoder.encode(snapshot()))
         case "/v1/conversations/home/messages":
@@ -138,4 +146,24 @@ private final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(model.pending.first?.text == "Save locally during refresh")
     await fixture.releaseReads()
     await refresh.value
+}
+
+@Test @MainActor func incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() async throws {
+    let (model,storage,session,fixture) = try await setup()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await fixture.advertiseIncompatibleVersion(); await model.refresh()
+    model.draft = "This must remain a draft"
+    #expect(!model.canSend)
+    await model.send()
+    let approval = Approval(approvalId:"approval",installationId:"fixture-installation",recoveryEpoch:"epoch-one",runId:"run",attemptId:"attempt",bindingRevisionId:"binding",actionDigest:"digest",resourceScope:["fixture:reply"],actionDescription:"Produce the fixture reply",expiresAt:"2099-01-01T00:00:00.000Z",state:"pending",decidedByDeviceId:nil,decidedAt:nil)
+    let run = Run(runId:"run",requestId:"request",conversationId:"home",bindingRevisionId:"binding",state:"outcomeUnknown",selectedModel:"fixture-echo-v1",effectiveModel:nil,modelEvidence:"unreported",attemptId:"attempt")
+    await model.decide(approval,approve:true)
+    await model.cancel(run)
+    await model.closeUnknown(run)
+    await model.markRead(try #require(model.snapshot?.messages.first))
+    let requests = await fixture.controlRequests()
+    #expect(requests == [])
+    #expect(model.snapshot?.messages.first?.text == "Earlier saved history")
+    #expect(model.draft == "This must remain a draft")
+    #expect(model.status.contains("read-only"))
 }

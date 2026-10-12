@@ -338,9 +338,9 @@ export function createFixtureService(options: Options) {
           appendEvent(run.conversationId, run.runId, 'run.updated', { run });
           return { approval, run, expired };
         });
+        if (options.autoRun) setImmediate(() => { void pump(); });
         if (result.expired) fail(409, 'approvalExpired', 'The action expired without authorizing execution.');
-        send(200, { approval: result.approval, run: result.run });
-        if (options.autoRun) setImmediate(() => { void pump(); }); return;
+        send(200, { approval: result.approval, run: result.run }); return;
       }
       const revoke = /^\/v1\/devices\/([A-Za-z0-9_-]+)\/revoke$/.exec(path);
       if (revoke && request.method === 'POST') {
