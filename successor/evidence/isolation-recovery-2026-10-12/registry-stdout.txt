@@ -1,0 +1,9 @@
+{
+  "registry": {
+    "registrySignaturesVerified": 2,
+    "tarballVerified": false
+  },
+  "verifierArchiveVerified": true,
+  "openpgpLibraryImported": false,
+  "publisherSignaturesVerified": false
+}

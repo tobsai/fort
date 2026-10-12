@@ -1,0 +1,1 @@
+{"downloads_completed": 12, "publisher_signatures_verified": false}

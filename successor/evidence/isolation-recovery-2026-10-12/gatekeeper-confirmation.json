@@ -1,0 +1,17 @@
+{
+  "time_utc": "2026-10-12T22:32:05.730168+00:00",
+  "purpose": "Read-only assessment outside command sandbox to distinguish sandbox error; no manager launch or policy bypass",
+  "command": [
+    "/usr/sbin/spctl",
+    "--assess",
+    "--type",
+    "execute",
+    "--verbose=4",
+    "/Users/tobiasgunn/Library/Application Support/FortIsolation/tools/lima/2.2.1/bin/limactl"
+  ],
+  "exit_code": 3,
+  "stdout": "",
+  "stderr": "/Users/tobiasgunn/Library/Application Support/FortIsolation/tools/lima/2.2.1/bin/limactl: rejected\n",
+  "manager_executed": false,
+  "security_policy_changed": false
+}

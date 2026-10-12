@@ -1,0 +1,6 @@
+{
+  "time_utc": "2026-10-12T22:33:29.637845+00:00",
+  "operation": "read-only precleanup process inspection",
+  "result": "/bin/ps was denied by command sandbox; no cleanup or VM action occurred",
+  "resolution": "Repeat exact task-scoped inspection in the authorized cleanup operation outside the command sandbox; no policy change."
+}

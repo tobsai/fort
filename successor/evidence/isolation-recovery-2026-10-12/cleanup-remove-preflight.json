@@ -1,0 +1,39 @@
+{
+  "time_utc": "2026-10-12T22:33:51.751269+00:00",
+  "checks": [
+    {
+      "command": [
+        "/usr/sbin/lsof",
+        "-nP",
+        "-iTCP:22058",
+        "-sTCP:LISTEN"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/sbin/lsof",
+        "-t",
+        "+D",
+        "/Users/tobiasgunn/Library/Application Support/FortIsolation"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "matching_task_processes": [],
+  "state_parent_absent": true,
+  "owned_entries": 298,
+  "regular_files": 267,
+  "directories": 30,
+  "internal_documentation_links": 1,
+  "all_ownership_modes_contents_and_receipt_copies_verified": true,
+  "logical_bytes": 762149233,
+  "allocated_bytes": 763789312,
+  "raw_plus_copied_evidence_bytes": 311642,
+  "manager_was_not_launched": true,
+  "fresh_keys_created": false
+}

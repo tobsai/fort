@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "ubuntu.sums",
+  "input_url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+  "observed_digest": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+  "observed_bytes": 7381,
+  "body_complete": true,
+  "max_bytes": 65536,
+  "http": {
+    "status": 200,
+    "final_url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS",
+    "final_url_query_omitted": false,
+    "content_type": "",
+    "content_length": "7381"
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:23:15.844255+00:00"
+}

@@ -1,0 +1,277 @@
+{
+  "time_utc": "2026-10-12T22:35:52.961116+00:00",
+  "source_commit": "e770db9d924e1281b95695b49e809c818f87a4af",
+  "seal_sha256": "31e22d8e99e3141e9083f7a2246c15469d32362279cf537c56aa35911936e406",
+  "source_files_matching_seal_and_git": 31,
+  "sealed_implementation_changed": false,
+  "packet_validator": {
+    "exit_code": 0,
+    "stdout": {
+      "static_checks": "passed",
+      "sealed_files": 31,
+      "execution_authorized": false,
+      "errors": [],
+      "provisioning_blockers": [
+        "Pending independent review of diagnostic persistence/acceptance ordering fixes and explicit recovery record; no execution retry during preparation.",
+        "The original owner approval and all original download pins remain unchanged; fresh owned roots and full preflight are required before a reviewed recovery.",
+        "The private verifier archive, registry authenticity, publisher signatures and negative controls remain unrun and must pass before downloaded code execution at the corresponding stage.",
+        "Lima/image/code-signature/generated-media/systemd/network/resource checks must pass before the still-unattempted single synthetic grant."
+      ]
+    },
+    "stderr": ""
+  },
+  "execution_authority": "authority.json; preparation flags unchanged",
+  "evidence_python_syntax_files_passed": 7,
+  "private_key_marker_scan": "no private-key block markers found; targeted scan, not a general secret detector",
+  "current_absence_rechecked_paths": 300,
+  "outcome": "blocked-by-macos-gatekeeper; scoped cleanup and absence passed",
+  "synthetic_sessions_started": 0,
+  "manager_executed": false,
+  "openpgp_verifier_executed": true,
+  "fresh_keys_created": false,
+  "tests_not_rerun": "67 supplied regressions plus 3 reviewer reproductions remain supported by accepted independent review; no sealed code changed",
+  "evidence_inventory_excludes": "validation.json itself to avoid self-reference",
+  "evidence_bytes_before_this_record": 421093,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8053,
+      "sha256": "f276f32fdb0fce9ef28e239407032e8245c844eea66d1efda44b49be27f6b233"
+    },
+    {
+      "path": "absence-verification.json",
+      "bytes": 48956,
+      "sha256": "68f024b77a4d3d69223ab889fa452cc4cba444d3f2132084b596364f67a0ac7e"
+    },
+    {
+      "path": "authority.json",
+      "bytes": 1435,
+      "sha256": "ac08f7e99dea468d43dda8951a2c2803247fd032f98514c3de0987845c811d03"
+    },
+    {
+      "path": "cleanup-inspect-preflight.json",
+      "bytes": 897,
+      "sha256": "cd7b8365fb7e69c547151eca7d8dddeaebe2e067807ff7aacf9cfbafa9a3a4a9"
+    },
+    {
+      "path": "cleanup-journal.jsonl",
+      "bytes": 61875,
+      "sha256": "4f53d6eee6ca76baafc80632d1a15ce54da5b8284b79078db5a237e9a393a5a6"
+    },
+    {
+      "path": "cleanup-owned.py",
+      "bytes": 6892,
+      "sha256": "0d1f100d2434c971bebbf443ecc3d832dfde7e5b71d90e4703a0a491aa5439fe"
+    },
+    {
+      "path": "cleanup-remove-preflight.json",
+      "bytes": 897,
+      "sha256": "990e93ef8a0ee904752f7aa35558a61103d2e091e827b0b5a81dffac38fde050"
+    },
+    {
+      "path": "created-paths.json",
+      "bytes": 145296,
+      "sha256": "85c5d707f357d57896bf7d4de8ea2b3e6b334e846345464bf5198647cacc9ff3"
+    },
+    {
+      "path": "download-inventory.json",
+      "bytes": 16459,
+      "sha256": "5d4b5f6aeb87e3e37b5b1bf5dcd89af7c053e5115ae8921ccedfd3b205a986bd"
+    },
+    {
+      "path": "download-receipts/01-lima-2.2.1-Darwin-arm64.tar.gz.json",
+      "bytes": 946,
+      "sha256": "57d5ce91733ba003e2741d40e8befe076f4ec6bbdaac47161fcd7460512fcc85"
+    },
+    {
+      "path": "download-receipts/02-noble-server-cloudimg-arm64.img.json",
+      "bytes": 897,
+      "sha256": "e42b9e1a48ea32e1da15045601008050efddc7fd5fd7a32c592e04f804b6b390"
+    },
+    {
+      "path": "download-receipts/03-lima.sums.json",
+      "bytes": 894,
+      "sha256": "cd950aa444d04f3ebec267e572e5a37c0cd46b51d76605a7e24096f465102f22"
+    },
+    {
+      "path": "download-receipts/04-lima.sig.json",
+      "bytes": 895,
+      "sha256": "25eed919867a89e2406863aff482a582dfb1531d3448f85cd09ee11d3015e1bc"
+    },
+    {
+      "path": "download-receipts/05-lima.pub.json",
+      "bytes": 773,
+      "sha256": "71e1b5dedba85e66ca8576404bd5b5e459dd38b9d8b203967c55176c7fc1fcb0"
+    },
+    {
+      "path": "download-receipts/06-ubuntu.sums.json",
+      "bytes": 797,
+      "sha256": "c569c441e039986c98e23d4bc76815124571ce21794e8e82605d133d87ffd57c"
+    },
+    {
+      "path": "download-receipts/07-ubuntu.sig.json",
+      "bytes": 827,
+      "sha256": "24d560bf937e3303aac9057c46cd05f9520f4ba112012c4987681e89cb5a1760"
+    },
+    {
+      "path": "download-receipts/08-ubuntu.pub.json",
+      "bytes": 890,
+      "sha256": "e1e4e87a90c9615e5311c8de5c8db5e8e7ebe3169875a10e56fad049b7f65db0"
+    },
+    {
+      "path": "download-receipts/09-ubuntu.manifest.json",
+      "bytes": 865,
+      "sha256": "7632dcb32a5696ca6da8854931872ea06ceb703c93088ecb402d60b0739e7347"
+    },
+    {
+      "path": "download-receipts/10-openpgp-6.3.2-metadata.json.json",
+      "bytes": 795,
+      "sha256": "d6c835d8e920ae31a58d1a275d8fbe8a0b8549c886f4bfd9c13c61eb57635ff9"
+    },
+    {
+      "path": "download-receipts/11-npm-public-signing-keys.json.json",
+      "bytes": 794,
+      "sha256": "6c477415b6771f93e7b76a99d917cd9d6de25a704a1d53f0231b09d8b4f0c211"
+    },
+    {
+      "path": "download-receipts/12-openpgp-6.3.2.tgz.json",
+      "bytes": 957,
+      "sha256": "ef2c7fcce297daa17dc60d5acba3151d463de2680666a1a95d89b2ed53537d7a"
+    },
+    {
+      "path": "download-result.json",
+      "bytes": 299,
+      "sha256": "e02bf507d143a9d07ad1b5205d4ff7786f7868d9a6e5ac7d099c36a3113b2140"
+    },
+    {
+      "path": "download-stage.py",
+      "bytes": 1260,
+      "sha256": "035b51ae5e2cad9383322affe5dbafed7918ec882cdc85f30391dcf5e0820dc4"
+    },
+    {
+      "path": "download-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "download-stdout.txt",
+      "bytes": 68,
+      "sha256": "eb53a890dddc7f32dc8c5434079368bcac173e0844bc6b6c1636548df4169e62"
+    },
+    {
+      "path": "extract-manager.py",
+      "bytes": 5596,
+      "sha256": "3020a1757af67b69d7036aa5d4b93426b59c4b11e64b7071d3cab12e325e39c9"
+    },
+    {
+      "path": "extract-verifier.py",
+      "bytes": 4512,
+      "sha256": "87529e119073abcff1254136200d669d89f9b502cd2437e6e9c04fcaf332f5e0"
+    },
+    {
+      "path": "gatekeeper-confirmation.json",
+      "bytes": 596,
+      "sha256": "e0666799bebd420456ad12efcc234664aace24f8f805f1c29eaa5b9caa33c312"
+    },
+    {
+      "path": "guest-image-header.json",
+      "bytes": 502,
+      "sha256": "9da738aae2eb4f793eab9f7b10d0c481fa8f3f752fdd3888e4fb0851362bc95c"
+    },
+    {
+      "path": "inventory-downloads.py",
+      "bytes": 6081,
+      "sha256": "f7c61e295320c8c810a24a4a5075255f8fe2bad7a738face514fce09f04ee6b7"
+    },
+    {
+      "path": "lima-archive-inspection.json",
+      "bytes": 45561,
+      "sha256": "11051b5db070b99178ac73f16f83de4e4f9115d5032725ce60d14a5ae840a49a"
+    },
+    {
+      "path": "manager-extraction.json",
+      "bytes": 584,
+      "sha256": "0331ee40e3097bf5e73cb1ffc9d4847b8fa9df8df90b55022f1dfd7361be0ab5"
+    },
+    {
+      "path": "manager-hook-inspection.json",
+      "bytes": 9959,
+      "sha256": "6a62190a15b9eee80d501a58ac1c99effcbabc5af53795b912a44be9983694c5"
+    },
+    {
+      "path": "manager-signing-assessment.json",
+      "bytes": 3357,
+      "sha256": "0dba33c7d9591295396210a4eb37ec1a71eeadf78c08c3eef9145fb90b197951"
+    },
+    {
+      "path": "openpgp-archive-inspection.json",
+      "bytes": 23825,
+      "sha256": "8ea7bd2e74cb0af2418234cf18780baf370459a789428773574e94cc5036a807"
+    },
+    {
+      "path": "openpgp-entrypoint-scan.json",
+      "bytes": 2793,
+      "sha256": "e4b6fea7db8786187ca7dc906aa8b1312a795a8c6cae65f6c3fd81574ad979cf"
+    },
+    {
+      "path": "preflight-create.py",
+      "bytes": 5325,
+      "sha256": "7f717c861f97c585559990e9a9932c96bbc03cfe44f0725ac0b273991fb701aa"
+    },
+    {
+      "path": "preflight.json",
+      "bytes": 2999,
+      "sha256": "7cf9dd5250597330faa48b44cf69573d7b8864f9034b78ff018f6d0ba75bfd02"
+    },
+    {
+      "path": "publisher-result.json",
+      "bytes": 359,
+      "sha256": "3e3e7deb8ff59650a342f9e109e12cf90150375331cabe5e7a85dc0b95dd6082"
+    },
+    {
+      "path": "publisher-stderr.txt",
+      "bytes": 110,
+      "sha256": "2a13af67601624cb4924e88c89583b6d14c362a01c585716097d241c0a47bd61"
+    },
+    {
+      "path": "publisher-stdout.txt",
+      "bytes": 757,
+      "sha256": "683365e5f39e8f0a8bf878ddc8a875435caefd639bef179aae526e1acacc2703"
+    },
+    {
+      "path": "registry-result.json",
+      "bytes": 381,
+      "sha256": "c7a4a7ec3ed7673f616a4108a271cc229de39aa84f1f0a5b9dbf6540f4fb76ba"
+    },
+    {
+      "path": "registry-stderr.txt",
+      "bytes": 110,
+      "sha256": "2a13af67601624cb4924e88c89583b6d14c362a01c585716097d241c0a47bd61"
+    },
+    {
+      "path": "registry-stdout.txt",
+      "bytes": 200,
+      "sha256": "101d135a71858a09a66fc407dea18fd4cdfded03b3b5309f0442cb2261a6b8b5"
+    },
+    {
+      "path": "sandbox-process-inspection.json",
+      "bytes": 336,
+      "sha256": "997ce5b861940ffe11d45621d7e095ddcd9fb1d52959e2747969e43fded73ef4"
+    },
+    {
+      "path": "verifier-dependency-review.json",
+      "bytes": 1431,
+      "sha256": "8ee80f328a79bd3f975369dcf1acbcf6369b90029f9908a0188dc9ddc21d2e9a"
+    },
+    {
+      "path": "verifier-extraction.json",
+      "bytes": 398,
+      "sha256": "0507bbb24c21f9d020374b8395b0e0faeb4486c54a209a7d958f1580baec523e"
+    },
+    {
+      "path": "verify-stage.py",
+      "bytes": 2604,
+      "sha256": "bae041abc9f32df663c4d94f52d21b537daa2d9fb20a2ae214bdf5351c99c228"
+    }
+  ]
+}

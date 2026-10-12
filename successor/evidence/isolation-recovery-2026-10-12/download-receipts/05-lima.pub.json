@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "lima.pub",
+  "input_url": "https://github.com/AkihiroSuda.gpg",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "74d7c5d29b78a5967b0da91a2e9330b8a805fd1ea2c8a375dfae634ff85a6da0",
+  "observed_digest": "74d7c5d29b78a5967b0da91a2e9330b8a805fd1ea2c8a375dfae634ff85a6da0",
+  "observed_bytes": 3158,
+  "body_complete": true,
+  "max_bytes": 65536,
+  "http": {
+    "status": 200,
+    "final_url": "https://github.com/AkihiroSuda.gpg",
+    "final_url_query_omitted": false,
+    "content_type": "text/plain; charset=utf-8",
+    "content_length": "3158"
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:23:15.313162+00:00"
+}

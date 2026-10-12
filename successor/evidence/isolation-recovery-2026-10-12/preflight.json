@@ -1,0 +1,65 @@
+{
+  "time_utc": "2026-10-12T22:21:27.207302+00:00",
+  "commit": "e770db9d924e1281b95695b49e809c818f87a4af",
+  "seal_sha256": "31e22d8e99e3141e9083f7a2246c15469d32362279cf537c56aa35911936e406",
+  "sealed_files_verified": 31,
+  "sealed_files_match_commit": true,
+  "roots_absent_and_ancestors_non_symlink": [
+    "/Users/tobiasgunn/Library/Application Support/FortIsolation",
+    "/Users/tobiasgunn/Library/FortIsolation"
+  ],
+  "disk": {
+    "total_bytes": 1995218165760,
+    "used_bytes": 1256259637248,
+    "free_bytes": 738958528512,
+    "experiment_budget_bytes": 25769803776,
+    "preserved_reserve_bytes": 34359738368
+  },
+  "resource_query": {
+    "command": [
+      "/usr/sbin/sysctl",
+      "-n",
+      "hw.memsize",
+      "hw.logicalcpu",
+      "kern.hv_support"
+    ],
+    "exit_code": 0,
+    "stdout": "68719476736\n10\n1\n",
+    "stderr": ""
+  },
+  "memory_query": {
+    "command": [
+      "/usr/bin/vm_stat"
+    ],
+    "exit_code": 0,
+    "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   491332.\nPages active:                                1429329.\nPages inactive:                              1419263.\nPages speculative:                              9002.\nPages throttled:                                   0.\nPages wired down:                             435939.\nPages purgeable:                               32536.\n\"Translation faults\":                     2128245729.\nPages copy-on-write:                       176180474.\nPages zero filled:                        2154816311.\nPages reactivated:                           8649673.\nPages purged:                                8122530.\nFile-backed pages:                           1219771.\nAnonymous pages:                             1637823.\nPages stored in compressor:                   615953.\nPages occupied by compressor:                 353016.\nDecompressions:                              4663250.\nCompressions:                                7720505.\nPageins:                                    41882023.\nPageouts:                                       5747.\nSwapins:                                           0.\nSwapouts:                                          0.\n",
+    "stderr": ""
+  },
+  "reclaimable_memory_estimate_bytes": 31450677248,
+  "memory_estimate_note": "Free + inactive + speculative is an estimate, not a reservation or quota.",
+  "port_22058_listener_query": {
+    "command": [
+      "/usr/sbin/lsof",
+      "-nP",
+      "-iTCP:22058",
+      "-sTCP:LISTEN"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "node": {
+    "command": [
+      "/opt/homebrew/opt/node@26/bin/node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "stdout": "v26.5.0\n",
+    "stderr": ""
+  },
+  "system_ca": {
+    "path": "/etc/ssl/cert.pem",
+    "regular_root_owned_not_group_or_world_writable": true
+  },
+  "resource_read_authority": "Scoped escalation under preserved original approval and accepted recovery"
+}

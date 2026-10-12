@@ -1,0 +1,23 @@
+{
+  "time_utc": "2026-10-12T22:30:00.362205+00:00",
+  "selected_entrypoint": "package/dist/node/openpgp.mjs",
+  "static_imports": [
+    "module",
+    "node:crypto"
+  ],
+  "literal_require_calls": [
+    "crypto",
+    "zlib",
+    "buffer",
+    "os",
+    "eckey-utils",
+    "worker_threads"
+  ],
+  "optional_peer": "@openpgp/web-stream-tools ~0.3.0",
+  "peer_status": "The selected bundle contains stream implementation and has no import/reference to the optional peer package specifier. No peer installed.",
+  "dormant_external_helpers": "ECDSA nodeSign/nodeVerify bodies refer to eckey-utils. No added package is authorized. If reached and required by these publisher inputs, verification must stop; no install, fallback configuration or broadened filesystem permission.",
+  "bundled_wasm": "Argon2 wasm loader uses inline base64 bytes. Private-key operations are outside this verification.",
+  "network_scan": "No fetch(, XMLHttpRequest, http.request, https.request, node:net or child_process strings in selected entrypoint; a static search is not a proof of absence.",
+  "execution_boundary": "Exact sealed offline wrapper: no Node network/write/child/worker/addon grants. Existing Node built-ins only; no package scripts or package manager execution. This trusts the verified library and is not an OS sandbox.",
+  "license": "LGPL-3.0+ temporary private tooling; keep full archive legal files, exclude from Fort distribution."
+}

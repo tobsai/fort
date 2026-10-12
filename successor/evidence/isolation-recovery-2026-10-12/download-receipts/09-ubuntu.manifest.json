@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "ubuntu.manifest",
+  "input_url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
+  "observed_digest": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
+  "observed_bytes": 21147,
+  "body_complete": true,
+  "max_bytes": 65536,
+  "http": {
+    "status": 200,
+    "final_url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest",
+    "final_url_query_omitted": false,
+    "content_type": "text/plain",
+    "content_length": "21147"
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:23:17.926742+00:00"
+}

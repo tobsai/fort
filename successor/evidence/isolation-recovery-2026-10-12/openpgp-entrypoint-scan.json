@@ -1,0 +1,106 @@
+{
+  "entrypoint": "package/dist/node/openpgp.mjs",
+  "hits": [
+    {
+      "line": 4,
+      "text": "import { createRequire } from 'module';"
+    },
+    {
+      "line": 5,
+      "text": "import * as nc from 'node:crypto';"
+    },
+    {
+      "line": 1843,
+      "text": "    nodeRequire: createRequire(import.meta.url),"
+    },
+    {
+      "line": 2238,
+      "text": "        return this.nodeRequire('crypto');"
+    },
+    {
+      "line": 2241,
+      "text": "        return this.nodeRequire('zlib');"
+    },
+    {
+      "line": 2249,
+      "text": "        return (this.nodeRequire('buffer') || {}).Buffer;"
+    },
+    {
+      "line": 2255,
+      "text": "        const os = this.nodeRequire('os'); // Assume we're on Node.js."
+    },
+    {
+      "line": 7129,
+      "text": "    const ecKeyUtils = util.nodeRequire('eckey-utils');"
+    },
+    {
+      "line": 7146,
+      "text": "    const ecKeyUtils = util.nodeRequire('eckey-utils');"
+    },
+    {
+      "line": 9810,
+      "text": "                e.message.includes('WebAssembly.Memory.grow') || // Safari"
+    },
+    {
+      "line": 10039,
+      "text": "var require$1 = createRequire('/');"
+    },
+    {
+      "line": 15738,
+      "text": "function checkKeyRequirements(keyPacket, config) {"
+    },
+    {
+      "line": 16438,
+      "text": "            checkKeyRequirements(primaryKey, config$1);"
+    },
+    {
+      "line": 16462,
+      "text": "                    checkKeyRequirements(subkey.keyPacket, config$1);"
+    },
+    {
+      "line": 16474,
+      "text": "                checkKeyRequirements(primaryKey, config$1);"
+    },
+    {
+      "line": 16497,
+      "text": "            checkKeyRequirements(primaryKey, config$1);"
+    },
+    {
+      "line": 16514,
+      "text": "                        checkKeyRequirements(subkey.keyPacket, config$1);"
+    },
+    {
+      "line": 16528,
+      "text": "                checkKeyRequirements(primaryKey, config$1);"
+    },
+    {
+      "line": 17184,
+      "text": "        checkKeyRequirements(keyPacket, config$1);"
+    },
+    {
+      "line": 18765,
+      "text": "        key.getKeys().forEach(({ keyPacket }) => checkKeyRequirements(keyPacket, config$1));"
+    },
+    {
+      "line": 27892,
+      "text": "  const memory = new WebAssembly.Memory({"
+    },
+    {
+      "line": 27921,
+      "text": "    var instantiateFunc = stream ? WebAssembly.instantiateStreaming : WebAssembly.instantiate;"
+    },
+    {
+      "line": 27922,
+      "text": "    var compileFunc = stream ? WebAssembly.compileStreaming : WebAssembly.compile;"
+    },
+    {
+      "line": 28340,
+      "text": "function requireBit_iterator () {"
+    },
+    {
+      "line": 28392,
+      "text": "\tconst bitIterator = requireBit_iterator();"
+    }
+  ],
+  "note": "Static text inspection only; no library import."
+}

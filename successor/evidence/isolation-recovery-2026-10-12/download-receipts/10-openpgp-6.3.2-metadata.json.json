@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "openpgp-6.3.2-metadata.json",
+  "input_url": "https://registry.npmjs.org/openpgp/6.3.2",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+  "observed_digest": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+  "observed_bytes": 5275,
+  "body_complete": true,
+  "max_bytes": 65536,
+  "http": {
+    "status": 200,
+    "final_url": "https://registry.npmjs.org/openpgp/6.3.2",
+    "final_url_query_omitted": false,
+    "content_type": "application/json",
+    "content_length": "5275"
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:23:18.185173+00:00"
+}

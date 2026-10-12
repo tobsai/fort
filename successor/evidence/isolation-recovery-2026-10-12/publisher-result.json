@@ -1,0 +1,13 @@
+{
+  "stage": "publisher",
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/verify-offline.py"
+  ],
+  "started_at_utc": "2026-10-12T22:30:12.006156+00:00",
+  "ended_at_utc": "2026-10-12T22:30:13.226036+00:00",
+  "exit_code": 0,
+  "captured_bytes": 867,
+  "bounded_failure": null
+}

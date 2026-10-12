@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "lima-2.2.1-Darwin-arm64.tar.gz",
+  "input_url": "https://github.com/lima-vm/lima/releases/download/v2.2.1/lima-2.2.1-Darwin-arm64.tar.gz",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "9e9eacce88f37e185c346bad73aa6136f738d8cdf8c3bb23cd42b071824bc66e",
+  "observed_digest": "9e9eacce88f37e185c346bad73aa6136f738d8cdf8c3bb23cd42b071824bc66e",
+  "observed_bytes": 38328082,
+  "body_complete": true,
+  "max_bytes": 67108864,
+  "http": {
+    "status": 200,
+    "final_url": "https://release-assets.githubusercontent.com/github-production-release-asset/367284699/acb862f7-0836-4de4-b928-c230948b49da",
+    "final_url_query_omitted": true,
+    "content_type": "application/octet-stream",
+    "content_length": "38328082"
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:22:27.695536+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "schema": 2,
+  "phase": "terminal",
+  "input_name": "ubuntu.pub",
+  "input_url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+  "outcome": "accepted",
+  "failure": null,
+  "algorithm": "sha256",
+  "expected_digest": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+  "observed_digest": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+  "observed_bytes": 3325,
+  "body_complete": true,
+  "max_bytes": 65536,
+  "http": {
+    "status": 200,
+    "final_url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+    "final_url_query_omitted": false,
+    "content_type": "application/pgp-keys",
+    "content_length": ""
+  },
+  "untrusted_body": null,
+  "publisher_signature_verified": false,
+  "recorded_at_utc": "2026-10-12T22:23:17.165042+00:00"
+}
