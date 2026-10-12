@@ -59,11 +59,36 @@ public struct Run: Codable, Equatable, Sendable, Identifiable {
         case "completed": "Fixture reply saved"
         case "outcomeUnknown": "Outcome unknown · review required"
         case "canceled": "Canceled"
+        case "closedUnknown": "Closed without retry · original outcome remains unknown"
+        case "cancelRequested": "Cancellation requested · waiting for confirmation"
         case "waitingForApproval": "Waiting for your approval"
         default: "Unsupported state · refresh or update Fort"
         }
     }
 }
+public struct Approval: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { approvalId }
+    public let approvalId: String
+    public let installationId: String
+    public let recoveryEpoch: String
+    public let runId: String
+    public let attemptId: String
+    public let bindingRevisionId: String
+    public let actionDigest: String
+    public let resourceScope: [String]
+    public let actionDescription: String
+    public let expiresAt: String
+    public let state: String
+    public let decidedByDeviceId: String?
+    public let decidedAt: String?
+    public var canDecide: Bool {
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
+        guard state == "pending", resourceScope == ["fixture:reply"], let expiry = formatter.date(from:expiresAt) else { return false }
+        return expiry > Date()
+    }
+}
+public struct ApprovalResolution: Codable, Sendable { public let approval: Approval; public let run: Run }
+public struct RunResponse: Codable, Sendable { public let run: Run }
 public struct Snapshot: Codable, Equatable, Sendable {
     public let installationId: String
     public let recoveryEpoch: String
@@ -72,6 +97,22 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public let messages: [Message]
     public let runs: [Run]
     public let lastReadMessageSequence: Int
+    public let approvals: [Approval]
+    public init(installationId: String, recoveryEpoch: String, conversationId: String, cursor: Int, messages: [Message], runs: [Run], lastReadMessageSequence: Int, approvals: [Approval] = []) {
+        self.installationId=installationId; self.recoveryEpoch=recoveryEpoch; self.conversationId=conversationId; self.cursor=cursor; self.messages=messages; self.runs=runs; self.lastReadMessageSequence=lastReadMessageSequence; self.approvals=approvals
+    }
+    private enum CodingKeys: CodingKey { case installationId,recoveryEpoch,conversationId,cursor,messages,runs,lastReadMessageSequence,approvals }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy:CodingKeys.self)
+        installationId = try values.decode(String.self,forKey:.installationId)
+        recoveryEpoch = try values.decode(String.self,forKey:.recoveryEpoch)
+        conversationId = try values.decode(String.self,forKey:.conversationId)
+        cursor = try values.decode(Int.self,forKey:.cursor)
+        messages = try values.decode([Message].self,forKey:.messages)
+        runs = try values.decode([Run].self,forKey:.runs)
+        lastReadMessageSequence = try values.decode(Int.self,forKey:.lastReadMessageSequence)
+        approvals = try values.decodeIfPresent([Approval].self,forKey:.approvals) ?? []
+    }
 }
 public struct Receipt: Codable, Sendable {
     public let requestId: String

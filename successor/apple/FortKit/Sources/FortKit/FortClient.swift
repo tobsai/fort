@@ -11,6 +11,12 @@ public enum ClientError: Error, LocalizedError {
         }
     }
 }
+private final class RefuseRedirects: NSObject, URLSessionTaskDelegate {
+    static let shared = RefuseRedirects()
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
 private struct ErrorEnvelope: Decodable { struct Detail: Decodable { let code: String; let message: String }; let error: Detail }
 
 public struct FortClient: Sendable {
@@ -51,6 +57,23 @@ public struct FortClient: Sendable {
         struct Response: Decodable { let lastReadMessageSequence: Int }
         let _: Response = try await send("v1/conversations/\(try segment(conversationID))/read", method: "POST", body: Body(recoveryEpoch: recoveryEpoch, messageId: messageID, cursor: cursor))
     }
+    public func cancel(runID: String, recoveryEpoch: String) async throws -> Run {
+        struct Body: Encodable { let recoveryEpoch: String }
+        let response: RunResponse = try await send("v1/runs/\(try segment(runID))/cancel",method:"POST",body:Body(recoveryEpoch:recoveryEpoch))
+        return response.run
+    }
+    public func closeUnknown(runID: String, recoveryEpoch: String) async throws -> Run {
+        struct Body: Encodable { let recoveryEpoch: String; let acknowledgeUncertainty: Bool }
+        let response: RunResponse = try await send("v1/runs/\(try segment(runID))/close-unknown",method:"POST",body:Body(recoveryEpoch:recoveryEpoch,acknowledgeUncertainty:true))
+        return response.run
+    }
+    public func resolve(_ approval: Approval, approve: Bool) async throws -> ApprovalResolution {
+        struct Body: Encodable {
+            let recoveryEpoch: String; let runId: String; let attemptId: String; let bindingRevisionId: String
+            let actionDigest: String; let resourceScope: [String]; let decision: String
+        }
+        return try await send("v1/approvals/\(try segment(approval.approvalId))/resolve",method:"POST",body:Body(recoveryEpoch:approval.recoveryEpoch,runId:approval.runId,attemptId:approval.attemptId,bindingRevisionId:approval.bindingRevisionId,actionDigest:approval.actionDigest,resourceScope:approval.resourceScope,decision:approve ? "approve" : "reject"))
+    }
     private func segment(_ value: String) throws -> String {
         guard !value.isEmpty, value.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_" )).contains($0) }) else { throw ClientError.invalidResponse }
         return value
@@ -62,7 +85,7 @@ public struct FortClient: Sendable {
         request.setValue(installationID, forHTTPHeaderField: "X-Fort-Installation-Id")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request,delegate:RefuseRedirects.shared)
         guard let response = response as? HTTPURLResponse else { throw ClientError.invalidResponse }
         if !(200..<300).contains(response.statusCode) {
             let error = try? JSONDecoder().decode(ErrorEnvelope.self, from: data)

@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct MessengerView: View {
     @Bindable private var model: MessengerModel
+    @State private var uncertainRun: Run?
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
@@ -9,9 +10,11 @@ public struct MessengerView: View {
             List(selection:$model.selectedAgentID) {
                 Section("Your Agents") {
                     ForEach(model.agents) { agent in
-                        VStack(alignment:.leading,spacing:4) {
-                            Text(agent.name).font(.headline)
-                            Text("Fixture · \(agent.binding.selectedModel)").font(.caption).foregroundStyle(.secondary)
+                        NavigationLink(value:agent.agentId) {
+                            VStack(alignment:.leading,spacing:4) {
+                                Text(agent.name).font(.headline)
+                                Text("Fixture · \(agent.binding.selectedModel)").font(.caption).foregroundStyle(.secondary)
+                            }
                         }.tag(agent.agentId)
                     }
                 }
@@ -20,6 +23,31 @@ public struct MessengerView: View {
             .toolbar { Button("Connection",systemImage:"network") { model.showConnection = true } }
         } detail: {
             VStack(spacing:0) {
+                conversationHeader
+                Divider()
+                conversationHistory
+                Divider()
+                messageComposer
+            }
+            .toolbar { Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy) }
+            .navigationTitle(model.selectedAgent?.name ?? "Conversation")
+        }
+        .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
+            Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
+        } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
+        .sheet(isPresented:$model.showConnection) { connectionForm }
+        .task {
+            await model.restore()
+            while !Task.isCancelled {
+                try? await Task.sleep(for:.seconds(2))
+                if scenePhase == .active { await model.refresh() }
+            }
+        }
+        .onChange(of:model.selectedAgentID) { _,_ in Task { await model.refresh() } }
+        .onChange(of:scenePhase) { _,phase in if phase == .active { Task { await model.refresh() } } }
+    }
+
+    private var conversationHeader: some View {
                 VStack(alignment:.leading,spacing:6) {
                     Label("Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
                     if let agent = model.selectedAgent {
@@ -28,7 +56,9 @@ public struct MessengerView: View {
                     }
                     Text(model.status).font(.callout).accessibilityIdentifier("connection-status")
                 }.frame(maxWidth:.infinity,alignment:.leading).padding()
-                Divider()
+
+    }
+    private var conversationHistory: some View {
                 ScrollView {
                     LazyVStack(alignment:.leading,spacing:16) {
                         ForEach(model.snapshot?.messages ?? []) { message in
@@ -44,38 +74,46 @@ public struct MessengerView: View {
                         ForEach(model.snapshot?.runs ?? []) { run in
                             VStack(alignment:.leading) {
                                 Text(run.displayState).font(.caption)
+                                if ["queued","running","waitingForApproval"].contains(run.state) {
+                                    Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy)
+                                }
+                                if run.state == "outcomeUnknown" {
+                                    Button("Close without retry") { uncertainRun = run }.disabled(model.isBusy)
+                                }
                                 if run.state == "completed" {
                                     Text(run.effectiveModel.map { "Reported model: \($0) (fixture evidence)" } ?? "Effective model was not reported").font(.caption2)
                                 }
                             }.foregroundStyle(.secondary)
                         }
+                        ForEach(model.snapshot?.approvals ?? []) { approval in
+                            VStack(alignment:.leading,spacing:8) {
+                                Label(approval.actionDescription,systemImage:"hand.raised").font(.headline)
+                                Text("Scope: " + approval.resourceScope.joined(separator:", ")).font(.caption)
+                                Text("Approval: " + approval.state).font(.caption)
+                                if approval.state == "pending" {
+                                    HStack {
+                                        Button("Approve fixture reply") { Task { await model.decide(approval,approve:true) } }
+                                        Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }
+                                    }.disabled(!approval.canDecide || model.isBusy)
+                                }
+                            }.padding().background(.quaternary,in:RoundedRectangle(cornerRadius:12))
+                        }
                         ForEach(model.pending.filter { $0.conversationID == model.selectedAgent?.homeConversationId }) { pending in
                             VStack(alignment:.leading,spacing:4) {
                                 Text(pending.text)
+                                if let issue = model.pendingErrors[pending.requestID] { Text(issue).font(.caption).foregroundStyle(.orange) }
                                 Text(pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Recovery changed · review required before retry").font(.caption).foregroundStyle(.secondary)
                             }.padding().overlay(RoundedRectangle(cornerRadius:12).stroke(.secondary,style:StrokeStyle(lineWidth:1,dash:[4])))
                         }
                     }.padding()
                 }
-                Divider()
+
+    }
+    private var messageComposer: some View {
                 HStack(alignment:.bottom,spacing:12) {
                     TextField("Message your Agent",text:$model.draft,axis:.vertical).lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer")
                     Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
                 }.padding()
-            }
-            .toolbar { Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy) }
-            .navigationTitle(model.selectedAgent?.name ?? "Conversation")
-        }
-        .sheet(isPresented:$model.showConnection) { connectionForm }
-        .task {
-            await model.restore()
-            while !Task.isCancelled {
-                try? await Task.sleep(for:.seconds(2))
-                if scenePhase == .active { await model.refresh() }
-            }
-        }
-        .onChange(of:model.selectedAgentID) { _,_ in Task { await model.refresh() } }
-        .onChange(of:scenePhase) { _,phase in if phase == .active { Task { await model.refresh() } } }
     }
     private var connectionForm: some View {
         NavigationStack {

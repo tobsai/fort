@@ -40,3 +40,15 @@ import Testing
     #expect(transcript.snapshot?.messages.count == 2)
     #expect(transcript.snapshot?.messages.first?.text == "  /hello\r\nCafé e\u{301} 👋  ")
 }
+
+@Test func sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() throws {
+    let file = URL(fileURLWithPath:#filePath).deletingLastPathComponent().appendingPathComponent("../../../../contracts/fixtures/pending-approval.json")
+    let snapshot = try JSONDecoder().decode(Snapshot.self,from:Data(contentsOf:file))
+    let approval = try #require(snapshot.approvals.first)
+    #expect(approval.runId == snapshot.runs.first?.runId)
+    #expect(approval.attemptId == snapshot.runs.first?.attemptId)
+    #expect(approval.bindingRevisionId == snapshot.runs.first?.bindingRevisionId)
+    #expect(!approval.canDecide)
+    let unknown = Approval(approvalId:approval.approvalId,installationId:approval.installationId,recoveryEpoch:approval.recoveryEpoch,runId:approval.runId,attemptId:approval.attemptId,bindingRevisionId:approval.bindingRevisionId,actionDigest:approval.actionDigest,resourceScope:["future:unrecognized"],actionDescription:"Unknown future action",expiresAt:"2099-01-01T00:00:00.000Z",state:"pending",decidedByDeviceId:nil,decidedAt:nil)
+    #expect(!unknown.canDecide)
+}
