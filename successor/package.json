@@ -3,9 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "26.5.0" },
+  "engines": {
+    "node": "26.5.0"
+  },
   "scripts": {
     "test": "node --test service/service.test.ts runner/fixture.test.ts",
-    "test:native-http": "node apple/native-http-check.ts"
+    "test:native-http": "node apple/native-http-check.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "typescript": "6.0.3"
   }
 }

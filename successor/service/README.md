@@ -37,8 +37,8 @@ evidence commits before HTTP snapshots or replay can expose it.
 
 Fixture dispatch uses an attempt ID, token hash, generation and recorded lease.
 The lease never authorizes retry. A claimed attempt found on restart becomes
-`outcomeUnknown` and blocks later queued turns. There is no retry/reconciliation
-control yet; uncertain work stays blocked. A committed terminal result survives
+`outcomeUnknown` and blocks later queued turns. There is no automatic retry/reconciliation. Uncertain work stays blocked until
+the owner explicitly closes it without retry. A committed terminal result survives
 restart, and the next queued turn can then run. SQLite locks release on SIGKILL.
 
 Current tests include real HTTP auth, one-use/expired enrollment, revocation,
@@ -62,7 +62,43 @@ OS sandbox, Keychain boundary, full IPC boundary or T07 signoff was established.
 Remaining service gates: OS runner isolation and provider conformance; full
 role/scope auth matrix; receipt/event ingestion deduplication for reconnecting
 runners; diagnostic retention of fenced late events; agent/binding changes;
-advanced recovery, restore and encrypted backups; approval/cancellation;
+advanced provider recovery, restore and encrypted backups; real-provider approval/cancellation;
 transcript pagination/SSE and large-history storage; TLS/physical-device setup;
-minor-version compatibility and a separately provisioned TypeScript typecheck.
-Node executes the TypeScript via stripping; no `tsc` binary is installed here.
+minor-version compatibility. Node executes the TypeScript via stripping; the
+coordinating workstream separately provisions strict TypeScript checking.
+
+## Focused fixture controls increment
+
+Trusted local `fixtureBehavior:'approval'` requests a fixed reply approval.
+`fixtureBehavior:'hold'` is a cancellation-test fixture. Ordinary message text is
+never interpreted as a control or fixture selector. The fixture's declared pause
+contract exits without performing the reply step; a pending gate survives restart
+and continues blocking later work. Only the exact approved fixture continuation
+may resume under the same attempt with a fresh fencing generation/token. This
+is not a claim that an official provider can safely resume after process loss.
+
+Approval decisions are owner-only, compare-and-set, action/attempt/binding/scope
+bound and expiry checked. Reject, expiry, or cancellation of the effect-free
+parked fixture produces no reply. Active cancellation commits a request first,
+then records cancellation only after process termination evidence. Unknown
+outcomes can be explicitly closed by the owner without replay; the original
+receipt, transcript and uncertainty remain durable.
+
+Additional behavior tests cover two-device approve/reject races, forged authority,
+parked restart/barrier/continuation, stale approvals, queued cancellation, active
+termination, and owner-audited uncertainty closure without retry. Strict TypeScript
+checking is now provisioned separately by the coordinating workstream and passes.
+Full hostile-provider isolation, real provider action approvals/cancellation and
+provider-specific safe resumption remain unproved and disabled.
+
+## Reviewed authorization race regression
+
+The independent fixed-snapshot review demonstrated that a partially uploaded
+submission could commit after another device revoked its credential. All owner
+mutations now execute through `ownerTransaction`, which rechecks the credential
+inside the same SQLite transaction as the command. Body parsing happens first;
+authentication before reading the body is only an early rejection, never commit
+authority. This applies to submit, read, revoke, approval resolution, cancellation
+and uncertainty closure. Twelve real HTTP regressions cover revocation and expiry
+while each route's body is incomplete; all return 401 without mutating state.
+The combined fixture suite passes 45 tests, and strict TypeScript checking passes.

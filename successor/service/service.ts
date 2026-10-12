@@ -3,16 +3,16 @@ import { createServer, type IncomingMessage } from 'node:http';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { mkdirSync, chmodSync, lstatSync, readdirSync, existsSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Installation, Agent, Message, Run, Snapshot, Acceptance, DurableEvent, Submission } from '../contracts/v1.ts';
+import type { Installation, Agent, Message, Run, Snapshot, Acceptance, DurableEvent, Submission, Approval } from '../contracts/v1.ts';
 import { MAX_TEXT_BYTES } from '../contracts/v1.ts';
-import { executeFixture, type FixtureDispatch, type FixtureEvent } from '../runner/fixture.ts';
+import { executeFixture, FixtureStopped, type FixtureDispatch, type FixtureEvent } from '../runner/fixture.ts';
 
-type Options = { dataDirectory: string; autoRun?: boolean; now?: () => number; checkpoint?: (point: string) => void };
+type Options = { dataDirectory: string; autoRun?: boolean; now?: () => number; checkpoint?: (point: string) => void; fixtureBehavior?: 'echo' | 'approval' | 'hold' };
 class APIError extends Error {
   status: number; code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
 }
-const fail = (status: number, code: string, message: string): never => { throw new APIError(status, code, message); };
+function fail(status: number, code: string, message: string): never { throw new APIError(status, code, message); }
 const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest('hex');
 const opaque = () => randomBytes(32).toString('base64url');
 const identifier = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v);
@@ -59,6 +59,7 @@ export function createFixtureService(options: Options) {
     CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, conversation TEXT NOT NULL REFERENCES agents(home), request TEXT UNIQUE NOT NULL REFERENCES requests(id), state TEXT NOT NULL, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS outbox (run TEXT PRIMARY KEY REFERENCES runs(id), state TEXT NOT NULL DEFAULT 'queued');
     CREATE TABLE IF NOT EXISTS attempts (id TEXT PRIMARY KEY, run TEXT NOT NULL REFERENCES runs(id), generation INTEGER NOT NULL, token_hash TEXT NOT NULL, lease_expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS approvals (id TEXT PRIMARY KEY, run TEXT UNIQUE NOT NULL REFERENCES runs(id), state TEXT NOT NULL, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS reads (conversation TEXT PRIMARY KEY REFERENCES agents(home), sequence INTEGER NOT NULL);`);
   const now = options.now ?? Date.now;
@@ -89,6 +90,7 @@ export function createFixtureService(options: Options) {
     return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId: conversation, cursor: cursor(),
       messages: db.prepare('SELECT data FROM messages WHERE conversation=? ORDER BY sequence').all(conversation).map(r => JSON.parse(r.data as string)),
       runs: db.prepare('SELECT data FROM runs WHERE conversation=? ORDER BY rowid').all(conversation).map(r => JSON.parse(r.data as string)),
+      approvals: db.prepare('SELECT a.data FROM approvals a JOIN runs r ON r.id=a.run WHERE r.conversation=? ORDER BY a.rowid').all(conversation).map(r => JSON.parse(r.data as string)),
       lastReadMessageSequence: Number(db.prepare('SELECT sequence FROM reads WHERE conversation=?').get(conversation)?.sequence ?? 0) };
   };
   const appendEvent = (conversationId: string, entityId: string, kind: string, data: unknown): number => {
@@ -111,19 +113,21 @@ export function createFixtureService(options: Options) {
     if (!device || device.revoked || Number(device.expires) <= now()) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
     return String(device.id);
   };
-  const body = async (request: IncomingMessage) => {
+  const ownerTransaction = <T>(request: IncomingMessage, command: (deviceId: string) => T): T => transaction(() => command(authenticate(request)));
+  const body = async (request: IncomingMessage, allowEmpty = false) => {
     const chunks: Buffer[] = []; let length = 0;
     for await (const chunk of request) { length += chunk.length; if (length > 1_000_000) fail(413, 'tooLarge', 'The command is too large.'); chunks.push(chunk); }
+    if (allowEmpty && length === 0) return {};
     try { return object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)))); }
     catch (error) { if (error instanceof APIError) throw error; fail(400, 'invalidJSON', 'Use valid UTF-8 JSON.'); }
   };
-  const accept = (conversationId: string, input: Record<string, unknown>) => {
+  const accept = (request: IncomingMessage, conversationId: string, input: Record<string, unknown>) => {
     if (!identifier(input.requestId) || !identifier(input.bindingRevisionId) || !identifier(input.recoveryEpoch) || typeof input.text !== 'string' || !input.text.isWellFormed()) fail(400, 'invalidCommand', 'A request ID, binding revision, recovery epoch, and valid text are required.');
     if (Buffer.byteLength(input.text as string, 'utf8') > MAX_TEXT_BYTES) fail(413, 'textTooLarge', 'Text must be at most 65,536 UTF-8 bytes.');
     const command = input as Submission;
     if (command.recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Reconcile this request before sending in a new recovery epoch.');
     const fingerprint = digest(JSON.stringify([conversationId, command.bindingRevisionId, command.recoveryEpoch, command.text]));
-    return transaction(() => {
+    return ownerTransaction(request, () => {
       const previous = db.prepare('SELECT fingerprint,acceptance FROM requests WHERE id=?').get(command.requestId);
       if (previous) {
         if (previous.fingerprint !== fingerprint) fail(409, 'requestConflict', 'This request ID was already used with different content.');
@@ -150,10 +154,21 @@ export function createFixtureService(options: Options) {
       return { duplicate: false, acceptance };
     });
   };
+  const getRun = (runId: string): Run => {
+    const row = db.prepare('SELECT data FROM runs WHERE id=?').get(runId);
+    if (!row) fail(404, 'notFound', 'Run was not found.');
+    return JSON.parse(row.data as string);
+  };
+  const getApproval = (approvalId: string): Approval => {
+    const row = db.prepare('SELECT data FROM approvals WHERE id=?').get(approvalId);
+    if (!row) fail(404, 'notFound', 'Approval was not found.');
+    return JSON.parse(row.data as string);
+  };
+  const updateApproval = (approval: Approval) => db.prepare('UPDATE approvals SET state=?,data=? WHERE id=?').run(approval.state, JSON.stringify(approval), approval.approvalId);
   const updateRun = (run: Run) => db.prepare('UPDATE runs SET state=?,data=? WHERE id=?').run(run.state, JSON.stringify(run), run.runId);
   const markUnknown = (runId: string) => transaction(() => {
     const row = db.prepare('SELECT data,state FROM runs WHERE id=?').get(runId);
-    if (!row || row.state === 'completed' || row.state === 'outcomeUnknown') return;
+    if (!row || row.state === 'completed' || row.state === 'canceled' || row.state === 'closedUnknown' || row.state === 'outcomeUnknown') return;
     const run: Run = JSON.parse(row.data as string); run.state = 'outcomeUnknown'; updateRun(run);
     db.prepare("UPDATE outbox SET state='outcomeUnknown' WHERE run=?").run(runId);
     appendEvent(run.conversationId, runId, 'run.updated', { run });
@@ -165,12 +180,26 @@ export function createFixtureService(options: Options) {
     const row = db.prepare('SELECT data FROM runs WHERE id=?').get(runId);
     if (!attempt || !row || attempt.generation !== event.generation || attempt.token_hash !== digest(event.dispatchToken)) throw new Error('Uncorrelated runner event');
     const run: Run = JSON.parse(row.data as string);
-    if (run.attemptId !== event.attemptId || !['queued', 'running'].includes(run.state)) throw new Error('Attempt is fenced');
+    if (run.attemptId !== event.attemptId || !['queued', 'running', 'cancelRequested'].includes(run.state)) throw new Error('Attempt is fenced');
+    if (run.state === 'cancelRequested' && event.kind !== 'completed') return;
     if (event.kind === 'started') {
       if (run.state !== 'queued') throw new Error('Duplicate start evidence');
       run.state = 'running'; updateRun(run); appendEvent(run.conversationId, runId, 'run.updated', { run }); return;
     }
-    if (run.state !== 'running' || typeof event.text !== 'string' || event.effectiveModel !== run.selectedModel) throw new Error('Invalid terminal evidence');
+    if (event.kind === 'approvalRequested') {
+      if (run.state !== 'running' || options.fixtureBehavior !== 'approval') throw new Error('Unsupported approval request');
+      const approval: Approval = { approvalId: randomUUID(), installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch,
+        runId, attemptId: event.attemptId, bindingRevisionId: run.bindingRevisionId,
+        actionDigest: digest(JSON.stringify(['fixture.reply', runId, event.attemptId, run.bindingRevisionId])),
+        resourceScope: ['fixture:reply'], actionDescription: 'Produce the fixture reply', expiresAt: new Date(now() + 300_000).toISOString(),
+        state: 'pending', decidedByDeviceId: null, decidedAt: null };
+      db.prepare('INSERT INTO approvals VALUES (?,?,?,?)').run(approval.approvalId, runId, approval.state, JSON.stringify(approval));
+      run.state = 'waitingForApproval'; updateRun(run);
+      db.prepare("UPDATE outbox SET state='waitingForApproval' WHERE run=?").run(runId);
+      appendEvent(run.conversationId, approval.approvalId, 'approval.requested', { approval });
+      appendEvent(run.conversationId, runId, 'run.updated', { run }); return;
+    }
+    if (!['running', 'cancelRequested'].includes(run.state) || typeof event.text !== 'string' || event.effectiveModel !== run.selectedModel) throw new Error('Invalid terminal evidence');
     const message: Message = { messageId: randomUUID(), conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: event.text, sequence: cursor() + 1, createdAt: timestamp() };
     db.prepare('INSERT INTO messages VALUES (?,?,?,?,?)').run(message.messageId, message.conversationId, message.requestId, message.sequence, JSON.stringify(message));
     appendEvent(run.conversationId, message.messageId, 'message.created', { message });
@@ -179,34 +208,58 @@ export function createFixtureService(options: Options) {
     appendEvent(run.conversationId, runId, 'run.updated', { run });
     checkpoint('beforeTerminalCommit');
   });
+  let activeRun: { runId: string; controller: AbortController } | undefined;
   let dispatching: Promise<boolean> | undefined;
   let closed = false;
   const dispatchNextFixture = (): Promise<boolean> => {
     if (closed) return Promise.resolve(false);
     if (dispatching) return dispatching;
     const claimed = transaction(() => {
-      const row = db.prepare(`SELECT r.data FROM runs r JOIN outbox o ON o.run=r.id
-        WHERE o.state='queued' AND NOT EXISTS (SELECT 1 FROM runs prior WHERE prior.conversation=r.conversation
-        AND prior.rowid<r.rowid AND prior.state!='completed') ORDER BY r.rowid LIMIT 1`).get();
+      const row = db.prepare(`SELECT r.data,o.state AS dispatch_state FROM runs r JOIN outbox o ON o.run=r.id
+        WHERE o.state IN ('queued','resume') AND NOT EXISTS (SELECT 1 FROM runs prior WHERE prior.conversation=r.conversation
+        AND prior.rowid<r.rowid AND prior.state NOT IN ('completed','canceled','closedUnknown')) ORDER BY r.rowid LIMIT 1`).get();
       if (!row) return undefined;
       const run: Run = JSON.parse(row.data as string);
       const agent = agentFor(run.conversationId);
       if (!agent.binding.enabled || agent.binding.bindingRevisionId !== run.bindingRevisionId) return undefined;
-      const attemptId = randomUUID(); const dispatchToken = opaque(); const generation = 1;
-      db.prepare('INSERT INTO attempts VALUES (?,?,?,?,?)').run(attemptId, run.runId, generation, digest(dispatchToken), now() + 30_000);
+      const resuming = row.dispatch_state === 'resume';
+      const priorAttempt = run.attemptId ? db.prepare('SELECT * FROM attempts WHERE id=?').get(run.attemptId) : undefined;
+      if (resuming) {
+        const approvalRow = db.prepare('SELECT data FROM approvals WHERE run=?').get(run.runId);
+        const approval: Approval | undefined = approvalRow ? JSON.parse(approvalRow.data as string) : undefined;
+        if (!approval || approval.state !== 'approved' || approval.attemptId !== run.attemptId || !priorAttempt) throw new Error('No exact approved fixture continuation');
+        if (Date.parse(approval.expiresAt) <= now()) {
+          approval.state = 'expired'; updateApproval(approval); run.state = 'canceled'; updateRun(run);
+          db.prepare("UPDATE outbox SET state='canceled' WHERE run=?").run(run.runId);
+          appendEvent(run.conversationId, approval.approvalId, 'approval.updated', { approval });
+          appendEvent(run.conversationId, run.runId, 'run.updated', { run }); return { expired: true as const };
+        }
+      }
+      const attemptId = resuming ? run.attemptId! : randomUUID(); const dispatchToken = opaque(); const generation = resuming ? Number(priorAttempt!.generation) + 1 : 1;
+      db.prepare('INSERT INTO attempts VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET generation=excluded.generation, token_hash=excluded.token_hash, lease_expires=excluded.lease_expires').run(attemptId, run.runId, generation, digest(dispatchToken), now() + 30_000);
       db.prepare("UPDATE outbox SET state='claimed' WHERE run=?").run(run.runId);
       run.attemptId = attemptId; updateRun(run);
       const message = db.prepare("SELECT data FROM messages WHERE request=? AND json_extract(data,'$.role')='user'").get(run.requestId)!;
-      const dispatch: FixtureDispatch = { protocolVersion: 1, provider: 'fixture', selectedModel: 'fixture-echo-v1', attemptId, generation, dispatchToken, text: JSON.parse(message.data as string).text };
+      const dispatch: FixtureDispatch = { protocolVersion: 1, provider: 'fixture', selectedModel: 'fixture-echo-v1', attemptId, generation, dispatchToken, text: JSON.parse(message.data as string).text, behavior: resuming ? 'resume' : (options.fixtureBehavior ?? 'echo') };
       return { runId: run.runId, dispatch };
     });
     if (!claimed) return Promise.resolve(false);
+    if ('expired' in claimed) return dispatchNextFixture();
     checkpoint('afterClaim');
+    const controller = new AbortController(); activeRun = { runId: claimed.runId, controller };
     dispatching = executeFixture(claimed.dispatch, event => {
       ingest(claimed.runId, event);
-      checkpoint(event.kind === 'started' ? 'afterStarted' : 'afterTerminalCommit');
-    })
-      .then(() => true, () => { markUnknown(claimed.runId); return true; }).finally(() => { dispatching = undefined; });
+      checkpoint(event.kind === 'started' ? 'afterStarted' : event.kind === 'completed' ? 'afterTerminalCommit' : 'afterApprovalCommit');
+    }, controller.signal)
+      .then(() => true, error => {
+        if (error instanceof FixtureStopped && getRun(claimed.runId).state === 'cancelRequested') transaction(() => {
+          const run = getRun(claimed.runId); run.state = 'canceled'; updateRun(run);
+          db.prepare("UPDATE outbox SET state='canceled' WHERE run=?").run(run.runId);
+          appendEvent(run.conversationId, run.runId, 'run.updated', { run });
+        });
+        else markUnknown(claimed.runId);
+        return true;
+      }).finally(() => { dispatching = undefined; activeRun = undefined; });
     return dispatching;
   };
   const pump = async () => { while (!closed && await dispatchNextFixture()) {} };
@@ -229,16 +282,77 @@ export function createFixtureService(options: Options) {
         return send(201, result);
       }
       authenticate(request);
+      const closeUnknown = /^\/v1\/runs\/([A-Za-z0-9_-]+)\/close-unknown$/.exec(path);
+      if (closeUnknown && request.method === 'POST') {
+        const input = await body(request);
+        const run = ownerTransaction(request, deviceId => {
+          if (input.recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Refresh the uncertain run before deciding.');
+          if (input.acknowledgeUncertainty !== true) fail(400, 'uncertaintyAcknowledgementRequired', 'Acknowledge that the original outcome remains unknown and will not be retried.');
+          const run = getRun(closeUnknown[1]);
+          if (run.state === 'closedUnknown') return run;
+          if (run.state !== 'outcomeUnknown') fail(409, 'runConflict', 'Only an uncertain outcome can be closed without retry.');
+          run.state = 'closedUnknown'; updateRun(run);
+          db.prepare("UPDATE outbox SET state='closedUnknown' WHERE run=?").run(run.runId);
+          appendEvent(run.conversationId, run.runId, 'run.updated', { run, resolution: { decision: 'closeWithoutRetry', deviceId, decidedAt: timestamp() } }); return run;
+        });
+        send(200, { run }); if (options.autoRun) setImmediate(() => { void pump(); }); return;
+      }
+      const cancelRoute = /^\/v1\/runs\/([A-Za-z0-9_-]+)\/cancel$/.exec(path);
+      if (cancelRoute && request.method === 'POST') {
+        const input = await body(request);
+        const run = ownerTransaction(request, deviceId => {
+          if (input.recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Refresh this run before requesting cancellation.');
+          const run = getRun(cancelRoute[1]);
+          if (['completed', 'canceled', 'closedUnknown', 'cancelRequested'].includes(run.state)) return run;
+          if (run.state === 'outcomeUnknown') fail(409, 'outcomeUnknown', 'Execution cannot be confirmed stopped. Review the uncertain outcome first.');
+          const outbox = db.prepare('SELECT state FROM outbox WHERE run=?').get(run.runId)!;
+          const stopped = ['queued', 'resume', 'waitingForApproval'].includes(String(outbox.state));
+          run.state = stopped ? 'canceled' : 'cancelRequested'; updateRun(run);
+          if (stopped) db.prepare("UPDATE outbox SET state='canceled' WHERE run=?").run(run.runId);
+          const pending = db.prepare("SELECT data FROM approvals WHERE run=? AND state='pending'").get(run.runId);
+          if (pending) {
+            const approval: Approval = JSON.parse(pending.data as string); approval.state = 'canceled'; approval.decidedAt = timestamp(); approval.decidedByDeviceId = deviceId; updateApproval(approval);
+            appendEvent(run.conversationId, approval.approvalId, 'approval.updated', { approval });
+          }
+          appendEvent(run.conversationId, run.runId, 'run.updated', { run }); return run;
+        });
+        send(200, { run });
+        if (run.state === 'cancelRequested' && activeRun?.runId === run.runId) activeRun.controller.abort();
+        if (options.autoRun) setImmediate(() => { void pump(); }); return;
+      }
+      const approvalRoute = /^\/v1\/approvals\/([A-Za-z0-9_-]+)\/resolve$/.exec(path);
+      if (approvalRoute && request.method === 'POST') {
+        const input = await body(request);
+        const result = ownerTransaction(request, deviceId => {
+          const approval = getApproval(approvalRoute[1]); const run = getRun(approval.runId);
+          if (input.recoveryEpoch !== installation.recoveryEpoch || input.runId !== approval.runId || input.attemptId !== approval.attemptId || input.bindingRevisionId !== approval.bindingRevisionId || input.actionDigest !== approval.actionDigest || JSON.stringify(input.resourceScope) !== JSON.stringify(approval.resourceScope)) fail(409, 'approvalConflict', 'This decision does not match the exact pending action.');
+          if (input.decision !== 'approve' && input.decision !== 'reject') fail(400, 'invalidCommand', 'Choose approve or reject.');
+          if (approval.state !== 'pending') return { approval, run, expired: approval.state === 'expired' };
+          if (run.state !== 'waitingForApproval' || run.attemptId !== approval.attemptId) fail(409, 'approvalConflict', 'This attempt can no longer accept that decision.');
+          const expired = Date.parse(approval.expiresAt) <= now();
+          approval.state = expired ? 'expired' : input.decision === 'approve' ? 'approved' : 'rejected';
+          approval.decidedByDeviceId = expired ? null : deviceId; approval.decidedAt = timestamp(); updateApproval(approval);
+          run.state = approval.state === 'approved' ? 'queued' : 'canceled'; updateRun(run);
+          db.prepare('UPDATE outbox SET state=? WHERE run=?').run(approval.state === 'approved' ? 'resume' : 'canceled', run.runId);
+          appendEvent(run.conversationId, approval.approvalId, 'approval.updated', { approval });
+          appendEvent(run.conversationId, run.runId, 'run.updated', { run });
+          return { approval, run, expired };
+        });
+        if (result.expired) fail(409, 'approvalExpired', 'The action expired without authorizing execution.');
+        send(200, { approval: result.approval, run: result.run });
+        if (options.autoRun) setImmediate(() => { void pump(); }); return;
+      }
       const revoke = /^\/v1\/devices\/([A-Za-z0-9_-]+)\/revoke$/.exec(path);
       if (revoke && request.method === 'POST') {
-        const result = db.prepare('UPDATE devices SET revoked=1 WHERE id=?').run(revoke[1]);
+        await body(request, true);
+        const result = ownerTransaction(request, () => db.prepare('UPDATE devices SET revoked=1 WHERE id=?').run(revoke[1]));
         if (!result.changes) fail(404, 'notFound', 'Device was not found.');
         return send(200, { deviceId: revoke[1], revoked: true });
       }
       const read = /^\/v1\/conversations\/([A-Za-z0-9_-]+)\/read$/.exec(path);
       if (read && request.method === 'POST') {
         const input = await body(request);
-        const lastReadMessageSequence = transaction(() => {
+        const lastReadMessageSequence = ownerTransaction(request, () => {
           agentFor(read[1]);
           if (input.recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Refresh the snapshot before marking read.');
           if (!identifier(input.messageId) || !Number.isSafeInteger(input.cursor)) fail(400, 'invalidCommand', 'Use a message ID and observed cursor.');
@@ -265,7 +379,7 @@ export function createFixtureService(options: Options) {
       const conversation = /^\/v1\/conversations\/([A-Za-z0-9_-]+)\/(snapshot|messages)$/.exec(path);
       if (conversation?.[2] === 'snapshot' && request.method === 'GET') return send(200, transaction(() => snapshot(conversation[1])));
       if (conversation?.[2] === 'messages' && request.method === 'POST') {
-        const result = accept(conversation[1], await body(request));
+        const result = accept(request, conversation[1], await body(request));
         checkpoint('afterAcceptanceCommit');
         send(result.duplicate ? 200 : 201, result.acceptance);
         if (options.autoRun) setImmediate(() => { void pump(); });
@@ -283,7 +397,7 @@ export function createFixtureService(options: Options) {
   const service = {
     server, installation, issueEnrollment, dispatchNextFixture, baseURL: '',
     async start() { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve(); }); }); const address = server.address(); service.baseURL = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`; if (options.autoRun) setImmediate(() => { void pump(); }); return service.baseURL; },
-    async close() { if (closed) return; closed = true; if (dispatching) await dispatching; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); },
+    async close() { if (closed) return; closed = true; activeRun?.controller.abort(); if (dispatching) await dispatching; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); },
   };
   return service;
 }

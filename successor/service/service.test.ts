@@ -21,7 +21,7 @@ async function setup(t: any, options: Record<string, unknown> = {}) {
   const headers = { Authorization: `Bearer ${enrolled.body.deviceToken}`, 'X-Fort-Installation-Id': service.installation.installationId };
   const api = (path: string, body?: unknown) => call(path, body, headers);
   const agent = (await api('/v1/agents')).body.agents[0];
-  const submit = (text: string, requestId = crypto.randomUUID()) => api(`/v1/conversations/${agent.homeConversationId}/messages`, {
+  const submit = (text: string, requestId: string = crypto.randomUUID()) => api(`/v1/conversations/${agent.homeConversationId}/messages`, {
     requestId, text, recoveryEpoch: service.installation.recoveryEpoch, bindingRevisionId: agent.binding.bindingRevisionId });
   return { service, dataDirectory, call, api, headers, agent, submit, enrolled: enrolled.body };
 }
@@ -193,4 +193,199 @@ test('fixture startup refuses unrelated data roots and ledger symlinks', async t
   const target = await mkdtemp(join(tmpdir(), 'fort-link-target-')); t.after(() => rm(target, { recursive: true, force: true }));
   await symlink(join(root, 'unrelated-history'), join(target, 'fixture.sqlite'));
   assert.throws(() => createFixtureService({ dataDirectory: target }), /symlink/);
+});
+
+test('two owner devices race a bound fixture approval; exactly one decision is durable and controls the reply', async t => {
+  const h = await setup(t, { fixtureBehavior: 'approval' });
+  const accepted = await h.submit('approval text', 'approval-request');
+  await h.service.dispatchNextFixture();
+  const path = `/v1/conversations/${h.agent.homeConversationId}/snapshot`;
+  const parked = (await h.api(path)).body;
+  assert.equal(parked.runs[0].state, 'waitingForApproval');
+  assert.equal(parked.messages.length, 1);
+  assert.equal(parked.approvals.length, 1);
+  const approval = parked.approvals[0];
+  const command = { recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId,
+    bindingRevisionId: approval.bindingRevisionId, actionDigest: approval.actionDigest, resourceScope: approval.resourceScope, decision: 'approve' };
+  const resolve = `/v1/approvals/${approval.approvalId}/resolve`;
+  assert.equal((await h.call(resolve, command)).status, 401);
+  assert.equal((await h.api(resolve, { ...command, actionDigest: 'forged' })).status, 409);
+  assert.equal((await h.api(resolve, { ...command, attemptId: 'other-attempt' })).status, 409);
+  assert.equal((await h.api(resolve, { ...command, resourceScope: ['filesystem:all'] })).status, 409);
+  const code = h.service.issueEnrollment();
+  const enrolled = await h.call('/v1/devices/enroll', { installationId: h.service.installation.installationId, code: code.code, deviceName: 'Second owner device' });
+  const responses = await Promise.all([h.api(resolve, command), h.call(resolve, { ...command, decision: 'reject' }, { ...h.headers, Authorization: `Bearer ${enrolled.body.deviceToken}` })]);
+  for (const response of responses) assert.equal(response.status, 200);
+  assert.equal(responses[0].body.approval.state, responses[1].body.approval.state);
+  assert.equal(responses[0].body.approval.decidedByDeviceId, responses[1].body.approval.decidedByDeviceId);
+  const won = responses[0].body.approval.state;
+  await h.service.dispatchNextFixture();
+  const final = (await h.api(path)).body;
+  assert.equal(final.runs[0].state, won === 'approved' ? 'completed' : 'canceled');
+  assert.equal(final.messages.length, won === 'approved' ? 2 : 1);
+  assert.equal(final.approvals[0].runId, accepted.body.receipt.runId);
+});
+
+test('queued cancellation never dispatches; active cancellation remains requested until fixture termination is observed', async t => {
+  await t.test('queued', async t => {
+    const h = await setup(t); const accepted = await h.submit('never execute');
+    const cancel = `/v1/runs/${accepted.body.receipt.runId}/cancel`;
+    const command = { recoveryEpoch: h.service.installation.recoveryEpoch };
+    assert.equal((await h.call(cancel, command)).status, 401);
+    assert.equal((await h.api(cancel, { recoveryEpoch: 'wrong-epoch' })).status, 409);
+    assert.equal((await h.api(cancel, command)).body.run.state, 'canceled');
+    assert.equal((await h.api(cancel, command)).body.run.state, 'canceled');
+    assert.equal(await h.service.dispatchNextFixture(), false);
+    const snapshot = (await h.api(`/v1/conversations/${h.agent.homeConversationId}/snapshot`)).body;
+    assert.equal(snapshot.messages.length, 1); assert.equal(snapshot.runs[0].attemptId, null);
+  });
+  await t.test('active fixture', async t => {
+    let signalStarted: () => void = () => {};
+    const started = new Promise<void>(resolve => { signalStarted = resolve; });
+    const h = await setup(t, { fixtureBehavior: 'hold', checkpoint: (point: string) => { if (point === 'afterStarted') signalStarted(); } });
+    const accepted = await h.submit('stop active fixture');
+    const work = h.service.dispatchNextFixture(); await started;
+    const response = await h.api(`/v1/runs/${accepted.body.receipt.runId}/cancel`, { recoveryEpoch: h.service.installation.recoveryEpoch });
+    assert.equal(response.status, 200); assert.equal(response.body.run.state, 'cancelRequested');
+    await work;
+    const snapshot = (await h.api(`/v1/conversations/${h.agent.homeConversationId}/snapshot`)).body;
+    assert.equal(snapshot.runs[0].state, 'canceled'); assert.equal(snapshot.messages.length, 1);
+  });
+});
+
+test('a parked fixture approval survives restart, blocks later work, and resumes only its exact approved step', async t => {
+  const h = await setup(t, { fixtureBehavior: 'approval' });
+  await h.submit('first gated turn', 'gated-first'); await h.service.dispatchNextFixture();
+  await h.submit('later queued turn', 'gated-later');
+  const path = `/v1/conversations/${h.agent.homeConversationId}/snapshot`;
+  const before = (await h.api(path)).body;
+  await h.service.close();
+  const restarted = createFixtureService({ dataDirectory: h.dataDirectory }); t.after(() => restarted.close()); await restarted.start();
+  const api = async (path: string, body?: unknown) => {
+    const response = await fetch(restarted.baseURL + path, { method: body ? 'POST' : 'GET', headers: { ...h.headers, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    return { status: response.status, body: await response.json() as any };
+  };
+  assert.deepEqual((await api(path)).body, before);
+  assert.equal(await restarted.dispatchNextFixture(), false);
+  const approval = before.approvals[0];
+  const decision = { recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId,
+    bindingRevisionId: approval.bindingRevisionId, actionDigest: approval.actionDigest, resourceScope: approval.resourceScope, decision: 'approve' };
+  assert.equal((await api(`/v1/approvals/${approval.approvalId}/resolve`, decision)).body.approval.state, 'approved');
+  assert.equal(await restarted.dispatchNextFixture(), true);
+  const after = (await api(path)).body;
+  assert.equal(after.runs[0].state, 'completed');
+  assert.equal(after.runs[0].attemptId, approval.attemptId);
+  assert.equal(after.runs[1].state, 'queued');
+  assert.equal(after.messages.filter((m: any) => m.role === 'assistant').length, 1);
+  assert.equal(after.messages.at(-1).text, '[Fixture reply — not a real agent]\nfirst gated turn');
+  assert.equal(await restarted.dispatchNextFixture(), true);
+  assert.equal((await api(path)).body.runs[1].state, 'completed');
+});
+
+test('expired and canceled fixture approvals cannot authorize a reply', async t => {
+  for (const action of ['expire', 'cancel', 'reject']) await t.test(action, async t => {
+    let clock = Date.now();
+    const h = await setup(t, { fixtureBehavior: 'approval', now: () => clock });
+    const accepted = await h.submit('do not produce reply'); await h.service.dispatchNextFixture();
+    const approval = (await h.api(`/v1/conversations/${h.agent.homeConversationId}/snapshot`)).body.approvals[0];
+    if (action === 'expire') clock += 300_001;
+    if (action === 'cancel') assert.equal((await h.api(`/v1/runs/${accepted.body.receipt.runId}/cancel`, { recoveryEpoch: h.service.installation.recoveryEpoch })).body.run.state, 'canceled');
+    const result = await h.api(`/v1/approvals/${approval.approvalId}/resolve`, {
+      recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId,
+      bindingRevisionId: approval.bindingRevisionId, actionDigest: approval.actionDigest, resourceScope: approval.resourceScope, decision: action === 'reject' ? 'reject' : 'approve',
+    });
+    assert.equal(result.status, action === 'expire' ? 409 : 200);
+    assert.equal(await h.service.dispatchNextFixture(), false);
+    const after = (await h.api(`/v1/conversations/${h.agent.homeConversationId}/snapshot`)).body;
+    assert.equal(after.runs[0].state, 'canceled'); assert.equal(after.messages.length, 1);
+    assert.equal(after.approvals[0].state, action === 'expire' ? 'expired' : action === 'reject' ? 'rejected' : 'canceled');
+  });
+});
+
+test('owner can close an uncertain outcome without retrying it or claiming cancellation', async t => {
+  let injected = false;
+  const h = await setup(t, { checkpoint: (point: string) => { if (point === 'afterStarted' && !injected) { injected = true; throw new Error('lost fixture contact'); } } });
+  const first = await h.submit('uncertain first', 'unknown-first');
+  await h.submit('later work', 'unknown-later'); await h.service.dispatchNextFixture();
+  const path = `/v1/conversations/${h.agent.homeConversationId}/snapshot`;
+  assert.equal((await h.api(path)).body.runs[0].state, 'outcomeUnknown');
+  assert.equal(await h.service.dispatchNextFixture(), false);
+  const runPath = `/v1/runs/${first.body.receipt.runId}`;
+  const epoch = h.service.installation.recoveryEpoch;
+  assert.equal((await h.api(runPath + '/cancel', { recoveryEpoch: epoch })).status, 409);
+  const close = { recoveryEpoch: epoch, acknowledgeUncertainty: true };
+  assert.equal((await h.call(runPath + '/close-unknown', close)).status, 401);
+  assert.equal((await h.api(runPath + '/close-unknown', { ...close, acknowledgeUncertainty: false })).status, 400);
+  assert.equal((await h.api(runPath + '/close-unknown', close)).body.run.state, 'closedUnknown');
+  assert.equal((await h.api(runPath + '/close-unknown', close)).body.run.state, 'closedUnknown');
+  assert.equal(await h.service.dispatchNextFixture(), true);
+  assert.equal(await h.service.dispatchNextFixture(), false);
+  const final = (await h.api(path)).body;
+  assert.equal(final.runs[0].state, 'closedUnknown'); assert.equal(final.runs[1].state, 'completed');
+  assert.equal(final.messages.filter((m: any) => m.role === 'assistant' && m.requestId === 'unknown-first').length, 0);
+  assert.deepEqual((await h.api('/v1/requests/unknown-first')).body, first.body);
+});
+
+test('revocation and expiry during upload deny every owner mutation before commit', async t => {
+  const { request } = await import('node:http');
+  for (const mode of ['revoke', 'expire']) for (const mutation of ['submit', 'read', 'approval', 'cancel', 'closeUnknown', 'revoke']) {
+    await t.test(`${mode}: ${mutation}`, async t => {
+      let clock = Date.now();
+      const h = await setup(t, { now: () => clock });
+      const accepted = await h.submit('existing message', 'existing-request');
+      const epoch = h.service.installation.recoveryEpoch;
+      const cases: Record<string, { path: string; payload: object }> = {
+        submit: { path: `/v1/conversations/${h.agent.homeConversationId}/messages`, payload: { requestId: 'delayed-request', text: 'must not accept', bindingRevisionId: h.agent.binding.bindingRevisionId, recoveryEpoch: epoch } },
+        read: { path: `/v1/conversations/${h.agent.homeConversationId}/read`, payload: { messageId: accepted.body.receipt.messageId, cursor: accepted.body.snapshot.cursor, recoveryEpoch: epoch } },
+        approval: { path: '/v1/approvals/missing-approval/resolve', payload: {} },
+        cancel: { path: `/v1/runs/${accepted.body.receipt.runId}/cancel`, payload: { recoveryEpoch: epoch } },
+        closeUnknown: { path: `/v1/runs/${accepted.body.receipt.runId}/close-unknown`, payload: { recoveryEpoch: epoch, acknowledgeUncertainty: true } },
+        revoke: { path: `/v1/devices/${h.enrolled.deviceId}/revoke`, payload: {} },
+      };
+      const secondCode = h.service.issueEnrollment();
+      const second = await h.call('/v1/devices/enroll', { ...secondCode, deviceName: 'Revoking device' });
+      const secondHeaders = { ...h.headers, Authorization: `Bearer ${second.body.deviceToken}` };
+      const target = cases[mutation]; const payload = JSON.stringify(target.payload);
+      const arrived = new Promise<void>(resolve => h.service.server.once('request', () => resolve()));
+      let finish: ReturnType<typeof request>;
+      const result = new Promise<number | undefined>((resolve, reject) => {
+        finish = request(h.service.baseURL + target.path, { method: 'POST', headers: { ...h.headers, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, response => {
+          response.resume(); response.on('end', () => resolve(response.statusCode));
+        });
+        finish.on('error', reject); finish.write(payload.slice(0, 1));
+      });
+      await arrived;
+      if (mode === 'revoke') assert.equal((await h.call(`/v1/devices/${h.enrolled.deviceId}/revoke`, {}, secondHeaders)).status, 200);
+      else clock += 31 * 86_400_000;
+      finish!.end(payload.slice(1));
+      assert.equal(await result, 401);
+      const enrollment = h.service.issueEnrollment();
+      const device = await h.call('/v1/devices/enroll', { ...enrollment, deviceName: 'Inspection device' });
+      const headers = { ...h.headers, Authorization: `Bearer ${device.body.deviceToken}` };
+      const snapshot = await h.call(`/v1/conversations/${h.agent.homeConversationId}/snapshot`, undefined, headers);
+      assert.equal(snapshot.body.messages.length, 1);
+      assert.equal(snapshot.body.runs[0].state, 'queued');
+      assert.equal(snapshot.body.lastReadMessageSequence, 0);
+    });
+  }
+});
+
+test('approval expiry before dispatch releases only that fixture step and continues later queued work', async t => {
+  let clock = Date.now();
+  const h = await setup(t, { fixtureBehavior: 'approval', now: () => clock });
+  await h.submit('expired approved step', 'expired-approved'); await h.service.dispatchNextFixture();
+  await h.submit('later gated step', 'later-gate');
+  const path = `/v1/conversations/${h.agent.homeConversationId}/snapshot`;
+  const approval = (await h.api(path)).body.approvals[0];
+  assert.equal((await h.api(`/v1/approvals/${approval.approvalId}/resolve`, {
+    recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId,
+    bindingRevisionId: approval.bindingRevisionId, actionDigest: approval.actionDigest, resourceScope: approval.resourceScope, decision: 'approve',
+  })).status, 200);
+  clock += 300_001;
+  assert.equal(await h.service.dispatchNextFixture(), true);
+  const snapshot = (await h.api(path)).body;
+  assert.equal(snapshot.runs[0].state, 'canceled');
+  assert.equal(snapshot.runs[1].state, 'waitingForApproval');
+  assert.equal(snapshot.messages.length, 2);
+  assert.equal(snapshot.approvals[0].state, 'expired');
 });

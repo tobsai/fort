@@ -493,6 +493,239 @@
           }
         ]
       }
+    },
+    "/v1/approvals/{approvalId}/resolve": {
+      "post": {
+        "summary": "Resolve exact pending fixture approval; first valid decision wins",
+        "parameters": [
+          {
+            "name": "approvalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "recoveryEpoch",
+                  "runId",
+                  "attemptId",
+                  "bindingRevisionId",
+                  "actionDigest",
+                  "resourceScope",
+                  "decision"
+                ],
+                "properties": {
+                  "recoveryEpoch": {
+                    "type": "string"
+                  },
+                  "runId": {
+                    "type": "string"
+                  },
+                  "attemptId": {
+                    "type": "string"
+                  },
+                  "bindingRevisionId": {
+                    "type": "string"
+                  },
+                  "actionDigest": {
+                    "type": "string"
+                  },
+                  "resourceScope": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "decision": {
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "approval",
+                    "run"
+                  ],
+                  "properties": {
+                    "approval": {
+                      "$ref": "#/components/schemas/Approval"
+                    },
+                    "run": {
+                      "$ref": "#/components/schemas/Run"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Denied or conflicted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/cancel": {
+      "post": {
+        "summary": "Request cancellation; running work needs termination evidence",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "recoveryEpoch"
+                ],
+                "properties": {
+                  "recoveryEpoch": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "run"
+                  ],
+                  "properties": {
+                    "run": {
+                      "$ref": "#/components/schemas/Run"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Denied or conflicted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/close-unknown": {
+      "post": {
+        "summary": "Close uncertain outcome without retry or outcome claim",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "recoveryEpoch",
+                  "acknowledgeUncertainty"
+                ],
+                "properties": {
+                  "recoveryEpoch": {
+                    "type": "string"
+                  },
+                  "acknowledgeUncertainty": {
+                    "const": true
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "run"
+                  ],
+                  "properties": {
+                    "run": {
+                      "$ref": "#/components/schemas/Run"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Denied or conflicted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -667,6 +900,10 @@
             "enum": [
               "queued",
               "running",
+              "waitingForApproval",
+              "cancelRequested",
+              "canceled",
+              "closedUnknown",
               "completed",
               "outcomeUnknown"
             ]
@@ -704,7 +941,8 @@
           "cursor",
           "messages",
           "runs",
-          "lastReadMessageSequence"
+          "lastReadMessageSequence",
+          "approvals"
         ],
         "properties": {
           "installationId": {
@@ -735,6 +973,12 @@
           "lastReadMessageSequence": {
             "type": "integer",
             "minimum": 0
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Approval"
+            }
           }
         },
         "additionalProperties": true
@@ -886,6 +1130,85 @@
               }
             },
             "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "Approval": {
+        "type": "object",
+        "required": [
+          "approvalId",
+          "installationId",
+          "recoveryEpoch",
+          "runId",
+          "attemptId",
+          "bindingRevisionId",
+          "actionDigest",
+          "resourceScope",
+          "actionDescription",
+          "expiresAt",
+          "state",
+          "decidedByDeviceId",
+          "decidedAt"
+        ],
+        "properties": {
+          "approvalId": {
+            "type": "string"
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "recoveryEpoch": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "attemptId": {
+            "type": "string"
+          },
+          "bindingRevisionId": {
+            "type": "string"
+          },
+          "actionDigest": {
+            "type": "string"
+          },
+          "resourceScope": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "const": "fixture:reply"
+              }
+            ],
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "actionDescription": {
+            "const": "Produce the fixture reply"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "expired",
+              "canceled"
+            ]
+          },
+          "decidedByDeviceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": true

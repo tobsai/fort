@@ -2,10 +2,12 @@ export type Installation = { contractVersion: '1.0'; installationId: string; rec
 export type Binding = { bindingRevisionId: string; provider: 'fixture'; runtimeVersion: '1'; selectedModel: 'fixture-echo-v1'; hostId: 'fixture-local'; enabled: boolean };
 export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' };
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string };
-export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'completed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null };
-export type Snapshot = { installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; lastReadMessageSequence: number };
+export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null };
+export type Snapshot = { installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };
 export type Submission = { requestId: string; bindingRevisionId: string; recoveryEpoch: string; text: string };
 export type Receipt = { requestId: string; conversationId: string; messageId: string; runId: string; bindingRevisionId: string; inputDigest: string; acceptedAt: string };
 export type Acceptance = { receipt: Receipt; snapshot: Snapshot };
 export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryEpoch: string; eventId: string; sequence: number; entityId: string; conversationId: string; kind: string; createdAt: string; data: unknown };
 export const MAX_TEXT_BYTES = 65_536;
+
+export type Approval = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; resourceScope: ['fixture:reply']; actionDescription: 'Produce the fixture reply'; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };

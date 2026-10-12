@@ -8,4 +8,10 @@ const dispatch = JSON.parse(input);
 if (dispatch.protocolVersion !== 1 || dispatch.provider !== 'fixture' || dispatch.selectedModel !== 'fixture-echo-v1' || typeof dispatch.text !== 'string') throw new Error('Unsupported fixture dispatch');
 const identity = { protocolVersion: 1, attemptId: dispatch.attemptId, generation: dispatch.generation, dispatchToken: dispatch.dispatchToken };
 process.stdout.write(JSON.stringify({ ...identity, kind: 'started' }) + '\n');
-process.stdout.write(JSON.stringify({ ...identity, kind: 'completed', effectiveModel: 'fixture-echo-v1', text: '[Fixture reply — not a real agent]\n' + dispatch.text }) + '\n');
+if (dispatch.behavior === 'approval') {
+  process.stdout.write(JSON.stringify({ ...identity, kind: 'approvalRequested' }) + '\n');
+} else if (dispatch.behavior === 'hold') {
+  setInterval(() => {}, 1000);
+} else {
+  process.stdout.write(JSON.stringify({ ...identity, kind: 'completed', effectiveModel: 'fixture-echo-v1', text: '[Fixture reply — not a real agent]\n' + dispatch.text }) + '\n');
+}

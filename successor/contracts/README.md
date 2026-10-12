@@ -45,6 +45,40 @@ text, stack traces or environment values.
 
 Only the loopback HTTP fixture is provided. TLS/private-network enrollment,
 paginated transcript, SSE, public Agent/binding creation, separate read-only
-scopes, approval/cancel/recovery actions, restore, contract minor-version upgrade
+scopes, real-provider action control, restore, contract minor-version upgrade
 negotiation, skills and routines remain open acceptance work. An absent request
 under a changed recovery epoch is not evidence that repeating it is safe.
+
+## Fixture approval, cancellation and uncertainty controls
+
+Snapshots now include `approvals` (clients reading older snapshots default to an
+empty array). `fixtures/pending-approval.json` supplies a shared pending example.
+An approval pins installation, epoch, run, attempt, binding revision, canonical
+action digest, exact resource scope and expiry. Its only permitted fixture action
+is `Produce the fixture reply`, scoped to `['fixture:reply']`.
+
+`POST /v1/approvals/{approvalId}/resolve` takes `recoveryEpoch`, `runId`,
+`attemptId`, `bindingRevisionId`, `actionDigest`, `resourceScope`, and `decision`
+(`approve` or `reject`). It returns `{approval,run}`. Exact authority is checked
+before an atomic first-decision-wins transition. A second opposing decision
+returns the already-recorded winner. Incorrect pins return 409. Expiry records
+`expired` and cancels the effect-free parked fixture before returning 409.
+
+`POST /v1/runs/{runId}/cancel` takes `{recoveryEpoch}` and returns `{run}`.
+Unclaimed work and the effect-free parked fixture cancel immediately. Active
+work first records `cancelRequested`; only observed fixture process termination
+allows `canceled`. Correlated completion can win the race and remains completed.
+A cancellation request cannot rewrite an unknown outcome as canceled.
+
+`POST /v1/runs/{runId}/close-unknown` takes
+`{recoveryEpoch,acknowledgeUncertainty:true}` and returns `{run}`. Only
+`outcomeUnknown` can become `closedUnknown`. The owner's device and decision are
+recorded in a durable event. This releases the Conversation barrier without
+retrying the original request or claiming that its outcome is known. Clients
+must explain that distinction before presenting “Close without retry”.
+
+Run states additionally include `waitingForApproval`, `cancelRequested`,
+`canceled`, and `closedUnknown`. Approval states are `pending`, `approved`,
+`rejected`, `expired`, and `canceled`. `approval.requested` and
+`approval.updated` events contain `data.approval`; run changes retain
+`run.updated`. These commands always require owner-device authentication.
