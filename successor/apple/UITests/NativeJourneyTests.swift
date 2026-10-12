@@ -117,7 +117,7 @@ final class NativeJourneyTests: XCTestCase {
         reveal(close,in:app); activate(close)
         let explanation = "The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run."
         XCTAssertTrue(app.staticTexts[explanation].waitForExistence(timeout:5))
-        let cancel = app.buttons["Cancel"]
+        let cancel = app.sheets.buttons["Cancel"]
         if cancel.exists { activate(cancel) }
         else {
             let dismiss = app.otherElements["PopoverDismissRegion"]
