@@ -4,6 +4,8 @@
 
 # Fort
 
+> Current isolated proposal: [Spec 058: Native-first owned Agent MVP](specs/058-native-first-owned-agent-mvp.md), with a [concise executive decision page](specs/decisions/058-executive.md). It proposes SwiftUI iPhone and Mac delivery alongside a selectively extracted service. Approval is pending; the imported foundation remains quarantined. The implementation description below records the retained historical Fort branch and is not permission to restore or launch it.
+
 **A durable chat service for agents — across frameworks, conversations, and computers.**
 
 In Fort, each Channel is a stable named **Agent** with one permanent Home

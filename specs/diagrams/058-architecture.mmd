@@ -1,0 +1,50 @@
+flowchart TB
+  subgraph clients["Owner devices: native MVP clients"]
+    I["SwiftUI iPhone app"]
+    M["SwiftUI Mac app"]
+    K["FortKit: durable client requests, cache, replay\nDevice credential in Keychain"]
+    I --> K
+    M --> K
+  end
+  W["Bounded web administration\nNo substitute for native acceptance"]
+  subgraph control["Trust boundary: owner-controlled Fort service"]
+    A["Authenticated versioned HTTP API\nCommands, receipts, snapshots, event replay"]
+    D["Deterministic domain and approval authority\nAgent / Home / immutable binding"]
+    L[("One transactional ledger\nCommands + history + outbox + occurrences")]
+    S["Scheduler and dispatcher\nLeases, fencing, uncertainty reconciliation"]
+    A --> D
+    D --> L
+    L --> S
+    S --> L
+    L --> A
+  end
+  K <-->|"Authenticated TLS; stable request IDs and cursors"| A
+  W <-->|"Owner authentication + browser protections"| A
+  subgraph execution["Trust boundary: isolated execution host"]
+    R["Fort runner\nAttempt-scoped command/event protocol"]
+    P["Selected official Codex or Claude Code runtime\nPinned version, model, authority, skill digests"]
+    C["Selected provider-owned credential store\nNo owner/device/ledger credentials"]
+    X["Bounded workspace and tools\nOS isolation must be demonstrated"]
+    R --> P
+    C --> P
+    P --> X
+  end
+  S -->|"Authenticated exact dispatch; no database access"| R
+  R -->|"Correlated evidence and approval requests\nNever approval authority"| D
+  P <-->|"Provider-specific subscription suitability gate"| E["External official model provider"]
+  A -.->|"Optional wakeup, no message content"| N["Apple push delivery"]
+  N -.-> I
+  N -.-> M
+  Q["Quarantined donor source\nReference and selected extraction only"] -.->|"Reviewed source map + conformance tests"| P
+  subgraph variants["Placement variants: same contract and one ledger"]
+    LOCAL["Local Mac service + isolated runner\nMac client can close; host sleep makes service unavailable\niPhone requires reachable private TLS endpoint"]
+    CLOUD["Always-on self-hosted service + isolated runner\nPersistent disk, backup, owner-controlled updates\nMay continue while iPhone and Mac clients sleep"]
+  end
+  LOCAL -.-> control
+  CLOUD -.-> control
+  classDef native fill:#dcefff,stroke:#26618f,color:#102a43
+  classDef authority fill:#dff2e5,stroke:#34734b,color:#173d26
+  classDef caution fill:#fff0cf,stroke:#986c17,color:#4c3710
+  class I,M,K native
+  class A,D,L,S authority
+  class Q,E,C,LOCAL,CLOUD caution

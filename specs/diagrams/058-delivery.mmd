@@ -1,0 +1,34 @@
+sequenceDiagram
+  participant I as Native iPhone
+  participant M as Native Mac
+  participant A as Authenticated Fort API
+  participant L as Transactional ledger
+  participant R as Isolated runner
+  participant P as Official provider runtime
+  I->>I: Persist request ID, input and intended binding
+  I->>A: Submit exact command with request ID
+  A->>L: Commit message, run, snapshot, outbox and event together
+  L-->>A: Durable receipt and cursor
+  A-->>I: Accepted, not yet confirmed running
+  A-->>M: Replay accepted event for same Home
+  Note over I,L: Lost response: resend/query same ID; changed payload conflicts
+  L->>R: Claimed exact dispatch with attempt and fencing generation
+  R->>P: Bounded task with pinned model, skills and authority
+  P-->>R: Correlated start, approval request, output or terminal evidence
+  R->>A: Scoped evidence; cannot approve its own action
+  A->>L: Commit approval request or normalized run state
+  A-->>I: Pending action or persisted progress
+  I->>A: Owner decision bound to action digest and attempt
+  A->>L: Atomically record first valid decision
+  L->>R: Bounded approved continuation
+  R->>P: Continue only matching action
+  P-->>R: Terminal evidence
+  R->>A: Correlated result
+  A->>L: Commit result and terminal event
+  Note over A,P: Crash after possible effect: record uncertainty; never blind resend
+  Note over I,M: Apps may close or lose connectivity; iPhone does not execute the task
+  I->>A: Reconnect with cursor and pending request IDs
+  A->>L: Read canonical snapshot and replay boundary
+  A-->>I: Ordered durable history and recovery state
+  M->>A: Reconnect after service restart
+  A-->>M: Same Home, identity, history and truthful state
