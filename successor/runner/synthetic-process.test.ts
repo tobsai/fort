@@ -95,3 +95,37 @@ test('a burst released before start confirmation cannot accumulate an unbounded 
   const began=performance.now();const run=startSyntheticProcess(make(),{directory:await directory(t),scenario:'early-burst',limits:{...limits,deliveryMs:250},deliver:async event=>{await new Promise(resolve=>setTimeout(resolve,100));return receipt(event);}});
   const result=await run.result;assert.equal(result.evidence,'unconfirmed');assert.equal(result.failure,'evidenceBacklog');assert(result.peakQueuedEvidence<=2);assert.equal(result.terminal,'unknown');assert.equal(result.cleanup,'observed');assert(performance.now()-began<2000);absent(result.pid);
 });
+
+// Review P2: two allowed slow attempts must not stop consumption of terminal bytes.
+test('valid terminal survives delayed lost acknowledgement after root exit with default limits',{timeout:12000},async t=>{
+  const events:RuntimeEvidence[]=[];const dispatch=make();let deliveries=0;
+  const run=startSyntheticProcess(dispatch,{directory:await directory(t),scenario:'terminal-descendant',deliver:async event=>{
+    events.push(event);await new Promise(resolve=>setTimeout(resolve,1100));
+    if(++deliveries===1)throw new Error('Synthetic lost acknowledgement');
+    if(event.kind==='terminal')absent(run.pid);
+    return receipt(event);
+  }});
+  const result=await run.result;t.diagnostic(JSON.stringify(result));
+  assert.equal(result.cleanup,'observed');absent(result.pid);assert.equal(result.evidence,'confirmed');assert.equal(result.terminal,'completed');assert.equal(result.failure,null);assert.equal(result.startWritesAttempted,1);
+  assert.deepEqual(events.map(event=>event.kind),['started','started','terminal']);assert.deepEqual(events[0],events[1]);
+  const terminal=events.at(-1);assert(terminal?.kind==='terminal');assert.equal(terminal.messages[0].text,dispatch.text);
+});
+
+for(const scenario of ['echo','exit-zero','partial-eof','descendant'] as const)test(`slow lost acknowledgement preserves ${scenario} EOF evidence`,{timeout:5000},async t=>{
+  const events:RuntimeEvidence[]=[];let deliveries=0;
+  const run=startSyntheticProcess(make(),{directory:await directory(t),scenario,limits:{...limits,teardownMs:40,deliveryMs:150},deliver:async event=>{
+    events.push(event);await new Promise(resolve=>setTimeout(resolve,100));if(++deliveries===1)throw new Error('Synthetic lost acknowledgement');return receipt(event);
+  }});
+  const result=await run.result;assert.equal(result.cleanup,'observed');absent(result.pid);assert.equal(result.evidence,'confirmed');assert.equal(result.startWritesAttempted,1);
+  assert.deepEqual(events[0],events[1]);assert.equal(result.terminal,scenario==='echo'?'completed':'unknown');
+  assert.equal(events.at(-1)?.kind,scenario==='echo'?'terminal':'outcomeUnknown');
+});
+
+test('ordered progress and held terminal survive a slow lost acknowledgement within the queue cap',{timeout:5000},async t=>{
+  const events:RuntimeEvidence[]=[];let deliveries=0;
+  const run=startSyntheticProcess(make(),{directory:await directory(t),scenario:'progress-terminal-descendant',limits:{...limits,teardownMs:40,deliveryMs:200},deliver:async event=>{
+    events.push(event);await new Promise(resolve=>setTimeout(resolve,100));if(++deliveries===1)throw new Error('Synthetic lost acknowledgement');if(event.kind==='terminal')absent(run.pid);return receipt(event);
+  }});
+  const result=await run.result;assert.equal(result.terminal,'completed');assert.equal(result.cleanup,'observed');absent(result.pid);assert.equal(result.evidence,'confirmed');assert.equal(result.failure,null);assert.equal(result.startWritesAttempted,1);
+  assert.equal(result.peakQueuedEvidence,2);assert.deepEqual(events.map(event=>event.sequence),[1,1,2,3,4]);assert.deepEqual(events[0],events[1]);assert.deepEqual(events.map(event=>event.kind),['started','started','textDelta','textDelta','terminal']);
+});

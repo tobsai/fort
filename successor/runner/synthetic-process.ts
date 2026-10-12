@@ -8,7 +8,7 @@ import { FIXTURE_NODE } from './process.ts';
 import type { SyntheticDispatch, RunnerReceipt } from '../contracts/runner.ts';
 import type { RuntimeEvidence } from '../contracts/runtime.ts';
 
-const SCENARIOS=['echo','early-burst','fragmented','blocked-input','handshake-stall','exit-zero','partial-eof','stdout-flood','stderr-flood','hold','ignore-term','interruptible','descendant','terminal-descendant'] as const;
+const SCENARIOS=['echo','progress-terminal-descendant','early-burst','fragmented','blocked-input','handshake-stall','exit-zero','partial-eof','stdout-flood','stderr-flood','hold','ignore-term','interruptible','descendant','terminal-descendant'] as const;
 export type ProcessScenario=typeof SCENARIOS[number];
 type Limits=SyntheticDeadlines & { writeMs:number;deliveryMs:number;cleanupMs:number };
 const MAX:Limits={handshakeMs:5000,turnMs:30_000,interruptMs:2000,teardownMs:2000,writeMs:2000,deliveryMs:2000,cleanupMs:2000};
@@ -129,8 +129,7 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
     finished=true;clearInterval(timer);options.signal?.removeEventListener('abort',abort);
     child.stdin.destroy();child.stdout.destroy();child.stderr.destroy();child.unref();report.pendingWriteBytes=0;resolveResult(structuredClone(report));
   }
-  const read=async(chunk:Buffer)=>{
-    child.stdout.pause();
+  const read=(chunk:Buffer)=>{
     try{
       report.stdoutBytes=Math.min(1_000_001,report.stdoutBytes+chunk.length);
       if(report.stdoutBytes>1_000_000){fail('stdoutLimit');requestClose(true);return;}
@@ -146,12 +145,11 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
           part=hello.subarray(newline+1);hello=Buffer.alloc(0);ready=true;apply(driver.ready(dispatch.threadId));
         }
         if(part.length)apply(driver.receive(part));
-        while(delivering&&!finished)await new Promise(resolve=>setTimeout(resolve,2));
       }
-    }finally{if(!finished&&killedAt===undefined)child.stdout.resume();maybeFinish();}
+    }finally{maybeFinish();}
   };
   child.stdin.on('error',()=>{});
-  child.stdout.on('data',chunk=>{void read(chunk).catch(()=>fail('readUnavailable'));});
+  child.stdout.on('data',chunk=>{try{read(chunk);}catch{fail('readUnavailable');}});
   child.stderr.on('data',chunk=>{report.stderrBytes=Math.min(65_537,report.stderrBytes+chunk.length);if(report.stderrBytes>65_536){fail('stderrLimit');requestClose(true);}});
   child.stdout.once('end',()=>{stdoutEnded=true;apply(driver.disconnected());requestClose();});
   child.once('error',()=>{report.exit={code:null,signal:null};fail('spawnUnavailable');});

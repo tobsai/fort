@@ -343,3 +343,20 @@ test('service restart fences a still-running supervised process instead of accep
   const result=await run.result;assert.equal(restarted,true);assert.equal(result.cleanup,'observed');assert.equal(result.evidence,'unconfirmed');assert.equal(result.terminal,'unknown');assert.equal(result.startWritesAttempted,1);
   const snapshot=await h.snap();assert.equal(snapshot.runs[0].state,'outcomeUnknown');assert.equal(snapshot.messages.length,1);assert.equal(await h.claim(),null);
 });
+
+test('slow committed start acknowledgement cannot discard supervised terminal output or block later work',async t=>{
+  const {startSyntheticProcess}=await import('../runner/synthetic-process.ts');const h=await setup(t);const text='  /slow upload\r\ne\u0301 🦊  ';
+  await h.submit(text);const dispatch=await h.claim();await h.submit('later accepted work');
+  const directory=await mkdtemp('/tmp/fort-bridge-process-');t.after(()=>rm(directory,{recursive:true,force:true}));
+  const sequences:number[]=[];let lost=false;let duplicate=false;
+  const run=startSyntheticProcess(dispatch,{directory,scenario:'progress-terminal-descendant',limits:{teardownMs:40,deliveryMs:250},deliver:async(event,signal)=>{
+    const response=await fetch(h.service.baseURL+'/fixture/runner/events',{method:'POST',headers:{'Content-Type':'application/json',...h.runnerHeaders},body:JSON.stringify({...h.scope,dispatchToken:dispatch.dispatchToken,event}),signal});
+    assert.equal(response.status,200);const receipt=await response.json() as any;sequences.push(event.sequence);duplicate ||= receipt.duplicate;
+    await new Promise(resolve=>setTimeout(resolve,100));
+    if(event.kind==='started'&&!lost){lost=true;throw new Error('Synthetic acknowledgement lost after commit');}
+    return receipt;
+  }});
+  const report=await run.result;assert.equal(report.terminal,'completed');assert.equal(report.cleanup,'observed');assert.equal(report.evidence,'confirmed');assert.equal(report.failure,null);assert.equal(report.startWritesAttempted,1);assert.equal(duplicate,true);assert.deepEqual(sequences,[1,1,2,3,4]);
+  const snapshot=await h.snap();assert.equal(snapshot.messages.filter((message:any)=>message.text===text).length,2);assert.equal(snapshot.runs[0].state,'completed');assert.equal(snapshot.runs[1].state,'queued');assert.equal(snapshot.messages.length,3);
+  await h.restart();assert.deepEqual(await h.snap(),snapshot);const later=await h.claim();assert.equal(later.text,'later accepted work');assert.notEqual(later.attempt.runId,dispatch.attempt.runId);
+});

@@ -11,7 +11,7 @@ if(scenario==='descendant-child') {
 } else if(scenario==='blocked-input') {
   process.on('SIGTERM',()=>{});await frame({kind:'ready',threadId});setInterval(()=>{},1000);
 } else {
-  if(['ignore-term','terminal-descendant','descendant'].includes(scenario))process.on('SIGTERM',()=>{});
+  if(['ignore-term','terminal-descendant','progress-terminal-descendant','descendant'].includes(scenario))process.on('SIGTERM',()=>{});
   let busy=Promise.resolve();
   const lines=createInterface({input:process.stdin});
   lines.on('line',line=>{busy=busy.then(async()=>{
@@ -30,15 +30,16 @@ if(scenario==='descendant-child') {
       return;
     }
     if(['hold','ignore-term','interruptible'].includes(scenario))return;
-    if(scenario==='descendant'||scenario==='terminal-descendant') {
+    if(['descendant','terminal-descendant','progress-terminal-descendant'].includes(scenario)) {
       const child=spawn(process.execPath,[import.meta.filename,'descendant-child'],{env:{LANG:'en_US.UTF-8',TZ:'UTC'},stdio:['ignore','inherit','inherit','ipc']});
       await new Promise((resolve,reject)=>{child.once('message',resolve);child.once('error',reject);});
       if(scenario==='descendant')process.exit(0);
     }
+    if(scenario==='progress-terminal-descendant')for(const delta of ['first','second'])await frame({method:'item/agentMessage/delta',params:{threadId,turnId:'fixture-turn',itemId:'reply-one',delta}});
     const text=request.params.input[0].text;
     await frame({method:'item/completed',params:{threadId,turnId:'fixture-turn',item:{id:'reply-one',type:'agentMessage',phase:'final_answer',text}}});
     await frame({method:'turn/completed',params:{threadId,turn:{id:'fixture-turn',status:'completed',error:null}}});
-    if(scenario==='terminal-descendant')process.exit(0);
+    if(scenario==='terminal-descendant'||scenario==='progress-terminal-descendant')process.exit(0);
   }).catch(()=>process.exit(2));});
   lines.on('close',()=>{void busy.then(()=>process.exit(0));});
 }
