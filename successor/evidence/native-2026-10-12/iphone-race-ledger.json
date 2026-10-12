@@ -1,0 +1,14 @@
+{
+  "nativeDevices": 2,
+  "opposingDecisionRequests": 2,
+  "distinctDeviceCredentials": true,
+  "oneDurableDecision": true,
+  "winner": "rejected",
+  "bothNativeClientsObservedAfterRestart": [
+    "rejected",
+    "rejected"
+  ],
+  "serviceRestartPreservedSnapshot": true,
+  "userMessages": 1,
+  "assistantMessages": 0
+}

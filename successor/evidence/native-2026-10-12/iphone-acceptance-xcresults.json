@@ -1,0 +1,110 @@
+[
+  {
+    "path": "/tmp/fort058-ios-unknown-1.xcresult",
+    "result": "Failed",
+    "totalTestCount": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "skippedTests": 0,
+    "testFailures": [
+      {
+        "failureText": "Failed to tap \"Cancel\" Button: No matches found for Elements matching predicate '\"Cancel\" IN identifiers' from input {(\n    Button, identifier: 'BackButton', label: 'Fort',\n    Button, label: 'Refresh',\n    Button, identifier: 'send-message', label: 'Send', Disabled,\n    Button, label: 'Close without retry',\n    Button, label: 'Cancel run',\n    Button, label: 'Close without retry'\n)}",
+        "targetName": "FortiOSUITests",
+        "testIdentifier": 1,
+        "testIdentifierString": "NativeJourneyTests/testCloseUnknownWithoutRetry()",
+        "testIdentifierURL": "test://com.apple.xcode/FortSpec058/FortiOSUITests/NativeJourneyTests/testCloseUnknownWithoutRetry",
+        "testName": "testCloseUnknownWithoutRetry()"
+      }
+    ]
+  },
+  {
+    "path": "/tmp/fort058-ios-unknown-2.xcresult",
+    "result": "Failed",
+    "totalTestCount": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "skippedTests": 0,
+    "testFailures": [
+      {
+        "failureText": "XCTAssertTrue failed",
+        "targetName": "FortiOSUITests",
+        "testIdentifier": 1,
+        "testIdentifierString": "NativeJourneyTests/testCloseUnknownWithoutRetry()",
+        "testIdentifierURL": "test://com.apple.xcode/FortSpec058/FortiOSUITests/NativeJourneyTests/testCloseUnknownWithoutRetry",
+        "testName": "testCloseUnknownWithoutRetry()"
+      }
+    ]
+  },
+  {
+    "path": "/tmp/fort058-ios-unknown-3.xcresult",
+    "result": "Passed",
+    "totalTestCount": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "testFailures": []
+  },
+  {
+    "path": "/tmp/fort058-ios-unknown-4.xcresult",
+    "result": "Failed",
+    "totalTestCount": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "skippedTests": 0,
+    "testFailures": [
+      {
+        "failureText": "Asynchronous wait failed: Exceeded timeout of 5 seconds, with unfulfilled expectations: \"Expect predicate `enabled == 0` for object \"Close without retry\" Button\".",
+        "targetName": "FortiOSUITests",
+        "testIdentifier": 1,
+        "testIdentifierString": "NativeJourneyTests/testCloseUnknownWithoutRetry()",
+        "testIdentifierURL": "test://com.apple.xcode/FortSpec058/FortiOSUITests/NativeJourneyTests/testCloseUnknownWithoutRetry",
+        "testName": "testCloseUnknownWithoutRetry()"
+      }
+    ]
+  },
+  {
+    "path": "/tmp/fort058-ios-unknown-5.xcresult",
+    "result": "Failed",
+    "totalTestCount": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "skippedTests": 0,
+    "testFailures": [
+      {
+        "failureText": "Asynchronous wait failed: Exceeded timeout of 5 seconds, with unfulfilled expectations: \"Expect predicate `enabled == 0` for object \"Close without retry\" Button\".",
+        "targetName": "FortiOSUITests",
+        "testIdentifier": 1,
+        "testIdentifierString": "NativeJourneyTests/testCloseUnknownWithoutRetry()",
+        "testIdentifierURL": "test://com.apple.xcode/FortSpec058/FortiOSUITests/NativeJourneyTests/testCloseUnknownWithoutRetry",
+        "testName": "testCloseUnknownWithoutRetry()"
+      }
+    ]
+  },
+  {
+    "path": "/tmp/fort058-ios-unknown-6.xcresult",
+    "result": "Passed",
+    "totalTestCount": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "testFailures": []
+  },
+  {
+    "path": "/tmp/fort058-ios-race-1-A.xcresult",
+    "result": "Passed",
+    "totalTestCount": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "testFailures": []
+  },
+  {
+    "path": "/tmp/fort058-ios-race-1-B.xcresult",
+    "result": "Passed",
+    "totalTestCount": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "testFailures": []
+  }
+]

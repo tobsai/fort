@@ -1,0 +1,20 @@
+Building for debugging...
+[1 / 1]
+[2 / 15] FortKit
+[4 / 17] FortKit
+[7 / 18] FortKit
+[12 / 18] FortKitTests-product
+[14 / 20] FortNativeCheck-product
+[20 / 23] FortKitTests-product
+[22 / 26] FortKitTests-product
+Build complete! (3.26 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() started.
+✘ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() recorded an issue at MessengerRecoveryTests.swift:186:9: Expectation failed: await fixture.controlRequests() == (compatible ? ["/v1/runs/uncertain-run/close-unknown"] : [])
+↳ await fixture.controlRequests() == (compatible ? ["/v1/runs/uncertain-run/close-unknown"] : []) → <not evaluated>
+✘ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() failed after 0.023 seconds with 1 issue.
+✘ Test run with 1 test in 0 suites failed after 0.024 seconds with 1 issue.
+Note: Some test targets reported failures:
+  - FortKitTests (Swift Testing)

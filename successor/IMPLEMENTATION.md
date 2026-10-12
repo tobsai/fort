@@ -113,3 +113,11 @@ The current [T01–T20 map](evidence/2026-10-12-spec058-matrix.md) records each
 passing subset and open gate. [Mac signing and native evidence](evidence/2026-10-12-mac-and-contracts.md)
 records the separately authorized use of one existing matching development
 identity, without new credentials, provisioning or security exceptions.
+
+The [installed iPhone closure and race follow-up](evidence/2026-10-12-iphone-closure-and-race.md)
+adds a passed two-Simulator approval race and uncertainty recovery journey.
+`d044da9` retains a confirmed closure across background refresh, with a failing-then-
+passing public HTTP regression and 19 passing Swift tests. `b99d89e` records the
+installed test harnesses. These are fixture subsets: Mac UI remains paused for
+local owner authentication, and the preserved older Mac build does not include
+this model fix. Current-tip Mac installed acceptance and independent review remain open.
