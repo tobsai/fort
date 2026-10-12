@@ -196,3 +196,15 @@ a path denial, and supervisor death can leave its worker running until an outer
 owner reaps it. Neither result is production isolation. `sandbox-exec` is deprecated;
 no supported enclosing arrangement, provider credential boundary or crash-proof
 process container is accepted. See the [exact results and remaining gates](evidence/2026-10-12-process-confinement.md).
+
+## Process review correction and isolation proposal
+
+The process review found a P2 race: allowed slow evidence retries paused stdout
+long enough for the root-exit timer to discard an already-emitted terminal. Stdout
+now parses bounded chunks synchronously, independently of the ordered upload
+queue. Existing timeouts, caps and cleanup-before-terminal semantics remain.
+The default-limit reproduction and combined progress/EOF/ledger regressions pass;
+see the [correction evidence](evidence/2026-10-12-process-backpressure-fix.md).
+The [Linux VM decision proposal](design/2026-10-12-managed-linux-isolation.md) pins
+a candidate environment and future approval scope using read-only host/public
+metadata. Nothing was provisioned; OS confinement and providers remain gated.

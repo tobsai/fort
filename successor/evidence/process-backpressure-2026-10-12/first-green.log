@@ -1,0 +1,31 @@
+✔ owned synthetic process preserves exact fragmented UTF-8 and waits for observed cleanup before terminal delivery (59.907583ms)
+✔ exit-zero cannot manufacture successful terminal evidence (58.422375ms)
+✔ partial-eof cannot manufacture successful terminal evidence (51.182708ms)
+✔ handshake-stall cannot manufacture successful terminal evidence (156.179667ms)
+✔ stdout-flood cannot manufacture successful terminal evidence (58.199459ms)
+✔ stderr-flood cannot manufacture successful terminal evidence (53.835333ms)
+✔ never-reading stdin write timeout remains bounded independently of backpressure (228.798541ms)
+✔ never-reading stdin cancellation remains bounded independently of backpressure (206.378083ms)
+✔ cancel ignore-term requires correlated terminal evidence and observed cleanup (155.699125ms)
+✔ cancel interruptible requires correlated terminal evidence and observed cleanup (53.57075ms)
+✔ descendant cannot leave an owned pipe-holding descendant behind (305.923875ms)
+✔ terminal-descendant cannot leave an owned pipe-holding descendant behind (211.931375ms)
+✔ lost acknowledgement retries identical evidence without repeating process start (54.201292ms)
+✔ a hung evidence receiver cannot prevent bounded process teardown (153.430417ms)
+✔ a slowly completed frame has one write deadline rather than a renewed deadline per chunk (62.654584ms)
+✔ supervisor SIGKILL leaves uncertainty and requires an outer owner to reap its reported process group (255.953583ms)
+✔ a burst released before start confirmation cannot accumulate an unbounded evidence backlog (150.499291ms)
+✔ valid terminal survives delayed lost acknowledgement after root exit with default limits (3354.220583ms)
+ℹ {"pid":49142,"exit":{"code":0,"signal":null},"cleanup":"observed","evidence":"confirmed","terminal":"completed","failure":null,"forced":true,"stdoutBytes":438,"stderrBytes":0,"writtenBytes":407,"writeChunks":2,"pendingWriteBytes":0,"startWritesAttempted":1,"deliveryAttempts":3,"peakQueuedEvidence":1,"acknowledgedThrough":2,"rootExitedBeforePipesClosed":true,"trace":["writeQueued","writeComplete","writeQueued","writeComplete","closeRequested","signalTerm","exit","evidenceRetry","signalKill","stdioClosed","groupAbsent","evidenceAck","evidenceAck"]}
+✔ slow lost acknowledgement preserves echo EOF evidence (358.972542ms)
+✔ slow lost acknowledgement preserves exit-zero EOF evidence (356.82125ms)
+✔ slow lost acknowledgement preserves partial-eof EOF evidence (370.567667ms)
+✔ slow lost acknowledgement preserves descendant EOF evidence (360.694ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7185.884666

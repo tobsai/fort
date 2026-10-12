@@ -156,7 +156,7 @@ OS authority, and must never be replaced with an official or untrusted runtime.
 Limits are enforced on real pipes: 5-second handshake, 30-second turn, 2-second
 interrupt, 2-second teardown and 2-second cleanup observation. A complete outgoing
 frame gets one 2-second write deadline, independent of chunk count; queued bytes
-are capped at 524,288. Reads are fed incrementally with backpressure. Stdout is
+are capped at 524,288. Reads are parsed synchronously in arrival order, independently of evidence uploads. Stdout is
 capped at 1,000,000 bytes and stderr is drained/discarded up to 65,536; diagnostics
 retain only bounded counters and categorical trace entries. One evidence upload
 is active, at most two nonterminal events wait, and one terminal result is held
@@ -165,7 +165,7 @@ event, never another process start. These are separate asynchronous deadlines,
 not a hard real-time scheduling guarantee. Tests may shorten but never enlarge
 these limits. No timeout or acknowledgement proves an external effect succeeded.
 
-A released pre-start evidence burst exceeding the queue cap fails closed, stops
+Any evidence burst exceeding the queue cap fails closed, stops
 the worker and marks evidence unconfirmed. It does not drop sequence numbers and
 pretend a later event committed. The service's existing claim lease/restart fence
 must resolve that ledger attempt to unknown; no replacement is dispatched.
@@ -211,3 +211,8 @@ must be designed, approved for any concrete host changes, and independently test
 before exact official-runtime conformance or provider-native sign-in. The current
 experiments need no new installation or persistent grant and request none.
 See the [retained I/O and canary evidence](../evidence/2026-10-12-process-confinement.md).
+
+The [backpressure correction](../evidence/2026-10-12-process-backpressure-fix.md)
+removes upload waits from stdout parsing without increasing limits. The
+[managed Linux isolation proposal](../design/2026-10-12-managed-linux-isolation.md)
+records inspected tools and exact future provisioning scope; it authorizes no host change.
