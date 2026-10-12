@@ -7,7 +7,7 @@
     "node": "26.5.0"
   },
   "scripts": {
-    "test": "node --test service/service.test.ts runner/fixture.test.ts runner/codex.test.ts",
+    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts",
     "test:native-http": "node apple/native-http-check.ts",
     "typecheck": "tsc -p tsconfig.json"
   },

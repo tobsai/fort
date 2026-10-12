@@ -6,8 +6,9 @@ import { isAbsolute, join } from 'node:path';
 import type { Installation, Agent, Message, Run, Snapshot, Acceptance, DurableEvent, Submission, Approval } from '../contracts/v1.ts';
 import { MAX_TEXT_BYTES } from '../contracts/v1.ts';
 import { executeFixture, FixtureStopped, type FixtureDispatch, type FixtureEvent } from '../runner/fixture.ts';
+import { createSyntheticRunnerBridge, RunnerError } from './synthetic-runner.ts';
 
-type Options = { dataDirectory: string; autoRun?: boolean; now?: () => number; checkpoint?: (point: string) => void; fixtureBehavior?: 'echo' | 'approval' | 'hold' };
+type Options = { dataDirectory: string; autoRun?: boolean; now?: () => number; checkpoint?: (point: string) => void; fixtureBehavior?: 'echo' | 'approval' | 'hold'; syntheticRunner?: boolean };
 class APIError extends Error {
   status: number; code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -57,6 +58,7 @@ export function createFixtureService(options: Options) {
     CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, acceptance TEXT);
     CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation TEXT NOT NULL REFERENCES agents(home), request TEXT NOT NULL REFERENCES requests(id), sequence INTEGER NOT NULL, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, conversation TEXT NOT NULL REFERENCES agents(home), request TEXT UNIQUE NOT NULL REFERENCES requests(id), state TEXT NOT NULL, data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS run_bindings (run TEXT PRIMARY KEY REFERENCES runs(id), data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS outbox (run TEXT PRIMARY KEY REFERENCES runs(id), state TEXT NOT NULL DEFAULT 'queued');
     CREATE TABLE IF NOT EXISTS attempts (id TEXT PRIMARY KEY, run TEXT NOT NULL REFERENCES runs(id), generation INTEGER NOT NULL, token_hash TEXT NOT NULL, lease_expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS approvals (id TEXT PRIMARY KEY, run TEXT UNIQUE NOT NULL REFERENCES runs(id), state TEXT NOT NULL, data TEXT NOT NULL);
@@ -71,6 +73,9 @@ export function createFixtureService(options: Options) {
     catch (error) { db.exec('ROLLBACK'); throw error; }
   };
   const getMeta = (key: string) => (db.prepare('SELECT value FROM metadata WHERE key=?').get(key) as { value: string } | undefined)?.value;
+  const fixtureExecution = options.syntheticRunner ? 'synthetic-codex' : 'fixture-process';
+  if (existing && (getMeta('fixtureExecution') ?? 'fixture-process') !== fixtureExecution) { db.close(); throw new Error('Fixture execution mode cannot change for an existing ledger.'); }
+  if (!getMeta('fixtureExecution')) db.prepare('INSERT INTO metadata VALUES (?,?)').run('fixtureExecution', fixtureExecution);
   if (!getMeta('installation')) transaction(() => {
     const installation: Installation = { contractVersion: '1.0', installationId: randomUUID(), recoveryEpoch: randomUUID(), mode: 'fixture', serviceName: 'Fort Fixture' };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
@@ -124,6 +129,7 @@ export function createFixtureService(options: Options) {
   const accept = (request: IncomingMessage, conversationId: string, input: Record<string, unknown>) => {
     if (!identifier(input.requestId) || !identifier(input.bindingRevisionId) || !identifier(input.recoveryEpoch) || typeof input.text !== 'string' || !input.text.isWellFormed()) fail(400, 'invalidCommand', 'A request ID, binding revision, recovery epoch, and valid text are required.');
     if (Buffer.byteLength(input.text as string, 'utf8') > MAX_TEXT_BYTES) fail(413, 'textTooLarge', 'Text must be at most 65,536 UTF-8 bytes.');
+    if (options.syntheticRunner && input.text.length === 0) fail(400, 'runtimeInputUnsupported', 'The synthetic turn protocol requires nonempty text.');
     const command = input as Submission;
     if (command.recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Reconcile this request before sending in a new recovery epoch.');
     const fingerprint = digest(JSON.stringify([conversationId, command.bindingRevisionId, command.recoveryEpoch, command.text]));
@@ -143,6 +149,7 @@ export function createFixtureService(options: Options) {
       db.prepare('INSERT INTO messages VALUES (?,?,?,?,?)').run(messageId, conversationId, command.requestId, message.sequence, JSON.stringify(message));
       checkpoint('afterMessage');
       db.prepare('INSERT INTO runs VALUES (?,?,?,?,?)').run(runId, conversationId, command.requestId, run.state, JSON.stringify(run));
+      db.prepare('INSERT INTO run_bindings VALUES (?,?)').run(runId, JSON.stringify(agent.binding));
       checkpoint('afterRun');
       db.prepare('INSERT INTO outbox(run) VALUES (?)').run(runId);
       checkpoint('afterOutbox');
@@ -175,6 +182,7 @@ export function createFixtureService(options: Options) {
   });
   // A claimed attempt may have acted before a crash. Restart never requeues it.
   for (const row of db.prepare("SELECT run FROM outbox WHERE state='claimed'").all()) markUnknown(String(row.run));
+  const synthetic = options.syntheticRunner ? createSyntheticRunnerBridge({ db, installation, now, timestamp, checkpoint, transaction, agentFor, getRun, updateRun, cursor, appendEvent }) : undefined;
   const ingest = (runId: string, event: FixtureEvent) => transaction(() => {
     const attempt = db.prepare('SELECT * FROM attempts WHERE id=? AND run=?').get(event.attemptId, runId);
     const row = db.prepare('SELECT data FROM runs WHERE id=?').get(runId);
@@ -212,6 +220,7 @@ export function createFixtureService(options: Options) {
   let dispatching: Promise<boolean> | undefined;
   let closed = false;
   const dispatchNextFixture = (): Promise<boolean> => {
+    if (synthetic) return Promise.resolve(false);
     if (closed) return Promise.resolve(false);
     if (dispatching) return dispatching;
     const claimed = transaction(() => {
@@ -268,6 +277,8 @@ export function createFixtureService(options: Options) {
     try {
       const url = new URL(request.url!, 'http://fixture.invalid'); const path = url.pathname;
       if (request.headers.origin !== undefined) fail(403, 'originDenied', 'Browser origins are not enabled for this fixture.');
+      const runnerRoute = /^\/fixture\/runner\/(claim|events|status)$/.exec(path);
+      if (synthetic && runnerRoute && request.method === 'POST') return send(200, synthetic.command(runnerRoute[1], request, await body(request)));
       if (path === '/v1/devices/enroll' && request.method === 'POST') {
         const input = await body(request);
         const result = transaction(() => {
@@ -282,6 +293,7 @@ export function createFixtureService(options: Options) {
         return send(201, result);
       }
       authenticate(request);
+      synthetic?.expire();
       const closeUnknown = /^\/v1\/runs\/([A-Za-z0-9_-]+)\/close-unknown$/.exec(path);
       if (closeUnknown && request.method === 'POST') {
         const input = await body(request);
@@ -392,10 +404,12 @@ export function createFixtureService(options: Options) {
         return send(200, JSON.parse(found.acceptance as string));
       }
       fail(404, 'notFound', 'This fixture route is not available.');
-    } catch (error) { send(error instanceof APIError ? error.status : 500, { error: { code: error instanceof APIError ? error.code : 'internalError', message: error instanceof APIError ? error.message : 'Fort could not complete this operation.' } }); }
+    } catch (error) { const known = error instanceof APIError || error instanceof RunnerError; send(known ? error.status : 500, { error: { code: known ? error.code : 'internalError', message: known ? error.message : 'Fort could not complete this operation.' } }); }
   });
   const service = {
     server, installation, issueEnrollment, dispatchNextFixture, baseURL: '',
+    enrollSyntheticRunner(hostId: string) { if (!synthetic) throw new Error('Synthetic runner is disabled.'); return synthetic.enroll(hostId); },
+    revokeSyntheticRunner(sessionId: string) { if (!synthetic) throw new Error('Synthetic runner is disabled.'); synthetic.revoke(sessionId); },
     async start() { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve(); }); }); const address = server.address(); service.baseURL = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`; if (options.autoRun) setImmediate(() => { void pump(); }); return service.baseURL; },
     async close() { if (closed) return; closed = true; activeRun?.controller.abort(); if (dispatching) await dispatching; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); },
   };
