@@ -167,3 +167,22 @@ private final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(model.draft == "This must remain a draft")
     #expect(model.status.contains("read-only"))
 }
+
+@Test @MainActor func confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() async throws {
+    for compatible in [true,false] {
+        let (model,storage,session,fixture) = try await setup()
+        defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+        await fixture.pauseInstallationReads()
+        if !compatible { await fixture.advertiseIncompatibleVersion() }
+        let refresh = Task { await model.refresh() }
+        while !model.isBusy { await Task.yield() }
+        let run = Run(runId:"uncertain-run",requestId:"uncertain-request",conversationId:"home",bindingRevisionId:"binding",state:"outcomeUnknown",selectedModel:"fixture-echo-v1",effectiveModel:nil,modelEvidence:"unreported",attemptId:"attempt")
+        var confirmationStarted = false
+        let closure = Task { confirmationStarted = true; await model.closeUnknown(run) }
+        while !confirmationStarted { await Task.yield() }
+        #expect(await fixture.controlRequests() == [])
+        await fixture.releaseReads()
+        await refresh.value; await closure.value
+        #expect(await fixture.controlRequests() == (compatible ? ["/v1/runs/uncertain-run/close-unknown"] : []))
+    }
+}

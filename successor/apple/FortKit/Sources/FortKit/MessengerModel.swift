@@ -21,6 +21,8 @@ import Observation
     private let session: URLSession
     private var client: FortClient?
     private var pendingStore: PendingStore?
+    private var refreshing = false
+    private var refreshWaiters: [CheckedContinuation<Void,Never>] = []
     public var selectedAgent: Agent? { agents.first { $0.agentId == selectedAgentID } }
     public var supportsCommands: Bool { installation?.supportsCommands == true }
     public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && selectedAgent?.binding.enabled == true && supportsCommands }
@@ -63,7 +65,12 @@ import Observation
     }
     public func refresh() async {
         guard !isBusy, client != nil else { return }
-        isBusy = true; defer { isBusy = false }
+        isBusy = true; refreshing = true
+        defer {
+            isBusy = false; refreshing = false
+            let waiters = refreshWaiters; refreshWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+        }
         await synchronize()
     }
     private func synchronize() async {
@@ -140,6 +147,7 @@ import Observation
         await refresh()
     }
     public func closeUnknown(_ run: Run) async {
+        if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
         guard supportsCommands, !isBusy, run.state == "outcomeUnknown", let client, let installation else { return }
         isBusy = true
         do { let result = try await client.closeUnknown(runID:run.runId,recoveryEpoch:installation.recoveryEpoch); status = result.displayState }
