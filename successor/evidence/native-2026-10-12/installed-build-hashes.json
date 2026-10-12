@@ -1,0 +1,25 @@
+{
+  "bundleIdentifier": "io.fort.spec058.fixture.ios",
+  "device": "iPhone 18 Pro / iOS 27 Simulator",
+  "sourceCommit": "7365dc2140a452a913fd34e2cf4f636161eec04c",
+  "checks": [
+    {
+      "file": "FortiOS",
+      "installedSHA256": "c197df5180cf90d22f616a474700cd51d9d740ed743cfece41ae074bf05b2081",
+      "buildSHA256": "c197df5180cf90d22f616a474700cd51d9d740ed743cfece41ae074bf05b2081",
+      "matches": true
+    },
+    {
+      "file": "FortiOS.debug.dylib",
+      "installedSHA256": "c3f3e45451e3b460c889195684f02689019e6d4677132a2d931bb52c4c6c5d64",
+      "buildSHA256": "c3f3e45451e3b460c889195684f02689019e6d4677132a2d931bb52c4c6c5d64",
+      "matches": true
+    },
+    {
+      "file": "Info.plist",
+      "installedSHA256": "8029093f88a98a662b2996c208f770aafeeb5f8ade98667e8aafd565c34bb642",
+      "buildSHA256": "8029093f88a98a662b2996c208f770aafeeb5f8ade98667e8aafd565c34bb642",
+      "matches": true
+    }
+  ]
+}

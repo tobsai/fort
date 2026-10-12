@@ -19,8 +19,11 @@ copied protocol logic needs its own path/hash/license extraction entry.
 
 Installed tools selected: Node 26.5.0 at `/opt/homebrew/opt/node@26/bin/node`,
 Node's built-in SQLite and TypeScript stripping, Xcode 27.0 (27A266a), Swift 6.4.
-No package installation or build hook ran. The successor uses no npm/Swift package
-dependencies. iOS 17 / macOS 14 are source deployment minima, not a validated
+The first increment installed no packages. The follow-up installed pinned development
+checks only: TypeScript 6.0.3, @types/node 26.6.5 and its undici-types 8.9.0 dependency.
+Registry metadata/hooks were inspected first; installation used empty npm user/global
+configuration and `--ignore-scripts --no-audit --no-fund`. No lifecycle hook ran.
+Production still uses no external npm or Swift package dependencies. iOS 17 / macOS 14 are source deployment minima, not a validated
 physical-device support matrix. Local checks use arm64 Mac and the iPhone 18 Pro
 iOS 27 Simulator. The owner's actual physical-device matrix remains unverified.
 
@@ -48,7 +51,16 @@ installation-scoped local cache, Keychain credential storage, HTTP transport and
 snapshot reduction. Both SwiftUI clients share the conversation UI. The composer
 persists before networking, retains the original ID on retry and will not resend
 under a different recovery epoch. Unknown run states remain informative. Pending
-conflicts require review; full cancellation/approval/recovery UI is still open.
+conflicts remain visible while history refresh continues. Accepted snapshots persist
+before pending records are removed; cold offline launch restores installation-scoped
+Agent/Home selection, cache and pending work before networking. Every HTTP redirect is
+refused, including enrollment and authenticated reads.
+
+The fixture now supports exact-bound owner approvals, persisted decision winners,
+queued/active cancellation, and explicit closure of unknown outcomes without retry.
+Parked deterministic fixture replies can continue after restart with a new fenced
+generation; this is not proof of official-provider continuation. SwiftUI exposes
+these controls, with an explicit uncertainty confirmation before closure.
 
 Tests currently cover pending persistence and exact bytes, installation separation,
 byte limit, insecure endpoint refusal, epoch retry gate, stale/foreign snapshot
@@ -57,7 +69,9 @@ conformance executable enrolls two synthetic devices, sends text, awaits a durab
 fixture reply, compares snapshots, closes/reopens the actual service, retries the
 persisted request, replays events and verifies shared read state.
 
-Local Mac and iPhone Simulator builds succeeded without signing. These are build
+Local Mac and iPhone Simulator builds first succeeded without signing. Installed
+Simulator tests now use explicit local ad-hoc signing to access Keychain; this is
+configured only for the Simulator SDK. No account or signing certificate was added. These are build
 and fixture results; no physical iPhone, official provider, App Store/TestFlight,
 notarization or release acceptance is implied. Stage 1 is not fully accepted until
 both installed native UIs have been exercised for reconnect/restart/recovery.
@@ -71,9 +85,19 @@ canaries before provider execution. Use an explicit environment allowlist and an
 exact provider-owned config scope, fresh data root, no legacy discovery, and no
 ambient API-key fallback. No app-driven login is allowed in this increment.
 
-Remain open: official-provider feasibility and authorization; scoped owner approval
+Remain open: official-provider feasibility and authorization; official-provider approval
 and cancellation; hostile-runner OS isolation; TLS enrollment on physical iPhone;
 backup/restore fencing; richer replay/pagination/negative contract compatibility;
 native error recovery/accessibility on exact installed devices; skills/routines,
 schedules, APNs, self-hosted topology, distribution and full T01–T20 acceptance.
 No scope reduction or architecture substitution is approved by these limitations.
+
+## Independent review follow-up
+
+Astra reviewed fixed commit `f2a520660d17b84a743ab8de4a447aaeb573a663` and reproduced
+four P2 defects. `d8085f2` fixes late device revocation/expiry with transaction-bound
+authority checks across all six owner mutations. `86137fb` fixes native redirect
+forwarding, cold offline navigation/cache restoration, and acceptance persistence.
+Regressions first reproduced the failures, then passed. The new record is
+[evidence/2026-10-12-review-followup.md](evidence/2026-10-12-review-followup.md).
+These commits also add bounded fixture controls and strict TypeScript verification.
