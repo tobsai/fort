@@ -1,0 +1,895 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fort Stage 1 fixture API",
+    "version": "1.0",
+    "description": "Local fixture subset. Official providers and physical-device TLS are not enabled."
+  },
+  "security": [
+    {
+      "deviceToken": [],
+      "installationId": []
+    }
+  ],
+  "paths": {
+    "/v1/devices/enroll": {
+      "post": {
+        "summary": "Consume an installation-bound one-use local enrollment code",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "installation",
+                    "deviceId",
+                    "deviceToken",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "installation": {
+                      "$ref": "#/components/schemas/Installation"
+                    },
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "deviceToken": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "installationId",
+                  "code",
+                  "deviceName"
+                ],
+                "properties": {
+                  "installationId": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "deviceName": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/installation": {
+      "get": {
+        "summary": "Authenticated fixture installation",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Installation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents": {
+      "get": {
+        "summary": "List fixture Agent/Home and exact binding",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "agents"
+                  ],
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Agent"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices/{deviceId}/revoke": {
+      "post": {
+        "summary": "Revoke an exact device",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "deviceId",
+                    "revoked"
+                  ],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {},
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/messages": {
+      "post": {
+        "summary": "Durably accept exact text (200 for exact retry)",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acceptance"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acceptance"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Submission"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/requests/{requestId}": {
+      "get": {
+        "summary": "Get immutable acceptance receipt and original snapshot",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acceptance"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/snapshot": {
+      "get": {
+        "summary": "Get current atomic fixture transcript and cursor",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/read": {
+      "post": {
+        "summary": "Advance a scoped monotonic read position",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "lastReadMessageSequence"
+                  ],
+                  "properties": {
+                    "lastReadMessageSequence": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "recoveryEpoch",
+                  "messageId",
+                  "cursor"
+                ],
+                "properties": {
+                  "recoveryEpoch": {
+                    "type": "string"
+                  },
+                  "messageId": {
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "summary": "Replay at most 256 durable events",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "installationId",
+                    "recoveryEpoch",
+                    "cursor",
+                    "events"
+                  ],
+                  "properties": {
+                    "installationId": {
+                      "type": "string"
+                    },
+                    "recoveryEpoch": {
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Event"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request denied or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "recoveryEpoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "deviceToken": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "installationId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Fort-Installation-Id"
+      }
+    },
+    "schemas": {
+      "Installation": {
+        "type": "object",
+        "required": [
+          "contractVersion",
+          "installationId",
+          "recoveryEpoch",
+          "mode",
+          "serviceName"
+        ],
+        "properties": {
+          "contractVersion": {
+            "const": "1.0"
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "recoveryEpoch": {
+            "type": "string"
+          },
+          "mode": {
+            "const": "fixture"
+          },
+          "serviceName": {
+            "const": "Fort Fixture"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Binding": {
+        "type": "object",
+        "required": [
+          "bindingRevisionId",
+          "provider",
+          "runtimeVersion",
+          "selectedModel",
+          "hostId",
+          "enabled"
+        ],
+        "properties": {
+          "bindingRevisionId": {
+            "type": "string"
+          },
+          "provider": {
+            "const": "fixture"
+          },
+          "runtimeVersion": {
+            "const": "1"
+          },
+          "selectedModel": {
+            "const": "fixture-echo-v1"
+          },
+          "hostId": {
+            "const": "fixture-local"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Agent": {
+        "type": "object",
+        "required": [
+          "agentId",
+          "name",
+          "homeConversationId",
+          "binding",
+          "readiness"
+        ],
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "homeConversationId": {
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/Binding"
+          },
+          "readiness": {
+            "const": "fixtureReady"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "messageId",
+          "conversationId",
+          "requestId",
+          "role",
+          "text",
+          "sequence",
+          "createdAt"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Run": {
+        "type": "object",
+        "required": [
+          "runId",
+          "requestId",
+          "conversationId",
+          "bindingRevisionId",
+          "state",
+          "selectedModel",
+          "effectiveModel",
+          "modelEvidence",
+          "attemptId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "bindingRevisionId": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "outcomeUnknown"
+            ]
+          },
+          "selectedModel": {
+            "type": "string"
+          },
+          "effectiveModel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelEvidence": {
+            "enum": [
+              "fixture",
+              "unreported"
+            ]
+          },
+          "attemptId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": true
+      },
+      "Snapshot": {
+        "type": "object",
+        "required": [
+          "installationId",
+          "recoveryEpoch",
+          "conversationId",
+          "cursor",
+          "messages",
+          "runs",
+          "lastReadMessageSequence"
+        ],
+        "properties": {
+          "installationId": {
+            "type": "string"
+          },
+          "recoveryEpoch": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Run"
+            }
+          },
+          "lastReadMessageSequence": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      },
+      "Submission": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "bindingRevisionId",
+          "recoveryEpoch",
+          "text"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "bindingRevisionId": {
+            "type": "string"
+          },
+          "recoveryEpoch": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "Exact well-formed Unicode, maximum 65,536 UTF-8 bytes; no normalization."
+          }
+        },
+        "additionalProperties": true
+      },
+      "Receipt": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "conversationId",
+          "messageId",
+          "runId",
+          "bindingRevisionId",
+          "inputDigest",
+          "acceptedAt"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "bindingRevisionId": {
+            "type": "string"
+          },
+          "inputDigest": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Acceptance": {
+        "type": "object",
+        "required": [
+          "receipt",
+          "snapshot"
+        ],
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/Receipt"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/Snapshot"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "installationId",
+          "recoveryEpoch",
+          "eventId",
+          "sequence",
+          "entityId",
+          "conversationId",
+          "kind",
+          "createdAt",
+          "data"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "recoveryEpoch": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

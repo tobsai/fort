@@ -1,0 +1,11 @@
+{
+  "name": "fort-spec058-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "26.5.0" },
+  "scripts": {
+    "test": "node --test service/service.test.ts runner/fixture.test.ts",
+    "test:native-http": "node apple/native-http-check.ts"
+  }
+}

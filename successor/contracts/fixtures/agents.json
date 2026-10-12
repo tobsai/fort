@@ -1,0 +1,1 @@
+{"agents":[{"agentId":"agent-fixture","name":"Fixture Agent","homeConversationId":"conversation-fixture","binding":{"bindingRevisionId":"binding-fixture-v1","provider":"fixture","runtimeVersion":"1","selectedModel":"fixture-echo-v1","hostId":"fixture-local","enabled":true},"readiness":"fixtureReady"}]}
