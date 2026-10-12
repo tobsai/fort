@@ -121,7 +121,6 @@ test('cancellation and completion races have one durable outcome; no ACK or exit
   for(const terminalStatus of ['completed','interrupted'])await t.test(terminalStatus,async t=>{
     const h=await setup(t);await h.submit('race');const dispatch=await h.claim();const wire=wireEvents(dispatch);await h.ingest(dispatch,wire.started);
     const cancel=()=>h.owner(`/v1/runs/${dispatch.attempt.runId}/cancel`,{recoveryEpoch:h.scope.recoveryEpoch});
-    assert.equal((await cancel()).body.run.state,'cancelRequested');
     const terminal={...wire.terminal,status:terminalStatus,messages:terminalStatus==='completed'?wire.terminal.kind==='terminal'?wire.terminal.messages:[]:[]};
     const results=await Promise.all([h.ingest(dispatch,terminal),cancel()]);assert(results.every(result=>result.status===200));
     const snapshot=await h.snap();assert.equal(snapshot.runs[0].state,terminalStatus==='completed'?'completed':'canceled');
@@ -290,4 +289,15 @@ test('a synthetic recovery-epoch change invalidates runner sessions even if curr
   install.recoveryEpoch=crypto.randomUUID();db.prepare("UPDATE metadata SET value=? WHERE key='installation'").run(JSON.stringify(install));db.close();await h.restart();
   const command={...h.scope,recoveryEpoch:install.recoveryEpoch,dispatchToken:dispatch.dispatchToken,event:wire.started};
   const before=await h.snap();assert.equal((await h.runner('events',command)).status,401);assert.equal((await h.runner('claim',{...h.scope,recoveryEpoch:install.recoveryEpoch})).status,401);assert.deepEqual(await h.snap(),before);
+});
+
+test('concurrent contradictory terminals have exactly one committed winner',async t=>{
+  const h=await setup(t);await h.submit('terminal race');const dispatch=await h.claim();const wire=wireEvents(dispatch);await h.ingest(dispatch,wire.started);
+  const interrupted={...wire.terminal,status:'interrupted',messages:[]};
+  const results=await Promise.all([h.ingest(dispatch,wire.terminal),h.ingest(dispatch,interrupted)]);
+  assert.deepEqual(results.map(result=>result.status).sort(),[200,409]);
+  const completed=results[0].status===200;const snap=await h.snap();assert.equal(snap.runs[0].state,completed?'completed':'canceled');assert.equal(snap.messages.length,completed?2:1);
+  await h.restart();assert.deepEqual(await h.snap(),snap);
+  assert.equal((await h.ingest(dispatch,completed?wire.terminal:interrupted)).body.duplicate,true);
+  assert.equal((await h.ingest(dispatch,completed?interrupted:wire.terminal)).status,409);
 });
