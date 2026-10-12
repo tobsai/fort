@@ -89,6 +89,26 @@
     {
       "url": "https://lima-vm.io/docs/community/governance/",
       "use": "Lima release signing process and primary fingerprint; inspected public documentation"
+    },
+    {
+      "url": "https://registry.npmjs.org/openpgp/6.3.2",
+      "use": "Exact public version metadata; raw-byte digest pinned in scope.json"
+    },
+    {
+      "url": "https://registry.npmjs.org/-/npm/v1/keys",
+      "use": "Exact public registry key metadata; raw-byte digest pinned in scope.json"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openpgpjs/openpgpjs/v6.3.2/src/openpgp.js",
+      "use": "Detached verification API inspected; no implementation copied"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openpgpjs/openpgpjs/v6.3.2/src/key/key.js",
+      "use": "Primary and signing-key validity APIs inspected; no implementation copied"
+    },
+    {
+      "url": "https://docs.npmjs.com/about-registry-signatures/",
+      "use": "Public registry signature format; verification uses installed Node crypto"
     }
   ]
 }

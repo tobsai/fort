@@ -1,0 +1,58 @@
+FF..FF
+======================================================================
+FAIL: test_inactive_original_cannot_release_tool (__main__.ControllerGrant)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_corrections.py", line 80, in test_inactive_original_cannot_release_tool
+    self.assertNotIn(mock.call('start', '--no-block', controller.TOOL), calls.call_args_list)
+AssertionError: call('start', '--no-block', 'fort-tool.service') unexpectedly found in [call('start', '--no-block', 'fort-tool.service')]
+
+======================================================================
+FAIL: test_grant_without_matching_identity_never_reports_ready (__main__.RuntimeReadiness)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_corrections.py", line 48, in test_grant_without_matching_identity_never_reports_ready
+    self.assertEqual([], self.notifications(None, {'invocationId': 'original'}, 'replacement'))
+AssertionError: Lists differ: [] != [b'READY=1\nSTATUS=Waiting for exact synthetic grant']
+
+Second list contains 1 additional elements.
+First extra element 0:
+b'READY=1\nSTATUS=Waiting for exact synthetic grant'
+
+- []
++ [b'READY=1\nSTATUS=Waiting for exact synthetic grant']
+
+======================================================================
+FAIL: test_replacement_before_grant_never_reports_ready (__main__.RuntimeReadiness)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_corrections.py", line 45, in test_replacement_before_grant_never_reports_ready
+    self.assertEqual([], self.notifications({'invocationId': 'original'}, None, 'replacement'))
+AssertionError: Lists differ: [] != [b'READY=1\nSTATUS=Waiting for exact synthetic grant', b'WATCHDOG=1']
+
+Second list contains 2 additional elements.
+First extra element 0:
+b'READY=1\nSTATUS=Waiting for exact synthetic grant'
+
+- []
++ [b'READY=1\nSTATUS=Waiting for exact synthetic grant', b'WATCHDOG=1']
+
+======================================================================
+FAIL: test_replacement_with_stale_identity_and_grant_never_reports_ready (__main__.RuntimeReadiness)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_corrections.py", line 42, in test_replacement_with_stale_identity_and_grant_never_reports_ready
+    self.assertEqual([], self.notifications(stale, stale, 'replacement'))
+AssertionError: Lists differ: [] != [b'READY=1\nSTATUS=Waiting for exact synthetic grant']
+
+Second list contains 1 additional elements.
+First extra element 0:
+b'READY=1\nSTATUS=Waiting for exact synthetic grant'
+
+- []
++ [b'READY=1\nSTATUS=Waiting for exact synthetic grant']
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.017s
+
+FAILED (failures=4)

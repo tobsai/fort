@@ -11,16 +11,16 @@
       "destination": "/opt/fort-probe/controller.py",
       "owner": "root:root",
       "permissions": "0644",
-      "sha256": "bc3c22d0ceea5610677e390ef98688606dfea84ca87c3dead331bb28f720fdd7",
-      "bytes": 7323,
+      "sha256": "fe1b3812a6ecd96d9f27d68174e99f88492a7479a1198c30c949b7f57c66f320",
+      "bytes": 7483,
       "method": "inline cloud-init data provision"
     },
     {
       "destination": "/opt/fort-probe/runtime.py",
       "owner": "root:root",
       "permissions": "0644",
-      "sha256": "72cb3b3122f5146ef84623e60daec69b60c667fc242c037a994ace9c5c67a93f",
-      "bytes": 1680,
+      "sha256": "5fa0d87d223f100fa59b00080dd49ac166f86e1eebf0b7d8beb7d830ecdc03c1",
+      "bytes": 2228,
       "method": "inline cloud-init data provision"
     },
     {

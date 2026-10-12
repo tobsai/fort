@@ -3,7 +3,7 @@
   "status": "blocked-for-provisioning",
   "execution_authorized": false,
   "source_worktree": "/tmp/fort-core-openmaus-20261011",
-  "source_commit": "6423c02cf07d08a3f51207e9476b53181e4f3ace",
+  "source_commit": "fef99a5c3c08c63343244c928d886842f61d3f2a",
   "app_root": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
   "lima_home": "/Users/tobiasgunn/Library/FortIsolation/state",
   "superseded_unusable_lima_home": "/Users/tobiasgunn/Library/Application Support/FortIsolation/state",
@@ -105,13 +105,39 @@
       "max_bytes": 65536,
       "kind": "public-package-metadata",
       "observed_bytes": 21147
+    },
+    {
+      "name": "openpgp-6.3.2-metadata.json",
+      "url": "https://registry.npmjs.org/openpgp/6.3.2",
+      "sha256": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "observed_bytes": 5275
+    },
+    {
+      "name": "npm-public-signing-keys.json",
+      "url": "https://registry.npmjs.org/-/npm/v1/keys",
+      "sha256": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "observed_bytes": 580
+    },
+    {
+      "name": "openpgp-6.3.2.tgz",
+      "url": "https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz",
+      "sha512": "c1c653cc7cf8d4b57c638f331ff2650f5253f1874d9a958eb8c02343fa6876fbc2c2c8c1114dfb2b7ce7261e1441c8f7864b04e73f53cef85b51bc33b06be52d",
+      "integrity": "sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ==",
+      "max_bytes": 8388608,
+      "kind": "private-verifier-archive",
+      "downloaded": false
     }
   ],
   "host_https_domains": [
     "github.com",
     "release-assets.githubusercontent.com",
     "cloud-images.ubuntu.com",
-    "keyserver.ubuntu.com"
+    "keyserver.ubuntu.com",
+    "registry.npmjs.org"
   ],
   "guest_new_outbound_allowlist": [
     "IPv4 DHCP eth0 UDP 68 -> 67 to 192.168.5.2 or 255.255.255.255"
@@ -132,9 +158,26 @@
     "ubuntu_primary_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
   },
   "blockers": [
-    "No approved available OpenPGP verifier; do not install one or replace signature validation with checksums.",
-    "Shorter proposed Lima state path requires inclusion in future approval scope; no path is created now.",
-    "Bootstrap accepts Lima built-in unverified loopback SSH probes and a pre-cloud-init guest network window; the owner has not accepted these limits.",
-    "Lima schema, generated cloud-init media, package signatures, code signature/entitlements, actual storage and systemd 255 units require future staged validation before any synthetic grant."
-  ]
+    "Pending independent review of the two corrections/verifier addition and owner approval of this revised sealed scope.",
+    "The selected private OpenPGP.js verifier is proposed only; archive integrity/extraction and actual publisher signatures must pass in the approved staged operation.",
+    "The shorter state path, guest administrator and disclosed bootstrap SSH/network trust require owner approval.",
+    "Lima/image/code-signature/generated-media/systemd/network/resource checks run after approval and must pass before a synthetic grant."
+  ],
+  "revision": 2,
+  "supersedes_seal_sha256": "76cff597d9784b85db86abbedead8a3e9cf7104c1a3a7922c4f8764428cc8ea2",
+  "private_verifier": {
+    "package": "openpgp@6.3.2",
+    "runtime": "/opt/homebrew/opt/node@26/bin/node",
+    "runtime_version": "v26.5.0",
+    "installation": "/Users/tobiasgunn/Library/Application Support/FortIsolation/tools/openpgp/6.3.2",
+    "entrypoint": "package/dist/node/openpgp.mjs",
+    "extracted_max_bytes": 25165824,
+    "runtime_dependencies": [],
+    "install_hooks": false,
+    "network_during_verification": false,
+    "license": "LGPL-3.0+; preserve legal files; temporary private tool only, excluded from Fort distribution",
+    "registry_key_id": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+    "auxiliary_margin_bytes": 301989888,
+    "package_downloaded_or_executed": false
+  }
 }

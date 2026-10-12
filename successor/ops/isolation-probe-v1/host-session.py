@@ -18,7 +18,7 @@ def main():
             raise RuntimeError('Unsafe fresh management identity/trust file')
     options = ['BatchMode=yes', 'IdentitiesOnly=yes', 'IdentityAgent=none',
                'StrictHostKeyChecking=yes', 'NoHostAuthenticationForLocalhost=no',
-               'GlobalKnownHostsFile=/dev/null', 'UserKnownHostsFile=' + str(ROOT / 'trust/known_hosts'),
+               'GlobalKnownHostsFile=/dev/null', 'UserKnownHostsFile="' + str(ROOT / 'trust/known_hosts') + '"',
                'ForwardAgent=no', 'ForwardX11=no', 'ClearAllForwardings=yes',
                'ControlMaster=no', 'ProxyCommand=none', 'ConnectTimeout=5']
     args = ['/usr/bin/ssh', '-F', '/dev/null', '-T', '-p', '22058', '-i', str(STATE / '_config/user')]

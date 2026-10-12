@@ -161,12 +161,14 @@ def main():
             if type(message['sequence']) is not int or message['sequence'] != sequence + 1:
                 raise RuntimeError('Nonconsecutive sequence')
             sequence = message['sequence']
-            exact(identity)
+            current = exact(identity)
             if message['op'] == 'stop':
                 emit(stop_owned(identity))
                 identity = None
                 return
             if message['op'] == 'grant' and not granted:
+                if current['ActiveState'] != 'active':
+                    raise RuntimeError('Original runtime is no longer active; grant rejected')
                 heartbeat()
                 atomic(SESSION / 'grant.json', identity)
                 systemctl('start', '--no-block', TOOL)

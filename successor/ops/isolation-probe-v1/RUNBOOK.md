@@ -2,7 +2,7 @@
 
 **Nothing in this runbook has been executed except the static commands in step 0.**
 The current packet is blocked. Do not execute steps 1–6 until the consolidated
-owner decision and required verifier decision are recorded against this exact
+owner decision including the pinned private verifier is recorded against this exact
 seal. Commands below are future operations, not evidence of successful results.
 
 ## 0. Static checks available now
@@ -11,6 +11,8 @@ From `/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1`:
 
 ```sh
 python3 -B test_validate.py
+python3 -B test_corrections.py
+/opt/homebrew/opt/node@26/bin/node --test test-verifier.mjs
 python3 -B validate.py
 /bin/sh -n guest/install.sh
 /usr/bin/ruby -rjson -rpsych -e 'abort "YAML mismatch" unless Psych.safe_load(File.read("lima.yaml")) == JSON.parse(File.read("lima.yaml")); puts "YAML and JSON agree"'
@@ -22,6 +24,10 @@ semantic validation. `python3 -B validate.py --require-executable` deliberately
 returns 2 even when static checks pass: this revision grants no execution authority.
 Changing a blocker to “resolved” requires a new reviewed seal, not editing a flag
 to make an execution guard pass. No source generator evaluates guest scripts.
+Correction tests use temporary synthetic files, mocked systemd/socket calls and
+`ssh -G` without connecting. Verifier tests execute only Fort wrapper logic and
+Node built-in crypto; they do not import OpenPGP.js. Actual library/guest checks
+belong inside the proposed staged approval.
 
 ## 1. Ownership, dependencies and storage preflight
 
@@ -33,9 +39,10 @@ unattributed existing root is a blocker, not something to delete or chmod:
 | --- | --- |
 | `/Users/tobiasgunn/Library/Application Support/FortIsolation` | Owner-only task root, 0700 |
 | `tools/lima/2.2.1` | Verified archive extraction; preserve legal files and archive executable modes |
-| `downloads` | Only the nine entries in `scope.json`; no package-manager cache |
+| `tools/openpgp/6.3.2` | Exact verifier extraction, including LGPL legal files; no hooks/build/install scripts |
+| `downloads` | Only the twelve entries in `scope.json`; no package-manager cache |
 | `home`, `home/.config`, `home/Library/Caches`, `cache`, `tmp` | Empty private manager home/config/cache/temp, 0700 |
-| `trust` | Fresh public signing keyrings and pinned guest public `known_hosts`; private directory 0700, files 0600 |
+| `trust` | Pinned guest public `known_hosts`; private directory 0700, files 0600; no GPG keyring needed |
 | `evidence` | Bounded raw/redacted receipts, no private keys or provider data |
 | `/Users/tobiasgunn/Library/FortIsolation` | Shorter owner-only state parent, 0700 |
 | `state` | Fresh `LIMA_HOME`, 0700; only `_config` and the one selected instance plus documented Lima internals |
@@ -47,7 +54,8 @@ scope. Snapshot the exact created-path list and ownership for later deletion.
 Require the loopback port 22058 to be unused; do not kill its existing owner.
 
 Host runtime dependencies are the pinned archive and existing macOS VZ/frameworks,
-OpenSSH, standard shell/file utilities, Python 3 and codesign/spctl. `manager-env.py`
+OpenSSH, standard shell/file utilities, Python 3, existing Node 26.5.0 and
+codesign/spctl, plus the explicitly pinned private OpenPGP.js bundle. `manager-env.py`
 uses an explicit environment and PATH containing the private manager plus system
 directories. No QEMU is installed or discoverable on that path. The pinned proxy
 disk utility tries QEMU, then its native converter only when QEMU is absent; inspect
@@ -67,10 +75,11 @@ Storage accounting, before any allocation and between phases:
 | Downloaded image, possible manager cache copy, instance conversion input; each at most 768 MiB | 2304 MiB |
 | Compressed manager archive | 64 MiB |
 | Extracted manager including legal/support files | 512 MiB |
+| OpenPGP.js verifier archive / complete extraction with legal files | 8 MiB / 24 MiB |
 | Generated ISO and expanded cidata combined | 256 MiB |
 | Raw logs plus copied/redacted evidence | 128 MiB |
 | Other temp, cache, EFI, keys and metadata | 512 MiB |
-| Auxiliary subtotal / remaining margin | 3776 MiB / 320 MiB |
+| Auxiliary subtotal / remaining margin | 3808 MiB / 288 MiB |
 
 Do not count sparse-file logical space as free budget. Inventory both logical and
 allocated sizes, hard links and all temporary copies. The pinned native converter
@@ -90,15 +99,16 @@ No unsupported promise about total host memory or utility cost is made.
 
 ## 2. Public downloads, authenticity and package inspection
 
-Only the nine exact URLs/digests/max sizes in `scope.json` are allowed. Public
+Only the twelve exact URLs/digests/max sizes in `scope.json` are allowed. Public
 HTTPS uses the Mac's existing DNS and trust store. Permit redirects only to the
 listed HTTPS domains; no credentials, cookies, auth header, netrc, proxy or signed-in
-CLI is used. Verify downloaded content and actual final URL. Do not execute a
-download, curl-to-shell pipeline, build hook or package installer.
+CLI is used. Verify downloaded content and actual final URL. No downloaded code
+executes before its staged integrity/inspection gates. No curl-to-shell, build
+hook, npm/brew/pip installation or package-manager dependency resolution is allowed.
 
 The authored downloader uses that fixed allowlist, an empty proxy handler, an
 explicit existing public `/etc/ssl/cert.pem` CA bundle, exclusive new output files,
-at most four allowlisted HTTPS redirects, streaming byte caps and exact SHA256
+at most four allowlisted HTTPS redirects, streaming byte caps and exact SHA256/SHA512
 checks. If that CA bundle is absent/untrusted, stop; do not substitute a fetched
 bundle or provider identity. Its only future invocation is:
 
@@ -108,21 +118,28 @@ bundle or provider identity. Its only future invocation is:
 
 Do not replace it with curl-to-shell or a package manager. Its output explicitly
 records that checksum matching has not verified a publisher signature. The
-separate approved verifier is still missing; no downloaded payload may execute
-until that trust chain is complete. This downloader has only been parsed, never
+selected verifier is still uninstalled. It may execute only after its own registry
+signature/archive/extraction gates pass; Lima follows publisher verification.
+This downloader has only been parsed, never
 run or tested against an actual payload.
 
 Required trust chain:
 
-1. Use an approved pre-existing/pinned OpenPGP verifier and a fresh isolated public
-   keyring, never the owner's GPG home. Validate the public key fingerprint against
-   the publisher's documented full primary fingerprint. No secret keys are needed.
+1. Follow [VERIFIER.md](VERIFIER.md): verify pinned registry metadata/public-key
+   hashes and both ECDSA signatures using existing Node crypto; match the exact
+   OpenPGP.js 6.3.2 tarball SHA512 integrity. Inspect all archive paths, complete
+   contents and 24 MiB extraction bound, preserve legal files, and extract privately.
+   Inspect its declared bundled Node ESM entrypoint; run no package hooks. Only
+   then may `python3 -B verify-offline.py` import the verifier. Public keys stay in
+   memory; no owner GPG home, private key or key generation is involved.
 2. Verify Lima `lima.sig` over exact `lima.sums`; require valid signature chained to
    `C020EA876CE4E06C7AB95AEF49524C6F9F638F1A`. Verify Ubuntu `ubuntu.sig` over exact
    `ubuntu.sums`; require `D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Reject missing,
-   bad, expired/revoked, unrelated or unresolved signatures. `gpgv --status-fd 1
-   --keyring <fresh-public-keyring> <signature> <sums>` is the required operation;
-   the executable/keyring build method remains blocked, not silently supplied.
+   bad, expired/revoked, unrelated or unresolved signatures. The sealed wrapper
+   uses the library's default policy, awaits every detached verification, and
+   validates the primary/signing keys at current time. Run the changed-checksum,
+   changed-signature and unrelated-public-key negative controls before acceptance.
+   Any incompatible key/signature policy stops the operation; do not weaken it.
 3. Match both signed checksum entries and this packet's pinned SHA256 values for
    the exact archive/image. Also match all public metadata digests. A changed
    public-key export is a re-review, not an automatic key update.
@@ -243,7 +260,7 @@ manifest and its original owner/inode identity. Remove only:
   remnants/EFI/media/logs/control sockets and newly generated `_config/user*` keys.
 - Other Lima state/cache files only if that manifest attributes them to this run;
   then remove the empty owned `state` and state parent.
-- The private `tools/lima/2.2.1`, nine downloads, fresh trust/keyrings/known_hosts,
+- The private `tools/lima/2.2.1`, `tools/openpgp/6.3.2`, twelve downloads and fresh `trust/known_hosts`,
   private home/cache/tmp and raw evidence after the redacted copy is verified;
   then remove empty owned task parents.
 

@@ -47,6 +47,17 @@ class PacketContract(unittest.TestCase):
         self.scope["downloads"].append({"url": "https://example.org/helper", "sha256": "a" * 64})
         self.rejected()
 
+    def test_verifier_proposal_is_exact_and_private(self):
+        self.assertEqual('openpgp@6.3.2', self.scope['private_verifier']['package'])
+        entry = next(item for item in self.scope['downloads'] if item['name'] == 'openpgp-6.3.2.tgz')
+        self.assertEqual(8388608, entry['max_bytes'])
+        entry['sha512'] = '0' * 128
+        self.rejected()
+
+    def test_verifier_cannot_expand_to_package_manager_install(self):
+        self.scope['private_verifier']['install_hooks'] = True
+        self.rejected()
+
     def test_resource_expansion_rejected(self):
         self.config["disk"] = "40GiB"
         self.rejected()

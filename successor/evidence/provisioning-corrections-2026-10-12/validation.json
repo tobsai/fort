@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "base_commit": "fef99a5c3c08c63343244c928d886842f61d3f2a",
+  "branch": "codex/fort-core-openmaus-20261011",
+  "worktree": "/tmp/fort-core-openmaus-20261011",
+  "seal_sha256": "bc6aa4b100bb6792030d359fd71290f6a824c5a48f9da4ddcff3e3d4be4904c2",
+  "sealed_files": 28,
+  "execution_authorized": false,
+  "passed": {
+    "packet_policy_tests": 14,
+    "correction_regressions": 9,
+    "verifier_tests": 13,
+    "total_tests": 36,
+    "actual_public_registry_signatures": 2,
+    "python_source_parses": 11,
+    "node_syntax_checks": 2,
+    "inline_shell_syntax_checks": 3,
+    "unit_policy_parses": 3,
+    "independent_yaml_json_equivalence": true,
+    "seal_fixture_consistency": true,
+    "execution_guard_expected_exit": 2
+  },
+  "red_evidence": {
+    "readiness-red.log": "4 failures across 6 tests; stale readiness and inactive grant reproduced",
+    "ssh-red.log": "1 failure across 2 tests; spaced filename parsed as two entries",
+    "verifier-red.log": "initial verifier module absent",
+    "verifier-scope-red.log": "private verifier proposal absent"
+  },
+  "unexpected_failures": [],
+  "unrun": [
+    "downloaded library execution",
+    "actual archive/image checks",
+    "publisher OpenPGP signatures and real negative controls",
+    "manager signature/entitlements and archive inspection",
+    "Lima effective configuration/media",
+    "systemd runtime dependency race on Linux",
+    "VM boot and guest provisioning",
+    "actual network/device/identity/resource checks",
+    "nominal synthetic session",
+    "independent VM/cgroup cleanup",
+    "full fault/FD/IPC matrix",
+    "provider activation and T07 acceptance"
+  ],
+  "artifacts": {
+    "README.md": "afcf989aa6cbff23ed435e8435a6df5ee1309abddaaad4f211089d0589fc2086",
+    "corrections-green.log": "1f6388f0e60b77f4d084b3b49dc4e30172ac14312e18d7e0e79b9c87f61f3ce6",
+    "npm-public-signing-keys.json": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
+    "observations.json": "634438e9a6c021074ade58ecb36b024b20718fd926bd7480cc635ff301a01b3a",
+    "openpgp-6.3.2-metadata.json": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+    "policy-green.log": "62e6bd3a77554540929dd26eab6204ab86056dc07bacce00a71e4482e9f4bcb8",
+    "readiness-green.log": "c1de396add63b60b7739446ae754c9af4d1c4c8af85083ffc8071726ef9e4e98",
+    "readiness-red.log": "650741576bedaeeb55f0d60d042c1ff004145921baa0507a66d8a34487aecf79",
+    "ssh-red.log": "a44f5744685cca5b97d2efecd630f63d7d06b8115cd2f12e56b63a2f90187d90",
+    "static-validation.json": "6bfc6a099c9710654859f664af121e7647bc327ac0624993197ed3ebc6981fb9",
+    "syntax-and-guard.json": "f61d8caab86a6a81e91cf0fc9a615dd8de10616072af60ae56fe834e35279dfb",
+    "verifier-green.log": "506e320a7ab8da22d6eea561f6956917ca36f6e6f8728a1df922ad32ef45cd0f",
+    "verifier-red.log": "43ccef44d1b39d55c7abb1fb46523cfcc59d7ea438e99d57c7ca3d8cf61a4454",
+    "verifier-scope-green.log": "ff3b1438544d9aa2c552401f0123d54eac06b91b0295f3773671c14161e22544",
+    "verifier-scope-red.log": "487fbcf1a7b6e461663e965764384766c5a13917b50e4e40459eb406e37c8ca9"
+  }
+}

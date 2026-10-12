@@ -1,5 +1,6 @@
 """Static checks only. Passing does not authorize or prove provisioning."""
 import ast
+import base64
 import configparser
 import hashlib
 import json
@@ -16,7 +17,10 @@ URLS = {
     'https://github.com/AkihiroSuda.gpg', UBUNTU + 'noble-server-cloudimg-arm64.img',
     UBUNTU + 'SHA256SUMS', UBUNTU + 'SHA256SUMS.gpg', UBUNTU + 'noble-server-cloudimg-arm64.manifest',
     'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81',
+    'https://registry.npmjs.org/openpgp/6.3.2', 'https://registry.npmjs.org/-/npm/v1/keys',
+    'https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz',
 }
+VERIFIER_INTEGRITY = 'sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ=='
 
 
 def policy_errors(config, scope):
@@ -55,8 +59,19 @@ def policy_errors(config, scope):
     downloads = scope.get('downloads', [])
     if len(downloads) != len(URLS) or {item['url'] for item in downloads} != URLS:
         errors.append('Download allowlist changed')
-    if any(len(item.get('sha256', '')) != 64 for item in downloads):
+    if any(not (len(item.get('sha256', '')) == 64 or len(item.get('sha512', '')) == 128) for item in downloads):
         errors.append('Every payload must have an exact digest')
+    verifier = scope.get('private_verifier', {})
+    expected_verifier = {'package': 'openpgp@6.3.2', 'runtime': '/opt/homebrew/opt/node@26/bin/node',
+        'runtime_version': 'v26.5.0', 'installation': APP + '/tools/openpgp/6.3.2',
+        'entrypoint': 'package/dist/node/openpgp.mjs', 'extracted_max_bytes': 25165824,
+        'runtime_dependencies': [], 'install_hooks': False, 'network_during_verification': False,
+        'auxiliary_margin_bytes': 301989888, 'package_downloaded_or_executed': False}
+    if any(verifier.get(key) != value for key, value in expected_verifier.items()):
+        errors.append('Private verifier scope changed')
+    archive = next((item for item in downloads if item.get('name') == 'openpgp-6.3.2.tgz'), {})
+    if archive.get('integrity') != VERIFIER_INTEGRITY or archive.get('sha512') != base64.b64decode(VERIFIER_INTEGRITY[7:]).hex() or archive.get('max_bytes') != 8388608:
+        errors.append('Verifier archive pin/bound changed')
     if scope.get('guest_package_installs') != [] or scope.get('host_package_installs') != []:
         errors.append('No package-manager dependency expansion allowed')
     if scope.get('resources') != {'cpus': 2, 'ram_bytes': 4294967296, 'disk_bytes': 21474836480,

@@ -53,7 +53,8 @@ def main():
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), Redirects(),
                                              urllib.request.HTTPSHandler(context=context))
         opener.addheaders = [('User-Agent', 'Fort-static-isolation-probe/1')]
-        digest = hashlib.sha256()
+        algorithm = 'sha512' if 'sha512' in entry else 'sha256'
+        digest = hashlib.new(algorithm)
         size = 0
         with partial.open('xb') as output:
             try:
@@ -72,7 +73,7 @@ def main():
                         output.write(chunk)
                         digest.update(chunk)
                     final_host = urllib.parse.urlsplit(response.url).hostname
-                if digest.hexdigest() != entry['sha256']:
+                if digest.hexdigest() != entry[algorithm]:
                     raise RuntimeError('Pinned checksum mismatch')
                 output.flush()
                 os.fsync(output.fileno())
@@ -80,7 +81,7 @@ def main():
                 partial.unlink()
                 raise
         os.rename(partial, final)
-        receipts.append({'name': name, 'bytes': size, 'sha256': digest.hexdigest(),
+        receipts.append({'name': name, 'bytes': size, algorithm: digest.hexdigest(),
                          'final_host': final_host, 'publisher_signature_verified': False})
     print(json.dumps(receipts, indent=2))
 

@@ -10,10 +10,19 @@ ROOT = pathlib.Path('/run/fort-probe/session')
 
 def main():
     started = time.monotonic()
+    invocation = os.environ['INVOCATION_ID']
+    identity_path = ROOT / 'identity.json'
+    identity = json.loads(identity_path.read_text()) if identity_path.exists() else None
+    if identity is not None and identity['invocationId'] != invocation:
+        raise RuntimeError('Replacement invocation cannot report ready')
+    grant_path = ROOT / 'grant.json'
+    if grant_path.exists():
+        grant = json.loads(grant_path.read_text())
+        if identity is None or grant != identity or grant['invocationId'] != invocation:
+            raise RuntimeError('Stale grant cannot report ready')
     notify = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     address = os.environ['NOTIFY_SOCKET']
     notify.connect(('\0' + address[1:]) if address.startswith('@') else address)
-    invocation = os.environ['INVOCATION_ID']
     notify.send(b'READY=1\nSTATUS=Waiting for exact synthetic grant')
     granted = False
     while time.monotonic() - started < 38:

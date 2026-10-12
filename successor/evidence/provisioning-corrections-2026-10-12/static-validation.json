@@ -1,0 +1,12 @@
+{
+  "static_checks": "passed",
+  "sealed_files": 28,
+  "execution_authorized": false,
+  "errors": [],
+  "provisioning_blockers": [
+    "Pending independent review of the two corrections/verifier addition and owner approval of this revised sealed scope.",
+    "The selected private OpenPGP.js verifier is proposed only; archive integrity/extraction and actual publisher signatures must pass in the approved staged operation.",
+    "The shorter state path, guest administrator and disclosed bootstrap SSH/network trust require owner approval.",
+    "Lima/image/code-signature/generated-media/systemd/network/resource checks run after approval and must pass before a synthetic grant."
+  ]
+}

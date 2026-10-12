@@ -1,0 +1,21 @@
+............EE
+======================================================================
+ERROR: test_verifier_cannot_expand_to_package_manager_install (__main__.PacketContract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_validate.py", line 58, in test_verifier_cannot_expand_to_package_manager_install
+    self.scope['private_verifier']['install_hooks'] = True
+KeyError: 'private_verifier'
+
+======================================================================
+ERROR: test_verifier_proposal_is_exact_and_private (__main__.PacketContract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test_validate.py", line 51, in test_verifier_proposal_is_exact_and_private
+    self.assertEqual('openpgp@6.3.2', self.scope['private_verifier']['package'])
+KeyError: 'private_verifier'
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.004s
+
+FAILED (errors=2)

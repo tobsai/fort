@@ -1,0 +1,167 @@
+{
+  "proposed_roots": [
+    {
+      "path": "/Users/tobiasgunn/Library/FortIsolation",
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
+      "exists": false,
+      "symlink": false
+    }
+  ],
+  "packet_files": [
+    {
+      "path": "APPROVAL-SCOPE.md",
+      "mode": "0o644",
+      "bytes": 5158
+    },
+    {
+      "path": "CLOUD-INIT.md",
+      "mode": "0o644",
+      "bytes": 7120
+    },
+    {
+      "path": "README.md",
+      "mode": "0o644",
+      "bytes": 9882
+    },
+    {
+      "path": "RUNBOOK.md",
+      "mode": "0o644",
+      "bytes": 16107
+    },
+    {
+      "path": "VERIFIER.md",
+      "mode": "0o644",
+      "bytes": 6916
+    },
+    {
+      "path": "fetch-public.py",
+      "mode": "0o644",
+      "bytes": 3956
+    },
+    {
+      "path": "fixture-manifest.json",
+      "mode": "0o644",
+      "bytes": 2737
+    },
+    {
+      "path": "guest/controller.py",
+      "mode": "0o644",
+      "bytes": 7483
+    },
+    {
+      "path": "guest/egress.nft",
+      "mode": "0o644",
+      "bytes": 625
+    },
+    {
+      "path": "guest/fort-attempt.slice",
+      "mode": "0o644",
+      "bytes": 114
+    },
+    {
+      "path": "guest/fort-runtime.service",
+      "mode": "0o644",
+      "bytes": 1335
+    },
+    {
+      "path": "guest/fort-tool.service",
+      "mode": "0o644",
+      "bytes": 1313
+    },
+    {
+      "path": "guest/install.sh",
+      "mode": "0o644",
+      "bytes": 1897
+    },
+    {
+      "path": "guest/runtime.py",
+      "mode": "0o644",
+      "bytes": 2228
+    },
+    {
+      "path": "guest/sshd.conf",
+      "mode": "0o644",
+      "bytes": 266
+    },
+    {
+      "path": "guest/tool.py",
+      "mode": "0o644",
+      "bytes": 1335
+    },
+    {
+      "path": "host-session.py",
+      "mode": "0o644",
+      "bytes": 4395
+    },
+    {
+      "path": "lima.yaml",
+      "mode": "0o644",
+      "bytes": 21554
+    },
+    {
+      "path": "manager-env.py",
+      "mode": "0o644",
+      "bytes": 1423
+    },
+    {
+      "path": "provenance.json",
+      "mode": "0o644",
+      "bytes": 4966
+    },
+    {
+      "path": "render_config.py",
+      "mode": "0o644",
+      "bytes": 3318
+    },
+    {
+      "path": "scope.json",
+      "mode": "0o644",
+      "bytes": 7533
+    },
+    {
+      "path": "seal.json",
+      "mode": "0o644",
+      "bytes": 2804
+    },
+    {
+      "path": "test-verifier.mjs",
+      "mode": "0o644",
+      "bytes": 5545
+    },
+    {
+      "path": "test_corrections.py",
+      "mode": "0o644",
+      "bytes": 5891
+    },
+    {
+      "path": "test_validate.py",
+      "mode": "0o644",
+      "bytes": 3496
+    },
+    {
+      "path": "validate.py",
+      "mode": "0o644",
+      "bytes": 9322
+    },
+    {
+      "path": "verify-inputs.mjs",
+      "mode": "0o644",
+      "bytes": 8464
+    },
+    {
+      "path": "verify-offline.py",
+      "mode": "0o644",
+      "bytes": 1048
+    }
+  ],
+  "existing_node_version": "v26.5.0",
+  "openpgp_library_downloaded_or_executed": false,
+  "credentials_read_or_generated": false,
+  "vm_provisioned": false,
+  "host_settings_changed": false,
+  "public_registry_metadata_fetched": true
+}
