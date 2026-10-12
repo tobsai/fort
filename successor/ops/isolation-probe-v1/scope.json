@@ -3,7 +3,7 @@
   "status": "blocked-for-provisioning",
   "execution_authorized": false,
   "source_worktree": "/tmp/fort-core-openmaus-20261011",
-  "source_commit": "fef99a5c3c08c63343244c928d886842f61d3f2a",
+  "source_commit": "28f76cf49bdf686177204c9599a178caa55d188a",
   "app_root": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
   "lima_home": "/Users/tobiasgunn/Library/FortIsolation/state",
   "superseded_unusable_lima_home": "/Users/tobiasgunn/Library/Application Support/FortIsolation/state",
@@ -158,13 +158,13 @@
     "ubuntu_primary_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
   },
   "blockers": [
-    "Pending independent review of the two corrections/verifier addition and owner approval of this revised sealed scope.",
-    "The selected private OpenPGP.js verifier is proposed only; archive integrity/extraction and actual publisher signatures must pass in the approved staged operation.",
-    "The shorter state path, guest administrator and disclosed bootstrap SSH/network trust require owner approval.",
-    "Lima/image/code-signature/generated-media/systemd/network/resource checks run after approval and must pass before a synthetic grant."
+    "Pending independent review of this diagnostics-only correction and explicit recovery record; no execution retry during preparation.",
+    "The original owner approval and all original download pins remain unchanged; fresh owned roots and full preflight are required before a reviewed recovery.",
+    "The private verifier archive, registry authenticity, publisher signatures and negative controls remain unrun and must pass before downloaded code execution at the corresponding stage.",
+    "Lima/image/code-signature/generated-media/systemd/network/resource checks must pass before the still-unattempted single synthetic grant."
   ],
-  "revision": 2,
-  "supersedes_seal_sha256": "76cff597d9784b85db86abbedead8a3e9cf7104c1a3a7922c4f8764428cc8ea2",
+  "revision": 3,
+  "supersedes_seal_sha256": "bc6aa4b100bb6792030d359fd71290f6a824c5a48f9da4ddcff3e3d4be4904c2",
   "private_verifier": {
     "package": "openpgp@6.3.2",
     "runtime": "/opt/homebrew/opt/node@26/bin/node",
@@ -179,5 +179,30 @@
     "registry_key_id": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
     "auxiliary_margin_bytes": 301989888,
     "package_downloaded_or_executed": false
+  },
+  "download_diagnostics": {
+    "directory": "/Users/tobiasgunn/Library/Application Support/FortIsolation/evidence/download-diagnostics",
+    "max_receipts": 12,
+    "receipt_max_bytes": 16384,
+    "public_key_body_max_bytes": 65536,
+    "public_key_body_names": [
+      "lima.pub",
+      "ubuntu.pub"
+    ],
+    "aggregate_max_bytes": 262144,
+    "inside_existing_evidence_budget_bytes": 134217728,
+    "execute_response_bodies": false,
+    "automatic_retry": false
+  },
+  "recovery": {
+    "approved_commit": "95ab4a250dc4b8dce0452d8054e2f4a7dc09a509",
+    "approved_seal_sha256": "bc6aa4b100bb6792030d359fd71290f6a824c5a48f9da4ddcff3e3d4be4904c2",
+    "approval_message_id": "Sentinel_7f07a5939a408191a8e7036c9ec04dbb",
+    "failed_execution_evidence_commit": "28f76cf49bdf686177204c9599a178caa55d188a",
+    "integrity_review": "reviews/ubuntu-key-28f76cf/REVIEW.md",
+    "original_scope_authority_preserved": true,
+    "synthetic_sessions_started": 0,
+    "preparation_only": true,
+    "retry_authorized_by_this_packet": false
   }
 }

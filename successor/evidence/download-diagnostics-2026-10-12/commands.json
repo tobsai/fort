@@ -1,0 +1,115 @@
+{
+  "time_utc": "2026-10-12T21:53:16.204518+00:00",
+  "checks": [
+    {
+      "name": "python-tests",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1",
+        "-p",
+        "test*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "python-tests.log"
+    },
+    {
+      "name": "node-tests",
+      "command": [
+        "/opt/homebrew/opt/node@26/bin/node",
+        "--test",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/test-verifier.mjs"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "node-tests.log"
+    },
+    {
+      "name": "static-validation",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/validate.py"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "static-validation.log"
+    },
+    {
+      "name": "execution-guard",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/validate.py",
+        "--require-executable"
+      ],
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "passed": true,
+      "log": "execution-guard.log"
+    },
+    {
+      "name": "shell-syntax",
+      "command": [
+        "/bin/sh",
+        "-n",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/guest/install.sh"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "shell-syntax.log"
+    },
+    {
+      "name": "node-syntax",
+      "command": [
+        "/opt/homebrew/opt/node@26/bin/node",
+        "--check",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/verify-inputs.mjs"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "node-syntax.log"
+    },
+    {
+      "name": "yaml-json",
+      "command": [
+        "/usr/bin/ruby",
+        "-rjson",
+        "-rpsych",
+        "-e",
+        "abort \"YAML mismatch\" unless Psych.safe_load(File.read(ARGV[0])) == JSON.parse(File.read(ARGV[0])); puts \"YAML and JSON agree\"",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/lima.yaml"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "yaml-json.log"
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "diff-check.log"
+    }
+  ],
+  "network": "none; HTTP transport fixtures are in-memory",
+  "downloaded_code_executed": false,
+  "vm_started": false
+}

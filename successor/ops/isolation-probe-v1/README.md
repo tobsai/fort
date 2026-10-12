@@ -1,11 +1,14 @@
-# Fort synthetic Linux isolation packet, revision 2
+# Fort synthetic Linux isolation packet, revision 3
 
 **Prepared and content-sealed for review; blocked for provisioning. No execution
-authority is granted by these files or by a passing static check.** This packet
-corrects both P2 findings in `reviews/provisioning-fef99a5/REVIEW.md` and adds its
-pinned private verifier proposal. It supersedes seal `76cff597…8ea2`, which must
-not execute unchanged. No accepted product runtime/native/provider code changes.
-The corrected seal needs independent review and owner approval before execution.
+authority is granted by these files or by a passing static check.** This revision
+adds bounded download diagnostics after the approved run stopped on `ubuntu.pub`.
+The independent integrity review found fifteen current exports matching the
+original pin; the historical response was discarded, so its cause remains unknown.
+All original pins, trust roots, payloads, resource limits and signature gates stay
+unchanged. It supersedes seal `bc6aa4b1…4904c2`.
+See [RECOVERY.md](RECOVERY.md) for the preserved owner authority and required
+independent correction review. No retry is authorized by this preparation.
 
 The candidate is one temporary Lima 2.2.1 / Apple VZ Ubuntu 24.04 arm64 VM,
 `fort-isolation-probe`: 2 vCPUs, 4 GiB guest RAM, one 20 GiB raw disk and a separate
@@ -13,13 +16,13 @@ The candidate is one temporary Lima 2.2.1 / Apple VZ Ubuntu 24.04 arm64 VM,
 There are no shared host directories or provider credentials. The generated
 read-only provisioning ISO is explicitly part of the guest's inputs.
 
-## Proposed choices for the consolidated approval
+## Preserved choices from the approved scope
 
 1. **Private signature verifier.** Use pinned OpenPGP.js 6.3.2 with the existing
    Node 26.5.0, as specified in [VERIFIER.md](VERIFIER.md). No npm install, package
    hooks, transitive installation, owner keyring or network during verification.
    Two public registry metadata signatures pass using existing Node crypto; the
-   tarball and actual publisher verification remain unrun. The 8 MiB archive and
+   verifier tarball and actual publisher verification remain unrun. The 8 MiB archive and
    24 MiB extraction fit the existing auxiliary budget, leaving 288 MiB margin.
    Preserve its LGPL-3.0+ legal files; it is a private temporary tool, outside Fort
    distribution. Neither a checksum nor an ad-hoc code signature replaces the
@@ -29,8 +32,8 @@ read-only provisioning ISO is explicitly part of the guest's inputs.
    limit. The revised proposal is `/Users/tobiasgunn/Library/FortIsolation/state`
    (92 bytes including that socket suffix). It replaces, rather than adds to, the
    earlier state location. The manager/download directory remains in Application
-   Support. Both exact roots need inclusion in the later approval. Neither exists
-   as a result of this task.
+   Support. Both roots are included in the existing approval. The download root
+   from the failed run was removed; the state root was never created.
 3. **Accept or reject the bounded bootstrap limits.** Lima 2.2.1's internal SSH
    probes explicitly disable host-key checks. Only fresh management keys and
    synthetic inputs are present. Subsequent Fort control uses its own strict SSH
@@ -58,6 +61,7 @@ read-only provisioning ISO is explicitly part of the guest's inputs.
 | `guest/fort-*.service`, `guest/fort-attempt.slice` | PID 1 lifetime, separate UIDs and constrained namespaces/resources |
 | `guest/egress.nft`, `guest/sshd.conf`, `guest/install.sh` | Guest-only early network policy, SSH policy, dependencies/users/unit installation |
 | `host-session.py`, `manager-env.py`, `fetch-public.py` | Explicit future host control and bounded public download commands; no ambient credentials |
+| `test_fetch_public.py`, `RECOVERY.md` | In-memory HTTP failure regressions and unchanged-scope recovery gate |
 | `verify-inputs.mjs`, `verify-offline.py`, `VERIFIER.md` | Pinned private verifier, registry/publisher checks, offline command and trust limits |
 | `CLOUD-INIT.md`, `RUNBOOK.md` | Generated-input contract, exact review gates, lifecycle and cleanup procedure |
 | `validate.py`, `test_validate.py`, `test_corrections.py`, `test-verifier.mjs`, `seal.json` | Static policy, readiness/SSH regressions, verification contract tests and exact file hashes |
@@ -105,9 +109,12 @@ receipt, reboot or changed unit identity remains unknown/quarantined; stopping t
 VM may prove process absence, never external-effect absence. The actual composition
 has not run on Linux. No T07 or Stage 2 acceptance is claimed.
 
-## Consolidated future request — draft, not a live question
+## Existing consolidated approval — scope retained
 
-After a reviewer accepts the corrected seal, present this exact proposed scope:
+The owner approved the original sealed scope on 2026-10-12 at 21:20 UTC. The
+following historical request is retained to describe that scope; do not ask again
+for unchanged infrastructure. This diagnostics revision needs independent review
+and an explicit recovery record before a new download stage, not another session.
 
 > Approve privately installing Lima 2.2.1 and OpenPGP.js 6.3.2, using existing Node
 > 26.5.0, then creating one temporary Ubuntu 24.04 arm64 VM, `fort-isolation-probe`.
@@ -132,6 +139,7 @@ Only the selected private verifier is included. This excludes provider sign-in, 
 credentials, host sudo/account/security changes, Docker changes, launch-at-login,
 global PATH/package changes, shared hosting, spending, deployment or a release.
 Local storage, CPU, memory, power and download bandwidth are the costs; no paid
-service or purchase is included. Approval is required for downloaded code,
-persistent task paths, fresh management keys, VM startup and guest provisioning.
-This is not an automatic-approval rejection. No live question has been sent.
+service or purchase is included. That existing approval covers the listed tools,
+paths, keys and one still-unattempted synthetic session. This correction changes
+only failure diagnostics, within the existing evidence budget. No downloaded code,
+host task directory, provider connection or VM is created during its preparation.

@@ -1,0 +1,57 @@
+{
+  "time_utc": "2026-10-12T21:54:33.922034+00:00",
+  "approved_commit": "95ab4a250dc4b8dce0452d8054e2f4a7dc09a509",
+  "approved_seal_sha256": "bc6aa4b100bb6792030d359fd71290f6a824c5a48f9da4ddcff3e3d4be4904c2",
+  "new_seal_sha256": "bc79f94b93ba163eae3662ea4091d50ffcb9140a6bfc94d39e2aaca0e3adfc38",
+  "sealed_files": 30,
+  "changed_scope_keys": [
+    "blockers",
+    "download_diagnostics",
+    "recovery",
+    "revision",
+    "source_commit",
+    "supersedes_seal_sha256"
+  ],
+  "preserved_scope_keys": [
+    "schema",
+    "status",
+    "execution_authorized",
+    "source_worktree",
+    "app_root",
+    "lima_home",
+    "superseded_unusable_lima_home",
+    "instance",
+    "manager",
+    "resources",
+    "host_package_installs",
+    "guest_package_installs",
+    "guest_image_packages",
+    "downloads",
+    "host_https_domains",
+    "guest_new_outbound_allowlist",
+    "guest_inbound_allowlist",
+    "guest_network_not_airgapped",
+    "fresh_key_classes",
+    "signing_roots",
+    "private_verifier"
+  ],
+  "original_downloads_deep_equal": true,
+  "original_signing_roots_deep_equal": true,
+  "original_resource_and_network_scope_unchanged": true,
+  "original_approval_scope_bytes_unchanged": true,
+  "verifier_and_all_guest_sources_unchanged": true,
+  "modified_preexisting_packet_files": [
+    "README.md",
+    "RUNBOOK.md",
+    "fetch-public.py",
+    "scope.json",
+    "test_validate.py",
+    "validate.py"
+  ],
+  "new_packet_files": [
+    "RECOVERY.md",
+    "test_fetch_public.py"
+  ],
+  "preparation_only": true,
+  "execution_retry": false
+}

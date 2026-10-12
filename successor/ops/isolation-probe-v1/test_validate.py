@@ -62,6 +62,14 @@ class PacketContract(unittest.TestCase):
         self.config["disk"] = "40GiB"
         self.rejected()
 
+    def test_diagnostic_storage_expansion_rejected(self):
+        self.scope['download_diagnostics']['public_key_body_max_bytes'] += 1
+        self.rejected()
+
+    def test_diagnostics_cannot_add_automatic_retry(self):
+        self.scope['download_diagnostics']['automatic_retry'] = True
+        self.rejected()
+
     def test_approval_cannot_be_implied_by_static_success(self):
         self.scope["execution_authorized"] = True
         self.rejected()

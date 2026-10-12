@@ -1,0 +1,15 @@
+{
+  "time_utc": "2026-10-12T21:54:34.385867+00:00",
+  "read_only": true,
+  "paths": [
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
+      "absent": true
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/FortIsolation",
+      "absent": true
+    }
+  ],
+  "test_resources": "Temporary synthetic directories only; removed by unittest cleanup"
+}

@@ -1,9 +1,12 @@
 # Review and proposed execution sequence
 
-**Nothing in this runbook has been executed except the static commands in step 0.**
-The current packet is blocked. Do not execute steps 1–6 until the consolidated
-owner decision including the pinned private verifier is recorded against this exact
-seal. Commands below are future operations, not evidence of successful results.
+**Revision 3 is preparation only and must not retry the download stage yet.** The
+owner approved revision 2; that run stopped at a public-key checksum mismatch and
+was cleaned up. The independent review found the original export pin still matches.
+The cause of the historical mismatch is unknown. Preserve its closed evidence and
+all original pins. After independent review of this diagnostics correction, record
+recovery under the existing authority as specified in [RECOVERY.md](RECOVERY.md).
+No synthetic session has started. Commands below remain gated operations.
 
 ## 0. Static checks available now
 
@@ -12,6 +15,7 @@ From `/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1`:
 ```sh
 python3 -B test_validate.py
 python3 -B test_corrections.py
+python3 -B test_fetch_public.py
 /opt/homebrew/opt/node@26/bin/node --test test-verifier.mjs
 python3 -B validate.py
 /bin/sh -n guest/install.sh
@@ -28,6 +32,9 @@ Correction tests use temporary synthetic files, mocked systemd/socket calls and
 `ssh -G` without connecting. Verifier tests execute only Fort wrapper logic and
 Node built-in crypto; they do not import OpenPGP.js. Actual library/guest checks
 belong inside the proposed staged approval.
+The downloader tests run its entrypoint over an in-memory urllib HTTP transport,
+including the real redirect/error handlers, with synthetic temporary files. They
+make no socket connection and do not fetch or execute a public response.
 
 ## 1. Ownership, dependencies and storage preflight
 
@@ -44,6 +51,7 @@ unattributed existing root is a blocker, not something to delete or chmod:
 | `home`, `home/.config`, `home/Library/Caches`, `cache`, `tmp` | Empty private manager home/config/cache/temp, 0700 |
 | `trust` | Pinned guest public `known_hosts`; private directory 0700, files 0600; no GPG keyring needed |
 | `evidence` | Bounded raw/redacted receipts, no private keys or provider data |
+| `evidence/download-diagnostics` | Fresh exclusive 0700 directory; per-input receipts and optional failed public-key prefix, 0600; at most 256 KiB within the existing 128 MiB evidence allowance |
 | `/Users/tobiasgunn/Library/FortIsolation` | Shorter owner-only state parent, 0700 |
 | `state` | Fresh `LIMA_HOME`, 0700; only `_config` and the one selected instance plus documented Lima internals |
 
@@ -120,8 +128,39 @@ Do not replace it with curl-to-shell or a package manager. Its output explicitly
 records that checksum matching has not verified a publisher signature. The
 selected verifier is still uninstalled. It may execute only after its own registry
 signature/archive/extraction gates pass; Lima follows publisher verification.
-This downloader has only been parsed, never
-run or tested against an actual payload.
+Revision 2 downloaded seven matching inputs then stopped on the eighth input's
+pin. Revision 3 has only run against synthetic in-memory responses. Do not seed
+its inputs from the separate integrity review's diagnostic copies.
+
+Before each next request, the downloader fsyncs the current input's exclusive JSON
+receipt under `evidence/download-diagnostics`. It records the exact input name and
+URL, expected/observed digest, observed byte count, completion state, HTTP status,
+bounded Content-Type/Content-Length and final response URL. Redirect query strings
+are omitted unless the URL is exactly the approved original public URL; cookies,
+authentication headers and arbitrary headers are never recorded. A receipt reports
+only download integrity, never publisher verification.
+
+On failure of `lima.pub` or `ubuntu.pub`, at most the smaller of 64 KiB and that
+input's existing byte cap is retained as a 0600 `*.untrusted.bin` prefix. It is inert
+evidence: never execute, import, render as HTML, normalize, accept as a key, or move
+it into `downloads`. Receipts distinguish full returned bytes from incomplete or
+prefix-only evidence. For a declared oversize response, no body is read. A streamed
+overflow reads at most one extra byte to prove the bound was exceeded, without
+writing it to the download or retained prefix. Non-key payloads get metadata only.
+Any failure still stops before the next URL. A receipt-write failure stops and
+attempts removal of only the just-promoted owned input; bounded metadata also goes
+to stderr if the receipt cannot be written. A cleanup error is retained separately
+in the failure receipt, preserving the observed digest and body. Any remaining
+partial input or incomplete diagnostics stay quarantined for review and scoped
+cleanup; they are not accepted input or permission to continue.
+
+Existing downloads, partials or diagnostic directories are never overwritten or
+resumed, and symlinked directories/files are not followed. Publication uses an
+exclusive hard link to the completed private partial, then removes that partial;
+there is no extra payload copy. Final input presence plus its receipt and all
+subsequent original gates are required. Inventory the diagnostic files and include
+raw and copied evidence in the unchanged 128 MiB budget and owned cleanup manifest.
+At most twelve 16 KiB receipts and one failed 64 KiB key prefix occupy 256 KiB.
 
 Required trust chain:
 
