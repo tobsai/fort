@@ -1,0 +1,244 @@
+{
+  "observed_at_utc": "2026-10-12T22:53:07.390156+00:00",
+  "review_path": "reviews/gatekeeper-8c9129b/REVIEW.md",
+  "review_sha256": "a698c4503532d4e091bda545303187c35fad790e47fbac11bf0ba2d210baf722",
+  "official_source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+  "release_api": "https://api.github.com/repos/utmapp/UTM/releases/tags/v4.7.5",
+  "tag_api": "https://api.github.com/repos/utmapp/UTM/git/ref/tags/v4.7.5",
+  "asset": {
+    "id": 335896119,
+    "name": "UTM.dmg",
+    "size": 250021057,
+    "digest": "sha256:a8435c93cfb5f8bbfeea4b134cfad1ac66b67632b75e438c63b1a8ae043bef0e",
+    "browser_download_url": "https://github.com/utmapp/UTM/releases/download/v4.7.5/UTM.dmg",
+    "created_at": "2026-01-03T18:20:37Z",
+    "updated_at": "2026-01-03T18:20:47Z"
+  },
+  "ubuntu_checksum_metadata": {
+    "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS",
+    "sha256": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+    "new_tar_entry": "1800eb56b6b839a08c020551e16fbd8c95b2772452ecce3737a9ad25fe594126",
+    "current_bytes_match_previously_verified_metadata_pin": true,
+    "new_tar_not_downloaded_or_verified": true
+  },
+  "metadata_only_path_checks": [
+    {
+      "path": "/Applications/UTM.app",
+      "state": "absent"
+    },
+    {
+      "path": "/Users/tobiasgunn/Applications/UTM.app",
+      "state": "absent"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+      "state": "absent"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+      "state": "absent"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/FortUTMIsolation",
+      "state": "absent"
+    }
+  ],
+  "not_done": [
+    "No DMG, image, kernel, initrd or downloaded executable fetched",
+    "No source file executed or built",
+    "No app mount/install/run",
+    "No VM/key/permission creation",
+    "No UI interaction or Automation request",
+    "No existing credentials read"
+  ],
+  "source_checkout": "Read-only public source snapshots in /tmp/fort-utm-official-source-review; not an installed application",
+  "source_files_retrieved": [
+    {
+      "path": ".github/workflows/build.yml",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/.github/workflows/build.yml",
+      "bytes": 24200,
+      "sha256": "e6fd96ab1ca734cd168a7657b337f746f6c1b655a05ada28d4addcc3d5e5ff7a"
+    },
+    {
+      "path": "CodeSigning.xcconfig.sample",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/CodeSigning.xcconfig.sample",
+      "bytes": 2711,
+      "sha256": "dac3f01ffd288d1c89889c197bc76606ea811151fdeac0aeed6d0595d4dbdc1c"
+    },
+    {
+      "path": "Configuration/UTMAppleConfiguration.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfiguration.swift",
+      "bytes": 13140,
+      "sha256": "bdbc2989d354eb71130b34eda30464961383bcacf6657aa71830d6322c7b6b02"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationBoot.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationBoot.swift",
+      "bytes": 8376,
+      "sha256": "10f692461d44a71852ac53049fbab3acae6c81d56070fcdb66fe486f3f1c7219"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationDisplay.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationDisplay.swift",
+      "bytes": 3547,
+      "sha256": "099ed2a209446ccfbf12626fafff1c7066c16869f80c2dad667d47c2a8ed8034"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationDrive.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationDrive.swift",
+      "bytes": 5311,
+      "sha256": "6d2195a294669263993095056a7982d028a7908086cb4e484eed01ea6e79c7e6"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationGenericPlatform.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationGenericPlatform.swift",
+      "bytes": 2206,
+      "sha256": "5157d56797f5381e3555afa653b1715082d5abac04a76c75a92b98d1de0db7a8"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationMacPlatform.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationMacPlatform.swift",
+      "bytes": 4756,
+      "sha256": "2f5ad5cc6ef3c64d3419d006a05c51ad22095b83e4b63d5661a015d851c83902"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationNetwork.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationNetwork.swift",
+      "bytes": 4694,
+      "sha256": "61059637f0ad8afddf0a573a3b9cd5d624ead214abf7457d84fbea3e0e4665ae"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationSerial.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationSerial.swift",
+      "bytes": 3041,
+      "sha256": "18c4709f500885a16ffed9d1877672559b934b18d3ad0e8983203d2615021204"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationSharedDirectory.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationSharedDirectory.swift",
+      "bytes": 3917,
+      "sha256": "f38dc5b0db3d828da45ce17065c0a786bdf9ef0dcae31c3c2a52c98ed493c000"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationSystem.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationSystem.swift",
+      "bytes": 5930,
+      "sha256": "08683338e2cccbe3c9ed0ea6bbf983e4c591dbb4be8eeabcf083446b702296fc"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationVirtualization.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationVirtualization.swift",
+      "bytes": 9678,
+      "sha256": "8e2924e2c7636bac5771379c6c56dfa543d84cb452c6b170508e2450eaf0e7b8"
+    },
+    {
+      "path": "Documentation/Release.md",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Documentation/Release.md",
+      "bytes": 9534,
+      "sha256": "c6777b29839d0370f4a8b663052d05b558fa3fc103d48bb5b912fee5728a8c80"
+    },
+    {
+      "path": "Platform/Shared/VMWizardState.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/Shared/VMWizardState.swift",
+      "bytes": 25721,
+      "sha256": "d58eb15f54529cbeec0aa3cb7bf8b0564fde17b6574bf5e7b0ab512767b0b2f7"
+    },
+    {
+      "path": "Platform/UTMData.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/UTMData.swift",
+      "bytes": 53835,
+      "sha256": "11f42bd35882fc69fa2ae69952fe92ea8a5d25f134f7e488813f2cc4646dc9cc"
+    },
+    {
+      "path": "Platform/UTMReleaseHelper.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/UTMReleaseHelper.swift",
+      "bytes": 5743,
+      "sha256": "e747a8ac7bff13d041a250c123259a57c7b3b36d9448da7e93b8dbe9e475ceaa"
+    },
+    {
+      "path": "Platform/macOS/macOS.entitlements",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/macOS.entitlements",
+      "bytes": 838,
+      "sha256": "97b44f371a6c9cf7eecf46a56f1bcc52e735c6003492574599487fae211ff60f"
+    },
+    {
+      "path": "Services/UTMAppleVirtualMachine.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Services/UTMAppleVirtualMachine.swift",
+      "bytes": 36010,
+      "sha256": "14c60e83ffcbbb1a5db98df685fd66ae3c3314c8ff123cf29a4bd88bb1c2faed"
+    },
+    {
+      "path": "Services/UTMRegistry.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Services/UTMRegistry.swift",
+      "bytes": 5516,
+      "sha256": "7539cef221459944415feb15518e66284c66656d0086799231dbabe8b5bfdb3b"
+    },
+    {
+      "path": "UTM.xcodeproj/project.pbxproj",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/UTM.xcodeproj/project.pbxproj",
+      "bytes": 528255,
+      "sha256": "a245816dc4e448956e89e2467c4a5b74434d36f7f41320b15e8bf5eac4d4f057"
+    },
+    {
+      "path": "utmctl/UTMCtl.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/utmctl/UTMCtl.swift",
+      "bytes": 24796,
+      "sha256": "007a1ef14182d73fda4d24e52511112fa9801a10ff56d3d067ec096ce759ffe6"
+    },
+    {
+      "path": "Configuration/UTMConfigurationDrive.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMConfigurationDrive.swift",
+      "bytes": 5663,
+      "sha256": "430e3486ecbf99c09c7fbde7c637b2155278c1568a2d25f629709545dfc3382c"
+    },
+    {
+      "path": "Services/UTMQemuImage.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Services/UTMQemuImage.swift",
+      "bytes": 7191,
+      "sha256": "1bb827100820f4c4c24a39c46d08a99b0f21a3a75f8e24800add50d512466294"
+    },
+    {
+      "path": "Platform/macOS/AppDelegate.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/AppDelegate.swift",
+      "bytes": 7561,
+      "sha256": "422664f226a39302a8a2b9c06724f3764d961d2d44554deb8c561be3cf6a22c6"
+    },
+    {
+      "path": "scripts/package_mac.sh",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/scripts/package_mac.sh",
+      "bytes": 5217,
+      "sha256": "7e9618db5aca6c815f344c388e0761b02aeb4a1508d7b40a68cdcba516626f9d"
+    },
+    {
+      "path": "Platform/macOS/VMConfigAppleDriveDetailsView.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/VMConfigAppleDriveDetailsView.swift",
+      "bytes": 6080,
+      "sha256": "6ef7881330761f36eae0000cefbe1db64cf27748e38db87255a7c0f8b70710c7"
+    },
+    {
+      "path": "Platform/macOS/UTMDataExtension.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/UTMDataExtension.swift",
+      "bytes": 5758,
+      "sha256": "2b30bbe87bb2c069fcf572a30520b7fcd3d9d60f79603613337bc1330f70e1fb"
+    },
+    {
+      "path": "Platform/macOS/UTMApp.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/UTMApp.swift",
+      "bytes": 2343,
+      "sha256": "55cda501d6cdb3d715ee144eeb8a68b5db979406a8ef6e5d0a39637bb611b00e"
+    },
+    {
+      "path": "Platform/macOS/SettingsView.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/macOS/SettingsView.swift",
+      "bytes": 22497,
+      "sha256": "7121a9025c92e76f9b18cf439bf56c5f9915c8f7a72ed82a76b9cb3f5e5de064"
+    },
+    {
+      "path": "Platform/iOS/Settings.bundle/Root.plist",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Platform/iOS/Settings.bundle/Root.plist",
+      "bytes": 71379,
+      "sha256": "94f552ae99bdc11e4a8ee73f3e7daf948816b4e3a81c2b15b775a0623429d523"
+    }
+  ],
+  "inspection_limit": "Selected relevant source sections and official documentation inspected; not a complete security audit or binary attestation."
+}

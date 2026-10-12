@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "purpose": "proposal content identity only; not an executable packet or authorization",
+  "files": {
+    "APPROVAL-SCOPE.md": "8186e502452d57d03c4adcfcf75031cb5b84a275419dc48f8a14efa8408fa976",
+    "ASSESSMENT-APPROVAL.md": "fd27dbc8ed728a02187f60a3c5fb4ce602d725f68d64c23795cad21cda8eb428",
+    "README.md": "d3ae375fe13e97177e86eacb021bb0b6f70dec42e7d4df52ade4fbb3c61cbd1d",
+    "UNVERIFIED.md": "c2386f99df03afa1339238c32dba89f14fa0de2e3a55d6973aebd9da8060e97c",
+    "provenance.json": "9cb6215406844f8593d2e96ad28a9f0ec0f865817b6fa3835472765bc4d97a79",
+    "scope.json": "1e37fbd6956165834f6da921835d31b2a62d717376bbe3a51d54af01b214d157",
+    "validation.json": "e2890204397d0b4a7c27185bea42999d645fbd6e1359fb2970b140051677dc72",
+    "vm-intent.json": "bece6f653b75d8a9b2a8388299f1a3ebe2b05b9eeb1a34207bba91c890e0e743"
+  }
+}

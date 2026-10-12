@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "status": "proposal-only-not-executable",
+  "execution_authorized": false,
+  "owner_approval_requested": false,
+  "source_base_commit": "8c9129bc3c2a642b947bbb760481f64c54088af2",
+  "prior_approval_does_not_authorize_utm": true,
+  "candidate": {
+    "release": "UTM v4.7.5",
+    "required_build": "118",
+    "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+    "release_id": 273984640,
+    "asset_id": 335896119,
+    "intended_publisher": "Official UTM free macOS distribution; Turing Software, LLC is its App Store seller, not a verified free-DMG certificate subject",
+    "actual_signer_team_and_certificate_unverified": true,
+    "backend": "Apple Virtualization",
+    "bundle_identifier_expected": "com.utmapp.UTM"
+  },
+  "resources": {
+    "cpus": 2,
+    "ram_bytes": 4294967296,
+    "disk_bytes": 21474836480,
+    "auxiliary_budget_bytes": 4294967296,
+    "aggregate_budget_bytes": 25769803776
+  },
+  "auxiliary_allowances_mib": {
+    "dmg": 256,
+    "installed_app_including_bundled_components": 2048,
+    "ubuntu_archive": 768,
+    "verifier_archive_and_extraction": 32,
+    "kernel_initrd_and_extraction_scratch": 192,
+    "seed_source_and_iso": 16,
+    "raw_plus_retained_evidence": 128,
+    "app_containers_cache_temporary_and_metadata": 512,
+    "remaining_margin": 144
+  },
+  "paths": {
+    "task_root": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+    "application": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools/UTM-4.7.5/UTM.app",
+    "vm_package": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/vm/fort-utm-isolation-probe.utm",
+    "mountpoint": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5",
+    "verifier": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools/openpgp/6.3.2",
+    "app_container": "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+    "group_container_rule": "Resolve exact group identifier(s) from accepted artifact entitlement; record concrete absent path(s) under Library/Group Containers before first launch; no wildcard cleanup",
+    "extra_app_state_rule": "Only newly observed UTM-specific preference/cache/saved-state and Darwin user temp/cache subdirectories; concrete owned manifest required. Existing or unattributed paths stop."
+  },
+  "downloads": [
+    {
+      "name": "UTM.dmg",
+      "url": "https://github.com/utmapp/UTM/releases/download/v4.7.5/UTM.dmg",
+      "sha256": "a8435c93cfb5f8bbfeea4b134cfad1ac66b67632b75e438c63b1a8ae043bef0e",
+      "observed_release_asset_bytes": 250021057,
+      "max_bytes": 268435456,
+      "kind": "candidate-notarized-application-disk-image",
+      "downloaded_in_this_preparation": false
+    },
+    {
+      "name": "noble-server-cloudimg-arm64.tar.gz",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.tar.gz",
+      "sha256": "1800eb56b6b839a08c020551e16fbd8c95b2772452ecce3737a9ad25fe594126",
+      "max_bytes": 805306368,
+      "kind": "candidate-raw-filesystem-kernel-archive",
+      "archive_contents_uninspected": true
+    },
+    {
+      "name": "ubuntu.sums",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS",
+      "sha256": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata"
+    },
+    {
+      "name": "ubuntu.sig",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS.gpg",
+      "sha256": "1703eef53a392af8f6834716afacc15f74eac14f07aa8d916c1fe5dc219419d1",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata"
+    },
+    {
+      "name": "ubuntu.pub",
+      "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+      "sha256": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata"
+    },
+    {
+      "name": "ubuntu.manifest",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest",
+      "sha256": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
+      "max_bytes": 65536,
+      "kind": "public-package-metadata"
+    },
+    {
+      "name": "openpgp-6.3.2-metadata.json",
+      "url": "https://registry.npmjs.org/openpgp/6.3.2",
+      "sha256": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata"
+    },
+    {
+      "name": "npm-public-signing-keys.json",
+      "url": "https://registry.npmjs.org/-/npm/v1/keys",
+      "sha256": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata"
+    },
+    {
+      "name": "openpgp-6.3.2.tgz",
+      "url": "https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz",
+      "sha512": "c1c653cc7cf8d4b57c638f331ff2650f5253f1874d9a958eb8c02343fa6876fbc2c2c8c1114dfb2b7ce7261e1441c8f7864b04e73f53cef85b51bc33b06be52d",
+      "integrity": "sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ==",
+      "max_bytes": 8388608,
+      "kind": "private-verifier-archive"
+    }
+  ],
+  "new_host_packages": [],
+  "new_guest_packages": [],
+  "fresh_keys": [],
+  "credentials": "None. Serial authority is the trusted Mac owner and exact owned PTY; not cryptographic peer authentication. Disable guest SSH key generation and SSH services. No existing credential reads.",
+  "management": {
+    "lifecycle": "owner operates UTM GUI at an agreed time; no utmctl/AppleScript/Shortcuts/UI automation",
+    "transport": "two Apple VZ serial devices: bounded boot/inspection evidence and exclusive fixed-protocol control via owner-scoped PTYs",
+    "new_code_required": "Reviewed Python-stdlib PTY transport/root broker and NoCloud adaptation; not implemented here",
+    "grant_count": 1,
+    "replacement_or_retry": false,
+    "no_guest_nic": true,
+    "no_host_listener": true
+  },
+  "trust": {
+    "trusted": [
+      "signed-in Mac owner",
+      "accepted signed UTM app and bundled code",
+      "Apple Virtualization and host OS",
+      "guest root and fixed management broker"
+    ],
+    "untrusted_subject": "fixed synthetic tool process under separate guest dynamic UID",
+    "not_proven": [
+      "production agent isolation",
+      "PTY trust boundary",
+      "guest image bootability",
+      "T07"
+    ]
+  },
+  "host_network": {
+    "public_download_domains": [
+      "github.com",
+      "release-assets.githubusercontent.com",
+      "cloud-images.ubuntu.com",
+      "keyserver.ubuntu.com",
+      "registry.npmjs.org"
+    ],
+    "application_metadata_domain": "api.github.com",
+    "application_metadata_policy": "Disclose first-launch release-note request; disable optional update checks and do not fetch galleries or VM templates. Exact version endpoint observed in source. No network enforcement claim.",
+    "os_trust_services": "Existing macOS/Apple certificate and notarization services may be contacted by assessment; no owner Apple account sign-in",
+    "guest_network_devices": 0,
+    "host_firewall_changes": false
+  },
+  "pre_execution_requirements": [
+    "new owner authority bound to a reviewed execution packet",
+    "accepted actual Developer ID/notarization/Gatekeeper and nested-code inventory",
+    "exact archive member and raw disk/kernel/initrd inspection",
+    "resolve exact new UTM container and group-container paths",
+    "test-first PTY transport, bounded inspection broker, NoCloud seed and cleanup implementation; independently reviewed seal",
+    "live preflight, signature checks and guest readiness before the one synthetic grant"
+  ],
+  "out_of_scope": [
+    "Lima retry or Gatekeeper exception",
+    "QEMU VM backend or executable converter",
+    "host sudo/account/TCC/Full Disk Access changes",
+    "Automation or Accessibility grant",
+    "existing UTM installation/state modification",
+    "providers or real agent runtime",
+    "accounts, billing, publication, deployment",
+    "VM snapshots, resumes, replacements or extra fault sessions"
+  ]
+}

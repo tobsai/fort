@@ -1,0 +1,87 @@
+{
+  "document_kind": "inert design intent, NOT a UTM config.plist or importable .utm bundle",
+  "application_and_boot_unassessed": true,
+  "name": "fort-utm-isolation-probe",
+  "backend": "Apple",
+  "architecture": "aarch64",
+  "cpus": 2,
+  "memory_mib": 4096,
+  "boot": {
+    "type": "native Linux direct kernel/initrd; UEFI false",
+    "kernel_source": "inspected ARM64 Image from signed Ubuntu tar; bounded gzip decompression only if necessary",
+    "initrd_source": "same signed Ubuntu tar",
+    "kernel_arguments": "console=hvc0 root=LABEL=cloudimg-rootfs rw",
+    "gate": "Exact archive member paths, ARM64 header, root label/filesystem/layout and initrd compatibility must be established. No guessed member path or QCOW passthrough."
+  },
+  "drives": [
+    {
+      "role": "guest root",
+      "format": "raw",
+      "max_logical_bytes": 21474836480,
+      "read_only": false,
+      "removable": false,
+      "nvme": false,
+      "source": "one accepted raw disk from archive, retained at original size; no resize/conversion/duplicate"
+    },
+    {
+      "role": "NoCloud seed",
+      "format": "ISO9660 CIDATA",
+      "read_only": true,
+      "removable": false,
+      "nvme": false,
+      "max_bytes": 8388608,
+      "contents": "only reviewed synthetic user-data, meta-data and network-config; root-owned seed files, no secret keys"
+    }
+  ],
+  "serial_devices": [
+    {
+      "mode": "Ptty",
+      "guest_device_expected": "/dev/hvc0",
+      "role": "bounded boot and fixed pre/postflight evidence; no login shell"
+    },
+    {
+      "mode": "Ptty",
+      "guest_device_expected": "/dev/hvc1",
+      "role": "one fixed prepare/grant/heartbeat/stop controller session; no shell or arbitrary command"
+    }
+  ],
+  "network_devices": [],
+  "shared_directories": [],
+  "display_devices": [],
+  "audio": false,
+  "clipboard": false,
+  "rosetta": false,
+  "keyboard": "Disabled",
+  "pointer": "Disabled",
+  "entropy": true,
+  "balloon": false,
+  "usb": "No physical device attachment/autoconnect. UTM source adds virtual xHCI controller on macOS 15+ even with no attached devices.",
+  "guest": {
+    "uid_1000": "fort-admin locked-password, nologin, no sudo; no interactive administrator path",
+    "runtime_uid_gid": 2001,
+    "runtime_sudo": false,
+    "tool_uid": "systemd DynamicUser",
+    "root_broker": "guest-only management service starts after successful provisioning; never starts runtime or tool without exact synthetic grant",
+    "ssh": "disabled; no authorized keys; suppress key generation",
+    "package_updates_installs": "none",
+    "firewall": "defense-in-depth drop-all non-loopback; no NIC/DHCP/NAT rules copied from Lima"
+  },
+  "control_invariants": {
+    "input_output_frame_cap": 4096,
+    "readiness_identity": "VM package UUID + exact owner/process/PTY + guest boot ID + installation/epoch/attempt/generation/unit invocation/cgroup",
+    "prepare_lease_seconds": 4,
+    "runtime_max_seconds": 40,
+    "tool_max_seconds": 38,
+    "watchdog_seconds": 2,
+    "stop_timeout_seconds": 2,
+    "heartbeat_count": 19,
+    "resend_on_uncertainty": false
+  },
+  "new_source_changes_needed": [
+    "replace SSH host session with bounded exclusive PTY transport",
+    "root serial broker/inspection service with raw terminal mode and no login/getty conflict",
+    "NoCloud seed installation and no-NIC package/device readiness checks",
+    "manifest-aware UTM registration/stop/cleanup recorder"
+  ],
+  "not_implemented": true
+}

@@ -1,0 +1,145 @@
+{
+  "time_utc": "2026-10-12T22:58:18.957190+00:00",
+  "kind": "static proposal consistency only",
+  "source_base_commit": "8c9129bc3c2a642b947bbb760481f64c54088af2",
+  "checks": [
+    {
+      "check": "proposal inert, no recorded/requested execution authority",
+      "result": "passed"
+    },
+    {
+      "check": "original resource ceilings preserved",
+      "result": "passed"
+    },
+    {
+      "check": "4 GiB auxiliary budget reconciles including margin",
+      "result": "passed"
+    },
+    {
+      "check": "one synthetic grant, no replacement",
+      "result": "passed"
+    },
+    {
+      "check": "no NIC, shares, credentials or additional package installation",
+      "result": "passed"
+    },
+    {
+      "check": "nine unique HTTPS candidate inputs with caps and digests",
+      "result": "passed"
+    },
+    {
+      "check": "UTM identity matches retrieved official API data",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: ubuntu.sums",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: ubuntu.sig",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: ubuntu.pub",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: ubuntu.manifest",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: openpgp-6.3.2-metadata.json",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: npm-public-signing-keys.json",
+      "result": "passed"
+    },
+    {
+      "check": "preserved pin/cap: openpgp-6.3.2.tgz",
+      "result": "passed"
+    },
+    {
+      "check": "new tar checksum matches original-pin metadata",
+      "result": "passed"
+    },
+    {
+      "check": "all 31 official source snapshots match provenance",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> ../../../reviews/gatekeeper-8c9129b/REVIEW.md",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> scope.json",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> vm-intent.json",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> APPROVAL-SCOPE.md",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> UNVERIFIED.md",
+      "result": "passed"
+    },
+    {
+      "check": "local link README.md -> ASSESSMENT-APPROVAL.md",
+      "result": "passed"
+    },
+    {
+      "check": "old packet/evidence unchanged",
+      "result": "passed"
+    },
+    {
+      "check": "path remains absent: /Applications/UTM.app",
+      "result": "passed"
+    },
+    {
+      "check": "path remains absent: /Users/tobiasgunn/Applications/UTM.app",
+      "result": "passed"
+    },
+    {
+      "check": "path remains absent: /Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+      "result": "passed"
+    },
+    {
+      "check": "path remains absent: /Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+      "result": "passed"
+    },
+    {
+      "check": "path remains absent: /Users/tobiasgunn/Library/FortUTMIsolation",
+      "result": "passed"
+    },
+    {
+      "check": "no binary or executable staged in proposal",
+      "result": "passed"
+    },
+    {
+      "check": "no private-key blocks in proposal",
+      "result": "passed"
+    }
+  ],
+  "official_source_snapshots": 31,
+  "local_links_checked": 6,
+  "unrun": [
+    "UTM payload hash/signature/notarization/Gatekeeper",
+    "Ubuntu tar authenticity/member/disk/kernel inspection",
+    "native boot and NoCloud provisioning",
+    "PTY transport tests: adapter not implemented",
+    "guest isolation, synthetic execution, lifecycle and cleanup",
+    "product/provider or T07 acceptance"
+  ],
+  "nonpassing_research_access": [
+    "web API open unavailable; public API then read via authorized no-credential HTTPS",
+    "sandbox denied initial DNS; exact public text-only read repeated outside sandbox"
+  ],
+  "additional_package_installations": 0,
+  "new_permissions": 0,
+  "app_or_vm_runs": 0,
+  "owner_approval_requested": false
+}
