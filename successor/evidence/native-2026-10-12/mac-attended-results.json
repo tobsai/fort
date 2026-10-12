@@ -1,0 +1,185 @@
+{
+  "applicationSourceCommit": "986afd30f2967287764c5e10f11282a0e4f33a22",
+  "testSourceCommit": "8cfc9ca1375ce880021455757c25afa129d80720",
+  "applicationByteIdenticalAcrossAllJourneys": true,
+  "artifacts": [
+    {
+      "kind": "application",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMac.app",
+      "signatureVerifiedDeepStrict": true,
+      "entitlementsMatchPreparedBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMac",
+          "sha256": "fc2ecf5a03df2a21284d1bfe66f77ea3fb6c7cdf7486741b895ba9895f84824e"
+        },
+        {
+          "file": "Contents/MacOS/FortMac.debug.dylib",
+          "sha256": "6562219d3a55f75a61889327b61df16138f36a6098a545b92d0ca90f89549242"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "532e6de2a536da4317c13f2206bd65bd1b5226add85007d0456d9b2f807f8638"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "036097c1447e40eb6e758ccc6f0c79e35151fcd997a6a9b8efeda18adfe61dca"
+        }
+      ],
+      "preparedArtifactPreservedAt": "/tmp/fort058-mac-986afd3-original-products/Debug/FortMac.app",
+      "allPreparedHashesVerified": true
+    },
+    {
+      "kind": "testRunner",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMacUITests-Runner.app",
+      "signatureVerifiedDeepStrict": true,
+      "entitlementsMatchPreparedBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMacUITests-Runner",
+          "sha256": "46fcffe6f92acdefaf7f06b6f8bfac5819df0f78c78a39500c531e1fcd4c89dd"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "d4daf66eef33d6b17be5b946d9af41383b962bfeb7ccea672e2d95f3e44e1449"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "181669596c2ac80cee756b18121a448c7f018e9975b640dbef146d5d9bd4f6ed"
+        }
+      ],
+      "preparedArtifactPreservedAt": "/tmp/fort058-mac-986afd3-original-products/Debug/FortMacUITests-Runner.app",
+      "allPreparedHashesVerified": true
+    },
+    {
+      "kind": "testBundle",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest",
+      "signatureVerifiedDeepStrict": true,
+      "entitlementsMatchPreparedBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMacUITests",
+          "sha256": "4027ffba2f80b917d6d4a5bb5fc3b74ff07d2e33ad11bbee5b173308227396ed"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "5daca776fa867cecf54abf8f1437fec8c293f21cf55a115e69a4ea72ab8cf962"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+        }
+      ],
+      "preparedArtifactPreservedAt": "/tmp/fort058-mac-986afd3-original-products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest",
+      "allPreparedHashesVerified": true
+    }
+  ],
+  "testRun": {
+    "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/FortMac_macosx27.0-arm64.xctestrun",
+    "sha256": "3ac683c05da724e17dac8623d00f01ad50fb7bbf82a93910048b03e44ed8b431"
+  },
+  "results": [
+    {
+      "scenario": "recovery-1",
+      "resultBundle": "/tmp/fort058-mac-986afd3-owner-recovery-1.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "testFailures": [],
+      "harnessLedgerVerificationPassed": true,
+      "logSHA256": "144dd0bd6ce65cfda0ff441ec28794f6886dfb3b509ff02df730dcb231073612",
+      "harnessLogSHA256": "eb8879fb05763e5f16f2aeb0a7a43f985bc05554848ea378c9cb7c750c2e3667"
+    },
+    {
+      "scenario": "approval-1",
+      "resultBundle": "/tmp/fort058-mac-986afd3-owner-approval-1.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "testFailures": [],
+      "harnessLedgerVerificationPassed": true,
+      "logSHA256": "68c37df487fa8cae158a9dff9d8578b298e2436759c45c59dfcbeccbd95e728d",
+      "harnessLogSHA256": "1343de784abd125b1e95bc8e78bfe58b6a66a16b54e52c8bb4c49f8228a37138"
+    },
+    {
+      "scenario": "unknown-1",
+      "resultBundle": "/tmp/fort058-mac-986afd3-owner-unknown-1.xcresult",
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "testFailures": [
+        {
+          "failureText": "Failed to click \"Cancel\" Button: Find single matching element. Multiple matching elements found for <XCUIElementQuery: 0x774525a530>.\nSparse tree of matches:\n\u2192Application, pid: 33428, title: 'FortMac'\n  \u21b3TouchBar\n  \u22c5 \u21b3Button, title: 'Cancel'\n  \u21b3Window, identifier: 'SwiftUI.WindowGroup<SwiftUI.ModifiedContent<SwiftUI.Group<SwiftUI._ConditionalContent<FortKit.MessengerView, SwiftUI.ContentUnavailableView<SwiftUI.Label<SwiftUI.Text, SwiftUI.Image>, Swift.Optional<SwiftUI.Text>, SwiftUI.EmptyView>>>, SwiftUI._TaskModifier2>>-1-AppWindow-1', title: 'Fixture Agent'\n    \u21b3Sheet, identifier: '_NS:87', label: 'alert'\n      \u21b3Button, identifier: 'action-button-2', title: 'Cancel'\nPossibly caused by runtime issues:\nAutomation type mismatch: computed Other from legacy attributes vs Button from modern attribute. Input attributes and values: {\n    AXAutomationType = 9;\n    AXRole = AXUnknown;\n}\nSee test report attachments for more detail.",
+          "targetName": "FortMacUITests",
+          "testIdentifier": 1,
+          "testIdentifierString": "NativeJourneyTests/testCloseUnknownWithoutRetry()",
+          "testIdentifierURL": "test://com.apple.xcode/FortSpec058/FortMacUITests/NativeJourneyTests/testCloseUnknownWithoutRetry",
+          "testName": "testCloseUnknownWithoutRetry()"
+        }
+      ],
+      "harnessLedgerVerificationPassed": false,
+      "logSHA256": "e466289c9dee48c33809b966f306f743957a25ee66d055d483096ce55c13fe6d",
+      "harnessLogSHA256": "aee4a2ecdeb41488b61410d0588c47bda65b62d4141e18d4bdc19d06f664ff77"
+    },
+    {
+      "scenario": "unknown-2",
+      "resultBundle": "/tmp/fort058-mac-986afd3-owner-unknown-2.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "testFailures": [],
+      "harnessLedgerVerificationPassed": true,
+      "logSHA256": "b731eac2668edcfc3aa466ce08bf5030b8a67f9181181bee9ebff40175242016",
+      "harnessLogSHA256": "427c6239aea1be86bb4fa073bbfcb72f5656459302f1c5d11e8958010fbc0009"
+    }
+  ],
+  "ledgerAssertions": {
+    "recovery": {
+      "userMessages": 3,
+      "assistantMessages": 3,
+      "completedRuns": 3,
+      "droppedAcceptanceResponses": 1
+    },
+    "approval": {
+      "userMessages": 2,
+      "assistantMessages": 1,
+      "runStates": [
+        "completed",
+        "canceled"
+      ]
+    },
+    "unknown": {
+      "userMessages": 2,
+      "assistantMessages": 1,
+      "runStates": [
+        "closedUnknown",
+        "completed"
+      ],
+      "closeRequests": 1,
+      "closeResponseStatuses": [
+        200
+      ],
+      "originalUnknownRequestRetried": false
+    }
+  },
+  "screenshotsInspected": [
+    "mac-attended-conversation.png",
+    "mac-attended-restarted.png",
+    "mac-attended-offline.png",
+    "mac-attended-lost-ack.png",
+    "mac-attended-approval-cancel.png",
+    "mac-attended-unknown-closed.png"
+  ],
+  "priorMacAndBothIPhoneProductsUnchanged": true,
+  "fixtureOnly": true,
+  "authorizationChangesPerformed": false,
+  "providerExecutionEnabled": false
+}

@@ -1,6 +1,6 @@
 # Current Mac artifacts ready for attended tests — 2026-10-12
 
-**Build passed; Mac installed acceptance remains pending local owner authentication.**
+**Historical build-only record.** The subsequent [owner-attended verification](2026-10-12-mac-attended-stage1.md) passed all three Mac journeys. The app stayed byte-identical; a test-selector correction updated the runner. Original prepared products, matching every hash in this build record, are preserved at `/tmp/fort058-mac-986afd3-original-products`. The original preparation account below is retained.
 No app, XCTest runner or UI test was launched. Automation Mode was neither queried
 nor requested or enabled during this build-only follow-up.
 

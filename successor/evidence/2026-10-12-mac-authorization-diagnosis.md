@@ -1,5 +1,7 @@
 # Mac XCTest authorization diagnosis — 2026-10-12
 
+**Historical failed-session diagnosis.** The later [owner-attended Stage 1 verification](2026-10-12-mac-attended-stage1.md) passed recovery, approval/cancellation and uncertainty on the current app without an authorization workaround. The observations below are preserved; they do not describe a remaining Stage 1 blocker.
+
 Reviewed source: `51bbeaf9fa683cf2074f0405aebbdbd50bc19526`. Tested app source:
 `e47730c025285d1b15c14a5df6d9d277055938a1`. No product code, signing, entitlements
 or test orchestration was changed during this diagnosis.

@@ -73,8 +73,8 @@ Local Mac and iPhone Simulator builds first succeeded without signing. Installed
 Simulator tests now use explicit local ad-hoc signing to access Keychain; this is
 configured only for the Simulator SDK. No account or signing certificate was added. These are build
 and fixture results; no physical iPhone, official provider, App Store/TestFlight,
-notarization or release acceptance is implied. Stage 1 is not fully accepted until
-both installed native UIs have been exercised for reconnect/restart/recovery.
+notarization or release acceptance is implied. Stage 1 now has passing installed fixture evidence for reconnect/restart/recovery
+on both native clients; see the attended acceptance record below.
 
 ## Gates before runtime expansion
 
@@ -118,10 +118,14 @@ The [installed iPhone closure and race follow-up](evidence/2026-10-12-iphone-clo
 adds a passed two-Simulator approval race and uncertainty recovery journey.
 `d044da9` retains a confirmed closure across background refresh, with a failing-then-
 passing public HTTP regression and 19 passing Swift tests. `b99d89e` records the
-installed test harnesses. These are fixture subsets: Mac UI remains paused for
-local owner authentication, and the preserved older Mac build does not include
-this model fix. Independent review of `986afd3` reports no new actionable findings.
+installed test harnesses. The earlier preserved Mac build predates this model fix; the separate current
+build below includes it. Independent review of `986afd3` reports no new actionable findings.
 The [current-source Mac build](evidence/2026-10-12-mac-current-build.md) now provides
 separate signed app/test artifacts for that exact source, with verified signatures,
-unchanged entitlements and an owner-attended command. No Mac UI was launched;
-current-artifact Mac installed acceptance remains pending local authentication.
+unchanged entitlements and an owner-attended command. That preparation step launched no UI. The subsequent
+[owner-attended Mac verification](evidence/2026-10-12-mac-attended-stage1.md) passed
+recovery, approval/cancellation and uncertainty closure against the byte-identical
+`986afd3` app, completing the Stage 1 native fixture exit. `8cfc9ca` fixes only a
+Mac test selector that matched both the dialog and Touch Bar Cancel buttons.
+The corrected runner passed; all broader provider, physical-device and release
+gates remain open, and no provider execution is enabled.

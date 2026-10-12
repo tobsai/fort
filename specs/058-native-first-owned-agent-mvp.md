@@ -1,6 +1,6 @@
 # 058: Native-first owned Agent MVP
 
-Status: Approved for staged local implementation by Toby on 2026-10-12 (02:43 UTC). Stage 1 is in progress; see [implementation evidence](../successor/IMPLEMENTATION.md). Original proposal wording below is retained as decision history; external-action and acceptance gates still apply.
+Status: Approved for staged local implementation by Toby on 2026-10-12 (02:43 UTC). Stage 1 native fixture verification passed on 2026-10-12; see [attended acceptance evidence](../successor/evidence/2026-10-12-mac-attended-stage1.md). Live providers remain disabled and later-stage acceptance remains open. Original proposal wording below is retained as decision history; external-action and acceptance gates still apply.
 
 Decision owner: Toby. Written: 2026-10-12.
 
