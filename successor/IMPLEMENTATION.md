@@ -151,3 +151,31 @@ credential confinement, authenticated/fenced runner integration, exact-runtime
 conformance and provider-native feasibility/real-turn evidence. See the
 [enclosing-boundary requirements](runner/README.md). No new owner intervention is
 needed for further deterministic work; provider activation remains gated.
+
+## Synthetic runner-to-ledger increment
+
+After independent acceptance of `f6a968e` / `43d0ca8`, the parent authorized a
+backend-only synthetic bridge and crash/replay tests. `1804345` implements that
+bounded slice: a persisted fresh-ledger fixture mode, separately scoped runner
+sessions and dispatch capabilities, immutable accepted binding snapshots,
+transaction-bound event authentication, exact turn/generation/model/runtime
+fencing, canonical replay receipts and atomic terminal persistence. No donor or
+provider source was copied and no public/native contract was expanded.
+
+The deterministic transport state machine verifies the dispatch's text digest,
+orders writes before close actions and bounds handshake, turn, interruption and
+teardown deadlines. Actual temporary fixture service/runner processes were killed
+at recorded boundaries. Unknown outcomes retain the barrier; only committed terminal
+evidence or explicit owner closure releases eligible work. Session credentials
+cannot act as owner credentials, and IDs/text alone authorize nothing.
+
+`611521e` adds the final concurrent-terminal and first-cancel race verification.
+The complete backend suite passes **116 Node tests**, including the prior 67,
+41 bridge tests and 8 transport tests. Strict TypeScript checking passes. Source
+hashes, raw red/green logs, command outcomes, crash cases and limits are in the
+[synthetic bridge record](evidence/2026-10-12-synthetic-runner-bridge.md).
+Native/Swift validation was deliberately not rerun in this backend-only increment.
+No UI session, real provider invocation, credential read/copy, login, persistent
+permission, deployment or push occurred. Stage 2 remains incomplete; production
+host enrollment/TLS, enforced OS isolation, actual process I/O/deadlines and exact
+runtime/provider/native feasibility evidence remain open.

@@ -1,9 +1,11 @@
 # Runner boundaries
 
-Only the deterministic fixture worker is connected to the service. The Codex
-module is an **unwired, in-memory protocol adapter**. It cannot launch a process,
-open a connection, sign in, read configuration or credentials, or write the ledger.
-Stage 2's official-provider exit remains open.
+The service defaults to the deterministic fixture worker. An explicitly selected
+fresh synthetic ledger now supports authenticated fixture runner dispatch and
+evidence ingestion. The Codex module remains an **in-memory protocol adapter**;
+the new synthetic state machine exercises it without an official runtime. Neither
+class launches a process, opens a connection, signs in, reads provider configuration
+or credentials, or writes the ledger. Stage 2's official-provider exit remains open.
 
 ## Codex turn seam
 
@@ -19,7 +21,9 @@ attempt, generation, binding revision, runtime version and selected model, plus
 an adapter-local sequence. These fields are correlation metadata, **not runner
 authentication, authorization, attestation or durable fencing**. The supplied
 runtime version is a binding assertion; the adapter cannot verify a binary.
-Nothing changes the native/public v1 contract.
+Nothing changes the native/public v1 contract. The synthetic HTTP bridge adds
+authentication and durable fencing outside these adapter fields; it does not
+make the adapter or provider output an authority source.
 
 The adapter bounds input to 65,536 UTF-8 bytes, individual incoming frames to
 262,144 bytes, total wire input to 1,000,000 bytes, deltas and final text each to
@@ -77,8 +81,9 @@ Before using this seam with an official runtime, the enclosing implementation mu
    restart matrix. Initial tool/approval requests remain unsupported until an
    exact Fort owner-approval mapping is implemented and tested.
 
-These are open implementation and acceptance requirements, not a claim that an
-isolation arrangement or runner enrollment exists. No owner action is needed to
+The synthetic slice tests the event/authentication portion of these requirements.
+Production host enrollment, transport and isolation remain open; trusted fixture
+enrollment is not a deployed runner identity system. No owner action is needed to
 continue deterministic boundary tests. A real provider turn must wait for proven
 confinement and any necessary concrete OS setup authorization, followed by the
 owner's provider-native sign-in in that exact environment. Login alone cannot
@@ -102,3 +107,35 @@ schema and synthetic conformance tests before enabling a real turn. There is no
 silent selection of a newer runtime or fallback provider.
 
 See [test evidence and remaining gates](../evidence/2026-10-12-codex-protocol.md).
+
+## Synthetic lifecycle and ledger bridge
+
+`SyntheticTurn` consumes a recorded `SyntheticDispatch`, verifies its exact fixture
+binding and text digest, and returns ordered actions. Handshake is a synthetic
+thread-ID acknowledgement, not Codex initialization or model availability proof.
+The injected clock drives 5-second handshake, 30-second turn and 2-second interrupt
+deadlines. Closing requests get a 2-second teardown deadline and then a force-close
+action. Late cancellation cannot extend an expired deadline. Deadlines, missing
+terminal output and connection loss retain uncertainty. Never-started cancellation
+requires a committed owner cancellation; after dispatch, a correlated interrupted
+terminal can establish cancellation. An acknowledgement alone cannot.
+
+Wire writes precede evidence and close actions in each returned batch. The tests
+execute these actions in order against a fake transport and the real authenticated
+loopback fixture API. This is a deterministic action engine, not a production
+process/stdio loop: an enclosing implementation must drive its clock and actions,
+bound actual blocked writes, own process termination, and report connection loss.
+Force-close is an instruction, never proof that a process or external effect stopped.
+
+The bridge's 40-second dispatch lease provides a separate service fence. Expiry
+becomes durable unknown state on the next authenticated owner observation, runner
+claim or exact runner status check. It never grants another attempt. This fixture
+uses no always-running scheduler or host service. Runtime `failed` evidence is
+retained privately and maps conservatively to the existing fixture v1 unknown
+state; distinct production failure projection is still a later contract decision.
+
+The synthetic binding stays visibly `provider: fixture`, version `1`, model
+`fixture-echo-v1`. The private evidence's `provider: codex` names the exercised
+wire codec; it is not evidence that an official runtime or selected model ran.
+See [service seam and scope](../service/README.md#synthetic-runner-bridge) and
+[crash/replay evidence](../evidence/2026-10-12-synthetic-runner-bridge.md).

@@ -1,0 +1,257 @@
+{
+  "recordVersion": 1,
+  "date": "2026-10-12",
+  "status": "synthetic-bridge-tested-live-providers-disabled",
+  "branch": "codex/fort-core-openmaus-20261011",
+  "worktree": "/tmp/fort-core-openmaus-20261011",
+  "baseCommit": "43d0ca89798086fa1235217e6a0751271ddc748f",
+  "implementationCommit": "18043450e26c3c73bb259fc8ab00ff8fbd89d733",
+  "sourceCommit": "611521e74a9ec28e3c0fc2a60725c462b8c9ef2b",
+  "unchangedDonorUpstream": "8b53c0323dba2099a953ee2d77ab9330cd5acaa7",
+  "sourceSha256": {
+    "successor/contracts/runner.ts": "8706abb2ebe588294e5b3abcce4f06ed6eebae5f40a49bdd07df78c8142a1439",
+    "successor/service/service.ts": "c625d0e51d16c7f0f2b3ff7391bb2e1c59de8367ff00c75919baecd9d722fb76",
+    "successor/service/synthetic-runner.ts": "0e6ebc5c7c192f94e74de5ebc81ec4659575837ed15f3b7c4280d8cdc710aa35",
+    "successor/service/synthetic-runner.test.ts": "8f3ce4d1647bfc54c3839f702e21e338f848c45a0a5414d14accd233fd38b9c6",
+    "successor/service/synthetic-crash-host.ts": "78425bb10fab858aeb29042ab0ebf1cc0445add8701bccd4efb9daccd5960259",
+    "successor/runner/synthetic-transport.ts": "7c495264cbda693ffb5afaf57be10610867875c6ea2c93232407f479a9b74fb9",
+    "successor/runner/synthetic-transport.test.ts": "31eed0b16e0d8395bfd3891bced4bcf231d24e5653f98fdee73c4e81f94e0ee6",
+    "successor/package.json": "0861dc55d2b82ca0ffca1dc9c20ea206911366acabaa0936a787f3be28a0b18f"
+  },
+  "toolchain": {
+    "node": "26.5.0",
+    "nodePath": "/opt/homebrew/opt/node@26/bin/node",
+    "typescript": "6.0.3",
+    "typesNode": "26.6.5"
+  },
+  "checks": [
+    {
+      "cwd": "/tmp/fort-core-openmaus-20261011/successor",
+      "command": "/opt/homebrew/opt/node@26/bin/node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts",
+      "exitCode": 0,
+      "tests": 116,
+      "passed": 116,
+      "failed": 0,
+      "skipped": 0,
+      "log": "backend-final.log"
+    },
+    {
+      "cwd": "/tmp/fort-core-openmaus-20261011",
+      "command": "/opt/homebrew/opt/node@26/bin/node --test successor/runner/synthetic-transport.test.ts",
+      "exitCode": 0,
+      "tests": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "log": "transport-final.log"
+    },
+    {
+      "cwd": "/tmp/fort-core-openmaus-20261011",
+      "command": "/opt/homebrew/opt/node@26/bin/node successor/node_modules/typescript/bin/tsc -p successor/tsconfig.json",
+      "exitCode": 0,
+      "outputBytes": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "git diff 43d0ca8 HEAD --check",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --quiet 43d0ca8 HEAD -- foundation specs successor/apple successor/contracts/v1.ts successor/contracts/openapi.json successor/runner/codex.ts successor/contracts/runtime.ts",
+      "exitCode": 0
+    }
+  ],
+  "logs": [
+    {
+      "file": "bridge-initial-red.log.gz",
+      "sourcePath": "/tmp/fort058-bridge-first-red.log",
+      "exitCode": 1,
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "19e1fd9d4b18de1173f1d438bad7d0def374df0532b05d2e2c1c5a8c88f29578",
+      "rawOutputSha256": "d61ac98d2027710396a4586553a955d905f75378af0ef653a4b2aaf7794b3aa2"
+    },
+    {
+      "file": "bridge-first-green.log",
+      "sourcePath": "/tmp/fort058-bridge-first-green.log",
+      "exitCode": 0,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "compression": null,
+      "sha256": "1fb6eea1dd3f107a1d2d8f45e68461151b59ebbf565836acac4acfb07fffac2c",
+      "rawOutputSha256": "1fb6eea1dd3f107a1d2d8f45e68461151b59ebbf565836acac4acfb07fffac2c"
+    },
+    {
+      "file": "bridge-boundary-red.log.gz",
+      "sourcePath": "/tmp/fort058-bridge-boundary-red.log",
+      "exitCode": 1,
+      "tests": 12,
+      "pass": 7,
+      "fail": 5,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "aa9fa44a324119830f2e9fc710d4c87ed3da4b45d7ba102a54cd2571aec87db1",
+      "rawOutputSha256": "47bd2f161b679b933bbb1ee05a53b75f3fdaa3f53285b815a4ca2597bb295e02"
+    },
+    {
+      "file": "bridge-lifecycle-red.log.gz",
+      "sourcePath": "/tmp/fort058-bridge-lifecycle-red.log",
+      "exitCode": 1,
+      "tests": 15,
+      "pass": 13,
+      "fail": 2,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "974e4dd8b45d5ba33ba7e5acd419f0a387df6c0c43ffb773d701e425b0ac6d1f",
+      "rawOutputSha256": "b1fe797c4b53835975f927037309a5fbbea84f95a462f261952edd8de266cca1"
+    },
+    {
+      "file": "bridge-lifecycle-green.log",
+      "sourcePath": "/tmp/fort058-bridge-lifecycle-green.log",
+      "exitCode": 0,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "compression": null,
+      "sha256": "9a3b31066130475df31d1e7fe87ba3286728a6b9360d5f1e885824a0797bdddc",
+      "rawOutputSha256": "9a3b31066130475df31d1e7fe87ba3286728a6b9360d5f1e885824a0797bdddc"
+    },
+    {
+      "file": "bridge-coercion-red.log.gz",
+      "sourcePath": "/tmp/fort058-bridge-coercion-red.log",
+      "exitCode": 1,
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "f539cf9b3fa48cb8e77d7dc55b54a86348a54b6d280ce976cf8f05d26778b079",
+      "rawOutputSha256": "65be8fdf30c1ea75da5f5c02d5c5adfebfc49f8d27b70a3d993c5adb1bb4426b"
+    },
+    {
+      "file": "bridge-coercion-green.log",
+      "sourcePath": "/tmp/fort058-bridge-coercion-green.log",
+      "exitCode": 0,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "compression": null,
+      "sha256": "ce8ca2e0d8db8e816b310537ec9906e80e83116d8c9f7a8d006b963f70dbbcc1",
+      "rawOutputSha256": "ce8ca2e0d8db8e816b310537ec9906e80e83116d8c9f7a8d006b963f70dbbcc1"
+    },
+    {
+      "file": "bridge-integrated-red.log.gz",
+      "sourcePath": "/tmp/fort058-bridge-integrated-red.log",
+      "exitCode": 1,
+      "tests": 42,
+      "pass": 41,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "0b233ad9de53bd0e1dfc8cd3adaf79920657e1f8846f166c2f217c8a331dfb99",
+      "rawOutputSha256": "a104c355821b79dd3843b401a35a6033c1aba641e74292e1b001150baa1aa2ee"
+    },
+    {
+      "file": "transport-initial-red.log.gz",
+      "sourcePath": "/tmp/fort058-transport-first-red.log",
+      "exitCode": 1,
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "0f29df6b2cfe489c069c9bd38d732979bdffec18b072a0933462f4817115b698",
+      "rawOutputSha256": "286a36dcc9947036f95cf90052cee53291afb2507c64b643d85916557b265d0a"
+    },
+    {
+      "file": "transport-timeout-red.log.gz",
+      "sourcePath": "/tmp/fort058-transport-first-green.log",
+      "exitCode": 1,
+      "tests": 7,
+      "pass": 6,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "91b07b3e2bdccd049b78cd335c05b215352ea68887d61986e6ec0d70410e9600",
+      "rawOutputSha256": "5a94e4cac850a6720cee20fb7047bf398d377b9466554c0c5e95902a06e328c1"
+    },
+    {
+      "file": "transport-late-cancel-red.log.gz",
+      "sourcePath": "/tmp/fort058-transport-late-red.log",
+      "exitCode": 1,
+      "tests": 8,
+      "pass": 7,
+      "fail": 1,
+      "skipped": 0,
+      "compression": "gzip",
+      "sha256": "6a671f545a6e03078d247ff92048d9d95041ea4d5663c79ae0394d20879364df",
+      "rawOutputSha256": "4da1d7289fbd346b9af7dab10d56faf3f980611bc3e9bea9ccecaebbf66c8ee1"
+    },
+    {
+      "file": "transport-final.log",
+      "sourcePath": "/tmp/fort058-transport-final.log",
+      "exitCode": 0,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "compression": null,
+      "sha256": "58f69cf726285e40bb098bae1c9136ada68054b7dbffbf4e92cd35b41199d30a",
+      "rawOutputSha256": "58f69cf726285e40bb098bae1c9136ada68054b7dbffbf4e92cd35b41199d30a"
+    },
+    {
+      "file": "backend-final.log",
+      "sourcePath": "/tmp/fort058-bridge-all-node-final.log",
+      "exitCode": 0,
+      "tests": 116,
+      "pass": 116,
+      "fail": 0,
+      "skipped": 0,
+      "compression": null,
+      "sha256": "ead9a4efe02acd23ed2ef286a58e42b5352b0d156ab1aa6ffa8a47ff0d93bf96",
+      "rawOutputSha256": "ead9a4efe02acd23ed2ef286a58e42b5352b0d156ab1aa6ffa8a47ff0d93bf96"
+    }
+  ],
+  "serviceSIGKILLPoints": [
+    "syntheticBeforeClaimCommit",
+    "syntheticAfterClaimCommit",
+    "syntheticAfterReceipt",
+    "syntheticAfterEvidenceCommit",
+    "syntheticAfterMessage",
+    "syntheticBeforeTerminalCommit",
+    "syntheticAfterTerminalCommit"
+  ],
+  "runnerOutcomes": {
+    "runnerBeforeStart": "SIGKILL",
+    "runnerAfterStarted": "SIGKILL",
+    "runnerBeforeTerminal": "SIGKILL",
+    "runnerAfterTerminal": "SIGKILL",
+    "runnerExitZero": "exit code 0 without terminal"
+  },
+  "syntheticDeadlinesMs": {
+    "handshake": 5000,
+    "turn": 30000,
+    "interruption": 2000,
+    "teardown": 2000,
+    "dispatchLease": 40000,
+    "sessionTTL": 300000
+  },
+  "expiryObservation": "Authorized owner request, runner claim or exact runner status; no daemon or automatic redispatch.",
+  "unrun": [
+    "Swift/native build/UI/Simulator/physical device",
+    "official runtime/version/schema generation",
+    "existing/provider credential access and sign-in",
+    "OS/Keychain/IPC/provider credential confinement",
+    "production host enrollment/TLS",
+    "real provider/subscription/model/topology matrix"
+  ],
+  "extractedSourceFiles": [],
+  "authorityChanges": []
+}

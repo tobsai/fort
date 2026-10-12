@@ -1,0 +1,25 @@
+✔ synthetic authenticated dispatch commits exact correlated terminal output once and replays durably (71.505375ms)
+✔ runner and owner credentials have disjoint scopes; every correlation mismatch has no ledger effect (76.04ms)
+✔ evidence replay is canonical and gaps, conflicts and late attempts cannot mutate the ledger (32.622667ms)
+✔ malformed or oversized normalized events and unknown fields are rejected before persistence (93.721417ms)
+✔ deltas remain provisional, exact final messages commit together and phases stay private (25.466542ms)
+▶ cancellation and completion races have one durable outcome; no ACK or exit can confirm cancellation
+  ✔ completed (24.251208ms)
+  ✔ interrupted (25.070541ms)
+✔ cancellation and completion races have one durable outcome; no ACK or exit can confirm cancellation (49.749125ms)
+▶ runner expiry or revocation during a partial upload cannot commit evidence
+  ✔ expiry (21.330125ms)
+  ✔ revocation (16.939541ms)
+✔ runner expiry or revocation during a partial upload cannot commit evidence (38.694417ms)
+✔ synthetic selection is persisted and cannot activate the ordinary fixture process path (12.953458ms)
+✔ a lost runner and expired dispatch become unknown on observation, fence late output and retain the barrier (26.674709ms)
+✔ cancel before turn dispatch requires an owner cancellation and never-started evidence (24.50975ms)
+✔ valid wrong-turn progress, cumulative deltas and failed terminal output cannot become successful messages (29.212167ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 596.537834
