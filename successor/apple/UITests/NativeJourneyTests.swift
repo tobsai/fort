@@ -32,7 +32,7 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(sendButton.isEnabled)
         activate(sendButton)
         XCTAssertTrue(app.staticTexts["Fixture reply saved"].waitForExistence(timeout:15))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format:"label CONTAINS %@","Native UI fixture message")).firstMatch.exists)
+        XCTAssertTrue(containsText("Native UI fixture message",in:app))
         let screenshot = XCTAttachment(screenshot:app.screenshot())
         screenshot.name = "Native conversation with durable fixture reply"
         screenshot.lifetime = .keepAlways
@@ -40,7 +40,7 @@ final class NativeJourneyTests: XCTestCase {
         app.terminate()
         app.launch()
         XCTAssertTrue(app.staticTexts["Fixture reply saved"].waitForExistence(timeout:15))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format:"label CONTAINS %@","Native UI fixture message")).firstMatch.exists)
+        XCTAssertTrue(containsText("Native UI fixture message",in:app))
         let restart = XCTAttachment(screenshot:app.screenshot())
         restart.name = "Native restart recovered transcript"
         restart.lifetime = .keepAlways
@@ -94,6 +94,9 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Canceled"].waitForExistence(timeout:15))
         XCTAssertEqual(app.staticTexts.matching(identifier:"Fixture reply saved").count,1)
         let evidence = XCTAttachment(screenshot:app.screenshot()); evidence.name = "Native approved reply and canceled fixture run"; evidence.lifetime = .keepAlways; add(evidence)
+    }
+    @MainActor private func containsText(_ text: String, in app: XCUIApplication) -> Bool {
+        app.descendants(matching:.any).matching(NSPredicate(format:"label CONTAINS %@ OR value CONTAINS %@",text,text)).firstMatch.exists
     }
     @MainActor private func send(_ text: String, in app: XCUIApplication) throws {
         let composer = app.descendants(matching:.any)["message-composer"].firstMatch
