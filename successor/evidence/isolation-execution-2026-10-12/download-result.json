@@ -1,0 +1,11 @@
+{
+  "started_at_utc": "2026-10-12T21:25:26.957253+00:00",
+  "ended_at_utc": "2026-10-12T21:28:21.896072+00:00",
+  "command": [
+    "/usr/bin/python3",
+    "-I",
+    "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/fetch-public.py"
+  ],
+  "exit_code": 1,
+  "retry": false
+}

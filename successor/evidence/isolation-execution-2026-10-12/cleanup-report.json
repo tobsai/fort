@@ -1,0 +1,55 @@
+{
+  "started_at_utc": "2026-10-12T21:30:04.913680+00:00",
+  "removed": [
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/lima-2.2.1-Darwin-arm64.tar.gz",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.914532+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/lima.pub",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.914739+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/lima.sig",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.914921+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/lima.sums",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.915066+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/noble-server-cloudimg-arm64.img",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.924299+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/ubuntu.sig",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.924747+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads/ubuntu.sums",
+      "action": "unlink",
+      "time_utc": "2026-10-12T21:30:04.925031+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation/downloads",
+      "action": "rmdir",
+      "time_utc": "2026-10-12T21:30:04.925234+00:00"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
+      "action": "rmdir",
+      "time_utc": "2026-10-12T21:30:04.925430+00:00"
+    }
+  ],
+  "completed": true,
+  "ended_at_utc": "2026-10-12T21:30:04.925433+00:00",
+  "remaining_owned_paths": [],
+  "free_disk_bytes_after": 739181064192,
+  "secure_erasure_claimed": false
+}

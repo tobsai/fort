@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/fetch-public.py", line 90, in <module>
+    main()
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/fetch-public.py", line 77, in main
+    raise RuntimeError('Pinned checksum mismatch')
+RuntimeError: Pinned checksum mismatch

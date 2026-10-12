@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "status": "stopped-at-download-integrity-gate",
+  "failed_gate": "Exact original-byte checksum of pinned public verification input",
+  "failed_input": "ubuntu.pub",
+  "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+  "expected_sha256": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+  "observed_sha256": null,
+  "observed_bytes": null,
+  "failure_attribution": "The unchanged sealed downloader exited at its explicit Pinned checksum mismatch check. Its seven completed final files exactly match the first seven sequential scope entries. The next entry is ubuntu.pub. The downloader removed that mismatching partial file before raising and did not log its actual hash, size or final URL.",
+  "failed_response_retained": false,
+  "retry_or_refetch": false,
+  "pin_changed": false,
+  "publisher_verification_attempted": false,
+  "downloaded_code_executed": false,
+  "vm_created_or_booted": false,
+  "new_keys_created": false,
+  "synthetic_session_attempted": false,
+  "meaning": "The response did not match the reviewed export bytes. This does not establish that the publisher signature or primary key is invalid, nor explain why the export changed.",
+  "next_gate": "Review the changed public-key export against the pinned publisher identity and exact verification policy before any revised seal or execution attempt. Do not update the pin automatically, retry this completed attempt, substitute a key/tool or weaken verification."
+}
