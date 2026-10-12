@@ -301,3 +301,45 @@ test('concurrent contradictory terminals have exactly one committed winner',asyn
   assert.equal((await h.ingest(dispatch,completed?wire.terminal:interrupted)).body.duplicate,true);
   assert.equal((await h.ingest(dispatch,completed?interrupted:wire.terminal)).status,409);
 });
+
+// Real synthetic pipes feed the same authenticated private HTTP boundary.
+test('supervised fragmented process output survives a lost committed acknowledgement without a second start',async t=>{
+  const {startSyntheticProcess}=await import('../runner/synthetic-process.ts');
+  const h=await setup(t);const text='  /supervised\r\ne\u0301 🦊  ';await h.submit(text);const dispatch=await h.claim();
+  const directory=await mkdtemp('/tmp/fort-bridge-process-');t.after(()=>rm(directory,{recursive:true,force:true}));
+  let lost=false;let duplicate=false;
+  const run=startSyntheticProcess(dispatch,{directory,scenario:'fragmented',maxWriteChunkBytes:7,deliver:async(event,signal)=>{
+    const response=await fetch(h.service.baseURL+'/fixture/runner/events',{method:'POST',headers:{'Content-Type':'application/json',...h.runnerHeaders},body:JSON.stringify({...h.scope,dispatchToken:dispatch.dispatchToken,event}),signal});
+    assert.equal(response.status,200);const receipt=await response.json() as any;
+    if(event.kind==='terminal'&&!lost){lost=true;throw new Error('synthetic acknowledgement loss after commit');}
+    duplicate ||= receipt.duplicate;return receipt;
+  }});
+  const result=await run.result;assert.equal(result.cleanup,'observed');assert.equal(result.terminal,'completed');assert.equal(result.startWritesAttempted,1);assert.equal(duplicate,true);
+  const before=await h.snap();assert.equal(before.messages[1].text,text);assert.equal(before.runs[0].state,'completed');assert.equal(before.messages.length,2);await h.restart();assert.deepEqual(await h.snap(),before);assert.equal(await h.claim(),null);
+});
+
+test('blocked process input cannot delay committed owner cancellation or release uncertain queued work',async t=>{
+  const {startSyntheticProcess}=await import('../runner/synthetic-process.ts');const h=await setup(t);
+  await h.submit('\0'.repeat(65_536));const dispatch=await h.claim();await h.submit('queued behind the blocked process');
+  const directory=await mkdtemp('/tmp/fort-bridge-process-');t.after(()=>rm(directory,{recursive:true,force:true}));
+  const run=startSyntheticProcess(dispatch,{directory,scenario:'blocked-input',limits:{interruptMs:100,teardownMs:100},deliver:async event=>{
+    const response=await h.ingest(dispatch,event);assert.equal(response.status,200);return response.body;
+  }});
+  await new Promise(resolve=>setTimeout(resolve,100));
+  const canceled=await h.owner(`/v1/runs/${dispatch.attempt.runId}/cancel`,{recoveryEpoch:h.scope.recoveryEpoch});assert.equal(canceled.status,200);run.cancel();
+  const result=await run.result;assert.equal(result.cleanup,'observed');assert.equal(result.terminal,'unknown');assert.equal(result.startWritesAttempted,1);
+  const before=await h.snap();assert.equal(before.runs[0].state,'outcomeUnknown');assert.equal(before.messages.length,2);assert.equal(await h.claim(),null);await h.restart();assert.deepEqual(await h.snap(),before);assert.equal(await h.claim(),null);
+});
+
+test('service restart fences a still-running supervised process instead of accepting late output or repeating work',async t=>{
+  const {startSyntheticProcess}=await import('../runner/synthetic-process.ts');const h=await setup(t);await h.submit('restart while process is running');const dispatch=await h.claim();
+  const directory=await mkdtemp('/tmp/fort-bridge-process-');t.after(()=>rm(directory,{recursive:true,force:true}));
+  let restarted=false;
+  const run=startSyntheticProcess(dispatch,{directory,scenario:'echo',limits:{teardownMs:100,deliveryMs:250},deliver:async event=>{
+    const response=await h.ingest(dispatch,event);
+    if(event.kind==='started'){assert.equal(response.status,200);await h.restart();restarted=true;return response.body;}
+    assert.equal(response.status,409);throw new Error('old attempt fenced');
+  }});
+  const result=await run.result;assert.equal(restarted,true);assert.equal(result.cleanup,'observed');assert.equal(result.evidence,'unconfirmed');assert.equal(result.terminal,'unknown');assert.equal(result.startWritesAttempted,1);
+  const snapshot=await h.snap();assert.equal(snapshot.runs[0].state,'outcomeUnknown');assert.equal(snapshot.messages.length,1);assert.equal(await h.claim(),null);
+});

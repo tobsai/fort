@@ -9,6 +9,8 @@ export type SyntheticAction =
   | { kind:'evidence'; event:RuntimeEvidence }
   | { kind:'close' }
   | { kind:'forceClose' };
+export type SyntheticDeadlines = { handshakeMs:number; turnMs:number; interruptMs:number; teardownMs:number };
+const MAX_DEADLINES:SyntheticDeadlines={handshakeMs:5000,turnMs:30_000,interruptMs:2000,teardownMs:2000};
 
 // A deterministic fixture state machine: these actions perform no I/O themselves.
 export class SyntheticTurn {
@@ -18,7 +20,10 @@ export class SyntheticTurn {
   private phase:'idle'|'handshake'|'turn'|'interrupt'|'closing'|'closed'='idle';
   private deadline=0;
   private observedTime=0;
-  constructor(input:SyntheticDispatch,clock:()=>number) {
+  private readonly limits:SyntheticDeadlines;
+  constructor(input:SyntheticDispatch,clock:()=>number,limits:Partial<SyntheticDeadlines>={}) {
+    this.limits={...MAX_DEADLINES,...limits};
+    for(const key of Object.keys(this.limits) as (keyof SyntheticDeadlines)[])if(!Number.isSafeInteger(this.limits[key])||this.limits[key]<1||this.limits[key]>MAX_DEADLINES[key])throw new Error('Invalid synthetic deadlines');
     const dispatch=structuredClone(input);const binding=dispatch.binding;
     if(dispatch.mode!=='synthetic'||dispatch.protocol!=='codex-turn'||dispatch.workspace!=='/synthetic/workspace'||!binding?.enabled||
       binding.provider!=='fixture'||binding.runtimeVersion!=='1'||binding.selectedModel!=='fixture-echo-v1'||binding.hostId!=='fixture-local'||
@@ -35,19 +40,19 @@ export class SyntheticTurn {
   private apply(output:CodexOutput):SyntheticAction[] {
     const actions:SyntheticAction[]=[...output.writes.map(data=>({kind:'write' as const,data})),...output.events.map(event=>({kind:'evidence' as const,event}))];
     if(output.closeTransport&&this.phase!=='closing'&&this.phase!=='closed') {
-      this.phase='closing';this.deadline=this.time()+2000;actions.push({kind:'close'});
+      this.phase='closing';this.deadline=this.time()+this.limits.teardownMs;actions.push({kind:'close'});
     }
     return actions;
   }
   begin():SyntheticAction[] {
     if(this.phase!=='idle')return [];
-    this.phase='handshake';this.deadline=this.time()+5000;return [{kind:'handshake',threadId:this.threadId}];
+    this.phase='handshake';this.deadline=this.time()+this.limits.handshakeMs;return [{kind:'handshake',threadId:this.threadId}];
   }
   ready(threadId:string):SyntheticAction[] {
     if(this.phase!=='handshake')return [];
     if(this.time()>=this.deadline)return this.tick();
     if(threadId!==this.threadId)return this.apply(this.turn.disconnected());
-    this.phase='turn';this.deadline=this.time()+30_000;return this.apply(this.turn.start());
+    this.phase='turn';this.deadline=this.time()+this.limits.turnMs;return this.apply(this.turn.start());
   }
   receive(bytes:Uint8Array):SyntheticAction[] {
     if(this.phase==='closing'||this.phase==='closed')return [];
@@ -59,7 +64,7 @@ export class SyntheticTurn {
     if(this.phase!=='idle'&&this.time()>=this.deadline)return this.tick();
     if(this.phase==='interrupt')return [];
     const output=this.turn.interrupt();const actions=this.apply(output);
-    if(!output.closeTransport){this.phase='interrupt';this.deadline=this.time()+2000;}
+    if(!output.closeTransport){this.phase='interrupt';this.deadline=this.time()+this.limits.interruptMs;}
     return actions;
   }
   disconnected():SyntheticAction[] {

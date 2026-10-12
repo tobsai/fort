@@ -76,3 +76,9 @@ test('a late cancellation cannot extend an already expired handshake or turn dea
     assert(!actions.some(action=>action.kind==='evidence'&&action.event.kind==='notStarted'));
   }
 });
+
+test('fixture I/O tests may shorten deadlines but cannot widen the accepted lifecycle policy',()=>{
+  let time=0;const turn=new SyntheticTurn(dispatch,()=>time,{handshakeMs:10,turnMs:20,interruptMs:10,teardownMs:10});
+  turn.begin();time=10;assert(turn.tick().some(action=>action.kind==='evidence'&&action.event.kind==='outcomeUnknown'));
+  for(const limits of [{handshakeMs:5001},{turnMs:30001},{interruptMs:2001},{teardownMs:2001},{handshakeMs:0},{turnMs:1.5}])assert.throws(()=>new SyntheticTurn(dispatch,()=>0,limits),/Invalid synthetic deadlines/);
+});
