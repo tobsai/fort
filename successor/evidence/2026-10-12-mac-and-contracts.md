@@ -1,5 +1,9 @@
 # Mac development signing and contract follow-up — 2026-10-12
 
+**Later scoped diagnosis:** [Mac XCTest authentication](2026-10-12-mac-authorization-diagnosis.md)
+records the unchanged-artifact retry and the host's explicit user-authentication
+requirement. This record preserves the preceding passes and failures.
+
 Branch `codex/fort-core-openmaus-20261011`, isolated worktree
 `/tmp/fort-core-openmaus-20261011`. The donor remains unchanged at upstream
 `8b53c0323dba2099a953ee2d77ab9330cd5acaa7`. No remote push, visibility change,
