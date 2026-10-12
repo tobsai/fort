@@ -1,0 +1,137 @@
+{
+  "proposed_roots": [
+    {
+      "path": "/Users/tobiasgunn/Library/FortIsolation",
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Application Support/FortIsolation",
+      "exists": false,
+      "symlink": false
+    }
+  ],
+  "packet_files": [
+    {
+      "path": "CLOUD-INIT.md",
+      "mode": "0o644",
+      "bytes": 7120
+    },
+    {
+      "path": "README.md",
+      "mode": "0o644",
+      "bytes": 7935
+    },
+    {
+      "path": "RUNBOOK.md",
+      "mode": "0o644",
+      "bytes": 14807
+    },
+    {
+      "path": "fetch-public.py",
+      "mode": "0o644",
+      "bytes": 3884
+    },
+    {
+      "path": "fixture-manifest.json",
+      "mode": "0o644",
+      "bytes": 2737
+    },
+    {
+      "path": "guest/controller.py",
+      "mode": "0o644",
+      "bytes": 7323
+    },
+    {
+      "path": "guest/egress.nft",
+      "mode": "0o644",
+      "bytes": 625
+    },
+    {
+      "path": "guest/fort-attempt.slice",
+      "mode": "0o644",
+      "bytes": 114
+    },
+    {
+      "path": "guest/fort-runtime.service",
+      "mode": "0o644",
+      "bytes": 1335
+    },
+    {
+      "path": "guest/fort-tool.service",
+      "mode": "0o644",
+      "bytes": 1313
+    },
+    {
+      "path": "guest/install.sh",
+      "mode": "0o644",
+      "bytes": 1897
+    },
+    {
+      "path": "guest/runtime.py",
+      "mode": "0o644",
+      "bytes": 1680
+    },
+    {
+      "path": "guest/sshd.conf",
+      "mode": "0o644",
+      "bytes": 266
+    },
+    {
+      "path": "guest/tool.py",
+      "mode": "0o644",
+      "bytes": 1335
+    },
+    {
+      "path": "host-session.py",
+      "mode": "0o644",
+      "bytes": 4388
+    },
+    {
+      "path": "lima.yaml",
+      "mode": "0o644",
+      "bytes": 20835
+    },
+    {
+      "path": "manager-env.py",
+      "mode": "0o644",
+      "bytes": 1423
+    },
+    {
+      "path": "provenance.json",
+      "mode": "0o644",
+      "bytes": 4111
+    },
+    {
+      "path": "render_config.py",
+      "mode": "0o644",
+      "bytes": 3318
+    },
+    {
+      "path": "scope.json",
+      "mode": "0o644",
+      "bytes": 5618
+    },
+    {
+      "path": "seal.json",
+      "mode": "0o644",
+      "bytes": 2132
+    },
+    {
+      "path": "test_validate.py",
+      "mode": "0o644",
+      "bytes": 2977
+    },
+    {
+      "path": "validate.py",
+      "mode": "0o644",
+      "bytes": 8019
+    }
+  ],
+  "image_or_manager_downloaded": false,
+  "guest_executed": false,
+  "permissions_changed": false,
+  "credentials_generated": false,
+  "providers_invoked": false,
+  "public_source_and_verification_metadata_fetched": true
+}

@@ -1,0 +1,54 @@
+[Unit]
+Description=Fort fixed untrusted synthetic tool
+BindsTo=fort-runtime.service
+After=fort-runtime.service
+ConditionPathExists=/run/fort-probe/session/grant.json
+
+[Service]
+Type=exec
+ExitType=main
+DynamicUser=yes
+Slice=fort-attempt.slice
+ExecStart=/usr/bin/python3 -I /opt/fort-probe/tool.py
+Environment=PATH=/usr/bin:/bin LANG=C PYTHONDONTWRITEBYTECODE=1
+WorkingDirectory=/tmp
+UMask=0077
+RuntimeMaxSec=38s
+TimeoutStartSec=5s
+TimeoutStopSec=2s
+KillMode=control-group
+SendSIGKILL=yes
+Restart=no
+LimitCORE=0
+CPUQuota=25%
+MemoryMax=128M
+TasksMax=16
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+PrivateIPC=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @raw-io @module @clock @debug
+InaccessiblePaths=/home /root /mnt /var/lib/cloud /etc/ssh /run/fort-probe /var/lib/fort-probe /run/dbus /run/systemd
+RemoveIPC=yes
+StandardOutput=journal
+StandardError=journal
+LogRateLimitIntervalSec=1s
+LogRateLimitBurst=20

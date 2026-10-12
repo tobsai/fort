@@ -1,0 +1,55 @@
+[Unit]
+Description=Fort trusted synthetic runtime barrier
+ConditionPathExists=/var/lib/fort-probe/installed
+
+[Service]
+Type=notify
+ExitType=main
+NotifyAccess=main
+User=fort-runtime
+Group=fort-runtime
+Slice=fort-attempt.slice
+ExecStart=/usr/bin/python3 -I /opt/fort-probe/runtime.py
+Environment=PATH=/usr/bin:/bin LANG=C PYTHONDONTWRITEBYTECODE=1
+WorkingDirectory=/
+UMask=0077
+WatchdogSec=2s
+RuntimeMaxSec=40s
+TimeoutStartSec=5s
+TimeoutStopSec=2s
+KillMode=control-group
+SendSIGKILL=yes
+Restart=no
+LimitCORE=0
+CPUQuota=25%
+MemoryMax=128M
+TasksMax=8
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+PrivateIPC=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @raw-io @module @clock @debug
+ReadOnlyPaths=/run/fort-probe/session /var/lib/fort-probe/provider
+InaccessiblePaths=/home /root /mnt /var/lib/cloud /etc/ssh /run/dbus /run/systemd/private
+StandardOutput=journal
+StandardError=journal
+LogRateLimitIntervalSec=1s
+LogRateLimitBurst=20

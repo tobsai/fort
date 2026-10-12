@@ -1,0 +1,7 @@
+[Unit]
+Description=Fort single synthetic attempt resource scope
+
+[Slice]
+CPUQuota=100%
+MemoryMax=512M
+TasksMax=32

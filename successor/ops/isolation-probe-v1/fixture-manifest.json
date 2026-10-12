@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "fixtures": [
+    {
+      "phase": "boot",
+      "sha256": "05c8da4b37540136900fa6fee3077567c989e19af066f646303e267e708cd86f",
+      "bytes": 1008,
+      "method": "inline cloud-init script provision"
+    },
+    {
+      "destination": "/opt/fort-probe/controller.py",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "bc3c22d0ceea5610677e390ef98688606dfea84ca87c3dead331bb28f720fdd7",
+      "bytes": 7323,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/opt/fort-probe/runtime.py",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "72cb3b3122f5146ef84623e60daec69b60c667fc242c037a994ace9c5c67a93f",
+      "bytes": 1680,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/opt/fort-probe/tool.py",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "ef55460089b0650e36b7b375ffdc6c7a40a7bb6608e38ed81af26854851a1c53",
+      "bytes": 1335,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/opt/fort-probe/egress.nft",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "8f91d4e82cca562d5ebba9910a264f496a38c4685f373664e2b02595cf0af063",
+      "bytes": 625,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/etc/ssh/sshd_config.d/00-fort-probe.conf",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "40106abfca1fd5940c7ceec3e0cda0a37a14e88dcbabdce01cc9dd85b8f6b327",
+      "bytes": 266,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/etc/systemd/system/fort-runtime.service",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "09f975d764d01a46087d46f813d2ea36b571f3e31bfc548367f7b3638b1ad5de",
+      "bytes": 1335,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/etc/systemd/system/fort-tool.service",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "f235c5f532c768e7c32bdf11a72b10ef7a5694243e93a06a922088a1a6ed3c9d",
+      "bytes": 1313,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "destination": "/etc/systemd/system/fort-attempt.slice",
+      "owner": "root:root",
+      "permissions": "0644",
+      "sha256": "7bb92b4da96a8d35f3c115f08c1f0ccdabcec6509151a06bba2ef6ba2fc008e5",
+      "bytes": 114,
+      "method": "inline cloud-init data provision"
+    },
+    {
+      "phase": "system",
+      "sha256": "de0892ada9302bdfbcde36cfa3616ffcb2ca59177d301edb888717f9d08e9a74",
+      "bytes": 1897,
+      "method": "inline cloud-init script provision"
+    }
+  ],
+  "existing_provider_source_copied": false
+}

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "purpose": "static review snapshot; not authorization or a publisher signature",
+  "files": {
+    "CLOUD-INIT.md": "22bb57aba0474cd50bb9c67e53298ea97224ffc85e4c68c65155dc5e1564faee",
+    "README.md": "949a5092a378a99539593c08e8a0a4d74d3e635badc4441828d989d1fd60b5f9",
+    "RUNBOOK.md": "adf1e21d0b5feb11733adabb92705640c725a920e1a0c05ae7fc9e0f5c25ff74",
+    "fetch-public.py": "2362448526e384d7f8f61772e3b1a89dcbe1c9e2ee707ea123c6f6922bff09c5",
+    "fixture-manifest.json": "87130e86a23a5c86aea8b73c1e9976ebb91ea525c57352753e694b0985bf672e",
+    "guest/controller.py": "bc3c22d0ceea5610677e390ef98688606dfea84ca87c3dead331bb28f720fdd7",
+    "guest/egress.nft": "8f91d4e82cca562d5ebba9910a264f496a38c4685f373664e2b02595cf0af063",
+    "guest/fort-attempt.slice": "7bb92b4da96a8d35f3c115f08c1f0ccdabcec6509151a06bba2ef6ba2fc008e5",
+    "guest/fort-runtime.service": "09f975d764d01a46087d46f813d2ea36b571f3e31bfc548367f7b3638b1ad5de",
+    "guest/fort-tool.service": "f235c5f532c768e7c32bdf11a72b10ef7a5694243e93a06a922088a1a6ed3c9d",
+    "guest/install.sh": "de0892ada9302bdfbcde36cfa3616ffcb2ca59177d301edb888717f9d08e9a74",
+    "guest/runtime.py": "72cb3b3122f5146ef84623e60daec69b60c667fc242c037a994ace9c5c67a93f",
+    "guest/sshd.conf": "40106abfca1fd5940c7ceec3e0cda0a37a14e88dcbabdce01cc9dd85b8f6b327",
+    "guest/tool.py": "ef55460089b0650e36b7b375ffdc6c7a40a7bb6608e38ed81af26854851a1c53",
+    "host-session.py": "928382f8e69895784cde5085a162bf7b4e31d43a9d8556633fdff976df0cc819",
+    "lima.yaml": "dc44260df608c43435a5cf51e6781d2ac6b4813a37811696a45c625b875fb03c",
+    "manager-env.py": "bb3e72664ee4b8b624f40c38bc444348ddfd4015e08a559510e65c411a8d823f",
+    "provenance.json": "4f19f3258e838189c33399cdcb759667ee6acea5e4bf2c8390f854c349e2169f",
+    "render_config.py": "48f6bd3c44f5bc57d0584056145861713e0f7e629652fa2de38c1b6b39cc6d6f",
+    "scope.json": "3f59fb3f54fa01f41f8fa83aa4662d8d3e8361047f277ba14ea6069acd19c92b",
+    "test_validate.py": "36f2b03944051c9d6dbc6c607ecb0dd06feb212e4a03352d7a845718c428610f",
+    "validate.py": "66ec1391836e9e7680ceeeb23cea35145bf2c814f41310a718da0b80a2532ab4"
+  }
+}

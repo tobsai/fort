@@ -1,0 +1,94 @@
+{
+  "source_only": true,
+  "copied_upstream_implementation": false,
+  "references": [
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/.github/workflows/release.yml",
+      "sha256": "6a2707697fc23e5d4e064805865eedf884c52ade90c73baa74dd2c0324a20dfe",
+      "bytes": 4578
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/cmd/limactl/start.go",
+      "sha256": "c3a4410f36a4bf80488a1345b31fc7055604c89969e365b46ace1036aac6f044",
+      "bytes": 21025
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/boot.Linux/30-install-packages.sh",
+      "sha256": "2bbb1e654b478ec1218f3d84487ebde9ff3f33e601e30a4f56c9b0b28a02326b",
+      "bytes": 8232
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/boot.essential.Linux/00-alpine-user-group.sh",
+      "sha256": "0ebf87a37dd70ad7d5e9235945a4a55b4167f8fed3f65bd46e1a8491f026e997",
+      "bytes": 631
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/boot.essential.Linux/01-alpine-ash-as-bash.sh",
+      "sha256": "3df37a23cd4bb4b032ba860bcec6c7df70b034bc821c4ace59f874f5ccaf8ff3",
+      "bytes": 642
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/boot.essential.Linux/10-alpine-prep.sh",
+      "sha256": "10e988041d6fef997110a883cb4f9e28d093ccd4b998bcd6a8c816419d4c511d",
+      "bytes": 1429
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/boot.sh",
+      "sha256": "cb450517742554c734cbfbf22030a2c47507228b6fdcbbdfa13baa2b9400aff8",
+      "bytes": 8150
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/cidata/cidata.TEMPLATE.d/user-data",
+      "sha256": "f89fe728ee80ada78a57303dad03f2486714424da34386d0bf0f9b076cde30ae",
+      "bytes": 6567
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/driverutil/disk.go",
+      "sha256": "19e37ab79e6fe29221705f88319e1b338485dc99419bade530bc26425849c792",
+      "bytes": 4015
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/imgutil/nativeimgutil/nativeimgutil.go",
+      "sha256": "d5b049f961d8e5374728e3d8581ded63ab063a466b062482435d552ad1451d1c",
+      "bytes": 7879
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/imgutil/proxyimgutil/proxyimgutil.go",
+      "sha256": "bfd1d5806db6feb280ee26d326b654915a407753d7bb89b38bb34568a3f15457",
+      "bytes": 2558
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/limatype/filenames/filenames.go",
+      "sha256": "799314e24431bbe4fc654970c650887d9e6173df1960e76d3070d7fd8572d08f",
+      "bytes": 4834
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/networks/const.go",
+      "sha256": "69fbdb193f83ae834643b583a1cae22257f90fa1b0e95c410a63097a5071eaec",
+      "bytes": 355
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/networks/networks.go",
+      "sha256": "8da3cdbedfb9e837b1ebc397d7e3cd5c64918e2a39be822848dd7635cfb7208c",
+      "bytes": 1357
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/pkg/sshutil/sshutil.go",
+      "sha256": "5ec3a807259900eafa7f49e03f1e121520a31a0fcc4598b837b274ba149a8830",
+      "bytes": 25196
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lima-vm/lima/v2.2.1/templates/default.yaml",
+      "sha256": "9b36702315b0716108a64631faf62a664d94f8f4a57acf3174f80022b308f5a3",
+      "bytes": 34256
+    },
+    {
+      "url": "https://ubuntu.com/docs/public-images/public-images-how-to/verify-image-checksum/",
+      "use": "Ubuntu signing fingerprint; inspected public documentation, no retained text digest"
+    },
+    {
+      "url": "https://lima-vm.io/docs/community/governance/",
+      "use": "Lima release signing process and primary fingerprint; inspected public documentation"
+    }
+  ]
+}
