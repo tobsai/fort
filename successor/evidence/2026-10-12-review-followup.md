@@ -1,5 +1,8 @@
 # Review follow-up and native evidence — 2026-10-12
 
+**Historical record at `ee150e0`.** Later P2 fixes, the trusted Mac development
+launch and native evidence are recorded in [the next follow-up](2026-10-12-mac-and-contracts.md).
+
 Branch `codex/fort-core-openmaus-20261011`; isolated worktree
 `/tmp/fort-core-openmaus-20261011`. This follows the historical first-increment
 record. The donor remains quarantined and unchanged at upstream

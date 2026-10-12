@@ -8,7 +8,9 @@ and native SwiftUI iPhone and Mac apps. It does not enable official providers.
 - [HTTP contract and shared fixtures](contracts/README.md)
 - [Service/runner validation and trust boundary](service/README.md)
 - [Initial validation record](evidence/2026-10-12-stage1.md)
-- [Review fixes and current validation](evidence/2026-10-12-review-followup.md)
+- [Review fixes and historical validation](evidence/2026-10-12-review-followup.md)
+- [Spec 058 acceptance map](evidence/2026-10-12-spec058-matrix.md)
+- [Latest Mac fixture and regression evidence](evidence/2026-10-12-mac-and-contracts.md)
 
 The runtime and behavior tests need no dependency installation. Run from this worktree's root:
 
@@ -20,9 +22,11 @@ swift test --package-path successor/apple/FortKit --scratch-path /tmp/fort058-sw
 The checked-in `successor/apple/FortSpec058.xcodeproj` contains `FortiOS` and
 `FortMac` schemes; `project.yml` reproduces it using installed XcodeGen 2.45.4.
 Simulator builds use local ad-hoc signing for Keychain identity. Other default builds
-disable signing. Mac XCTest requires a trusted launch path; local
-ad-hoc signing was attempted but this Mac's Gatekeeper rejected its runner.
-Do not bypass the system approval. The apps show fixture status and require
+disable signing. Mac XCTest needs a trusted development identity. This host's
+ad-hoc runner was rejected; the owner-authorized existing Apple Development
+identity subsequently allowed normal launch. Signing was selected per build,
+without changing project defaults or macOS security settings. See the latest
+evidence record for exact identity, artifacts and journey results. The apps show fixture status and require
 explicit enrollment. The local harness API documented in `service/README.md`
 issues short-lived single-use codes; no service starts on login or app launch.
 

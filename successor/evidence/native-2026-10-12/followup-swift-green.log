@@ -1,0 +1,55 @@
+Building for debugging...
+[1 / 1]
+[2 / 15] FortKit
+[5 / 18] FortKit
+[10 / 21] FortNativeCheck-product
+[12 / 22] FortNativeCheck-product
+[13 / 24] FortKit
+[18 / 24] FortKitTests-product
+[20 / 26] FortKitTests-product
+[25 / 28] FortKitTests-product
+[27 / 31] FortKitTests-product
+Build complete! (2.87 sec)
+Test Suite 'All tests' started at 2026-10-11 23:00:14.485.
+Test Suite 'All tests' passed at 2026-10-11 23:00:14.487.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() started.
+◇ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() started.
+◇ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() started.
+◇ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() started.
+◇ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() started.
+◇ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() started.
+◇ Test nativeRefusesInsecureNonLoopbackEndpoint() started.
+◇ Test utf8ByteLimitIsExact() started.
+◇ Test unknownRunStateIsInformative() started.
+◇ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() started.
+◇ Test recoveryEpochPreventsAutomaticResubmission() started.
+◇ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() started.
+◇ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() started.
+◇ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() started.
+◇ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() started.
+◇ Test installationsCannotSharePendingSubmissions() started.
+◇ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() started.
+◇ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() started.
+✔ Test unknownRunStateIsInformative() passed after 0.001 seconds.
+✔ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() passed after 0.001 seconds.
+✔ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() passed after 0.001 seconds.
+✔ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() passed after 0.001 seconds.
+✔ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() passed after 0.001 seconds.
+✔ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() passed after 0.001 seconds.
+✔ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() passed after 0.002 seconds.
+✔ Test recoveryEpochPreventsAutomaticResubmission() passed after 0.003 seconds.
+✔ Test installationsCannotSharePendingSubmissions() passed after 0.003 seconds.
+✔ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() passed after 0.004 seconds.
+✔ Test utf8ByteLimitIsExact() passed after 0.004 seconds.
+✔ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() passed after 0.004 seconds.
+✔ Test nativeRefusesInsecureNonLoopbackEndpoint() passed after 0.006 seconds.
+✔ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() passed after 0.026 seconds.
+✔ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() passed after 0.027 seconds.
+✔ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() passed after 0.029 seconds.
+✔ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() passed after 0.030 seconds.
+✔ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() passed after 0.031 seconds.
+✔ Test run with 18 tests in 0 suites passed after 0.031 seconds.

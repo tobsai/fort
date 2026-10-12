@@ -101,3 +101,15 @@ forwarding, cold offline navigation/cache restoration, and acceptance persistenc
 Regressions first reproduced the failures, then passed. The new record is
 [evidence/2026-10-12-review-followup.md](evidence/2026-10-12-review-followup.md).
 These commits also add bounded fixture controls and strict TypeScript verification.
+
+A second independent review of `ee150e0` confirmed the four earlier fixes and
+reproduced two new P2 defects. `c48e970` wakes dispatch after an expired approval
+decision commits, and fences every native owner mutation when the installation
+contract is unsupported. Tests first reproduced both defects, then the combined
+46 Node / 18 Swift suites and strict TypeScript checks passed. The additional
+negative wire fixtures do not claim old-installed-binary upgrade acceptance.
+
+The current [T01–T20 map](evidence/2026-10-12-spec058-matrix.md) records each
+passing subset and open gate. [Mac signing and native evidence](evidence/2026-10-12-mac-and-contracts.md)
+records the separately authorized use of one existing matching development
+identity, without new credentials, provisioning or security exceptions.

@@ -1,0 +1,29 @@
+{
+  "bundleIdentifier": "io.fort.spec058.fixture.mac",
+  "sourceCommit": "e47730c025285d1b15c14a5df6d9d277055938a1",
+  "signedProductPath": "/tmp/fort058-mac-trusted-build/Build/Products/Debug/FortMac.app",
+  "execution": "XCTest launched this build product directly; no separate installed copy",
+  "identityClass": "Apple Development",
+  "identitySHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1",
+  "teamID": "T3JB5MYZ93",
+  "passedJourney": "/tmp/fort058-mac-trusted-approval-2.xcresult",
+  "incompleteJourney": "/tmp/fort058-mac-trusted-recovery-5.xcresult",
+  "checks": [
+    {
+      "file": "Contents/MacOS/FortMac",
+      "buildSHA256": "6afd8c085c0d548c13158ef226b947a5d87662f04019bb25d92ff2ce0b6c7358"
+    },
+    {
+      "file": "Contents/MacOS/FortMac.debug.dylib",
+      "buildSHA256": "dd6229b0230e126e3c21275fd419ffcee0f72936fa0a08d94e9b0ba501c485aa"
+    },
+    {
+      "file": "Contents/Info.plist",
+      "buildSHA256": "532e6de2a536da4317c13f2206bd65bd1b5226add85007d0456d9b2f807f8638"
+    },
+    {
+      "file": "Contents/_CodeSignature/CodeResources",
+      "buildSHA256": "86cb758440b29c66e2be268c442965c3dc0a4c2310807fd81e4dc5a0773bc299"
+    }
+  ]
+}
