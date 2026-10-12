@@ -1,0 +1,203 @@
+{
+  "sourceCommit": "986afd30f2967287764c5e10f11282a0e4f33a22",
+  "branch": "codex/fort-core-openmaus-20261011",
+  "buildOnly": true,
+  "buildResult": "TEST BUILD SUCCEEDED",
+  "xcodeVersion": "Xcode 27.0\nBuild version 27A266a",
+  "signingIdentitySHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1",
+  "developmentTeam": "T3JB5MYZ93",
+  "newPermissionsRequired": false,
+  "artifacts": [
+    {
+      "kind": "application",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMac.app",
+      "bundleIdentifier": "io.fort.spec058.fixture.mac",
+      "signatureVerifiedDeepStrict": true,
+      "signature": {
+        "Identifier": [
+          "io.fort.spec058.fixture.mac"
+        ],
+        "Authority": [
+          "Apple Development: Tobias Gunn (76KFKR48Y3)",
+          "Apple Worldwide Developer Relations Certification Authority",
+          "Apple Root CA"
+        ],
+        "TeamIdentifier": [
+          "T3JB5MYZ93"
+        ],
+        "CDHash": [
+          "edcbdbddc92ddb7c575cd997929d0f579df29ae1"
+        ]
+      },
+      "entitlements": {
+        "com.apple.security.app-sandbox": true,
+        "com.apple.security.get-task-allow": true,
+        "com.apple.security.network.client": true,
+        "com.apple.security.temporary-exception.files.absolute-path.read-only": [
+          "/"
+        ],
+        "com.apple.security.temporary-exception.mach-lookup.global-name": [
+          "com.apple.testmanagerd",
+          "com.apple.dt.testmanagerd.runner",
+          "com.apple.coresymbolicationd"
+        ]
+      },
+      "entitlementsMatchPriorBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMac",
+          "sha256": "fc2ecf5a03df2a21284d1bfe66f77ea3fb6c7cdf7486741b895ba9895f84824e"
+        },
+        {
+          "file": "Contents/MacOS/FortMac.debug.dylib",
+          "sha256": "6562219d3a55f75a61889327b61df16138f36a6098a545b92d0ca90f89549242"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "532e6de2a536da4317c13f2206bd65bd1b5226add85007d0456d9b2f807f8638"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "036097c1447e40eb6e758ccc6f0c79e35151fcd997a6a9b8efeda18adfe61dca"
+        }
+      ]
+    },
+    {
+      "kind": "testRunner",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMacUITests-Runner.app",
+      "bundleIdentifier": "io.fort.spec058.fixture.mac.uitests.xctrunner",
+      "signatureVerifiedDeepStrict": true,
+      "signature": {
+        "Identifier": [
+          "io.fort.spec058.fixture.mac.uitests.xctrunner"
+        ],
+        "Authority": [
+          "Apple Development: Tobias Gunn (76KFKR48Y3)",
+          "Apple Worldwide Developer Relations Certification Authority",
+          "Apple Root CA"
+        ],
+        "TeamIdentifier": [
+          "T3JB5MYZ93"
+        ],
+        "CDHash": [
+          "347ab415fec923ab9c66efd56fb319216c8d99f6"
+        ]
+      },
+      "entitlements": {
+        "com.apple.application-identifier": "T3JB5MYZ93.io.fort.spec058.fixture.mac.uitests.xctrunner",
+        "com.apple.security.app-sandbox": true,
+        "com.apple.security.get-task-allow": true,
+        "com.apple.security.network.client": true,
+        "com.apple.security.temporary-exception.files.absolute-path.read-only": [
+          "/",
+          "/"
+        ],
+        "com.apple.security.temporary-exception.mach-lookup.global-name": [
+          "com.apple.testmanagerd",
+          "com.apple.dt.testmanagerd.runner",
+          "com.apple.coresymbolicationd",
+          "com.apple.coredevice.version",
+          "com.apple.coredevice.service",
+          "com.apple.remoted",
+          "com.apple.testmanagerd",
+          "com.apple.dt.testmanagerd.runner",
+          "com.apple.coresymbolicationd"
+        ],
+        "com.apple.security.temporary-exception.mach-lookup.local-name": [
+          "com.apple.axserver"
+        ],
+        "com.apple.security.temporary-exception.sbpl": [
+          "(allow hid-control)",
+          "(allow signal)"
+        ]
+      },
+      "entitlementsMatchPriorBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMacUITests-Runner",
+          "sha256": "f1dd6c5a740fc5f6325068bb80052e767868d5d56ee4edf3f4e51d254795123c"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "d4daf66eef33d6b17be5b946d9af41383b962bfeb7ccea672e2d95f3e44e1449"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "a5d02a04783eaee0a624ab7bf0dbc2cdee515e29c21dd75a37d21b823623c210"
+        }
+      ]
+    },
+    {
+      "kind": "testBundle",
+      "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest",
+      "bundleIdentifier": "io.fort.spec058.fixture.mac.uitests",
+      "signatureVerifiedDeepStrict": true,
+      "signature": {
+        "Identifier": [
+          "io.fort.spec058.fixture.mac.uitests"
+        ],
+        "Authority": [
+          "Apple Development: Tobias Gunn (76KFKR48Y3)",
+          "Apple Worldwide Developer Relations Certification Authority",
+          "Apple Root CA"
+        ],
+        "TeamIdentifier": [
+          "T3JB5MYZ93"
+        ],
+        "CDHash": [
+          "58e33b487b66d7b1c5d892cec20886294bdcae6b"
+        ]
+      },
+      "entitlements": {},
+      "entitlementsMatchPriorBuild": true,
+      "files": [
+        {
+          "file": "Contents/MacOS/FortMacUITests",
+          "sha256": "4fcbf6d6ef4782857b7a4fc992aa8108ef7454b7dc49a5a298babb7a85e43eea"
+        },
+        {
+          "file": "Contents/Info.plist",
+          "sha256": "5daca776fa867cecf54abf8f1437fec8c293f21cf55a115e69a4ea72ab8cf962"
+        },
+        {
+          "file": "Contents/_CodeSignature/CodeResources",
+          "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+        }
+      ]
+    }
+  ],
+  "testRun": {
+    "path": "/tmp/fort058-mac-current-986afd3-build/Build/Products/FortMac_macosx27.0-arm64.xctestrun",
+    "sha256": "3ac683c05da724e17dac8623d00f01ad50fb7bbf82a93910048b03e44ed8b431",
+    "testTarget": "FortMacUITests",
+    "testHostPath": "__TESTROOT__/Debug/FortMacUITests-Runner.app",
+    "uiTargetAppPath": "__TESTROOT__/Debug/FortMac.app",
+    "fixtureCredentialsEmbedded": false
+  },
+  "buildLog": {
+    "path": "/tmp/fort058-mac-current-986afd3-build.log",
+    "sha256": "3b9423db411bdfbec6f25c2effd3e1527b18cf0c383aafbaa3bb174a912b37fa"
+  },
+  "preservedProducts": [
+    {
+      "path": "/tmp/fort058-mac-trusted-build/Build/Products/Debug/FortMac.app",
+      "record": "mac-build-hashes.json",
+      "hashesVerified": 4,
+      "unchanged": true
+    },
+    {
+      "path": "/tmp/fort058-ios-build/Build/Products/Debug-iphonesimulator/FortiOS.app",
+      "record": "installed-build-followup-hashes.json",
+      "hashesVerified": 3,
+      "unchanged": true
+    },
+    {
+      "path": "/tmp/fort058-ios-acceptance-build/Build/Products/Debug-iphonesimulator/FortiOS.app",
+      "record": "iphone-acceptance-build-hashes.json",
+      "hashesVerified": 4,
+      "unchanged": true
+    }
+  ],
+  "uiTestsRun": false,
+  "macAcceptance": "Pending local owner authentication and attended current-artifact testing"
+}

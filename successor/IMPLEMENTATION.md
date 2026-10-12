@@ -120,4 +120,8 @@ adds a passed two-Simulator approval race and uncertainty recovery journey.
 passing public HTTP regression and 19 passing Swift tests. `b99d89e` records the
 installed test harnesses. These are fixture subsets: Mac UI remains paused for
 local owner authentication, and the preserved older Mac build does not include
-this model fix. Current-tip Mac installed acceptance and independent review remain open.
+this model fix. Independent review of `986afd3` reports no new actionable findings.
+The [current-source Mac build](evidence/2026-10-12-mac-current-build.md) now provides
+separate signed app/test artifacts for that exact source, with verified signatures,
+unchanged entitlements and an owner-attended command. No Mac UI was launched;
+current-artifact Mac installed acceptance remains pending local authentication.
