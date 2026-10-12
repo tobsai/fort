@@ -69,6 +69,7 @@ public struct MessengerView: View {
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
             }
+            .accessibilityIdentifier("conversation-history")
             .onChange(of:model.pending.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
             .onChange(of:model.snapshot?.messages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
         }
@@ -81,6 +82,7 @@ public struct MessengerView: View {
         .padding(12)
         .background(message.role == "user" ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
         .accessibilityElement(children:.combine)
+        .accessibilityLabel(Text("\(message.role == "user" ? "You" : "Fixture Agent")\n\(message.text)"))
         .task { await model.markRead(message) }
     }
     private func runRow(_ run: Run) -> some View {

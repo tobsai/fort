@@ -17,13 +17,13 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(enroll.isEnabled)
         activate(enroll)
         if !app.descendants(matching:.any)["message-composer"].firstMatch.waitForExistence(timeout:3) {
-            print("Fixture accessibility after enrollment: " + app.debugDescription)
-            let capture = XCTAttachment(screenshot:app.screenshot()); capture.name = "Enrollment result"; capture.lifetime = .keepAlways; add(capture)
+            print("Fixture accessibility after enrollment: " + app.windows.firstMatch.debugDescription)
+            let capture = XCTAttachment(screenshot:capture(app)); capture.name = "Enrollment result"; capture.lifetime = .keepAlways; add(capture)
             let agent = app.staticTexts["Fixture Agent"].firstMatch
             XCTAssertTrue(agent.waitForExistence(timeout:10))
             activate(agent)
         }
-        let hierarchy = XCTAttachment(string:app.debugDescription); hierarchy.name = "Enrolled native accessibility hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        let hierarchy = XCTAttachment(string:app.windows.firstMatch.debugDescription); hierarchy.name = "Enrolled native accessibility hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
         let composer = app.descendants(matching:.any)["message-composer"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout:15))
         activate(composer)
@@ -32,8 +32,12 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(sendButton.isEnabled)
         activate(sendButton)
         XCTAssertTrue(app.staticTexts["Fixture reply saved"].waitForExistence(timeout:15))
+        if !containsText("Native UI fixture message",in:app) {
+            let detail = XCTAttachment(string:app.windows.firstMatch.debugDescription); detail.name = "Transcript text accessibility failure"; detail.lifetime = .keepAlways; add(detail)
+            let screen = XCTAttachment(screenshot:capture(app)); screen.name = "Transcript text visual failure"; screen.lifetime = .keepAlways; add(screen)
+        }
         XCTAssertTrue(containsText("Native UI fixture message",in:app))
-        let screenshot = XCTAttachment(screenshot:app.screenshot())
+        let screenshot = XCTAttachment(screenshot:capture(app))
         screenshot.name = "Native conversation with durable fixture reply"
         screenshot.lifetime = .keepAlways
         add(screenshot)
@@ -41,7 +45,7 @@ final class NativeJourneyTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["Fixture reply saved"].waitForExistence(timeout:15))
         XCTAssertTrue(containsText("Native UI fixture message",in:app))
-        let restart = XCTAttachment(screenshot:app.screenshot())
+        let restart = XCTAttachment(screenshot:capture(app))
         restart.name = "Native restart recovered transcript"
         restart.lifetime = .keepAlways
         add(restart)
@@ -52,7 +56,7 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Saved on this device · acceptance not confirmed"].waitForExistence(timeout:10))
         app.terminate(); app.launch()
         XCTAssertTrue(app.staticTexts["Saved on this device · acceptance not confirmed"].waitForExistence(timeout:15))
-        let offline = XCTAttachment(screenshot:app.screenshot()); offline.name = "Cold offline restart preserves pending and history"; offline.lifetime = .keepAlways; add(offline)
+        let offline = XCTAttachment(screenshot:capture(app)); offline.name = "Cold offline restart preserves pending and history"; offline.lifetime = .keepAlways; add(offline)
         try await control("online",environment)
         awaitCount(app.staticTexts.matching(identifier:"Fixture reply saved"),2)
         try await control("drop-acceptance",environment)
@@ -64,7 +68,7 @@ final class NativeJourneyTests: XCTestCase {
         try await control("online",environment)
         awaitCount(app.staticTexts.matching(identifier:"Fixture reply saved"),3)
         XCTAssertFalse(app.staticTexts["Saved on this device · acceptance not confirmed"].exists)
-        let recovered = XCTAttachment(screenshot:app.screenshot()); recovered.name = "Lost acknowledgement reconciled after service and app restart"; recovered.lifetime = .keepAlways; add(recovered)
+        let recovered = XCTAttachment(screenshot:capture(app)); recovered.name = "Lost acknowledgement reconciled after service and app restart"; recovered.lifetime = .keepAlways; add(recovered)
         app.terminate()
     }
     @MainActor func testApproveAndCancelFixtureRuns() throws {
@@ -79,21 +83,36 @@ final class NativeJourneyTests: XCTestCase {
         let approve = app.buttons["Approve fixture reply"]
         XCTAssertTrue(approve.waitForExistence(timeout:15))
         XCTAssertFalse(app.staticTexts["Fixture reply saved"].exists)
-        #if os(iOS)
-        app.scrollViews.firstMatch.swipeUp()
-        #endif
+        reveal(approve,in:app)
         activate(approve)
         XCTAssertTrue(app.staticTexts["Fixture reply saved"].waitForExistence(timeout:15))
         try send("Native cancellation fixture request",in:app)
         XCTAssertTrue(app.staticTexts["Waiting for your approval"].waitForExistence(timeout:15))
         let cancel = app.buttons["Cancel run"]
-        #if os(iOS)
-        app.scrollViews.firstMatch.swipeUp()
-        #endif
+        reveal(cancel,in:app)
         activate(cancel)
         XCTAssertTrue(app.staticTexts["Canceled"].waitForExistence(timeout:15))
         XCTAssertEqual(app.staticTexts.matching(identifier:"Fixture reply saved").count,1)
-        let evidence = XCTAttachment(screenshot:app.screenshot()); evidence.name = "Native approved reply and canceled fixture run"; evidence.lifetime = .keepAlways; add(evidence)
+        let evidence = XCTAttachment(screenshot:capture(app)); evidence.name = "Native approved reply and canceled fixture run"; evidence.lifetime = .keepAlways; add(evidence)
+    }
+    @MainActor private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        let history = app.scrollViews["conversation-history"]
+        for _ in 0..<4 {
+            if element.isHittable { return }
+            #if os(macOS)
+            history.scroll(byDeltaX:0,deltaY:-160)
+            #else
+            history.swipeUp()
+            #endif
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+    @MainActor private func capture(_ app: XCUIApplication) -> XCUIScreenshot {
+        #if os(macOS)
+        app.windows.firstMatch.screenshot()
+        #else
+        app.screenshot()
+        #endif
     }
     @MainActor private func containsText(_ text: String, in app: XCUIApplication) -> Bool {
         app.descendants(matching:.any).matching(NSPredicate(format:"label CONTAINS %@ OR value CONTAINS %@",text,text)).firstMatch.exists
