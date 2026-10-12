@@ -1,12 +1,13 @@
-# Fort synthetic Linux isolation packet, revision 3
+# Fort synthetic Linux isolation packet, revision 4
 
 **Prepared and content-sealed for review; blocked for provisioning. No execution
 authority is granted by these files or by a passing static check.** This revision
-adds bounded download diagnostics after the approved run stopped on `ubuntu.pub`.
+corrects diagnostic persistence and acceptance ordering after independent review
+rejected revision 3. The original approved run stopped on `ubuntu.pub`.
 The independent integrity review found fifteen current exports matching the
 original pin; the historical response was discarded, so its cause remains unknown.
 All original pins, trust roots, payloads, resource limits and signature gates stay
-unchanged. It supersedes seal `bc6aa4b1…4904c2`.
+unchanged. It supersedes the rejected revision 3 seal `bc79f94b…adfc38`.
 See [RECOVERY.md](RECOVERY.md) for the preserved owner authority and required
 independent correction review. No retry is authorized by this preparation.
 
@@ -61,7 +62,7 @@ read-only provisioning ISO is explicitly part of the guest's inputs.
 | `guest/fort-*.service`, `guest/fort-attempt.slice` | PID 1 lifetime, separate UIDs and constrained namespaces/resources |
 | `guest/egress.nft`, `guest/sshd.conf`, `guest/install.sh` | Guest-only early network policy, SSH policy, dependencies/users/unit installation |
 | `host-session.py`, `manager-env.py`, `fetch-public.py` | Explicit future host control and bounded public download commands; no ambient credentials |
-| `test_fetch_public.py`, `RECOVERY.md` | In-memory HTTP failure regressions and unchanged-scope recovery gate |
+| `test_fetch_public.py`, `test_download_ordering.py`, `RECOVERY.md` | In-memory HTTP and persistence-fault regressions; unchanged-scope recovery gate |
 | `verify-inputs.mjs`, `verify-offline.py`, `VERIFIER.md` | Pinned private verifier, registry/publisher checks, offline command and trust limits |
 | `CLOUD-INIT.md`, `RUNBOOK.md` | Generated-input contract, exact review gates, lifecycle and cleanup procedure |
 | `validate.py`, `test_validate.py`, `test_corrections.py`, `test-verifier.mjs`, `seal.json` | Static policy, readiness/SSH regressions, verification contract tests and exact file hashes |

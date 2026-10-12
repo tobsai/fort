@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent
-RECEIPT_MAX_BYTES = 16384
+RECEIPT_MAX_BYTES = 8192
 BODY_MAX_BYTES = 65536
 MAX_INPUTS = 12
 PUBLIC_KEY_NAMES = {'lima.pub', 'ubuntu.pub'}
@@ -40,22 +40,45 @@ def private_directory(path, parent=None, create=False, exclusive=False):
 
 
 def write_new(directory, name, data):
-    descriptor = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
-    with os.fdopen(descriptor, 'wb') as output:
-        output.write(data)
-        output.flush()
-        os.fsync(output.fileno())
-    os.fsync(directory)
+    pending = name + '.pending'
+    descriptor = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+    info = os.fstat(descriptor)
+    identity = (info.st_dev, info.st_ino)
+    published = False
+
+    def remove_owned(filename):
+        try:
+            current = os.stat(filename, dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != identity:
+            raise DownloadFailure('diagnostic-ownership-changed')
+        os.unlink(filename, dir_fd=directory)
+
+    try:
+        with os.fdopen(descriptor, 'wb') as output:
+            output.write(data)
+            output.flush()
+            os.fsync(output.fileno())
+        os.link(pending, name, src_dir_fd=directory, dst_dir_fd=directory, follow_symlinks=False)
+        published = True
+        remove_owned(pending)
+        os.fsync(directory)
+    except Exception:
+        for filename in ([name] if published else []) + [pending]:
+            remove_owned(filename)
+        os.fsync(directory)
+        raise
 
 
 def response_metadata(url, status, headers, original_url):
     parsed = urllib.parse.urlsplit(url)
     # Signed redirect query strings and arbitrary response headers are not evidence.
     safe_url = urllib.parse.urlunsplit((parsed.scheme, parsed.hostname or '', parsed.path, '', ''))
-    return {'status': status, 'final_url': (url if url == original_url else safe_url)[:1024],
+    return {'status': status, 'final_url': (url if url == original_url else safe_url)[:512],
             'final_url_query_omitted': url != original_url and bool(parsed.query),
-            'content_type': headers.get('Content-Type', '')[:256],
-            'content_length': headers.get('Content-Length', '')[:64]}
+            'content_type': headers.get('Content-Type', '')[:128],
+            'content_length': headers.get('Content-Length', '')[:32]}
 
 
 def download(entry, index, target, evidence, allowed, context):
@@ -68,8 +91,9 @@ def download(entry, index, target, evidence, allowed, context):
     http = None
     body = bytearray()
     retain_body = name in PUBLIC_KEY_NAMES and entry['kind'] == 'public-verification-metadata'
-    receipt_name = '%02d-%s.json' % (index, name)
+    receipt_stem = '%02d-%s' % (index, name)
     owned_identity = None
+    partial_present = False
     promoted = False
 
     def check_url(url):
@@ -96,7 +120,7 @@ def download(entry, index, target, evidence, allowed, context):
                 raise
 
     def receipt(outcome, failure=None):
-        return {'schema': 1, 'input_name': name, 'input_url': entry['url'],
+        return {'schema': 2, 'phase': 'terminal', 'input_name': name, 'input_url': entry['url'],
                 'outcome': outcome, 'failure': failure,
                 'algorithm': algorithm, 'expected_digest': entry[algorithm],
                 'observed_digest': digest.hexdigest(), 'observed_bytes': size,
@@ -104,11 +128,11 @@ def download(entry, index, target, evidence, allowed, context):
                 'untrusted_body': None, 'publisher_signature_verified': False,
                 'recorded_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat()}
 
-    def record(value):
+    def record(value, observation=False):
         data = (json.dumps(value, indent=2) + '\n').encode()
         if len(data) > RECEIPT_MAX_BYTES:
             raise DownloadFailure('receipt-byte-cap-exceeded')
-        write_new(evidence, receipt_name, data)
+        write_new(evidence, receipt_stem + ('.failure.json' if observation else '.json'), data)
 
     def remove_owned(filename):
         info = os.stat(filename, dir_fd=target, follow_symlinks=False)
@@ -116,12 +140,29 @@ def download(entry, index, target, evidence, allowed, context):
             raise DownloadFailure('download-ownership-changed')
         os.unlink(filename, dir_fd=target)
 
+    def quarantine_published():
+        nonlocal partial_present, promoted
+        if promoted:
+            if not partial_present:
+                info = os.stat(name, dir_fd=target, follow_symlinks=False)
+                if not stat.S_ISREG(info.st_mode) or (info.st_dev, info.st_ino) != owned_identity:
+                    raise DownloadFailure('download-ownership-changed')
+                os.link(name, partial, src_dir_fd=target, dst_dir_fd=target, follow_symlinks=False)
+                partial_present = True
+            info = os.stat(partial, dir_fd=target, follow_symlinks=False)
+            if not stat.S_ISREG(info.st_mode) or (info.st_dev, info.st_ino) != owned_identity:
+                raise DownloadFailure('download-ownership-changed')
+            remove_owned(name)
+            promoted = False
+            os.fsync(target)
+
     try:
         check_url(entry['url'])
         descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=target)
         with os.fdopen(descriptor, 'wb') as output:
             info = os.fstat(output.fileno())
             owned_identity = (info.st_dev, info.st_ino)
+            partial_present = True
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), Redirects(),
                                                  urllib.request.HTTPSHandler(context=context))
             opener.addheaders = [('User-Agent', 'Fort-static-isolation-probe/1')]
@@ -163,16 +204,37 @@ def download(entry, index, target, evidence, allowed, context):
         # No replacement of an existing file, including a racing symlink.
         os.link(partial, name, src_dir_fd=target, dst_dir_fd=target, follow_symlinks=False)
         promoted = True
-        record(receipt('accepted'))
         remove_owned(partial)
-        owned_identity = None
+        partial_present = False
         os.fsync(target)
+        record(receipt('accepted'))
+        owned_identity = None
     except Exception as error:
         failure = str(error) if isinstance(error, DownloadFailure) else type(error).__name__
         value = receipt('failed', failure)
+        value['phase'] = 'failure-observed'
+        value['cleanup_status'] = 'pending'
         value['cleanup_errors'] = []
+        try:
+            if body:
+                body_name = receipt_stem + '.untrusted.bin'
+                write_new(evidence, body_name, bytes(body))
+                value['untrusted_body'] = {'file': body_name, 'bytes': len(body),
+                    'sha256': hashlib.sha256(body).hexdigest(),
+                    'prefix_only': not complete or len(body) != size,
+                    'trusted': False, 'executable': False}
+            record(value, observation=True)
+        except Exception as evidence_error:
+            # Keep the raw response until both the bounded body and observation are durable.
+            try:
+                quarantine_published()
+            except Exception as quarantine_error:
+                value['cleanup_errors'].append({'file': name, 'error': type(quarantine_error).__name__})
+            print(json.dumps(value), file=sys.stderr, flush=True)
+            raise DownloadFailure('Download stopped: %s; diagnostic write failed (%s); raw response quarantined or unreconciled' %
+                                  (name, type(evidence_error).__name__)) from None
         if owned_identity is not None:
-            for filename in ([name] if promoted else []) + [partial]:
+            for filename in ([name] if promoted else []) + ([partial] if partial_present else []):
                 try:
                     remove_owned(filename)
                 except Exception as cleanup_error:
@@ -181,14 +243,9 @@ def download(entry, index, target, evidence, allowed, context):
                 os.fsync(target)
             except Exception as cleanup_error:
                 value['cleanup_errors'].append({'file': 'downloads/', 'error': type(cleanup_error).__name__})
+        value['phase'] = 'terminal'
+        value['cleanup_status'] = 'unverified' if value['cleanup_errors'] else 'complete'
         try:
-            if body:
-                body_name = '%02d-%s.untrusted.bin' % (index, name)
-                write_new(evidence, body_name, bytes(body))
-                value['untrusted_body'] = {'file': body_name, 'bytes': len(body),
-                    'sha256': hashlib.sha256(body).hexdigest(),
-                    'prefix_only': not complete or len(body) != size,
-                    'trusted': False, 'executable': False}
             record(value)
         except Exception as evidence_error:
             # Do not hide available metadata if storage fails. Never print the body.
@@ -227,7 +284,8 @@ def main():
         descriptors.append(parent)
         evidence = private_directory('download-diagnostics', parent, create=True, exclusive=True)
         descriptors.append(evidence)
-        # At most 12 x 16 KiB receipts plus one failed 64 KiB public-key prefix = 256 KiB.
+        # At most 13 x 8 KiB receipts plus one failed 64 KiB prefix; pending aliases
+        # are hard links, not copies. Even their logical sizes stay below 256 KiB.
         # This is part of the existing 128 MiB raw/copied-evidence allowance.
         context = ssl.create_default_context(cafile='/etc/ssl/cert.pem')
         for index, entry in enumerate(entries, 1):

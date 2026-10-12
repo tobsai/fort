@@ -61,7 +61,13 @@ class DownloadDiagnostics(unittest.TestCase):
             fetch.main()
 
     def receipts(self):
-        return [json.loads(path.read_text()) for path in sorted(self.diagnostics.glob('*.json'))]
+        terminal = {path.name: json.loads(path.read_text()) for path in sorted(self.diagnostics.glob('*.json'))
+                    if not path.name.endswith('.failure.json')}
+        for path in sorted(self.diagnostics.glob('*.failure.json')):
+            name = path.name.replace('.failure.json', '.json')
+            if name not in terminal or terminal[name]['outcome'] == 'accepted':
+                terminal[name] = json.loads(path.read_text())
+        return [terminal[name] for name in sorted(terminal)]
 
     def test_mismatch_retains_observed_metadata_and_untrusted_body_without_advancing(self):
         original = b'-----BEGIN PGP PUBLIC KEY BLOCK-----\nfixture\n'

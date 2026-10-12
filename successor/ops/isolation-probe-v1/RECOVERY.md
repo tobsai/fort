@@ -23,17 +23,34 @@ because that body and digest were discarded. It does not cryptographically verif
 the publisher. Preserve the original pin; no rotation or compromise is established.
 
 The parent delegated only the diagnostic repair, tests, resealing and review
-handoff for this increment. Revision 3 retains all original download entries,
+handoff for this increment. Revision 4 retains all original download entries,
 domains, primary fingerprints, dependency integrity, offline verifier controls,
 publisher negative controls, VM resource/network/identity limits and single-session
 restriction. `scope.json` remains blocked with `execution_authorized: false`.
 There is no execution retry in this preparation.
 
-The correction writes exclusive, bounded, fsynced per-input receipts and an
-optional inert failed public-key prefix under the already approved evidence root.
+Revision 3 (`e1b7ec8be8ddc323bef159a647a9c8eab4f73b9c`, seal
+`bc79f94b93ba163eae3662ea4091d50ffcb9140a6bfc94d39e2aaca0e3adfc38`) was rejected
+by [the ordering review](../../../reviews/download-diagnostics-e1b7ec8/REVIEW.md).
+It removed raw mismatch responses before persisting diagnostics and recorded
+acceptance before fallible partial cleanup and target-directory synchronization.
+Three review fault tests first reproduced these failures. Revision 4 holds the
+response until failure evidence is durable and commits acceptance last.
+
+The correction writes exclusive, bounded, fsynced failure observations and terminal
+receipts plus an optional inert failed public-key prefix under the approved root.
+Failure observations always veto acceptance; terminal failed receipts add cleanup
+results without overwriting observations. Accepted terminal receipts follow all
+download-file cleanup and directory synchronization. Caught receipt-publication
+errors roll back only their own files. Failed evidence persistence preserves the
+raw response as a partial, revoking any promoted final name when possible; any
+unreconciled state stays blocked. Interruption tests model process stops, not power
+loss. See the exact ordering and authority rules in [RUNBOOK.md](RUNBOOK.md).
 The 256 KiB maximum is part of the existing 128 MiB evidence allowance, not a new
-resource grant. A failure still stops; no receipt/body is a trusted input, no body
-is executed, and receipt-write failure never permits the next request.
+resource grant. Up to thirteen 8 KiB records replace the prior twelve 16 KiB
+records; the optional 64 KiB body and bounded pending publications still fit the
+same cap. A failure still stops; no receipt/body is a trusted input, no body is
+executed, and receipt-write failure never permits the next request.
 
 Before a later recovery:
 

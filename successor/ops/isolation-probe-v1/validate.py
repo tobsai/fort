@@ -78,8 +78,8 @@ def policy_errors(config, scope):
                                   'auxiliary_budget_bytes': 4294967296, 'aggregate_budget_bytes': 25769803776}:
         errors.append('Resource envelope changed')
     if scope.get('download_diagnostics') != {
-            'directory': APP + '/evidence/download-diagnostics', 'max_receipts': 12,
-            'receipt_max_bytes': 16384, 'public_key_body_max_bytes': 65536,
+            'directory': APP + '/evidence/download-diagnostics', 'max_receipts': 13,
+            'receipt_max_bytes': 8192, 'public_key_body_max_bytes': 65536,
             'public_key_body_names': ['lima.pub', 'ubuntu.pub'], 'aggregate_max_bytes': 262144,
             'inside_existing_evidence_budget_bytes': 134217728,
             'execute_response_bodies': False, 'automatic_retry': False}:

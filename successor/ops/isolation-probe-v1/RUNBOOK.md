@@ -1,6 +1,6 @@
 # Review and proposed execution sequence
 
-**Revision 3 is preparation only and must not retry the download stage yet.** The
+**Revision 4 is preparation only and must not retry the download stage yet.** The
 owner approved revision 2; that run stopped at a public-key checksum mismatch and
 was cleaned up. The independent review found the original export pin still matches.
 The cause of the historical mismatch is unknown. Preserve its closed evidence and
@@ -16,6 +16,7 @@ From `/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1`:
 python3 -B test_validate.py
 python3 -B test_corrections.py
 python3 -B test_fetch_public.py
+python3 -B -m unittest test_download_ordering.DownloadOrdering -v
 /opt/homebrew/opt/node@26/bin/node --test test-verifier.mjs
 python3 -B validate.py
 /bin/sh -n guest/install.sh
@@ -129,10 +130,10 @@ records that checksum matching has not verified a publisher signature. The
 selected verifier is still uninstalled. It may execute only after its own registry
 signature/archive/extraction gates pass; Lima follows publisher verification.
 Revision 2 downloaded seven matching inputs then stopped on the eighth input's
-pin. Revision 3 has only run against synthetic in-memory responses. Do not seed
+pin. Revisions 3 and 4 have only run against synthetic in-memory responses. Do not seed
 its inputs from the separate integrity review's diagnostic copies.
 
-Before each next request, the downloader fsyncs the current input's exclusive JSON
+Before each next request, the downloader completes the current input's terminal
 receipt under `evidence/download-diagnostics`. It records the exact input name and
 URL, expected/observed digest, observed byte count, completion state, HTTP status,
 bounded Content-Type/Content-Length and final response URL. Redirect query strings
@@ -147,20 +148,46 @@ it into `downloads`. Receipts distinguish full returned bytes from incomplete or
 prefix-only evidence. For a declared oversize response, no body is read. A streamed
 overflow reads at most one extra byte to prove the bound was exceeded, without
 writing it to the download or retained prefix. Non-key payloads get metadata only.
-Any failure still stops before the next URL. A receipt-write failure stops and
-attempts removal of only the just-promoted owned input; bounded metadata also goes
-to stderr if the receipt cannot be written. A cleanup error is retained separately
-in the failure receipt, preserving the observed digest and body. Any remaining
-partial input or incomplete diagnostics stay quarantined for review and scoped
-cleanup; they are not accepted input or permission to continue.
+Any failure still stops before the next URL. Persist the bounded body and exclusive
+`NN-name.failure.json` observation, including digest/HTTP metadata, before deleting
+the raw response. Only after both are fsynced may failure cleanup run. A separate
+`NN-name.json` failed terminal record then reports `cleanup_status` and errors;
+it never overwrites the observation. If persistence fails, preserve the original
+partial; if a matching download had already been promoted, restore a partial hard
+link before revoking the final name. No unique response copy is deleted in this
+case. Remaining paths or incomplete diagnostics require reconciliation.
+
+For success, fsync the verified payload, publish its exclusive final hard link,
+remove the partial, and fsync the downloads directory before writing an accepted
+terminal receipt. Retain the owned-file identity until that receipt succeeds, so
+target/receipt fsync failures can revoke the final input. Diagnostic publication
+uses an exclusive `*.pending` file, fsyncs it, links its final name without replacing
+anything, removes the pending alias, then fsyncs the diagnostic directory. A caught
+publication failure attempts to remove only those owned receipt files before
+recording failure. If rollback or cleanup itself fails, the operation remains
+blocked and its failure observation/metadata requires review; no overwrite or
+uncorrelated deletion is allowed. Bounded metadata goes to stderr when persistence
+fails; bodies are never printed there.
+
+The authoritative outcome rule is: **a failure observation always vetoes acceptance**.
+A failed terminal record reports subsequent cleanup results. An observation with
+no terminal record means failure with unresolved cleanup. Pending files, malformed
+records or contradictory records are not acceptance. A successful download stage
+requires exit zero, all twelve matching inputs with accepted terminal receipts,
+and no failure observations or pending publications. File presence alone is not
+permission to invoke the verifier or manager. Publisher gates still follow.
 
 Existing downloads, partials or diagnostic directories are never overwritten or
 resumed, and symlinked directories/files are not followed. Publication uses an
 exclusive hard link to the completed private partial, then removes that partial;
-there is no extra payload copy. Final input presence plus its receipt and all
-subsequent original gates are required. Inventory the diagnostic files and include
+there is no extra payload copy. Inventory the diagnostic files and include
 raw and copied evidence in the unchanged 128 MiB budget and owned cleanup manifest.
-At most twelve 16 KiB receipts and one failed 64 KiB key prefix occupy 256 KiB.
+At most thirteen 8 KiB records and one failed 64 KiB key prefix remain after a
+failure at the twelfth input. There is at most one observation/terminal pair,
+because failure never advances. Pending publications are hard links, not payload
+copies; the transient body-publication peak is 216 KiB of logical file sizes after
+eleven maximum-sized successful receipts. Even bounded rollback remnants fit the
+unchanged 256 KiB diagnostic cap and 128 MiB aggregate evidence allowance.
 
 Required trust chain:
 

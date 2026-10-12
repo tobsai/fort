@@ -1,0 +1,7 @@
+{
+  "read_only_parent_owned_files": {
+    "reviews/download-diagnostics-e1b7ec8/REVIEW.md": "ddfd66ef22848d11357db1b4bbf87d26db9e7b23ecf82add8ddec3f47a1077a8",
+    "reviews/download-diagnostics-e1b7ec8/test_post_accept_cleanup.py": "8cf3d98f57bab6ce1c74b0b6ca5051ab54a5acda52bb7e2db9dd3be0156c8cac"
+  },
+  "adaptation": "Three behavior reproductions retained in packet tests without writes into the review directory."
+}

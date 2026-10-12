@@ -1,0 +1,18 @@
+{
+  "time_utc": "2026-10-12T22:05:19.761880+00:00",
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "-m",
+    "unittest",
+    "test_download_ordering.DownloadOrdering",
+    "-v"
+  ],
+  "cwd": "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1",
+  "exit_code": 1,
+  "tests": 3,
+  "failed": 3,
+  "source_commit": "e1b7ec8be8ddc323bef159a647a9c8eab4f73b9c",
+  "download_source_sha256": "22a2aa8834d2df72d3032b8089ad788c5926de884f3fb94449cd05fb278beb65",
+  "network": "in-memory only"
+}

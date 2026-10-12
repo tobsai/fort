@@ -1,0 +1,51 @@
+{
+  "time_utc": "2026-10-12T22:13:12.109155+00:00",
+  "seal_sha256": "31e22d8e99e3141e9083f7a2246c15469d32362279cf537c56aa35911936e406",
+  "reason": "Tightened both review success-path faults to reject any raw accepted JSON receipt, not only the projected outcome. No implementation changed after the full green run.",
+  "checks": [
+    {
+      "name": "python-tests-final",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1",
+        "-p",
+        "test*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "python-tests-final.log"
+    },
+    {
+      "name": "static-validation-final",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/validate.py"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "log": "static-validation-final.log"
+    },
+    {
+      "name": "execution-guard-final",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "/private/tmp/fort-core-openmaus-20261011/successor/ops/isolation-probe-v1/validate.py",
+        "--require-executable"
+      ],
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "passed": true,
+      "log": "execution-guard-final.log"
+    }
+  ]
+}
