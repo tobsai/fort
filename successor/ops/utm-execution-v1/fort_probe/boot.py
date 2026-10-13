@@ -7,6 +7,7 @@ import stat
 import time
 from .utm_schema import pinned_schema
 from .evidence import exact
+from .lifecycle import DirectoryChain
 
 MASKS=('ssh.service','ssh.socket','sshd.service','serial-getty@hvc0.service','serial-getty@hvc1.service',
        'getty@tty1.service','apt-daily.service','apt-daily.timer','apt-daily-upgrade.service',
@@ -50,16 +51,14 @@ def verify_boot_files(data_directory,manifest,clock=time.monotonic):
         raise ValueError('combined boot auxiliary budget')
     path=Path(data_directory)
     if not path.is_absolute() or '..' in path.parts:raise ValueError('absolute owned Data directory required')
-    directory=os.open('/',os.O_RDONLY|os.O_DIRECTORY)
     deadline=clock()+300
-    try:
-        for part in path.parts[1:]:
-            next_fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=directory)
-            os.close(directory);directory=next_fd
+    with DirectoryChain(path) as chain:
+        directory=chain.fd
         if set(os.listdir(directory))!={name[5:] for name in names}:raise ValueError('unexpected or missing boot Data file')
         observed={};identities={}
         for name in names:
-            fd=os.open(name[5:],os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory)
+            if clock()>=deadline:raise TimeoutError('boot identity deadline')
+            fd=os.open(name[5:],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
             try:
                 before=os.fstat(fd)
                 if not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size!=manifest[name]['bytes']:
@@ -83,5 +82,6 @@ def verify_boot_files(data_directory,manifest,clock=time.monotonic):
             if identity(current)!=accepted:raise ValueError('boot file changed before final readback')
         if set(os.listdir(directory))!={name[5:] for name in names}:raise ValueError('boot Data file set changed')
         if not exact(observed,manifest):raise ValueError('accepted boot file digest differs')
+        chain.check()
+        if clock()>=deadline:raise TimeoutError('boot identity deadline')
         return observed
-    finally:os.close(directory)

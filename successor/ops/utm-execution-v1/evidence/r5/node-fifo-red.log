@@ -1,0 +1,22 @@
+test_existing_node_fixture_rejects_fifo_without_a_writer (test_path_integrity.PathIntegrityTests) ... ERROR
+
+======================================================================
+ERROR: test_existing_node_fixture_rejects_fifo_without_a_writer (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 154, in test_existing_node_fixture_rejects_fifo_without_a_writer
+    result=subprocess.run(['/opt/homebrew/opt/node@26/bin/node','--input-type=module','--eval',script,str(fifo)],
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 507, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 1134, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 1980, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 1178, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['/opt/homebrew/opt/node@26/bin/node', '--input-type=module', '--eval', "import {hashRegular} from 'file:///private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/inspection-verifier.mjs';import assert from 'node:assert/strict';assert.throws(()=>hashRegular(process.argv[1],'sha256',32),/regular input/);", '/private/var/folders/63/0zd45lzn56s3sgk5_q73pj600000gn/T/tmp1f8nhha1/input']' timed out after 3 seconds
+
+----------------------------------------------------------------------
+Ran 1 test in 3.012s
+
+FAILED (errors=1)

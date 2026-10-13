@@ -1,0 +1,31 @@
+test_acquisition_rejects_symlinked_ancestor_before_creating_state (test_review_r4_regressions.R4Regressions) ... ok
+test_pipe_eof_does_not_end_worker_resource_supervision (test_review_r4_regressions.R4Regressions) ... ok
+test_prestart_rejects_fifo_without_waiting_for_a_writer (test_review_r4_regressions.R4Regressions) ... ok
+test_prestart_rejects_replaced_data_path (test_review_r4_regressions.R4Regressions) ... ok
+test_ancestor_swap_during_record_is_detected_before_success (test_path_integrity.PathIntegrityTests) ... ok
+test_boot_rejects_symlinked_ancestors_and_hardlinks (test_path_integrity.PathIntegrityTests) ... ok
+test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted (test_path_integrity.PathIntegrityTests) ... ok
+test_package_ancestor_replacement_while_hashing_cannot_pass (test_path_integrity.PathIntegrityTests) ... ok
+test_parent_replacement_during_creation_never_writes_an_attempt_marker (test_path_integrity.PathIntegrityTests) ... ok
+test_prestart_keeps_data_binding_through_final_configuration_readback (test_path_integrity.PathIntegrityTests) ... ok
+test_publication_never_removes_a_replacement_partial (test_path_integrity.PathIntegrityTests) ... ok
+test_same_bytes_do_not_hide_leaf_replacement_after_open (test_path_integrity.PathIntegrityTests) ... ok
+test_complete_configuration_not_just_topology_is_bound (test_boot.BootTests) ... ok
+test_host_prestart_is_available_before_any_process_or_pty_binding (test_boot.BootTests) ... ok
+test_prestart_hashes_exact_regular_data_files_and_rejects_mutation_or_alias (test_boot.BootTests) ... ok
+test_unlisted_saved_state_or_extra_data_never_passes_prestart (test_boot.BootTests) ... ok
+test_uuid_case_is_canonical_but_different_identity_does_not_match_pin (test_boot.BootTests) ... ok
+test_failed_http_hash_length_or_cap_vetoes_acceptance_and_never_fetches_next (test_acquisition.AcquisitionTests) ... ok
+test_fixed_inventory_excludes_utm_and_retains_exact_caps (test_acquisition.AcquisitionTests) ... ok
+test_pinned_bytes_are_published_only_after_eof_hash_and_receipt (test_acquisition.AcquisitionTests) ... ok
+test_receipt_failure_preserves_failure_veto_and_stops_after_first_input (test_acquisition.AcquisitionTests) ... ok
+test_redirects_stay_bounded_https_public_and_do_not_forward_credentials (test_acquisition.AcquisitionTests) ... ok
+test_replaced_partial_is_preserved_and_never_published (test_acquisition.AcquisitionTests) ... ok
+test_slow_stream_and_redirect_loops_stop_with_no_retry (test_acquisition.AcquisitionTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.097s
+
+OK

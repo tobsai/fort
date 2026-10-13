@@ -1,0 +1,181 @@
+{
+  "disabled_entrypoints": [
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-I",
+        "-B",
+        "fort_probe/__main__.py"
+      ],
+      "expected_exit_code": 78,
+      "log": {
+        "bytes": 183,
+        "path": "evidence/r5/disabled-entry.log",
+        "sha256": "66066dadabcc0000a2d7a1200927397d29ca3541e4bc78824d3f84269dd99023"
+      },
+      "observed_exit_code": 78
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-I",
+        "-B",
+        "inspect-inputs.py"
+      ],
+      "expected_exit_code": 78,
+      "log": {
+        "bytes": 137,
+        "path": "evidence/r5/inspection-disabled.log",
+        "sha256": "b7839578aa9babd93c775ac63c8663cd59c254f754b9a81767e14871103ad86f"
+      },
+      "observed_exit_code": 78
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/node@26/bin/node",
+        "inspection-verifier.mjs"
+      ],
+      "expected_exit_code": 78,
+      "log": {
+        "bytes": 27,
+        "path": "evidence/r5/node-inspection-disabled.log",
+        "sha256": "0601a31d59c41898465c58df03ba59e90d6d5fb8608db82865daac8ca24c9c74"
+      },
+      "observed_exit_code": 78
+    }
+  ],
+  "existing_python_node_tool_pins_unchanged": true,
+  "frozen_R2_missing_C05_fixture_unchanged": true,
+  "node_syntax": [
+    "verify-inputs.mjs",
+    "inspection-verifier.mjs",
+    "tests/test_verifier.mjs",
+    "tests/test_inspection_verifier.mjs"
+  ],
+  "planned_host_root_absent": true,
+  "python_ast_files": 68,
+  "recorded_at_utc": "2026-10-13T17:15:16.510205+00:00",
+  "reviewer_integrity": [
+    {
+      "files": [
+        {
+          "bytes": 9609,
+          "path": "../../../reviews/utm-source-5dcc216/REVIEW.md",
+          "sha256": "956ea77448e5b96dabdbf90d8189dc4d5390ec11896b585eaed874fec137d570"
+        },
+        {
+          "bytes": 6316,
+          "path": "../../../reviews/utm-source-5dcc216/reviewer_regressions.py",
+          "sha256": "bfe937f107f7c6561beadcdc648122e601029cb81adea342b9539870e20e1ea9"
+        }
+      ],
+      "function_and_class_asts_unchanged": true,
+      "review": "utm-source-5dcc216"
+    },
+    {
+      "files": [
+        {
+          "bytes": 13079,
+          "path": "../../../reviews/utm-source-ca29ad4/REVIEW.md",
+          "sha256": "c2969db4ec14b1dbc9ae326d3c95195ae2fe6efa0a255a66b1b9c6185c8ad179"
+        },
+        {
+          "bytes": 7296,
+          "path": "../../../reviews/utm-source-ca29ad4/reviewer_regressions.py",
+          "sha256": "99adebfc0a3da34c8bd893d362b02fbaf6335c6c287b136dfd6359d5db7999f2"
+        }
+      ],
+      "function_and_class_asts_unchanged": true,
+      "review": "utm-source-ca29ad4"
+    },
+    {
+      "files": [
+        {
+          "bytes": 14532,
+          "path": "../../../reviews/utm-source-d965abb/REVIEW.md",
+          "sha256": "00ca57801327bfe89706a8b9de46952322a92172797c0b8841e25b27236344d1"
+        },
+        {
+          "bytes": 4627,
+          "path": "../../../reviews/utm-source-d965abb/reviewer_regressions.py",
+          "sha256": "d7dac10ef3f2e7fa9cf36052800083d721751d30347aaa0bbcb27698cbe61b95"
+        }
+      ],
+      "function_and_class_asts_unchanged": true,
+      "review": "utm-source-d965abb"
+    },
+    {
+      "files": [
+        {
+          "bytes": 13292,
+          "path": "../../../reviews/utm-source-d379e6f/REVIEW.md",
+          "sha256": "5a488a89264c85dd7b1f4cdb42d74f63ff809f74e55d87731c010f6a44edd361"
+        },
+        {
+          "bytes": 9368,
+          "path": "../../../reviews/utm-source-d379e6f/reviewer_regressions.py",
+          "sha256": "446d9633a80c2cb03b73980be448e4da623282e4330a90ed767424e220969c4d"
+        }
+      ],
+      "function_and_class_asts_unchanged": true,
+      "review": "utm-source-d379e6f"
+    }
+  ],
+  "utm_source_files": [
+    {
+      "bytes": 9199,
+      "path": "evidence/r3/utm-source/UTMConfiguration.swift",
+      "sha256": "207859081df04efdc1252bb3a8cb4e17e61f3e8e158a9cee6bcbf57a50868086"
+    },
+    {
+      "bytes": 5019,
+      "path": "evidence/r3/utm-source/UTMConfigurationInfo.swift",
+      "sha256": "b1afcd6ee15a3a5a53785b10058413c2167a346924d32d21bac813b367fce7a3"
+    },
+    {
+      "bytes": 18537,
+      "path": "evidence/r3/utm-source/UTMRegistryEntry.swift",
+      "sha256": "13ebcf055257543eb088528c4db928d6081e1c95d5dffd7410353cb6c1dc2fa7"
+    },
+    {
+      "bytes": 13140,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfiguration.swift",
+      "sha256": "bdbc2989d354eb71130b34eda30464961383bcacf6657aa71830d6322c7b6b02"
+    },
+    {
+      "bytes": 8376,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationBoot.swift",
+      "sha256": "10f692461d44a71852ac53049fbab3acae6c81d56070fcdb66fe486f3f1c7219"
+    },
+    {
+      "bytes": 5930,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationSystem.swift",
+      "sha256": "08683338e2cccbe3c9ed0ea6bbf983e4c591dbb4be8eeabcf083446b702296fc"
+    },
+    {
+      "bytes": 5311,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationDrive.swift",
+      "sha256": "6d2195a294669263993095056a7982d028a7908086cb4e484eed01ea6e79c7e6"
+    },
+    {
+      "bytes": 2206,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationGenericPlatform.swift",
+      "sha256": "5157d56797f5381e3555afa653b1715082d5abac04a76c75a92b98d1de0db7a8"
+    },
+    {
+      "bytes": 9678,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationVirtualization.swift",
+      "sha256": "8e2924e2c7636bac5771379c6c56dfa543d84cb452c6b170508e2450eaf0e7b8"
+    },
+    {
+      "bytes": 3041,
+      "path": "evidence/r3/cached-utm-source/UTMAppleConfigurationSerial.swift",
+      "sha256": "18c4709f500885a16ffed9d1877672559b934b18d3ad0e8983203d2615021204"
+    },
+    {
+      "bytes": 5516,
+      "path": "evidence/r3/cached-utm-source/UTMRegistry.swift",
+      "sha256": "7539cef221459944415feb15518e66284c66656d0086799231dbabe8b5bfdb3b"
+    }
+  ]
+}

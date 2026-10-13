@@ -8,7 +8,7 @@ export const INSPECTION_ENABLED = false;
 const pinsPath=new URL('../utm-synthetic-packet-v1/inputs.json',import.meta.url);
 
 export function hashRegular(path,algorithm,cap,expectedSize=null,capture=false){
-  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   try{
     const before=fstatSync(fd,{bigint:true});
     if(!before.isFile()||before.nlink!==1n||before.size>BigInt(cap)||(expectedSize!==null&&before.size!==BigInt(expectedSize)))throw Error('regular input type/size/link mismatch');

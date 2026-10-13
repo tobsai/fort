@@ -1,7 +1,7 @@
 # Disabled bounded input-inspection source
 
 This is reviewable source for a later input operation. No acquisition or downloaded
-code execution is authorized or performed by R4. Python's inspection gate and the
+code execution is authorized or performed by R5. Python's inspection gate and the
 Node verifier's gate are literal false; guest execution remains separately false.
 
 ## Fixed operation
@@ -17,7 +17,11 @@ The operation creates the previously absent private root:
 `/Users/tobiasgunn/Library/Application Support/FortUTMIsolation`.
 Inputs are under `downloads/`; the checked verifier closure is under `verifier/`;
 receipts and the selection manifest remain inside that root. Existing roots are
-refused. No app, VM package, host mount, provider or credential is created.
+refused. Python creation and archive/member IO retain and recheck every ancestor
+through directory descriptors, with a 32-component bound. New leaves are created
+relative to verified parents and compared before use. Symlinked ancestors fail
+before creation; replacement observed during the operation vetoes acceptance.
+No app, VM package, host mount, provider or credential is created.
 
 Exactly eight unchanged entries from `../utm-synthetic-packet-v1/inputs.json`
 are eligible; UTM.dmg is omitted. Maximum retained download payload is
@@ -36,6 +40,8 @@ oversize detection read may occur; that byte is never written as accepted data.
    files, then publish bounded receipts and completion. Root/inode changes or
    persistence failures veto acceptance. Failure stops the next request and
    preserves uncertain state; it does not delete replacement files or retry.
+   Receipt and published-file identity checks extend through directory sync. A
+   replaced partial name is rechecked before unlink and preserved on mismatch.
 2. `registry`: with existing pinned Node, stream-rehash all eight regular inputs
    and verify npm registry signatures using built-in cryptography. No downloaded
    module has loaded at this point.
@@ -93,10 +99,18 @@ This is a sampled stop threshold with possible overshoot and OS scheduling delay
 not a macOS RSS quota. The local Darwin manual describes `RLIMIT_RSS` as a
 memory-pressure hint. That hint plus CPU/file limits is set in the child before
 its entrypoint; unsupported setup fails before work. No virtual-address-space
-limit is claimed. Actual OS enforcement remains unrun. The supervisor retains its unreaped child as the process-group identity
-anchor, cancels that group on every exit, then waits at most one additional second.
+limit is claimed. Actual OS enforcement remains unrun. The supervisor continues RSS and input/stage-deadline checks even after both
+pipes close or a terminal result arrives. Exit observations use at most 50 ms
+slices and leave the child unreaped. It retains that child as the process-group
+identity anchor, cancels the group on every exit, then waits at most one additional
+second.
 Failures never become success because cancellation was sent. No arbitrary
 untrusted child-tree confinement guarantee is claimed.
+
+Regular-file readers open nonblocking before checking file type; unexpected FIFOs
+cannot wait for a writer before rejection. Directory bindings are rechecked after
+Python archive reads and verifier output writes. These checks do not prevent a
+trusted owner changing files after an observation returns.
 
 The Python archive examiner retains compressed bytes and some kernel data. The
 3 GiB RSS threshold is an explicit sampled stop condition;
@@ -117,7 +131,8 @@ retry path exists. Review actual storage/free-memory reserves before acquisition
 Entrypoint tool hashes are checked before workers run. These are not a full
 shared-library/OS closure. Existing Node permission flags were inspected locally;
 no downloaded library, live supervisor, network request or resource-limit setup
-ran. Real module contents, cryptography, archive formats, names and OS behavior
+ran. An existing-Node fixture process exercises only the repository's regular-file
+helper against a temporary FIFO. Real module contents, cryptography, archive formats, names and OS behavior
 remain future evidence. Retain exact unsupported results rather than changing
 pins, adding a decoder/dependency, broadening permissions or retrying silently.
 

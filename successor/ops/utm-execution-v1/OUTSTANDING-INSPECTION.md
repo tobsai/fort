@@ -1,9 +1,11 @@
 # Remaining inspection and execution gates
 
-R4 now contains the bounded acquisition, worker, archive-selection and offline
+R5 retains the bounded acquisition, worker, archive-selection and offline
 verifier source previously missing. Read [INPUT-INSPECTION.md](INPUT-INSPECTION.md)
 for exact operations, limits and retained-state behavior. It is disabled and has
-not acquired or executed artifacts. No further UTM source retrieval is needed.
+not acquired or executed artifacts. R5 fixes worker supervision after EOF and
+retained directory/file identity checks; its independent acceptance is pending.
+No further UTM source retrieval is needed.
 
 The next separately authorized operation is input acquisition/authentication:
 exactly eight non-UTM entries from unchanged `inputs.json`, maximum retained payload
@@ -13,7 +15,7 @@ only the authenticated, inspected OpenPGP entry in the restricted Node worker.
 It excludes UTM.dmg, installation, mounting, VM/app launch and providers.
 
 Before that operation, obtain independent acceptance of the fixed source/seal and
-record exact owner authority plus the activation revision. Inspect available disk
+record exact owner authority plus the changed activation revision and seal. Inspect available disk
 and memory reserves and the existing tool/runtime trust boundary. Tool entrypoint
 hashes are checked; full OS/shared-library closure is not claimed. Unsupported
 resource-limit or permission behavior must stop rather than weaken the profile.

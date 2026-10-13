@@ -1,0 +1,41 @@
+test_acquisition_rejects_symlinked_ancestor_before_creating_state (test_review_r4_regressions.R4Regressions) ... FAIL
+test_pipe_eof_does_not_end_worker_resource_supervision (test_review_r4_regressions.R4Regressions) ... FAIL
+test_prestart_rejects_fifo_without_waiting_for_a_writer (test_review_r4_regressions.R4Regressions) ... FAIL
+test_prestart_rejects_replaced_data_path (test_review_r4_regressions.R4Regressions) ... FAIL
+
+======================================================================
+FAIL: test_acquisition_rejects_symlinked_ancestor_before_creating_state (test_review_r4_regressions.R4Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r4_regressions.py", line 55, in test_acquisition_rejects_symlinked_ancestor_before_creating_state
+    self.assertTrue(rejected and not redirected, 'symlinked ancestor must fail before creating state outside the declared path')
+AssertionError: False is not true : symlinked ancestor must fail before creating state outside the declared path
+
+======================================================================
+FAIL: test_pipe_eof_does_not_end_worker_resource_supervision (test_review_r4_regressions.R4Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r4_regressions.py", line 182, in test_pipe_eof_does_not_end_worker_resource_supervision
+    self.assertTrue(rejected, 'EOF must not disable deadline/RSS enforcement while the child remains live')
+AssertionError: False is not true : EOF must not disable deadline/RSS enforcement while the child remains live
+
+======================================================================
+FAIL: test_prestart_rejects_fifo_without_waiting_for_a_writer (test_review_r4_regressions.R4Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r4_regressions.py", line 120, in test_prestart_rejects_fifo_without_waiting_for_a_writer
+    self.assertTrue(rejected_without_peer and errors, 'a FIFO must be rejected before a writer connects')
+AssertionError: False is not true : a FIFO must be rejected before a writer connects
+
+======================================================================
+FAIL: test_prestart_rejects_replaced_data_path (test_review_r4_regressions.R4Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r4_regressions.py", line 82, in test_prestart_rejects_replaced_data_path
+    self.assertTrue(rejected, 'checked directory must remain bound to the actual launch pathname')
+AssertionError: False is not true : checked directory must remain bound to the actual launch pathname
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.062s
+
+FAILED (failures=4)

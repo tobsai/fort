@@ -10,6 +10,7 @@ import stat
 import time
 from urllib.parse import urlsplit,urljoin
 from .inspection_guard import require_inspection
+from .lifecycle import DirectoryChain
 
 INPUTS=Path(__file__).resolve().parents[2]/'utm-synthetic-packet-v1/inputs.json'
 
@@ -58,29 +59,31 @@ class LocalStore:
     def __init__(self,root):
         self.root=Path(root)
         if not self.root.is_absolute() or '..' in self.root.parts:raise ValueError('absolute fresh inspection root required')
-        os.mkdir(self.root,0o700)
-        self.directory=os.open(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
-        self.identity=os.fstat(self.directory);self.diagnostic_bytes=0
-        try:self.record('attempt.json',{'status':'consumed','recovery':'no implicit retry or adoption'})
+        self.directory=None;self.chain=DirectoryChain(self.root.parent);self.diagnostic_bytes=0
+        try:
+            self.chain.create(self.root.name);self.directory=self.chain.fd
+            self.record('attempt.json',{'status':'consumed','recovery':'no implicit retry or adoption'})
         except BaseException:self.close();raise
     def close(self):
-        if self.directory is not None:os.close(self.directory);self.directory=None
+        self.chain.close();self.directory=None
     def check(self):
-        current=os.lstat(self.root)
-        if (current.st_dev,current.st_ino)!=(self.identity.st_dev,self.identity.st_ino) or not stat.S_ISDIR(current.st_mode):
-            raise ValueError('inspection root identity changed')
+        self.chain.check()
     def create(self,name):
         self.check()
         if not re.fullmatch('[a-zA-Z0-9_.-]{1,100}',name) or name in ('.','..'):raise ValueError('fixed flat artifact name required')
-        return os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=self.directory)
+        fd=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_NONBLOCK,0o600,dir_fd=self.directory)
+        try:
+            self.check()
+            info=os.fstat(fd);named=os.stat(name,dir_fd=self.directory,follow_symlinks=False)
+            if (info.st_dev,info.st_ino)!=(named.st_dev,named.st_ino) or info.st_nlink!=1 or not stat.S_ISREG(info.st_mode):
+                raise ValueError('new artifact identity changed')
+            return fd
+        except BaseException:os.close(fd);raise
     def record(self,name,value,cap=8192):
         data=(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
         if cap not in (8192,65536) or len(data)>cap or self.diagnostic_bytes+len(data)>262144:raise ValueError('diagnostic cap')
-        fd=self.create(name)
-        try:
-            with os.fdopen(fd,'wb') as stream:stream.write(data);stream.flush();os.fsync(stream.fileno())
-            os.fsync(self.directory);self.diagnostic_bytes+=len(data)
-        except BaseException:raise
+        if not re.fullmatch('[a-zA-Z0-9_.-]{1,100}',name) or name in ('.','..'):raise ValueError('fixed flat artifact name required')
+        self.chain.write_file(name,data);self.diagnostic_bytes+=len(data)
     def begin(self,name):return self.create(name+'.partial')
     def publish(self,name,fd,size):
         self.check();os.fsync(fd);info=os.fstat(fd)
@@ -92,7 +95,16 @@ class LocalStore:
         linked=os.stat(name,dir_fd=self.directory,follow_symlinks=False)
         if not stat.S_ISREG(linked.st_mode) or (linked.st_dev,linked.st_ino)!=(info.st_dev,info.st_ino):
             raise ValueError('published input ownership unknown')
-        os.unlink(name+'.partial',dir_fd=self.directory);os.fsync(self.directory)
+        self.check()
+        partial=os.stat(name+'.partial',dir_fd=self.directory,follow_symlinks=False)
+        if not stat.S_ISREG(partial.st_mode) or (partial.st_dev,partial.st_ino)!=(info.st_dev,info.st_ino):
+            raise ValueError('partial replaced after publication; preserve uncertain state')
+        os.unlink(name+'.partial',dir_fd=self.directory);os.fsync(self.directory);self.check()
+        final=os.fstat(fd);named=os.stat(name,dir_fd=self.directory,follow_symlinks=False)
+        if (not stat.S_ISREG(final.st_mode) or final.st_nlink!=1 or not stat.S_ISREG(named.st_mode) or named.st_nlink!=1
+                or identity(final)!=identity(named)
+                or (final.st_dev,final.st_ino,final.st_size,final.st_mtime_ns)!=(info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns)):
+            raise ValueError('published input changed during persistence')
 
 
 class Acquisition:

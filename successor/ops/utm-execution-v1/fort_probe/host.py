@@ -88,14 +88,17 @@ class MacKernel:
         return topology
     def prestart(self,accepted):
         from fort_probe.boot import validate_config,verify_boot_files
+        from fort_probe.lifecycle import DirectoryChain
         if set(accepted)!={'config_plist','data_files'}:raise ValueError('complete accepted boot manifest required')
         expected=validate_config(plistlib.loads(accepted['config_plist']))
-        before=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
-        topology=self.config()
-        if not exact(topology,expected):raise ValueError('accepted VM identity differs')
-        files=verify_boot_files(self.root/'vm/fort-utm-isolation-probe.utm/Data',accepted['data_files'])
-        after=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
-        if before!=after:raise ValueError('configuration changed during pre-start inspection')
+        with DirectoryChain(self.root/'vm/fort-utm-isolation-probe.utm/Data') as chain:
+            before=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
+            topology=self.config()
+            if not exact(topology,expected):raise ValueError('accepted VM identity differs')
+            files=verify_boot_files(chain.path,accepted['data_files'])
+            after=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
+            if before!=after:raise ValueError('configuration changed during pre-start inspection')
+            chain.check()
         return {'vm_uuid':topology['uuid'],'data_files':files}
     def collect(self):
         before=time.monotonic()

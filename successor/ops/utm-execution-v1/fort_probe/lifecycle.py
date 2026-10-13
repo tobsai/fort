@@ -17,6 +17,101 @@ def _identity(info):
             'mode': stat.S_IMODE(info.st_mode), 'kind': stat.S_IFMT(info.st_mode)}
 
 
+class DirectoryChain:
+    """Retain every no-follow directory edge and recheck its declared pathname."""
+    def __init__(self, path):
+        path = Path(path)
+        if path.anchor != '/' or '..' in path.parts or len(path.parts) > 32:
+            raise ValueError('bounded absolute non-traversing directory required')
+        self.path = Path('/')
+        self.entries = []
+        try:
+            fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try: identity = _identity(os.fstat(fd))
+            except BaseException:
+                os.close(fd)
+                raise
+            self.entries.append(('/', fd, identity))
+            for name in path.parts[1:]: self.descend(name)
+            self.check()
+        except BaseException:
+            self.close()
+            raise
+
+    @property
+    def fd(self): return self.entries[-1][1]
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+    def close(self):
+        while self.entries: os.close(self.entries.pop()[1])
+
+    def check(self):
+        if not self.entries: raise ValueError('directory chain closed')
+        for index in range(len(self.entries) - 1, -1, -1):
+            name, fd, expected = self.entries[index]
+            held = os.fstat(fd)
+            named = os.stat(name, dir_fd=self.entries[index - 1][1] if index else None, follow_symlinks=False)
+            if held.st_nlink == 0 or _identity(held) != expected or _identity(named) != expected:
+                raise ValueError('directory chain detached or replaced')
+
+    def descend(self, name, expected=None):
+        if name in ('', '.', '..') or '/' in name or len(self.entries) >= 32:
+            raise ValueError('bounded directory component required')
+        self.check()
+        before = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
+        if not stat.S_ISDIR(before.st_mode) or (expected is not None and _identity(before) != expected):
+            raise ValueError('directory changed before open')
+        fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=self.fd)
+        try:
+            if _identity(os.fstat(fd)) != _identity(before): raise ValueError('directory changed during open')
+        except BaseException:
+            os.close(fd)
+            raise
+        self.entries.append((name, fd, _identity(before)))
+        self.path = self.path / name
+        self.check()
+
+    def create(self, name):
+        if name in ('', '.', '..') or '/' in name or len(self.entries) >= 32:
+            raise ValueError('fresh directory component required')
+        self.check()
+        parent = self.fd
+        os.mkdir(name, 0o700, dir_fd=parent)
+        created = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if not stat.S_ISDIR(created.st_mode) or created.st_uid != os.getuid() or stat.S_IMODE(created.st_mode) != 0o700:
+            raise ValueError('fresh private directory required')
+        self.descend(name, _identity(created))
+        os.fsync(parent)
+        self.check()
+
+    def reopen(self):
+        other = DirectoryChain(self.path)
+        try:
+            if [e[2] for e in other.entries] != [e[2] for e in self.entries]:
+                raise ValueError('directory chain changed before reopening')
+            self.check()
+            return other
+        except BaseException:
+            other.close()
+            raise
+
+    def write_file(self, name, data):
+        if name in ('', '.', '..') or '/' in name: raise ValueError('flat file name required')
+        self.check()
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=self.fd)
+        with os.fdopen(fd, 'wb') as stream:
+            self.check()
+            before = os.fstat(stream.fileno())
+            stream.write(data); stream.flush(); os.fsync(stream.fileno()); os.fsync(self.fd)
+            after = os.fstat(stream.fileno())
+            named = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
+            if (not stat.S_ISREG(after.st_mode) or after.st_nlink != 1 or after.st_size != len(data)
+                    or _identity(before) != _identity(after) or _identity(after) != _identity(named)
+                    or (after.st_size, after.st_mtime_ns, after.st_ctime_ns) != (named.st_size, named.st_mtime_ns, named.st_ctime_ns)):
+                raise ValueError('written artifact replaced before persistence')
+            self.check()
+
+
 def _open_directory(path):
     path = Path(path)
     if not path.is_absolute() or '..' in path.parts:

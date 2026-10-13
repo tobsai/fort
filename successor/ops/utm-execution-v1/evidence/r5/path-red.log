@@ -1,0 +1,53 @@
+test_ancestor_swap_during_record_is_detected_before_success (test_path_integrity.PathIntegrityTests) ... FAIL
+test_boot_rejects_symlinked_ancestors_and_hardlinks (test_path_integrity.PathIntegrityTests) ... ok
+test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted (test_path_integrity.PathIntegrityTests) ... FAIL
+test_package_ancestor_replacement_while_hashing_cannot_pass (test_path_integrity.PathIntegrityTests) ... FAIL
+test_parent_replacement_during_creation_never_writes_an_attempt_marker (test_path_integrity.PathIntegrityTests) ... ok
+test_prestart_keeps_data_binding_through_final_configuration_readback (test_path_integrity.PathIntegrityTests) ... FAIL
+test_publication_never_removes_a_replacement_partial (test_path_integrity.PathIntegrityTests) ... FAIL
+test_same_bytes_do_not_hide_leaf_replacement_after_open (test_path_integrity.PathIntegrityTests) ... ok
+
+======================================================================
+FAIL: test_ancestor_swap_during_record_is_detected_before_success (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 54, in test_ancestor_swap_during_record_is_detected_before_success
+    store.record('complete.json',{'status':'complete'})
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+======================================================================
+FAIL: test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 38, in test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted
+    with patch.object(os,'open',replace),self.assertRaises((OSError,ValueError)):LocalStore(root)
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+======================================================================
+FAIL: test_package_ancestor_replacement_while_hashing_cannot_pass (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 81, in test_package_ancestor_replacement_while_hashing_cannot_pass
+    verify_boot_files(package/'Data',manifest)
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+======================================================================
+FAIL: test_prestart_keeps_data_binding_through_final_configuration_readback (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 121, in test_prestart_keeps_data_binding_through_final_configuration_readback
+    kernel.prestart({'config_plist':config,'data_files':manifest})
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+======================================================================
+FAIL: test_publication_never_removes_a_replacement_partial (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 67, in test_publication_never_removes_a_replacement_partial
+    with patch.object(os,'link',replace),self.assertRaises((OSError,ValueError)):store.publish('input',fd,7)
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.033s
+
+FAILED (failures=5)

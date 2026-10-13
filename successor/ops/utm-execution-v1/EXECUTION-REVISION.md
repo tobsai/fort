@@ -1,102 +1,100 @@
-# UTM source preparation revision R4
+# UTM source preparation revision R5
 
 **Fixed source candidate; input acquisition and guest execution remain disabled.**
-Base: `d965abb76d20a17879925ae0e3fedd504ecc6a57`. The R3 review closes all earlier
-findings and reports two unique P2 readback defects. Both are fixed here. This
-revision also supplies the previously missing bounded input-inspection code.
-Review artifacts, prior revisions, source evidence and logs remain preserved.
+Base: `d379e6fe6ffadecc32e3282226d0a7859c9a9495`. The R4 review confirms the R3 boot
+configuration and UUID corrections, then reports four P2 lifecycle/filesystem
+findings. All four are reproduced in preserved tests and corrected here. Independent
+acceptance of this new source/seal is pending. Scope remains this directory.
 
-## Boot integrity and identity
+## Worker lifetime
 
-`boot.py` is the common policy for candidate generation and configuration readback.
-It compares the complete accepted configuration, including every boot field,
-exact command line and masks, package-relative kernel/initrd/drive names, resources,
-virtualization settings and empty device/share lists. Missing and unexpected
-fields fail. UUID spellings are canonicalized for validation, returned topology
-and the host pin. Case alone is equivalent; another UUID is a different identity.
+`Worker.run()` supervises until the direct child is independently observed exited
+and both output pipes have drained. EOF and an early terminal JSON frame do not
+remove RSS, per-input or stage-deadline checks. Non-reaping exit observations use
+at most 50 ms slices; deadline checks follow each observation. Missing RSS while
+the child cannot be shown exited fails closed. Cancellation still precedes the
+sole reap; the unreaped child remains the PID/process-group identity anchor.
 
-`MacKernel.prestart()` and `Host.prestart()` provide validation before Start,
-independent of later process/PTY binding. The pre-start gate requires the accepted
-configuration and all four `Data/` file identities, including the eventual seed
-ISO. It walks without following symlinks, rejects unexpected files and hardlinks,
-streams hashes, checks sizes and before/after identities, and rechecks file set
-and configuration. The three-file candidate plan alone cannot satisfy this gate
-because no real seed ISO exists yet. No Start/launch API was introduced.
+Fixtures cover the original 650-second closed-pipe reproduction, elevated or
+unobservable RSS after EOF, input and stage deadlines, missing result, nonzero
+exit and normal delayed exit. Process/clock/selector/RSS boundaries are entirely
+doubled. Sampled RSS permits overshoot; real scheduling, resource-limit setup,
+process cancellation and Node permissions remain unrun.
 
-The preserved reviewer tests now accept the untouched candidate and equivalent
-uppercase UUID, and reject all four reported boot mutations. Nearby fixtures
-cover every boot field missing/changed, extra EFI/platform inputs, altered masks,
-absolute/traversal/subdirectory paths, unexpected drive bookmarks, writable seed,
-resource/virtualization changes, different UUIDs, replaced/symlinked/missing boot
-files and extra saved-state data. The pre-start API is fixture-checked before any
-PID/PTY binding. These are source and regular-file fixtures, not UTM readback.
+## Retained filesystem identity
 
-## Bounded acquisition implementation
+`DirectoryChain` in the existing `lifecycle.py` retains each directory descriptor
+from `/` to the target, with a 32-component bound. It opens each component without
+following symlinks, compares named and opened identities, and rechecks every edge
+in reverse order. Creation occurs relative to a checked parent descriptor. A new
+private leaf is observed and compared when opened; parent replacement or a later
+leaf mismatch vetoes use. Failure closes owned descriptors and preserves uncertain
+state. Existing roots are still refused; no adoption, retry or broad removal exists.
 
-[INPUT-INSPECTION.md](INPUT-INSPECTION.md) describes the concrete source, ordering,
-worker profiles, retained-state policy and next authority boundary. The new modules
-provide streamed fixed-input HTTPS, single-attempt durable storage, physical tar
-validation, exact verifier-member selection, offline cryptographic verification,
-bounded workers and a staged controller. Python and Node inspection entrypoints
-exit 78; guest `LIVE_EXECUTION_ENABLED` remains false. No environment override
-or automatic retry was added.
+`LocalStore` uses that chain before creating the attempt marker and around durable
+writes/publication. Receipts and published inputs are rechecked after syncing.
+If a partial name is replaced after linking, it is preserved rather than unlinked.
+The Python archive reader and selected-verifier writer use the same directory
+boundary, including known identities for reused nested output directories. This
+addresses the adjacent instances of the same path-following pattern without
+changing the existing VM cleanup protocol or adding an execution component.
 
-The controller authenticates registry/archive provenance before downloaded-module
-loading and publisher checks before Ubuntu inspection. It carries the exact
-selection-manifest digest across workers and rechecks the module file closure.
-Parent acceptance binds typed results to the fixed archive and publisher. The
-initial CLI records observed archive names and leaves `image_bound` false. An
-optional reviewed-name policy path additionally requires full image facts and
-the same authenticated archive; no names or offsets are guessed.
+`verify_boot_files()` retains and revalidates the whole Data-directory chain;
+checking only files in an already-open, detached directory is insufficient.
+`MacKernel.prestart()` holds an additional chain through the final configuration
+readback. Replacement of Data, a package ancestor or an opened file fails even
+when replacement bytes are identical. Complete configuration, UUID, file-set,
+size/hash, hardlink and mutation checks remain in place.
 
-Workers have concrete wall, per-input, CPU, sampled RSS, descriptor,
-file-write and output limits. Cancellation precedes child reap. Node receives only
-explicit read permissions and a bounded heap. Actual subprocess/resource-limit,
-TLS and downloaded-verifier behavior is unrun; all those boundaries are doubled
-in tests. A sampled RSS threshold permits overshoot and is not a hard Mac quota.
+Boot files, Python archive/receipt inputs and Node verifier inputs are opened
+nonblocking before type validation. A FIFO with no writer therefore fails promptly.
+Regular files continue through their hash/identity checks. This is a source-level
+observation boundary; it does not freeze the filesystem after return or isolate
+code from a trusted owner who can modify it. No VM Start API was introduced.
 
-Synthetic tests cover HTTP status/framing/length/hash/cap failures, unsafe and
-looping redirects, stalled input progress, fixed-input ordering, receipt failure,
-partial-file replacement, archive path/type/size/dependency/entry failures, wrong
-worker authentication identities, stage failures, deadlines, RSS/output failures,
-selected-member binding and disabled entrypoints. Temporary verifier fixture files
-are hashed and inspected; their JavaScript is never imported or executed.
+## Fixtures and preserved evidence
 
-## Preserved trust and execution boundaries
+All R1–R4 reviewer function/class ASTs and the frozen R2 missing-C05 fixture remain
+unchanged. R4's four original tests were first run against unchanged R4 and all
+four failed. Additional temporary-file tests cover symlinked ancestors, parent and
+leaf replacement during creation/open/sync, package/Data detachment, receipt and
+publication replacement, preserved unowned partials, hardlinks, archive readback,
+selected-member output and descriptor cleanup after observation failure.
 
-R1 S1–S3 and R2 STD-1–3/SPEC-1–2 remain fixed. All original regression bodies and
-the frozen missing-C05 Linux fixture remain unchanged. Runtime serial denial,
-journal endpoint attribution, canaries, actual command cancellation, broker OS
-loops and host/guest cleanup still require real evidence after later authorization.
+One existing pinned Node process runs only the repository's `hashRegular` helper
+against a fixture FIFO. Its initial three-second timeout was killed/reaped by the
+test harness and retained as red evidence; after the nonblocking correction it
+rejects promptly. No acquired JavaScript, real publisher crypto or supervised
+inspection worker ran. Synthetic verifier member bytes are written and inspected,
+never imported. Other process/HTTP/crypto boundaries remain doubled.
 
-The 11 retained official UTM Swift files still match their recorded identities at
-`048ca7498ea3a374439149d51739d94c5300bcda`. No source or artifact was retrieved in
-R4. Existing copyright/Apache attribution is unchanged. Version-4 schema knowledge
-does not prove an actual Swift decode, installed UTM readback or bootability.
-Fresh live persisted/in-memory registry capture and bookmark resolution are still
-missing adapters; the default host path refuses without them.
+`validation.json` records commands, counts, hashes, red/green evidence, disabled
+entrypoints and unrun checks. All 11 retained official UTM Swift files and their
+Apache/copyright evidence remain byte-identical to R3 at source commit
+`048ca7498ea3a374439149d51739d94c5300bcda`. No public source or artifact was retrieved.
+The unchanged packet, tool/input pins and earlier evidence remain referenced by
+the source seal. Full OS/shared-library closure is not claimed.
 
-Cloud-init directives would execute if someone separately packaged and booted
-the generated seed. Disabled Python gates are workflow controls, not a sandbox
-against trusted-owner changes. No package, ISO, mount, UTM/VM, account, credential,
-provider, startup service, host security change, push or deployment occurred.
-The planned host root remains absent. Earlier app-symlink, outside-root-state and
-interrupted-root cleanup refusals remain; no implicit adoption was introduced.
+## Separate remaining dependencies
 
-## Validation and remaining gates
+1. Independently accept this fixed source and seal. No activation authority is
+   implied by source tests, this commit or the earlier seals.
+2. Before the eight-input operation, inspect actual tool/storage/memory prerequisites
+   and obtain exact owner authority. Record and review the changed activation
+   source/seal with guest execution still disabled. R5's disabled seal cannot stand
+   in for changed activation source.
+3. Acquire/authenticate the same eight non-UTM inputs within 814,088,192 retained
+   bytes; verify real module closure, registry/publisher signatures, negative
+   controls and Ubuntu member inventory. The initial CLI still ends with
+   `image_bound: false` and `runtime_authorized: false`. Actual TLS, worker bounds,
+   Node permissions and archive compatibility require evidence during that scope.
+4. Later bind real members, decoded kernel/initrd/label facts, seed/ISO identity and
+   retained ownership. Fresh registry/bookmark capture, app/helper/PTY attribution,
+   owned cleanup and exact attended runtime authority remain separate prerequisites
+   to any UTM/VM trial. Real canaries, Stop/quiescence, T07 and installed-product/
+   provider acceptance remain open.
 
-`validation.json` records current counts, commands, retained red/green evidence
-and unrun checks. Both R3 defects were reproduced against the unchanged base;
-the corrected originals and all older regressions pass. Full fixtures use the
-existing Python/Node tools and the same narrowly scoped temporary Unix-socket
-allowance. Supervisor processes, HTTP and provider cryptography are doubled.
-Red logs retain the initial failures; any trailing-space normalization records
-original and normalized hashes without changing test results.
-
-The next review is of this source and its seal. After acceptance, a separately
-recorded authority/activation revision may permit only the eight pinned input
-acquisitions and bounded authenticated verifier execution. Real artifact/member
-facts must then bind the image and seed. Fresh registry/bookmark capture,
-process/helper/PTY attribution, owned cleanup and exact attended runtime authority
-remain later requirements. T07, installed-product and provider acceptance remain
-open. No current fixture pass is a live confinement or working-application claim.
+The planned host root remains absent. No actual download, downloaded-module
+execution, live adapter, resource-limit setup, installation, mount, UTM/VM launch,
+credential/account operation, host security change, provider cleanup, push or
+merge occurred in this revision.

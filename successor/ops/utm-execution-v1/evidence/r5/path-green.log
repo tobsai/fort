@@ -1,0 +1,22 @@
+test_ancestor_swap_during_record_is_detected_before_success (test_path_integrity.PathIntegrityTests) ... ok
+test_archive_read_retains_and_rechecks_ancestor_identity (test_path_integrity.PathIntegrityTests) ... ok
+test_archive_reader_never_opens_a_fifo_in_blocking_mode (test_path_integrity.PathIntegrityTests) ... ok
+test_boot_rejects_symlinked_ancestors_and_hardlinks (test_path_integrity.PathIntegrityTests) ... ok
+test_directory_observation_failure_closes_every_opened_descriptor (test_path_integrity.PathIntegrityTests) ... ok
+test_existing_node_fixture_rejects_fifo_without_a_writer (test_path_integrity.PathIntegrityTests) ... ok
+test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted (test_path_integrity.PathIntegrityTests) ... ok
+test_package_ancestor_replacement_while_hashing_cannot_pass (test_path_integrity.PathIntegrityTests) ... ok
+test_parent_replacement_during_creation_never_writes_an_attempt_marker (test_path_integrity.PathIntegrityTests) ... ok
+test_prestart_keeps_data_binding_through_final_configuration_readback (test_path_integrity.PathIntegrityTests) ... ok
+test_publication_never_removes_a_replacement_partial (test_path_integrity.PathIntegrityTests) ... ok
+test_published_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests) ... ok
+test_record_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests) ... ok
+test_record_replacement_during_sync_cannot_be_accepted (test_path_integrity.PathIntegrityTests) ... ok
+test_same_bytes_do_not_hide_leaf_replacement_after_open (test_path_integrity.PathIntegrityTests) ... ok
+test_verifier_install_refuses_symlinked_parent_before_output (test_path_integrity.PathIntegrityTests) ... ok
+test_verifier_install_writes_only_selected_files_and_rejects_existing_target (test_path_integrity.PathIntegrityTests) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.133s
+
+OK

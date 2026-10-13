@@ -105,14 +105,17 @@ class Worker:
             with selectors.DefaultSelector() as selector:
                 for index,stream in enumerate((child.stdout,child.stderr)):
                     os.set_blocking(stream.fileno(),False);selector.register(stream,selectors.EVENT_READ,index)
-                while selector.get_map():
+                exited=False
+                while not exited or selector.get_map():
                     now=time.monotonic();parser.check_deadline(now)
                     if now>=deadline:raise TimeoutError('inspection worker deadline')
-                    if now>=next_rss:
+                    if not exited and now>=next_rss:
                         raw,unused=self.commands.run(['/bin/ps','-o','rss=','-p',str(child.pid)],timeout=.25,cap=128,allow_empty=True)
                         if raw:
                             if rss_bytes(raw)>profile['rss']:raise ValueError('worker resident-memory threshold')
-                        else:self.commands._wait_unreaped(child,min(deadline,time.monotonic()+.01))
+                        else:
+                            self.commands._wait_unreaped(child,min(deadline,time.monotonic()+.01))
+                            exited=True
                         next_rss=time.monotonic()+.1
                     for key,unused in selector.select(min(.1,max(0,deadline-time.monotonic()))):
                         chunk=os.read(key.fileobj.fileno(),4096)
@@ -121,8 +124,14 @@ class Worker:
                             output[key.data].extend(chunk)
                             if sum(map(len,output))>65536:raise ValueError('worker output cap')
                             if key.data==0:parser.feed(chunk,time.monotonic())
-                self.commands._wait_unreaped(child,deadline)
-                if time.monotonic()>deadline:raise TimeoutError('inspection worker completion deadline')
+                    if not exited:
+                        limit=min(deadline,time.monotonic()+.05)
+                        if parser.input_deadline is not None:limit=min(limit,parser.input_deadline)
+                        try:self.commands._wait_unreaped(child,limit)
+                        except TimeoutError:pass
+                        else:exited=True
+                    parser.check_deadline(time.monotonic())
+                    if time.monotonic()>=deadline:raise TimeoutError('inspection worker completion deadline')
         finally:
             try:
                 try:os.killpg(child.pid,signal.SIGKILL)

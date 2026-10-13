@@ -1,0 +1,40 @@
+test_ancestor_swap_during_record_is_detected_before_success (test_path_integrity.PathIntegrityTests) ... ok
+test_archive_read_retains_and_rechecks_ancestor_identity (test_path_integrity.PathIntegrityTests) ... ok
+test_archive_reader_never_opens_a_fifo_in_blocking_mode (test_path_integrity.PathIntegrityTests) ... ok
+test_boot_rejects_symlinked_ancestors_and_hardlinks (test_path_integrity.PathIntegrityTests) ... ok
+test_existing_node_fixture_rejects_fifo_without_a_writer (test_path_integrity.PathIntegrityTests) ... ok
+test_new_leaf_replacement_between_identity_capture_and_open_is_not_adopted (test_path_integrity.PathIntegrityTests) ... ok
+test_package_ancestor_replacement_while_hashing_cannot_pass (test_path_integrity.PathIntegrityTests) ... ok
+test_parent_replacement_during_creation_never_writes_an_attempt_marker (test_path_integrity.PathIntegrityTests) ... ok
+test_prestart_keeps_data_binding_through_final_configuration_readback (test_path_integrity.PathIntegrityTests) ... ok
+test_publication_never_removes_a_replacement_partial (test_path_integrity.PathIntegrityTests) ... ok
+test_published_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests) ... FAIL
+test_record_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests) ... FAIL
+test_record_replacement_during_sync_cannot_be_accepted (test_path_integrity.PathIntegrityTests) ... ok
+test_same_bytes_do_not_hide_leaf_replacement_after_open (test_path_integrity.PathIntegrityTests) ... ok
+test_verifier_install_refuses_symlinked_parent_before_output (test_path_integrity.PathIntegrityTests) ... ok
+test_verifier_install_writes_only_selected_files_and_rejects_existing_target (test_path_integrity.PathIntegrityTests) ... ok
+test_closed_pipes_remain_supervised_until_observed_exit (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+
+======================================================================
+FAIL: test_published_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 216, in test_published_leaf_replacement_at_directory_sync_is_rejected
+    with patch.object(os,'fsync',replace),self.assertRaises((OSError,ValueError)):store.publish('input',fd,7)
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+======================================================================
+FAIL: test_record_leaf_replacement_at_directory_sync_is_rejected (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 201, in test_record_leaf_replacement_at_directory_sync_is_rejected
+    with patch.object(os,'fsync',replace),self.assertRaises((OSError,ValueError)):store.record('receipt.json',{'status':'accepted'})
+AssertionError: (<class 'OSError'>, <class 'ValueError'>) not raised
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.141s
+
+FAILED (failures=2)

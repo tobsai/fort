@@ -12,7 +12,7 @@
       "expected_exit_code": 78,
       "log": {
         "bytes": 183,
-        "path": "evidence/r4/disabled-entry.log",
+        "path": "evidence/r5/disabled-entry.log",
         "sha256": "66066dadabcc0000a2d7a1200927397d29ca3541e4bc78824d3f84269dd99023"
       },
       "observed_exit_code": 78
@@ -27,7 +27,7 @@
       "expected_exit_code": 78,
       "log": {
         "bytes": 137,
-        "path": "evidence/r4/inspection-disabled.log",
+        "path": "evidence/r5/inspection-disabled.log",
         "sha256": "b7839578aa9babd93c775ac63c8663cd59c254f754b9a81767e14871103ad86f"
       },
       "observed_exit_code": 78
@@ -40,7 +40,7 @@
       "expected_exit_code": 78,
       "log": {
         "bytes": 27,
-        "path": "evidence/r4/node-inspection-disabled.log",
+        "path": "evidence/r5/node-inspection-disabled.log",
         "sha256": "0601a31d59c41898465c58df03ba59e90d6d5fb8608db82865daac8ca24c9c74"
       },
       "observed_exit_code": 78
@@ -57,7 +57,7 @@
         "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs",
         "log": {
           "bytes": 92,
-          "path": "evidence/r4/verifier-fixtures.log",
+          "path": "evidence/r5/verifier-fixtures.log",
           "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
         },
         "passed": 6
@@ -66,7 +66,7 @@
         "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_inspection_verifier.mjs",
         "log": {
           "bytes": 101,
-          "path": "evidence/r4/inspection-verifier-green.log",
+          "path": "evidence/r5/inspection-verifier-fixtures.log",
           "sha256": "2d6830d3dbb98d6dd43b4f7d0325e298bc99d2a241bf8bae49c88986083f2b24"
         },
         "passed": 6
@@ -74,20 +74,63 @@
     ]
   },
   "live_adapters_invoked": false,
+  "neighboring_checks": {
+    "cases": [
+      "symlinked ancestors before creation",
+      "parent replacement during creation",
+      "new leaf replacement before open",
+      "Data/package replacement during reads and final config readback",
+      "same-byte leaf replacement and hardlinks",
+      "receipt and publication replacements through directory sync",
+      "unknown partial preservation",
+      "archive no-follow reads and selected-verifier writes",
+      "descriptor closure on observation failure",
+      "Python and Node FIFO readers without writers"
+    ],
+    "log": {
+      "bytes": 1962,
+      "path": "evidence/r5/path-green.log",
+      "sha256": "26971466df88340f99870a07c733a0ab07c92a3284e102ef059c38d0809945af"
+    },
+    "node_fifo_fixture": {
+      "downloaded_code_loaded": false,
+      "existing_repository_helper_only": true,
+      "expected_initial_timeout_seconds": 3,
+      "included_in_python_total": true,
+      "initial_child_killed_and_reaped_by_subprocess_run": true,
+      "red_log": {
+        "bytes": 2103,
+        "path": "evidence/r5/node-fifo-red.log",
+        "sha256": "4f3a50fb86182cf23ce48cdc4c177b8cff7e7ec36e6ff5a117d70189c958a798"
+      }
+    },
+    "path_integrity_test_methods": 17,
+    "process_os_clock_and_rss_boundaries_doubled": true,
+    "worker_cases": [
+      "delayed successful child exit after pipe EOF",
+      "elevated RSS after EOF",
+      "unobservable RSS while still live",
+      "per-input deadline after EOF",
+      "stage deadline after EOF",
+      "missing result",
+      "nonzero exit",
+      "cancellation before sole reap"
+    ]
+  },
   "network_requests": 0,
   "production_host_root_absent": true,
   "python_suite": {
     "command": "/usr/bin/python3 -I -B tests/run.py",
     "failed": 0,
     "log": {
-      "bytes": 11789,
-      "path": "evidence/r4/full-suite.log",
-      "sha256": "641c396be605fdec9257e7e710dafe1149a965d0c587cd9a0f73f66b00913a2d"
+      "bytes": 14182,
+      "path": "evidence/r5/full-suite.log",
+      "sha256": "a3b1a57492c5aa311a07c8a1211034f9f290af9076199b77cacd0295cbd78e88"
     },
-    "passed": 111
+    "passed": 133
   },
   "real_runtime_acceptance": false,
-  "recorded_at_utc": "2026-10-13T16:42:29.832913+00:00",
+  "recorded_at_utc": "2026-10-13T17:16:18.833220+00:00",
   "resource_policy": {
     "document": {
       "bytes": 449,
@@ -102,30 +145,30 @@
   "reviewer_regressions": {
     "R2_passed": 5,
     "R3_passed": 3,
+    "R4_passed": 4,
     "frozen_missing_C05_fixture_unchanged": true,
     "function_and_class_asts_unchanged": true,
     "green_log": {
-      "bytes": 1343,
-      "path": "evidence/r4/reviewer-green.log",
-      "sha256": "3001becfe32c3dddfdf405cf389ccab3db0863560a0fa6f5ecdb2f5e3d78bcd8"
+      "bytes": 1761,
+      "path": "evidence/r5/reviewer-green.log",
+      "sha256": "542daca5ab18ece3f5135a1f79537e2e3ece91f5fb1d743a0ede9b153de64ab5"
     },
     "included_in_python_total": true,
     "original_passed": 4,
-    "red_R3_baseline_passed": true,
-    "red_R3_failed_assertions": 5,
-    "red_R3_test_methods": 3,
+    "red_R4_failed_assertions": 4,
+    "red_R4_test_methods": 4,
     "red_log": {
-      "bytes": 3617,
-      "path": "evidence/r4/reviewer-red.log",
-      "sha256": "b07a0ff559ddd1fdbac7b714199f43539ba7bdea6d568e75fbe2de991b7d47a6"
+      "bytes": 3260,
+      "path": "evidence/r5/reviewer-red.log",
+      "sha256": "bac2e2170bfe468dddfb2070df3b8700d4c434d70db5dcd9e1994d592a42bb0e"
     }
   },
-  "sandbox_approval": "existing temporary Unix-socket fixture allowance only; all HTTP/worker/OS/crypto boundaries doubled",
-  "schema": 4,
+  "sandbox_approval": "existing temporary Unix-socket fixture allowance; ordinary synthetic files/FIFOs and one existing-Node helper fixture; all actual HTTP/supervisor/OS/crypto boundaries doubled",
+  "schema": 5,
   "static_verification": {
-    "bytes": 5275,
-    "path": "evidence/r4/static-verification.json",
-    "sha256": "0163f9ed82810a7c1e46f6c7a4395b187f5c5f31311e8611201230e078ffa21c"
+    "bytes": 5866,
+    "path": "evidence/r5/static-verification.json",
+    "sha256": "98dee75c10564f633e1f9587c21299003e54a89fc0bee6d89f4c422206b0246a"
   },
   "supervisor_workers_launched": false,
   "syntax": {
@@ -136,50 +179,48 @@
       "tests/test_inspection_verifier.mjs"
     ],
     "passed": true,
-    "python_ast_parse_files": 66
+    "python_ast_parse_files": 68
   },
   "test_first_red_evidence": {
-    "authentication_binding": "two failed assertions reproduced incomplete registry/publisher result binding before correction",
     "final_current_failures": 0,
+    "four_review_findings_reproduced_at_unchanged_r4": true,
     "logs": [
       {
-        "bytes": 929,
-        "path": "evidence/r4/acquisition-red.log",
-        "sha256": "d2b1c41b8ccb86701eb35e9d7fd988a490335031c9f721dfd08475856dc788d1"
+        "bytes": 3248,
+        "path": "evidence/r5/adjacent-red.log",
+        "sha256": "e7ed077070187e767b457b5cdcc89f9be2c1f240efeea5c86b09850bb69e79b7"
       },
       {
-        "bytes": 1787,
-        "path": "evidence/r4/authentication-binding-red.log",
-        "sha256": "b10252f60b0f4137b85fa9c3dd56ade67063397c30501252f81caacf5ad82907"
+        "bytes": 3202,
+        "path": "evidence/r5/archive-path-red.log",
+        "sha256": "fb1fe8a02d50b62a872ff9658d17e68d6264da58a06ae81ae4b907c1a521cee6"
       },
       {
-        "bytes": 887,
-        "path": "evidence/r4/boot-red.log",
-        "sha256": "fbbbe469a818a70001c15998dec66379ce0fc5a150f5784c805da8b3c70d88c9"
+        "bytes": 874,
+        "path": "evidence/r5/descriptor-red.log",
+        "sha256": "0efe1ea82ad7ef3526b77a0f85cb2055d114cf1f27c46c02940b732f95b0a1fb"
       },
       {
-        "bytes": 1121,
-        "path": "evidence/r4/input-deadline-red.log",
-        "sha256": "f6150d2af138a465936d20bfcfccaeb69e5924d806b6b0246688de5a3dd9f0eb"
+        "bytes": 2103,
+        "path": "evidence/r5/node-fifo-red.log",
+        "sha256": "4f3a50fb86182cf23ce48cdc4c177b8cff7e7ec36e6ff5a117d70189c958a798"
       },
       {
-        "bytes": 971,
-        "path": "evidence/r4/inspection-archive-red.log",
-        "sha256": "2eb408aa45822e37260db6cef3e934b2290afa6b37d83b466f8282007a9533af"
+        "bytes": 4105,
+        "path": "evidence/r5/path-red.log",
+        "sha256": "36ebbf7967321a884104cf03244dd95e023896f9139ee6ab9aab59b0bea0add3"
       },
       {
-        "bytes": 899,
-        "path": "evidence/r4/inspection-red.log",
-        "sha256": "46023f60f0aa82d74da13728b496ff36b75b7ddeb511f8abe599f696af663f19"
+        "bytes": 3544,
+        "path": "evidence/r5/persistence-red.log",
+        "sha256": "3296aa64cad81601c43ed10552f5d6a110dc4adb6dc358a26ab1eadf21f6bff2"
       },
       {
-        "bytes": 3617,
-        "path": "evidence/r4/reviewer-red.log",
-        "sha256": "b07a0ff559ddd1fdbac7b714199f43539ba7bdea6d568e75fbe2de991b7d47a6"
+        "bytes": 3260,
+        "path": "evidence/r5/reviewer-red.log",
+        "sha256": "bac2e2170bfe468dddfb2070df3b8700d4c434d70db5dcd9e1994d592a42bb0e"
       }
-    ],
-    "new_seams": "boot, acquisition, archive, inspection and per-input progress began with missing-interface errors; implementations now pass",
-    "reviewer": "two defects reproduced at unchanged R3: four boot mutations and one uppercase-UUID assertion"
+    ]
   },
   "tools": {
     "node": {
@@ -208,17 +249,17 @@
   "utm_source_provenance": {
     "byte_count_sha256_git_blob_sha1_match": true,
     "compiled_or_executed": false,
-    "new_source_retrievals_in_R4": 0,
+    "new_source_retrievals_in_R5": 0,
     "retained_files_verified": 11
   },
   "validation_level": "source-and-synthetic-fixtures",
   "whitespace_check": {
     "final_gate": "git diff --cached --check before commit",
     "normalization": {
-      "bytes": 104,
-      "path": "evidence/r4/whitespace-normalization.json",
-      "sha256": "03e5ed3f4ac5cec6684504d20cf40e2c04f0e3b50cb17e861f45250143055750"
+      "bytes": 99,
+      "path": "evidence/r5/whitespace-normalization.json",
+      "sha256": "4be0a82778e7a0941b83b114c45cd92216f937accb33a0786f9848fc4a7f422d"
     },
-    "scope": "new R4 logs only"
+    "scope": "new R5 logs only"
   }
 }

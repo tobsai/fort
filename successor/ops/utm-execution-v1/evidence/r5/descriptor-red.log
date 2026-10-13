@@ -1,0 +1,23 @@
+test_directory_observation_failure_closes_every_opened_descriptor (test_path_integrity.PathIntegrityTests) ... FAIL
+
+======================================================================
+FAIL: test_directory_observation_failure_closes_every_opened_descriptor (test_path_integrity.PathIntegrityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_path_integrity.py", line 230, in test_directory_observation_failure_closes_every_opened_descriptor
+    self.assertEqual(opened,closed)
+AssertionError: Lists differ: [4] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+4
+
+- [4]
+?  -
+
++ []
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
