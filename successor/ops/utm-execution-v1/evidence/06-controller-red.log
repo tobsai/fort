@@ -1,0 +1,16 @@
+test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests) ... ERROR
+
+======================================================================
+ERROR: test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_controller.py", line 11, in test_one_nominal_grant_and_stop_survive_restart_as_consumed
+    with Controller(root, BINDING, guest, clock) as controller:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/controller.py", line 6, in __init__
+    raise NotImplementedError('controller not implemented')
+NotImplementedError: controller not implemented
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)

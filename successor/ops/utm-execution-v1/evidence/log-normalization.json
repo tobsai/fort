@@ -1,0 +1,27 @@
+{
+  "transform": "remove line-ending whitespace only; failure content unchanged; original bytes reconstructable from removed bytes",
+  "files": [
+    {
+      "path": "evidence/15-ipc-green.log",
+      "original_sha256": "dbc0e209592ecee41859a7c19dadb3896d30d89836dbe15fa546048bf2f6d21e",
+      "stored_sha256": "9434f9273ae6514c82661a0da3e88e64b4a99bd2d30d79402e3da247120a17a5",
+      "removed_trailing_whitespace": [
+        {
+          "line": 1,
+          "bytes_hex": "20"
+        }
+      ]
+    },
+    {
+      "path": "evidence/17-lifecycle-green.log",
+      "original_sha256": "4af1b9bca580930ea94b9f504dea1b51d9bba430306fd69f6006ed0325519b7d",
+      "stored_sha256": "776e64bc99538390e1f223fc0e68370c2f93195400be3088eab83d57d5111be3",
+      "removed_trailing_whitespace": [
+        {
+          "line": 2,
+          "bytes_hex": "20"
+        }
+      ]
+    }
+  ]
+}

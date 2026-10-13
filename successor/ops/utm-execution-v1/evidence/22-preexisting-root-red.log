@@ -1,0 +1,14 @@
+test_preexisting_directory_cannot_be_adopted_for_cleanup (test_lifecycle.LifecycleTests) ... FAIL
+
+======================================================================
+FAIL: test_preexisting_directory_cannot_be_adopted_for_cleanup (test_lifecycle.LifecycleTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 75, in test_preexisting_directory_cannot_be_adopted_for_cleanup
+    OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES)
+AssertionError: FileExistsError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)

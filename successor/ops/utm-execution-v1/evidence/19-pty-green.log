@@ -1,0 +1,8 @@
+test_owned_device_is_exclusive_and_settings_restored_before_close (test_pty.PtyTests) ... ok
+test_replaced_device_is_closed_without_restoring_settings_on_wrong_identity (test_pty.PtyTests) ... ok
+test_symlink_owner_mode_rdev_swap_or_competing_consumer_stops_before_raw (test_pty.PtyTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK

@@ -1,0 +1,16 @@
+test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests) ... ERROR
+
+======================================================================
+ERROR: test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_serial.py", line 8, in test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages
+    self.assertEqual(stream.feed(b'{"text":"\xe2'), [])
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/serial.py", line 6, in feed
+    raise NotImplementedError('serial framing not implemented')
+NotImplementedError: serial framing not implemented
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)

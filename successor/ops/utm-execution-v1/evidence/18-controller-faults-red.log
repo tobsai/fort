@@ -1,0 +1,29 @@
+test_corrupt_state_releases_exclusive_lock_but_never_restores_authority (test_controller_faults.FaultTests) ... ERROR
+test_crash_after_persisted_consume_never_retries_start (test_controller_faults.FaultTests) ... ok
+test_idle_without_any_further_request_stops_and_cannot_resume (test_controller_faults.FaultTests) ... ERROR
+test_late_or_mismatched_empty_tree_proof_never_marks_stop_complete (test_controller_faults.FaultTests) ... ok
+
+======================================================================
+ERROR: test_corrupt_state_releases_exclusive_lock_but_never_restores_authority (test_controller_faults.FaultTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_controller_faults.py", line 66, in test_corrupt_state_releases_exclusive_lock_but_never_restores_authority
+    with Controller(root, BINDING, GuestFixture(), Clock()) as controller:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/controller.py", line 76, in __init__
+    self.store = Store(root)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/controller.py", line 25, in __init__
+    fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 35] Resource temporarily unavailable
+
+======================================================================
+ERROR: test_idle_without_any_further_request_stops_and_cannot_resume (test_controller_faults.FaultTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_controller_faults.py", line 17, in test_idle_without_any_further_request_stops_and_cannot_resume
+    controller.tick()
+AttributeError: 'Controller' object has no attribute 'tick'
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.032s
+
+FAILED (errors=2)

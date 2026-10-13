@@ -1,0 +1,10 @@
+test_preexisting_directory_cannot_be_adopted_for_cleanup (test_lifecycle.LifecycleTests) ... ok
+test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests) ... ok
+test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) ... ok
+test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) ... ok
+test_seed_control_live_evidence_stop_and_exact_cleanup_in_one_fixture (test_session.SessionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.136s
+
+OK

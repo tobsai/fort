@@ -1,0 +1,60 @@
+{
+  "disabled_entry": {
+    "command": "/usr/bin/python3 -I -B fort_probe/__main__.py",
+    "expected_exit_code": 78,
+    "log": {
+      "bytes": 73,
+      "path": "evidence/disabled-entry.log",
+      "sha256": "ae69da199f9ac995f635d64efa5988be40de3447fd5380e27c91484df0296e49"
+    },
+    "observed_exit_code": 78,
+    "passed": true
+  },
+  "historical_failed_attempts_retained": [
+    "08 test-edit error before corrected red",
+    "14 absent-API red with peer cleanup errors",
+    "15 sandbox socket bind denial",
+    "17 noncanonical fixture /var path refused"
+  ],
+  "no_current_fixture_failures": true,
+  "production_host_root_absent": true,
+  "real_runtime_acceptance": false,
+  "recorded_at_utc": "2026-10-13T13:44:47.973593+00:00",
+  "schema": 1,
+  "suite": {
+    "command": "/usr/bin/python3 -I -B tests/run.py",
+    "failed": 0,
+    "log": {
+      "bytes": 3643,
+      "path": "evidence/full-suite.log",
+      "sha256": "db41beb2cc754f99151b0ccd4fac52a3cdb77317b363443103dd0bbf186f61c4"
+    },
+    "passed": 35
+  },
+  "syntax": {
+    "files": 22,
+    "method": "ast.parse; no module import or bytecode write",
+    "passed": true
+  },
+  "temporary_unix_socket_approval": "sandbox initially denied bind; narrow automatic approval allowed only local fixture suite",
+  "tool": {
+    "bytes": 200560,
+    "complete_shared_library_closure": false,
+    "path": "/usr/bin/python3",
+    "runtime": "3.9.6",
+    "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d",
+    "standard_library_only": true
+  },
+  "unrun": [
+    "UTM/app/helper launch",
+    "VM creation/boot",
+    "NoCloud interpretation",
+    "real PTY/syscalls and competing-reader attribution",
+    "Linux systemd/namespace/UID/cgroup confinement",
+    "different-UID IPC denial",
+    "actual Ubuntu archive/signature verification",
+    "real host ownership/lifecycle scans and cleanup",
+    "provider or installed-product acceptance"
+  ],
+  "validation_level": "source-and-fixtures"
+}

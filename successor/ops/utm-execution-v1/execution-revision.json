@@ -1,0 +1,47 @@
+{
+  "approval_request_ready_to_send": false,
+  "base_commit": "cfea28acd098b1751f71a5f7b927e101211db054",
+  "base_packet_seal_sha256": "c3c897a1bfe4ac47e3b061b181b5faa30bdf49ac302c9e455f97ac76b1a6c2d4",
+  "complete_execution_source_gate_passed": false,
+  "execution_authorized": false,
+  "findings_implemented": {
+    "F1": "inactive preflight, prepared runtime, separate grant and single-use bound live capture without lease renewal",
+    "F2": "prompt stopping acknowledgement, distinct empty-tree terminal proof, bounded duplicate observation and no resend",
+    "F3": "actual local listener positive controls before/after; explicit access-denial predicate; different-UID denial unrun"
+  },
+  "fixture_bindings_are_synthetic": true,
+  "fixture_packet_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "independently_reviewed": false,
+  "input_inventory": "../utm-synthetic-packet-v1/inputs.json",
+  "input_inventory_changed": false,
+  "live_adapter_present": false,
+  "only_new_tree": "successor/ops/utm-execution-v1/",
+  "ready_for_execution": false,
+  "real_binding_must_use_later_complete_packet_seal": true,
+  "remaining_gates": [
+    "complete guest broker/runtime/tool and OS collectors",
+    "complete host identity/observation and lifecycle recovery adapters",
+    "Ubuntu-only nine-input verifier and bounded archive examiner",
+    "actual authenticated archive member/layout/kernel/label binding",
+    "reviewed enabled NoCloud/config writer after image inspection",
+    "fixed-revision independent acceptance",
+    "exact owner authorization before future runtime effects",
+    "real single-trial evidence and cleanup acceptance"
+  ],
+  "review": {
+    "bytes": 9893,
+    "findings": [
+      "F1",
+      "F2",
+      "F3"
+    ],
+    "new_source_acceptance": "pending",
+    "path": "../../../reviews/utm-packet-cfea28a/REVIEW.md",
+    "reviewer_owned_untracked_file": true,
+    "sha256": "f1e75fec349858b426dd18e0c5fc840f7458f3666f70b8a1d015c34b28b1b9fc"
+  },
+  "revision_id": "utm-source-preparation-r1",
+  "schema": 1,
+  "scope": "existing tools and synthetic fixtures only; no downloads, UTM launch, provisioning, boot, credentials, security changes, provider calls or deployment",
+  "vm_renderer_present": false
+}

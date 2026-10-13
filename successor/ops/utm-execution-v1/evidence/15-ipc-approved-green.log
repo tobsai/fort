@@ -1,0 +1,7 @@
+test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) ... ok
+test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+OK

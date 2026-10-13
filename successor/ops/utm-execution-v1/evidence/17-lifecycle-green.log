@@ -1,0 +1,150 @@
+test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests) ... ERROR
+test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) ... test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) ...
+======================================================================
+ERROR: test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 25, in test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='writer')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='start-identity')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='mount')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='handle')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='incomplete')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) (fault='registered')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 39, in test_uncertain_writers_or_mounts_block_reconciliation_without_removal
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) (fault='unknown')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 57, in test_unknown_link_or_immutable_content_change_preserves_every_file
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) (fault='symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 57, in test_unknown_link_or_immutable_content_change_preserves_every_file
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) (fault='hardlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 57, in test_unknown_link_or_immutable_content_change_preserves_every_file
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) (fault='fixed-change')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 57, in test_unknown_link_or_immutable_content_change_preserves_every_file
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+======================================================================
+ERROR: test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) (fault='after-reconcile')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_lifecycle.py", line 57, in test_unknown_link_or_immutable_content_change_preserves_every_file
+    with OwnedTree(root, BINDING['vm_package_uuid'], PROCESSES) as owned:
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 37, in __init__
+    self.parent = _open_directory(self.path.parent)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/lifecycle.py", line 25, in _open_directory
+    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+NotADirectoryError: [Errno 20] Not a directory: 'var'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.011s
+
+FAILED (errors=12)

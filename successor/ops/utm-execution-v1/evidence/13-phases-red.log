@@ -1,0 +1,87 @@
+test_controls_follow_process_lifetime_and_live_capture_does_not_renew_lease (test_phases.PhaseTests) ... ERROR
+test_failed_runtime_controls_or_early_tool_prevent_grant (test_phases.PhaseTests) ... test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) ... test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt (test_phases.PhaseTests) ... ERROR
+
+======================================================================
+ERROR: test_controls_follow_process_lifetime_and_live_capture_does_not_renew_lease (test_phases.PhaseTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 12, in test_controls_follow_process_lifetime_and_live_capture_does_not_renew_lease
+    self.assertTrue(controller.preflight()['ready'])
+AttributeError: 'Controller' object has no attribute 'preflight'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 65, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    self.assertFalse(controller.poll_stop()['live_evidence_proven'])
+KeyError: 'live_evidence_proven'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='stale')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 63, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    with self.assertRaises(ValueError): controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='replayed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 63, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    with self.assertRaises(ValueError): controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='pid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 63, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    with self.assertRaises(ValueError): controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='namespace')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 63, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    with self.assertRaises(ValueError): controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+ERROR: test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) (fault='cgroup')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 63, in test_missing_stale_replayed_or_unbound_live_evidence_never_passes
+    with self.assertRaises(ValueError): controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+ERROR: test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt (test_phases.PhaseTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 75, in test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt
+    controller.capture_live()
+AttributeError: 'Controller' object has no attribute 'capture_live'
+
+======================================================================
+FAIL: test_failed_runtime_controls_or_early_tool_prevent_grant (test_phases.PhaseTests) (fault='provider')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 41, in test_failed_runtime_controls_or_early_tool_prevent_grant
+    controller.handle({'op': 'grant', 'sequence': 1, 'identity': identity})
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_failed_runtime_controls_or_early_tool_prevent_grant (test_phases.PhaseTests) (fault='early-tool')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_phases.py", line 41, in test_failed_runtime_controls_or_early_tool_prevent_grant
+    controller.handle({'op': 'grant', 'sequence': 1, 'identity': identity})
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.051s
+
+FAILED (failures=2, errors=8)

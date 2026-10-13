@@ -1,0 +1,77 @@
+test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) ... test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) ...
+======================================================================
+ERROR: test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) (errno=13)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 15, in test_listening_endpoint_and_explicit_denial_pass
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) (errno=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 15, in test_listening_endpoint_and_explicit_denial_pass
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) (errno=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 15, in test_listening_endpoint_and_explicit_denial_pass
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='unlistening')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='removed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='refused')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='timeout')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='success')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) (fault='hidden-unproven')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_ipc.py", line 28, in test_unlistening_removed_or_unreachable_socket_is_not_permission_proof
+    listener.bind(path)
+PermissionError: [Errno 1] Operation not permitted
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (errors=9)

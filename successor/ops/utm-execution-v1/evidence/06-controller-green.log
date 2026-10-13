@@ -1,0 +1,6 @@
+test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.021s
+
+OK

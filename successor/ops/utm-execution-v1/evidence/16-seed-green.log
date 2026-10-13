@@ -1,0 +1,7 @@
+test_no_actual_vm_package_can_be_rendered_with_missing_archive_facts (test_seed.SeedTests) ... ok
+test_preview_has_only_three_synthetic_files_and_no_login_or_autostart (test_seed.SeedTests) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK

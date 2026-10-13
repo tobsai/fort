@@ -1,0 +1,10 @@
+test_boolean_sequence_or_identity_number_is_not_an_integer_grant (test_controller.ControllerTests) ... ok
+test_expired_prepare_lease_cannot_release_tool_work (test_controller.ControllerTests) ... ok
+test_idle_or_changed_invocation_quarantines_and_cannot_resume (test_controller.ControllerTests) ... ok
+test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests) ... ok
+test_restarted_controller_cannot_grant_an_old_prepared_attempt (test_controller.ControllerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.021s
+
+OK

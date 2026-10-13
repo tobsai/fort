@@ -1,0 +1,17 @@
+test_ambiguous_or_unbounded_input_poison_the_channel (test_serial.SerialTests) ... ok
+test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests) ... ok
+test_pipe_exchange_delivers_one_request_and_never_resends_lost_ack (test_serial.SerialTests) ... ok
+test_unsolicited_receipt_cannot_authorize_a_new_request (test_serial.SerialTests) ... FAIL
+
+======================================================================
+FAIL: test_unsolicited_receipt_cannot_authorize_a_new_request (test_serial.SerialTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_serial.py", line 48, in test_unsolicited_receipt_cannot_authorize_a_new_request
+    client.request({'op': 'grant'}, lambda x: x == {'event': 'accepted'})
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.051s
+
+FAILED (failures=1)

@@ -1,0 +1,107 @@
+test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) ... Exception in thread Thread-4:
+Traceback (most recent call last):
+Exception in thread Thread-3:
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+Traceback (most recent call last):
+Exception in thread Thread-2:
+Traceback (most recent call last):
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once (test_stop_transport.StopTransportTests) ...     self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+Exception in thread Thread-6:
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+    self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    received.append(right.recv(4096))
+    self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    received.append(right.recv(4096))
+OSError: [Errno 9] Bad file descriptor
+    self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+
+OSError: [Errno 9] Bad file descriptor
+======================================================================
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+ERROR: test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) (fault='missing')
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+Exception in thread Thread-5:
+----------------------------------------------------------------------
+    received.append(right.recv(4096))
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+OSError: [Errno 9] Bad file descriptor
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    received.append(right.recv(4096))
+OSError: [Errno 9] Bad file descriptor
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 51, in test_missing_wrong_late_duplicate_terminal_quarantines_without_resend
+    channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+    received.append(right.recv(4096))
+
+OSError: [Errno 9] Bad file descriptor
+======================================================================
+    self.run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+ERROR: test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) (fault='mismatch')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 51, in test_missing_wrong_late_duplicate_terminal_quarantines_without_resend
+    channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+
+======================================================================
+ERROR: test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) (fault='late')
+----------------------------------------------------------------------
+    self._target(*self._args, **self._kwargs)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 19, in peer
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 51, in test_missing_wrong_late_duplicate_terminal_quarantines_without_resend
+    channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+
+======================================================================
+ERROR: test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) (fault='duplicate')
+    received.append(right.recv(4096))
+----------------------------------------------------------------------
+OSError: [Errno 9] Bad file descriptor
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 51, in test_missing_wrong_late_duplicate_terminal_quarantines_without_resend
+    channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+
+======================================================================
+ERROR: test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once (test_stop_transport.StopTransportTests) (fault=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 41, in test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once
+    terminal = channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+
+======================================================================
+ERROR: test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once (test_stop_transport.StopTransportTests) (fault='coalesced')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_stop_transport.py", line 41, in test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once
+    terminal = channel.stop(stop, terminal_timeout=.1)
+AttributeError: 'Exchange' object has no attribute 'stop'
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.002s
+
+FAILED (errors=6)

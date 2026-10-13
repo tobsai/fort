@@ -1,0 +1,40 @@
+test_boolean_sequence_or_identity_number_is_not_an_integer_grant (test_controller.ControllerTests) ... ok
+test_expired_prepare_lease_cannot_release_tool_work (test_controller.ControllerTests) ... ok
+test_idle_or_changed_invocation_quarantines_and_cannot_resume (test_controller.ControllerTests) ... ok
+test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests) ... ok
+test_readiness_identity_substitution_is_rejected_before_grant (test_controller.ControllerTests) ... ok
+test_restarted_controller_cannot_grant_an_old_prepared_attempt (test_controller.ControllerTests) ... ok
+test_stop_acknowledges_promptly_then_proves_two_second_teardown (test_controller.ControllerTests) ... ok
+test_corrupt_state_releases_exclusive_lock_but_never_restores_authority (test_controller_faults.FaultTests) ... ok
+test_crash_after_persisted_consume_never_retries_start (test_controller_faults.FaultTests) ... ok
+test_idle_without_any_further_request_stops_and_cannot_resume (test_controller_faults.FaultTests) ... ok
+test_late_or_mismatched_empty_tree_proof_never_marks_stop_complete (test_controller_faults.FaultTests) ... ok
+test_slow_prepare_is_uncertain_and_can_never_release_tool (test_controller_faults.FaultTests) ... ok
+test_listening_endpoint_and_explicit_denial_pass (test_ipc.IPCTests) ... ok
+test_unlistening_removed_or_unreachable_socket_is_not_permission_proof (test_ipc.IPCTests) ... ok
+test_preexisting_directory_cannot_be_adopted_for_cleanup (test_lifecycle.LifecycleTests) ... ok
+test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests) ... ok
+test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) ... ok
+test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) ... ok
+test_controls_follow_process_lifetime_and_live_capture_does_not_renew_lease (test_phases.PhaseTests) ... ok
+test_failed_runtime_controls_or_early_tool_prevent_grant (test_phases.PhaseTests) ... ok
+test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) ... ok
+test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt (test_phases.PhaseTests) ... ok
+test_owned_device_is_exclusive_and_settings_restored_before_close (test_pty.PtyTests) ... ok
+test_replaced_device_is_closed_without_restoring_settings_on_wrong_identity (test_pty.PtyTests) ... ok
+test_symlink_owner_mode_rdev_swap_or_competing_consumer_stops_before_raw (test_pty.PtyTests) ... ok
+test_no_actual_vm_package_can_be_rendered_with_missing_archive_facts (test_seed.SeedTests) ... ok
+test_preview_has_only_three_synthetic_files_and_no_login_or_autostart (test_seed.SeedTests) ... ok
+test_ambiguous_or_unbounded_input_poison_the_channel (test_serial.SerialTests) ... ok
+test_channel_stops_before_sending_more_than_64_requests (test_serial.SerialTests) ... ok
+test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests) ... ok
+test_pipe_exchange_delivers_one_request_and_never_resends_lost_ack (test_serial.SerialTests) ... ok
+test_unsolicited_receipt_cannot_authorize_a_new_request (test_serial.SerialTests) ... ok
+test_seed_control_live_evidence_stop_and_exact_cleanup_in_one_fixture (test_session.SessionTests) ... ok
+test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) ... ok
+test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once (test_stop_transport.StopTransportTests) ... ok
+
+----------------------------------------------------------------------
+Ran 35 tests in 0.868s
+
+OK

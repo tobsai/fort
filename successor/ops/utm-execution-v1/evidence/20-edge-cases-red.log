@@ -1,0 +1,30 @@
+test_ambiguous_or_unbounded_input_poison_the_channel (test_serial.SerialTests) ... test_channel_stops_before_sending_more_than_64_requests (test_serial.SerialTests) ... ok
+test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests) ... ok
+test_pipe_exchange_delivers_one_request_and_never_resends_lost_ack (test_serial.SerialTests) ... ok
+test_unsolicited_receipt_cannot_authorize_a_new_request (test_serial.SerialTests) ... ok
+test_corrupt_state_releases_exclusive_lock_but_never_restores_authority (test_controller_faults.FaultTests) ... ok
+test_crash_after_persisted_consume_never_retries_start (test_controller_faults.FaultTests) ... ok
+test_idle_without_any_further_request_stops_and_cannot_resume (test_controller_faults.FaultTests) ... ok
+test_late_or_mismatched_empty_tree_proof_never_marks_stop_complete (test_controller_faults.FaultTests) ... ok
+test_slow_prepare_is_uncertain_and_can_never_release_tool (test_controller_faults.FaultTests) ... FAIL
+
+======================================================================
+FAIL: test_ambiguous_or_unbounded_input_poison_the_channel (test_serial.SerialTests) (payload=b'{"n":1e999}\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_serial.py", line 20, in test_ambiguous_or_unbounded_input_poison_the_channel
+    stream.feed(payload)
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_slow_prepare_is_uncertain_and_can_never_release_tool (test_controller_faults.FaultTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_controller_faults.py", line 79, in test_slow_prepare_is_uncertain_and_can_never_release_tool
+    with self.assertRaises(ValueError): controller.handle({'op': 'prepare', 'sequence': 0})
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.100s
+
+FAILED (failures=2)

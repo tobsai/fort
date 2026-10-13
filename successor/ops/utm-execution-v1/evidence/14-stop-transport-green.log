@@ -1,0 +1,12 @@
+test_missing_wrong_late_duplicate_terminal_quarantines_without_resend (test_stop_transport.StopTransportTests) ... ok
+test_two_stop_phases_accept_delayed_or_coalesced_proof_and_send_once (test_stop_transport.StopTransportTests) ... ok
+test_ambiguous_or_unbounded_input_poison_the_channel (test_serial.SerialTests) ... ok
+test_channel_stops_before_sending_more_than_64_requests (test_serial.SerialTests) ... ok
+test_fragmented_utf8_and_coalesced_frames_preserve_exact_messages (test_serial.SerialTests) ... ok
+test_pipe_exchange_delivers_one_request_and_never_resends_lost_ack (test_serial.SerialTests) ... ok
+test_unsolicited_receipt_cannot_authorize_a_new_request (test_serial.SerialTests) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.735s
+
+OK

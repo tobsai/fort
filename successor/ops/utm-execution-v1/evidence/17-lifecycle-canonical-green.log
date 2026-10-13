@@ -1,0 +1,8 @@
+test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests) ... ok
+test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) ... ok
+test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.015s
+
+OK

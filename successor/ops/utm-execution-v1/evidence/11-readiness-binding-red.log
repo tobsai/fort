@@ -1,0 +1,19 @@
+test_boolean_sequence_or_identity_number_is_not_an_integer_grant (test_controller.ControllerTests) ... ok
+test_expired_prepare_lease_cannot_release_tool_work (test_controller.ControllerTests) ... ok
+test_idle_or_changed_invocation_quarantines_and_cannot_resume (test_controller.ControllerTests) ... ok
+test_one_nominal_grant_and_stop_survive_restart_as_consumed (test_controller.ControllerTests) ... ok
+test_readiness_identity_substitution_is_rejected_before_grant (test_controller.ControllerTests) ... FAIL
+test_restarted_controller_cannot_grant_an_old_prepared_attempt (test_controller.ControllerTests) ... ok
+
+======================================================================
+FAIL: test_readiness_identity_substitution_is_rejected_before_grant (test_controller.ControllerTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_controller.py", line 93, in test_readiness_identity_substitution_is_rejected_before_grant
+    controller.handle({'op': 'prepare', 'sequence': 0})
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.022s
+
+FAILED (failures=1)
