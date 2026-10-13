@@ -1,0 +1,14 @@
+test_authentication_precedes_module_selection_loading_and_ubuntu_inspection (test_inspection.InspectionTests) ... ok
+test_each_stage_failure_prevents_all_subsequent_work_and_acceptance (test_inspection.InspectionTests) ... ok
+test_unbound_authentication_results_cannot_produce_complete_inspection (test_inspection.InspectionTests) ... ok
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_declared_oversize_and_special_header_are_rejected_without_payload (test_inspection_archive.InspectionArchiveTests) ... ok
+test_identity_dependencies_entry_escape_addon_and_bad_hash_fail (test_inspection_archive.InspectionArchiveTests) ... ok
+test_ubuntu_inventory_records_observed_names_without_assigning_kernel_or_executing (test_inspection_archive.InspectionArchiveTests) ... ok
+test_verifier_selection_binds_every_member_and_declared_entry_without_execution (test_inspection_archive.InspectionArchiveTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.044s
+
+OK

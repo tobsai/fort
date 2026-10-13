@@ -1,8 +1,13 @@
 {
+  "actual_inputs_acquired": false,
   "approval_request_ready_to_send": false,
-  "base_commit": "ca29ad4849dc5f0b1c6dee3f6aa344efb374a069",
+  "base_commit": "d965abb76d20a17879925ae0e3fedd504ecc6a57",
   "base_packet_seal_sha256": "c3c897a1bfe4ac47e3b061b181b5faa30bdf49ac302c9e455f97ac76b1a6c2d4",
+  "boot_configuration_readback_complete": true,
+  "bounded_acquisition_source_present": true,
+  "canonical_uuid_binding_present": true,
   "complete_execution_source_gate_passed": false,
+  "downloaded_code_executed": false,
   "execution_authorized": false,
   "findings_implemented": {
     "F1": "inactive preflight, prepared runtime, separate grant and single-use bound live capture without lease renewal",
@@ -12,6 +17,9 @@
   "fixture_bindings_are_synthetic": true,
   "fixture_packet_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "independently_reviewed": false,
+  "input_inspection_authorized": false,
+  "input_inspection_enabled": false,
+  "input_inspection_source_present": true,
   "input_inventory": "../utm-synthetic-packet-v1/inputs.json",
   "input_inventory_changed": false,
   "live_adapter_present": true,
@@ -19,16 +27,18 @@
   "live_registry_capture_present": false,
   "only_new_tree": "successor/ops/utm-execution-v1/",
   "pinned_utm_source_verified": true,
+  "prestart_file_identity_gate_present": true,
   "ready_for_execution": false,
   "real_binding_must_use_later_complete_packet_seal": true,
   "registry_raw_parser_present": true,
   "remaining_gates": [
-    "authenticated Ubuntu/verifier artifacts and bounded acquisition/verification worker",
-    "real archive member/layout/decoded-kernel/initrd/label binding and selected verifier-module provenance",
+    "independent acceptance of R4 source and exact seal",
+    "exact owner authority and recorded activation revision for eight-input acquisition and bounded authenticated verifier execution only; guest gate stays false",
+    "real worker/resource-limit/Node-permission/TLS enforcement and exact authenticated artifacts, signatures and negative controls",
+    "real archive inventory, reviewed member/layout/decoded-kernel/initrd/label binding, retained input ownership and seed ISO identity",
     "fresh in-memory/persisted registry capture and nonstale no-UI/no-mount bookmark resolution",
-    "independent acceptance of R3 and completed real input binding",
-    "exact owner authority before live execution",
-    "real confinement, timing, host attribution, exact app-state cleanup and T07 acceptance"
+    "exact later attended runtime authority before any UTM/VM execution",
+    "real confinement, timing, host attribution, exact app-state cleanup, T07 and installed-product/provider acceptance"
   ],
   "review": {
     "bytes": 9893,
@@ -42,31 +52,31 @@
     "reviewer_owned_untracked_file": true,
     "sha256": "f1e75fec349858b426dd18e0c5fc840f7458f3666f70b8a1d015c34b28b1b9fc"
   },
-  "revision_id": "utm-source-preparation-r3",
+  "revision_id": "utm-source-preparation-r4",
   "schema": 1,
-  "scope": "disabled source and synthetic fixtures; exactly three authorized public UTM text blobs retrieved; no binary/archive downloads, installation, live adapters, mount, UTM/VM, credentials, security changes, providers or cleanup",
+  "scope": "disabled source and synthetic fixtures only; no source/binary/archive downloads, live adapters, installation, mount, UTM/VM, credentials, security changes, providers or cleanup",
   "source_review": {
     "findings_fixed": [
       "STD-1",
       "STD-2",
-      "STD-3",
-      "SPEC-1",
-      "SPEC-2"
+      "SPEC-1"
     ],
-    "independent_acceptance_of_r3": "pending",
+    "independent_acceptance_of_r4": "pending",
+    "overlap": "STD-1 and SPEC-1 describe the same incomplete boot-input readback",
     "regressions": {
-      "bytes": 7296,
-      "path": "../../../reviews/utm-source-ca29ad4/reviewer_regressions.py",
-      "sha256": "99adebfc0a3da34c8bd893d362b02fbaf6335c6c287b136dfd6359d5db7999f2"
+      "bytes": 4627,
+      "path": "../../../reviews/utm-source-d965abb/reviewer_regressions.py",
+      "sha256": "d7dac10ef3f2e7fa9cf36052800083d721751d30347aaa0bbcb27698cbe61b95"
     },
     "review": {
-      "bytes": 13079,
-      "path": "../../../reviews/utm-source-ca29ad4/REVIEW.md",
-      "sha256": "c2969db4ec14b1dbc9ae326d3c95195ae2fe6efa0a255a66b1b9c6185c8ad179"
+      "bytes": 14532,
+      "path": "../../../reviews/utm-source-d965abb/REVIEW.md",
+      "sha256": "00ca57801327bfe89706a8b9de46952322a92172797c0b8841e25b27236344d1"
     },
-    "test_adaptation": "source/import locations redirected; standalone reviewer writer removed; test bodies and frozen missing-C05 Linux fixture unchanged"
+    "test_adaptation": "source/import location redirected; standalone writer removed; all function/class ASTs unchanged",
+    "unique_defects_fixed": 2
   },
-  "source_review_fixed_commit": "ca29ad4849dc5f0b1c6dee3f6aa344efb374a069",
+  "source_review_fixed_commit": "d965abb76d20a17879925ae0e3fedd504ecc6a57",
   "source_review_history": [
     {
       "findings_fixed": [
@@ -86,6 +96,27 @@
         "sha256": "956ea77448e5b96dabdbf90d8189dc4d5390ec11896b585eaed874fec137d570"
       },
       "test_adaptation": "source path redirected; standalone writer removed; final blank line normalized; test bodies/assertions unchanged"
+    },
+    {
+      "findings_fixed": [
+        "STD-1",
+        "STD-2",
+        "STD-3",
+        "SPEC-1",
+        "SPEC-2"
+      ],
+      "independent_acceptance_of_r3": "R3 review closes all five R2 findings; two new readback defects prevent overall acceptance",
+      "regressions": {
+        "bytes": 7296,
+        "path": "../../../reviews/utm-source-ca29ad4/reviewer_regressions.py",
+        "sha256": "99adebfc0a3da34c8bd893d362b02fbaf6335c6c287b136dfd6359d5db7999f2"
+      },
+      "review": {
+        "bytes": 13079,
+        "path": "../../../reviews/utm-source-ca29ad4/REVIEW.md",
+        "sha256": "c2969db4ec14b1dbc9ae326d3c95195ae2fe6efa0a255a66b1b9c6185c8ad179"
+      },
+      "test_adaptation": "source/import locations redirected; standalone reviewer writer removed; test bodies and frozen missing-C05 Linux fixture unchanged"
     }
   ],
   "utm_schema_bound": true,

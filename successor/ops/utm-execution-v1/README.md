@@ -1,27 +1,22 @@
 # Disabled UTM source preparation
 
-R3 fixes the five findings against `ca29ad4`: owned command-group cancellation,
-physical tar-header limits, combined archive budgets, journal descriptor
-attribution and runtime serial-denial evidence. All nine supplied reviewer
-regressions pass. Activation remains disabled.
+R4 fixes both R3 readback defects: complete boot configuration is checked before
+Start, and equivalent UUID spellings bind canonically. It adds the bounded,
+disabled input-inspection pipeline and synthetic HTTP/archive/worker error tests.
 
-The three authorized UTM text files are verified and retained. The candidate now
-uses their version/information schema and checks raw registry entries. Fresh
-live registry capture and bookmark resolution remain unavailable by default.
-
-Read [EXECUTION-REVISION.md](EXECUTION-REVISION.md) for the source/evidence boundary
-and [OUTSTANDING-INSPECTION.md](OUTSTANDING-INSPECTION.md) for remaining input and
-runtime work. This is a source candidate for independent review, not a tested VM.
-
-Fixture commands use existing tools only:
+[Revision report](EXECUTION-REVISION.md) · [Input-inspection source](INPUT-INSPECTION.md)
+· [Remaining gates](OUTSTANDING-INSPECTION.md)
 
 ```sh
 /usr/bin/python3 -I -B tests/run.py
 /usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs
+/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_inspection_verifier.mjs
 /usr/bin/python3 -I -B verify.py
 ```
 
-Fixtures use ordinary temporary files, anonymous socketpairs and temporary Unix
-listeners. Command, pidfd, guest, host and cryptographic effects are doubled.
-The public entrypoint exits 78. No live adapter, binary/archive acquisition,
-installation, mount, UTM/VM launch, provider, credential or security change ran.
+Python fixtures use ordinary temporary files, anonymous socketpairs and temporary
+Unix listeners. HTTP, worker processes, Linux/Mac effects and publisher crypto
+remain doubled. The package, Python inspection and Node inspection entrypoints
+exit 78. No binaries/archives were acquired, no downloaded module executed and no
+UTM/VM, mount, installation, provider or security change occurred. This is a
+source candidate for review, not a tested VM or working product.

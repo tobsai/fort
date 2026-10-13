@@ -1,0 +1,25 @@
+test_authentication_precedes_module_selection_loading_and_ubuntu_inspection (test_inspection.InspectionTests) ... ok
+test_each_stage_failure_prevents_all_subsequent_work_and_acceptance (test_inspection.InspectionTests) ... ok
+test_unbound_authentication_results_cannot_produce_complete_inspection (test_inspection.InspectionTests) ... FAIL
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ok
+
+======================================================================
+FAIL: test_unbound_authentication_results_cannot_produce_complete_inspection (test_inspection.InspectionTests) (fault='registry-digest')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_inspection.py", line 65, in test_unbound_authentication_results_cannot_produce_complete_inspection
+    with self.subTest(fault=fault),self.assertRaises(ValueError):Inspector(root,Corrupted()).run()
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_unbound_authentication_results_cannot_produce_complete_inspection (test_inspection.InspectionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_inspection.py", line 66, in test_unbound_authentication_results_cannot_produce_complete_inspection
+    self.assertFalse((root/'inspection-complete.json').exists())
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.023s
+
+FAILED (failures=2)

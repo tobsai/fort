@@ -1,0 +1,24 @@
+test_complete_configuration_not_just_topology_is_bound (test_boot.BootTests) ... ok
+test_host_prestart_is_available_before_any_process_or_pty_binding (test_boot.BootTests) ... ok
+test_prestart_hashes_exact_regular_data_files_and_rejects_mutation_or_alias (test_boot.BootTests) ... ok
+test_unlisted_saved_state_or_extra_data_never_passes_prestart (test_boot.BootTests) ... ok
+test_uuid_case_is_canonical_but_different_identity_does_not_match_pin (test_boot.BootTests) ... ok
+test_iso_command_is_local_cidata_only_and_does_not_run (test_config.ConfigTests) ... ok
+test_three_file_seed_contains_guarded_guest_source_and_only_root_broker_bootstrap (test_config.ConfigTests) ... ok
+test_unknown_archive_layout_or_schema_never_generates_vm_configuration (test_config.ConfigTests) ... ok
+test_failed_http_hash_length_or_cap_vetoes_acceptance_and_never_fetches_next (test_acquisition.AcquisitionTests) ... ok
+test_fixed_inventory_excludes_utm_and_retains_exact_caps (test_acquisition.AcquisitionTests) ... ok
+test_pinned_bytes_are_published_only_after_eof_hash_and_receipt (test_acquisition.AcquisitionTests) ... ok
+test_receipt_failure_preserves_failure_veto_and_stops_after_first_input (test_acquisition.AcquisitionTests) ... ok
+test_redirects_stay_bounded_https_public_and_do_not_forward_credentials (test_acquisition.AcquisitionTests) ... ok
+test_replaced_partial_is_preserved_and_never_published (test_acquisition.AcquisitionTests) ... ok
+test_slow_stream_and_redirect_loops_stop_with_no_retry (test_acquisition.AcquisitionTests) ... ok
+test_authentication_precedes_module_selection_loading_and_ubuntu_inspection (test_inspection.InspectionTests) ... ok
+test_each_stage_failure_prevents_all_subsequent_work_and_acceptance (test_inspection.InspectionTests) ... ok
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.059s
+
+OK

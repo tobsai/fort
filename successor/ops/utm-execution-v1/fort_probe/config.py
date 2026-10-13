@@ -11,14 +11,13 @@ from .seed import preview
 from .utm_schema import pinned_schema
 from .evidence import exact
 
-MASKS=('ssh.service','ssh.socket','sshd.service','serial-getty@hvc0.service','serial-getty@hvc1.service',
-       'getty@tty1.service','apt-daily.service','apt-daily.timer','apt-daily-upgrade.service',
-       'apt-daily-upgrade.timer','unattended-upgrades.service','systemd-growfs-root.service')
+from .boot import MASKS,vm_configuration
+
 SOURCES=('__init__','bounded','descriptors','guest_entry','guest_programs','linux_kernel','linux','broker','controller','evidence','serial','ipc')
 
 
-def candidate(binding,image,schema):
-    if image is None or schema is None: raise ValueError('actual archive and UTM schema facts remain required')
+def validate_image(image):
+    if image is None:raise ValueError('actual archive facts required')
     expected={'raw_member','kernel_member','initrd_member','raw_bytes','root_label','kernel_arm64','member_sha256','archive_sha256',
               'member_bytes','kernel_compressed','auxiliary_bytes','auxiliary_peak_bytes','decoded_kernel_bytes','decoded_kernel_sha256'}
     if (set(image)!=expected or type(image['raw_bytes']) is not int or not 0<image['raw_bytes']<=20*1024**3
@@ -40,6 +39,11 @@ def candidate(binding,image,schema):
     if not image['kernel_compressed'] and (image['decoded_kernel_bytes']!=image['member_bytes']['kernel']
             or image['decoded_kernel_sha256']!=image['member_sha256']['kernel']):
         raise ValueError('uncompressed kernel identity differs')
+
+
+def candidate(binding,image,schema):
+    if schema is None:raise ValueError('actual UTM schema facts required')
+    validate_image(image)
     if not exact(schema,pinned_schema(binding)):raise ValueError('pinned UTM schema identity differs')
     seed=preview(); cloud=json.loads(seed['user-data'].split(b'\n',1)[1]); files=cloud['write_files']
     by_path={f['path']:f for f in files}
@@ -71,14 +75,7 @@ def candidate(binding,image,schema):
     seed['meta-data']=(json.dumps({'instance-id':'fort-utm-probe-v1','local-hostname':'fort-utm-probe',
                                 'fort_seed_sha256':hashlib.sha256(seed['user-data']).hexdigest()},sort_keys=True)+'\n').encode()
     if sum(map(len,seed.values()))>8*1024**2: raise ValueError('seed content cap exceeded')
-    config={'Backend':'Apple','ConfigurationVersion':schema['version'],'Information':schema['information'],
-            'System':{'Architecture':'aarch64','CPUCount':2,'MemorySize':4096,'GenericPlatform':{},
-                      'Boot':{'OperatingSystem':'Linux','UEFIBoot':False,'LinuxKernelPath':'kernel.Image','LinuxInitialRamdiskPath':'initrd',
-                              'LinuxCommandLine':'console=hvc0 root=LABEL=cloudimg-rootfs rw '+ ' '.join('systemd.mask='+unit for unit in MASKS)}},
-            'Virtualization':{'Audio':False,'Balloon':False,'Entropy':True,'Keyboard':'Disabled','Pointer':'Disabled','Rosetta':False,'ClipboardSharing':False},
-            'Network':[],'SharedDirectory':[],'Display':[],'Serial':[{'Mode':'Ptty'},{'Mode':'Ptty'}],
-            'Drive':[{'ImageName':'root.raw','ReadOnly':False,'Nvme':False,'Identifier':'fort-root'},
-                     {'ImageName':'seed.iso','ReadOnly':True,'Nvme':False,'Identifier':'fort-seed'}]}
+    config=vm_configuration(binding)
     data_files={'Data/root.raw':{'bytes':image['raw_bytes'],'sha256':image['member_sha256']['raw']},
                 'Data/kernel.Image':{'bytes':image['decoded_kernel_bytes'],'sha256':image['decoded_kernel_sha256']},
                 'Data/initrd':{'bytes':image['member_bytes']['initrd'],'sha256':image['member_sha256']['initrd']}}

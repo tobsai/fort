@@ -1,0 +1,17 @@
+test_authentication_precedes_module_selection_loading_and_ubuntu_inspection (test_inspection.InspectionTests) ... ok
+test_each_stage_failure_prevents_all_subsequent_work_and_acceptance (test_inspection.InspectionTests) ... ok
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ok
+test_failed_http_hash_length_or_cap_vetoes_acceptance_and_never_fetches_next (test_acquisition.AcquisitionTests) ... ok
+test_fixed_inventory_excludes_utm_and_retains_exact_caps (test_acquisition.AcquisitionTests) ... ok
+test_pinned_bytes_are_published_only_after_eof_hash_and_receipt (test_acquisition.AcquisitionTests) ... ok
+test_redirects_stay_bounded_https_public_and_do_not_forward_credentials (test_acquisition.AcquisitionTests) ... ok
+test_slow_stream_and_redirect_loops_stop_with_no_retry (test_acquisition.AcquisitionTests) ... ok
+test_declared_oversize_and_special_header_are_rejected_without_payload (test_inspection_archive.InspectionArchiveTests) ... ok
+test_identity_dependencies_entry_escape_addon_and_bad_hash_fail (test_inspection_archive.InspectionArchiveTests) ... ok
+test_ubuntu_inventory_records_observed_names_without_assigning_kernel_or_executing (test_inspection_archive.InspectionArchiveTests) ... ok
+test_verifier_selection_binds_every_member_and_declared_entry_without_execution (test_inspection_archive.InspectionArchiveTests) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.040s
+
+OK

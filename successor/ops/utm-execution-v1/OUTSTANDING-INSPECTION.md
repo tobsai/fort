@@ -1,50 +1,35 @@
-# Remaining input inspection and runtime work
+# Remaining inspection and execution gates
 
-R3 completed the authorized retrieval of three pinned UTM Swift files. Provenance
-and schema findings are in [UTM-SOURCE.md](evidence/r3/UTM-SOURCE.md). Those public
-text reads require no further permission or repeat retrieval.
+R4 now contains the bounded acquisition, worker, archive-selection and offline
+verifier source previously missing. Read [INPUT-INSPECTION.md](INPUT-INSPECTION.md)
+for exact operations, limits and retained-state behavior. It is disabled and has
+not acquired or executed artifacts. No further UTM source retrieval is needed.
 
-The following artifact operation remains outside the present authorization.
-Its acquisition/decompression orchestration and selected verifier-module loading
-must become concrete reviewed source before seeking approval. This document is
-an inventory and plan, not an executable or approved downloader.
+The next separately authorized operation is input acquisition/authentication:
+exactly eight non-UTM entries from unchanged `inputs.json`, maximum retained payload
+814,088,192 bytes, existing pinned tools, a fresh private owned root, no credentials,
+no proxy, bounded redirects, no retry and no package hooks. It includes importing
+only the authenticated, inspected OpenPGP entry in the restricted Node worker.
+It excludes UTM.dmg, installation, mounting, VM/app launch and providers.
 
-Acquire only the eight non-UTM entries in unchanged
-`../utm-synthetic-packet-v1/inputs.json`: the dated Ubuntu ARM64 tar, checksum list,
-detached signature, publisher public key and package manifest, plus pinned
-OpenPGP 6.3.2 metadata/archive and npm public signing keys. Preserve exact URLs,
-digests, caps, redirect hosts and no-credential/no-proxy policy. Combined maximum
-payload is **814,088,192 bytes**. Omit UTM.dmg; reuse the accepted static app
-assessment as historical evidence. No alternate image/key, package installation,
-account, credential, mount or guest program is part of input inspection.
+Before that operation, obtain independent acceptance of the fixed source/seal and
+record exact owner authority plus the activation revision. Inspect available disk
+and memory reserves and the existing tool/runtime trust boundary. Tool entrypoint
+hashes are checked; full OS/shared-library closure is not claimed. Unsupported
+resource-limit or permission behavior must stop rather than weaken the profile.
 
-Inspect the verifier archive without package hooks or dependencies. Authenticate
-its selected module before loading it with the existing pinned Node 26.5.0.
-Verify Ubuntu signed checksums against fingerprint
-`D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Run the existing negative-control
-classes with in-memory mutations. The supplied verifier API in today's fixtures
-is a crypto double, not an authenticated library or a signature-verification pass.
+Actual archive contents, module closure, publisher/registry cryptography, negative
+controls, raw layout, names, decoded kernel and initrd facts remain unrun. The
+initial CLI returns inventory with `image_bound: false`; bind exact observed
+members and ownership in a reviewed follow-up. Unknown formats require observed
+evidence and a reviewed decoder, never guessed offsets, replacement inputs,
+mounting or conversion. A failed or consumed root cannot be adopted or retried
+implicitly. Verified inputs remain for a recorded handoff; uncertain files remain
+quarantined.
 
-List/hash the authenticated Ubuntu archive without extracting a guest filesystem.
-Record exact member paths; count physical tar headers and reject unsupported
-metadata before preprocessing. Caps: compressed 768 MiB, raw 20 GiB, combined
-auxiliary 192 MiB, at most 64 physical entries. Include retained compressed
-kernel plus decoded output and other auxiliary members in peak accounting.
-Record source and decoded kernel hashes/sizes. Use a bounded worker for large
-hash/decompression work; the current parser's logical budget is not a process
-RSS/deadline guarantee. Preserve bounded receipts and stop on any resource,
-authentication or format failure. An unsupported raw layout requires observed
-facts and a reviewed decoder, never inferred offsets, resizing or a replacement
-kernel. No host mount, disk conversion or VM boot belongs in this operation.
-
-UTM schema decoding is now implemented against verified text. Fresh live capture
-of persisted and in-memory registry state, plus no-UI/no-mount bookmark resolution,
-remains a separate missing adapter. The parser accepts supplied evidence only;
-the Mac path refuses to proceed without that provider. Do not infer no shares
-from an absent entry or trust a bookmarked path without resolution.
-
-UTM registration/launch, PTY access, guest seed application, process control and
-outside-root app-state cleanup remain later runtime work with exact owner
-execution authority and independent acceptance. No provider cleanup is authorized.
-Retain uncertain state; remove only exact positively owned objects after fresh
-quiescence evidence. T07 and installed-product/provider acceptance remain open.
+After real inputs are bound, complete live registry/bookmark capture, actual host
+process/helper/PTY attribution, seed/ISO identity and owned cleanup. The new
+pre-start gate requires the full accepted configuration and all four Data-file
+hashes before Start. Runtime authority is a later separate decision. Real canaries,
+Stop/termination evidence, cleanup, T07 and installed-product/provider acceptance
+remain open. No provider cleanup is authorized.

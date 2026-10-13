@@ -1,0 +1,10 @@
+test_failed_http_hash_length_or_cap_vetoes_acceptance_and_never_fetches_next (test_acquisition.AcquisitionTests) ... ok
+test_fixed_inventory_excludes_utm_and_retains_exact_caps (test_acquisition.AcquisitionTests) ... ok
+test_pinned_bytes_are_published_only_after_eof_hash_and_receipt (test_acquisition.AcquisitionTests) ... ok
+test_redirects_stay_bounded_https_public_and_do_not_forward_credentials (test_acquisition.AcquisitionTests) ... ok
+test_slow_stream_and_redirect_loops_stop_with_no_retry (test_acquisition.AcquisitionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.022s
+
+OK

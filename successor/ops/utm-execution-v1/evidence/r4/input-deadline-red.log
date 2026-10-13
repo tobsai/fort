@@ -1,0 +1,15 @@
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests) ... ERROR
+
+======================================================================
+ERROR: test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_inspection_worker_bounds.py", line 47, in test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs
+    from fort_probe.inspection_workers import WorkerOutput
+ImportError: cannot import name 'WorkerOutput' from 'fort_probe.inspection_workers' (/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py)
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (errors=1)

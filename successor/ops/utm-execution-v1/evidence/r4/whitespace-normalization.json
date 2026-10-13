@@ -1,0 +1,4 @@
+{
+  "files": [],
+  "scope": "R4 logs only; remove trailing spaces/tabs without changing test results"
+}

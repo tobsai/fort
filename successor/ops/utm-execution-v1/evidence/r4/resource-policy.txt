@@ -1,0 +1,4 @@
+Read-only local documentation check: MANPAGER=cat /usr/bin/man 2 setrlimit | /usr/bin/col -b
+Darwin documents RLIMIT_RSS as a memory-pressure preference, not a hard resident-memory quota.
+Implementation therefore combines that hint with independent sampled RSS cancellation, CPU/file/descriptor limits, output and wall deadlines, and the Node heap limit. No virtual-address-space ceiling is claimed.
+No resource limit was applied during this check.

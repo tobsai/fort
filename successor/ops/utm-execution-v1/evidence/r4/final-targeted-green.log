@@ -1,0 +1,19 @@
+test_authentication_precedes_module_selection_loading_and_ubuntu_inspection (test_inspection.InspectionTests) ... ok
+test_each_stage_failure_prevents_all_subsequent_work_and_acceptance (test_inspection.InspectionTests) ... ok
+test_staging_deadline_cannot_turn_slow_success_into_acceptance (test_inspection.InspectionTests) ... ok
+test_unbound_authentication_results_cannot_produce_complete_inspection (test_inspection.InspectionTests) ... ok
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_complete_configuration_not_just_topology_is_bound (test_boot.BootTests) ... ok
+test_host_prestart_is_available_before_any_process_or_pty_binding (test_boot.BootTests) ... ok
+test_prestart_hashes_exact_regular_data_files_and_rejects_mutation_or_alias (test_boot.BootTests) ... ok
+test_unlisted_saved_state_or_extra_data_never_passes_prestart (test_boot.BootTests) ... ok
+test_uuid_case_is_canonical_but_different_identity_does_not_match_pin (test_boot.BootTests) ... ok
+test_approved_configuration_binds (test_review_r3_regressions.ReadbackTests) ... ok
+test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) ... ok
+test_equivalent_uppercase_uuid_binds (test_review_r3_regressions.ReadbackTests) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.058s
+
+OK

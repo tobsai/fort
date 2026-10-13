@@ -1,0 +1,14 @@
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_failed_http_hash_length_or_cap_vetoes_acceptance_and_never_fetches_next (test_acquisition.AcquisitionTests) ... ok
+test_fixed_inventory_excludes_utm_and_retains_exact_caps (test_acquisition.AcquisitionTests) ... ok
+test_pinned_bytes_are_published_only_after_eof_hash_and_receipt (test_acquisition.AcquisitionTests) ... ok
+test_receipt_failure_preserves_failure_veto_and_stops_after_first_input (test_acquisition.AcquisitionTests) ... ok
+test_redirects_stay_bounded_https_public_and_do_not_forward_credentials (test_acquisition.AcquisitionTests) ... ok
+test_replaced_partial_is_preserved_and_never_published (test_acquisition.AcquisitionTests) ... ok
+test_slow_stream_and_redirect_loops_stop_with_no_retry (test_acquisition.AcquisitionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.029s
+
+OK

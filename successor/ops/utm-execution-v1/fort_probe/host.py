@@ -22,7 +22,15 @@ def parse_processes(raw):
 
 
 class Host:
-    def __init__(self,kernel,pin): self.kernel,self.pin=kernel,deepcopy(pin); self.bound=None
+    def __init__(self,kernel,pin):
+        self.kernel,self.pin=kernel,deepcopy(pin);self.bound=None
+        self.pin['vm_uuid']=pinned_schema({'vm_package_uuid':pin['vm_uuid']})['information']['UUID']
+    def prestart(self,accepted):
+        result=self.kernel.prestart(accepted)
+        if result['vm_uuid']!=self.pin['vm_uuid']:raise ValueError('pre-start VM identity differs')
+        if self.kernel.signature()!={'team':self.pin['team'],'executable_sha256':self.pin['executable_sha256'],
+                'strict_valid':True,'gatekeeper_accepted':True}:raise ValueError('pre-start app pin differs')
+        return result
     def bind(self,pid,start_time,ptys):
         if self.bound is not None or len(set(ptys))!=2 or any(not re.fullmatch(r'/dev/ttys[0-9]{3,}',p) for p in ptys):
             raise ValueError('one exact two-PTY binding required')
@@ -72,22 +80,23 @@ class MacKernel:
                 'strict_valid':True,'gatekeeper_accepted':True}
     def config(self):
         if self.registry_source is None: raise ValueError('fresh live registry/bookmark collector unavailable')
+        from fort_probe.boot import validate_config
         config=plistlib.loads(bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist')))
-        schema=pinned_schema({'vm_package_uuid':config['Information']['UUID']})
-        information=dict(config['Information'],UUID=schema['information']['UUID'])
-        if type(config['ConfigurationVersion']) is not int or config['ConfigurationVersion']!=4 or not exact(information,schema['information']):raise ValueError('pinned UTM information schema differs')
-        registry=registry_snapshot(self.registry_source(),schema['information']['UUID'],str(self.root/'vm/fort-utm-isolation-probe.utm'))
-        if config.get('SharedDirectory',[]) or registry['shares']: raise ValueError('shared directory configured')
-        if (config['Backend']!='Apple' or config['System']['Architecture']!='aarch64'
-                or config['System']['CPUCount']!=2 or config['System']['MemorySize']!=4096
-                or config['System']['Boot']['UEFIBoot'] is not False
-                or [(d['ImageName'],d['ReadOnly'],d['Nvme']) for d in config['Drive']]!=[('root.raw',False,False),('seed.iso',True,False)]
-                or config['Virtualization']['Keyboard']!='Disabled' or config['Virtualization']['Pointer']!='Disabled'):
-            raise ValueError('VM resource/device layout differs')
-        return {'uuid':config['Information']['UUID'],'nics':config['Network'],'shares':registry['shares'],
-                'serials':[s['Mode'] for s in config['Serial']],'displays':config['Display'],
-                'audio':config['Virtualization']['Audio'],'clipboard':config['Virtualization']['ClipboardSharing'],
-                'rosetta':config['Virtualization']['Rosetta']}
+        topology=validate_config(config)
+        registry=registry_snapshot(self.registry_source(),topology['uuid'],str(self.root/'vm/fort-utm-isolation-probe.utm'))
+        if registry['shares']:raise ValueError('shared directory configured')
+        return topology
+    def prestart(self,accepted):
+        from fort_probe.boot import validate_config,verify_boot_files
+        if set(accepted)!={'config_plist','data_files'}:raise ValueError('complete accepted boot manifest required')
+        expected=validate_config(plistlib.loads(accepted['config_plist']))
+        before=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
+        topology=self.config()
+        if not exact(topology,expected):raise ValueError('accepted VM identity differs')
+        files=verify_boot_files(self.root/'vm/fort-utm-isolation-probe.utm/Data',accepted['data_files'])
+        after=bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist'))
+        if before!=after:raise ValueError('configuration changed during pre-start inspection')
+        return {'vm_uuid':topology['uuid'],'data_files':files}
     def collect(self):
         before=time.monotonic()
         out,_=self.commands.run(['/bin/ps','-axo','pid=,ppid=,uid=,lstart=,comm='],cap=1048576)

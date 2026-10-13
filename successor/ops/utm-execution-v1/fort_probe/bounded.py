@@ -17,8 +17,8 @@ def require_live():
 
 
 class Commands:
-    def __init__(self):
-        require_live()
+    def __init__(self, guard=None):
+        (require_live if guard is None else guard)()
         if threading.active_count()!=1 or threading.current_thread() is not threading.main_thread() or signal.getsignal(signal.SIGCHLD)!=signal.SIG_DFL:
             raise RuntimeError('runner requires sole child-reaping ownership and default SIGCHLD')
         if not hasattr(os,'waitid') and not hasattr(select,'kqueue'):

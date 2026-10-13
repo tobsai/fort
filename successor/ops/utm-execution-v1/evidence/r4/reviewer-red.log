@@ -1,0 +1,47 @@
+test_approved_configuration_binds (test_review_r3_regressions.ReadbackTests) ... ok
+test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) ... test_equivalent_uppercase_uuid_binds (test_review_r3_regressions.ReadbackTests) ... FAIL
+
+======================================================================
+FAIL: test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) (field='OperatingSystem')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r3_regressions.py", line 89, in test_changed_boot_inputs_are_rejected
+    self.assertIsNotNone(error, 'changed accepted boot input must be rejected before Start')
+AssertionError: unexpectedly None : changed accepted boot input must be rejected before Start
+
+======================================================================
+FAIL: test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) (field='LinuxKernelPath')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r3_regressions.py", line 89, in test_changed_boot_inputs_are_rejected
+    self.assertIsNotNone(error, 'changed accepted boot input must be rejected before Start')
+AssertionError: unexpectedly None : changed accepted boot input must be rejected before Start
+
+======================================================================
+FAIL: test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) (field='LinuxInitialRamdiskPath')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r3_regressions.py", line 89, in test_changed_boot_inputs_are_rejected
+    self.assertIsNotNone(error, 'changed accepted boot input must be rejected before Start')
+AssertionError: unexpectedly None : changed accepted boot input must be rejected before Start
+
+======================================================================
+FAIL: test_changed_boot_inputs_are_rejected (test_review_r3_regressions.ReadbackTests) (field='LinuxCommandLine')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r3_regressions.py", line 89, in test_changed_boot_inputs_are_rejected
+    self.assertIsNotNone(error, 'changed accepted boot input must be rejected before Start')
+AssertionError: unexpectedly None : changed accepted boot input must be rejected before Start
+
+======================================================================
+FAIL: test_equivalent_uppercase_uuid_binds (test_review_r3_regressions.ReadbackTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r3_regressions.py", line 71, in test_equivalent_uppercase_uuid_binds
+    self.assertIsNone(error, 'equivalent UUID spelling must retain canonical pinned identity')
+AssertionError: 'unexpected VM device topology' is not None : equivalent UUID spelling must retain canonical pinned identity
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.010s
+
+FAILED (failures=5)
