@@ -1,0 +1,67 @@
+{
+  "time_utc": "2026-10-13T00:18:16.355120+00:00",
+  "outcome": "stopped-at-dmg-primary-signature-rejection-and-owned-cleanup-complete",
+  "approved_proposal_commit": "ec6dd956bd6ebf45ec685331625ccc429e59b7f6",
+  "passed": [
+    "proposal seal and eight files match approved commit",
+    "fresh private roots and disk reserve preflight",
+    "one exact official HTTPS download",
+    "exact 250021057-byte size and SHA256 pin",
+    "hdiutil disk-image integrity verification",
+    "stapled notarization-ticket validation",
+    "seven owned objects identity/mode/hash verification",
+    "seven owned objects removed with durable journal",
+    "independent eleven-path absence rescan",
+    "independent no-task-image and no-UTM-app-process rescan"
+  ],
+  "failed": [
+    {
+      "check": "Gatekeeper DMG open assessment with context:primary-signature",
+      "exit_code": 3,
+      "source": "no usable signature",
+      "outside_command_sandbox": true
+    }
+  ],
+  "unrun": [
+    "read-only DMG attach and app staging",
+    "actual app Developer ID/certificate/Team ID",
+    "app version/build confirmation",
+    "app and nested-code codesign verification",
+    "app Gatekeeper execute assessment",
+    "entitlement and legal-file inspection",
+    "derivation and presence checks of signed group-container identifiers",
+    "all application/helper/verifier execution",
+    "all VM and provider activity"
+  ],
+  "owned_entries_removed": 7,
+  "independently_absent_paths": [
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools/UTM-4.7.5",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads/UTM.dmg",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools/UTM-4.7.5/UTM.app",
+    "/Applications/UTM.app",
+    "/Users/tobiasgunn/Applications/UTM.app",
+    "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM"
+  ],
+  "matching_task_images": [],
+  "matching_task_or_utm_app_processes": [],
+  "detach_required": false,
+  "retained_evidence_bytes_at_check": 37542,
+  "not_a_claim": "DMG rejection is not a measured app rejection. A valid DMG staple is not completed app/nested-code acceptance. No OS isolation or product/provider readiness is established.",
+  "next_decision": "Review whether to authorize read-only mounting of the same pinned DMG solely to inspect its contained app despite this outer-container assessment result. That changes the explicit stop condition; no mount or app launch is authorized by this report.",
+  "prohibited_actions_not_performed": [
+    "launching downloaded executables",
+    "LaunchServices registration/open",
+    "VM creation",
+    "keys/accounts/provider sign-in",
+    "permission/security/quarantine changes",
+    "startup services",
+    "additional downloads",
+    "shared OS database edits",
+    "push/merge/deploy"
+  ]
+}

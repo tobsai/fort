@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "purpose": "Completed stopped-assessment evidence identity; not authority for a new execution",
+  "files": {
+    "01-UTM.dmg.json": "13383221551a8b8fba53425b454b2fdef24a9bd579eebebe84f8a4eda9101ef4",
+    "README.md": "dc11666b60f69c1a228893412acb1378f4c2224b7691af9ece17df22b62c02eb",
+    "assessment.py": "69e82b82d5147510f44f4f55e6a8a265d70959234b840d94237ba7a1d8207f46",
+    "authority-and-preflight.json": "172a08ae1dcaeb52d2ef3b37615fe8dc375b981d90fd9feac476c68067b84946",
+    "cleanup-inspect-mount-check.json": "4586b3ee52399a833fd027d7d2f0108f6cccce05d7cf9bbcbe51975ad5806fb3",
+    "cleanup-inspect-open-files.json": "976642b75f6e87b60bdae68e245f9b587d7d769236582b0ed2d438f059463d2a",
+    "cleanup-inspect-preflight.json": "68840b7314526e2440d0b91250827d7895876778bf1763745278c07fb74129a6",
+    "cleanup-journal.jsonl": "ff08c8b8a76282a94c610222b43c9d71534350a0d23be9c95145009c630c13f2",
+    "cleanup-owned.py": "c285c5963d1f03c246daf59de9054d75a3ff06ad79ff2aedb9be1f11a34561bb",
+    "cleanup-remove-mount-check.json": "831b911e24a5684bace28a22532d930cb5871869f54ccccdebeda9dd3092d713",
+    "cleanup-remove-open-files.json": "98fe3ff054326bbecf1eed087b43016cc0466baf1acfa09c9d85b661f92573df",
+    "cleanup-remove-preflight.json": "003c6a2a34307caeb7c94a2ae1af8c0dfe51d9d68dbfaf1a78686c1875b173db",
+    "cleanup-result.json": "909d499d06343d445faadaa0643b367c905cf67c4c421360f4b42a53c107d5a9",
+    "created-directories.jsonl": "0be51e710368e899ab10c7c3ccf1c2db09f81cc7826822b7e110257bea14f07e",
+    "dmg-gatekeeper.json": "63f850c53af14784ef3ba655db999d7a3b17c8fd5760ac3b31a23c4c48fc4257",
+    "dmg-integrity.json": "f6550f71112ace6e5ebd1a6133119c37c1e475733085eca57302ce65b28b7705",
+    "dmg-stapler.json": "6bdc0b200a7599bf173942d98ec756cf7d9f4de1997ccc4e677d32fa29ed3faa",
+    "download-manifest.json": "75370aec8959c719fde65b0e3a040d7d9c2d4f993423e5d9aff4e0ff85326e74",
+    "downloader-provenance.json": "3ed7b5d44cb68af198c88e540071fc13761126841c8078a020da2eae203c036a",
+    "host-architecture.json": "9348bca4ea39a155d40c5a3b6fb616c6ebab99e14180f03a840920cff7839f7b",
+    "host-version.json": "a26ede3ddfab6d16b0e6e312d6dcd8f972965fd7b241683712d37cbb1f722bdc",
+    "validation.json": "2ce51542ae94a3737dde31fde93ca45e27ef52b5c0bc52093aa53738c3b5bb54",
+    "verify-dmg.py": "4365350ad966ae1c1eafecc5e37524dc44237a3d0f3f4764abd08b69c660e617",
+    "verify-result.py": "2922250395c0eaedcbdf7acf2d3adfc7a31266cb2c4c763acc8d60913e54bdf9"
+  }
+}

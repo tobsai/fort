@@ -1,0 +1,17 @@
+{
+  "time_utc": "2026-10-13T00:17:20.763353+00:00",
+  "owned_entries": 7,
+  "regular_files": 1,
+  "directories": 6,
+  "all_path_identities_modes_and_file_hashes_verified": true,
+  "matching_task_or_utm_app_processes": [],
+  "logical_file_bytes": 250021057,
+  "allocated_task_bytes": 252444672,
+  "retained_evidence_bytes_at_check": 28876,
+  "disk_free_bytes": 737225428992,
+  "budget_bytes": 3221225472,
+  "reserve_bytes": 34359738368,
+  "app_never_staged": true,
+  "mount_never_attached": true,
+  "downloaded_code_never_executed": true
+}

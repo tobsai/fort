@@ -1,0 +1,6 @@
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035016, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035018, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035019, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035020, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035021, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}
+{"path": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/tools/UTM-4.7.5", "type": "directory", "uid": 501, "device": 16777230, "inode": 576035022, "mode": "0o700", "bytes": 64, "allocated_bytes": 0, "nlink": 2}

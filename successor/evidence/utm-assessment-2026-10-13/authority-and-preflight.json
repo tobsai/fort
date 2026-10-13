@@ -1,0 +1,26 @@
+{
+  "time_utc": "2026-10-13T00:15:12.694512+00:00",
+  "approved_proposal_commit": "ec6dd956bd6ebf45ec685331625ccc429e59b7f6",
+  "proposal_seal_sha256": "99decb7c28b2c2daba3972709642a12ed4d3cce084a40bc3c3dd3e0008899159",
+  "sealed_files_verified": 8,
+  "approval_reference": "Sentinel_ba1df7211ad48191994b113b470cfe43",
+  "approval_time_utc": "2026-10-13T00:10:00Z",
+  "reminder_reference": "Sentinel_8046e6f9b2708191b1af3e4b8c328e10",
+  "original_request_reference": "Sentinel_19acd0b905fc81919a84acf25719506d",
+  "scope": "Only pinned official UTM 4.7.5 DMG download, existing OS signature/notarization assessment, bounded staging and owned cleanup. No downloaded-code launch, VM, accounts, keys, permissions or security bypass.",
+  "authority_source": "Delegated owner approval; identifiers and scope only, no historical message bodies copied.",
+  "candidate_paths_absent": [
+    "/Applications/UTM.app",
+    "/Users/tobiasgunn/Applications/UTM.app",
+    "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation"
+  ],
+  "task_root_ancestors_real_directories": true,
+  "disk_free_bytes": 737473744896,
+  "task_budget_bytes": 3221225472,
+  "staged_app_cap_bytes": 2147483648,
+  "required_disk_reserve_bytes": 34359738368,
+  "system_ca_regular_root_owned_not_group_or_world_writable": true,
+  "host_version_receipt": "host-version.json",
+  "host_architecture_receipt": "host-architecture.json"
+}
