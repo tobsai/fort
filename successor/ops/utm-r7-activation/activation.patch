@@ -1,0 +1,55 @@
+--- a/successor/ops/utm-execution-v1/fort_probe/inspection_guard.py
++++ b/successor/ops/utm-execution-v1/fort_probe/inspection_guard.py
+@@ -1,5 +1,5 @@
+ """Disabled R7 preparation; review and exact owner authority precede activation."""
+-INSPECTION_ENABLED = False
++INSPECTION_ENABLED = True
+ 
+ def require_inspection():
+     if not INSPECTION_ENABLED:raise RuntimeError('input inspection disabled pending fixed-source review and exact owner authority')
+--- a/successor/ops/utm-execution-v1/inspection-verifier.mjs
++++ b/successor/ops/utm-execution-v1/inspection-verifier.mjs
+@@ -4,7 +4,7 @@
+ import {resolve,join} from 'node:path';
+ import {pathToFileURL,fileURLToPath} from 'node:url';
+ import {verifyRegistryMetadata,verifySignedChecksums} from './verify-inputs.mjs';
+-export const INSPECTION_ENABLED = false;
++export const INSPECTION_ENABLED = true;
+ const pinsPath=new URL('../utm-synthetic-packet-v1/inputs.json',import.meta.url);
+ 
+ export function hashRegular(path,algorithm,cap,expectedSize=null,capture=false){
+--- a/successor/ops/utm-execution-v1/seal.json
++++ b/successor/ops/utm-execution-v1/seal.json
+@@ -1076,9 +1076,9 @@
+       "sha256": "554ed74344f5be6dbd45b95fc13408afb17487131c0eb922ca4d4a293b2f0db2"
+     },
+     {
+-      "bytes": 270,
++      "bytes": 269,
+       "path": "fort_probe/inspection_guard.py",
+-      "sha256": "0990ace964214130c1e3768ecc1040f068bca48e09ae3659f2da5ae8396027c1"
++      "sha256": "84c5355a9e3452181dc3f1582b347a9827361bbd11005b90e3c6858338b2dca4"
+     },
+     {
+       "bytes": 4648,
+@@ -1141,9 +1141,9 @@
+       "sha256": "0f7edb2120b805f54d0a54ed5b8ab7eff3c584cf4c341452905fd38a2270a242"
+     },
+     {
+-      "bytes": 7370,
++      "bytes": 7369,
+       "path": "inspection-verifier.mjs",
+-      "sha256": "712950b550e978b3906bd5cde374a1ab6ed30c65df713fcbd250d1e2abf44043"
++      "sha256": "c977cb7e6abbace887a8e6066f382b90c63dfdc37cc1f4a73fd584a198dcc7e1"
+     },
+     {
+       "bytes": 1960,
+@@ -1433,7 +1433,7 @@
+       "sha256": "5dcd858fdd13d26531639e165be6bcd9e005942fcdc0ad8cdcc2f9876a8e8e6a"
+     }
+   ],
+-  "revision_id": "utm-input-inspection-disabled-r7",
++  "revision_id": "utm-input-inspection-activated-r7-fixed-smoke",
+   "schema": 2,
+   "self_excluded": "seal.json"
+ }

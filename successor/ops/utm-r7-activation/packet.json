@@ -1,0 +1,275 @@
+{
+  "acquisition": {
+    "aggregate_wire_byte_quota": false,
+    "argv": [
+      "/usr/bin/python3",
+      "-I",
+      "-B",
+      "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/inspect-inputs.py",
+      "2c44160aca964317d9c8904513f426c42561f1180f09235294fee498847ccc4d"
+    ],
+    "filesystem_overhead_additional": true,
+    "host_downloaded_code": "authenticated OpenPGP 6.3.2 after pinned archive and registry authentication",
+    "image_bound": false,
+    "input_count": 8,
+    "logical_byte_budget": 839843840,
+    "maximum_https_requests": 40,
+    "operation_manifest": "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/activation-operation.json",
+    "operation_manifest_sha256": "6b24d02ca470a8abeaf6bf8508de6586e0b66a8aa77ebea47dcd3ee39e2b9fc6",
+    "retained_input_byte_budget": 814088192,
+    "retry": false,
+    "root": "/Users/tobiasgunn/Library/Application Support/FortUTMInputInspectionR7",
+    "runtime_authorized": false,
+    "sequence": [
+      "acquire",
+      "registry",
+      "verifier_archive",
+      "publisher",
+      "ubuntu_inventory"
+    ]
+  },
+  "activation_candidate_checked_out": false,
+  "activation_candidate_ref": "refs/heads/codex/fort-r7-activation-candidate",
+  "activation_patch_sha256": "6510c370db9d1a5bfeff2bebe5d62df39c1e7fc3d8e53e6d0c894012a8c7dfa1",
+  "activation_source_commit": "4bbabbd013bee9eba2900a1d273fc49c50f78bdf",
+  "authority": "source and fixture preparation only; live sequence requires one future informed approval",
+  "continuation": {
+    "argv_prefix": [
+      "/usr/bin/python3",
+      "-I",
+      "-B",
+      "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/continue.py",
+      "--run-once"
+    ],
+    "fresh_preflight_auxiliary_children": 2,
+    "fresh_preflight_commands": [
+      [
+        "/usr/sbin/sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      [
+        "/usr/bin/memory_pressure",
+        "-Q"
+      ]
+    ],
+    "one_exec_only": true,
+    "preflight": "verify packet/source/tools; same smoke-validated runtime support; nofollow ancestors and absence twice; current capacity; existing root veto",
+    "preflight_command_seconds": 2,
+    "preflight_max_output_bytes": [
+      1024,
+      4096
+    ],
+    "retry": false,
+    "smoke_max_age_seconds": 300
+  },
+  "disabled_source_commit": "5ab910e24a0591b6f8ac7762c73e719671ebc160",
+  "excluded": [
+    "consumed R6 state access or mutation",
+    "VM/UTM execution",
+    "mounts or conversion",
+    "guest extraction",
+    "providers/accounts/credentials",
+    "installations/hooks",
+    "host-wide security changes",
+    "retry or parameter/input substitution"
+  ],
+  "guest_gate_enabled": false,
+  "memory_policy": {
+    "live_scheduled_supervisor_required": true,
+    "macos_child_rss_as_setter": false,
+    "node_process_memory_ceiling": false,
+    "node_v8_old_space_mib": 256,
+    "overshoot_bound_bytes": null,
+    "sampled_rss_stop_thresholds_unchanged": true
+  },
+  "packet_directory": "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation",
+  "runtime_identities": {
+    "node": "v26.5.0@/opt/homebrew/Cellar/node/26.5.0/bin/node",
+    "python": "3.9.6@/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9"
+  },
+  "schema": 1,
+  "smoke": {
+    "access_to_operation_roots": false,
+    "acquisition_entrypoint": false,
+    "argv_prefix": [
+      "/usr/bin/python3",
+      "-I",
+      "-B",
+      "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke.py",
+      "--run-once"
+    ],
+    "auxiliary_environment": {
+      "LANG": "C",
+      "LC_ALL": "C",
+      "PATH": "/usr/bin:/bin:/usr/sbin:/sbin"
+    },
+    "cases": [
+      {
+        "argv": [
+          "/usr/bin/python3",
+          "-I",
+          "-B",
+          "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.py",
+          "acquire"
+        ],
+        "cpu": 120,
+        "file": 805306368,
+        "name": "acquire",
+        "rss": 268435456,
+        "runtime": "python"
+      },
+      {
+        "argv": [
+          "/opt/homebrew/opt/node@26/bin/node",
+          "--permission",
+          "--max-old-space-size=256",
+          "--disable-proto=throw",
+          "--allow-fs-read=/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.mjs",
+          "--allow-fs-read=/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/inspection-verifier.mjs",
+          "--allow-fs-read=/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/verify-inputs.mjs",
+          "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.mjs",
+          "registry"
+        ],
+        "cpu": 80,
+        "file": 0,
+        "name": "registry",
+        "rss": 1073741824,
+        "runtime": "node"
+      },
+      {
+        "argv": [
+          "/usr/bin/python3",
+          "-I",
+          "-B",
+          "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.py",
+          "verifier_archive"
+        ],
+        "cpu": 25,
+        "file": 25165824,
+        "name": "verifier_archive",
+        "rss": 268435456,
+        "runtime": "python"
+      },
+      {
+        "argv": [
+          "/usr/bin/python3",
+          "-I",
+          "-B",
+          "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.py",
+          "ubuntu_inventory"
+        ],
+        "cpu": 280,
+        "file": 0,
+        "name": "ubuntu_inventory",
+        "rss": 3221225472,
+        "runtime": "python"
+      }
+    ],
+    "child_startup_alarm_seconds": 5,
+    "child_wall_deadline_seconds": 5,
+    "cleanup": "SIGKILL only owned group before sole reap; then zero-signal child/group absence probes, never a kill after reap",
+    "environment": {
+      "LANG": "C",
+      "LC_ALL": "C",
+      "PATH": "/usr/bin:/bin",
+      "TZ": "UTC"
+    },
+    "last_argument": "exact SHA-256 of this packet seal.json; literal value in adjacent approval note",
+    "minimum_positive_rss_samples": 2,
+    "node_extra_environment_keys_allowed": [],
+    "output_directory": "/private/tmp/fort-core-openmaus-20261011/successor/evidence/utm-r7-smoke-once",
+    "parent_smoke_deadline_seconds": 30,
+    "per_child_combined_output_bytes": 8192,
+    "permission_probe": {
+      "error_required": "ERR_ACCESS_DENIED",
+      "negative_read": "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/denied-probe.txt",
+      "no_network_or_spawn_attempt": true,
+      "positive_read": "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/smoke-child.mjs",
+      "reported_denied_scopes": [
+        "global fs.read",
+        "fs.write",
+        "child",
+        "worker"
+      ]
+    },
+    "python_launcher_extra_key_names_allowed": [
+      "CPATH",
+      "LIBRARY_PATH",
+      "MANPATH",
+      "SDKROOT",
+      "__CF_USER_TEXT_ENCODING"
+    ],
+    "python_launcher_extra_values_logged": false,
+    "reap_timeout_seconds": 1,
+    "requires_rss_after_all_pipes_eof": true,
+    "retained_smoke_evidence_bytes": 65536,
+    "retry": false,
+    "rss_auxiliary_max_children": 200,
+    "rss_auxiliary_max_concurrency": 1,
+    "rss_command": [
+      "/bin/ps",
+      "-o",
+      "rss=",
+      "-p"
+    ],
+    "rss_command_final_argument": "positively owned unreaped child PID",
+    "rss_command_max_calls_per_child": 50,
+    "rss_command_output_bytes": 128,
+    "rss_command_seconds": 0.25,
+    "rss_requested_spacing_seconds": 0.1,
+    "single_record_bytes": 16384,
+    "synthetic_child_count": 4,
+    "synthetic_concurrency": 1
+  },
+  "source_directory": "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1",
+  "source_seals": {
+    "activated": "2c44160aca964317d9c8904513f426c42561f1180f09235294fee498847ccc4d",
+    "disabled": "882eebb2e20b6b4937cc794e09837512c446fe5b5bd717dd7e55e6c2d0546d0e"
+  },
+  "tools": [
+    {
+      "bytes": 200560,
+      "path": "/usr/bin/python3",
+      "resolved_path": "/usr/bin/python3",
+      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
+    },
+    {
+      "bytes": 102352,
+      "path": "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+      "resolved_path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9",
+      "sha256": "dff595035109e19c43c4b3e73ee08b5f4651e719f25f8b4713f819d28964dc19"
+    },
+    {
+      "bytes": 68032,
+      "path": "/opt/homebrew/opt/node@26/bin/node",
+      "resolved_path": "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
+    },
+    {
+      "bytes": 268736,
+      "path": "/bin/ps",
+      "resolved_path": "/bin/ps",
+      "sha256": "6c39a1a8bb6aa8f2474e8c0b3138f3041d63769695be4f10a82e21f40123230d"
+    },
+    {
+      "bytes": 184624,
+      "path": "/usr/sbin/sysctl",
+      "resolved_path": "/usr/sbin/sysctl",
+      "sha256": "2ef0d77d0453a0091b5824e81c849c1e03de243a6f743d376fc1b05a89f4dff2"
+    },
+    {
+      "bytes": 216880,
+      "path": "/usr/bin/memory_pressure",
+      "resolved_path": "/usr/bin/memory_pressure",
+      "sha256": "38b030a62596e6e30732ba7b82808cc22444457b3ef5e36443b8ff4c9fbb7dcd"
+    },
+    {
+      "bytes": 167712,
+      "path": "/usr/bin/env",
+      "resolved_path": "/usr/bin/env",
+      "sha256": "1a555848e99b3ce808742772b58375914d8969ee051ca2eee9d5263c81c7dd41"
+    }
+  ],
+  "workspace_gates_enabled": false
+}

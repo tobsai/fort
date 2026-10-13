@@ -1,0 +1,17 @@
+{
+  "activated_seal": "2c44160aca964317d9c8904513f426c42561f1180f09235294fee498847ccc4d",
+  "activation_candidate_commit": "4bbabbd013bee9eba2900a1d273fc49c50f78bdf",
+  "actual_smoke": "unrun",
+  "all_candidate_blobs_match_seal": true,
+  "candidate_checked_out": false,
+  "disabled_commit": "5ab910e24a0591b6f8ac7762c73e719671ebc160",
+  "guest_gate_false": true,
+  "only_changed_paths": [
+    "successor/ops/utm-execution-v1/fort_probe/inspection_guard.py",
+    "successor/ops/utm-execution-v1/inspection-verifier.mjs",
+    "successor/ops/utm-execution-v1/seal.json"
+  ],
+  "references": 14,
+  "source_files": 272,
+  "working_source_unchanged": true
+}

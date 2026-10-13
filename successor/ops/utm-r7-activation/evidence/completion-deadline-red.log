@@ -1,0 +1,20 @@
+test_exact_reviewed_setters_read_back_all_four_profiles_without_rss_as (__main__.ResourceTests) ... ok
+test_owned_kill_precedes_single_reap_then_existence_only (__main__.ResourceTests) ... ok
+test_remaining_process_or_group_is_not_cleanup_success (__main__.ResourceTests) ... ok
+test_setter_error_or_wrong_readback_never_reports_success (__main__.ResourceTests) ... ok
+test_observation_startup_output_and_lifetime_failures_always_cancel (__main__.SupervisorTests) ... test_pipe_eof_still_requires_live_owned_rss_and_then_cancellation (__main__.SupervisorTests) ... ok
+
+======================================================================
+FAIL: test_observation_startup_output_and_lifetime_failures_always_cancel (__main__.SupervisorTests) (fault='completion-deadline')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/tests/test_worker_smoke.py", line 140, in test_observation_startup_output_and_lifetime_failures_always_cancel
+    with self.subTest(fault=fault): self.exercise(fault)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/tests/test_worker_smoke.py", line 123, in exercise
+    with self.assertRaises(smoke.SmokeFailure): host.child(case)
+AssertionError: SmokeFailure not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.029s
+
+FAILED (failures=1)

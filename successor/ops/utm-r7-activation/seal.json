@@ -1,0 +1,137 @@
+{
+  "files": [
+    {
+      "bytes": 109,
+      "path": ".gitattributes",
+      "sha256": "790f4b0cd2ada88a7bd39d89bb0fd4dd80e0de573c55351ef24a63ee9899ae47"
+    },
+    {
+      "bytes": 8712,
+      "path": "README.md",
+      "sha256": "26590e475e3e3f9b8b27f8060fa20b8546cfd35245acdfdbe5eb940213703a86"
+    },
+    {
+      "bytes": 47726,
+      "path": "activated-source-seal.json",
+      "sha256": "2c44160aca964317d9c8904513f426c42561f1180f09235294fee498847ccc4d"
+    },
+    {
+      "bytes": 2235,
+      "path": "activation.patch",
+      "sha256": "6510c370db9d1a5bfeff2bebe5d62df39c1e7fc3d8e53e6d0c894012a8c7dfa1"
+    },
+    {
+      "bytes": 6310,
+      "path": "continue.py",
+      "sha256": "309a721d6f6b4d6d8275deca37132392ac80b5abeae0c210054ff0795d678886"
+    },
+    {
+      "bytes": 62,
+      "path": "denied-probe.txt",
+      "sha256": "2a15401ba97a6c5386e70c1d29dd4c44e604589f0a98e1e58e3cf2f64c1deaf6"
+    },
+    {
+      "bytes": 47713,
+      "path": "disabled-source-seal.json",
+      "sha256": "882eebb2e20b6b4937cc794e09837512c446fe5b5bd717dd7e55e6c2d0546d0e"
+    },
+    {
+      "bytes": 652,
+      "path": "evidence/activation-delta.json",
+      "sha256": "a330cd9a3ef8caf31fbf7f56d7357fdaf2149b798d61de0017b8ee2d94796a38"
+    },
+    {
+      "bytes": 1477,
+      "path": "evidence/completion-deadline-red.log",
+      "sha256": "6788d61d0458c53da6807ad803f1307cff88061e84bf4d53b3015a6fe2ef5b4b"
+    },
+    {
+      "bytes": 711,
+      "path": "evidence/continuation-red.log",
+      "sha256": "9b8258ba6da2d9059827c1c6073d72a4623854c3854cf1a9a94d55c9d1be030a"
+    },
+    {
+      "bytes": 1865,
+      "path": "evidence/fixtures-green.log",
+      "sha256": "e042ace697cfe7bb7a321294107b48fb149c30cf9974fb9be1bd51b853c8cc69"
+    },
+    {
+      "bytes": 1017,
+      "path": "evidence/reviewed-source-fixtures.log",
+      "sha256": "663020294988caa56a18300c2c23e6c7eb34d2515361e0279867437fd5d19b4f"
+    },
+    {
+      "bytes": 273,
+      "path": "evidence/smoke-red.log",
+      "sha256": "0190c99904e5cee1f40bb318f7bcf42cb624acb0ad48695aed2323691bedfe71"
+    },
+    {
+      "bytes": 1826,
+      "path": "evidence/static-checks.json",
+      "sha256": "87a68cbef15edf147f6070a6066151f685fbe57c1973eb7201d5088c5144c708"
+    },
+    {
+      "bytes": 9531,
+      "path": "packet.json",
+      "sha256": "41d1a34925759e7690b26176c58cf8b8502abdc1eb909d70897328bfafd9d028"
+    },
+    {
+      "bytes": 8801,
+      "path": "packet_support.py",
+      "sha256": "e1ce3473e3b3e017ee0a039ba782cf50a609fbc0b75d8d8c75ccf3198bcbcfdd"
+    },
+    {
+      "bytes": 1374,
+      "path": "smoke-child.mjs",
+      "sha256": "4e5a66af6cfe39a29a3d019224e9b789570373254e9f177178cc6bf725b97fe5"
+    },
+    {
+      "bytes": 951,
+      "path": "smoke-child.py",
+      "sha256": "25e2fbd75465b0c8e19cd5bd321afe931f19b1a74d27f77c2bf2eb1e44a81e91"
+    },
+    {
+      "bytes": 12817,
+      "path": "smoke.py",
+      "sha256": "c854d4ac3656eec9b9a84ed4374814dab2a0459d4b8b39a4af1b35632fd19393"
+    },
+    {
+      "bytes": 4131,
+      "path": "tests/test_continuation.py",
+      "sha256": "86614d9951e4c9b42b09330e3dddcc921759bd5f6489d19a43a8289871733bf7"
+    },
+    {
+      "bytes": 2660,
+      "path": "tests/test_journal.py",
+      "sha256": "99518e3fbba660ec7b2b9ab96abe4e9fecf3bbc56c39dbcaa98ef3269da50ae6"
+    },
+    {
+      "bytes": 3576,
+      "path": "tests/test_preflight.py",
+      "sha256": "fb1dd347edba076d44f089f37da6fe223655d2cb4cab1f5e5186896c443664d0"
+    },
+    {
+      "bytes": 5075,
+      "path": "tests/test_smoke.py",
+      "sha256": "eadcca0f59a14371cfcbef46cdcbda0f26cc112eac52cdddcdec149223e1e479"
+    },
+    {
+      "bytes": 8191,
+      "path": "tests/test_worker_smoke.py",
+      "sha256": "fdb07d0e89d95f7ae9ef2f93e29d9d96c1b85b154197e012ab92f0b8c33e7df2"
+    },
+    {
+      "bytes": 2545,
+      "path": "validation.json",
+      "sha256": "f6dc879974ecbcfb7a02186461d285e2baea9d11d31a354098821118ad5e7f6e"
+    },
+    {
+      "bytes": 718,
+      "path": "verify.py",
+      "sha256": "befb28d5403c8052e9459917716ec09d441b20f8c1f983974b0660d4095b202b"
+    }
+  ],
+  "revision_id": "utm-r7-activation-and-smoke-fixed-1",
+  "schema": 1,
+  "self_excluded": "seal.json"
+}

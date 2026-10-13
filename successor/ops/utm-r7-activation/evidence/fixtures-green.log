@@ -1,0 +1,23 @@
+test_failure_or_incomplete_or_foreign_smoke_never_reaches_preflight (test_continuation.ContinuationTests) ... ok
+test_preflight_and_exec_failure_consume_continuation (test_continuation.ContinuationTests) ... ok
+test_success_runs_fresh_preflight_then_one_exact_exec (test_continuation.ContinuationTests) ... ok
+test_exclusive_root_and_records_survive_exact_identity_reopen (test_journal.JournalTests) ... ok
+test_link_foreign_binding_mode_and_budget_fail (test_journal.JournalTests) ... ok
+test_current_capacity_pins_and_two_nofollow_absence_checks (test_preflight.PreflightTests) ... ok
+test_existing_or_appearing_root_or_changed_tools_or_invalid_capacity_fails (test_preflight.PreflightTests) ... ok
+test_all_distinct_profiles_complete_before_success (test_smoke.SmokeTests) ... ok
+test_environment_never_reports_unknown_values (test_smoke.SmokeTests) ... ok
+test_every_failure_stops_later_children_and_prevents_acceptance (test_smoke.SmokeTests) ... ok
+test_false_limit_rss_runtime_permission_or_cleanup_evidence_fails (test_smoke.SmokeTests) ... ok
+test_parent_limit_change_or_total_deadline_is_not_success (test_smoke.SmokeTests) ... ok
+test_exact_reviewed_setters_read_back_all_four_profiles_without_rss_as (test_worker_smoke.ResourceTests) ... ok
+test_owned_kill_precedes_single_reap_then_existence_only (test_worker_smoke.ResourceTests) ... ok
+test_remaining_process_or_group_is_not_cleanup_success (test_worker_smoke.ResourceTests) ... ok
+test_setter_error_or_wrong_readback_never_reports_success (test_worker_smoke.ResourceTests) ... ok
+test_observation_startup_output_and_lifetime_failures_always_cancel (test_worker_smoke.SupervisorTests) ... ok
+test_pipe_eof_still_requires_live_owned_rss_and_then_cancellation (test_worker_smoke.SupervisorTests) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.051s
+
+OK

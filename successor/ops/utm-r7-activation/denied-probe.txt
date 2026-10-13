@@ -1,0 +1,1 @@
+Public synthetic permission canary. Contains no private data.

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-r7-activation/tests/test_smoke.py", line 7, in <module>
+    from smoke import run_smoke, validate_result, inspect_environment
+ModuleNotFoundError: No module named 'smoke'

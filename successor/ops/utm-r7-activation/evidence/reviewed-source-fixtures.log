@@ -1,0 +1,13 @@
+test_linux_keeps_all_five_setters_for_every_profile (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_revision_is_disabled_and_uses_a_distinct_proposed_root (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_sampled_rss_thresholds_are_unchanged (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_closed_pipes_remain_supervised_until_observed_exit (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_deadline_rss_and_output_failures_cancel_before_reap (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+test_input_progress_cannot_extend_expired_deadlines_or_skip_fixed_inputs (test_inspection_worker_bounds.WorkerBoundTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.010s
+
+OK

@@ -1,0 +1,51 @@
+{
+  "activation_candidate_commit": "4bbabbd013bee9eba2900a1d273fc49c50f78bdf",
+  "disabled_source_commit": "5ab910e24a0591b6f8ac7762c73e719671ebc160",
+  "expected_red_checks": [
+    "smoke seam missing before implementation; evidence/smoke-red.log",
+    "continuation seam missing before implementation; evidence/continuation-red.log",
+    "observation completing after child wall deadline accepted before completion check; evidence/completion-deadline-red.log"
+  ],
+  "failed_current_checks": [],
+  "fixture_limits": "OS, resource, child, RSS and command effects injected. Journal fixtures used private disposable /private/tmp directories. No actual operation root or smoke output directory accessed.",
+  "observed_warning": {
+    "diagnostic": "Apple Python launcher confstr() DARWIN_USER_TEMP_DIR warning; falls back to /tmp",
+    "exit_code": 0,
+    "meaning": "No smoke attempted. Identical child stderr in future smoke remains a failure that blocks acquisition.",
+    "operation": "read-only verifier under exact four-variable environment in restricted tool sandbox"
+  },
+  "passed": {
+    "activated_state_refused_in_disabled_checkout": true,
+    "activation_patch_apply_check": true,
+    "candidate_delta_only_inspection_gates_and_seal": true,
+    "candidate_references_verified": 14,
+    "candidate_source_files_verified": 272,
+    "default_inert_entrypoints_exit_78": 4,
+    "focused_reviewed_source_fixture_methods": 8,
+    "guest_execution_disabled": true,
+    "new_packet_fixture_methods": 18,
+    "node_syntax_files": 1,
+    "packet_closure_and_existing_executable_pins": true,
+    "python_AST_files": 10,
+    "workspace_inspection_gates_disabled": true,
+    "workspace_source_unchanged": true
+  },
+  "source_seals": {
+    "activated": "2c44160aca964317d9c8904513f426c42561f1180f09235294fee498847ccc4d",
+    "disabled": "882eebb2e20b6b4937cc794e09837512c446fe5b5bd717dd7e55e6c2d0546d0e"
+  },
+  "status": "source-only packet prepared; independent packet review and owner approval remain required",
+  "unrun": [
+    "actual fixed smoke and synthetic payload launch",
+    "real child resource setters/readbacks",
+    "real Node permission probe",
+    "actual owned-child RSS/cancellation/reap/group absence",
+    "fresh live capacity and R7-root preflight",
+    "activation in checkout",
+    "eight-input acquisition/authentication/inventory",
+    "downloaded OpenPGP execution",
+    "VM/UTM/guest execution",
+    "providers/accounts/credentials",
+    "full unchanged R7 suite this turn; accepted review supplies that baseline"
+  ]
+}

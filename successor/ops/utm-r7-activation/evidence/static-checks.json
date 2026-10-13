@@ -1,0 +1,77 @@
+[
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/continue.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/packet_support.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/smoke-child.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/smoke.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/tests/test_continuation.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/tests/test_journal.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/tests/test_preflight.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/tests/test_smoke.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/tests/test_worker_smoke.py"
+  },
+  {
+    "check": "Python AST",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/verify.py"
+  },
+  {
+    "check": "Node syntax",
+    "passed": true,
+    "path": "successor/ops/utm-r7-activation/smoke-child.mjs"
+  },
+  {
+    "check": "default inert entry",
+    "exit_code": 78,
+    "path": "successor/ops/utm-r7-activation/smoke.py"
+  },
+  {
+    "check": "default inert entry",
+    "exit_code": 78,
+    "path": "successor/ops/utm-r7-activation/continue.py"
+  },
+  {
+    "check": "default inert entry",
+    "exit_code": 78,
+    "path": "successor/ops/utm-r7-activation/smoke-child.py"
+  },
+  {
+    "check": "default inert entry",
+    "exit_code": 78,
+    "path": "successor/ops/utm-r7-activation/smoke-child.mjs"
+  }
+]
