@@ -80,7 +80,7 @@ def decode_units(raw):
     return {'runtime':result[UNITS[0]],'tool':result[UNITS[1]]}
 
 
-def decode_process(stat_before, status, cgroup, namespaces, descriptors, stat_after):
+def decode_process(stat_before, status, cgroup, namespaces, descriptors, stat_after, journal=None):
     before,after=parse_stat(stat_before),parse_stat(stat_after)
     if before!=after: raise ValueError('process changed during observation')
     values={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in status.splitlines() if ':' in line}
@@ -88,6 +88,8 @@ def decode_process(stat_before, status, cgroup, namespaces, descriptors, stat_af
     if len(ids)!=4 or len(set(ids))!=1 or set(descriptors)!={'0','1','2'}: raise ValueError('unexpected UID/fd set')
     if descriptors['0']!='/dev/null' or any(v!='/dev/null' and not re.fullmatch(r'socket:\[[0-9]+\]',v) for v in descriptors.values()):
         raise ValueError('management or unexpected descriptor inherited')
+    from .descriptors import validate_journal
+    validate_journal(descriptors,journal)
     groups=cgroup.strip().splitlines()
     if len(groups)!=1 or not groups[0].startswith('0::'): raise ValueError('cgroup v2 identity required')
     for key in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb'):
@@ -137,7 +139,11 @@ class LinuxKernel:
         cgroup=bounded_read(root+'/cgroup',4096).decode()
         ns={name:int(re.fullmatch(name+r':\[([0-9]+)\]',os.readlink(root+'/ns/'+name)).group(1)) for name in ('net','mnt','ipc')}
         fds={name:os.readlink(root+'/fd/'+name) for name in os.listdir(root+'/fd')}
-        return decode_process(before,status,cgroup,ns,fds,bounded_read(root+'/stat',4096).decode())
+        from .descriptors import observe_journal
+        journal=observe_journal(pid,fds,bounded_read,parse_stat) if any(v.startswith('socket:') for v in fds.values()) else None
+        after_fds={name:os.readlink(root+'/fd/'+name) for name in os.listdir(root+'/fd')}
+        if fds!=after_fds:raise ValueError('descriptor table changed during observation')
+        return decode_process(before,status,cgroup,ns,fds,bounded_read(root+'/stat',4096).decode(),journal)
     def detached(self,pid,tool):
         child=parse_stat(bounded_read('/proc/'+str(pid)+'/stat',4096).decode())
         parent=parse_stat(bounded_read('/proc/'+str(tool)+'/stat',4096).decode())

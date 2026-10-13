@@ -1,0 +1,67 @@
+test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) ...
+======================================================================
+FAIL: test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) (fault='timeout')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "fixture-only", line 35, in run
+TimeoutError: owned command deadline
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 42, in test_leader_stays_unreaped_until_group_cancellation_on_every_exit
+    command.run(['/fixture'],timeout=1,cap=1)
+  File "fixture-only", line 47, in run
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 18, in poll
+    def poll(self):raise AssertionError('poll reaps the group identity anchor')
+AssertionError: poll reaps the group identity anchor
+
+======================================================================
+FAIL: test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) (fault='cap')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "fixture-only", line 41, in run
+ValueError: owned command output exceeded cap
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 42, in test_leader_stays_unreaped_until_group_cancellation_on_every_exit
+    command.run(['/fixture'],timeout=1,cap=1)
+  File "fixture-only", line 47, in run
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 18, in poll
+    def poll(self):raise AssertionError('poll reaps the group identity anchor')
+AssertionError: poll reaps the group identity anchor
+
+======================================================================
+FAIL: test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) (fault='success')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 39, in test_leader_stays_unreaped_until_group_cancellation_on_every_exit
+    if fault=='success':self.assertEqual(command.run(['/fixture'],timeout=1,cap=1),(b'',b''))
+  File "fixture-only", line 47, in run
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 18, in poll
+    def poll(self):raise AssertionError('poll reaps the group identity anchor')
+AssertionError: poll reaps the group identity anchor
+
+======================================================================
+FAIL: test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) (fault='kill-failure')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "fixture-only", line 35, in run
+TimeoutError: owned command deadline
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 42, in test_leader_stays_unreaped_until_group_cancellation_on_every_exit
+    command.run(['/fixture'],timeout=1,cap=1)
+  File "fixture-only", line 47, in run
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_bounded.py", line 18, in poll
+    def poll(self):raise AssertionError('poll reaps the group identity anchor')
+AssertionError: poll reaps the group identity anchor
+
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+FAILED (failures=4)

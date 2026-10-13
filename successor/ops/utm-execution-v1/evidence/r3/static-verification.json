@@ -1,0 +1,39 @@
+{
+  "python_ast_files": 51,
+  "reviewer_integrity": [
+    {
+      "review": "utm-source-5dcc216",
+      "test_bodies_unchanged": true,
+      "files": [
+        {
+          "path": "../../../reviews/utm-source-5dcc216/REVIEW.md",
+          "bytes": 9609,
+          "sha256": "956ea77448e5b96dabdbf90d8189dc4d5390ec11896b585eaed874fec137d570"
+        },
+        {
+          "path": "../../../reviews/utm-source-5dcc216/reviewer_regressions.py",
+          "bytes": 6316,
+          "sha256": "bfe937f107f7c6561beadcdc648122e601029cb81adea342b9539870e20e1ea9"
+        }
+      ]
+    },
+    {
+      "review": "utm-source-ca29ad4",
+      "test_bodies_unchanged": true,
+      "files": [
+        {
+          "path": "../../../reviews/utm-source-ca29ad4/REVIEW.md",
+          "bytes": 13079,
+          "sha256": "c2969db4ec14b1dbc9ae326d3c95195ae2fe6efa0a255a66b1b9c6185c8ad179"
+        },
+        {
+          "path": "../../../reviews/utm-source-ca29ad4/reviewer_regressions.py",
+          "bytes": 7296,
+          "sha256": "99adebfc0a3da34c8bd893d362b02fbaf6335c6c287b136dfd6359d5db7999f2"
+        }
+      ]
+    }
+  ],
+  "frozen_R2_missing_C05_fixture_unchanged": true,
+  "planned_host_root_absent": true
+}

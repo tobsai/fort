@@ -1,0 +1,18 @@
+test_utm_schema (unittest.loader._FailedTest) ... ERROR
+
+======================================================================
+ERROR: test_utm_schema (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_utm_schema
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_utm_schema.py", line 6, in <module>
+    from fort_probe.utm_schema import pinned_schema,registry_entry
+ModuleNotFoundError: No module named 'fort_probe.utm_schema'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)

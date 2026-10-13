@@ -1,0 +1,38 @@
+test_only_independently_attributed_journal_connections_pass (test_descriptors.DescriptorTests) ... ERROR
+test_root_rejects_absent_successful_untyped_reordered_or_unbound_evidence (test_runtime_serial.RuntimeSerialTests) ... test_runtime_attempts_both_fixed_devices_before_ready (test_runtime_serial.RuntimeSerialTests) ... FAIL
+
+======================================================================
+ERROR: test_only_independently_attributed_journal_connections_pass (test_descriptors.DescriptorTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_descriptors.py", line 22, in test_only_independently_attributed_journal_connections_pass
+    facts=decode_process(*args,journal=journal_proofs());process(facts,TOOL_CGROUP)
+TypeError: decode_process() got an unexpected keyword argument 'journal'
+
+======================================================================
+FAIL: test_root_rejects_absent_successful_untyped_reordered_or_unbound_evidence (test_runtime_serial.RuntimeSerialTests) (fault='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_runtime_serial.py", line 37, in test_root_rejects_absent_successful_untyped_reordered_or_unbound_evidence
+    with self.subTest(fault=fault),self.assertRaises(ValueError):guest.prepared_controls(identity)
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_runtime_attempts_both_fixed_devices_before_ready (test_runtime_serial.RuntimeSerialTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_runtime_serial.py", line 15, in test_runtime_attempts_both_fixed_devices_before_ready
+    self.assertEqual(calls,[('/dev/hvc0',False),('/dev/hvc1',False)])
+AssertionError: Lists differ: [] != [('/dev/hvc0', False), ('/dev/hvc1', False)]
+
+Second list contains 2 additional elements.
+First extra element 0:
+('/dev/hvc0', False)
+
+- []
++ [('/dev/hvc0', False), ('/dev/hvc1', False)]
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=2, errors=1)

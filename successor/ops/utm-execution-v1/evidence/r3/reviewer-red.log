@@ -1,0 +1,50 @@
+test_auxiliary_members_must_fit_the_combined_192_mib_budget (test_review_r2_regressions.R2Regressions) ... FAIL
+test_exited_leader_does_not_skip_owned_group_cancellation (test_review_r2_regressions.R2Regressions) ... FAIL
+test_global_pax_headers_cannot_bypass_the_64_entry_limit (test_review_r2_regressions.R2Regressions) ... FAIL
+test_prepared_runtime_requires_its_own_serial_denial_evidence (test_review_r2_regressions.R2Regressions) ... FAIL
+test_unattributed_stdout_socket_cannot_be_proven_as_journal (test_review_r2_regressions.R2Regressions) ... FAIL
+
+======================================================================
+FAIL: test_auxiliary_members_must_fit_the_combined_192_mib_budget (test_review_r2_regressions.R2Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r2_regressions.py", line 117, in test_auxiliary_members_must_fit_the_combined_192_mib_budget
+    self.assertIsNone(accepted, 'individual member limits must not replace the combined budget')
+AssertionError: {'raw_member': 'fixture/root.raw', 'kernel_member': 'fixture/Image', 'initrd_member': 'fixture/initrd', 'raw_bytes': 4096, 'root_label': 'cloudimg-rootfs', 'kernel_arm64': True, 'member_sha256': {'raw': '13082d1461470ce877e1a2909bd2f469ade4b836e3ae91ef1c54b725f767b0a1', 'kernel': '29b9e6b27abd1b4f6956039d5a713a9acefadfa5ab9048da248006081eeb21df', 'initrd': '21921c8589af57ecb081bccfa1164e71cbd17c377ffde7abb694ddb0038d9820'}, 'archive_sha256': '05e30878be46fddec112c9b470809cc91e82ae79a49971e01b34e8ae0d05696d'} is not None : individual member limits must not replace the combined budget
+
+======================================================================
+FAIL: test_exited_leader_does_not_skip_owned_group_cancellation (test_review_r2_regressions.R2Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r2_regressions.py", line 76, in test_exited_leader_does_not_skip_owned_group_cancellation
+    self.assertIn('group-cancelled', effects)
+AssertionError: 'group-cancelled' not found in ['pipe-closed', 'pipe-closed']
+
+======================================================================
+FAIL: test_global_pax_headers_cannot_bypass_the_64_entry_limit (test_review_r2_regressions.R2Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r2_regressions.py", line 91, in test_global_pax_headers_cannot_bypass_the_64_entry_limit
+    self.assertIsNone(accepted, 'forbidden metadata and excess physical entries must fail before preprocessing')
+AssertionError: {'raw_member': 'fixture/root.raw', 'kernel_member': 'fixture/Image', 'initrd_member': 'fixture/initrd', 'raw_bytes': 4096, 'root_label': 'cloudimg-rootfs', 'kernel_arm64': True, 'member_sha256': {'raw': '13082d1461470ce877e1a2909bd2f469ade4b836e3ae91ef1c54b725f767b0a1', 'kernel': 'a98d10c07bc026a36146537812879c2ba5d57683a204a157f77cdda138807680', 'initrd': '49e7cfe9ed9e2c28de2e826165101c96112efc2754512ecb0baa71e4febf3ee9'}, 'archive_sha256': 'f9f587a16b08c8d5f4472efb422bf0bdbe7e6006d8fbd0114cca122e9dbfbb2a'} is not None : forbidden metadata and excess physical entries must fail before preprocessing
+
+======================================================================
+FAIL: test_prepared_runtime_requires_its_own_serial_denial_evidence (test_review_r2_regressions.R2Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r2_regressions.py", line 146, in test_prepared_runtime_requires_its_own_serial_denial_evidence
+    self.assertIsNone(accepted, 'provider readiness without runtime serial denial must not authorize grant')
+AssertionError: {'identity': {'installation': 'fort-utm-probe-v1', 'epoch': 1, 'attempt': 'probe-0001', 'generation': 1, 'runtime_unit': 'fort-runtime.service', 'vm_package_uuid': '148664c8-5334-5c17-8b7a-d60351f3a79f', 'packet_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'guest_boot_id': '12345678-1234-1234-1234-123456789abc', 'invocation_id': '11111111111111111111111111111111', 'runtime_cgroup': '/fort.slice/fort-attempt.slice/fort-runtime.service'}, 'runtime': {'pid': 40, 'start_ticks': 100, 'uid': 2001, 'cgroup': '/fort.slice/fort-attempt.slice/fort-runtime.service', 'namespaces': {'net': 11, 'mnt': 12, 'ipc': 13}, 'capabilities': '0000000000000000', 'no_new_privileges': True, 'fd_classes': ['stdio', 'journal'], 'alive': True}, 'tool_active': False, 'provider_literal_read': True} is not None : provider readiness without runtime serial denial must not authorize grant
+
+======================================================================
+FAIL: test_unattributed_stdout_socket_cannot_be_proven_as_journal (test_review_r2_regressions.R2Regressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_r2_regressions.py", line 133, in test_unattributed_stdout_socket_cannot_be_proven_as_journal
+    self.assertIsNone(accepted, 'socket inode syntax alone is not journal endpoint evidence')
+AssertionError: {'pid': 42, 'start_ticks': 12345, 'uid': 61184, 'cgroup': '/fort.slice/fort-attempt.slice/fort-tool.service', 'namespaces': {'net': 1, 'mnt': 2, 'ipc': 3}, 'capabilities': '0000000000000000', 'no_new_privileges': True, 'fd_classes': ['stdio', 'journal'], 'alive': True} is not None : socket inode syntax alone is not journal endpoint evidence
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.652s
+
+FAILED (failures=5)

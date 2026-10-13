@@ -1,0 +1,199 @@
+test_decoded_kernel_overlap_is_included_in_auxiliary_peak (test_archive_bounds.ArchiveBoundsTests) ... FAIL
+test_missing_terminator_or_nonzero_tail_is_not_a_complete_archive (test_archive_bounds.ArchiveBoundsTests) ... ERROR
+test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) ...
+======================================================================
+ERROR: test_missing_terminator_or_nonzero_tail_is_not_a_complete_archive (test_archive_bounds.ArchiveBoundsTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 45, in test_missing_terminator_or_nonzero_tail_is_not_a_complete_archive
+    with self.assertRaises(ValueError):inspect(gzip.compress(malformed))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 12, in inspect
+    def inspect(data):return examiner.inspect_archive(io.BytesIO(data),hashlib.sha256(data).hexdigest(),NAMES)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/archive.py", line 34, in inspect_archive
+    chunk=stream.read(1024**2)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 695, in readinto
+    buf = self.read(len(b))
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 686, in read
+    raise ReadError("unexpected end of data")
+tarfile.ReadError: unexpected end of data
+
+======================================================================
+ERROR: test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) (kind=b'g')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1300, in _proc_pax
+    next = self.fromtarfile(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1117, in fromtarfile
+    obj = cls.frombuf(buf, tarfile.encoding, tarfile.errors)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1053, in frombuf
+    raise EmptyHeaderError("empty header")
+tarfile.EmptyHeaderError: empty header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2357, in next
+    tarinfo = self.tarinfo.fromtarfile(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1119, in fromtarfile
+    return obj._proc_member(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1141, in _proc_member
+    return self._proc_pax(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1302, in _proc_pax
+    raise SubsequentHeaderError("missing or bad subsequent header")
+tarfile.SubsequentHeaderError: missing or bad subsequent header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 29, in test_special_headers_are_rejected_before_reading_declared_payload
+    with self.assertRaises(ValueError):inspect(data)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 12, in inspect
+    def inspect(data):return examiner.inspect_archive(io.BytesIO(data),hashlib.sha256(data).hexdigest(),NAMES)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/archive.py", line 19, in inspect_archive
+    with tarfile.open(fileobj=io.BytesIO(compressed),mode='r|gz') as archive:
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1671, in open
+    t = cls(name, filemode, stream, **kwargs)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1552, in __init__
+    self.firstmember = self.next()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2377, in next
+    raise ReadError(str(e))
+tarfile.ReadError: missing or bad subsequent header
+
+======================================================================
+ERROR: test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) (kind=b'x')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1300, in _proc_pax
+    next = self.fromtarfile(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1117, in fromtarfile
+    obj = cls.frombuf(buf, tarfile.encoding, tarfile.errors)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1053, in frombuf
+    raise EmptyHeaderError("empty header")
+tarfile.EmptyHeaderError: empty header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2357, in next
+    tarinfo = self.tarinfo.fromtarfile(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1119, in fromtarfile
+    return obj._proc_member(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1141, in _proc_member
+    return self._proc_pax(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1302, in _proc_pax
+    raise SubsequentHeaderError("missing or bad subsequent header")
+tarfile.SubsequentHeaderError: missing or bad subsequent header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 29, in test_special_headers_are_rejected_before_reading_declared_payload
+    with self.assertRaises(ValueError):inspect(data)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 12, in inspect
+    def inspect(data):return examiner.inspect_archive(io.BytesIO(data),hashlib.sha256(data).hexdigest(),NAMES)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/archive.py", line 19, in inspect_archive
+    with tarfile.open(fileobj=io.BytesIO(compressed),mode='r|gz') as archive:
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1671, in open
+    t = cls(name, filemode, stream, **kwargs)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1552, in __init__
+    self.firstmember = self.next()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2377, in next
+    raise ReadError(str(e))
+tarfile.ReadError: missing or bad subsequent header
+
+======================================================================
+ERROR: test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) (kind=b'L')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1170, in _proc_gnulong
+    next = self.fromtarfile(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1117, in fromtarfile
+    obj = cls.frombuf(buf, tarfile.encoding, tarfile.errors)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1053, in frombuf
+    raise EmptyHeaderError("empty header")
+tarfile.EmptyHeaderError: empty header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2357, in next
+    tarinfo = self.tarinfo.fromtarfile(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1119, in fromtarfile
+    return obj._proc_member(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1137, in _proc_member
+    return self._proc_gnulong(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1172, in _proc_gnulong
+    raise SubsequentHeaderError("missing or bad subsequent header")
+tarfile.SubsequentHeaderError: missing or bad subsequent header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 29, in test_special_headers_are_rejected_before_reading_declared_payload
+    with self.assertRaises(ValueError):inspect(data)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 12, in inspect
+    def inspect(data):return examiner.inspect_archive(io.BytesIO(data),hashlib.sha256(data).hexdigest(),NAMES)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/archive.py", line 19, in inspect_archive
+    with tarfile.open(fileobj=io.BytesIO(compressed),mode='r|gz') as archive:
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1671, in open
+    t = cls(name, filemode, stream, **kwargs)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1552, in __init__
+    self.firstmember = self.next()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2377, in next
+    raise ReadError(str(e))
+tarfile.ReadError: missing or bad subsequent header
+
+======================================================================
+ERROR: test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) (kind=b'K')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1170, in _proc_gnulong
+    next = self.fromtarfile(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1117, in fromtarfile
+    obj = cls.frombuf(buf, tarfile.encoding, tarfile.errors)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1053, in frombuf
+    raise EmptyHeaderError("empty header")
+tarfile.EmptyHeaderError: empty header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2357, in next
+    tarinfo = self.tarinfo.fromtarfile(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1119, in fromtarfile
+    return obj._proc_member(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1137, in _proc_member
+    return self._proc_gnulong(tarfile)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1172, in _proc_gnulong
+    raise SubsequentHeaderError("missing or bad subsequent header")
+tarfile.SubsequentHeaderError: missing or bad subsequent header
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 29, in test_special_headers_are_rejected_before_reading_declared_payload
+    with self.assertRaises(ValueError):inspect(data)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 12, in inspect
+    def inspect(data):return examiner.inspect_archive(io.BytesIO(data),hashlib.sha256(data).hexdigest(),NAMES)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/archive.py", line 19, in inspect_archive
+    with tarfile.open(fileobj=io.BytesIO(compressed),mode='r|gz') as archive:
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1671, in open
+    t = cls(name, filemode, stream, **kwargs)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 1552, in __init__
+    self.firstmember = self.next()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tarfile.py", line 2377, in next
+    raise ReadError(str(e))
+tarfile.ReadError: missing or bad subsequent header
+
+======================================================================
+FAIL: test_decoded_kernel_overlap_is_included_in_auxiliary_peak (test_archive_bounds.ArchiveBoundsTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 34, in test_decoded_kernel_overlap_is_included_in_auxiliary_peak
+    with self.assertRaises(ValueError):inspect(data)
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+FAILED (failures=1, errors=5)

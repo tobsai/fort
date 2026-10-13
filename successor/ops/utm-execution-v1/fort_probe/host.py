@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from .bounded import Commands,require_live
 from .linux_kernel import bounded_read
+from .utm_schema import pinned_schema,registry_snapshot
+from .evidence import exact
 
 
 def parse_processes(raw):
@@ -69,11 +71,12 @@ class MacKernel:
         return {'team':match.group(1) if match else None,'executable_sha256':hashlib.sha256(bounded_read(str(self.app/'Contents/MacOS/UTM'),18662240)).hexdigest(),
                 'strict_valid':True,'gatekeeper_accepted':True}
     def config(self):
-        if self.registry_source is None: raise ValueError('pinned UTMRegistryEntry schema/collector still required')
-        registry=self.registry_source()
-        if set(registry)!={'uuid','shares','complete'} or registry['complete'] is not True: raise ValueError('registry readback incomplete')
+        if self.registry_source is None: raise ValueError('fresh live registry/bookmark collector unavailable')
         config=plistlib.loads(bounded_read(str(self.root/'vm/fort-utm-isolation-probe.utm/config.plist')))
-        if registry['uuid']!=config['Information']['UUID']: raise ValueError('registry VM mismatch')
+        schema=pinned_schema({'vm_package_uuid':config['Information']['UUID']})
+        information=dict(config['Information'],UUID=schema['information']['UUID'])
+        if type(config['ConfigurationVersion']) is not int or config['ConfigurationVersion']!=4 or not exact(information,schema['information']):raise ValueError('pinned UTM information schema differs')
+        registry=registry_snapshot(self.registry_source(),schema['information']['UUID'],str(self.root/'vm/fort-utm-isolation-probe.utm'))
         if config.get('SharedDirectory',[]) or registry['shares']: raise ValueError('shared directory configured')
         if (config['Backend']!='Apple' or config['System']['Architecture']!='aarch64'
                 or config['System']['CPUCount']!=2 or config['System']['MemorySize']!=4096

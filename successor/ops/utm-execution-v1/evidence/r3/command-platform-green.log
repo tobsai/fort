@@ -1,0 +1,8 @@
+test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) ... ok
+test_mac_exit_or_exited_zombie_is_observed_without_reaping (test_bounded.CommandTests) ... ok
+test_nonreaping_linux_observation_keeps_waitid_wnowait (test_bounded.CommandTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.106s
+
+OK

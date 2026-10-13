@@ -1,4 +1,16 @@
 """Fixed synthetic programs. OS effects are supplied by the Linux kernel adapter."""
+import errno
+
+SERIAL_DEVICES=('/dev/hvc0','/dev/hvc1')
+
+def validate_serial_denials(rows):
+    if not isinstance(rows,list) or len(rows)!=2:raise ValueError('both runtime serial denials required')
+    for row,path in zip(rows,SERIAL_DEVICES):
+        if (not isinstance(row,dict) or set(row)!={'path','write','errno'} or row['path']!=path
+                or row['write'] is not False or type(row['errno']) is not int
+                or row['errno'] not in (errno.EACCES,errno.EPERM,errno.ENOENT)):
+            raise ValueError('runtime serial denial unproven')
+
 PROVIDER = b'synthetic-provider-canary-only\n'
 PUBLIC = b'fort-utm-public-synthetic-canary-v1\n'
 OPEN_PROBES = (
@@ -26,7 +38,10 @@ class Runtime:
         if self.started is not None: raise ValueError('runtime already started')
         self.started = self.clock()
         if self.io.provider() != PROVIDER: raise ValueError('provider positive control failed')
-        self.io.report({'provider_literal_read': True, 'guest_boot_id': self.boot_id,
+        serial=[{'path':path,'write':False,'errno':self.io.denied_open(path,False)} for path in SERIAL_DEVICES]
+        validate_serial_denials(serial)
+        if self.clock()-self.started>=.25:raise TimeoutError('runtime serial probe deadline')
+        self.io.report({'serial_denials':serial,'provider_literal_read': True, 'guest_boot_id': self.boot_id,
                         'invocation_id': self.invocation})
         self.io.notify('READY=1')
 

@@ -1,0 +1,18 @@
+test_only_independently_attributed_journal_connections_pass (test_descriptors.DescriptorTests) ... ok
+test_root_rejects_absent_successful_untyped_reordered_or_unbound_evidence (test_runtime_serial.RuntimeSerialTests) ... ok
+test_runtime_attempts_both_fixed_devices_before_ready (test_runtime_serial.RuntimeSerialTests) ... ok
+test_adapter_starts_only_runtime_then_grants_tool_and_collects_bound_facts (test_linux.LinuxTests) ... ok
+test_canary_interpreter_rejects_refused_ipc_successful_open_and_missing_result (test_linux.LinuxTests) ... ok
+test_proc_stat_parses_parentheses_and_start_ticks_without_pid_reuse (test_linux.LinuxTests) ... ok
+test_remaining_descendant_and_wrong_invocation_never_prove_stop (test_linux.LinuxTests) ... ok
+test_live_construction_and_all_guest_roles_remain_disabled (test_linux_kernel.KernelParsingTests) ... ok
+test_process_collector_rejects_pid_reuse_extra_fd_and_capability (test_linux_kernel.KernelParsingTests) ... ok
+test_raw_unit_facts_accept_exact_policy_and_reject_weakened_or_missing_fields (test_linux_kernel.KernelParsingTests) ... ok
+test_expired_ungranted_runtime_and_replayed_identity_stop (test_guest_programs.ProgramTests) ... ok
+test_runtime_prepares_canary_without_tool_work_then_requires_fresh_bound_lease (test_guest_programs.ProgramTests) ... ok
+test_tool_only_reports_fixed_denials_and_own_positive_controls (test_guest_programs.ProgramTests) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.016s
+
+OK

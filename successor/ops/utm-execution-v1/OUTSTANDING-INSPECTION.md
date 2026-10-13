@@ -1,59 +1,50 @@
-# Outstanding read-only input inspection
+# Remaining input inspection and runtime work
 
-This document records a future approval step. It does not request or grant
-execution now. No listed input was acquired during R2.
+R3 completed the authorized retrieval of three pinned UTM Swift files. Provenance
+and schema findings are in [UTM-SOURCE.md](evidence/r3/UTM-SOURCE.md). Those public
+text reads require no further permission or repeat retrieval.
 
-The smallest input acquisition can omit UTM.dmg entirely. Reuse the accepted
-static app assessment as historical evidence; do not install or launch UTM.
+The following artifact operation remains outside the present authorization.
+Its acquisition/decompression orchestration and selected verifier-module loading
+must become concrete reviewed source before seeking approval. This document is
+an inventory and plan, not an executable or approved downloader.
 
-1. Acquire only the eight non-UTM entries in the unchanged
-   `../utm-synthetic-packet-v1/inputs.json`: the dated Ubuntu ARM64 tar, its sums,
-   detached signature, publisher public key and package manifest, plus pinned
-   OpenPGP 6.3.2 metadata/archive and npm public signing keys. Preserve each exact
-   URL, digest, cap, allowed redirect host and no-credential/no-proxy policy.
-   Combined maximum payload is 814088192 bytes. No retry, alternative image,
-   additional key, package installation, account, credential or guest program.
-2. Acquire these three public source blobs from the already pinned UTM commit
-   `048ca7498ea3a374439149d51739d94c5300bcda`. These are additional source inputs
-   beyond the previous nine-input proposal and need explicit inclusion in that
-   future scope. Use unauthenticated GitHub blob API requests, at most 128 KiB of
-   response per blob, verify decoded byte size and Git blob SHA-1, record SHA-256.
-   Do not execute the source.
+Acquire only the eight non-UTM entries in unchanged
+`../utm-synthetic-packet-v1/inputs.json`: the dated Ubuntu ARM64 tar, checksum list,
+detached signature, publisher public key and package manifest, plus pinned
+OpenPGP 6.3.2 metadata/archive and npm public signing keys. Preserve exact URLs,
+digests, caps, redirect hosts and no-credential/no-proxy policy. Combined maximum
+payload is **814,088,192 bytes**. Omit UTM.dmg; reuse the accepted static app
+assessment as historical evidence. No alternate image/key, package installation,
+account, credential, mount or guest program is part of input inspection.
 
-| File | Git blob SHA-1 | Decoded bytes |
-| --- | --- | ---: |
-| `Configuration/UTMConfiguration.swift` | `abfe34709f2953d6860b950ec291826d3699b2e5` | 9199 |
-| `Configuration/UTMConfigurationInfo.swift` | `ba30dcc0a5c739b6ed9ee056639972425b8b9e41` | 5019 |
-| `Services/UTMRegistryEntry.swift` | `982acc682b49fd9bb6431df4e1f59e50e8a8faa4` | 18537 |
+Inspect the verifier archive without package hooks or dependencies. Authenticate
+its selected module before loading it with the existing pinned Node 26.5.0.
+Verify Ubuntu signed checksums against fingerprint
+`D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Run the existing negative-control
+classes with in-memory mutations. The supplied verifier API in today's fixtures
+is a crypto double, not an authenticated library or a signature-verification pass.
 
-Exact API URL pattern: `https://api.github.com/repos/utmapp/UTM/git/blobs/<blob SHA>`.
-The blob identities and sizes come from the cached pinned Git tree, not from a
-new network lookup. `api.github.com` must be included explicitly for this narrow
-source retrieval. No authentication header, Git credential helper or account is
-needed. Total payload cap including three API responses is 814481408 bytes;
-reserve at most 1 GiB for these inputs plus bounded verification receipts.
+List/hash the authenticated Ubuntu archive without extracting a guest filesystem.
+Record exact member paths; count physical tar headers and reject unsupported
+metadata before preprocessing. Caps: compressed 768 MiB, raw 20 GiB, combined
+auxiliary 192 MiB, at most 64 physical entries. Include retained compressed
+kernel plus decoded output and other auxiliary members in peak accounting.
+Record source and decoded kernel hashes/sizes. Use a bounded worker for large
+hash/decompression work; the current parser's logical budget is not a process
+RSS/deadline guarantee. Preserve bounded receipts and stop on any resource,
+authentication or format failure. An unsupported raw layout requires observed
+facts and a reviewed decoder, never inferred offsets, resizing or a replacement
+kernel. No host mount, disk conversion or VM boot belongs in this operation.
 
-After pin and registry checks, inspect the verifier archive without hooks,
-workers or dependencies, and load only its accepted bounded Node module with the
-existing pinned Node 26.5.0. Verify Ubuntu signed checksums against fingerprint
-`D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Run the four existing negative-control
-classes with in-memory mutations only. No generated key or tenth verification
-input is needed. The six current JavaScript fixtures do not substitute for this.
+UTM schema decoding is now implemented against verified text. Fresh live capture
+of persisted and in-memory registry state, plus no-UI/no-mount bookmark resolution,
+remains a separate missing adapter. The parser accepts supplied evidence only;
+the Mac path refuses to proceed without that provider. Do not infer no shares
+from an absent entry or trust a bookmarked path without resolution.
 
-List the authenticated Ubuntu archive without extracting a guest filesystem.
-Reject unsafe or duplicate members; record exact selected paths before asking the
-bounded examiner to hash/decode them. Maximum compressed input is 768 MiB,
-expanded bytes 20 GiB plus 192 MiB, at most 64 entries. Keep observations and
-metadata under the existing evidence cap. Use a bounded worker process for any
-large decompression/hash operation and stop on resource/deadline failure. No
-host filesystem mount, disk conversion, resizing, alternate kernel or VM boot.
-If raw layout is partitioned or otherwise unsupported by the current examiner,
-record the fact and prepare the exact decoder source as a subsequent reviewed
-change. Do not infer a root offset or label from a filename.
-
-Read the three UTM definitions to close config-version, information and registry
-schema gaps. Bind the registry collector and in-memory generator to those exact
-bytes, then rerun source fixtures and independent review. No app registration,
-PTY access, guest seed application, host process control or protected app-state
-mutation belongs in this inspection step. Delete only positively owned acquired
-inputs after retaining bounded redacted receipts; preserve uncertain state.
+UTM registration/launch, PTY access, guest seed application, process control and
+outside-root app-state cleanup remain later runtime work with exact owner
+execution authority and independent acceptance. No provider cleanup is authorized.
+Retain uncertain state; remove only exact positively owned objects after fresh
+quiescence evidence. T07 and installed-product/provider acceptance remain open.

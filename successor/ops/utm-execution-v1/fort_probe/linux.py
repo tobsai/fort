@@ -3,7 +3,7 @@ from copy import deepcopy
 import errno
 import re
 from .evidence import exact, RUNTIME_CGROUP, TOOL_CGROUP
-from .guest_programs import OPEN_PROBES
+from .guest_programs import OPEN_PROBES,validate_serial_denials
 
 
 def parse_stat(raw):
@@ -82,8 +82,12 @@ class LinuxGuest:
     def prepared_controls(self, identity):
         self._same(identity)
         units=self.kernel.units(); report=self.kernel.runtime_report()
-        if report!={'provider_literal_read':True,'guest_boot_id':self.boot_id,'invocation_id':identity['invocation_id']}:
+        if (set(report)!={'provider_literal_read','guest_boot_id','invocation_id','serial_denials'}
+                or report['provider_literal_read'] is not True or report['guest_boot_id']!=self.boot_id
+                or report['invocation_id']!=identity['invocation_id']):
             raise ValueError('runtime report unbound or failed')
+        validate_serial_denials(report['serial_denials'])
+        if self.kernel.root_controls().get('serial') is not True:raise ValueError('root serial positive control missing')
         return {'identity':deepcopy(identity),'runtime':self.kernel.process(units['runtime']['pid']),
                 'tool_active':units['tool']['active'],'provider_literal_read':True}
 
@@ -92,7 +96,7 @@ class LinuxGuest:
                                       'at':self.clock(),'granted':granted})
 
     def grant(self, identity):
-        self._same(identity)
+        self.prepared_controls(identity)
         if self.kernel.units()['tool']['active'] or self.ipc_before is not None: raise ValueError('tool grant already consumed')
         self.ipc_before=self.kernel.ipc_start(); self.ipc_at=self.clock()
         self._lease(True)

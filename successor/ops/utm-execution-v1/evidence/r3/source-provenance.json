@@ -1,0 +1,41 @@
+{
+  "scope": "three authorized public UTF-8 source files only",
+  "credential_headers": false,
+  "proxy": false,
+  "redirects": 0,
+  "files": [
+    {
+      "path": "Configuration/UTMConfiguration.swift",
+      "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+      "url": "https://api.github.com/repos/utmapp/UTM/git/blobs/abfe34709f2953d6860b950ec291826d3699b2e5",
+      "git_blob_sha1": "abfe34709f2953d6860b950ec291826d3699b2e5",
+      "bytes": 9199,
+      "sha256": "207859081df04efdc1252bb3a8cb4e17e61f3e8e158a9cee6bcbf57a50868086",
+      "api_response_sha256": "d445f105b389ec151ad54abcd93fe03408436c24d35fc88f72e8ef5f78662fa8",
+      "api_response_bytes": 12961,
+      "retrieved_at_utc": "2026-10-13T14:57:32.398853+00:00"
+    },
+    {
+      "path": "Configuration/UTMConfigurationInfo.swift",
+      "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+      "url": "https://api.github.com/repos/utmapp/UTM/git/blobs/ba30dcc0a5c739b6ed9ee056639972425b8b9e41",
+      "git_blob_sha1": "ba30dcc0a5c739b6ed9ee056639972425b8b9e41",
+      "bytes": 5019,
+      "sha256": "b1afcd6ee15a3a5a53785b10058413c2167a346924d32d21bac813b367fce7a3",
+      "api_response_sha256": "d2be9239794f84204406290813dc1ec5ad64708cf5d966993004d4b139def59c",
+      "api_response_bytes": 7199,
+      "retrieved_at_utc": "2026-10-13T14:57:32.788343+00:00"
+    },
+    {
+      "path": "Services/UTMRegistryEntry.swift",
+      "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+      "url": "https://api.github.com/repos/utmapp/UTM/git/blobs/982acc682b49fd9bb6431df4e1f59e50e8a8faa4",
+      "git_blob_sha1": "982acc682b49fd9bb6431df4e1f59e50e8a8faa4",
+      "bytes": 18537,
+      "sha256": "13ebcf055257543eb088528c4db928d6081e1c95d5dffd7410353cb6c1dc2fa7",
+      "api_response_sha256": "a577bac943e10b8852bbeed9dc87d4c80df58c8f785fe3fc45431079f7c66c6a",
+      "api_response_bytes": 25824,
+      "retrieved_at_utc": "2026-10-13T14:57:33.263327+00:00"
+    }
+  ]
+}

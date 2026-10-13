@@ -33,7 +33,7 @@ class KernelParsingTests(unittest.TestCase):
 
     def test_process_collector_rejects_pid_reuse_extra_fd_and_capability(self):
         status='Uid:\t61184 61184 61184 61184\nNoNewPrivs:\t1\n'+''.join(k+':\t0000000000000000\n' for k in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb'))
-        args=[proc(),status,'0::/fort.slice/fort-attempt.slice/fort-tool.service\n',{'net':1,'mnt':2,'ipc':3},{'0':'/dev/null','1':'socket:[2]','2':'socket:[2]'},proc()]
+        args=[proc(),status,'0::/fort.slice/fort-attempt.slice/fort-tool.service\n',{'net':1,'mnt':2,'ipc':3},{'0':'/dev/null','1':'/dev/null','2':'/dev/null'},proc()]
         self.assertEqual(decode_process(*args)['start_ticks'],12345)
         for fault in ('reuse','fd','cap'):
             copy=list(args)
@@ -44,5 +44,7 @@ class KernelParsingTests(unittest.TestCase):
 
     def test_live_construction_and_all_guest_roles_remain_disabled(self):
         with self.assertRaises(RuntimeError):Commands()
+        from fort_probe.descriptors import observe_journal
+        with self.assertRaises(RuntimeError):observe_journal(0,{},None,None)
         for role in ('bootstrap','broker','runtime','tool'):
             with self.assertRaises(RuntimeError):main([role])

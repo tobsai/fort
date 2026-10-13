@@ -1,150 +1,121 @@
-# UTM source preparation revision R2
+# UTM source preparation revision R3
 
-**Fixed source candidate for independent review; all activation gates remain
-false.** This revision completes the requested adapter/program/generation source
-seams using synthetic inputs. Actual UTM schema and archive binding remain
-unresolved. It is not an accepted execution packet or a working tested VM.
+**Disabled source candidate for independent review.** The five R2 findings are
+fixed in source and synthetic fixtures. Live confinement and complete execution
+readiness remain unaccepted. Base: `ca29ad4849dc5f0b1c6dee3f6aa344efb374a069`.
+Earlier source/design snapshots, logs and reviewer-owned files are preserved.
 
-Base source: `5dcc21697a933798cb941977cfff1bf66e68df8a`.
-Original inert design: `cfea28acd098b1751f71a5f7b927e101211db054`.
-Both prior snapshots and their evidence remain in Git. Reviewer files under
-`reviews/` are preserved. Their digests are recorded in `execution-revision.json`.
+## Review corrections and their limits
 
-## Source and evidence boundary
-
-| Source | Behavior now implemented | Validation |
+| Finding | Change | Evidence and limit |
 | --- | --- | --- |
-| `guest_programs.py`, `guest_entry.py` | Fixed runtime canary/barrier, stale-lease exit, systemd readiness/watchdog notifications, fixed tool deny/positive-control syscalls, one double-fork/setsid descendant, root bootstrap and guest role dispatch | Program logic runs against IO doubles. Actual syscalls/bootstrap never run. |
-| `linux.py`, `linux_kernel.py` | Fixed systemd commands and hardening/resource readback; boot/invocation binding; root target controls; proc PID/start/UID/capability/namespace/fd/cgroup collection; journal-bound tool report; independent empty-tree observation | Linux policy uses a raw OS boundary double; parser fixtures exercise real parsing. No `/proc`, systemd, journal or guest filesystem inspection occurs on this Mac. |
-| `broker.py` | Separate fixed control/inspection operations, bounded framing/output, timer ticks without input, one terminal Stop response | Fixtures exercise timer expiry, malformed operations and two-phase Stop. |
-| `bounded.py` | Sanitized-environment commands, bounded output and wall time, cleanup of only the spawned command group | Source inspected and syntax checked. Live constructor refuses before spawning anything. OS cancellation behavior is unrun. |
-| `host.py` | Exact app pin/signature and process-start checks; PTY owner set; zero-network/share topology; resource/device checks; fresh process/handle/mount collection and quiescence interpretation | Host policy/parser fixtures only. Actual collector is disabled. Registry parsing is blocked on an uncached pinned schema, explicitly rejected rather than defaulting to no shares. |
-| `host_session.py` | Preflight, prepare, one grant, 19 heartbeats, live evidence, two-response Stop and postflight through attributed channels | Integrated fixture uses two actual anonymous socketpairs, the actual broker/controller/codecs and synthetic guest facts. |
-| `config.py`, `seed.py` | In-memory three-file NoCloud candidate containing guarded guest sources, offline bootstrap/unit definitions, boot service masks and explicit zero-NIC/share UTM plist; exact ISO command construction | Synthetic image and UTM schema facts only. No files are emitted into a VM package, no ISO command is run. |
-| `archive.py` | Read-only bounded gzip/tar inspection, exact selected member binding, link/special/sparse rejection, hashes, ARM64 header and raw ext4 label check | Generated tar fixtures only. Currently supports an unpartitioned ext4 raw filesystem; other layouts stop for a reviewed decoder. Header checks do not prove filesystem integrity or bootability. |
-| `verify-inputs.mjs` | Eight exact Ubuntu/verifier input pins; registry-signature and publisher-checksum verification functions adapted from the earlier reviewed Fort verifier | Six contract fixtures with a declared crypto boundary double. No actual OpenPGP library, registry signature or publisher signature was verified. No automatic import/download entry exists. |
-| `controller.py`, `lifecycle.py`, `pty.py`, `ipc.py` | Durable one-attempt fencing, single-use evidence, exact typed termination facts, absent-root ownership, strict PTY checks and working-listener denial controls | Original suite plus reviewer regressions and expanded failure matrix. |
+| STD-1, P1 | Commands never poll/reap the direct child before group cancellation. Linux observes exit with `waitid(WNOWAIT)`; Mac source uses a process-exit kqueue. Cancellation precedes the sole final wait on every path. | Boundary doubles cover exited leaders with descendant-held pipes, output caps, normal completion and cancellation failure. No command child was launched. |
+| STD-2, P2 | Count and validate each physical 512-byte USTAR header before interpreting a member. Reject PAX/GNU metadata, sparse/special/link headers before reading their payload. | The supplied 65-PAX fixture and oversized metadata declarations fail. Missing terminators and nonzero trailing data fail. No archive was downloaded. |
+| STD-3, P2 | Separate 20 GiB raw and 192 MiB combined auxiliary budgets. Include retained compressed kernel plus decoded output and all other auxiliary members in peak accounting. | The supplied streamed 193 MiB fixture fails. A scaled gzip-kernel overlap fixture fails at its limit and passes with sufficient capacity. Decoded kernel size/hash enter the `Data/` file plan. |
+| SPEC-1, P2 | A socket inode string cannot become a journal descriptor. The disabled ARM64 Linux collector duplicates target descriptors through pidfds and inspects kernel family/type, inode, peer path and `SO_PEERCRED`; it checks the root peer's executable, cgroup/start identity and root-owned journal path. | Unattributed, mismatched and management sockets fail; attributed journal fixtures pass. Collector effects are entirely doubled. Actual pidfd permissions and socket-activation credentials remain unrun. |
+| SPEC-2, P2 | Runtime performs both fixed nonblocking `/dev/hvc0` and `/dev/hvc1` attempts before readiness. Reports carry ordered, typed denials bound to boot/invocation; root rechecks serial positive controls before grant. | Missing, successful, untyped, reordered or unbound reports fail. The original R2 fixture is frozen with its missing results. Actual runtime UID/device syscalls remain unrun. |
 
-All guest source imports are included in the candidate seed. Guest code is
-root-owned and readable by the fixed runtime/dynamic tool; binding data remains
-root-only. Bootstrap and controller consumption markers use the persistent guest disk,
-not `/run`, so reboot does not create a fresh attempt. Runtime and tool units
-have no install/autostart target. Only the
-fixed bootstrap can start the root broker. `LIVE_EXECUTION_ENABLED = False`
-stops bootstrap, broker, runtime, tool and command-runner construction before
-live operations. The public package entry still exits 78; no runtime flag or
-environment override enables it. This is a workflow guard, not a security sandbox
-against a trusted owner editing or importing source. The candidate includes
-cloud-init boot/user/file provisioning directives; those would execute if someone
-independently packaged and booted it. The Python gate does not suppress cloud-init
-itself. No such package or boot was produced here.
+The runner requires a single-threaded caller with default SIGCHLD and exclusive
+child-reaping ownership. Keeping its child unreaped reserves the PID/PGID until
+cancellation; it never signals the group after its final wait. Deadline/output
+failures continue to raise, even after sending cancellation. A signal and leader
+wait do not establish that every descendant has exited or that an arbitrary
+program could not escape its group. The runner serves fixed trusted inspection
+commands; independently observed guest cgroup emptiness and host quiescence
+remain separate acceptance requirements. Real Linux/Mac cancellation and timing
+are unrun. Kernel stalls are not claimed to be preempted by Python deadlines.
 
-## Reviewer corrections
+Journal proof accepts the fixed root journald endpoint, with a root journald
+peer or root PID 1 systemd peer for socket activation. It rejects unavailable
+pidfd duplication, unfamiliar peer paths or process identity, and descriptor
+changes during collection. It sends/receives no socket payload. This is trusted
+root observation in one disposable guest; it is not a defense against guest root
+or a shared-host security claim.
 
-The independent source review of `5dcc216` found three P2 issues. All four supplied
-regressions now pass against the active source. The test copy changes only its
-source import location and removes its standalone writer to reviewer-owned
-files and normalizes the final blank line; test bodies and assertions remain unchanged.
+S1–S3 from the previous review remain fixed: durable single-use evidence before
+collection, authority revocation on failure, strict boolean Stop evidence and
+validation before creating a cleanup root. Earlier F1–F3 retain inactive
+preflight, prepared runtime, separate grant, bound live evidence, prompt Stop
+acknowledgement plus independent empty-tree proof, and actual temporary-listener
+positive controls before/after the fixture denial.
 
-* **S1:** capture consumption is persisted before asking the guest for evidence.
-  A failed canary, malformed snapshot, timeout or persistence error revokes the
-  attempt. Recapture and heartbeat cannot restore it, including after reopen.
-  Successful cleanup remains a separate fact and never converts failed live
-  evidence into success.
-* **S2:** normal and abort Stop paths validate exact fields and boolean types.
-  Only explicit inactive/inactive/empty values prove termination. Null, numeric,
-  string, missing and extra fields quarantine. Valid remaining-process evidence
-  continues bounded observation. Transitional systemd states count as active,
-  while prepare separately waits for ready state.
-* **S3:** process inventory and VM identity validation precede directory creation.
-  Invalid input leaves the root absent and corrected construction succeeds.
-  Pre-existing roots still cannot be adopted implicitly.
+## UTM source and schema
 
-Earlier F1–F3 remain enforced: inactive root preflight, prepared runtime controls,
-separate grant, single-use bound live snapshot without lease renewal; prompt
-`stopping` plus independent terminal proof within five seconds; root-proven
-working IPC listener and explicit tool denial. For asynchronous tool startup,
-the broker holds the same listener across grant and live capture, bounded to six
-seconds, and uses the shared denial predicate with successful root connections
-before and after. Refusal, timeout, removal or successful tool connection fails.
+The only new retrieval was three authorized public Swift blobs at
+`048ca7498ea3a374439149d51739d94c5300bcda`. Their decoded sizes, Git blob identities
+and SHA-256 values are verified; legal notices and exact bytes are retained.
+[UTM-SOURCE.md](evidence/r3/UTM-SOURCE.md) records provenance, cached-source reuse
+and precise schema conclusions. There was no additional binary/archive download.
 
-## Bounds and trust
+`utm_schema.py` binds version 4, required `IconCustom: false` and exact information
+fields. The in-memory generator names all boot/storage data inside `Data/`.
+Raw registry parsing requires the exact VM/package identity, rejects every
+share or external drive before UTM can filter invalid bookmarks, and requires
+independent no-UI/no-mount resolution of a nonempty package bookmark. The Mac
+adapter now consumes that raw schema instead of a caller's preclassified list.
+It requires persisted/in-memory agreement; the live capture/resolution provider
+is still unavailable by default. No preferences, bookmark targets or live app
+state were accessed. Python schema fixtures are not Swift/app decoder evidence.
 
-The fixed sequence remains prepare 0, grant 1, heartbeats 2–20 and Stop 21.
-Control frames are at most 4096 bytes including LF, pending bytes 8192, frames 64
-and aggregate bytes 262144 per direction. There is no resend. Stop acknowledgement
-has a 500 ms guest budget and 750 ms host deadline; terminal proof has five
-seconds, including stop and observation. The host watches for duplicate terminal
-proof until that deadline, then makes the channel terminal.
+## Source and execution boundary
 
-Preparation lease is four seconds; control idle is one second; runtime lease
-age is 1.5 seconds. Runtime/tool limits are 40/38 seconds, runtime watchdog two
-seconds, unit stop two seconds and the host session 45 seconds. The broker's
-selector ticks at 50 ms and its service has a 120-second cap. Command calls are
-bounded individually; aggregate callback overruns fail controller acceptance.
-Actual scheduler latency, filesystem stalls and command cancellation are unrun.
-A stalled kernel call is not claimed to be preempted by Python deadline checks.
+The source includes fixed guest programs, guarded bootstrap, Linux/Mac collectors,
+a timed two-channel broker, host session, in-memory NoCloud/plist generation,
+archive inspection and verifier contracts. Existing fixture coverage of those
+seams remains. Host-session fixtures use two real anonymous socketpairs with
+synthetic guest facts; they do not run the real broker's OS loop or a VM.
 
-Root observations, synthetic program reports, code provisioning and same-owner
-host state are trusted within the declared experiment. Reports are matched to
-unit invocation/PID/UID and checked against independently collected process facts.
-There is no cryptographic host/guest authentication or shared-host guarantee.
-No real provider, credential, host-secret or adversarial VM-escape claim is made.
+`LIVE_EXECUTION_ENABLED = False` remains literal and has no environment override.
+The public entrypoint exits 78. The gate prevents the supported live entrypoints;
+it is a workflow control, not a sandbox against a trusted owner modifying source.
+Independently packaging and booting the candidate would still run cloud-init
+boot/user/file directives. No package, ISO, mount, app or guest boot was produced.
+Root-owned guest code is readable by the synthetic runtime/tool; binding data and
+persistent consumption markers remain root-only. Runtime/tool units have no
+autostart target. There is no live provider or real credential in the experiment.
 
-## Precise outstanding dependencies
+Bounds remain: 4096-byte frames including LF; 8192 pending bytes; 64 frames and
+262144 bytes per direction; no resend. Prepare 0, grant 1, heartbeats 2–20 and
+Stop 21 are fixed. Guest Stop acknowledgement budget is 500 ms, host 750 ms;
+terminal proof has five seconds, with duplicate observation to that deadline.
+Prepare lease is four seconds, control idle one second, runtime lease freshness
+1.5 seconds, runtime/tool limits 40/38 seconds, runtime watchdog two seconds,
+unit stop two seconds and host session 45 seconds. Command cleanup allows one
+additional second to reap the leader; it does not convert errors into success.
+The runtime's two serial attempts must finish within 250 ms before readiness.
 
-[OUTSTANDING-INSPECTION.md](OUTSTANDING-INSPECTION.md) specifies the separate,
-currently unauthorized acquisition and read-only inspection step. Two categories
-cannot be resolved from the source and synthetic fixtures presently available:
+Archive budgets count physical tar entries and logical extraction overlap.
+They do not claim an RSS bound for this in-process parser. Actual large-input
+acquisition/decompression needs the separately reviewed bounded worker described
+in [OUTSTANDING-INSPECTION.md](OUTSTANDING-INSPECTION.md). Only an unpartitioned
+ext4 root is supported; unknown layouts stop for an observed, reviewed decoder.
+Header checks alone do not prove filesystem integrity or bootability.
 
-1. The pinned Ubuntu archive and public verifier inputs are absent. Actual member
-   names, archive layout, member hashes, kernel/initrd compatibility and filesystem
-   label cannot be bound. Signature verification and bounded verifier-module
-   extraction/loading require the actual authenticated artifacts. There is no
-   download or extraction fallback. A partitioned root would require a reviewed
-   decoder after the layout is observed, not invented offsets now.
-2. Three files in the already pinned UTM source tree were not cached:
-   `UTMConfiguration.swift`, `UTMConfigurationInfo.swift` and
-   `UTMRegistryEntry.swift`. Their Git blob IDs and sizes are known. Actual config
-   version/information encoding and registry entry/share/bookmark decoding must
-   be checked before implementing the final registry reader and accepting the
-   generated plist. The Mac adapter refuses a missing registry source.
+## Remaining gates
 
-Synthetic schema version 4 and synthetic archive paths in tests are **test data**,
-not evidence about the real UTM or Ubuntu inputs. Actual UTM process/helper paths,
-PTY modes, registry/state files, cloud-init behavior and systemd property formatting
-remain later runtime observations. Unknown variants stop instead of falling back.
+- Authenticated Ubuntu and verifier artifacts, exact real members/format/label,
+  bounded acquisition and verifier-module selection/loading are still absent.
+  The six JavaScript contract fixtures use a supplied crypto double.
+- Fresh live registry/bookmark capture, actual UTM process/helper and PTY
+  attribution, cloud-init/systemd/proc/journal behavior and observed cancellation
+  need a later authorized trial. Unknown facts fail closed.
+- App symlinks, outside-root registry cleanup and interrupted pre-existing roots
+  remain refused by generic lifecycle code. Owner UID alone cannot authorize
+  cleanup; no broad kill, rm-rf, policy change or implicit adoption was added.
+- Independent acceptance of this fixed source, actual-input binding, exact owner
+  execution authority, live results, verified cleanup and T07 are still open.
 
-## Lifecycle and execution limits
+## Validation
 
-The collector and policy code are available for review; they have not read live
-UTM state. It rejects incomplete scans, wrong process start times, competing PTY
-readers and unknown UTM/VZ processes. Removal of registration and VM stop remain
-owner-operated facts; no Automation, Accessibility or UTM CLI control is added.
-Known lsof empty-result status is accepted only with empty stdout and stderr;
-partial/permission-failed scans are errors.
+`validation.json` records exact commands, counts and evidence hashes. R3 retains
+all five expected red reviewer failures and the passing original/new regressions.
+Copied reviewer test bodies and the frozen R2 Linux fixture match the originals'
+ASTs. Only import locations and standalone evidence writers were adapted.
 
-Exact temporary-tree cleanup is fixture-tested. It intentionally rejects app
-symlinks, unexpected mutable inodes, new files, protected/shared outside-root
-state and interrupted pre-existing roots. These conditions preserve evidence;
-they are not accepted cleanup. Actual signed-app symlink and Mac registry formats
-must inform any narrowly scoped follow-up cleanup adapter. No broad kill, rm-rf,
-TCC/FDA change or adoption by owner UID alone is implemented.
-
-No live adapter, download, mount, UTM/helper, VM, credential operation, security
-change, provider call, deployment or push ran. The planned host installation root
-remains absent. Independent source acceptance, actual-input binding, exact owner
-execution authority, live results and verified cleanup still block execution.
-T07 and product/provider acceptance remain open.
-
-## Validation record
-
-`validation.json` records exact suite counts and logs. R2 Python fixtures,
-including the four reviewer tests and extended failure matrix, are in
-`evidence/r2/full-suite.log`; verifier contract tests are separate. The existing
-Python and Node executables were used without installation or package hooks.
-The local Unix-socket fixture suite used the same narrowly scoped automatic
-approval as R1. Earlier logs remain unchanged except the already documented R1
-trailing-space normalization. R2 archive's first attempted green run exposed a
-one-byte fixture label-length mistake; the corrected fixture run is retained
-separately. No failed check is presented as a runtime pass.
+Two additional failed fixture-development runs are retained: the first scaled
+kernel fixture's actual overlap was below its proposed rejection threshold, and
+a socket double returned Python's enum rather than the integer returned by the
+kernel API. The corrected fixtures pass; neither failure involved a live effect.
+The initial network attempt failed DNS in the sandbox, then the explicitly
+scoped public-text retry succeeded. Existing Python/Node tools were used without
+installation or package hooks. No current failing check is hidden as a pass.

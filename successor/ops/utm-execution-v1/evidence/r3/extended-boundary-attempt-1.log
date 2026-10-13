@@ -1,0 +1,25 @@
+test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) ... ok
+test_nonreaping_linux_observation_keeps_waitid_wnowait (test_bounded.CommandTests) ... ok
+test_only_independently_attributed_journal_connections_pass (test_descriptors.DescriptorTests) ... ok
+test_pidfd_collector_uses_kernel_socket_facts_and_closes_duplicates (test_descriptors.DescriptorTests) ... ERROR
+test_bookmark_requires_bound_nonstale_no_ui_no_mount_resolution (test_utm_schema.UTMSchemaTests) ... ok
+test_decoded_kernel_identity_is_carried_to_the_data_file_plan (test_utm_schema.UTMSchemaTests) ... ok
+test_pinned_schema_emits_required_icon_boolean_and_exact_version (test_utm_schema.UTMSchemaTests) ... ok
+test_raw_registry_preserves_forbidden_entries_instead_of_filtering_invalid_bookmarks (test_utm_schema.UTMSchemaTests) ... ok
+test_registry_snapshot_requires_in_memory_and_persisted_agreement (test_utm_schema.UTMSchemaTests) ... ok
+
+======================================================================
+ERROR: test_pidfd_collector_uses_kernel_socket_facts_and_closes_duplicates (test_descriptors.DescriptorTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_descriptors.py", line 73, in test_pidfd_collector_uses_kernel_socket_facts_and_closes_duplicates
+    result=ns['observe_journal'](42,{'0':'/dev/null','1':'socket:[2]','2':'socket:[2]'},read,parse_stat)
+  File "fixture-only-pidfd", line 77, in observe_journal
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/descriptors.py", line 30, in validate_journal
+    if type(p[name]) is not int:raise ValueError('untyped socket identity')
+ValueError: untyped socket identity
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.120s
+
+FAILED (errors=1)

@@ -26,7 +26,7 @@ class LinuxFixture:
     def root_controls(self): return dict.fromkeys(('provider','identity_store','sibling','seed','serial','ipc_listener'),True)
     def topology(self): return {'nics':[],'shares':[]}
     def process(self,pid): return fixture_process({40:'runtime',41:'tool',42:'descendant'}[pid])
-    def runtime_report(self): return {'provider_literal_read':True,'guest_boot_id':self.boot(),'invocation_id':'1'*32}
+    def runtime_report(self): return {'provider_literal_read':True,'guest_boot_id':self.boot(),'invocation_id':'1'*32,'serial_denials':[{'path':path,'write':False,'errno':errno.ENOENT} for path in ('/dev/hvc0','/dev/hvc1')]}
     def tool_report(self,unit):
         result=tool_probe(ToolIO()); result['opens'][-1]['errno']=errno.EROFS; result['descendant']={'pid':42,'start_ticks':100}; return result
     def ipc_start(self): return {'device':1,'inode':2,'uid':0,'connected':True}

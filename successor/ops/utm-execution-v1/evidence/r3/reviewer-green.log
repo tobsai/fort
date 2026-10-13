@@ -1,0 +1,14 @@
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... ok
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... ok
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... ok
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... ok
+test_auxiliary_members_must_fit_the_combined_192_mib_budget (test_review_r2_regressions.R2Regressions) ... ok
+test_exited_leader_does_not_skip_owned_group_cancellation (test_review_r2_regressions.R2Regressions) ... ok
+test_global_pax_headers_cannot_bypass_the_64_entry_limit (test_review_r2_regressions.R2Regressions) ... ok
+test_prepared_runtime_requires_its_own_serial_denial_evidence (test_review_r2_regressions.R2Regressions) ... ok
+test_unattributed_stdout_socket_cannot_be_proven_as_journal (test_review_r2_regressions.R2Regressions) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.509s
+
+OK

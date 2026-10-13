@@ -1,0 +1,6 @@
+test_leader_stays_unreaped_until_group_cancellation_on_every_exit (test_bounded.CommandTests) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+OK

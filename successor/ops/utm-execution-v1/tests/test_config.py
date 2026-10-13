@@ -2,12 +2,15 @@ import json
 import plistlib
 import unittest
 from fort_probe.config import candidate,iso_command
+from fort_probe.utm_schema import pinned_schema
 from support import BINDING
 
 IMAGE={'raw_member':'synthetic/root.raw','kernel_member':'synthetic/Image','initrd_member':'synthetic/initrd',
        'raw_bytes':1024**3,'root_label':'cloudimg-rootfs','kernel_arm64':True,
-       'member_sha256':dict.fromkeys(('raw','kernel','initrd'),'b'*64),'archive_sha256':'c'*64}
-SCHEMA={'version':4,'information':{'Name':'fort-utm-isolation-probe','UUID':BINDING['vm_package_uuid']}}
+       'member_sha256':dict.fromkeys(('raw','kernel','initrd'),'b'*64),'archive_sha256':'c'*64,
+       'member_bytes':{'raw':1024**3,'kernel':64,'initrd':128},'kernel_compressed':False,
+       'auxiliary_bytes':192,'auxiliary_peak_bytes':192,'decoded_kernel_bytes':64,'decoded_kernel_sha256':'b'*64}
+SCHEMA=pinned_schema(BINDING)
 
 
 class ConfigTests(unittest.TestCase):

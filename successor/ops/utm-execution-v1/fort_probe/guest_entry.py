@@ -18,7 +18,14 @@ from .controller import Controller
 from .broker import Broker,serve
 
 
+def denied_open(path,write=False):
+    try:
+        fd=os.open(path,(os.O_WRONLY if write else os.O_RDONLY)|os.O_NOFOLLOW|os.O_NONBLOCK)
+    except OSError as error: return error.errno
+    os.close(fd); return None
+
 class RuntimeIO:
+    denied_open=staticmethod(denied_open)
     def provider(self): return bounded_read('/var/lib/fort-probe/provider/synthetic-canary',4096)
     def report(self,value): atomic_json(REPORT,value)
     def heartbeat(self):
@@ -32,11 +39,7 @@ class RuntimeIO:
 
 
 class ToolIO:
-    def denied_open(self,path,write=False):
-        try:
-            fd=os.open(path,(os.O_WRONLY if write else os.O_RDONLY)|os.O_NOFOLLOW|os.O_NONBLOCK)
-        except OSError as error: return error.errno
-        os.close(fd); return None
+    denied_open=staticmethod(denied_open)
     def management_connect(self):
         with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as client:
             client.settimeout(.15)

@@ -8,26 +8,39 @@ from pathlib import Path,PurePosixPath
 import plistlib
 import re
 from .seed import preview
+from .utm_schema import pinned_schema
+from .evidence import exact
 
 MASKS=('ssh.service','ssh.socket','sshd.service','serial-getty@hvc0.service','serial-getty@hvc1.service',
        'getty@tty1.service','apt-daily.service','apt-daily.timer','apt-daily-upgrade.service',
        'apt-daily-upgrade.timer','unattended-upgrades.service','systemd-growfs-root.service')
-SOURCES=('__init__','bounded','guest_entry','guest_programs','linux_kernel','linux','broker','controller','evidence','serial','ipc')
+SOURCES=('__init__','bounded','descriptors','guest_entry','guest_programs','linux_kernel','linux','broker','controller','evidence','serial','ipc')
 
 
 def candidate(binding,image,schema):
     if image is None or schema is None: raise ValueError('actual archive and UTM schema facts remain required')
-    expected={'raw_member','kernel_member','initrd_member','raw_bytes','root_label','kernel_arm64','member_sha256','archive_sha256'}
+    expected={'raw_member','kernel_member','initrd_member','raw_bytes','root_label','kernel_arm64','member_sha256','archive_sha256',
+              'member_bytes','kernel_compressed','auxiliary_bytes','auxiliary_peak_bytes','decoded_kernel_bytes','decoded_kernel_sha256'}
     if (set(image)!=expected or type(image['raw_bytes']) is not int or not 0<image['raw_bytes']<=20*1024**3
             or image['root_label']!='cloudimg-rootfs' or image['kernel_arm64'] is not True
             or set(image['member_sha256'])!={'raw','kernel','initrd'}
-            or any(not re.fullmatch('[0-9a-f]{64}',v) for v in [image['archive_sha256'],*image['member_sha256'].values()])):
+            or any(not re.fullmatch('[0-9a-f]{64}',v) for v in [image['archive_sha256'],image['decoded_kernel_sha256'],*image['member_sha256'].values()])):
         raise ValueError('archive facts incomplete or unsupported')
     for key in ('raw_member','kernel_member','initrd_member'):
         path=PurePosixPath(image[key])
         if path.is_absolute() or '..' in path.parts or str(path)!=image[key]: raise ValueError('archive member path unsafe')
-    if (set(schema)!={'version','information'} or type(schema['version']) is not int
-            or schema['information'].get('UUID')!=binding['vm_package_uuid']): raise ValueError('UTM schema identity incomplete')
+    if (set(image['member_bytes'])!={'raw','kernel','initrd'}
+            or any(type(v) is not int or v<=0 for v in image['member_bytes'].values())
+            or image['member_bytes']['raw']!=image['raw_bytes'] or type(image['kernel_compressed']) is not bool
+            or any(type(image[k]) is not int or not 0<image[k]<=192*1024**2
+                   for k in ('auxiliary_bytes','auxiliary_peak_bytes','decoded_kernel_bytes'))
+            or image['auxiliary_bytes']<image['member_bytes']['kernel']+image['member_bytes']['initrd']
+            or image['auxiliary_peak_bytes']!=image['auxiliary_bytes']+(image['decoded_kernel_bytes'] if image['kernel_compressed'] else 0)):
+        raise ValueError('archive auxiliary or decoded kernel facts incomplete')
+    if not image['kernel_compressed'] and (image['decoded_kernel_bytes']!=image['member_bytes']['kernel']
+            or image['decoded_kernel_sha256']!=image['member_sha256']['kernel']):
+        raise ValueError('uncompressed kernel identity differs')
+    if not exact(schema,pinned_schema(binding)):raise ValueError('pinned UTM schema identity differs')
     seed=preview(); cloud=json.loads(seed['user-data'].split(b'\n',1)[1]); files=cloud['write_files']
     by_path={f['path']:f for f in files}
     def add(path,content,mode='0644'):
@@ -66,7 +79,10 @@ def candidate(binding,image,schema):
             'Network':[],'SharedDirectory':[],'Display':[],'Serial':[{'Mode':'Ptty'},{'Mode':'Ptty'}],
             'Drive':[{'ImageName':'root.raw','ReadOnly':False,'Nvme':False,'Identifier':'fort-root'},
                      {'ImageName':'seed.iso','ReadOnly':True,'Nvme':False,'Identifier':'fort-seed'}]}
-    return {'execution_enabled':False,'seed':seed,'config_plist':plistlib.dumps(config,sort_keys=True)}
+    data_files={'Data/root.raw':{'bytes':image['raw_bytes'],'sha256':image['member_sha256']['raw']},
+                'Data/kernel.Image':{'bytes':image['decoded_kernel_bytes'],'sha256':image['decoded_kernel_sha256']},
+                'Data/initrd':{'bytes':image['member_bytes']['initrd'],'sha256':image['member_sha256']['initrd']}}
+    return {'execution_enabled':False,'seed':seed,'config_plist':plistlib.dumps(config,sort_keys=True),'data_files':data_files}
 
 
 def iso_command(seed_directory,output):

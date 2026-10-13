@@ -5,6 +5,7 @@ from support import Clock
 
 
 class RuntimeIO:
+    def denied_open(self,path,write=False):return errno.ENOENT
     def __init__(self): self.notifications=[]; self.reports=[]; self.lease=None
     def provider(self): return b'synthetic-provider-canary-only\n'
     def report(self, value): self.reports.append(value)

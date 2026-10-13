@@ -1,0 +1,18 @@
+test_links_missing_members_or_wrong_digest_stop (test_archive.ArchiveTests) ... ok
+test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members (test_archive.ArchiveTests) ... ok
+test_decoded_kernel_overlap_is_included_in_auxiliary_peak (test_archive_bounds.ArchiveBoundsTests) ... FAIL
+test_missing_terminator_or_nonzero_tail_is_not_a_complete_archive (test_archive_bounds.ArchiveBoundsTests) ... ok
+test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) ... ok
+
+======================================================================
+FAIL: test_decoded_kernel_overlap_is_included_in_auxiliary_peak (test_archive_bounds.ArchiveBoundsTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive_bounds.py", line 34, in test_decoded_kernel_overlap_is_included_in_auxiliary_peak
+    with self.assertRaises(ValueError):inspect(data)
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.004s
+
+FAILED (failures=1)

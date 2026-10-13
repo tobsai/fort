@@ -4,24 +4,37 @@
     "expected_exit_code": 78,
     "log": {
       "bytes": 73,
-      "path": "evidence/r2/disabled-entry.log",
+      "path": "evidence/r3/disabled-entry.log",
       "sha256": "ae69da199f9ac995f635d64efa5988be40de3447fd5380e27c91484df0296e49"
     },
     "observed_exit_code": 78
   },
-  "historical_r2_failed_attempt": "archive first attempted green fixture inserted a 17-byte label into a 16-byte field; corrected synthetic fixture passed; both logs retained",
-  "host_app_read_cap": {
-    "bytes": 18662240,
-    "live_read_performed": false,
-    "source": "accepted mounted-app-manifest.json at baadd3e"
-  },
+  "historical_failed_fixture_development_runs": [
+    {
+      "cause": "scaled overlap was below rejection threshold; corrected initrd size from 60 to 70 bytes",
+      "log": {
+        "bytes": 1207,
+        "path": "evidence/r3/archive-green-attempt-1.log",
+        "sha256": "571d2527da0a031d643fb59f0c8f0fdb097bea8f9fa8f4b21f719861077ce36c"
+      }
+    },
+    {
+      "cause": "socket double returned enum instead of actual kernel integer; corrected fixture",
+      "log": {
+        "bytes": 1948,
+        "path": "evidence/r3/extended-boundary-attempt-1.log",
+        "sha256": "50dee5f07e6b95708d250cf3519a1391916459d9125bea3987c2234cfc939d22"
+      }
+    }
+  ],
+  "initial_network_attempt": "sandbox DNS failed before content receipt; narrow explicit public-text retry succeeded",
   "javascript_contracts": {
     "actual_cryptography_executed": false,
     "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs",
     "failed": 0,
     "log": {
       "bytes": 92,
-      "path": "evidence/r2/verifier-fixtures.log",
+      "path": "evidence/r3/verifier-fixtures.log",
       "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
     },
     "passed": 6
@@ -32,28 +45,57 @@
     "command": "/usr/bin/python3 -I -B tests/run.py",
     "failed": 0,
     "log": {
-      "bytes": 6715,
-      "path": "evidence/r2/full-suite.log",
-      "sha256": "9d0c7f7a2d092c698944d1c71510cf35945e176bde04ce478e7c76798c48f7d8"
+      "bytes": 8859,
+      "path": "evidence/r3/full-suite.log",
+      "sha256": "27a60fc9811898cf834d615f4ac0cede7ab6063e29d8b7be6530e59a9147644a"
     },
-    "passed": 64
+    "passed": 84
   },
   "real_runtime_acceptance": false,
-  "recorded_at_utc": "2026-10-13T14:29:36.587103+00:00",
+  "recorded_at_utc": "2026-10-13T15:20:29.906002+00:00",
   "reviewer_regressions": {
-    "expanded_failure_matrix_passed": true,
-    "passed": 4,
+    "R2_passed": 5,
+    "frozen_missing_C05_fixture_unchanged": true,
+    "green_log": {
+      "bytes": 1083,
+      "path": "evidence/r3/reviewer-green.log",
+      "sha256": "8aaaaa233f9754d1ea68da976ea07b82e429bed6ddff46907feece11f1422bde"
+    },
+    "original_passed": 4,
+    "red_R2_failures": 5,
+    "red_log": {
+      "bytes": 6093,
+      "path": "evidence/r3/reviewer-red.log",
+      "sha256": "f2cba06bc23e8992172c853eecbfa29e322d0c7905f816b5d38239fa5126560d"
+    },
     "test_bodies_unchanged": true
   },
-  "sandbox_approval": "temporary local Unix-socket fixtures only; same bounded fixture scope as R1",
-  "schema": 2,
+  "sandbox_approval": "three bounded pinned public text requests and the existing temporary Unix-socket fixture allowance only",
+  "schema": 3,
+  "source_retrieval": {
+    "api_response_bytes": 45984,
+    "cached_source_files_reused": 8,
+    "compiled_or_executed": false,
+    "credentials": false,
+    "decoded_bytes": 32755,
+    "files": 3,
+    "git_blob_sha1_and_size_verified_against_pinned_tree": true,
+    "proxy": false,
+    "redirects": 0,
+    "sha256_recorded": true
+  },
+  "static_verification": {
+    "bytes": 1199,
+    "path": "evidence/r3/static-verification.json",
+    "sha256": "d7f4f8e6e4c12946ff26375540a09fe0657c5860e4467c84adc3549c74cf8bc5"
+  },
   "syntax": {
     "javascript_node_check": [
       "verify-inputs.mjs",
       "tests/test_verifier.mjs"
     ],
     "passed": true,
-    "python_ast_parse_files": 42
+    "python_ast_parse_files": 51
   },
   "tools": {
     "node": {
@@ -69,14 +111,20 @@
     }
   },
   "unrun": [
-    "all Linux/Mac live adapters and syscalls",
+    "all live Linux/Mac adapters and actual command cancellation",
+    "all real runtime/tool serial attempts and pidfd socket inspection",
     "all guest entry roles beyond immediate disabled guard",
-    "any downloads, mounts, ISO construction or VM-package emission",
-    "UTM/VM launch or boot",
-    "actual archive and cryptographic verification",
-    "real NoCloud/systemd/proc/journal/PTY/VZ observations",
-    "real app-state/registry cleanup",
-    "provider/installed-product/T07 acceptance"
+    "binary/archive acquisition, real publisher/registry cryptography and downloaded verifier loading",
+    "Swift decoder execution and live UTM registry/bookmark capture",
+    "NoCloud application, ISO/VM-package emission, mounts, UTM launch or VM boot",
+    "actual proc/systemd/journal/PTY/VZ timing and confinement",
+    "live app-state cleanup and interrupted-root recovery",
+    "provider, installed-product and T07 acceptance"
   ],
-  "validation_level": "source-and-synthetic-fixtures"
+  "validation_level": "source-and-synthetic-fixtures",
+  "whitespace_check": {
+    "correction": "only trailing spaces removed; original and normalized hashes retained in evidence/r3/whitespace-normalization.json",
+    "final": "git diff --cached --check passed before commit",
+    "initial": "two trailing-space lines in red unittest logs"
+  }
 }

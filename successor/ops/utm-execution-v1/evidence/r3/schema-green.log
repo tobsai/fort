@@ -1,0 +1,19 @@
+test_bookmark_requires_bound_nonstale_no_ui_no_mount_resolution (test_utm_schema.UTMSchemaTests) ... ok
+test_pinned_schema_emits_required_icon_boolean_and_exact_version (test_utm_schema.UTMSchemaTests) ... ok
+test_raw_registry_preserves_forbidden_entries_instead_of_filtering_invalid_bookmarks (test_utm_schema.UTMSchemaTests) ... ok
+test_iso_command_is_local_cidata_only_and_does_not_run (test_config.ConfigTests) ... ok
+test_three_file_seed_contains_guarded_guest_source_and_only_root_broker_bootstrap (test_config.ConfigTests) ... ok
+test_unknown_archive_layout_or_schema_never_generates_vm_configuration (test_config.ConfigTests) ... ok
+test_links_missing_members_or_wrong_digest_stop (test_archive.ArchiveTests) ... ok
+test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members (test_archive.ArchiveTests) ... ok
+test_decoded_kernel_overlap_is_included_in_auxiliary_peak (test_archive_bounds.ArchiveBoundsTests) ... ok
+test_missing_terminator_or_nonzero_tail_is_not_a_complete_archive (test_archive_bounds.ArchiveBoundsTests) ... ok
+test_special_headers_are_rejected_before_reading_declared_payload (test_archive_bounds.ArchiveBoundsTests) ... ok
+test_competing_reader_pid_reuse_network_or_unknown_scan_blocks (test_host.HostTests) ... ok
+test_exact_process_and_two_pty_owners_bind_then_fresh_absence_allows_cleanup (test_host.HostTests) ... ok
+test_process_parser_excludes_arguments_and_preserves_start_identity (test_host.HostTests) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.008s
+
+OK

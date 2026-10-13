@@ -1,0 +1,62 @@
+{
+  "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+  "retrieved_in_r3": false,
+  "files": [
+    {
+      "path": "Configuration/UTMAppleConfiguration.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfiguration.swift",
+      "bytes": 13140,
+      "sha256": "bdbc2989d354eb71130b34eda30464961383bcacf6657aa71830d6322c7b6b02",
+      "git_blob_sha1": "5465842ec5f3f898c33384c5ba03caa91e0866ed"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationBoot.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationBoot.swift",
+      "bytes": 8376,
+      "sha256": "10f692461d44a71852ac53049fbab3acae6c81d56070fcdb66fe486f3f1c7219",
+      "git_blob_sha1": "1eae19eb9a7684c44c47bac81dedc5ee9ed8d837"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationSystem.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationSystem.swift",
+      "bytes": 5930,
+      "sha256": "08683338e2cccbe3c9ed0ea6bbf983e4c591dbb4be8eeabcf083446b702296fc",
+      "git_blob_sha1": "c16a0129449a100559103a56b10e86b35df3d518"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationDrive.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationDrive.swift",
+      "bytes": 5311,
+      "sha256": "6d2195a294669263993095056a7982d028a7908086cb4e484eed01ea6e79c7e6",
+      "git_blob_sha1": "f2ab609ef1196e545885da6b6979d61f21ab324a"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationGenericPlatform.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationGenericPlatform.swift",
+      "bytes": 2206,
+      "sha256": "5157d56797f5381e3555afa653b1715082d5abac04a76c75a92b98d1de0db7a8",
+      "git_blob_sha1": "fb056e6db5144de83893d44e2297fbeb4df7004e"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationVirtualization.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationVirtualization.swift",
+      "bytes": 9678,
+      "sha256": "8e2924e2c7636bac5771379c6c56dfa543d84cb452c6b170508e2450eaf0e7b8",
+      "git_blob_sha1": "c8a9618dbae82dc486ee736f771ae3bd1f302c65"
+    },
+    {
+      "path": "Configuration/UTMAppleConfigurationSerial.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Configuration/UTMAppleConfigurationSerial.swift",
+      "bytes": 3041,
+      "sha256": "18c4709f500885a16ffed9d1877672559b934b18d3ad0e8983203d2615021204",
+      "git_blob_sha1": "e4530fc26ed02601343897ceb3a4ea8169ec14fc"
+    },
+    {
+      "path": "Services/UTMRegistry.swift",
+      "url": "https://raw.githubusercontent.com/utmapp/UTM/048ca7498ea3a374439149d51739d94c5300bcda/Services/UTMRegistry.swift",
+      "bytes": 5516,
+      "sha256": "7539cef221459944415feb15518e66284c66656d0086799231dbabe8b5bfdb3b",
+      "git_blob_sha1": "1b5e6951793ff0e3388e0e9a4dc14dea15738a3d"
+    }
+  ]
+}

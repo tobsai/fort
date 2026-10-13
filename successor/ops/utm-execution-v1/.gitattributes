@@ -1,0 +1,4 @@
+# Preserve pinned third-party evidence bytes, including upstream trailing spaces.
+evidence/r3/utm-source/*.swift whitespace=-blank-at-eol
+evidence/r3/cached-utm-source/*.swift whitespace=-blank-at-eol
+evidence/r3/LICENSE-UTM-Apache-2.0.txt whitespace=-blank-at-eol

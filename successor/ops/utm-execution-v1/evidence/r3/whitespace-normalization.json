@@ -1,0 +1,16 @@
+[
+  {
+    "path": "evidence/r3/archive-red.log",
+    "original_sha256": "c7958a02c5624af5bb3d7044279488d2c1767dd8abaaefcdaeb42341bc055637",
+    "normalized_sha256": "822ef10463e362279123aece31ca3f45fbe2be9a5c0f6a153dbbd74f165f133c",
+    "removed_trailing_bytes": 1,
+    "test_content_changed": false
+  },
+  {
+    "path": "evidence/r3/command-red.log",
+    "original_sha256": "8c98e21e0b54e5e792d12fc2fe91b629b35217a69d13fe340bbc1e7c66efb7aa",
+    "normalized_sha256": "8af68a93c872eb00d2c9dda80a3eea12cce370240b25817de3de75fd94a48dc4",
+    "removed_trailing_bytes": 1,
+    "test_content_changed": false
+  }
+]
