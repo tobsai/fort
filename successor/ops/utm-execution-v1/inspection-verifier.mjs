@@ -1,10 +1,10 @@
-// Disabled offline verifier entry. Downloaded code loads only after every provenance check.
+// Prepared offline verifier activation. Exact owner authority is still required to run it.
 import {createHash} from 'node:crypto';
 import {openSync,closeSync,fstatSync,lstatSync,readSync,readFileSync,readdirSync,constants} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {verifyRegistryMetadata,verifySignedChecksums} from './verify-inputs.mjs';
-export const INSPECTION_ENABLED = false;
+export const INSPECTION_ENABLED = true;
 const pinsPath=new URL('../utm-synthetic-packet-v1/inputs.json',import.meta.url);
 
 export function hashRegular(path,algorithm,cap,expectedSize=null,capture=false){

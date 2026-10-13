@@ -1,0 +1,164 @@
+{
+  "accepted_disabled_seal": "a77c433f047412ded2245daf648a518f044f05b8e97604618d04b18aa51c89bb",
+  "accepted_disabled_source_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
+  "activation_revision": "R6 candidate; exact commit and seal must be named by review and owner decision",
+  "activation_source_enabled": true,
+  "authority_record": "future explicit owner decision bound to the immutable activation commit and seal; this preparation record is not that decision",
+  "capacity": {
+    "aggregate_on_wire_transfer_quota": false,
+    "capacity_reserved": false,
+    "checked_verifier_expansion_bytes": 25165824,
+    "conservative_receipts_markers_budget_bytes": 524288,
+    "disk_available_observed_bytes": 733184000000,
+    "disk_headroom_after_logical_budget_bytes": 732344156160,
+    "filesystem_metadata_allocation_rounding_additional": true,
+    "fixed_extra_reserve_requirement": null,
+    "free_pages_bytes": 2644312064,
+    "inactive_pages_bytes": 25759186944,
+    "max_https_requests": 40,
+    "memory_pressure_free_percentage": 81,
+    "payload_probe_limit": "up to one extra byte read per attempted input to detect oversize; never retained; operation stops on first failed input",
+    "physical_memory_bytes": 68719476736,
+    "retained_download_bytes": 814088192,
+    "retained_logical_file_budget_bytes": 839843840,
+    "sampled_max_worker_rss_bytes": 3221225472,
+    "selection_manifest_bytes": 65536,
+    "speculative_pages_bytes": 641548288
+  },
+  "cleanup": "Close own resources and cancel/reap only owned workers. Retain verified artifacts/receipts for recorded ownership handoff; quarantine uncertain/partial state. No implicit retry, adoption or broad deletion.",
+  "combined_download_cap_bytes": 814088192,
+  "download_policy": {
+    "allowed_hosts": [
+      "github.com",
+      "release-assets.githubusercontent.com",
+      "cloud-images.ubuntu.com",
+      "keyserver.ubuntu.com",
+      "registry.npmjs.org"
+    ],
+    "automatic_retry": false,
+    "failed_public_key_body_max_bytes": 65536,
+    "failure_receipt_vetoes_acceptance": true,
+    "https_only": true,
+    "max_diagnostic_bytes_total": 262144,
+    "maximum_redirects": 4,
+    "per_input_total_timeout_seconds": 600,
+    "proxy_cookie_auth_netrc": false,
+    "receipts_max_bytes_each": 8192,
+    "socket_timeout_seconds": 30
+  },
+  "downloads": [
+    {
+      "kind": "candidate-raw-filesystem-kernel-archive",
+      "max_bytes": 805306368,
+      "name": "noble-server-cloudimg-arm64.tar.gz",
+      "sha256": "1800eb56b6b839a08c020551e16fbd8c95b2772452ecce3737a9ad25fe594126",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.tar.gz"
+    },
+    {
+      "kind": "public-verification-metadata",
+      "max_bytes": 65536,
+      "name": "ubuntu.sums",
+      "sha256": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS"
+    },
+    {
+      "kind": "public-verification-metadata",
+      "max_bytes": 65536,
+      "name": "ubuntu.sig",
+      "sha256": "1703eef53a392af8f6834716afacc15f74eac14f07aa8d916c1fe5dc219419d1",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS.gpg"
+    },
+    {
+      "kind": "public-verification-metadata",
+      "max_bytes": 65536,
+      "name": "ubuntu.pub",
+      "sha256": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
+    },
+    {
+      "kind": "public-package-metadata",
+      "max_bytes": 65536,
+      "name": "ubuntu.manifest",
+      "sha256": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest"
+    },
+    {
+      "kind": "public-verification-metadata",
+      "max_bytes": 65536,
+      "name": "openpgp-6.3.2-metadata.json",
+      "sha256": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://registry.npmjs.org/openpgp/6.3.2"
+    },
+    {
+      "kind": "public-verification-metadata",
+      "max_bytes": 65536,
+      "name": "npm-public-signing-keys.json",
+      "sha256": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://registry.npmjs.org/-/npm/v1/keys"
+    },
+    {
+      "integrity": "sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ==",
+      "kind": "private-verifier-archive",
+      "max_bytes": 8388608,
+      "name": "openpgp-6.3.2.tgz",
+      "sha512": "c1c653cc7cf8d4b57c638f331ff2650f5253f1874d9a958eb8c02343fa6876fbc2c2c8c1114dfb2b7ce7261e1441c8f7864b04e73f53cef85b51bc33b06be52d",
+      "state": "not-present; reacquisition not authorized in this preparation",
+      "url": "https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz"
+    }
+  ],
+  "excluded": [
+    "UTM.dmg acquisition",
+    "Package installation or hooks",
+    "Filesystem mount or conversion",
+    "Guest filesystem extraction",
+    "UTM/application/VM launch",
+    "Providers, accounts or credentials",
+    "Host security setting changes",
+    "Automatic member selection or pin/input substitution"
+  ],
+  "existing_tools": [
+    {
+      "bytes": 68032,
+      "path": "/opt/homebrew/opt/node@26/bin/node",
+      "resolved_path": "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
+    },
+    {
+      "bytes": 200560,
+      "path": "/usr/bin/python3",
+      "resolved_path": "/usr/bin/python3",
+      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
+    },
+    {
+      "bytes": 268736,
+      "path": "/bin/ps",
+      "resolved_path": "/bin/ps",
+      "sha256": "6c39a1a8bb6aa8f2474e8c0b3138f3041d63769695be4f10a82e21f40123230d"
+    }
+  ],
+  "future_module_entry": "package/dist/node/openpgp.mjs",
+  "guest_execution_enabled": false,
+  "initial_result": {
+    "image_bound": false,
+    "runtime_authorized": false
+  },
+  "input_inspection_authorized": false,
+  "ordered_operations": [
+    "acquire",
+    "registry",
+    "verifier_archive",
+    "publisher",
+    "ubuntu_inventory"
+  ],
+  "publisher_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+  "read_only_prerequisite_status": "passed within stated observation boundary; actual enforcement remains unrun",
+  "root": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+  "status": "activation source prepared for independent review; exact owner approval absent; operation unrun"
+}

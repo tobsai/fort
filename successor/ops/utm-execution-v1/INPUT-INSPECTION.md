@@ -1,14 +1,16 @@
-# Disabled bounded input-inspection source
+# Prepared bounded input-inspection activation
 
-This is reviewable source for a later input operation. No acquisition or downloaded
-code execution is authorized or performed by R5. Python's inspection gate and the
-Node verifier's gate are literal false; guest execution remains separately false.
+R5 disabled source is accepted. R6 prepares Python and Node inspection gates as
+literal true for separate activation review. No acquisition or downloaded-code
+execution is approved or performed. Guest execution remains separately false.
+Do not invoke either prepared entrypoint before exact owner approval of its seal.
 
 ## Fixed operation
 
-`inspect-inputs.py` exits 78 before effects. After a separately authorized and
-sealed activation revision, its required argument is the exact accepted source
-seal SHA-256. `source_identity.py` checks the entire source/reference closure
+The prepared `inspect-inputs.py` requires the exact accepted activation seal
+SHA-256 as its argument. Running it can create the root and start acquisition;
+it is intentionally unrun in this revision. Source preparation is not authority.
+`source_identity.py` checks the entire source/reference closure
 before creating state and again before each worker; guest execution must remain
 disabled. There is no environment override, automatic retry or implicit recovery.
 Changing inspection authority never enables UTM or guest execution.
@@ -136,7 +138,7 @@ helper against a temporary FIFO. Real module contents, cryptography, archive for
 remain future evidence. Retain exact unsupported results rather than changing
 pins, adding a decoder/dependency, broadening permissions or retrying silently.
 
-Next gates: independent acceptance of the fixed source/seal; exact owner authority
+Next gates: independent acceptance of this activation source/seal; exact owner authority
 for the eight-input acquisition and bounded authenticated verifier execution;
 a recorded activation revision with guest gates still false; actual receipts,
 negative controls and archive/member evidence. UTM/VM execution, live registry

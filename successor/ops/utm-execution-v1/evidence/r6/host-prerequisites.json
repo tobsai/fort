@@ -1,0 +1,261 @@
+{
+  "ancestors": [
+    {
+      "access_execute": true,
+      "device": 16777230,
+      "gid": 0,
+      "inode": 2,
+      "mode": "0o755",
+      "path": "/",
+      "real_directory": true,
+      "uid": 0
+    },
+    {
+      "access_execute": true,
+      "device": 16777230,
+      "gid": 80,
+      "inode": 20477,
+      "mode": "0o755",
+      "path": "/Users",
+      "real_directory": true,
+      "uid": 0
+    },
+    {
+      "access_execute": true,
+      "device": 16777230,
+      "gid": 20,
+      "inode": 31766,
+      "mode": "0o750",
+      "path": "/Users/tobiasgunn",
+      "real_directory": true,
+      "uid": 501
+    },
+    {
+      "access_execute": true,
+      "device": 16777230,
+      "gid": 20,
+      "inode": 31773,
+      "mode": "0o700",
+      "path": "/Users/tobiasgunn/Library",
+      "real_directory": true,
+      "uid": 501
+    },
+    {
+      "access_execute": true,
+      "device": 16777230,
+      "gid": 20,
+      "inode": 31774,
+      "mode": "0o700",
+      "path": "/Users/tobiasgunn/Library/Application Support",
+      "real_directory": true,
+      "uid": 501
+    }
+  ],
+  "architecture": {
+    "command": [
+      "/usr/bin/uname",
+      "-m"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "arm64"
+  },
+  "effective_uid": 501,
+  "filesystem_capacity": {
+    "available_to_user_bytes": 733184000000,
+    "device": 16777230,
+    "fragment_bytes": 4096,
+    "free_bytes": 733184000000,
+    "total_bytes": 1995218165760
+  },
+  "filesystem_info": {
+    "exit_code": 1,
+    "stderr": "Unable to run because unable to use the DiskManagement framework.\nCommon reasons include, but are not limited to, the DiskArbitration\nframework being unavailable due to being booted in single-user mode."
+  },
+  "initial_attempt": "safe own-PID ps query denied by sandbox; collection rerun with errors retained",
+  "memory_pressure_query": {
+    "command": [
+      "/usr/bin/memory_pressure",
+      "-Q"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "The system has 68719476736 (4194304 pages with a page size of 16384).\nSystem-wide memory free percentage: 81%"
+  },
+  "no_changes": [
+    "no host-root creation",
+    "no resource limits set",
+    "no network requests",
+    "no artifact acquisition",
+    "no inspection entrypoint or live worker invoked",
+    "no downloaded JavaScript",
+    "no mount/VM/security/credential operation"
+  ],
+  "node_runtime": {
+    "flag_help": {
+      "--allow-addons": [
+        "--allow-addons              allow use of addons when any"
+      ],
+      "--allow-child-process": [
+        "--allow-child-process       allow use of child process when any"
+      ],
+      "--allow-ffi": [
+        "--allow-ffi                 allow use of FFI when any permissions"
+      ],
+      "--allow-fs-read": [
+        "--allow-fs-read=...         allow permissions to read the"
+      ],
+      "--allow-fs-write": [
+        "--allow-fs-write=...        allow permissions to write in the"
+      ],
+      "--allow-net": [
+        "--allow-net                 allow use of network when any"
+      ],
+      "--allow-wasi": [
+        "--allow-wasi                allow wasi when any permissions are set"
+      ],
+      "--allow-worker": [
+        "--allow-worker              allow worker threads when any"
+      ],
+      "--disable-proto": [
+        "--disable-proto=...         disable Object.prototype.__proto__"
+      ],
+      "--permission": [
+        "--permission                enable the permission system",
+        "--permission-audit          enable audit only for the permission"
+      ]
+    },
+    "help_exit": 0,
+    "javascript_program_executed": false,
+    "permission_enforcement_exercised": false,
+    "version": "v26.5.0",
+    "version_exit": 0
+  },
+  "os_version": {
+    "command": [
+      "/usr/bin/sw_vers"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5101f"
+  },
+  "own_process_rss": {
+    "command": [
+      "/bin/ps",
+      "-o",
+      "rss=",
+      "-p",
+      "7267"
+    ],
+    "exit_code": null,
+    "stderr": "PermissionError: [Errno 1] Operation not permitted: '/bin/ps'",
+    "stdout": ""
+  },
+  "parent_access": {
+    "execute": true,
+    "read": true,
+    "sandbox_execution_allowance_still_required": true,
+    "write": false,
+    "write_probe_performed": false
+  },
+  "physical_memory": {
+    "command": [
+      "/usr/sbin/sysctl",
+      "-n",
+      "hw.memsize"
+    ],
+    "exit_code": 1,
+    "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted",
+    "stdout": ""
+  },
+  "python_runtime": {
+    "base_prefix": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9",
+    "executable": "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+    "kqueue_available": true,
+    "prefix": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9",
+    "resource_limits": {
+      "RLIMIT_CORE": {
+        "available": true,
+        "current_soft_hard": [
+          0,
+          9223372036854775807
+        ]
+      },
+      "RLIMIT_CPU": {
+        "available": true,
+        "current_soft_hard": [
+          9223372036854775807,
+          9223372036854775807
+        ]
+      },
+      "RLIMIT_FSIZE": {
+        "available": true,
+        "current_soft_hard": [
+          9223372036854775807,
+          9223372036854775807
+        ]
+      },
+      "RLIMIT_NOFILE": {
+        "available": true,
+        "current_soft_hard": [
+          1048575,
+          9223372036854775807
+        ]
+      },
+      "RLIMIT_RSS": {
+        "available": true,
+        "current_soft_hard": [
+          9223372036854775807,
+          9223372036854775807
+        ]
+      }
+    },
+    "version": "3.9.6",
+    "waitid_available": false
+  },
+  "recorded_at_utc": "2026-10-13T17:34:21.770329+00:00",
+  "scope": "read-only host/tool/capacity inspection; only worktree evidence is written",
+  "swap_usage": {
+    "command": [
+      "/usr/sbin/sysctl",
+      "-n",
+      "vm.swapusage"
+    ],
+    "exit_code": 1,
+    "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted",
+    "stdout": ""
+  },
+  "target": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+  "target_absent": true,
+  "tools": [
+    {
+      "bytes": 200560,
+      "matches_recorded_pin": true,
+      "path": "/usr/bin/python3",
+      "resolved_path": "/usr/bin/python3",
+      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
+    },
+    {
+      "bytes": 68032,
+      "matches_recorded_pin": true,
+      "path": "/opt/homebrew/opt/node@26/bin/node",
+      "resolved_path": "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
+    },
+    {
+      "bytes": 268736,
+      "matches_recorded_pin": true,
+      "path": "/bin/ps",
+      "resolved_path": "/bin/ps",
+      "sha256": "6c39a1a8bb6aa8f2474e8c0b3138f3041d63769695be4f10a82e21f40123230d"
+    }
+  ],
+  "vm_statistics": {
+    "command": [
+      "/usr/bin/vm_stat"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   161396.\nPages active:                                1612509.\nPages inactive:                              1572216.\nPages speculative:                             39157.\nPages throttled:                                   0.\nPages wired down:                             420499.\nPages purgeable:                               47967.\n\"Translation faults\":                     3258170214.\nPages copy-on-write:                       197078671.\nPages zero filled:                        7519855710.\nPages reactivated:                           9088323.\nPages purged:                                9160539.\nFile-backed pages:                           1566165.\nAnonymous pages:                             1657717.\nPages stored in compressor:                   578895.\nPages occupied by compressor:                 332104.\nDecompressions:                              4747517.\nCompressions:                                7767154.\nPageins:                                    45402732.\nPageouts:                                       5758.\nSwapins:                                           0.\nSwapouts:                                          0."
+  }
+}

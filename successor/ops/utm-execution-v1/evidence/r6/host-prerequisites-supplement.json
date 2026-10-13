@@ -1,0 +1,77 @@
+{
+  "activation_or_network_ran": false,
+  "filesystem_info": {
+    "exit_code": 1,
+    "stderr": ""
+  },
+  "parent_access": {
+    "execute": true,
+    "read": true,
+    "write": true,
+    "write_probe_performed": false
+  },
+  "python_selected_runtime": {
+    "bytes": 102352,
+    "path": "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+    "resolved_path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9",
+    "sha256": "dff595035109e19c43c4b3e73ee08b5f4651e719f25f8b4713f819d28964dc19",
+    "supplemental_observation_not_a_replacement_pin": true
+  },
+  "queries": {
+    "node_heap_option": {
+      "command": [
+        "/opt/homebrew/opt/node@26/bin/node",
+        "--v8-options"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "--max-old-space-size (max size of the old space (in Mbytes))\ntype: size_t  default: --max-old-space-size=0"
+    },
+    "node_linked_libraries": {
+      "command": [
+        "/usr/bin/otool",
+        "-L",
+        "/opt/homebrew/Cellar/node/26.5.0/bin/node"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "/opt/homebrew/Cellar/node/26.5.0/bin/node:\n\t@rpath/libnode.147.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/usr/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.12)\n\t/opt/homebrew/opt/llhttp/lib/libllhttp.9.4.dylib (compatibility version 9.4.0, current version 9.4.2)\n\t/opt/homebrew/opt/libuv/lib/libuv.1.dylib (compatibility version 1.0.0, current version 1.0.0)\n\t/opt/homebrew/opt/ada-url/lib/libada.3.dylib (compatibility version 3.0.0, current version 3.4.4)\n\t/opt/homebrew/opt/simdjson/lib/libsimdjson.33.dylib (compatibility version 33.0.0, current version 33.0.0)\n\t/opt/homebrew/opt/brotli/lib/libbrotlidec.1.dylib (compatibility version 1.0.0, current version 1.2.0)\n\t/opt/homebrew/opt/brotli/lib/libbrotlienc.1.dylib (compatibility version 1.0.0, current version 1.2.0)\n\t/opt/homebrew/opt/c-ares/lib/libcares.2.dylib (compatibility version 2.0.0, current version 2.19.7)\n\t/opt/homebrew/opt/hdrhistogram_c/lib/libhdr_histogram.6.dylib (compatibility version 6.0.0, current version 6.3.3)\n\t/opt/homebrew/opt/merve/lib/libmerve.1.dylib (compatibility version 1.0.0, current version 1.2.2)\n\t/opt/homebrew/opt/nbytes/lib/libnbytes.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/opt/homebrew/opt/libnghttp2/lib/libnghttp2.14.dylib (compatibility version 44.0.0, current version 44.4.0)\n\t/opt/homebrew/opt/libnghttp3/lib/libnghttp3.9.dylib (compatibility version 9.0.0, current version 9.8.0)\n\t/opt/homebrew/opt/libngtcp2/lib/libngtcp2.16.dylib (compatibility version 27.0.0, current version 27.0.0)\n\t/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib (compatibility version 9.0.0, current version 9.6.0)\n\t/opt/homebrew/opt/libffi/lib/libffi.8.dylib (compatibility version 12.0.0, current version 12.1.0)\n\t/opt/homebrew/opt/uvwasi/lib/libuvwasi.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/opt/homebrew/opt/zstd/lib/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t/opt/homebrew/opt/icu4c@78/lib/libicui18n.78.dylib (compatibility version 78.0.0, current version 78.3.0)\n\t/opt/homebrew/opt/icu4c@78/lib/libicuuc.78.dylib (compatibility version 78.0.0, current version 78.3.0)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 4424.1.255)\n\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61901.101.4)\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2100.43.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)"
+    },
+    "own_process_rss": {
+      "command": [
+        "/bin/ps",
+        "-o",
+        "rss=",
+        "-p",
+        "7380"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "20288"
+    },
+    "physical_memory": {
+      "command": [
+        "/usr/sbin/sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "68719476736"
+    },
+    "swap_usage": {
+      "command": [
+        "/usr/sbin/sysctl",
+        "-n",
+        "vm.swapusage"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)"
+    }
+  },
+  "recorded_at_utc": "2026-10-13T17:35:38.844702+00:00",
+  "resource_limits_or_security_settings_changed": false,
+  "scope": "narrow read-only prerequisite queries outside the restrictive fixture sandbox; no host writes or activation",
+  "target_absent": true
+}

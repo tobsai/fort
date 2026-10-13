@@ -1,52 +1,137 @@
 {
+  "accepted_runtime_delta": {
+    "base_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
+    "changed_paths": [
+      "fort_probe/inspection_guard.py",
+      "inspect-inputs.py",
+      "inspection-verifier.mjs"
+    ],
+    "only_two_gate_values_and_explanatory_comments_changed": true,
+    "unchanged_paths": [
+      "fort_probe/__init__.py",
+      "fort_probe/__main__.py",
+      "fort_probe/acquisition.py",
+      "fort_probe/archive.py",
+      "fort_probe/boot.py",
+      "fort_probe/bounded.py",
+      "fort_probe/broker.py",
+      "fort_probe/config.py",
+      "fort_probe/controller.py",
+      "fort_probe/descriptors.py",
+      "fort_probe/evidence.py",
+      "fort_probe/guest_entry.py",
+      "fort_probe/guest_programs.py",
+      "fort_probe/host.py",
+      "fort_probe/host_session.py",
+      "fort_probe/inspection.py",
+      "fort_probe/inspection_archive.py",
+      "fort_probe/inspection_worker.py",
+      "fort_probe/inspection_workers.py",
+      "fort_probe/ipc.py",
+      "fort_probe/lifecycle.py",
+      "fort_probe/linux.py",
+      "fort_probe/linux_kernel.py",
+      "fort_probe/pty.py",
+      "fort_probe/seed.py",
+      "fort_probe/serial.py",
+      "fort_probe/source_identity.py",
+      "fort_probe/utm_schema.py",
+      "verify-inputs.mjs"
+    ]
+  },
+  "activation_entrypoints_invoked": false,
+  "activation_fixture_expectations": {
+    "green_logs": [
+      {
+        "bytes": 777,
+        "path": "evidence/r6/activation-python-green.log",
+        "sha256": "f6e9692ad6a7fe6641130ec3585814a193fbbcfd16e43c4080799bdffb1d1e08"
+      },
+      {
+        "bytes": 101,
+        "path": "evidence/r6/activation-node-green.log",
+        "sha256": "2d6830d3dbb98d6dd43b4f7d0325e298bc99d2a241bf8bae49c88986083f2b24"
+      }
+    ],
+    "node_imported_helper_observes_prepared_gate_without_running_cli": true,
+    "python_missing_exact_seal_rejects_before_commands_construction": true,
+    "red_logs": [
+      {
+        "bytes": 1319,
+        "path": "evidence/r6/activation-python-red.log",
+        "sha256": "1b17ae520bc79e4a8dbc02740ba5711ee157f70c5089fb99680043c6501ba6e7"
+      },
+      {
+        "bytes": 639,
+        "path": "evidence/r6/activation-node-red.log",
+        "sha256": "8d5fb750a73bf322c79a9ed6e6a00f940ab21eef735e0368f228b2122e27dca6"
+      }
+    ]
+  },
+  "activation_gates_prepared_true": true,
   "actual_inputs_acquired": false,
   "complete_tool_shared_library_closure": false,
-  "disabled_entrypoints": [
-    {
-      "command": [
-        "/usr/bin/python3",
-        "-I",
-        "-B",
-        "fort_probe/__main__.py"
-      ],
-      "expected_exit_code": 78,
-      "log": {
-        "bytes": 183,
-        "path": "evidence/r5/disabled-entry.log",
-        "sha256": "66066dadabcc0000a2d7a1200927397d29ca3541e4bc78824d3f84269dd99023"
-      },
-      "observed_exit_code": 78
-    },
-    {
-      "command": [
-        "/usr/bin/python3",
-        "-I",
-        "-B",
-        "inspect-inputs.py"
-      ],
-      "expected_exit_code": 78,
-      "log": {
-        "bytes": 137,
-        "path": "evidence/r5/inspection-disabled.log",
-        "sha256": "b7839578aa9babd93c775ac63c8663cd59c254f754b9a81767e14871103ad86f"
-      },
-      "observed_exit_code": 78
-    },
-    {
-      "command": [
-        "/opt/homebrew/opt/node@26/bin/node",
-        "inspection-verifier.mjs"
-      ],
-      "expected_exit_code": 78,
-      "log": {
-        "bytes": 27,
-        "path": "evidence/r5/node-inspection-disabled.log",
-        "sha256": "0601a31d59c41898465c58df03ba59e90d6d5fb8608db82865daac8ca24c9c74"
-      },
-      "observed_exit_code": 78
-    }
-  ],
   "downloaded_code_executed": false,
+  "guest_entrypoint": {
+    "command": [
+      "/usr/bin/python3",
+      "-I",
+      "-B",
+      "fort_probe/__main__.py"
+    ],
+    "exit_code": 78,
+    "log": {
+      "bytes": 183,
+      "path": "evidence/r6/guest-disabled-entry.log",
+      "sha256": "66066dadabcc0000a2d7a1200927397d29ca3541e4bc78824d3f84269dd99023"
+    }
+  },
+  "guest_gate_false": true,
+  "host_prerequisites": {
+    "capacity": {
+      "aggregate_on_wire_transfer_quota": false,
+      "capacity_reserved": false,
+      "checked_verifier_expansion_bytes": 25165824,
+      "conservative_receipts_markers_budget_bytes": 524288,
+      "disk_available_observed_bytes": 733184000000,
+      "disk_headroom_after_logical_budget_bytes": 732344156160,
+      "filesystem_metadata_allocation_rounding_additional": true,
+      "fixed_extra_reserve_requirement": null,
+      "free_pages_bytes": 2644312064,
+      "inactive_pages_bytes": 25759186944,
+      "max_https_requests": 40,
+      "memory_pressure_free_percentage": 81,
+      "payload_probe_limit": "up to one extra byte read per attempted input to detect oversize; never retained; operation stops on first failed input",
+      "physical_memory_bytes": 68719476736,
+      "retained_download_bytes": 814088192,
+      "retained_logical_file_budget_bytes": 839843840,
+      "sampled_max_worker_rss_bytes": 3221225472,
+      "selection_manifest_bytes": 65536,
+      "speculative_pages_bytes": 641548288
+    },
+    "initial_failures": "restricted-sandbox ps/sysctl/parent-write-access denied; arbitrary-parent diskutil query unsupported; narrow read-only supplement and actual-volume query succeeded",
+    "prerequisites_need_fresh_recheck_before_run": true,
+    "records": [
+      {
+        "bytes": 8366,
+        "path": "evidence/r6/host-prerequisites.json",
+        "sha256": "728a1dc5cf208b73888b788dbe366d6321222171292db4f055e10295a897be2d"
+      },
+      {
+        "bytes": 4906,
+        "path": "evidence/r6/host-prerequisites-supplement.json",
+        "sha256": "67f29b89a928b4732d2f99ce34f58eacc39a9bc4ece204c2b1ea6cfa611034d4"
+      },
+      {
+        "bytes": 655,
+        "path": "evidence/r6/host-filesystem.json",
+        "sha256": "8221afabc9e5634b5cdbfb78ae08255009011429c9cb5f40fa49bb7ca3171648"
+      }
+    ],
+    "scope": "safe read-only observations only; no write probe or resource-limit setting",
+    "status": "passed within recorded observation boundary; actual enforcement unrun"
+  },
+  "input_inspection_authorized": false,
   "javascript_contracts": {
     "actual_cryptography_executed": false,
     "downloaded_module_imported": false,
@@ -57,7 +142,7 @@
         "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs",
         "log": {
           "bytes": 92,
-          "path": "evidence/r5/verifier-fixtures.log",
+          "path": "evidence/r6/verifier-fixtures.log",
           "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
         },
         "passed": 6
@@ -66,7 +151,7 @@
         "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_inspection_verifier.mjs",
         "log": {
           "bytes": 101,
-          "path": "evidence/r5/inspection-verifier-fixtures.log",
+          "path": "evidence/r6/inspection-verifier-fixtures.log",
           "sha256": "2d6830d3dbb98d6dd43b4f7d0325e298bc99d2a241bf8bae49c88986083f2b24"
         },
         "passed": 6
@@ -74,49 +159,6 @@
     ]
   },
   "live_adapters_invoked": false,
-  "neighboring_checks": {
-    "cases": [
-      "symlinked ancestors before creation",
-      "parent replacement during creation",
-      "new leaf replacement before open",
-      "Data/package replacement during reads and final config readback",
-      "same-byte leaf replacement and hardlinks",
-      "receipt and publication replacements through directory sync",
-      "unknown partial preservation",
-      "archive no-follow reads and selected-verifier writes",
-      "descriptor closure on observation failure",
-      "Python and Node FIFO readers without writers"
-    ],
-    "log": {
-      "bytes": 1962,
-      "path": "evidence/r5/path-green.log",
-      "sha256": "26971466df88340f99870a07c733a0ab07c92a3284e102ef059c38d0809945af"
-    },
-    "node_fifo_fixture": {
-      "downloaded_code_loaded": false,
-      "existing_repository_helper_only": true,
-      "expected_initial_timeout_seconds": 3,
-      "included_in_python_total": true,
-      "initial_child_killed_and_reaped_by_subprocess_run": true,
-      "red_log": {
-        "bytes": 2103,
-        "path": "evidence/r5/node-fifo-red.log",
-        "sha256": "4f3a50fb86182cf23ce48cdc4c177b8cff7e7ec36e6ff5a117d70189c958a798"
-      }
-    },
-    "path_integrity_test_methods": 17,
-    "process_os_clock_and_rss_boundaries_doubled": true,
-    "worker_cases": [
-      "delayed successful child exit after pipe EOF",
-      "elevated RSS after EOF",
-      "unobservable RSS while still live",
-      "per-input deadline after EOF",
-      "stage deadline after EOF",
-      "missing result",
-      "nonzero exit",
-      "cancellation before sole reap"
-    ]
-  },
   "network_requests": 0,
   "production_host_root_absent": true,
   "python_suite": {
@@ -124,51 +166,29 @@
     "failed": 0,
     "log": {
       "bytes": 14182,
-      "path": "evidence/r5/full-suite.log",
-      "sha256": "a3b1a57492c5aa311a07c8a1211034f9f290af9076199b77cacd0295cbd78e88"
+      "path": "evidence/r6/full-suite.log",
+      "sha256": "79205a952db601858ecb2544c22cbb0e99628a0f1a4237de8bbe85c1e870a913"
     },
     "passed": 133
   },
   "real_runtime_acceptance": false,
-  "recorded_at_utc": "2026-10-13T17:16:18.833220+00:00",
-  "resource_policy": {
-    "document": {
-      "bytes": 449,
-      "path": "evidence/r4/resource-policy.txt",
-      "sha256": "2e498ae694b38dd6db6718f2640aca965beca221da9a869b6cc29b4edcd730ee"
-    },
-    "local_darwin_manual_read_only": true,
-    "resource_limits_applied": false,
-    "sampled_rss_allows_overshoot": true,
-    "virtual_address_space_quota_claimed": false
-  },
+  "recorded_at_utc": "2026-10-13T17:47:36.506280+00:00",
+  "resource_limits_or_security_settings_changed": false,
   "reviewer_regressions": {
+    "R1_passed": 4,
     "R2_passed": 5,
     "R3_passed": 3,
     "R4_passed": 4,
     "frozen_missing_C05_fixture_unchanged": true,
     "function_and_class_asts_unchanged": true,
-    "green_log": {
-      "bytes": 1761,
-      "path": "evidence/r5/reviewer-green.log",
-      "sha256": "542daca5ab18ece3f5135a1f79537e2e3ece91f5fb1d743a0ede9b153de64ab5"
-    },
-    "included_in_python_total": true,
-    "original_passed": 4,
-    "red_R4_failed_assertions": 4,
-    "red_R4_test_methods": 4,
-    "red_log": {
-      "bytes": 3260,
-      "path": "evidence/r5/reviewer-red.log",
-      "sha256": "bac2e2170bfe468dddfb2070df3b8700d4c434d70db5dcd9e1994d592a42bb0e"
-    }
+    "included_in_python_total": true
   },
-  "sandbox_approval": "existing temporary Unix-socket fixture allowance; ordinary synthetic files/FIFOs and one existing-Node helper fixture; all actual HTTP/supervisor/OS/crypto boundaries doubled",
-  "schema": 5,
+  "sandbox_approval": "narrow read-only host queries and existing synthetic temporary Unix-socket/FIFO fixture allowance only; no activation allowance requested or used",
+  "schema": 6,
   "static_verification": {
-    "bytes": 5866,
-    "path": "evidence/r5/static-verification.json",
-    "sha256": "98dee75c10564f633e1f9587c21299003e54a89fc0bee6d89f4c422206b0246a"
+    "bytes": 6974,
+    "path": "evidence/r6/static-verification.json",
+    "sha256": "2ac3ffe1c2aa096a42b79587fafad41e40f689145cbdde8389eae65bf813040b"
   },
   "supervisor_workers_launched": false,
   "syntax": {
@@ -180,47 +200,6 @@
     ],
     "passed": true,
     "python_ast_parse_files": 68
-  },
-  "test_first_red_evidence": {
-    "final_current_failures": 0,
-    "four_review_findings_reproduced_at_unchanged_r4": true,
-    "logs": [
-      {
-        "bytes": 3248,
-        "path": "evidence/r5/adjacent-red.log",
-        "sha256": "e7ed077070187e767b457b5cdcc89f9be2c1f240efeea5c86b09850bb69e79b7"
-      },
-      {
-        "bytes": 3202,
-        "path": "evidence/r5/archive-path-red.log",
-        "sha256": "fb1fe8a02d50b62a872ff9658d17e68d6264da58a06ae81ae4b907c1a521cee6"
-      },
-      {
-        "bytes": 874,
-        "path": "evidence/r5/descriptor-red.log",
-        "sha256": "0efe1ea82ad7ef3526b77a0f85cb2055d114cf1f27c46c02940b732f95b0a1fb"
-      },
-      {
-        "bytes": 2103,
-        "path": "evidence/r5/node-fifo-red.log",
-        "sha256": "4f3a50fb86182cf23ce48cdc4c177b8cff7e7ec36e6ff5a117d70189c958a798"
-      },
-      {
-        "bytes": 4105,
-        "path": "evidence/r5/path-red.log",
-        "sha256": "36ebbf7967321a884104cf03244dd95e023896f9139ee6ab9aab59b0bea0add3"
-      },
-      {
-        "bytes": 3544,
-        "path": "evidence/r5/persistence-red.log",
-        "sha256": "3296aa64cad81601c43ed10552f5d6a110dc4adb6dc358a26ab1eadf21f6bff2"
-      },
-      {
-        "bytes": 3260,
-        "path": "evidence/r5/reviewer-red.log",
-        "sha256": "bac2e2170bfe468dddfb2070df3b8700d4c434d70db5dcd9e1994d592a42bb0e"
-      }
-    ]
   },
   "tools": {
     "node": {
@@ -236,6 +215,7 @@
     }
   },
   "unrun": [
+    "both prepared input-inspection activation entrypoints",
     "actual binary/archive acquisition, TLS/DNS/redirect behavior and durable artifact publication",
     "real npm registry and Ubuntu publisher cryptography, negative controls and downloaded verifier import",
     "real child worker launch, macOS resource-limit/RSS/cancellation enforcement and Node permissions",
@@ -249,17 +229,16 @@
   "utm_source_provenance": {
     "byte_count_sha256_git_blob_sha1_match": true,
     "compiled_or_executed": false,
-    "new_source_retrievals_in_R5": 0,
+    "new_source_retrievals_in_R6": 0,
     "retained_files_verified": 11
   },
-  "validation_level": "source-and-synthetic-fixtures",
+  "validation_level": "read-only-prerequisites-and-synthetic-fixtures; activation-unrun",
   "whitespace_check": {
     "final_gate": "git diff --cached --check before commit",
     "normalization": {
-      "bytes": 99,
-      "path": "evidence/r5/whitespace-normalization.json",
-      "sha256": "4be0a82778e7a0941b83b114c45cd92216f937accb33a0786f9848fc4a7f422d"
-    },
-    "scope": "new R5 logs only"
+      "bytes": 67,
+      "path": "evidence/r6/whitespace-normalization.json",
+      "sha256": "3961b8cd014390c3d06cb8cbb3a125bff60488a3bae80e65ef4c77bc4053a547"
+    }
   }
 }

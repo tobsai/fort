@@ -37,11 +37,13 @@ if len(assignments) != 1 or not isinstance(assignments[0].value, ast.Constant) o
     raise SystemExit('live construction guard changed')
 inspection = ast.parse((root / 'fort_probe/inspection_guard.py').read_bytes())
 flags = [n for n in inspection.body if isinstance(n, ast.Assign) and any(isinstance(t,ast.Name) and t.id == 'INSPECTION_ENABLED' for t in n.targets)]
-if len(flags)!=1 or not isinstance(flags[0].value,ast.Constant) or flags[0].value.value is not False:
+if len(flags)!=1 or not isinstance(flags[0].value,ast.Constant) or flags[0].value.value is not True:
     raise SystemExit('input inspection guard changed')
-if (root / 'inspection-verifier.mjs').read_text().count('export const INSPECTION_ENABLED = false;') != 1:
+if (root / 'inspection-verifier.mjs').read_text().count('export const INSPECTION_ENABLED = true;') != 1:
     raise SystemExit('offline verifier inspection guard changed')
 if revision['input_inspection_authorized'] is not False:raise SystemExit('input inspection authority changed')
+if revision['activation_candidate_ready_for_review'] is not True or revision['input_inspection_enabled'] is not True:
+    raise SystemExit('activation candidate state differs')
 print(json.dumps({'status': 'passed', 'files': len(actual), 'references': len(seal['references']),
                   'seal_sha256': hashlib.sha256((root / 'seal.json').read_bytes()).hexdigest(),
-                  'execution_enabled': False}, sort_keys=True))
+                  'execution_enabled': False,'input_inspection_enabled':True,'input_inspection_authorized':False}, sort_keys=True))

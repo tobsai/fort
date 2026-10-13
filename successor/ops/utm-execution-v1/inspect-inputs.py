@@ -1,4 +1,4 @@
-"""Disabled input-inspection CLI; no environment override or implicit authority."""
+"""Prepared input-inspection CLI; do not run before exact owner approval of its seal."""
 import json
 import sys
 from pathlib import Path

@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/usr/sbin/diskutil",
+    "info",
+    "-plist",
+    "/System/Volumes/Data"
+  ],
+  "exit_code": 0,
+  "recorded_at_utc": "2026-10-13T17:36:19.060972+00:00",
+  "scope": "read-only query of the already-mounted volume reported by df for the proposed parent",
+  "selected_fields": {
+    "BusProtocol": "Apple Fabric",
+    "DeviceNode": "/dev/disk3s7",
+    "FilesystemName": "APFS",
+    "FilesystemType": "apfs",
+    "FreeSpace": 0,
+    "GlobalPermissionsEnabled": true,
+    "Internal": true,
+    "MountPoint": "/System/Volumes/Data",
+    "TotalSize": 1995218165760,
+    "Writable": true
+  },
+  "unneeded_volume_identifiers_omitted": true
+}

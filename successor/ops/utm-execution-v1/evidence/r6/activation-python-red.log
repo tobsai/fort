@@ -1,0 +1,18 @@
+test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests) ... ERROR
+
+======================================================================
+ERROR: test_worker_plan_has_process_limits_and_node_has_no_effect_permissions (test_inspection.InspectionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_inspection.py", line 39, in test_worker_plan_has_process_limits_and_node_has_no_effect_permissions
+    with self.assertRaisesRegex(ValueError,'exact accepted source seal'):Worker()
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 88, in __init__
+    require_inspection()
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_guard.py", line 5, in require_inspection
+    if not INSPECTION_ENABLED:raise RuntimeError('input inspection disabled pending fixed-source review and exact owner authority')
+RuntimeError: input inspection disabled pending fixed-source review and exact owner authority
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)

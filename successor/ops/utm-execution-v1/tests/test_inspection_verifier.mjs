@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {selectedPackage,negativeControls,INSPECTION_ENABLED} from '../inspection-verifier.mjs';
 let passed=0;
-assert.equal(INSPECTION_ENABLED,false);passed++;
+assert.equal(INSPECTION_ENABLED,true);passed++;
 const root=mkdtempSync(join(tmpdir(),'fort-inspection-fixture-'));
 try{
   mkdirSync(join(root,'package/dist/node'),{recursive:true});
