@@ -31,6 +31,10 @@ for entry in seal['references']:
 revision = json.loads((root / 'execution-revision.json').read_bytes())
 for key in ('execution_authorized', 'ready_for_execution', 'approval_request_ready_to_send'):
     if revision[key] is not False: raise SystemExit('activation flag changed: ' + key)
+guard = ast.parse((root / 'fort_probe/bounded.py').read_bytes())
+assignments = [node for node in guard.body if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'LIVE_EXECUTION_ENABLED' for t in node.targets)]
+if len(assignments) != 1 or not isinstance(assignments[0].value, ast.Constant) or assignments[0].value.value is not False:
+    raise SystemExit('live construction guard changed')
 print(json.dumps({'status': 'passed', 'files': len(actual), 'references': len(seal['references']),
                   'seal_sha256': hashlib.sha256((root / 'seal.json').read_bytes()).hexdigest(),
                   'execution_enabled': False}, sort_keys=True))

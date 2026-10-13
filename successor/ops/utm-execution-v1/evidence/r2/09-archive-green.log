@@ -1,0 +1,15 @@
+test_links_missing_members_or_wrong_digest_stop (test_archive.ArchiveTests) ... ok
+test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members (test_archive.ArchiveTests) ... FAIL
+
+======================================================================
+FAIL: test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members (test_archive.ArchiveTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_archive.py", line 26, in test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members
+    self.assertEqual(result['raw_member'],names['raw']);self.assertEqual(result['raw_bytes'],4096)
+AssertionError: 4097 != 4096
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (failures=1)

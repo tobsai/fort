@@ -88,6 +88,7 @@ class Controller:
         self.closed = False
         self.prepared_runtime = None
         self.live_evidence = None
+        self.capture_attempted = False
         try:
             self.consumed = self.store.read('consumed.json') is not None
             self.owns_attempt = not self.consumed
@@ -123,17 +124,36 @@ class Controller:
         return evidence.preflight(self.guest.preflight(), self.guest.boot_id)
 
     def capture_live(self):
-        if self.closed or self.state != 'granted' or self.live_evidence is not None:
+        if self.closed or not self.owns_attempt or self.state != 'granted' or self.capture_attempted:
             raise ValueError('live observation requires a running, unobserved grant')
-        before = self.clock()
-        snapshot = self.guest.live_snapshot(self.identity, self.sequence, before)
-        after = self.clock()
-        if not 0 <= after - before < .5 or after - self.last_activity >= 1:
-            raise ValueError('live observation exceeded deadline; lease not renewed')
-        evidence.live(snapshot, self.identity, self.sequence, self.started, after, self.prepared_runtime)
-        self.store.write_new('live.json', snapshot)
-        self.live_evidence = deepcopy(snapshot)
-        return deepcopy(snapshot)
+        self.capture_attempted = True
+        try:
+            self.store.write_new('capture-consumed.json', {'identity': self.identity, 'sequence': self.sequence})
+            before = self.clock()
+            snapshot = self.guest.live_snapshot(self.identity, self.sequence, before)
+            after = self.clock()
+            if not 0 <= after - before < .5 or after - self.last_activity >= 1:
+                raise ValueError('live observation exceeded deadline; lease not renewed')
+            evidence.live(snapshot, self.identity, self.sequence, self.started, after, self.prepared_runtime)
+            self.store.write_new('live.json', snapshot)
+            self.live_evidence = deepcopy(snapshot)
+            return deepcopy(snapshot)
+        except Exception:
+            self.live_evidence = None
+            try:
+                self.abort('live observation consumed and failed')
+            finally:
+                self.owns_attempt = False
+            raise
+
+    def _stop_facts(self, observed):
+        if (not isinstance(observed, dict)
+                or set(observed) != {'identity', 'runtime_active', 'tool_active', 'empty'}
+                or not same_identity(observed['identity'], self.identity)
+                or any(type(observed[key]) is not bool for key in ('runtime_active', 'tool_active', 'empty'))):
+            raise ValueError('complete typed stop observation required')
+        return (observed['runtime_active'] is False and observed['tool_active'] is False
+                and observed['empty'] is True)
 
     def inspect(self):
         return {'consumed': self.consumed, 'state': self.state,
@@ -235,7 +255,7 @@ class Controller:
             elapsed = self.clock() - self.stop_started
             if not 0 <= elapsed < 5 or not same_identity(observed['identity'], self.identity):
                 raise ValueError('stop proof late or identity changed')
-            if observed['runtime_active'] or observed['tool_active'] or not observed['empty']:
+            if not self._stop_facts(observed):
                 return None
             self._save('stopped-empty')
             self.stop_delivered = True
@@ -261,8 +281,7 @@ class Controller:
                     self.stop_started = self.clock()
                     self.guest.begin_stop(self.identity)
                 observed = self.guest.stop_observation(self.identity)
-                if (same_identity(observed['identity'], self.identity) and 0 <= self.clock() - self.stop_started < 5
-                        and not observed['runtime_active'] and not observed['tool_active'] and observed['empty']):
+                if 0 <= self.clock() - self.stop_started < 5 and self._stop_facts(observed):
                     state = 'stopped-empty'
         except Exception:
             pass

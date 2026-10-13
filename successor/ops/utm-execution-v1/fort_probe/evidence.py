@@ -26,7 +26,7 @@ def process(value, cgroup, uid=None):
         raise ValueError('namespace identity missing')
     if value['capabilities'] != '0000000000000000' or value['no_new_privileges'] is not True:
         raise ValueError('unexpected privilege')
-    if value['fd_classes'] != ['stdio', 'journal']:
+    if value['fd_classes'] not in (['stdio'], ['stdio', 'journal']):
         raise ValueError('unexpected descriptor class')
 
 

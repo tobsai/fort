@@ -61,8 +61,12 @@ class PhaseTests(unittest.TestCase):
                         clock.advance(.25)
                     if fault != 'missing':
                         with self.assertRaises(ValueError): controller.capture_live()
-                    controller.handle({'op': 'stop', 'sequence': 21, 'identity': identity})
-                    self.assertFalse(controller.poll_stop()['live_evidence_proven'])
+                    if fault == 'missing':
+                        controller.handle({'op': 'stop', 'sequence': 21, 'identity': identity})
+                        self.assertFalse(controller.poll_stop()['live_evidence_proven'])
+                    else:
+                        self.assertFalse(controller.owns_attempt)
+                        with self.assertRaises(ValueError): controller.capture_live()
 
     def test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt(self):
         with tempfile.TemporaryDirectory(prefix='fort-utm-fixture-') as root:

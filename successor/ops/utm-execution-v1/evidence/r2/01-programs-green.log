@@ -1,0 +1,8 @@
+test_expired_ungranted_runtime_and_replayed_identity_stop (test_guest_programs.ProgramTests) ... ok
+test_runtime_prepares_canary_without_tool_work_then_requires_fresh_bound_lease (test_guest_programs.ProgramTests) ... ok
+test_tool_only_reports_fixed_denials_and_own_positive_controls (test_guest_programs.ProgramTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK

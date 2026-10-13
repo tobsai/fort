@@ -1,0 +1,8 @@
+test_arbitrary_inspection_arguments_and_cross_channel_control_abort (test_broker.BrokerTests) ... ok
+test_inspection_does_not_renew_lease_and_timer_runs_without_input (test_broker.BrokerTests) ... ok
+test_two_stop_responses_are_emitted_on_control_channel_exactly_once (test_broker.BrokerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.013s
+
+OK

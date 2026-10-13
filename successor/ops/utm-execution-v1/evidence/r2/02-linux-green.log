@@ -1,0 +1,9 @@
+test_adapter_starts_only_runtime_then_grants_tool_and_collects_bound_facts (test_linux.LinuxTests) ... ok
+test_canary_interpreter_rejects_refused_ipc_successful_open_and_missing_result (test_linux.LinuxTests) ... ok
+test_proc_stat_parses_parentheses_and_start_ticks_without_pid_reuse (test_linux.LinuxTests) ... ok
+test_remaining_descendant_and_wrong_invocation_never_prove_stop (test_linux.LinuxTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.008s
+
+OK

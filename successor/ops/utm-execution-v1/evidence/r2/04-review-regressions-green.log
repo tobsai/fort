@@ -1,0 +1,9 @@
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... ok
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... ok
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... ok
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.023s
+
+OK

@@ -7,6 +7,8 @@ import hashlib
 import os
 from pathlib import Path
 import stat
+import re
+import uuid
 from .evidence import exact
 
 
@@ -33,6 +35,19 @@ def _open_directory(path):
 
 class OwnedTree:
     def __init__(self, root, vm_uuid, expected_processes):
+        if not isinstance(vm_uuid,str) or str(uuid.UUID(vm_uuid))!=vm_uuid:
+            raise ValueError('canonical VM UUID required')
+        if not isinstance(expected_processes,list): raise ValueError('process list required')
+        self.processes = deepcopy(expected_processes)
+        if not self.processes or len(self.processes) > 32:
+            raise ValueError('bounded attributed process inventory required')
+        for process in self.processes:
+            if (not isinstance(process,dict) or set(process) != {'role', 'pid', 'start_time', 'executable_sha256'}
+                    or type(process['pid']) is not int or process['pid'] <= 0
+                    or process['role'] not in ('app','virtualization','helper')
+                    or not isinstance(process['start_time'],str) or not process['start_time']
+                    or not isinstance(process['executable_sha256'],str) or not re.fullmatch('[0-9a-f]{64}',process['executable_sha256'])):
+                raise ValueError('incomplete process identity')
         self.path = Path(root)
         self.parent = _open_directory(self.path.parent)
         self.fd = None
@@ -45,13 +60,6 @@ class OwnedTree:
             self.root_identity = _identity(info)
             self.vm_uuid = vm_uuid
             self.processes = deepcopy(expected_processes)
-            if not self.processes or len(self.processes) > 32:
-                raise ValueError('bounded attributed process inventory required')
-            for process in self.processes:
-                if (set(process) != {'role', 'pid', 'start_time', 'executable_sha256'}
-                        or type(process['pid']) is not int or process['pid'] <= 0
-                        or not process['start_time'] or len(process['executable_sha256']) != 64):
-                    raise ValueError('incomplete process identity')
             self.initial = self.reconciled = None
             self.mutable = set()
         except Exception:

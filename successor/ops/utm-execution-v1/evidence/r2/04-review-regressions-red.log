@@ -1,0 +1,47 @@
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... FAIL
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... FAIL
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... FAIL
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... FAIL
+
+======================================================================
+FAIL: test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_regressions.py", line 102, in test_abort_cannot_classify_unknown_facts_as_stopped_empty
+    self.assertEqual(controller.state, 'quarantined-unknown')
+AssertionError: 'stopped-empty' != 'quarantined-unknown'
+- stopped-empty
++ quarantined-unknown
+
+
+======================================================================
+FAIL: test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_regressions.py", line 64, in test_failed_live_canary_cannot_be_recaptured_into_success
+    self.assertFalse(recapture_succeeded, 'a failed canary must irreversibly fail this attempt')
+AssertionError: True is not false : a failed canary must irreversibly fail this attempt
+
+======================================================================
+FAIL: test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_regressions.py", line 119, in test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds
+    self.assertFalse(root_created_on_error, 'pure input rejection must precede root creation')
+AssertionError: True is not false : pure input rejection must precede root creation
+
+======================================================================
+FAIL: test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_review_regressions.py", line 86, in test_unknown_stop_facts_cannot_become_empty_tree_proof
+    self.assertEqual(controller.state, 'quarantined-unknown')
+AssertionError: 'stopped-empty' != 'quarantined-unknown'
+- stopped-empty
++ quarantined-unknown
+
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.024s
+
+FAILED (failures=4)

@@ -1,6 +1,6 @@
 {
   "approval_request_ready_to_send": false,
-  "base_commit": "cfea28acd098b1751f71a5f7b927e101211db054",
+  "base_commit": "5dcc21697a933798cb941977cfff1bf66e68df8a",
   "base_packet_seal_sha256": "c3c897a1bfe4ac47e3b061b181b5faa30bdf49ac302c9e455f97ac76b1a6c2d4",
   "complete_execution_source_gate_passed": false,
   "execution_authorized": false,
@@ -14,19 +14,19 @@
   "independently_reviewed": false,
   "input_inventory": "../utm-synthetic-packet-v1/inputs.json",
   "input_inventory_changed": false,
-  "live_adapter_present": false,
+  "live_adapter_present": true,
+  "live_adapters_invoked": false,
   "only_new_tree": "successor/ops/utm-execution-v1/",
   "ready_for_execution": false,
   "real_binding_must_use_later_complete_packet_seal": true,
   "remaining_gates": [
-    "complete guest broker/runtime/tool and OS collectors",
-    "complete host identity/observation and lifecycle recovery adapters",
-    "Ubuntu-only nine-input verifier and bounded archive examiner",
-    "actual authenticated archive member/layout/kernel/label binding",
-    "reviewed enabled NoCloud/config writer after image inspection",
-    "fixed-revision independent acceptance",
-    "exact owner authorization before future runtime effects",
-    "real single-trial evidence and cleanup acceptance"
+    "authenticated Ubuntu/verifier input acquisition and actual crypto verification",
+    "actual member/layout/kernel/initrd/label binding; reviewed decoder if unsupported",
+    "three pinned uncached UTM source definitions and final registry/schema binding",
+    "actual verifier archive member binding before extraction/loading",
+    "independent acceptance of the new fixed source and completed input binding",
+    "exact owner authority before live runtime effects",
+    "actual one-trial evidence, exact host-state cleanup and T07 acceptance"
   ],
   "review": {
     "bytes": 9893,
@@ -40,8 +40,30 @@
     "reviewer_owned_untracked_file": true,
     "sha256": "f1e75fec349858b426dd18e0c5fc840f7458f3666f70b8a1d015c34b28b1b9fc"
   },
-  "revision_id": "utm-source-preparation-r1",
+  "revision_id": "utm-source-preparation-r2",
   "schema": 1,
   "scope": "existing tools and synthetic fixtures only; no downloads, UTM launch, provisioning, boot, credentials, security changes, provider calls or deployment",
-  "vm_renderer_present": false
+  "source_review": {
+    "findings_fixed": [
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "independent_acceptance_of_r2": "pending",
+    "regressions": {
+      "bytes": 6316,
+      "path": "../../../reviews/utm-source-5dcc216/reviewer_regressions.py",
+      "sha256": "bfe937f107f7c6561beadcdc648122e601029cb81adea342b9539870e20e1ea9"
+    },
+    "review": {
+      "bytes": 9609,
+      "path": "../../../reviews/utm-source-5dcc216/REVIEW.md",
+      "sha256": "956ea77448e5b96dabdbf90d8189dc4d5390ec11896b585eaed874fec137d570"
+    },
+    "test_adaptation": "source path redirected; standalone writer removed; final blank line normalized; test bodies/assertions unchanged"
+  },
+  "source_review_fixed_commit": "5dcc21697a933798cb941977cfff1bf66e68df8a",
+  "verifier_contract_only": true,
+  "vm_renderer_actual_inputs_bound": false,
+  "vm_renderer_present": true
 }

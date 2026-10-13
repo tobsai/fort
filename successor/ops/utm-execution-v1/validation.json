@@ -1,60 +1,82 @@
 {
+  "complete_tool_shared_library_closure": false,
   "disabled_entry": {
-    "command": "/usr/bin/python3 -I -B fort_probe/__main__.py",
     "expected_exit_code": 78,
     "log": {
       "bytes": 73,
-      "path": "evidence/disabled-entry.log",
+      "path": "evidence/r2/disabled-entry.log",
       "sha256": "ae69da199f9ac995f635d64efa5988be40de3447fd5380e27c91484df0296e49"
     },
-    "observed_exit_code": 78,
-    "passed": true
+    "observed_exit_code": 78
   },
-  "historical_failed_attempts_retained": [
-    "08 test-edit error before corrected red",
-    "14 absent-API red with peer cleanup errors",
-    "15 sandbox socket bind denial",
-    "17 noncanonical fixture /var path refused"
-  ],
-  "no_current_fixture_failures": true,
+  "historical_r2_failed_attempt": "archive first attempted green fixture inserted a 17-byte label into a 16-byte field; corrected synthetic fixture passed; both logs retained",
+  "host_app_read_cap": {
+    "bytes": 18662240,
+    "live_read_performed": false,
+    "source": "accepted mounted-app-manifest.json at baadd3e"
+  },
+  "javascript_contracts": {
+    "actual_cryptography_executed": false,
+    "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs",
+    "failed": 0,
+    "log": {
+      "bytes": 92,
+      "path": "evidence/r2/verifier-fixtures.log",
+      "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
+    },
+    "passed": 6
+  },
+  "live_adapters_invoked": false,
   "production_host_root_absent": true,
-  "real_runtime_acceptance": false,
-  "recorded_at_utc": "2026-10-13T13:44:47.973593+00:00",
-  "schema": 1,
-  "suite": {
+  "python_suite": {
     "command": "/usr/bin/python3 -I -B tests/run.py",
     "failed": 0,
     "log": {
-      "bytes": 3643,
-      "path": "evidence/full-suite.log",
-      "sha256": "db41beb2cc754f99151b0ccd4fac52a3cdb77317b363443103dd0bbf186f61c4"
+      "bytes": 6715,
+      "path": "evidence/r2/full-suite.log",
+      "sha256": "9d0c7f7a2d092c698944d1c71510cf35945e176bde04ce478e7c76798c48f7d8"
     },
-    "passed": 35
+    "passed": 64
   },
+  "real_runtime_acceptance": false,
+  "recorded_at_utc": "2026-10-13T14:29:36.587103+00:00",
+  "reviewer_regressions": {
+    "expanded_failure_matrix_passed": true,
+    "passed": 4,
+    "test_bodies_unchanged": true
+  },
+  "sandbox_approval": "temporary local Unix-socket fixtures only; same bounded fixture scope as R1",
+  "schema": 2,
   "syntax": {
-    "files": 22,
-    "method": "ast.parse; no module import or bytecode write",
-    "passed": true
+    "javascript_node_check": [
+      "verify-inputs.mjs",
+      "tests/test_verifier.mjs"
+    ],
+    "passed": true,
+    "python_ast_parse_files": 42
   },
-  "temporary_unix_socket_approval": "sandbox initially denied bind; narrow automatic approval allowed only local fixture suite",
-  "tool": {
-    "bytes": 200560,
-    "complete_shared_library_closure": false,
-    "path": "/usr/bin/python3",
-    "runtime": "3.9.6",
-    "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d",
-    "standard_library_only": true
+  "tools": {
+    "node": {
+      "bytes": 68032,
+      "path": "/opt/homebrew/opt/node@26/bin/node",
+      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
+    },
+    "python": {
+      "bytes": 200560,
+      "path": "/usr/bin/python3",
+      "runtime": "3.9.6",
+      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
+    }
   },
   "unrun": [
-    "UTM/app/helper launch",
-    "VM creation/boot",
-    "NoCloud interpretation",
-    "real PTY/syscalls and competing-reader attribution",
-    "Linux systemd/namespace/UID/cgroup confinement",
-    "different-UID IPC denial",
-    "actual Ubuntu archive/signature verification",
-    "real host ownership/lifecycle scans and cleanup",
-    "provider or installed-product acceptance"
+    "all Linux/Mac live adapters and syscalls",
+    "all guest entry roles beyond immediate disabled guard",
+    "any downloads, mounts, ISO construction or VM-package emission",
+    "UTM/VM launch or boot",
+    "actual archive and cryptographic verification",
+    "real NoCloud/systemd/proc/journal/PTY/VZ observations",
+    "real app-state/registry cleanup",
+    "provider/installed-product/T07 acceptance"
   ],
-  "validation_level": "source-and-fixtures"
+  "validation_level": "source-and-synthetic-fixtures"
 }

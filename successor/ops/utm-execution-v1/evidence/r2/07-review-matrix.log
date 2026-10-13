@@ -1,0 +1,18 @@
+test_all_failed_captures_irreversibly_revoke_grant_and_survive_reopen (test_review_failure_matrix.ReviewFailureMatrix) ... ok
+test_all_unknown_stop_fields_quarantine_in_poll_and_abort (test_review_failure_matrix.ReviewFailureMatrix) ... ok
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... ok
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... ok
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... ok
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... ok
+test_controls_follow_process_lifetime_and_live_capture_does_not_renew_lease (test_phases.PhaseTests) ... ok
+test_failed_runtime_controls_or_early_tool_prevent_grant (test_phases.PhaseTests) ... ok
+test_missing_stale_replayed_or_unbound_live_evidence_never_passes (test_phases.PhaseTests) ... ok
+test_valid_live_evidence_is_single_use_and_survives_only_for_this_attempt (test_phases.PhaseTests) ... ok
+test_iso_command_is_local_cidata_only_and_does_not_run (test_config.ConfigTests) ... ok
+test_three_file_seed_contains_guarded_guest_source_and_only_root_broker_bootstrap (test_config.ConfigTests) ... ok
+test_unknown_archive_layout_or_schema_never_generates_vm_configuration (test_config.ConfigTests) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.186s
+
+OK

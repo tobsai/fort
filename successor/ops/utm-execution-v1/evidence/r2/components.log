@@ -1,0 +1,30 @@
+test_live_construction_and_all_guest_roles_remain_disabled (test_linux_kernel.KernelParsingTests) ... ok
+test_process_collector_rejects_pid_reuse_extra_fd_and_capability (test_linux_kernel.KernelParsingTests) ... ok
+test_raw_unit_facts_accept_exact_policy_and_reject_weakened_or_missing_fields (test_linux_kernel.KernelParsingTests) ... ok
+test_expired_ungranted_runtime_and_replayed_identity_stop (test_guest_programs.ProgramTests) ... ok
+test_runtime_prepares_canary_without_tool_work_then_requires_fresh_bound_lease (test_guest_programs.ProgramTests) ... ok
+test_tool_only_reports_fixed_denials_and_own_positive_controls (test_guest_programs.ProgramTests) ... ok
+test_adapter_starts_only_runtime_then_grants_tool_and_collects_bound_facts (test_linux.LinuxTests) ... ok
+test_canary_interpreter_rejects_refused_ipc_successful_open_and_missing_result (test_linux.LinuxTests) ... ok
+test_proc_stat_parses_parentheses_and_start_ticks_without_pid_reuse (test_linux.LinuxTests) ... ok
+test_remaining_descendant_and_wrong_invocation_never_prove_stop (test_linux.LinuxTests) ... ok
+test_arbitrary_inspection_arguments_and_cross_channel_control_abort (test_broker.BrokerTests) ... ok
+test_inspection_does_not_renew_lease_and_timer_runs_without_input (test_broker.BrokerTests) ... ok
+test_two_stop_responses_are_emitted_on_control_channel_exactly_once (test_broker.BrokerTests) ... ok
+test_competing_reader_pid_reuse_network_or_unknown_scan_blocks (test_host.HostTests) ... ok
+test_exact_process_and_two_pty_owners_bind_then_fresh_absence_allows_cleanup (test_host.HostTests) ... ok
+test_process_parser_excludes_arguments_and_preserves_start_identity (test_host.HostTests) ... ok
+test_iso_command_is_local_cidata_only_and_does_not_run (test_config.ConfigTests) ... ok
+test_three_file_seed_contains_guarded_guest_source_and_only_root_broker_bootstrap (test_config.ConfigTests) ... ok
+test_unknown_archive_layout_or_schema_never_generates_vm_configuration (test_config.ConfigTests) ... ok
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... ok
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... ok
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... ok
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... ok
+test_all_failed_captures_irreversibly_revoke_grant_and_survive_reopen (test_review_failure_matrix.ReviewFailureMatrix) ... ok
+test_all_unknown_stop_fields_quarantine_in_poll_and_abort (test_review_failure_matrix.ReviewFailureMatrix) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 0.141s
+
+OK

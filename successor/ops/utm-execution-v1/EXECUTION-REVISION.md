@@ -1,172 +1,150 @@
-# UTM source preparation revision R1
+# UTM source preparation revision R2
 
-Status: **source preparation, execution disabled, independent review pending**.
-This revision does **not** satisfy the complete-execution-source gate in the
-prior packet. It is ready to review as a bounded implementation slice; it must
-not be submitted as the final owner execution request. Passing fixtures do not
-mean a VM booted or confinement passed.
+**Fixed source candidate for independent review; all activation gates remain
+false.** This revision completes the requested adapter/program/generation source
+seams using synthetic inputs. Actual UTM schema and archive binding remain
+unresolved. It is not an accepted execution packet or a working tested VM.
 
-The fixed design base is `cfea28acd098b1751f71a5f7b927e101211db054`, whose packet
-seal is `c3c897a1bfe4ac47e3b061b181b5faa30bdf49ac302c9e455f97ac76b1a6c2d4`.
-The independent review at `reviews/utm-packet-cfea28a/REVIEW.md` supplied F1–F3.
-Its exact file digest is recorded in `execution-revision.json`. The review and
-prior sealed packet are preserved unchanged. This document supersedes only
-those three contradictory design rules for this source slice.
+Base source: `5dcc21697a933798cb941977cfff1bf66e68df8a`.
+Original inert design: `cfea28acd098b1751f71a5f7b927e101211db054`.
+Both prior snapshots and their evidence remain in Git. Reviewer files under
+`reviews/` are preserved. Their digests are recorded in `execution-revision.json`.
 
-## Implemented public seams
+## Source and evidence boundary
 
-| Component | Implemented behavior | Evidence limit |
+| Source | Behavior now implemented | Validation |
 | --- | --- | --- |
-| `serial.py` | Strict bounded UTF-8/LF JSON; duplicate keys, nonfinite numbers, extra responses, EOF and timeouts fail closed; one transmission per command | Actual anonymous socketpair I/O; no UTM PTY |
-| `pty.py` | Exact owner 501/mode 0600 character-device identity, nofollow open, fstat comparison, exclusive open, raw mode and identity-checked restoration | Kernel boundary fixtures; no real PTY opened or permissions changed |
-| `controller.py` | Exclusive durable consumed-attempt record before start; consecutive sequence and invocation binding; separate grant; lease/deadline classification; stop acceptance and observation; inspection-only restart | Real temporary files and fsync; synthetic systemd/guest facts |
-| `evidence.py` | Separate inactive preflight, prepared-runtime controls and live process evidence validation | Facts are supplied by trusted guest-boundary fixtures; no Linux collector yet |
-| `ipc.py` | Working root-side Unix connection before/after tool observation and exact denial errno | Real temporary listening/unlistening/removed sockets; tool errno supplied by fixture, not a different UID |
-| `seed.py` | Deterministic in-memory meta-data/user-data/network-config preview; locked users, no packages, growth or cloud-init command stages; dormant resource-constrained units | Not an ISO, not booted, no runtime/tool/broker enabled |
-| `lifecycle.py` | Exclusive creation of an absent private root; exact inode/device/type/mode/hash manifest; mutable content reconciled only after quiescence; nofollow exact deletion | Only owned temporary trees; host process absence is a supplied fixture observation |
+| `guest_programs.py`, `guest_entry.py` | Fixed runtime canary/barrier, stale-lease exit, systemd readiness/watchdog notifications, fixed tool deny/positive-control syscalls, one double-fork/setsid descendant, root bootstrap and guest role dispatch | Program logic runs against IO doubles. Actual syscalls/bootstrap never run. |
+| `linux.py`, `linux_kernel.py` | Fixed systemd commands and hardening/resource readback; boot/invocation binding; root target controls; proc PID/start/UID/capability/namespace/fd/cgroup collection; journal-bound tool report; independent empty-tree observation | Linux policy uses a raw OS boundary double; parser fixtures exercise real parsing. No `/proc`, systemd, journal or guest filesystem inspection occurs on this Mac. |
+| `broker.py` | Separate fixed control/inspection operations, bounded framing/output, timer ticks without input, one terminal Stop response | Fixtures exercise timer expiry, malformed operations and two-phase Stop. |
+| `bounded.py` | Sanitized-environment commands, bounded output and wall time, cleanup of only the spawned command group | Source inspected and syntax checked. Live constructor refuses before spawning anything. OS cancellation behavior is unrun. |
+| `host.py` | Exact app pin/signature and process-start checks; PTY owner set; zero-network/share topology; resource/device checks; fresh process/handle/mount collection and quiescence interpretation | Host policy/parser fixtures only. Actual collector is disabled. Registry parsing is blocked on an uncached pinned schema, explicitly rejected rather than defaulting to no shares. |
+| `host_session.py` | Preflight, prepare, one grant, 19 heartbeats, live evidence, two-response Stop and postflight through attributed channels | Integrated fixture uses two actual anonymous socketpairs, the actual broker/controller/codecs and synthetic guest facts. |
+| `config.py`, `seed.py` | In-memory three-file NoCloud candidate containing guarded guest sources, offline bootstrap/unit definitions, boot service masks and explicit zero-NIC/share UTM plist; exact ISO command construction | Synthetic image and UTM schema facts only. No files are emitted into a VM package, no ISO command is run. |
+| `archive.py` | Read-only bounded gzip/tar inspection, exact selected member binding, link/special/sparse rejection, hashes, ARM64 header and raw ext4 label check | Generated tar fixtures only. Currently supports an unpartitioned ext4 raw filesystem; other layouts stop for a reviewed decoder. Header checks do not prove filesystem integrity or bootability. |
+| `verify-inputs.mjs` | Eight exact Ubuntu/verifier input pins; registry-signature and publisher-checksum verification functions adapted from the earlier reviewed Fort verifier | Six contract fixtures with a declared crypto boundary double. No actual OpenPGP library, registry signature or publisher signature was verified. No automatic import/download entry exists. |
+| `controller.py`, `lifecycle.py`, `pty.py`, `ipc.py` | Durable one-attempt fencing, single-use evidence, exact typed termination facts, absent-root ownership, strict PTY checks and working-listener denial controls | Original suite plus reviewer regressions and expanded failure matrix. |
 
-There is no automatic retry, process substitution, alternate image, provider
-connection, arbitrary command endpoint or shared-host claim. Fresh direct
-construction of `OwnedTree` refuses any pre-existing root, including one left
-by an interrupted earlier object. Recovery/adoption needs a separately reviewed
-persisted creation receipt; this revision does not invent one.
+All guest source imports are included in the candidate seed. Guest code is
+root-owned and readable by the fixed runtime/dynamic tool; binding data remains
+root-only. Bootstrap and controller consumption markers use the persistent guest disk,
+not `/run`, so reboot does not create a fresh attempt. Runtime and tool units
+have no install/autostart target. Only the
+fixed bootstrap can start the root broker. `LIVE_EXECUTION_ENABLED = False`
+stops bootstrap, broker, runtime, tool and command-runner construction before
+live operations. The public package entry still exits 78; no runtime flag or
+environment override enables it. This is a workflow guard, not a security sandbox
+against a trusted owner editing or importing source. The candidate includes
+cloud-init boot/user/file provisioning directives; those would execute if someone
+independently packaged and booted it. The Python gate does not suppress cloud-init
+itself. No such package or boot was produced here.
 
-## F1: phase ordering and live evidence
+## Reviewer corrections
 
-1. Root-only preflight requires runtime and tool inactive, empty owned cgroups,
-   zero NICs/shares and root positive controls for the synthetic protected
-   objects, seed, serial devices and working IPC listener.
-2. Prepare sequence 0 durably consumes the sole attempt, then starts only the
-   fenced runtime barrier. The tool remains inactive. A new invocation identity
-   binds the guest boot ID and exact runtime cgroup to the packet/VM binding.
-3. Grant sequence 1 requires fresh prepared-runtime controls: UID 2001, expected
-   privileges/descriptors/cgroup, successful public provider-canary read and
-   still-inactive tool. Only this grant starts the fixed tool.
-4. Heartbeats are sequences 2 through 20. A single trusted live capture occurs
-   after grant and before Stop; the integrated fixture captures at sequence 20.
-   It binds the full attempt identity and current sequence to runtime/tool/
-   descendant PID, start ticks, UID, capabilities, no-new-privileges, network/
-   mount/IPC namespaces, descriptor classes and exact owned cgroups. Tool and
-   descendant must share the tool namespace/cgroup; the runtime is distinct.
-   A trusted observation must also prove the descendant's setsid status and
-   C01–C08 outcomes. These fields are a collector contract, not proof that the
-   collector exists.
-5. Capture is single use, at most 500 ms old, and cannot update heartbeat time.
-   Stale, replayed, incomplete or changed-runtime observations fail. Missing or
-   invalid live evidence leaves `live_evidence_proven=false` even when cleanup
-   succeeds. Post-stop emptiness cannot stand in for the missing live snapshot.
+The independent source review of `5dcc216` found three P2 issues. All four supplied
+regressions now pass against the active source. The test copy changes only its
+source import location and removes its standalone writer to reviewer-owned
+files and normalizes the final blank line; test bodies and assertions remain unchanged.
 
-The future broker must independently service `tick()` and bound OS calls.
-Current deadline checks classify an overrun after the supplied boundary returns;
-they cannot preempt a hung external callback. No live backend is wired until
-that scheduling and cancellation behavior is implemented and tested.
+* **S1:** capture consumption is persisted before asking the guest for evidence.
+  A failed canary, malformed snapshot, timeout or persistence error revokes the
+  attempt. Recapture and heartbeat cannot restore it, including after reopen.
+  Successful cleanup remains a separate fact and never converts failed live
+  evidence into success.
+* **S2:** normal and abort Stop paths validate exact fields and boolean types.
+  Only explicit inactive/inactive/empty values prove termination. Null, numeric,
+  string, missing and extra fields quarantine. Valid remaining-process evidence
+  continues bounded observation. Transitional systemd states count as active,
+  while prepare separately waits for ready state.
+* **S3:** process inventory and VM identity validation precede directory creation.
+  Invalid input leaves the root absent and corrected construction succeeds.
+  Pre-existing roots still cannot be adopted implicitly.
 
-## F2: Stop has two responses
+Earlier F1–F3 remain enforced: inactive root preflight, prepared runtime controls,
+separate grant, single-use bound live snapshot without lease renewal; prompt
+`stopping` plus independent terminal proof within five seconds; root-proven
+working IPC listener and explicit tool denial. For asynchronous tool startup,
+the broker holds the same listener across grant and live capture, bounded to six
+seconds, and uses the shared denial predicate with successful root connections
+before and after. Refusal, timeout, removal or successful tool connection fails.
 
-Control commands use exact `{op, sequence, identity}` fields after prepare.
-Stop is sequence 21 and does not refresh the lease.
+## Bounds and trust
 
-* `stopping`: exact identity and sequence, after one nonblocking stop submission;
-  the guest acceptance operation has a 500 ms budget, the host acknowledgement
-  750 ms. This receipt proves request acceptance only.
-* `owned-attempt-empty`: the same identity and sequence, with measured stop
-  elapsed time and the separate live-evidence flag. Independent observation must
-  find both units inactive and every owned descendant cgroup empty within five
-  seconds from the original Stop request, including the two-second unit stop
-  and three-second observation budget.
+The fixed sequence remains prepare 0, grant 1, heartbeats 2–20 and Stop 21.
+Control frames are at most 4096 bytes including LF, pending bytes 8192, frames 64
+and aggregate bytes 262144 per direction. There is no resend. Stop acknowledgement
+has a 500 ms guest budget and 750 ms host deadline; terminal proof has five
+seconds, including stop and observation. The host watches for duplicate terminal
+proof until that deadline, then makes the channel terminal.
 
-The serial client expects exactly these two phases, including coalesced frames.
-It observes the channel until the terminal deadline to reject duplicate proof
-within that bounded session. A duplicate after that closed observation window
-cannot be ruled out; the channel is terminal and cannot send further commands.
-Missing, wrong, late, duplicate or truncated terminal evidence leaves the host
-quarantined/unknown. No resend or new grant follows. An acknowledged Stop alone
-never proves completion. A delayed two-second teardown is covered by a controller
-fixture; wire fixtures use shorter declared deadlines to exercise both phases.
+Preparation lease is four seconds; control idle is one second; runtime lease
+age is 1.5 seconds. Runtime/tool limits are 40/38 seconds, runtime watchdog two
+seconds, unit stop two seconds and the host session 45 seconds. The broker's
+selector ticks at 50 ms and its service has a 120-second cap. Command calls are
+bounded individually; aggregate callback overruns fail controller acceptance.
+Actual scheduler latency, filesystem stalls and command cancellation are unrun.
+A stalled kernel call is not claimed to be preempted by Python deadline checks.
 
-Ordinary framing remains 4096 bytes including LF, 8192 pending bytes, 64 control
-frames and 262144 aggregate bytes per direction. One request is in flight.
-Prepared lease is four seconds; control idle is one second; runtime deadline is
-40 seconds. The planned independent runtime watchdog, tool limit and host
-45-second session bound still need the unwired runtime/host adapters.
+Root observations, synthetic program reports, code provisioning and same-owner
+host state are trusted within the declared experiment. Reports are matched to
+unit invocation/PID/UID and checked against independently collected process facts.
+There is no cryptographic host/guest authentication or shared-host guarantee.
+No real provider, credential, host-secret or adversarial VM-escape claim is made.
 
-## F3: working listener before denial
+## Precise outstanding dependencies
 
-C06 requires a bounded successful trusted-root connection to the actual socket
-before the tool call and another after it, with unchanged device/inode/owner.
-The trusted broker must keep that listener open throughout the observation.
-Only explicit `EACCES`/`EPERM`, or deliberately hidden `ENOENT` with these root
-existence/identity controls, can pass. Refusal, timeout, missing endpoint,
-replacement, failed root connect and successful tool connect fail the canary.
-No command or payload is sent. Tests inject the tool result; they establish
-acceptance logic, not a real permission denial under Linux.
+[OUTSTANDING-INSPECTION.md](OUTSTANDING-INSPECTION.md) specifies the separate,
+currently unauthorized acquisition and read-only inspection step. Two categories
+cannot be resolved from the source and synthetic fixtures presently available:
 
-## Remaining source gates
+1. The pinned Ubuntu archive and public verifier inputs are absent. Actual member
+   names, archive layout, member hashes, kernel/initrd compatibility and filesystem
+   label cannot be bound. Signature verification and bounded verifier-module
+   extraction/loading require the actual authenticated artifacts. There is no
+   download or extraction fallback. A partitioned root would require a reviewed
+   decoder after the layout is observed, not invented offsets now.
+2. Three files in the already pinned UTM source tree were not cached:
+   `UTMConfiguration.swift`, `UTMConfigurationInfo.swift` and
+   `UTMRegistryEntry.swift`. Their Git blob IDs and sizes are known. Actual config
+   version/information encoding and registry entry/share/bookmark decoding must
+   be checked before implementing the final registry reader and accepting the
+   generated plist. The Mac adapter refuses a missing registry source.
 
-These are implementation gaps, not missing human approval for ordinary source
-work. They prevent calling this a complete execution revision:
+Synthetic schema version 4 and synthetic archive paths in tests are **test data**,
+not evidence about the real UTM or Ubuntu inputs. Actual UTM process/helper paths,
+PTY modes, registry/state files, cloud-init behavior and systemd property formatting
+remain later runtime observations. Unknown variants stop instead of falling back.
 
-* A root serial broker and Linux systemd/proc collector, fixed runtime barrier,
-  watchdog and tool/setsid-descendant programs are not wired. Current guest
-  observations are explicit test doubles. C01–C11 need real collected receipts,
-  including deny syscalls, root target identity, fd classification and cgroup
-  cleanup. The trusted collector must derive C06 from `prove_denial`, not from
-  an arbitrary success boolean.
-* The NoCloud preview cannot guarantee boot suppression of the image's existing
-  SSH/getty/update services. It contains no bootstrap or enabled broker and its
-  unit commands deliberately exit disabled. Final service masks, seed ownership,
-  offline nftables application, user/group setup, read-only seed attachment and
-  actual cloud-init module behavior need an inspected image and a later reviewed
-  seed revision. No ISO/config.plist is emitted now.
-* A Mac collector must correlate exact app signature/PID/start identity,
-  virtualization helper, VM UUID, exclusive PTY handles, actual post-registration
-  device topology, processes, mounts and app-state paths. TIOCEXCL alone cannot
-  detect old competing consumers. Real UTM PTY owner/mode remains unknown.
-* Lifecycle observations are trusted inputs, not fresh OS scans. The host adapter
-  must bound their age, prove all writers/handles/mounts gone and preserve unknown
-  state. Mutable files may change content/size, but inode/owner/type/mode changes,
-  new files, hard links or symlinks currently stop cleanup. App-bundle symlinks
-  and outside-root app state need separate exact ownership handlers. No TCC,
-  protected/shared metadata, broad kill or recursive deletion path exists.
-* The Ubuntu-only nine-input downloader/verifier adaptation, bounded archive
-  examiner, accepted-member extraction and UTM plist writer are not implemented
-  in this directory. The old Lima downloader is not invoked or repurposed.
-  The previous packet's pinned inputs, budgets and gate requirements still apply.
+## Lifecycle and execution limits
 
-## Facts requiring later authorized inspection or execution
+The collector and policy code are available for review; they have not read live
+UTM state. It rejects incomplete scans, wrong process start times, competing PTY
+readers and unknown UTM/VZ processes. Removal of registration and VM stop remain
+owner-operated facts; no Automation, Accessibility or UTM CLI control is added.
+Known lsof empty-result status is accepted only with empty stdout and stderr;
+partial/permission-failed scans are errors.
 
-The pinned Ubuntu archive is absent and uninspected. Exact member names, hashes,
-raw format/layout/label, ARM64 Image header, initrd compatibility and expanded
-sizes remain unknown. No alternate name/image/kernel is guessed. Public package
-versions in the earlier packet are metadata, not a verified boot filesystem.
-The earlier accepted UTM static assessment remains evidence of the app only.
+Exact temporary-tree cleanup is fixture-tested. It intentionally rejects app
+symlinks, unexpected mutable inodes, new files, protected/shared outside-root
+state and interrupted pre-existing roots. These conditions preserve evidence;
+they are not accepted cleanup. Actual signed-app symlink and Mac registry formats
+must inform any narrowly scoped follow-up cleanup adapter. No broad kill, rm-rf,
+TCC/FDA change or adoption by owner UID alone is implemented.
 
-Real NoCloud startup, systemd hardening, UID/namespace/fd/cgroup facts, serial
-identity/exclusivity, UTM device readback, the canary matrix, actual budgets and
-complete Mac cleanup are **unrun**. T07 and product/provider acceptance remain
-open. No real credential, host secret or provider confinement claim is made.
+No live adapter, download, mount, UTM/helper, VM, credential operation, security
+change, provider call, deployment or push ran. The planned host installation root
+remains absent. Independent source acceptance, actual-input binding, exact owner
+execution authority, live results and verified cleanup still block execution.
+T07 and product/provider acceptance remain open.
 
-A later exact owner execution request must bind the completed source revision,
-seal, independent review, authenticated inputs and remaining runtime gates.
-Downloads, UTM launch, provisioning/boot, account work, host security changes,
-provider cleanup and deployment were not authorized or performed in this slice.
+## Validation record
 
-## Validation and failure record
-
-The final suite and disabled-entry receipt are in `evidence/`; machine-readable
-results are in `validation.json`. The suite uses the existing `/usr/bin/python3`
-with `-I -B`, no installed package and no environment credential loading.
-
-Red logs preserve expected pre-implementation failures. The initial slice-08 red
-run included a test-edit mistake, then a corrected red run was recorded. The
-slice-14 red run also contains socket-peer cleanup errors after the absent API
-failed. Slice-15's first attempted green run was blocked by the sandbox's Unix
-socket policy; the narrowly approved run passed. Slice-17's first attempted green
-run rejected the fixture's `/var` symlink as designed; the test now supplies the
-canonical path of its own newly created temporary directory. These old failure
-logs remain evidence and are not represented as successful checks. Trailing
-whitespace in two failed-attempt logs was removed for Git hygiene; original
-digests and exact removed bytes are in `evidence/log-normalization.json`.
-
-Only this directory is staged. No original source, old sealed packet, provider
-state, repository visibility, remote, main branch or reviewer artifact changed.
+`validation.json` records exact suite counts and logs. R2 Python fixtures,
+including the four reviewer tests and extended failure matrix, are in
+`evidence/r2/full-suite.log`; verifier contract tests are separate. The existing
+Python and Node executables were used without installation or package hooks.
+The local Unix-socket fixture suite used the same narrowly scoped automatic
+approval as R1. Earlier logs remain unchanged except the already documented R1
+trailing-space normalization. R2 archive's first attempted green run exposed a
+one-byte fixture label-length mistake; the corrected fixture run is retained
+separately. No failed check is presented as a runtime pass.

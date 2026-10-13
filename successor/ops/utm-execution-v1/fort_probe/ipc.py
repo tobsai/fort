@@ -25,9 +25,16 @@ def prove_denial(path, tool_probe, hidden=False):
     before = _connect(path)
     result = tool_probe()
     after = _connect(path)
+    if time.monotonic() - started >= .5:
+        raise ValueError('IPC observation deadline exceeded')
+    accept_denial(before, after, result, hidden)
+    return {'passed': True, 'before': before, 'after': after, 'tool': result, 'deliberately_hidden': hidden}
+
+
+def accept_denial(before, after, result, hidden=False):
     allowed = (errno.EACCES, errno.EPERM, errno.ENOENT) if hidden else (errno.EACCES, errno.EPERM)
-    if (time.monotonic() - started >= .5 or before != after or not isinstance(result, dict)
+    if (set(before) != {'device','inode','uid','connected'} or before['connected'] is not True
+            or before != after or not isinstance(result, dict)
             or set(result) != {'connected', 'errno'} or result['connected'] is not False
             or type(result['errno']) is not int or result['errno'] not in allowed):
         raise ValueError('IPC permission denial not proven')
-    return {'passed': True, 'before': before, 'after': after, 'tool': result, 'deliberately_hidden': hidden}

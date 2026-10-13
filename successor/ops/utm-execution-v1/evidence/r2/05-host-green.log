@@ -1,0 +1,8 @@
+test_competing_reader_pid_reuse_network_or_unknown_scan_blocks (test_host.HostTests) ... ok
+test_exact_process_and_two_pty_owners_bind_then_fresh_absence_allows_cleanup (test_host.HostTests) ... ok
+test_process_parser_excludes_arguments_and_preserves_start_identity (test_host.HostTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK

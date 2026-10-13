@@ -1,0 +1,15 @@
+test_links_missing_members_or_wrong_digest_stop (test_archive.ArchiveTests) ... ok
+test_synthetic_raw_kernel_and_initrd_are_bound_without_writing_or_guessing_members (test_archive.ArchiveTests) ... ok
+test_abort_cannot_classify_unknown_facts_as_stopped_empty (test_review_regressions.ReviewRegressions) ... ok
+test_failed_live_canary_cannot_be_recaptured_into_success (test_review_regressions.ReviewRegressions) ... ok
+test_invalid_inventory_leaves_no_root_and_valid_retry_succeeds (test_review_regressions.ReviewRegressions) ... ok
+test_unknown_stop_facts_cannot_become_empty_tree_proof (test_review_regressions.ReviewRegressions) ... ok
+test_preexisting_directory_cannot_be_adopted_for_cleanup (test_lifecycle.LifecycleTests) ... ok
+test_reconcile_mutable_disk_only_after_all_writers_gone_then_delete_exact_tree (test_lifecycle.LifecycleTests) ... ok
+test_uncertain_writers_or_mounts_block_reconciliation_without_removal (test_lifecycle.LifecycleTests) ... ok
+test_unknown_link_or_immutable_content_change_preserves_every_file (test_lifecycle.LifecycleTests) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.042s
+
+OK

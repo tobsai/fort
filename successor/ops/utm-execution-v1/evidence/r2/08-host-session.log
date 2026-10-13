@@ -1,0 +1,9 @@
+test_host_driver_completes_one_grant_and_both_stop_phases_over_two_channels (test_host_session.DriverTests) ... ok
+test_live_construction_and_all_guest_roles_remain_disabled (test_linux_kernel.KernelParsingTests) ... ok
+test_process_collector_rejects_pid_reuse_extra_fd_and_capability (test_linux_kernel.KernelParsingTests) ... ok
+test_raw_unit_facts_accept_exact_policy_and_reject_weakened_or_missing_fields (test_linux_kernel.KernelParsingTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 5.023s
+
+OK

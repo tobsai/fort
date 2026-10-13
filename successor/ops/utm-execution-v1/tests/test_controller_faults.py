@@ -79,3 +79,12 @@ class FaultTests(unittest.TestCase):
                 with self.assertRaises(ValueError): controller.handle({'op': 'prepare', 'sequence': 0})
                 self.assertFalse(guest.tool_active)
                 with self.assertRaises(ValueError): controller.handle({'op': 'prepare', 'sequence': 0})
+
+    def test_changed_boot_cannot_clear_durable_consumed_attempt(self):
+        with tempfile.TemporaryDirectory(prefix='fort-utm-fixture-') as root:
+            with Controller(root,BINDING,GuestFixture(),Clock()) as controller:
+                controller.handle({'op':'prepare','sequence':0})
+            rebooted=GuestFixture();rebooted.boot_id='fedcba98-7654-3210-fedc-ba9876543210'
+            with Controller(root,BINDING,rebooted,Clock()) as controller:
+                with self.assertRaises(ValueError):controller.handle({'op':'prepare','sequence':0})
+                self.assertFalse(rebooted.runtime_active)
