@@ -1,0 +1,358 @@
+test_linux_keeps_all_five_setters_for_every_profile (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) ... test_revision_is_disabled_and_uses_a_distinct_proposed_root (test_macos_memory_policy.MacOSMemoryPolicyTests) ... FAIL
+test_sampled_rss_thresholds_are_unchanged (test_macos_memory_policy.MacOSMemoryPolicyTests) ... ok
+test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) ...
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='acquire')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='registry')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='verifier_archive')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='publisher')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='ubuntu_inventory')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+ERROR: test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits (test_macos_memory_policy.MacOSMemoryPolicyTests) (operation='ubuntu_selected')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 46, in test_macos_never_calls_aliased_rss_or_as_and_keeps_other_limits
+    self.apply(profile, 'darwin', resource)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 40, in apply
+    workers.child_limits(profile)
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/fort_probe/inspection_workers.py", line 55, in child_limits
+    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 26, in setrlimit
+    raise ValueError('current limit exceeds maximum limit')
+ValueError: current limit exceeds maximum limit
+
+======================================================================
+FAIL: test_revision_is_disabled_and_uses_a_distinct_proposed_root (test_macos_memory_policy.MacOSMemoryPolicyTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 74, in test_revision_is_disabled_and_uses_a_distinct_proposed_root
+    self.assertIs(INSPECTION_ENABLED, False)
+AssertionError: True is not False
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='acquire', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [20 chars]21)), (5, (268435456, 268435456)), (1, (805306368, 805306368))] != [(4, [20 chars]21)), (1, (805306368, 805306368))]
+
+First differing element 2:
+(5, (268435456, 268435456))
+(1, (805306368, 805306368))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (805306368, 805306368))
+
++ [(4, (0, 0)), (0, (120, 121)), (1, (805306368, 805306368))]
+- [(4, (0, 0)),
+-  (0, (120, 121)),
+-  (5, (268435456, 268435456)),
+-  (1, (805306368, 805306368))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='acquire', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [22 chars])), (5, (268435456, 268435456)), (1, (80530636[25 chars]64))] != [(4, [22 chars])), (1, (805306368, 805306368)), (8, (64, 64))]
+
+First differing element 2:
+(5, (268435456, 268435456))
+(1, (805306368, 805306368))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (120, 121)), (1, (805306368, 805306368)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (120, 121)),
+-  (5, (268435456, 268435456)),
+-  (1, (805306368, 805306368)),
+-  (8, (64, 64))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='registry', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, (0, 0)), (0, (80, 81)), (5, (1073741824, 1073741824)), (1, (0, 0))] != [(4, (0, 0)), (0, (80, 81)), (1, (0, 0))]
+
+First differing element 2:
+(5, (1073741824, 1073741824))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (0, 0))
+
+- [(4, (0, 0)), (0, (80, 81)), (5, (1073741824, 1073741824)), (1, (0, 0))]
++ [(4, (0, 0)), (0, (80, 81)), (1, (0, 0))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='registry', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [19 chars]1)), (5, (1073741824, 1073741824)), (1, (0, 0)), (8, (64, 64))] != [(4, [19 chars]1)), (1, (0, 0)), (8, (64, 64))]
+
+First differing element 2:
+(5, (1073741824, 1073741824))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (80, 81)), (1, (0, 0)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (80, 81)),
+-  (5, (1073741824, 1073741824)),
+-  (1, (0, 0)),
+-  (8, (64, 64))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='verifier_archive', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [16 chars], 26)), (5, (268435456, 268435456)), (1, (25165824, 25165824))] != [(4, [16 chars], 26)), (1, (25165824, 25165824))]
+
+First differing element 2:
+(5, (268435456, 268435456))
+(1, (25165824, 25165824))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (25165824, 25165824))
+
++ [(4, (0, 0)), (0, (25, 26)), (1, (25165824, 25165824))]
+- [(4, (0, 0)),
+-  (0, (25, 26)),
+-  (5, (268435456, 268435456)),
+-  (1, (25165824, 25165824))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='verifier_archive', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [20 chars])), (5, (268435456, 268435456)), (1, (25165824[23 chars]64))] != [(4, [20 chars])), (1, (25165824, 25165824)), (8, (64, 64))]
+
+First differing element 2:
+(5, (268435456, 268435456))
+(1, (25165824, 25165824))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (25, 26)), (1, (25165824, 25165824)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (25, 26)),
+-  (5, (268435456, 268435456)),
+-  (1, (25165824, 25165824)),
+-  (8, (64, 64))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='publisher', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, (0, 0)), (0, (80, 81)), (5, (1073741824, 1073741824)), (1, (0, 0))] != [(4, (0, 0)), (0, (80, 81)), (1, (0, 0))]
+
+First differing element 2:
+(5, (1073741824, 1073741824))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (0, 0))
+
+- [(4, (0, 0)), (0, (80, 81)), (5, (1073741824, 1073741824)), (1, (0, 0))]
++ [(4, (0, 0)), (0, (80, 81)), (1, (0, 0))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='publisher', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [19 chars]1)), (5, (1073741824, 1073741824)), (1, (0, 0)), (8, (64, 64))] != [(4, [19 chars]1)), (1, (0, 0)), (8, (64, 64))]
+
+First differing element 2:
+(5, (1073741824, 1073741824))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (80, 81)), (1, (0, 0)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (80, 81)),
+-  (5, (1073741824, 1073741824)),
+-  (1, (0, 0)),
+-  (8, (64, 64))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='ubuntu_inventory', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, (0, 0)), (0, (280, 281)), (5, (3221225472, 3221225472)), (1, (0, 0))] != [(4, (0, 0)), (0, (280, 281)), (1, (0, 0))]
+
+First differing element 2:
+(5, (3221225472, 3221225472))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (0, 0))
+
+- [(4, (0, 0)), (0, (280, 281)), (5, (3221225472, 3221225472)), (1, (0, 0))]
++ [(4, (0, 0)), (0, (280, 281)), (1, (0, 0))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='ubuntu_inventory', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [21 chars]1)), (5, (3221225472, 3221225472)), (1, (0, 0)), (8, (64, 64))] != [(4, [21 chars]1)), (1, (0, 0)), (8, (64, 64))]
+
+First differing element 2:
+(5, (3221225472, 3221225472))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (280, 281)), (1, (0, 0)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (280, 281)),
+-  (5, (3221225472, 3221225472)),
+-  (1, (0, 0)),
+-  (8, (64, 64))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='ubuntu_selected', limit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, (0, 0)), (0, (280, 281)), (5, (3221225472, 3221225472)), (1, (0, 0))] != [(4, (0, 0)), (0, (280, 281)), (1, (0, 0))]
+
+First differing element 2:
+(5, (3221225472, 3221225472))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 3:
+(1, (0, 0))
+
+- [(4, (0, 0)), (0, (280, 281)), (5, (3221225472, 3221225472)), (1, (0, 0))]
++ [(4, (0, 0)), (0, (280, 281)), (1, (0, 0))]
+
+======================================================================
+FAIL: test_setup_failures_propagate_without_fallback_or_later_calls (test_macos_memory_policy.MacOSMemoryPolicyTests) (platform='darwin', operation='ubuntu_selected', limit=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/fort-core-openmaus-20261011/successor/ops/utm-execution-v1/tests/test_macos_memory_policy.py", line 65, in test_setup_failures_propagate_without_fallback_or_later_calls
+    self.assertEqual(resource.calls, calls[:index + 1])
+AssertionError: Lists differ: [(4, [21 chars]1)), (5, (3221225472, 3221225472)), (1, (0, 0)), (8, (64, 64))] != [(4, [21 chars]1)), (1, (0, 0)), (8, (64, 64))]
+
+First differing element 2:
+(5, (3221225472, 3221225472))
+(1, (0, 0))
+
+First list contains 1 additional elements.
+First extra element 4:
+(8, (64, 64))
+
++ [(4, (0, 0)), (0, (280, 281)), (1, (0, 0)), (8, (64, 64))]
+- [(4, (0, 0)),
+-  (0, (280, 281)),
+-  (5, (3221225472, 3221225472)),
+-  (1, (0, 0)),
+-  (8, (64, 64))]
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.004s
+
+FAILED (failures=13, errors=6)

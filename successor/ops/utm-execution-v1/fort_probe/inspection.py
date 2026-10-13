@@ -9,7 +9,7 @@ from .config import validate_image
 from .inspection_guard import require_inspection
 from .inspection_workers import Worker
 
-ROOT=Path('/Users/tobiasgunn/Library/Application Support/FortUTMIsolation')
+ROOT=Path('/Users/tobiasgunn/Library/Application Support/FortUTMInputInspectionR7')
 
 
 class Inspector:

@@ -1,22 +1,22 @@
-# Prepared bounded input-inspection activation
+# Disabled R7 bounded input inspection
 
-R5 disabled source is accepted. R6 prepares Python and Node inspection gates as
-literal true for separate activation review. No acquisition or downloaded-code
-execution is approved or performed. Guest execution remains separately false.
-Do not invoke either prepared entrypoint before exact owner approval of its seal.
+R7 is source-only preparation of the macOS memory-policy correction. Both Python
+and Node inspection gates are false, as is guest execution. R6's consumed attempt
+is historical; no authority or state is reused. See APPROVAL.md for the changed
+control, distinct future root and later review/validation/owner gates.
 
 ## Fixed operation
 
-The prepared `inspect-inputs.py` requires the exact accepted activation seal
-SHA-256 as its argument. Running it can create the root and start acquisition;
-it is intentionally unrun in this revision. Source preparation is not authority.
+The disabled `inspect-inputs.py` exits 78 before creating state. A later reviewed
+activation requires the exact accepted seal SHA-256 as its argument. Source
+preparation is not authority; neither gate may be silently enabled.
 `source_identity.py` checks the entire source/reference closure
 before creating state and again before each worker; guest execution must remain
 disabled. There is no environment override, automatic retry or implicit recovery.
 Changing inspection authority never enables UTM or guest execution.
 
 The operation creates the previously absent private root:
-`/Users/tobiasgunn/Library/Application Support/FortUTMIsolation`.
+`/Users/tobiasgunn/Library/Application Support/FortUTMInputInspectionR7`.
 Inputs are under `downloads/`; the checked verifier closure is under `verifier/`;
 receipts and the selection manifest remain inside that root. Existing roots are
 refused. Python creation and archive/member IO retain and recheck every ancestor
@@ -90,18 +90,26 @@ recorded handoff must bind observed members and retained ownership before reuse.
 | Ubuntu inventory or selected-member inspection | 300 s each | 280/281 | 3 GiB | 0 |
 
 All workers have a 64 KiB combined stdout/stderr cap, 64-descriptor limit and
-zero core-file allowance. Node has a 256 MiB JS heap cap. The supervisor tracks
+zero core-file allowance. Node limits V8 old space to 256 MiB; this does not bound its total heap, native
+allocations, Buffer/ArrayBuffer memory or process RSS. The supervisor tracks
 ordered fixed-input progress independently: late, skipped, duplicated or missing
 progress cannot extend the 600-second input deadline, including when DNS/read
 blocks inside the worker. Socket operations also use the remaining deadline,
 capped at 30 seconds. The controller checks an 1800-second staging deadline.
 
 RSS checks request 100 ms spacing, with each `ps` observation bounded to 250 ms.
-This is a sampled stop threshold with possible overshoot and OS scheduling delay,
-not a macOS RSS quota. The local Darwin manual describes `RLIMIT_RSS` as a
-memory-pressure hint. That hint plus CPU/file limits is set in the child before
-its entrypoint; unsupported setup fails before work. No virtual-address-space
-limit is claimed. Actual OS enforcement remains unrun. The supervisor continues RSS and input/stage-deadline checks even after both
+Loop, scheduling and termination delays are additional. Startup/reaction gaps
+permit overshoot with no proven byte bound; the monitor is not a hard process-memory
+ceiling. If the parent is starved, stopped or fails, its active memory control is
+lost. A fast allocation can pressure the host before the parent reacts.
+
+On macOS only, no child RSS/AS setter is called: the SDK aliases these resource
+identifiers and the real 256 MiB call failed. No inherited limit is raised or set
+to infinity. Core, CPU, file and descriptor setters remain unchanged and any error
+still stops launch. Linux and other non-Darwin paths retain the RSS setter. No hard
+memory or replacement address-space limit is claimed. Corrected live workers and
+actual file/descriptor setup remain unrun; later network-free validation is required.
+The supervisor continues RSS and input/stage-deadline checks even after both
 pipes close or a terminal result arrives. Exit observations use at most 50 ms
 slices and leave the child unreaped. It retains that child as the process-group
 identity anchor, cancels the group on every exit, then waits at most one additional
@@ -138,7 +146,8 @@ helper against a temporary FIFO. Real module contents, cryptography, archive for
 remain future evidence. Retain exact unsupported results rather than changing
 pins, adding a decoder/dependency, broadening permissions or retrying silently.
 
-Next gates: independent acceptance of this activation source/seal; exact owner authority
+Next gates: independent acceptance of this disabled source/seal; preparation/review
+of a fixed activation identity and network-free smoke command; exact owner authority
 for the eight-input acquisition and bounded authenticated verifier execution;
 a recorded activation revision with guest gates still false; actual receipts,
 negative controls and archive/member evidence. UTM/VM execution, live registry

@@ -36,7 +36,7 @@ class InspectionTests(unittest.TestCase):
                 self.assertEqual(boundary.calls,stages[:index+1]);self.assertTrue((root/'inspection-failure.json').exists())
                 self.assertFalse((root/'inspection-complete.json').exists())
     def test_worker_plan_has_process_limits_and_node_has_no_effect_permissions(self):
-        with self.assertRaisesRegex(ValueError,'exact accepted source seal'):Worker()
+        with self.assertRaisesRegex(RuntimeError,'input inspection disabled'):Worker()
         for operation in PROFILES:
             command=worker_command(operation,Path('/fixture'),selection_sha256='a'*64,names={'raw':'r','kernel':'k','initrd':'i'})
             self.assertTrue(command[0].startswith('/'))

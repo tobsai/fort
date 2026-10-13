@@ -1,0 +1,192 @@
+{
+  "accepted_disabled_source": {
+    "commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
+    "independently_accepted": true,
+    "seal_sha256": "a77c433f047412ded2245daf648a518f044f05b8e97604618d04b18aa51c89bb"
+  },
+  "activation_candidate_ready_for_review": true,
+  "activation_entrypoints_invoked": false,
+  "actual_inputs_acquired": false,
+  "approval_details": {
+    "bytes": 9382,
+    "path": "APPROVAL.md",
+    "sha256": "7dc71d979d7624f4cfbe532c12d831f4694b02494a2babc360363814f2d662d7"
+  },
+  "approval_request_ready_to_send": false,
+  "authority_snapshot": "owner approval not present at preparation time; any future authority must separately name this immutable activation commit/seal",
+  "base_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
+  "base_packet_seal_sha256": "c3c897a1bfe4ac47e3b061b181b5faa30bdf49ac302c9e455f97ac76b1a6c2d4",
+  "boot_configuration_readback_complete": true,
+  "bounded_acquisition_source_present": true,
+  "canonical_uuid_binding_present": true,
+  "complete_execution_source_gate_passed": false,
+  "downloaded_code_executed": false,
+  "execution_authorized": false,
+  "file_type_checked_without_fifo_blocking": true,
+  "findings_implemented": {
+    "F1": "inactive preflight, prepared runtime, separate grant and single-use bound live capture without lease renewal",
+    "F2": "prompt stopping acknowledgement, distinct empty-tree terminal proof, bounded duplicate observation and no resend",
+    "F3": "actual local listener positive controls before/after; explicit access-denial predicate; different-UID denial unrun"
+  },
+  "fixture_bindings_are_synthetic": true,
+  "fixture_packet_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "host_read_only_prerequisites_recorded": true,
+  "independently_reviewed": false,
+  "input_inspection_authorized": false,
+  "input_inspection_enabled": true,
+  "input_inspection_source_present": true,
+  "input_inventory": "../utm-synthetic-packet-v1/inputs.json",
+  "input_inventory_changed": false,
+  "live_adapter_present": true,
+  "live_adapters_invoked": false,
+  "live_registry_capture_present": false,
+  "only_new_tree": "successor/ops/utm-execution-v1/",
+  "operation": {
+    "bytes": 7144,
+    "path": "activation-operation.json",
+    "sha256": "5e2c023a71b7380782ce56b350f3df7168c735f743394e58c5f0c48efe92a847"
+  },
+  "pinned_utm_source_verified": true,
+  "prestart_file_identity_gate_present": true,
+  "ready_for_execution": false,
+  "real_binding_must_use_later_complete_packet_seal": true,
+  "registry_raw_parser_present": true,
+  "remaining_gates": [
+    "independent review and acceptance of the exact R6 activation commit and new seal",
+    "explicit owner authority for one consumed eight-input acquisition/authentication/inventory attempt, including the checked OpenPGP import and narrow host/network execution allowance",
+    "fresh recheck of changing host/tool/capacity prerequisites before the approved run; actual TLS, permissions, resource limits, signatures, negative controls and archive compatibility must succeed without fallback",
+    "later exact observed-member/kernel/initrd/label binding and retained-input ownership handoff; seed ISO identity remains absent",
+    "later fresh UTM registry/bookmark capture, app/helper/PTY attribution, owned cleanup and separate attended runtime authority before UTM/VM execution",
+    "real confinement, timing, Stop/quiescence, T07 and installed-product/provider acceptance"
+  ],
+  "retained_directory_ancestry_checked": true,
+  "review": {
+    "bytes": 9893,
+    "findings": [
+      "F1",
+      "F2",
+      "F3"
+    ],
+    "new_source_acceptance": "pending",
+    "path": "../../../reviews/utm-packet-cfea28a/REVIEW.md",
+    "reviewer_owned_untracked_file": true,
+    "sha256": "f1e75fec349858b426dd18e0c5fc840f7458f3666f70b8a1d015c34b28b1b9fc"
+  },
+  "revision_id": "utm-input-inspection-activation-r6",
+  "schema": 1,
+  "scope": "read-only host/tool/capacity prerequisites and prepared Python/Node input-inspection activation source; no activation entrypoint, actual download, downloaded module, live worker/adapter, resource-limit setup, installation, mount, UTM/VM, credential, security-setting or provider operation",
+  "source_review": {
+    "base_verdict": "accepted disabled source; zero findings",
+    "independent_acceptance_of_activation_r6": "pending",
+    "next_action": {
+      "bytes": 6322,
+      "path": "../../../reviews/utm-source-56916fa/next-action.md",
+      "sha256": "30109448e2e822a423e6c3a9179c3bbd33065ede0b90dbf39258f242894173b4"
+    },
+    "next_operation": {
+      "bytes": 5765,
+      "path": "../../../reviews/utm-source-56916fa/next-operation.json",
+      "sha256": "9adb573d8b52cdf8c2f088f5fa64ce27499d3e8934b52f72ddad5803b6c953df"
+    },
+    "review": {
+      "bytes": 9432,
+      "path": "../../../reviews/utm-source-56916fa/REVIEW.md",
+      "sha256": "4e9dfe0e06f0b3d6a1ef6b743a35a2bfe3253ba680621dd3ad6a17335eea24b7"
+    }
+  },
+  "source_review_fixed_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
+  "source_review_history": [
+    {
+      "findings_fixed": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "independent_acceptance_of_r2": "pending",
+      "regressions": {
+        "bytes": 6316,
+        "path": "../../../reviews/utm-source-5dcc216/reviewer_regressions.py",
+        "sha256": "bfe937f107f7c6561beadcdc648122e601029cb81adea342b9539870e20e1ea9"
+      },
+      "review": {
+        "bytes": 9609,
+        "path": "../../../reviews/utm-source-5dcc216/REVIEW.md",
+        "sha256": "956ea77448e5b96dabdbf90d8189dc4d5390ec11896b585eaed874fec137d570"
+      },
+      "test_adaptation": "source path redirected; standalone writer removed; final blank line normalized; test bodies/assertions unchanged"
+    },
+    {
+      "findings_fixed": [
+        "STD-1",
+        "STD-2",
+        "STD-3",
+        "SPEC-1",
+        "SPEC-2"
+      ],
+      "independent_acceptance_of_r3": "R3 review closes all five R2 findings; two new readback defects prevent overall acceptance",
+      "regressions": {
+        "bytes": 7296,
+        "path": "../../../reviews/utm-source-ca29ad4/reviewer_regressions.py",
+        "sha256": "99adebfc0a3da34c8bd893d362b02fbaf6335c6c287b136dfd6359d5db7999f2"
+      },
+      "review": {
+        "bytes": 13079,
+        "path": "../../../reviews/utm-source-ca29ad4/REVIEW.md",
+        "sha256": "c2969db4ec14b1dbc9ae326d3c95195ae2fe6efa0a255a66b1b9c6185c8ad179"
+      },
+      "test_adaptation": "source/import locations redirected; standalone reviewer writer removed; test bodies and frozen missing-C05 Linux fixture unchanged"
+    },
+    {
+      "findings_fixed": [
+        "STD-1",
+        "STD-2",
+        "SPEC-1"
+      ],
+      "independent_acceptance_of_r4": "R4 review closes both R3 defects; four adjacent lifecycle/filesystem findings prevent overall acceptance",
+      "overlap": "STD-1 and SPEC-1 describe the same incomplete boot-input readback",
+      "regressions": {
+        "bytes": 4627,
+        "path": "../../../reviews/utm-source-d965abb/reviewer_regressions.py",
+        "sha256": "d7dac10ef3f2e7fa9cf36052800083d721751d30347aaa0bbcb27698cbe61b95"
+      },
+      "review": {
+        "bytes": 14532,
+        "path": "../../../reviews/utm-source-d965abb/REVIEW.md",
+        "sha256": "00ca57801327bfe89706a8b9de46952322a92172797c0b8841e25b27236344d1"
+      },
+      "test_adaptation": "source/import location redirected; standalone writer removed; all function/class ASTs unchanged",
+      "unique_defects_fixed": 2
+    },
+    {
+      "findings_fixed": [
+        "STD-1",
+        "STD-2",
+        "SPEC-1",
+        "SPEC-2"
+      ],
+      "independent_acceptance_of_r5": "accepted by R5 independent review; all four R4 findings closed",
+      "regressions": {
+        "bytes": 9368,
+        "path": "../../../reviews/utm-source-d379e6f/reviewer_regressions.py",
+        "sha256": "446d9633a80c2cb03b73980be448e4da623282e4330a90ed767424e220969c4d"
+      },
+      "review": {
+        "bytes": 13292,
+        "path": "../../../reviews/utm-source-d379e6f/REVIEW.md",
+        "sha256": "5a488a89264c85dd7b1f4cdb42d74f63ff809f74e55d87731c010f6a44edd361"
+      },
+      "test_adaptation": "source/import location redirected; standalone writer removed; all function/class ASTs unchanged",
+      "unique_defects_fixed": 4
+    }
+  ],
+  "utm_schema_bound": true,
+  "utm_source_provenance": {
+    "bytes": 1966,
+    "path": "evidence/r3/source-provenance.json",
+    "sha256": "d1d8c6db621e06cb0fa0e7409129f382f8d02cdeb269ee688d721ee88efa5696"
+  },
+  "verifier_contract_only": true,
+  "vm_renderer_actual_inputs_bound": false,
+  "vm_renderer_present": true,
+  "worker_supervision_continues_after_pipe_eof": true
+}

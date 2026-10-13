@@ -1,0 +1,116 @@
+{
+  "recorded_at_utc": "2026-10-13T20:15:55.475440+00:00",
+  "status": "diagnostic-completed; RSS setter failure reproduced",
+  "diagnostic_sha256": "756eae914fa5ee1940bb52d6b1d02ca29c9f32a1eabb5406b01071c1857b7a2b",
+  "events": [
+    {
+      "event": "before",
+      "limit": "RLIMIT_CORE",
+      "observed": [
+        0,
+        9223372036854775807
+      ],
+      "requested": [
+        0,
+        0
+      ]
+    },
+    {
+      "event": "applied",
+      "limit": "RLIMIT_CORE",
+      "observed": [
+        0,
+        0
+      ]
+    },
+    {
+      "event": "before",
+      "limit": "RLIMIT_CPU",
+      "observed": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "requested": [
+        120,
+        121
+      ]
+    },
+    {
+      "event": "applied",
+      "limit": "RLIMIT_CPU",
+      "observed": [
+        120,
+        121
+      ]
+    },
+    {
+      "event": "before",
+      "limit": "RLIMIT_RSS",
+      "observed": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "requested": [
+        268435456,
+        268435456
+      ]
+    },
+    {
+      "detail": "current limit exceeds maximum limit",
+      "errno": null,
+      "error_class": "ValueError",
+      "event": "failed",
+      "limit": "RLIMIT_RSS"
+    },
+    {
+      "event": "child_reaped",
+      "parent_limits_unchanged": true,
+      "pid": 25070,
+      "wait_status": 256
+    }
+  ],
+  "diagnostic_exit_code": 1,
+  "child_exit_code": 1,
+  "child_reaped": true,
+  "child_absence": {
+    "pid": 25070,
+    "ps_exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "parent_limits_unchanged": true,
+  "resource_errno_observed": null,
+  "resource_errno_inferred": false,
+  "runtime_constants": {
+    "RLIMIT_RSS": 5,
+    "RLIMIT_AS": 5
+  },
+  "local_sdk_header": {
+    "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/resource.h",
+    "sha256": "1067178025c5fd88c9a1b8206a07c2695ef94dd471fe2783f06c512995382961",
+    "relevant_lines": [
+      {
+        "line": 451,
+        "text": "#define RLIMIT_AS       5               /* address space (resident set size) */"
+      },
+      {
+        "line": 453,
+        "text": "#define RLIMIT_RSS      RLIMIT_AS       /* source compatibility alias */"
+      }
+    ]
+  },
+  "sealed_execution_source": {
+    "execution_enabled": false,
+    "files": 251,
+    "input_inspection_authorized": false,
+    "input_inspection_enabled": true,
+    "references": 14,
+    "seal_sha256": "fd4c3110c319a1097d7bc419a7bd692be3d8f50b64d946a696076421b3f3b88b",
+    "status": "passed"
+  },
+  "worker_source_changed": false,
+  "consumed_state_accessed": false,
+  "new_acquisition_attempt": false,
+  "diagnostic_retried": false,
+  "new_commits": []
+}

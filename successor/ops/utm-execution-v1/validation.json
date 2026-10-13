@@ -1,244 +1,139 @@
 {
-  "accepted_runtime_delta": {
-    "base_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
-    "changed_paths": [
-      "fort_probe/inspection_guard.py",
-      "inspect-inputs.py",
-      "inspection-verifier.mjs"
-    ],
-    "only_two_gate_values_and_explanatory_comments_changed": true,
-    "unchanged_paths": [
-      "fort_probe/__init__.py",
-      "fort_probe/__main__.py",
-      "fort_probe/acquisition.py",
-      "fort_probe/archive.py",
-      "fort_probe/boot.py",
-      "fort_probe/bounded.py",
-      "fort_probe/broker.py",
-      "fort_probe/config.py",
-      "fort_probe/controller.py",
-      "fort_probe/descriptors.py",
-      "fort_probe/evidence.py",
-      "fort_probe/guest_entry.py",
-      "fort_probe/guest_programs.py",
-      "fort_probe/host.py",
-      "fort_probe/host_session.py",
-      "fort_probe/inspection.py",
-      "fort_probe/inspection_archive.py",
-      "fort_probe/inspection_worker.py",
-      "fort_probe/inspection_workers.py",
-      "fort_probe/ipc.py",
-      "fort_probe/lifecycle.py",
-      "fort_probe/linux.py",
-      "fort_probe/linux_kernel.py",
-      "fort_probe/pty.py",
-      "fort_probe/seed.py",
-      "fort_probe/serial.py",
-      "fort_probe/source_identity.py",
-      "fort_probe/utm_schema.py",
-      "verify-inputs.mjs"
-    ]
+  "approval_draft": {
+    "bytes": 10146,
+    "path": "APPROVAL.md",
+    "sha256": "889e4b573b2faed07b79f00e7fc3a1f809aa9bf8c7fcbe3bf20b8aad74c9bf80"
   },
-  "activation_entrypoints_invoked": false,
-  "activation_fixture_expectations": {
-    "green_logs": [
+  "base_commit": "7ef4215c7b850fc27918b71cc9b562301d305dd1",
+  "consumed_r6_root_accessed": false,
+  "full_python_suite": {
+    "command": "/usr/bin/python3 -I -B tests/run.py",
+    "evidence": {
+      "bytes": 14747,
+      "path": "evidence/r7/full-suite.log",
+      "sha256": "7435c567e475f507f220cc5e49cbe35e51d60d4aa7b0cf6054697b125d7ccc85"
+    },
+    "initial_restricted_run": {
+      "evidence": {
+        "bytes": 19581,
+        "path": "evidence/r7/full-suite-restricted.log",
+        "sha256": "fcf6a8da52799bf36931d3514017ad262c8adf85a60ee695d754403a48712c05"
+      },
+      "outcome": "two Unix-domain socket methods failed in nine subcases because sandbox denied bind; remainder passed"
+    },
+    "passed": 138,
+    "permission_note": "Full safe fixture suite rerun with temporary Unix-domain socket permission; no actual supervised worker/network request/VM."
+  },
+  "guest_execution_enabled": false,
+  "input_inspection_authorized": false,
+  "input_inspection_enabled": false,
+  "new_live_smoke_command_prepared": false,
+  "new_tdd": {
+    "display_normalization": {
+      "bytes": 348,
+      "path": "evidence/r7/red-log-normalization.json",
+      "sha256": "83fd0fb02e8404c3abb49903dc1b83ba107cc5056fe5212809e55c7feeb696cc"
+    },
+    "exact_raw_output": {
+      "bytes": 21659,
+      "path": "evidence/r7/memory-policy-red.raw.json",
+      "sha256": "458f664e7d265448f1ea5cedbde5dc7493ffb5f94169c86e85527fcb4be287f7"
+    },
+    "green": {
+      "bytes": 1697,
+      "path": "evidence/r7/memory-policy-green.log",
+      "sha256": "dfc5c190b4a202b7b6e03838d01ddf1284681e8d80cafffddfb3c9729562fca4"
+    },
+    "platforms": [
+      "darwin fixture",
+      "linux fixture"
+    ],
+    "profiles": 6,
+    "red": {
+      "bytes": 21196,
+      "path": "evidence/r7/memory-policy-red.log",
+      "sha256": "f171f0dd4b6aa889388444b43968653ba7f8f39dfaf17297de861289d8bcb2ab"
+    },
+    "regression_methods": 5,
+    "targeted_green_methods": 14
+  },
+  "next_gates": [
+    "independent review of this disabled fixed commit/seal",
+    "prepare/review exact activation and network-free smoke command identities",
+    "owner approval of changed control and one new bounded operation",
+    "later validation before acquisition; no automatic retry"
+  ],
+  "node_fixtures": {
+    "evidence": [
       {
-        "bytes": 777,
-        "path": "evidence/r6/activation-python-green.log",
-        "sha256": "f6e9692ad6a7fe6641130ec3585814a193fbbcfd16e43c4080799bdffb1d1e08"
+        "bytes": 92,
+        "path": "evidence/r7/test_verifier.log",
+        "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
       },
       {
         "bytes": 101,
-        "path": "evidence/r6/activation-node-green.log",
+        "path": "evidence/r7/test_inspection_verifier.log",
         "sha256": "2d6830d3dbb98d6dd43b4f7d0325e298bc99d2a241bf8bae49c88986083f2b24"
       }
     ],
-    "node_imported_helper_observes_prepared_gate_without_running_cli": true,
-    "python_missing_exact_seal_rejects_before_commands_construction": true,
-    "red_logs": [
-      {
-        "bytes": 1319,
-        "path": "evidence/r6/activation-python-red.log",
-        "sha256": "1b17ae520bc79e4a8dbc02740ba5711ee157f70c5089fb99680043c6501ba6e7"
-      },
-      {
-        "bytes": 639,
-        "path": "evidence/r6/activation-node-red.log",
-        "sha256": "8d5fb750a73bf322c79a9ed6e6a00f940ab21eef735e0368f228b2122e27dca6"
-      }
-    ]
+    "passed": 12
   },
-  "activation_gates_prepared_true": true,
-  "actual_inputs_acquired": false,
-  "complete_tool_shared_library_closure": false,
-  "downloaded_code_executed": false,
-  "guest_entrypoint": {
-    "command": [
-      "/usr/bin/python3",
-      "-I",
-      "-B",
-      "fort_probe/__main__.py"
-    ],
-    "exit_code": 78,
-    "log": {
-      "bytes": 183,
-      "path": "evidence/r6/guest-disabled-entry.log",
-      "sha256": "66066dadabcc0000a2d7a1200927397d29ca3541e4bc78824d3f84269dd99023"
-    }
+  "proposed_root_created": false,
+  "proposed_root_observation": {
+    "bytes": 223,
+    "path": "evidence/r7/proposed-root-observation.json",
+    "sha256": "1b32349cb26020980e519af3a237ba21a0411b68ff15a2d1e373942141b7bfde"
   },
-  "guest_gate_false": true,
-  "host_prerequisites": {
-    "capacity": {
-      "aggregate_on_wire_transfer_quota": false,
-      "capacity_reserved": false,
-      "checked_verifier_expansion_bytes": 25165824,
-      "conservative_receipts_markers_budget_bytes": 524288,
-      "disk_available_observed_bytes": 733184000000,
-      "disk_headroom_after_logical_budget_bytes": 732344156160,
-      "filesystem_metadata_allocation_rounding_additional": true,
-      "fixed_extra_reserve_requirement": null,
-      "free_pages_bytes": 2644312064,
-      "inactive_pages_bytes": 25759186944,
-      "max_https_requests": 40,
-      "memory_pressure_free_percentage": 81,
-      "payload_probe_limit": "up to one extra byte read per attempted input to detect oversize; never retained; operation stops on first failed input",
-      "physical_memory_bytes": 68719476736,
-      "retained_download_bytes": 814088192,
-      "retained_logical_file_budget_bytes": 839843840,
-      "sampled_max_worker_rss_bytes": 3221225472,
-      "selection_manifest_bytes": 65536,
-      "speculative_pages_bytes": 641548288
-    },
-    "initial_failures": "restricted-sandbox ps/sysctl/parent-write-access denied; arbitrary-parent diskutil query unsupported; narrow read-only supplement and actual-volume query succeeded",
-    "prerequisites_need_fresh_recheck_before_run": true,
-    "records": [
+  "retained_r6_state_modified": false,
+  "review_and_diagnostic_provenance": {
+    "bytes": 709,
+    "path": "evidence/r7/provenance.json",
+    "sha256": "45cd7caa443e73f63361c91364dc3ef8614100c406698ef5cbdfaac6df2c5df2"
+  },
+  "revision_id": "utm-input-inspection-disabled-r7",
+  "schema": 2,
+  "scope": "source-only macOS correction, existing fixture suite, disabled-entrypoint checks and static verification; no corrected live worker or real limit application",
+  "static_evidence": {
+    "bytes": 517,
+    "path": "evidence/r7/static-checks.json",
+    "sha256": "9e8ddf8543e8e9798e65c093229c29ad7a82ded04912365393c9891c2e35119a"
+  },
+  "syntax_and_disabled_entries": {
+    "corrected_live_workers_started": false,
+    "disabled_entrypoints": [
       {
-        "bytes": 8366,
-        "path": "evidence/r6/host-prerequisites.json",
-        "sha256": "728a1dc5cf208b73888b788dbe366d6321222171292db4f055e10295a897be2d"
+        "entrypoint": "python-inspection",
+        "exit_code": 78
       },
       {
-        "bytes": 4906,
-        "path": "evidence/r6/host-prerequisites-supplement.json",
-        "sha256": "67f29b89a928b4732d2f99ce34f58eacc39a9bc4ece204c2b1ea6cfa611034d4"
+        "entrypoint": "node-inspection",
+        "exit_code": 78
       },
       {
-        "bytes": 655,
-        "path": "evidence/r6/host-filesystem.json",
-        "sha256": "8221afabc9e5634b5cdbfb78ae08255009011429c9cb5f40fa49bb7ca3171648"
+        "entrypoint": "guest",
+        "exit_code": 78
       }
     ],
-    "scope": "safe read-only observations only; no write probe or resource-limit setting",
-    "status": "passed within recorded observation boundary; actual enforcement unrun"
-  },
-  "input_inspection_authorized": false,
-  "javascript_contracts": {
-    "actual_cryptography_executed": false,
-    "downloaded_module_imported": false,
-    "failed": 0,
-    "passed": 12,
-    "runs": [
-      {
-        "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_verifier.mjs",
-        "log": {
-          "bytes": 92,
-          "path": "evidence/r6/verifier-fixtures.log",
-          "sha256": "4abc70354ce430516dfd6fff7c63a476e7a6eddee2ea1c231b23a2496834f89f"
-        },
-        "passed": 6
-      },
-      {
-        "command": "/usr/bin/env -i PATH=/usr/bin:/bin /opt/homebrew/opt/node@26/bin/node tests/test_inspection_verifier.mjs",
-        "log": {
-          "bytes": 101,
-          "path": "evidence/r6/inspection-verifier-fixtures.log",
-          "sha256": "2d6830d3dbb98d6dd43b4f7d0325e298bc99d2a241bf8bae49c88986083f2b24"
-        },
-        "passed": 6
-      }
-    ]
-  },
-  "live_adapters_invoked": false,
-  "network_requests": 0,
-  "production_host_root_absent": true,
-  "python_suite": {
-    "command": "/usr/bin/python3 -I -B tests/run.py",
-    "failed": 0,
-    "log": {
-      "bytes": 14182,
-      "path": "evidence/r6/full-suite.log",
-      "sha256": "79205a952db601858ecb2544c22cbb0e99628a0f1a4237de8bbe85c1e870a913"
-    },
-    "passed": 133
-  },
-  "real_runtime_acceptance": false,
-  "recorded_at_utc": "2026-10-13T17:47:36.506280+00:00",
-  "resource_limits_or_security_settings_changed": false,
-  "reviewer_regressions": {
-    "R1_passed": 4,
-    "R2_passed": 5,
-    "R3_passed": 3,
-    "R4_passed": 4,
-    "frozen_missing_C05_fixture_unchanged": true,
-    "function_and_class_asts_unchanged": true,
-    "included_in_python_total": true
-  },
-  "sandbox_approval": "narrow read-only host queries and existing synthetic temporary Unix-socket/FIFO fixture allowance only; no activation allowance requested or used",
-  "schema": 6,
-  "static_verification": {
-    "bytes": 6974,
-    "path": "evidence/r6/static-verification.json",
-    "sha256": "2ac3ffe1c2aa096a42b79587fafad41e40f689145cbdde8389eae65bf813040b"
-  },
-  "supervisor_workers_launched": false,
-  "syntax": {
-    "javascript_node_check": [
-      "verify-inputs.mjs",
+    "node_syntax_files": [
       "inspection-verifier.mjs",
+      "tests/test_inspection_verifier.mjs",
       "tests/test_verifier.mjs",
-      "tests/test_inspection_verifier.mjs"
+      "verify-inputs.mjs"
     ],
-    "passed": true,
-    "python_ast_parse_files": 68
+    "python_ast_files": 69,
+    "real_resource_limits_applied": false
   },
-  "tools": {
-    "node": {
-      "bytes": 68032,
-      "path": "/opt/homebrew/opt/node@26/bin/node",
-      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
-    },
-    "python": {
-      "bytes": 200560,
-      "path": "/usr/bin/python3",
-      "runtime": "3.9.6",
-      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
-    }
+  "unchanged_invariants": {
+    "bytes": 886,
+    "path": "evidence/r7/invariants.json",
+    "sha256": "de5d721e792d6878da01d84c1556633d4b9ed1c2abfc580b23173ae74263a2ad"
   },
   "unrun": [
-    "both prepared input-inspection activation entrypoints",
-    "actual binary/archive acquisition, TLS/DNS/redirect behavior and durable artifact publication",
-    "real npm registry and Ubuntu publisher cryptography, negative controls and downloaded verifier import",
-    "real child worker launch, macOS resource-limit/RSS/cancellation enforcement and Node permissions",
-    "actual Ubuntu/verifier archive layout, module closure, selected members, decoded kernel/initrd and root-label facts",
-    "all live Linux/Mac adapters, runtime serial attempts, pidfd/socket attribution and command cancellation",
-    "Swift decoder execution and fresh live UTM registry/bookmark capture",
-    "NoCloud application, ISO/VM-package emission, mounts, UTM launch or VM boot",
-    "actual proc/systemd/journal/PTY/VZ timing, confinement, app-state cleanup and interrupted-root recovery",
-    "provider, installed-product and T07 acceptance"
-  ],
-  "utm_source_provenance": {
-    "byte_count_sha256_git_blob_sha1_match": true,
-    "compiled_or_executed": false,
-    "new_source_retrievals_in_R6": 0,
-    "retained_files_verified": 11
-  },
-  "validation_level": "read-only-prerequisites-and-synthetic-fixtures; activation-unrun",
-  "whitespace_check": {
-    "final_gate": "git diff --cached --check before commit",
-    "normalization": {
-      "bytes": 67,
-      "path": "evidence/r6/whitespace-normalization.json",
-      "sha256": "3961b8cd014390c3d06cb8cbb3a125bff60488a3bae80e65ef4c77bc4053a547"
-    }
-  }
+    "corrected live child and actual remaining setters/readbacks",
+    "actual RSS/owned-cancellation/reap check for the corrected source",
+    "Linux enforcement (tested with resource doubles only)",
+    "new acquisition and all five real stages",
+    "downloaded OpenPGP and actual cryptography",
+    "UTM/VM, host settings, credentials and providers"
+  ]
 }

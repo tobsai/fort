@@ -1,0 +1,7 @@
+{
+  "chunk_id": "bca6e9",
+  "wall_time_seconds": 0.000023946,
+  "exit_code": 1,
+  "original_token_count": 182,
+  "output": "{\"event\": \"before\", \"limit\": \"RLIMIT_CORE\", \"observed\": [0, 9223372036854775807], \"requested\": [0, 0]}\n{\"event\": \"applied\", \"limit\": \"RLIMIT_CORE\", \"observed\": [0, 0]}\n{\"event\": \"before\", \"limit\": \"RLIMIT_CPU\", \"observed\": [9223372036854775807, 9223372036854775807], \"requested\": [120, 121]}\n{\"event\": \"applied\", \"limit\": \"RLIMIT_CPU\", \"observed\": [120, 121]}\n{\"event\": \"before\", \"limit\": \"RLIMIT_RSS\", \"observed\": [9223372036854775807, 9223372036854775807], \"requested\": [268435456, 268435456]}\n{\"detail\": \"current limit exceeds maximum limit\", \"errno\": null, \"error_class\": \"ValueError\", \"event\": \"failed\", \"limit\": \"RLIMIT_RSS\"}\n{\"event\": \"child_reaped\", \"parent_limits_unchanged\": true, \"pid\": 25070, \"wait_status\": 256}\n"
+}

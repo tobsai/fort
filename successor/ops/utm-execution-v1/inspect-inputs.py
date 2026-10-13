@@ -1,4 +1,4 @@
-"""Prepared input-inspection CLI; do not run before exact owner approval of its seal."""
+"""Disabled R7 input-inspection CLI; no operation is enabled by this preparation."""
 import json
 import sys
 from pathlib import Path

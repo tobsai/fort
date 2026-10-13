@@ -1,19 +1,20 @@
 {
   "accepted_disabled_seal": "a77c433f047412ded2245daf648a518f044f05b8e97604618d04b18aa51c89bb",
   "accepted_disabled_source_commit": "56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e",
-  "activation_revision": "R6 candidate; exact commit and seal must be named by review and owner decision",
-  "activation_source_enabled": true,
-  "authority_record": "future explicit owner decision bound to the immutable activation commit and seal; this preparation record is not that decision",
+  "activation_and_approval_gate": "review disabled R7 first; prepare and review exact activation/smoke command identities; only then bind the owner decision to those identities and this operation scope; no environment gate override",
+  "activation_revision": "R7 disabled source preparation; a later fixed activation identity and owner decision are required",
+  "activation_source_enabled": false,
+  "authority_record": "source-only macOS correction authorized; live validation and the new attempt are not authorized",
   "capacity": {
     "aggregate_on_wire_transfer_quota": false,
     "capacity_reserved": false,
     "checked_verifier_expansion_bytes": 25165824,
     "conservative_receipts_markers_budget_bytes": 524288,
-    "disk_available_observed_bytes": 733184000000,
-    "disk_headroom_after_logical_budget_bytes": 732344156160,
     "filesystem_metadata_allocation_rounding_additional": true,
     "fixed_extra_reserve_requirement": null,
     "free_pages_bytes": 2644312064,
+    "historical_r6_disk_available_observed_bytes": 733184000000,
+    "historical_r6_disk_headroom_after_logical_budget_bytes": 732344156160,
     "inactive_pages_bytes": 25759186944,
     "max_https_requests": 40,
     "memory_pressure_free_percentage": 81,
@@ -52,7 +53,7 @@
       "max_bytes": 805306368,
       "name": "noble-server-cloudimg-arm64.tar.gz",
       "sha256": "1800eb56b6b839a08c020551e16fbd8c95b2772452ecce3737a9ad25fe594126",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.tar.gz"
     },
     {
@@ -60,7 +61,7 @@
       "max_bytes": 65536,
       "name": "ubuntu.sums",
       "sha256": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS"
     },
     {
@@ -68,7 +69,7 @@
       "max_bytes": 65536,
       "name": "ubuntu.sig",
       "sha256": "1703eef53a392af8f6834716afacc15f74eac14f07aa8d916c1fe5dc219419d1",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS.gpg"
     },
     {
@@ -76,7 +77,7 @@
       "max_bytes": 65536,
       "name": "ubuntu.pub",
       "sha256": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
     },
     {
@@ -84,7 +85,7 @@
       "max_bytes": 65536,
       "name": "ubuntu.manifest",
       "sha256": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest"
     },
     {
@@ -92,7 +93,7 @@
       "max_bytes": 65536,
       "name": "openpgp-6.3.2-metadata.json",
       "sha256": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://registry.npmjs.org/openpgp/6.3.2"
     },
     {
@@ -100,7 +101,7 @@
       "max_bytes": 65536,
       "name": "npm-public-signing-keys.json",
       "sha256": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://registry.npmjs.org/-/npm/v1/keys"
     },
     {
@@ -109,7 +110,7 @@
       "max_bytes": 8388608,
       "name": "openpgp-6.3.2.tgz",
       "sha512": "c1c653cc7cf8d4b57c638f331ff2650f5253f1874d9a958eb8c02343fa6876fbc2c2c8c1114dfb2b7ce7261e1441c8f7864b04e73f53cef85b51bc33b06be52d",
-      "state": "not-present; reacquisition not authorized in this preparation",
+      "state": "not present for proposed R7; acquisition is not authorized",
       "url": "https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz"
     }
   ],
@@ -150,6 +151,26 @@
     "runtime_authorized": false
   },
   "input_inspection_authorized": false,
+  "memory_policy": {
+    "darwin_child_core_cpu_file_descriptor_limits": "unchanged",
+    "darwin_child_rss_as_setter": false,
+    "depends_on_live_scheduled_supervisor": true,
+    "hard_process_memory_ceiling": false,
+    "node_old_space_mib": 256,
+    "node_total_heap_or_process_memory_cap": false,
+    "non_darwin_child_rss_setter": "unchanged; including Linux",
+    "overshoot_bytes_bound": null,
+    "ps_timeout_seconds": 0.25,
+    "rss_threshold_bytes": {
+      "acquire": 268435456,
+      "publisher": 1073741824,
+      "registry": 1073741824,
+      "ubuntu_inventory": 3221225472,
+      "verifier_archive": 268435456
+    },
+    "sample_spacing_requested_seconds": 0.1
+  },
+  "operation_id": "utm-input-inspection-r7-attempt-1",
   "ordered_operations": [
     "acquire",
     "registry",
@@ -157,8 +178,26 @@
     "publisher",
     "ubuntu_inventory"
   ],
+  "preserved_consumed_operation": {
+    "disposition": "leave untouched; no read, adoption, reset, deletion, reuse or automatic retry",
+    "root": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
+    "source_commit": "7ef4215c7b850fc27918b71cc9b562301d305dd1",
+    "source_seal": "fd4c3110c319a1097d7bc419a7bd692be3d8f50b64d946a696076421b3f3b88b"
+  },
   "publisher_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
-  "read_only_prerequisite_status": "passed within stated observation boundary; actual enforcement remains unrun",
-  "root": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation",
-  "status": "activation source prepared for independent review; exact owner approval absent; operation unrun"
+  "read_only_prerequisite_status": "R6 observations are historical; only the new root absence was checked in R7; recheck changing host prerequisites before any later run",
+  "root": "/Users/tobiasgunn/Library/Application Support/FortUTMInputInspectionR7",
+  "status": "disabled source prepared for independent review; corrected workers and new operation unrun",
+  "validation_before_acquisition": {
+    "checks": [
+      "actual unchanged core, CPU, file and descriptor set/readback in an owned child using the corrected source",
+      "actual RSS observation through the owned-child ps path; malformed/missing observations cannot become acceptance",
+      "owned cancellation before reap and positively observed child/process-group cleanup",
+      "unchanged parent limits; no network, downloaded code or consumed-root access",
+      "fresh root absence/ancestor identity, tool pins, source identity, capacity and Node permission support"
+    ],
+    "command_prepared": false,
+    "gate": "separately reviewed fixed network-free smoke command and later authority; must pass before acquisition",
+    "live_validation_authorized": false
+  }
 }

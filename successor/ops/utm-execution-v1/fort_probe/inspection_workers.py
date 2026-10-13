@@ -13,6 +13,7 @@ import resource
 import selectors
 import signal
 import subprocess
+import sys
 import time
 from .bounded import Commands
 from .inspection_guard import require_inspection
@@ -52,7 +53,7 @@ def rss_bytes(raw):
 def child_limits(profile):
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     resource.setrlimit(resource.RLIMIT_CPU,(profile['cpu'],profile['cpu']+1))
-    resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
+    if sys.platform!='darwin':resource.setrlimit(resource.RLIMIT_RSS,(profile['rss'],profile['rss']))
     resource.setrlimit(resource.RLIMIT_FSIZE,(profile['file'],profile['file']))
     resource.setrlimit(resource.RLIMIT_NOFILE,(64,64))
 

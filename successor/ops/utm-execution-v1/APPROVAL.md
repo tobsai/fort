@@ -1,21 +1,35 @@
-# Proposed eight-input acquisition approval
+# R7 revised approval draft — disabled source
 
-**Prepared for review; approval has not been given and the operation has not run.**
-The accepted disabled base is `56916fa8f994b5f8b59ca79e2f0bc5b105d6cf5e`, seal
-`a77c433f047412ded2245daf648a518f044f05b8e97604618d04b18aa51c89bb`.
-This R6 candidate changes only the Python and Node input-inspection gates, related
-validation expectations and review/evidence documents. Guest execution remains
-false. Independent review must name the new commit and seal before the owner
-decides. The new identity is reported alongside this artifact after sealing;
-embedding its own seal hash here would be circular.
+**Source-only preparation is authorized. Corrected live workers, validation and acquisition are not authorized or enabled. Independent review is pending.** The fixed preparation commit and seal are delivered separately to avoid a self-referential seal. An execution decision must name the later independently accepted activation identity and fixed smoke command, not treat this disabled packet as executable authority.
 
-The proposed decision is: **authorize one fresh, consumed acquisition,
-authentication and inventory attempt using that exact accepted activation revision
-and seal**, including the authenticated OpenPGP verifier described below. This is
-separate from any later UTM/VM or provider decision. Preparing the source does not
-supply that authority.
+## Exact changed control
 
-## Eight exact inputs
+On macOS only, omit the child `RLIMIT_RSS`/`RLIMIT_AS` setter. Preserve the current core, CPU, file-size and descriptor setters, all numeric profiles, and the existing parent RSS monitor. Linux and other non-Darwin setter behavior is unchanged. Do not catch and ignore other setup failures, raise any limit, set inherited limits to infinity, or alter the parent or host settings.
+
+The monitor requests 100 ms between RSS samples, allows 250 ms per owned-child `ps` query, and has additional loop, scheduling and termination delays. It continues through pipe EOF, rejects excessive or unobservable RSS while the child remains live, and cancels the owned group before reaping. These are stop thresholds, **not a hard process-memory ceiling**. Startup and reaction gaps permit overshoot with no proven byte bound. A starved, stopped or failed supervisor loses this active control; a fast allocation can pressure the host first. No memory reservation or arbitrary-child confinement is claimed.
+
+Node's unchanged `--max-old-space-size=256` limits V8 old space only. Young-generation, native and Buffer/ArrayBuffer memory are outside that single limit. It is not a total JavaScript-heap or process-memory cap.
+
+## Proposed owner request (after the identity gates below)
+
+“May I accept the revised macOS policy, with the existing sampled RSS stop thresholds and possible unbounded overshoot instead of the incompatible child RSS/AS setter, and authorize the reviewed network-free child validation followed, only if it passes, by **one new bounded eight-input acquisition/authentication/inventory attempt**? The decision must name the independently accepted activation commit/seal and smoke command.
+
+The new attempt would use `/Users/tobiasgunn/Library/Application Support/FortUTMInputInspectionR7`, retain at most 839,843,840 logical bytes plus filesystem metadata, and execute only the authenticated OpenPGP 6.3.2 entry inside the restricted offline Node worker described below. Stop at the first validation or operation failure, retain evidence and uncertain files, and cancel/reap only positively owned workers. No automatic retry is allowed.
+
+The consumed R6 root `/Users/tobiasgunn/Library/Application Support/FortUTMIsolation` stays untouched: no read, adoption, reset, removal or reuse. This includes no UTM/app installation, VM boot, guest extraction, mount/conversion, provider/account/credential action, purchase, deployment, startup service or host-wide security change.”
+
+This is a draft, not a request already sent or a granted decision. Do not send it as an executable approval request before the exact activation and smoke identities exist and pass independent review.
+
+## Identity and validation gates
+
+1. Independently accept this disabled R7 commit/seal and the explicit control change. The R6 activation at `7ef4215c7b850fc27918b71cc9b562301d305dd1`, seal `fd4c3110c319a1097d7bc419a7bd692be3d8f50b64d946a696076421b3f3b88b`, is historical and consumed; its authority does not authorize this operation.
+2. Prepare a fixed network-free local child smoke command and an activation revision with inspection gates enabled but guest execution still false. Review their exact source identities and argv. This R7 slice does not prepare or run that new live smoke command; its precise required outcomes are specified here. There is no runtime environment override for the disabled gates.
+3. Bind an explicit owner decision to those independently accepted identities, this memory policy, the distinct root and the one-attempt scope. A changed execution seal is verified separately from the human decision; it never silently inherits R6 authority.
+4. Under that later authority, first prove the unchanged core/CPU/file/descriptor limits by actual child set-and-readback, actual RSS observation, owned cancellation before reap, observed cleanup and unchanged parent limits. Use no network, downloaded code or consumed state. The prior RSS diagnostic did not reach file/descriptor setup. Any smoke failure stops before acquisition; no retry or weakened limit follows.
+5. Recheck the exact source, entrypoint pins and resolved runtimes, fresh root absence and no-follow ancestor identities, current disk/memory capacity and required Node permission support. Old capacity observations are historical snapshots, not reservations.
+6. Run the ordered stages once. Require exact pinned downloads and durable completion, two registry signatures, checked verifier selection, authenticated Ubuntu publisher identity, four rejected negative controls, and bounded archive inventory. Require positively owned worker cleanup before accepting each stage. End with `image_bound: false` and `runtime_authorized: false`.
+
+## Eight unchanged inputs
 
 | Local name | Initial HTTPS source | Maximum retained bytes |
 | --- | --- | ---: |
@@ -29,118 +43,34 @@ supply that authority.
 | `openpgp-6.3.2.tgz` | https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz | 8,388,608 |
 | **Total** | | **814,088,192** |
 
-Exact unchanged SHA-256/SHA-512 pins, tool pins and policy are in
-[activation-operation.json](activation-operation.json), copied from the accepted
-review and the original input inventory. No UTM.dmg is included. Initial requests
-use Ubuntu's image/key services and npm's registry. Redirects retain the unchanged
-five-host allowlist: `cloud-images.ubuntu.com`, `keyserver.ubuntu.com`,
-`registry.npmjs.org`, `github.com`, `release-assets.githubusercontent.com`.
-At most four redirects per input, at most 40 HTTPS requests overall, no retries.
-Requests use TLS verification and fixed headers, with no credentials, proxy,
-cookies, netrc or provider sign-in. No listener is created.
+All exact SHA-256/SHA-512 pins and existing tool pins are in [activation-operation.json](activation-operation.json), unchanged from the original input inventory. Initial requests use Ubuntu's image/key services and npm. The unchanged redirect allowlist is `cloud-images.ubuntu.com`, `keyserver.ubuntu.com`, `registry.npmjs.org`, `github.com`, and `release-assets.githubusercontent.com`. At most four redirects per input, 40 requests total, no retries. TLS verification, fixed headers, no credentials, proxy, cookies or netrc; no listener.
 
-814,088,192 bytes (776.375 MiB) is the retained response-body budget, not an
-aggregate on-wire quota. A one-byte oversize probe may be read per attempted input
-but is never retained; the first failure ends the attempt. HTTP headers, redirect
-responses and TLS/network overhead are additional and are not metered against an
-aggregate wire-byte cap. This distinction is part of the proposed scope.
+The body budget is not an aggregate wire-byte cap. One extra byte per attempted input may detect oversize and is never retained; headers, redirect responses and TLS/network overhead are additional. Unchanged checked verifier expansion is at most 25,165,824 bytes; receipt/marker allowance is 524,288 and selection manifest allowance 65,536, for 839,843,840 logical bytes total. Filesystem rounding and metadata are additional. The 20 GiB raw image member is streamed, not extracted to disk.
 
-## Code that would execute
+## Code origins and trust boundary
 
-Existing `/usr/bin/python3` (selected Xcode Python 3.9.6) runs this repository's
-inspection controller, HTTPS transport, bounded workers and tar parsers. Existing
-`/bin/ps` observes only owned child RSS. Existing Homebrew Node 26.5.0 runs this
-repository's registry/publisher verifier and built-in cryptography. Entrypoint
-hashes and resolved paths match the recorded pins. Supplemental Xcode-runtime and
-Node linked-library observations are retained; they do not attest a full OS or
-shared-library closure. These existing runtimes remain trusted host dependencies.
+Existing pinned `/usr/bin/python3` (selected Xcode Python 3.9.6) runs repository controller/transport/parser code. Existing `/bin/ps` reads only owned-child RSS. Existing pinned Node 26.5.0 runs repository verification code and built-in cryptography. These host runtimes and their libraries remain trusted dependencies; the entrypoint pins do not attest a full OS/shared-library closure.
 
-The only downloaded code entry to import is
-`package/dist/node/openpgp.mjs` from npm's pinned `openpgp@6.3.2` archive. Before
-that import, built-in registry signature verification, the archive digest,
-physical tar/path/type/size checks, package identity and complete member manifest
-must pass. The publisher worker independently repeats input/registry checks,
-binds the exact selection-manifest digest and rehashes the extracted closure.
-The checked package LICENSE and regular-file closure are retained. No package
-manager, lifecycle hook, external dependency installation or executable addon runs.
+The sole downloaded entry is `package/dist/node/openpgp.mjs` from pinned `openpgp@6.3.2`. Built-in registry authentication, archive digest, physical tar/path/type/size checks, exact package identity and complete member manifest must pass first. The publisher worker repeats the checks and binds the selection digest. Retain the package LICENSE. No package manager, install/lifecycle hook, dependency install or native addon runs.
 
-The Node worker receives read access only to the fixed verifier source files,
-input inventory, acquired inputs, checked verifier closure and selection manifest.
-It receives no network, filesystem-write, child-process, worker, addon, FFI or WASI
-permission, and uses a 256 MiB JS heap cap. This verifier runs on the Mac host;
-Node's permissions are not a VM/computer-isolation boundary. Actual enforcement
-and downloaded-code compatibility remain unrun and must fail closed if unsupported.
+Node gets read permissions only for the fixed repository verifier files, input inventory, acquired inputs, selected verifier closure and manifest. It has no network, filesystem-write, child-process, worker, addon, FFI or WASI grants. This runs on the Mac host; Node permissions are not a VM/computer-isolation boundary.
 
-OpenPGP authenticates Ubuntu checksums against fingerprint
-`D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Four negative controls mutate checksum,
-signature, public-key bytes and expected fingerprint. No new key is generated or
-another key fetched. Ubuntu inventory then streams hashes and observed member
-names, with no guest filesystem extraction. It allows at most 64 physical entries,
-20 GiB raw member and 192 MiB combined auxiliary data within the 768 MiB compressed
-archive cap. It finishes with `image_bound: false` and `runtime_authorized: false`.
-Unknown formats stop; there is no alternate image, guessed selection or decoder.
+Ubuntu publisher fingerprint remains `D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81`. Four controls must reject changed checksum, signature, public-key bytes and expected fingerprint. Archive inventory is limited to 64 physical entries, a 20 GiB raw member, and 192 MiB combined auxiliary data, without guest-filesystem extraction or guessed member selection.
 
-## Paths, storage and resource bounds
+## Unchanged worker bounds
 
-All operation files would be under the initially absent private root:
-`/Users/tobiasgunn/Library/Application Support/FortUTMIsolation`.
-It would contain `downloads/` with the eight exact names, exclusive `.partial`
-files, per-input receipts, attempt/completion/failure markers; checked `verifier/`
-files and `verifier-selection.json`; and root-level consumed-stage/result markers.
-No other output or temporary extraction path is planned. Bytecode and core dumps
-are disabled for the workers.
+| Stage | Wall limit | CPU soft/hard | Sampled RSS stop | Per-file write limit |
+| --- | ---: | ---: | ---: | ---: |
+| Acquisition | 900 s total; 600 s/input | 120/121 s | 256 MiB | 768 MiB |
+| Registry | 90 s | 80/81 s | 1 GiB | 0 |
+| Verifier archive | 30 s | 25/26 s | 256 MiB | 24 MiB |
+| Publisher | 90 s | 80/81 s | 1 GiB | 0 |
+| Ubuntu inventory | 300 s | 280/281 s | 3 GiB | 0 |
 
-Retained logical file content is conservatively bounded by **839,843,840 bytes
-(800.9375 MiB)**: 814,088,192 downloads + 25,165,824 verifier expansion + 524,288
-receipt/marker allowance + 65,536 selection manifest. Filesystem allocation
-rounding and directory metadata are additional. Partial publication uses hardlinks,
-not a second payload copy. The 20 GiB raw image member is streamed, not retained as
-an extracted image. This is not the disk allocation of a future VM.
+Each worker retains 64 descriptors, zero core allowance and 64 KiB combined output. Controller staging deadline is 1800 s. Socket operations use the remaining per-input deadline capped at 30 s. Limits affect owned children only; macOS memory supervision depends on the parent as disclosed above.
 
-The read-only snapshot records **733,184,000,000 available filesystem bytes**,
-leaving **732,344,156,160 bytes** after that logical budget, before filesystem
-metadata. It is writable internal APFS; all target ancestors are real directories,
-and the owner has parent access in the approved inspection context. The restricted
-sandbox cannot write this host path; the future run needs its specific execution
-allowance. No write probe, new host directory or permission change was performed.
+## Owned state and failure
 
-Physical memory is **64 GiB**. The snapshot reports 81% on the macOS memory-pressure
-free metric; raw free/inactive/speculative page counts are retained separately in
-[host prerequisites](evidence/r6/host-prerequisites.json). This is an observation,
-not a reservation or a guarantee that all inactive pages are immediately available.
-No additional numeric reserve requirement is invented. Recheck changing capacity
-before an approved run.
+The new root must be absent; existence is a veto, never a reason to adopt it or select another name. Fresh private directories and exclusive partial files retain no-follow ancestry/identity checks. Failure consumes the attempt and stops subsequent work, preserving partial/uncertain state and failure markers. Keep successes for an explicit ownership/evidence handoff. No broad process kill, recursive deletion, automatic fallback or provider cleanup is included.
 
-Worker limits are unchanged: acquisition 900 seconds total/600 per input;
-registry 90 seconds; verifier archive 30 seconds; publisher 90 seconds; Ubuntu
-inventory 300 seconds; controller staging deadline 1800 seconds. CPU soft/hard
-limits are 120/121, 80/81, 25/26, 80/81 and 280/281 seconds respectively. RSS stop
-thresholds are 256 MiB, 1 GiB, 256 MiB, 1 GiB and 3 GiB. RSS remains sampled, with
-possible overshoot; Darwin RLIMIT_RSS is a pressure hint, not a hard quota.
-Each worker has 64 descriptors, zero core limit and 64 KiB combined output cap.
-File limits are 768 MiB for acquisition, 24 MiB for verifier extraction, and zero
-for the other workers. Limits apply only to those children; no global host setting
-is changed. Actual enforcement, TLS and signatures are future operation evidence.
-
-## Completion, failure and recovery
-
-Close owned resources and cancel/reap only positively owned workers. Keep successful
-inputs, verifier closure, manifest and receipts for an explicit evidence/ownership
-handoff. On failure, stop subsequent stages, consume the attempt and retain partial
-or uncertain state. Do not retry, adopt an existing root, broadly kill processes,
-recursively delete files or clean up a provider. Any later removal needs an exact
-positively owned-object decision. The operation root must still be absent at start.
-
-## Explicit exclusions and later decisions
-
-No UTM.dmg, app installation or registration, startup service, package hook,
-filesystem mount/conversion, guest filesystem extraction, seed/ISO creation,
-UTM/app/VM launch, provider connection, sensitive account, sign-in, credential/key
-creation, purchase, deployment, shared hosting or global security change is included.
-No cleanup of existing provider resources is authorized.
-
-Real image/member binding, seed identity, fresh UTM registry/bookmark capture,
-app/helper/PTY attribution, owned cleanup and exact attended runtime authority
-remain prerequisites to a separate guest trial. Authentication here does not
-establish bootability or confinement. T07 and installed-product/provider acceptance
-remain open.
+UTM.dmg, VM seed/ISO, real image/member binding, fresh UTM registry/bookmark capture, app/helper/PTY attribution, guest trial, T07 and installed-product/provider acceptance remain separate later gates.

@@ -1,0 +1,20 @@
+[
+  {
+    "source": "reviews/macos-memory-decision-20261013.md",
+    "copy": "evidence/r7/memory-review.md",
+    "bytes": 11377,
+    "sha256": "b9c3ac58fbced304126b359bdf27edf9129df4e45e318b881feccef17a71aa01"
+  },
+  {
+    "source": "successor/evidence/preexec-diagnosis-2026-10-13/r2-live-execution.json",
+    "copy": "evidence/r7/rss-refusal.json",
+    "bytes": 944,
+    "sha256": "adb7e539113f47d4b519f58ebdf6838198619034b76dbd98370290617f8f9732"
+  },
+  {
+    "source": "successor/evidence/preexec-diagnosis-2026-10-13/r2-live-validation.json",
+    "copy": "evidence/r7/rss-refusal-validation.json",
+    "bytes": 2745,
+    "sha256": "124dc7ea9e97a5330bcc087050948f5408a767d00e598a8d75f8521e84bb2b12"
+  }
+]

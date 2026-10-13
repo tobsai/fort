@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-10-13T19:58:20.615607+00:00",
+  "status": "failed-before-acquisition-worker-exec",
+  "attempt_consumed": true,
+  "execution_attempts": 1,
+  "review_resubmissions": 1,
+  "controller_exit_code": 1,
+  "approved_source_commit": "7ef4215c7b850fc27918b71cc9b562301d305dd1",
+  "approved_source_seal": "fd4c3110c319a1097d7bc419a7bd692be3d8f50b64d946a696076421b3f3b88b",
+  "authorization_provenance": {
+    "source_thread_id": "01a0f307-3940-7333-96b0-a3b0b854e0e8",
+    "owner_reply_id": "Sentinel_7d7f3256d72c81919cb24e97812bec83",
+    "request_message_id": "Sentinel_bc17a7a6da6c819194053375c9974a47",
+    "owner_reply_at_utc": "2026-10-13T19:45:33.973066+00:00",
+    "basis": "Parent supplied fresh messaging-tool records binding the owner reply to the bounded request. This execution task did not independently retrieve those records. No message bodies were added to execution arguments.",
+    "resubmission_admitted": true
+  },
+  "failure": {
+    "class": "subprocess.SubprocessError",
+    "message": "Exception occurred in preexec_fn.",
+    "location": "fort_probe/inspection_workers.py:99",
+    "resource_limit_that_failed": "unknown; runtime exception suppresses this detail"
+  },
+  "stages": {
+    "controller": "started and exited 1",
+    "acquire": "consumed marker written; worker preexec failed before downloader exec",
+    "registry": "unrun",
+    "verifier_archive": "unrun",
+    "publisher": "unrun",
+    "negative_controls": "unrun",
+    "ubuntu_inventory": "unrun"
+  },
+  "retained_host_logical_bytes": 178,
+  "retained_host_files": [
+    "attempt.json",
+    "begun-acquire.json",
+    "inspection-failure.json"
+  ],
+  "cleanup": {
+    "controller_absent": true,
+    "worker_handle_returned": false,
+    "worker_pid_independently_observed": false,
+    "child_reap_basis": "Inspected selected CPython 3.9 subprocess.py waits for the forked child with os.waitpid before raising a preexec error. No worker executable ran.",
+    "manual_process_termination": false,
+    "files_deleted": false,
+    "attempt_root_retained": true
+  },
+  "source_changed": false,
+  "new_commits": [],
+  "automatic_retry": false
+}

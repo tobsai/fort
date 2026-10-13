@@ -1,0 +1,27 @@
+{
+  "base_commit": "7ef4215c7b850fc27918b71cc9b562301d305dd1",
+  "unchanged_worker_definitions": [
+    "Worker",
+    "WorkerOutput",
+    "worker_command",
+    "rss_bytes"
+  ],
+  "all_profiles_ast_identical": true,
+  "all_eight_downloads_except_preparation_state_identical": true,
+  "tool_pins_and_network_authentication_operation_limits_identical": true,
+  "unchanged_files": [
+    "fort_probe/acquisition.py",
+    "fort_probe/inspection_worker.py",
+    "fort_probe/inspection_archive.py",
+    "fort_probe/source_identity.py",
+    "fort_probe/bounded.py",
+    "tests/test_inspection_worker_bounds.py",
+    "tests/test_review_failure_matrix.py",
+    "tests/test_review_r2_regressions.py",
+    "tests/test_review_r3_regressions.py",
+    "tests/test_review_r4_regressions.py",
+    "tests/test_review_regressions.py"
+  ],
+  "consumed_root_accessed": false,
+  "new_live_operations": false
+}

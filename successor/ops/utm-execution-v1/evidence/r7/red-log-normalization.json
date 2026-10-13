@@ -1,0 +1,6 @@
+{
+  "reason": "normalize display-log trailing whitespace for git diff --check; exact raw text retained as JSON",
+  "original_text_sha256": "ff6cc00483059698033e17b924219a4eb0bd5395993bb262b798e44756070c5f",
+  "normalized_text_sha256": "f171f0dd4b6aa889388444b43968653ba7f8f39dfaf17297de861289d8bcb2ab",
+  "raw_json": "memory-policy-red.raw.json"
+}
