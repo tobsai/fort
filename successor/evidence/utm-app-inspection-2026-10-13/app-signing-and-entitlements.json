@@ -1,0 +1,28 @@
+{
+  "team_identifier": "WDNLXAD4W8",
+  "identifier": "com.utmapp.UTM",
+  "authorities": [
+    "Developer ID Application: Turing Software, LLC (WDNLXAD4W8)",
+    "Developer ID Certification Authority",
+    "Apple Root CA"
+  ],
+  "entitlements": {
+    "com.apple.application-identifier": "WDNLXAD4W8.com.utmapp.UTM",
+    "com.apple.developer.team-identifier": "WDNLXAD4W8",
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.application-groups": [
+      "WDNLXAD4W8.com.utmapp.UTM"
+    ],
+    "com.apple.security.device.audio-input": true,
+    "com.apple.security.device.usb": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true,
+    "com.apple.security.virtualization": true,
+    "com.apple.vm.device-access": true,
+    "com.apple.vm.networking": true
+  },
+  "cdhashes": [
+    "19fc43aa858d42d2ec595ade708af75bfdf19572"
+  ]
+}

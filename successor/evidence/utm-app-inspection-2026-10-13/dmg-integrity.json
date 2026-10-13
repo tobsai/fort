@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/usr/bin/hdiutil",
+    "verify",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads/UTM.dmg"
+  ],
+  "started_at_utc": "2026-10-13T12:28:59.095649+00:00",
+  "ended_at_utc": "2026-10-13T12:29:04.007723+00:00",
+  "exit_code": 0,
+  "failure": null,
+  "stdout": "Checksumming Protective Master Boot Record (MBR : 0)\u2026\nProtective Master Boot Record (MBR :: verified   CRC32 $C04FC113\nChecksumming GPT Header (Primary GPT Header : 1)\u2026\n GPT Header (Primary GPT Header : 1): verified   CRC32 $D4445BAE\nChecksumming GPT Partition Data (Primary GPT Table : 2)\u2026\nGPT Partition Data (Primary GPT Tabl: verified   CRC32 $BBFB414D\nChecksumming  (Apple_Free : 3)\u2026\n                    (Apple_Free : 3): verified   CRC32 $00000000\nChecksumming disk image (Apple_HFS : 4)\u2026\n          disk image (Apple_HFS : 4): verified   CRC32 $79CFA6A3\nChecksumming  (Apple_Free : 5)\u2026\n                    (Apple_Free : 5): verified   CRC32 $00000000\nChecksumming GPT Partition Data (Backup GPT Table : 6)\u2026\nGPT Partition Data (Backup GPT Table: verified   CRC32 $BBFB414D\nChecksumming GPT Header (Backup GPT Header : 7)\u2026\n  GPT Header (Backup GPT Header : 7): verified   CRC32 $CA89BB65\nverified   CRC32 $28568A44\n",
+  "stderr": "hdiutil: verify: checksum of \"/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads/UTM.dmg\" is VALID\n"
+}

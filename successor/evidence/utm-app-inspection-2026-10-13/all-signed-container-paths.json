@@ -1,0 +1,22 @@
+{
+  "time_utc": "2026-10-13T12:32:49.478916+00:00",
+  "paths": [
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/com.utmapp.QEMUHelper",
+      "present": false
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/com.utmapp.QEMULauncher",
+      "present": false
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+      "present": false
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Group Containers/WDNLXAD4W8.com.utmapp.UTM",
+      "present": false
+    }
+  ],
+  "method": "Exact IDs derived from signed entitlements, lstat-only presence checks; no existing contents opened."
+}

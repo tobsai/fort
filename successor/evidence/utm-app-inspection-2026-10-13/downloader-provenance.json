@@ -1,0 +1,16 @@
+{
+  "module": "successor/ops/isolation-probe-v1/fetch-public.py",
+  "sha256": "665be9a450aec4bba5d70a0937b64c95866ac9aa6e2acb13fb962bd35efb1544",
+  "unchanged_from_commit": "501dc395c4bf3f7d15d1eb9829a5ad316c844260",
+  "called_function": "download",
+  "main_not_called": true,
+  "input_count": 1,
+  "allowed_https_hosts": [
+    "github.com",
+    "release-assets.githubusercontent.com"
+  ],
+  "proxies_disabled": true,
+  "cookies_auth_netrc_not_used": true,
+  "redirect_query_omitted_from_receipts": true,
+  "download_timeout_seconds": 600
+}

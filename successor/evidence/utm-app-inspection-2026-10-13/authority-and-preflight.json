@@ -1,0 +1,26 @@
+{
+  "time_utc": "2026-10-13T12:27:31.955055+00:00",
+  "starting_commit": "501dc395c4bf3f7d15d1eb9829a5ad316c844260",
+  "prior_assessment_seal_sha256": "be08287b55001500b29b1efb4d22cf6312e2ec0a75dd0f7d213090fc9983a8fd",
+  "proposal_commit": "ec6dd956bd6ebf45ec685331625ccc429e59b7f6",
+  "proposal_seal_sha256": "99decb7c28b2c2daba3972709642a12ed4d3cce084a40bc3c3dd3e0008899159",
+  "approval_reference": "Sentinel_ea51da06ee408191a8b7ea5327e0f437",
+  "approval_date": "2026-10-13",
+  "request_reference": "Sentinel_9e0f867178c481918604946ff36fbd87",
+  "clarification_reference": "Sentinel_16d91dfa308c8191ae23c21f5e29bbd0",
+  "scope_change": "Permit read-only mounting of the same verified DMG solely to inspect the contained app despite the prior outer-container primary-signature rejection.",
+  "unchanged_limits": "Exact source/hash/size, 256 MiB DMG, 2 GiB app, 3 GiB observed task storage and 32 GiB disk reserve. No downloaded executable launch, VM, accounts, keys, permissions, quarantine change or security bypass.",
+  "authority_source": "Delegated owner approval; reference IDs and scope summary only.",
+  "candidate_paths_absent": [
+    "/Applications/UTM.app",
+    "/Users/tobiasgunn/Applications/UTM.app",
+    "/Users/tobiasgunn/Library/Containers/com.utmapp.UTM",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation"
+  ],
+  "disk_free_bytes": 734640902144,
+  "task_budget_bytes": 3221225472,
+  "app_cap_bytes": 2147483648,
+  "reserve_bytes": 34359738368,
+  "system_ca_regular_root_owned_not_group_or_world_writable": true,
+  "inspection_location": "App assessed in place on read-only mounted volume; no app copy."
+}

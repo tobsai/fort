@@ -1,0 +1,10 @@
+{
+  "time_utc": "2026-10-13T12:29:17.711580+00:00",
+  "entries": 1180,
+  "logical_file_bytes": 1217291628,
+  "allocated_app_bytes": 1219436544,
+  "conservative_dmg_plus_app_plus_evidence_bytes": 1469479382,
+  "actual_app_copy_bytes": 0,
+  "all_app_symlinks_internal": true,
+  "disk_free_bytes": 734351794176
+}

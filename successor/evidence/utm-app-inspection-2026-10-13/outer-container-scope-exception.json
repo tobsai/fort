@@ -1,0 +1,9 @@
+{
+  "prior_receipt": "../utm-assessment-2026-10-13/dmg-gatekeeper.json",
+  "prior_receipt_sha256": "63f850c53af14784ef3ba655db999d7a3b17c8fd5760ac3b31a23c4c48fc4257",
+  "same_artifact_pin_confirmed": true,
+  "prior_rejection_preserved_not_overridden": true,
+  "os_policy_changes": false,
+  "repeat_outer_container_assessment": false,
+  "reason": "Owner explicitly authorized read-only inspection despite the known outer-container result. App and nested-code acceptance remain separate gates."
+}

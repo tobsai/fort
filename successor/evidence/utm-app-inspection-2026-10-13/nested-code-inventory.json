@@ -1,0 +1,806 @@
+{
+  "method": "Regular files selected by Mach-O/fat magic; architecture headers read as data. All architectures verified, each architecture displayed separately.",
+  "code_files": [
+    {
+      "path": "UTM.app/Contents/Frameworks/libswift_Concurrency.dylib",
+      "sha256": "5a7781ac5020a9f3d609c100e158bc27e05efab5eee87e6727302f195638db45",
+      "bytes": 1124640,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/crypto.1.1.framework/Versions/A/crypto.1.1",
+      "sha256": "b57589b11de9e7bea2c0ce188bc3f322118aec6d3e6a0cd241e5f970ea4c1d40",
+      "bytes": 5945152,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/EGL.framework/Versions/A/EGL",
+      "sha256": "3d099577b2dad45bedc55d25971c9725e5acffa130745720ab6da052dfa2c616",
+      "bytes": 161360,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/epoxy.0.framework/Versions/A/epoxy.0",
+      "sha256": "7e1162c6f138bd4e25b9cf505b5ae033e67b9eb92678c4cd3970160b5ed5a72f",
+      "bytes": 3068944,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/ffi.8.framework/Versions/A/ffi.8",
+      "sha256": "97d2e7464af0e5e8cadc2f15e393470fedb59e9b8d9804318aba01569b351401",
+      "bytes": 237904,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gcrypt.20.framework/Versions/A/gcrypt.20",
+      "sha256": "67e6639d77c5c5d9a014fa0d901cf6f9425aa7590b7c1add777d9d73ac465ace",
+      "bytes": 2387088,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gio-2.0.0.framework/Versions/A/gio-2.0.0",
+      "sha256": "bce3dec1c281833cc2879d770328e84c881de270046f755ee45907869d1cab64",
+      "bytes": 5140320,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/GLESv2.framework/Versions/A/GLESv2",
+      "sha256": "e146b9185ed7b8a1bf45d7ec9977f38d60d6c6d286f4b3373c33d40297e8afb0",
+      "bytes": 12052640,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/glib-2.0.0.framework/Versions/A/glib-2.0.0",
+      "sha256": "63cb138e322968f7cb21a22e10bfa070b1336aa6768d2fda1d2f86a4d7d189ce",
+      "bytes": 4948288,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gmodule-2.0.0.framework/Versions/A/gmodule-2.0.0",
+      "sha256": "f6f3ec5aa8a03f4791373b98321249d14637847cbc31bd2509432573f02b630d",
+      "bytes": 138032,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gobject-2.0.0.framework/Versions/A/gobject-2.0.0",
+      "sha256": "3e9ebf83f552aa24887bc33d9f653373ba5607a74c4fa942bb96085c4cf13942",
+      "bytes": 988544,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gpg-error.0.framework/Versions/A/gpg-error.0",
+      "sha256": "29c3c73531f1d1554e8bb5e9c8052ff63a880979d8bea7a498dc5bc79c2c8196",
+      "bytes": 444416,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstallocators-1.0.0.framework/Versions/A/gstallocators-1.0.0",
+      "sha256": "2681f07570093cae4c2d4b0a060b077e76d62497e7f3f3b7bee68b46719d14be",
+      "bytes": 138496,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstapp-1.0.0.framework/Versions/A/gstapp-1.0.0",
+      "sha256": "e0a43227c0b7f8588ca54b22bc3b907055066f54c87bea77342c2e2806ac5b02",
+      "bytes": 284992,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstaudio-1.0.0.framework/Versions/A/gstaudio-1.0.0",
+      "sha256": "1f7b881803c408f9bcbe62df58333f5412a6f82d8df56d3a2d9c5610d8eefd52",
+      "bytes": 1280384,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstbase-1.0.0.framework/Versions/A/gstbase-1.0.0",
+      "sha256": "eeb87a97d832a91b738716b70e38d9b999d46d6eae0d61ef18fd23e0bb0ac2f6",
+      "bytes": 1398544,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstcheck-1.0.0.framework/Versions/A/gstcheck-1.0.0",
+      "sha256": "0129a7d533ab797922be6981ccc0408804e20be4cde453b6bcfa99aefa377f05",
+      "bytes": 410480,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstcontroller-1.0.0.framework/Versions/A/gstcontroller-1.0.0",
+      "sha256": "30de96d511ba54fcc61108e6968c6a7bf0796c38e7baa4199fcb239fd68a5a61",
+      "bytes": 284656,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstfft-1.0.0.framework/Versions/A/gstfft-1.0.0",
+      "sha256": "99ff98dd22e80d1252e713cc0f15334b68e701a9c200fe38ae6dca078cadd4bf",
+      "bytes": 220448,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstnet-1.0.0.framework/Versions/A/gstnet-1.0.0",
+      "sha256": "596e25f0e82ac6b03a2f39d9990dfe016fd6fe566b65f7d189ed77c2b7a13d60",
+      "bytes": 373728,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstpbutils-1.0.0.framework/Versions/A/gstpbutils-1.0.0",
+      "sha256": "9743e8dc1a1dd42b97c72d28d8c78ff2f8d65f05f630a56516509f3846c2a5fa",
+      "bytes": 712240,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstreamer-1.0.0.framework/Versions/A/gstreamer-1.0.0",
+      "sha256": "0dfc1a15cbadaa133f930bbd4b49263fe25da8da05ed54ee3b9c4480c5370886",
+      "bytes": 3282480,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstriff-1.0.0.framework/Versions/A/gstriff-1.0.0",
+      "sha256": "29f44782539e47157a2ea5612ada7fc77d4a06f3f8d0a52c8feafc9d420549a7",
+      "bytes": 271856,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstrtp-1.0.0.framework/Versions/A/gstrtp-1.0.0",
+      "sha256": "4a24e30ca05bd89ad5acd7b787a8fbf8b81015a21a076734dc66a2d18779cb46",
+      "bytes": 506048,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstrtsp-1.0.0.framework/Versions/A/gstrtsp-1.0.0",
+      "sha256": "64139032206a9d934eb77cdd21f1dd6e83170f44313ef77cca2c1f2cb32fb429",
+      "bytes": 447856,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstsdp-1.0.0.framework/Versions/A/gstsdp-1.0.0",
+      "sha256": "4f6ce0d5d21c686ca1ced67daf4ba0a06322dee94a1abdc288c0db2cbe43e984",
+      "bytes": 336624,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gsttag-1.0.0.framework/Versions/A/gsttag-1.0.0",
+      "sha256": "b08062192213cc3a0118815096bdb6fa45f267aa38bf0d7ec4a11f195e1fc534",
+      "bytes": 691824,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gstvideo-1.0.0.framework/Versions/A/gstvideo-1.0.0",
+      "sha256": "838fd15ab837472685c816fa6674786c387a2d078fc326d959edce58df9d666c",
+      "bytes": 1926544,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/gthread-2.0.0.framework/Versions/A/gthread-2.0.0",
+      "sha256": "e4cfdb7d1291d4dd900ff7bf72b2bc1f9b29915485821d52dfa051695e78f233",
+      "bytes": 118064,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/iconv.2.framework/Versions/A/iconv.2",
+      "sha256": "d453190805c70060f2bd6ba940ed3e04a7ce117c8de57243dbe839a847392d9c",
+      "bytes": 2184016,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/intl.8.framework/Versions/A/intl.8",
+      "sha256": "31525dd6c6657862327fa593f598a5d35747daeee79adcefb580e04f944d12e7",
+      "bytes": 494144,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/jpeg.62.framework/Versions/A/jpeg.62",
+      "sha256": "6664535f4696e8571b61467a37f8225b8a68ea65e4e77a11c7b12c63a4f387e5",
+      "bytes": 1197376,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/json-glib-1.0.0.framework/Versions/A/json-glib-1.0.0",
+      "sha256": "c04f3ee48ccca32cd842cc5687a02a8929d2e5cc978f35edab1f04f3e87f2b4d",
+      "bytes": 489888,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/opus.0.framework/Versions/A/opus.0",
+      "sha256": "867c9e4e19be4baa3901bcfaaaa9b105077c596b69eb4993f14d53b2330ffc1d",
+      "bytes": 1173136,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/phodav-3.0.0.framework/Versions/A/phodav-3.0.0",
+      "sha256": "e57006d79ad26f02de201b75f0a0c5bc1693b73eb590f804f4ef10569a8b817d",
+      "bytes": 3669920,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/pixman-1.0.framework/Versions/A/pixman-1.0",
+      "sha256": "f906f264962dbb9e36131061e04691522fac14d9c2aee73b0ad515e34d41380b",
+      "bytes": 6817968,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/png16.16.framework/Versions/A/png16.16",
+      "sha256": "78a7408f7bdb9dee3b76bcd64f1bb0130105cd604b4c834f6edbe6a1fb64d4a4",
+      "bytes": 641216,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-aarch64-softmmu.framework/Versions/A/qemu-aarch64-softmmu",
+      "sha256": "f9b26b6520f5793f8104b49979a75a7cc8bddde6380a749531347884b0c0b53b",
+      "bytes": 61432288,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-alpha-softmmu.framework/Versions/A/qemu-alpha-softmmu",
+      "sha256": "be20e9e8cdf5b31edb3ec77fc26cd32e3b30408f8df086a99d30ff36506bf8f0",
+      "bytes": 22698624,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-arm-softmmu.framework/Versions/A/qemu-arm-softmmu",
+      "sha256": "124a5d209136434ef46353602a03c61bc9dac0cd1ebb507b3819e53c1e1aacc6",
+      "bytes": 55785744,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-hppa-softmmu.framework/Versions/A/qemu-hppa-softmmu",
+      "sha256": "b5dab6ab55a4b6b36e3d7ac9586cb5c50f6c0cc7ecb345ff923b8cc350ad2006",
+      "bytes": 22871008,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-i386-softmmu.framework/Versions/A/qemu-i386-softmmu",
+      "sha256": "2ee6b88e1e23b4a36b4cf6fbffb76e870f9b442d3781d5f7b236487c7ff0b52d",
+      "bytes": 50080256,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-img.framework/Versions/A/qemu-img",
+      "sha256": "cec0a473d975254dd4970020f4910d7d5be9e1769535c6e89586972af43c4488",
+      "bytes": 4496560,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-loongarch64-softmmu.framework/Versions/A/qemu-loongarch64-softmmu",
+      "sha256": "67b73e91500ad8574ef56221a36f911c8a5fe20697cb978f948549ee911294dd",
+      "bytes": 27646224,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-m68k-softmmu.framework/Versions/A/qemu-m68k-softmmu",
+      "sha256": "46c8f76cc02e12e62a24ec1b2713fa24374280c3ef39087c1e4b9353aded5e8d",
+      "bytes": 17807632,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-microblaze-softmmu.framework/Versions/A/qemu-microblaze-softmmu",
+      "sha256": "84840867a22ab67f930b27363d166e85cf16fcbb0d1e5efb30e445162e37a99a",
+      "bytes": 15649680,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-microblazeel-softmmu.framework/Versions/A/qemu-microblazeel-softmmu",
+      "sha256": "bb52f320bd8a4620fa81f17b1579c095831a421bd4d0c4f0f15d9f2afab9138a",
+      "bytes": 15649680,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-mips-softmmu.framework/Versions/A/qemu-mips-softmmu",
+      "sha256": "55a78cc5ddea515cc28e5d4c687e9e4cc95ff44fa37de100472a8e208f771c8f",
+      "bytes": 25348192,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-mips64-softmmu.framework/Versions/A/qemu-mips64-softmmu",
+      "sha256": "461fc3b98269a6008da5d3f0ce56ec6d2d9b9191ec60ee6705637ddcccb12646",
+      "bytes": 25559264,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-mips64el-softmmu.framework/Versions/A/qemu-mips64el-softmmu",
+      "sha256": "3ed5b6a6589ea9ecec43ef6aa13180950b1e16ac5ce7ab510437325550b8f17b",
+      "bytes": 28363152,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-mipsel-softmmu.framework/Versions/A/qemu-mipsel-softmmu",
+      "sha256": "58ba0a8f3a953693d259794bebd916c0075ae107a9c7a3e21f4fa706a80fea57",
+      "bytes": 25347888,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-or1k-softmmu.framework/Versions/A/qemu-or1k-softmmu",
+      "sha256": "7ed03988ff3e85f64df3c7261af175728e3be0f61c112436353082a6025033fe",
+      "bytes": 22361968,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-ppc-softmmu.framework/Versions/A/qemu-ppc-softmmu",
+      "sha256": "1a935b612c079b8e85cf420de7b04bf697cf20261d55064c1e60540c180a929b",
+      "bytes": 28879184,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-ppc64-softmmu.framework/Versions/A/qemu-ppc64-softmmu",
+      "sha256": "6e3fd3f853c56e05b3c8b2ee9c1343b0acb0c3e80c30b09a5dae558e58877e49",
+      "bytes": 31153008,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-riscv32-softmmu.framework/Versions/A/qemu-riscv32-softmmu",
+      "sha256": "0ff7bbd4a6a4ae65fa5cecc016da6adf9ff78c45950babe2118712e6d0a89bc1",
+      "bytes": 29263168,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-riscv64-softmmu.framework/Versions/A/qemu-riscv64-softmmu",
+      "sha256": "6245263e8488e65f96f6cdbc9fbbbdfac8ec0bc93c1f4b5c10bfacb3344c30f2",
+      "bytes": 29480960,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-s390x-softmmu.framework/Versions/A/qemu-s390x-softmmu",
+      "sha256": "85c2a27de2469b8f825d6d910fa139792bd142cbb7e520b63709ccb60de3ee94",
+      "bytes": 22452000,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-sh4-softmmu.framework/Versions/A/qemu-sh4-softmmu",
+      "sha256": "6dc30707aad3a37d675486cbddb6593d87461347829379dd427360db093123e4",
+      "bytes": 22715584,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-sh4eb-softmmu.framework/Versions/A/qemu-sh4eb-softmmu",
+      "sha256": "94b484e704244ea749ed990b3c23589d452e15bf25334c330d3e95f8d8925496",
+      "bytes": 22715920,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-sparc-softmmu.framework/Versions/A/qemu-sparc-softmmu",
+      "sha256": "32722074788244c40e7f1e261903325fbaec56c550e024db677335a7b13235b5",
+      "bytes": 16551920,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-sparc64-softmmu.framework/Versions/A/qemu-sparc64-softmmu",
+      "sha256": "88084d4b72c2ed2aa1d5b54a9273563c8322ec0874b722077fe4c82330878c80",
+      "bytes": 23350768,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-tricore-softmmu.framework/Versions/A/qemu-tricore-softmmu",
+      "sha256": "b96b939bc3807b7644cff62b8709ed8fc2e8a893957d73772e4581547580626d",
+      "bytes": 15230464,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-x86_64-softmmu.framework/Versions/A/qemu-x86_64-softmmu",
+      "sha256": "1962ba41216d456bd7c2613720877cad4194b3c5fdf8b9bd3485ff3f4012c5d7",
+      "bytes": 50311648,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-xtensa-softmmu.framework/Versions/A/qemu-xtensa-softmmu",
+      "sha256": "1d7b4ee3d41f4d5707b81d84e0dc5b85004e81a80593eed9630c0bd2f764cd9b",
+      "bytes": 30964672,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/qemu-xtensaeb-softmmu.framework/Versions/A/qemu-xtensaeb-softmmu",
+      "sha256": "f4690d0c2f9c9cdc862862e65ce07f4525be39479c0c228a46618325db37c498",
+      "bytes": 30624928,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/slirp.0.framework/Versions/A/slirp.0",
+      "sha256": "d3efd9e9bd45001c11638243e6c13882cb93728feb700fb860fab8565f1a37d5",
+      "bytes": 469712,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/soup-3.0.0.framework/Versions/A/soup-3.0.0",
+      "sha256": "2fa81d99473a92be1d2051b09882463563aaa7c32dbc8aeb9e99861ae98fb3f9",
+      "bytes": 1494192,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/spice-client-glib-2.0.8.framework/Versions/A/spice-client-glib-2.0.8",
+      "sha256": "24720e4c933a5597b739049b24b43433684ebb42f7224d834f9d79cd2e333a95",
+      "bytes": 3233088,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/spice-server.1.framework/Versions/A/spice-server.1",
+      "sha256": "2f2503b4b9c221f0853730eb5aaf4b418d073f9e2656c9d60d3bb7200f4a620e",
+      "bytes": 3327088,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/ssl.1.1.framework/Versions/A/ssl.1.1",
+      "sha256": "cb7ce73482313247fb1eca7e78a53924b9c00807161678bd42e25d74003d17bb",
+      "bytes": 1448640,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/swtpm.0.framework/Versions/A/swtpm.0",
+      "sha256": "d497c0d2965ab085f19949e50ed7802021a670056445025944be764aa3c495ef",
+      "bytes": 2634912,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/usb-1.0.0.framework/Versions/A/usb-1.0.0",
+      "sha256": "829fe948d74a95a807dada9613a228e4b45f8ca9e0d2c7cd2b332d6f41538121",
+      "bytes": 354864,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/usbredirhost.1.framework/Versions/A/usbredirhost.1",
+      "sha256": "50b61cac7dff09fc6a4eea8fc00eb80e89bdfd3dd0016316965ce4a2d488f0d4",
+      "bytes": 210560,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/usbredirparser.1.framework/Versions/A/usbredirparser.1",
+      "sha256": "1f2d1865b6511071914e6e5ea46162197f0a8375348b326b41ac9cfb5345760e",
+      "bytes": 173216,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/virglrenderer.1.framework/Versions/A/virglrenderer.1",
+      "sha256": "90a7ade664b9169b6184932fc974b64b958405e73157ea0ad81bd78440a20b84",
+      "bytes": 1452912,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/Frameworks/zstd.1.framework/Versions/A/zstd.1",
+      "sha256": "1adbd175b3607fa99aaa542a39ba6d8c312cd21cb32a1c578e2ed4699c588879",
+      "bytes": 3464176,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/MacOS/UTM",
+      "sha256": "d6fba974f81917781c303ca2838ad6b7431842f45a87b21ae2b33e29836fdc23",
+      "bytes": 18662240,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/MacOS/utmctl",
+      "sha256": "288e61a73f0b70d9986687a8adc0f05bf2009e8f3843754288d2d174551c8ba5",
+      "bytes": 1749792,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/XPCServices/QEMUHelper.xpc/Contents/MacOS/QEMUHelper",
+      "sha256": "74a80f5c560dd46185dd62b7bb9f4484da44dea5c5e3c45bc612de7d055adafb",
+      "bytes": 138608,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    {
+      "path": "UTM.app/Contents/XPCServices/QEMUHelper.xpc/Contents/MacOS/QEMULauncher.app/Contents/MacOS/QEMULauncher",
+      "sha256": "04901c7c2d903364b8f50ff92e6ff363fa2ac0e74384f4d1fffd084d116a3136",
+      "bytes": 135504,
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ]
+    }
+  ],
+  "code_bundles": [
+    "UTM.app",
+    "UTM.app/Contents/Frameworks/EGL.framework",
+    "UTM.app/Contents/Frameworks/GLESv2.framework",
+    "UTM.app/Contents/Frameworks/crypto.1.1.framework",
+    "UTM.app/Contents/Frameworks/epoxy.0.framework",
+    "UTM.app/Contents/Frameworks/ffi.8.framework",
+    "UTM.app/Contents/Frameworks/gcrypt.20.framework",
+    "UTM.app/Contents/Frameworks/gio-2.0.0.framework",
+    "UTM.app/Contents/Frameworks/glib-2.0.0.framework",
+    "UTM.app/Contents/Frameworks/gmodule-2.0.0.framework",
+    "UTM.app/Contents/Frameworks/gobject-2.0.0.framework",
+    "UTM.app/Contents/Frameworks/gpg-error.0.framework",
+    "UTM.app/Contents/Frameworks/gstallocators-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstapp-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstaudio-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstbase-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstcheck-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstcontroller-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstfft-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstnet-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstpbutils-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstreamer-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstriff-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstrtp-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstrtsp-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstsdp-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gsttag-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gstvideo-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/gthread-2.0.0.framework",
+    "UTM.app/Contents/Frameworks/iconv.2.framework",
+    "UTM.app/Contents/Frameworks/intl.8.framework",
+    "UTM.app/Contents/Frameworks/jpeg.62.framework",
+    "UTM.app/Contents/Frameworks/json-glib-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/opus.0.framework",
+    "UTM.app/Contents/Frameworks/phodav-3.0.0.framework",
+    "UTM.app/Contents/Frameworks/pixman-1.0.framework",
+    "UTM.app/Contents/Frameworks/png16.16.framework",
+    "UTM.app/Contents/Frameworks/qemu-aarch64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-alpha-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-arm-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-hppa-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-i386-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-img.framework",
+    "UTM.app/Contents/Frameworks/qemu-loongarch64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-m68k-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-microblaze-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-microblazeel-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-mips-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-mips64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-mips64el-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-mipsel-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-or1k-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-ppc-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-ppc64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-riscv32-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-riscv64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-s390x-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-sh4-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-sh4eb-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-sparc-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-sparc64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-tricore-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-x86_64-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-xtensa-softmmu.framework",
+    "UTM.app/Contents/Frameworks/qemu-xtensaeb-softmmu.framework",
+    "UTM.app/Contents/Frameworks/slirp.0.framework",
+    "UTM.app/Contents/Frameworks/soup-3.0.0.framework",
+    "UTM.app/Contents/Frameworks/spice-client-glib-2.0.8.framework",
+    "UTM.app/Contents/Frameworks/spice-server.1.framework",
+    "UTM.app/Contents/Frameworks/ssl.1.1.framework",
+    "UTM.app/Contents/Frameworks/swtpm.0.framework",
+    "UTM.app/Contents/Frameworks/usb-1.0.0.framework",
+    "UTM.app/Contents/Frameworks/usbredirhost.1.framework",
+    "UTM.app/Contents/Frameworks/usbredirparser.1.framework",
+    "UTM.app/Contents/Frameworks/virglrenderer.1.framework",
+    "UTM.app/Contents/Frameworks/zstd.1.framework",
+    "UTM.app/Contents/XPCServices/QEMUHelper.xpc",
+    "UTM.app/Contents/XPCServices/QEMUHelper.xpc/Contents/MacOS/QEMULauncher.app"
+  ],
+  "symlink_aliases_not_reexecuted_or_followed_for_enumeration": true
+}

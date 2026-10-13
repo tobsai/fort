@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/usr/sbin/lsof",
+    "-nP",
+    "-t",
+    "+D",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5"
+  ],
+  "started_at_utc": "2026-10-13T12:35:25.564541+00:00",
+  "ended_at_utc": "2026-10-13T12:35:25.937503+00:00",
+  "exit_code": 1,
+  "failure": null,
+  "stdout": "",
+  "stderr": ""
+}

@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/hdiutil",
+    "attach",
+    "-readonly",
+    "-nobrowse",
+    "-noautoopen",
+    "-mountpoint",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5",
+    "-plist",
+    "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/downloads/UTM.dmg"
+  ],
+  "started_at_utc": "2026-10-13T12:29:17.207918+00:00",
+  "ended_at_utc": "2026-10-13T12:29:17.462530+00:00",
+  "exit_code": 0,
+  "failure": null,
+  "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n\t<key>system-entities</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>content-hint</key>\n\t\t\t<string>Apple_HFS</string>\n\t\t\t<key>dev-entry</key>\n\t\t\t<string>/dev/disk128s1</string>\n\t\t\t<key>mount-point</key>\n\t\t\t<string>/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/mount/UTM-4.7.5</string>\n\t\t\t<key>potentially-mountable</key>\n\t\t\t<true/>\n\t\t\t<key>unmapped-content-hint</key>\n\t\t\t<string>48465300-0000-11AA-AA11-00306543ECAC</string>\n\t\t\t<key>volume-kind</key>\n\t\t\t<string>hfs</string>\n\t\t</dict>\n\t\t<dict>\n\t\t\t<key>content-hint</key>\n\t\t\t<string>GUID_partition_scheme</string>\n\t\t\t<key>dev-entry</key>\n\t\t\t<string>/dev/disk128</string>\n\t\t\t<key>potentially-mountable</key>\n\t\t\t<false/>\n\t\t\t<key>unmapped-content-hint</key>\n\t\t\t<string>GUID_partition_scheme</string>\n\t\t</dict>\n\t</array>\n</dict>\n</plist>\n",
+  "stderr": "hdiutil: WARNING: 'hdiutil attach -readonly -nobrowse -mountpoint ...' is deprecated. Please use 'diskutil image attach --readOnly --mountOptions nobrowse --mountPoint ...' instead.\n"
+}
