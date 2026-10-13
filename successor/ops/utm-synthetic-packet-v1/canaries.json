@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "implemented": false,
+  "only_public_synthetic_literals": true,
+  "provider_canary_literal": "synthetic-provider-canary-only\n",
+  "other_canary_literal": "fort-utm-public-synthetic-canary-v1\n",
+  "cases": [
+    {
+      "id": "C01",
+      "purpose": "runtime provider read",
+      "target": "/var/lib/fort-probe/provider/synthetic-canary",
+      "positive_control": "runtime UID 2001 reads exact public literal; root inspector verifies owner=2001 mode=0600 and digest",
+      "acceptance": "runtime positive control must pass; tool read must fail EACCES/EPERM or hidden ENOENT with root-proven existence"
+    },
+    {
+      "id": "C02",
+      "purpose": "management state",
+      "target": "/run/fort-probe/session/identity.json",
+      "positive_control": "root proves exact bound identity exists; runtime may read immutable identity",
+      "acceptance": "tool cannot read or alter; before/after content digest equal"
+    },
+    {
+      "id": "C03",
+      "purpose": "sibling store",
+      "target": "/var/lib/fort-probe/sibling/canary",
+      "positive_control": "root creates mode 0700 directory and 0600 fixed public file",
+      "acceptance": "tool cannot read/write; no actual sibling run or real data is involved"
+    },
+    {
+      "id": "C04",
+      "purpose": "guest provisioning seed",
+      "target": "/var/lib/cloud/seed/nocloud/user-data",
+      "positive_control": "root proves only reviewed synthetic seed bytes; record seed location resolved by actual NoCloud",
+      "acceptance": "tool cannot read seed, cloud-init state or root management paths"
+    },
+    {
+      "id": "C05",
+      "purpose": "serial management devices",
+      "target": "/dev/hvc0 and /dev/hvc1",
+      "positive_control": "root confirms both character devices/owners and broker fd mapping",
+      "acceptance": "tool and runtime cannot open either device; no key or login shell"
+    },
+    {
+      "id": "C06",
+      "purpose": "management IPC",
+      "target": "/run/fort-probe/inspection-canary.sock",
+      "positive_control": "root broker creates bounded guest-only AF_UNIX canary socket under 0700 directory",
+      "acceptance": "tool cannot connect; no arbitrary command accepted and socket is destroyed in cleanup"
+    },
+    {
+      "id": "C07",
+      "purpose": "own scratch/IPC",
+      "target": "private /tmp/tool-positive-control and socketpair",
+      "positive_control": "tool writes and reads exact synthetic text and creates own AF_UNIX socketpair",
+      "acceptance": "both positive controls pass; inspector verifies this is tool-private tmp"
+    },
+    {
+      "id": "C08",
+      "purpose": "IP socket families",
+      "target": "AF_INET and AF_INET6",
+      "positive_control": "no remote address, packet or host socket needed",
+      "acceptance": "both socket creations must fail; if either succeeds close immediately and fail before connect"
+    },
+    {
+      "id": "C09",
+      "purpose": "privileges and inherited fds",
+      "target": "/proc/self/status, /proc/self/ns, /proc/self/fd, /sys/fs/cgroup",
+      "positive_control": "root inspector independently records actual IDs, capabilities, no_new_privs, namespace/cgroup and descriptor classes",
+      "acceptance": "different dynamic tool UID; no capabilities; no new privileges; distinct network/mount/IPC namespaces; no writable management/delegated cgroup or leaked management fd",
+      "operation_limit": "Inspect own status/ns/fd metadata and attempt an O_WRONLY open of the fixed management/cgroup canary only; do not write to arbitrary control files. Final exact syscall targets must be sealed in R1."
+    },
+    {
+      "id": "C10",
+      "purpose": "setsid descendant lifetime",
+      "target": "one double-forked sleeping synthetic descendant",
+      "positive_control": "root inspector observes exact pid/start time and membership in owned attempt cgroup before stop",
+      "acceptance": "normal stop makes all owned descendant cgroup.procs empty; receipt alone is insufficient"
+    },
+    {
+      "id": "C11",
+      "purpose": "Mac data separation",
+      "target": "/Users/tobiasgunn/Library/Application Support/FortUTMIsolation/canaries/host-only.txt",
+      "positive_control": "host records one public literal before/after; guest device/share/mount inventory proves zero Mac shares",
+      "acceptance": "host file unchanged and no mapped host share; guest path absence alone is not a permission-denial proof"
+    }
+  ],
+  "missing_path_rule": "ENOENT is evidence only for an intentionally hidden guest object whose existence/identity was independently established by guest root; an uncreated path can never count as a passed denial.",
+  "actual_host_keychain_or_credential_reads": false,
+  "host_secret_denial_claim": false,
+  "required_systemd": {
+    "slice": {
+      "CPUQuota": "100%",
+      "MemoryMax": "512M",
+      "TasksMax": 32
+    },
+    "runtime": {
+      "User": "fort-runtime",
+      "UID": 2001,
+      "GID": 2001,
+      "Type": "notify",
+      "WatchdogSec": 2,
+      "RuntimeMaxSec": 40,
+      "TimeoutStopSec": 2,
+      "CPUQuota": "25%",
+      "MemoryMax": "128M",
+      "TasksMax": 8
+    },
+    "tool": {
+      "DynamicUser": true,
+      "RuntimeMaxSec": 38,
+      "TimeoutStopSec": 2,
+      "CPUQuota": "25%",
+      "MemoryMax": "128M",
+      "TasksMax": 16,
+      "BindsTo": "fort-runtime.service"
+    },
+    "both": {
+      "Restart": "no",
+      "KillMode": "control-group",
+      "SendSIGKILL": true,
+      "NoNewPrivileges": true,
+      "PrivateNetwork": true,
+      "PrivateIPC": true,
+      "PrivateDevices": true,
+      "PrivateTmp": true,
+      "ProtectSystem": "strict",
+      "ProtectHome": true,
+      "ProtectControlGroups": true,
+      "CapabilityBoundingSet": [],
+      "AmbientCapabilities": [],
+      "RestrictAddressFamilies": [
+        "AF_UNIX"
+      ],
+      "LimitCORE": 0
+    },
+    "tool_hidden": [
+      "/home",
+      "/root",
+      "/mnt",
+      "/var/lib/cloud",
+      "/etc/ssh",
+      "/run/fort-probe",
+      "/var/lib/fort-probe",
+      "/run/dbus",
+      "/run/systemd"
+    ],
+    "no_runtime_or_tool_autostart": true
+  },
+  "outcome_rule": "All positive controls, denials, actual settings and independent lifetime checks must pass in the one nominal trial; any unavailable check is unproven, not success.",
+  "not_covered": [
+    "adversarial kernel/VM escape",
+    "real provider credential confinement",
+    "host same-UID attackers",
+    "host/controller crash fault matrix",
+    "network-enabled guest",
+    "unattended lifecycle",
+    "T07 acceptance"
+  ]
+}

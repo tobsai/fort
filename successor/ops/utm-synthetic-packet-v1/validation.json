@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "time_utc": "2026-10-13T13:01:31.944834+00:00",
+  "kind": "static planning-artifact validation only",
+  "source_base_commit": "baadd3edcac5ffd02d97f90b66c12a879bf2366d",
+  "passed": [
+    "11 expected inert Markdown/JSON files only; no executable bit, script, importable VM config or seed",
+    "all execution/approval readiness flags false",
+    "nine exact download pins/caps/URLs match retained proposal",
+    "actual app signer/main binary/architecture CDHashes and full manifest match accepted inspection",
+    "proposal and app evidence seals unchanged",
+    "21 local source/evidence references hashed",
+    "nine existing host-tool entrypoint path/byte/hash identities checked without executing them",
+    "24 GiB total and 4 GiB auxiliary budget arithmetic",
+    "2 CPU/4 GiB RAM/two drives/two PTYs and zero network/share/device contract consistency",
+    "one boot/trial/grant and exactly 19 consecutive heartbeat plan",
+    "bounded protocol deadlines and fixed package UUID consistency",
+    "eleven canaries each have explicit positive controls and acceptance",
+    "17 exact signed state candidates plus task root still absent by lstat",
+    "uninspected archive members remain null and blocking",
+    "local Markdown links resolve or name the two generated validation/seal files",
+    "no tracked-file diff before this new packet"
+  ],
+  "failed_final_checks": [],
+  "validation_attempts": [
+    {
+      "attempt": 1,
+      "result": "Inline validation harness SyntaxError before execution; no checks or mutations occurred."
+    },
+    {
+      "attempt": 2,
+      "result": "Corrected harness passed all listed assertions."
+    }
+  ],
+  "unrun": [
+    "new network/download operations",
+    "new runtime source behavioral red/green tests",
+    "Node/OpenPGP/UTM/helper execution",
+    "guest archive/member inspection",
+    "NoCloud/PTY/VM provisioning or boot",
+    "live canary/lifetime/cleanup experiment",
+    "provider/account/credential/security operations",
+    "independent review and owner execution approval"
+  ],
+  "remaining_blockers": [
+    "R1-executable-source-and-behavior-tests",
+    "R2-archive-member-and-boot-binding",
+    "R3-seed-and-disabled-services",
+    "R4-pty-owner-and-guest-readiness",
+    "R5-state-process-cleanup-manifest",
+    "R6-independent-review-and-seal",
+    "R7-owner-authority-and-attendance"
+  ],
+  "preparation_claim": "Reviewable design packet complete; executable implementation, live verification and owner authority remain absent.",
+  "retained_scope": "Previous source/specs/approvals/reviews unchanged; no push/merge/deploy."
+}

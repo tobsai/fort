@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "purpose": "Inert review-packet content identity only; no execution authority or executable closure",
+  "files": {
+    "APPROVAL-REQUEST.md": "230d2784268f39ebbc8a85cd2c034446c67d65c84b1df8178751f3b14b1dc7ec",
+    "HOST-EFFECTS.md": "b18e2dd9f117fb0d38c3b9ba8e24d4d10fae0949ca360372ea279fb666c1a364",
+    "README.md": "42d3ac9dd850e491798d76833c911a6b1f5bbce4e7a677d2f5f0097d3831fbe1",
+    "REVIEW-GATES.md": "8110e3bcc1cee7c92238abfb95d755a4b389b40af0545b41427a5c67223ba928",
+    "RUNBOOK.md": "b6137ea107a0e72df7084eefaea20d6dfb6851211a7901056a6d5c7c9b336c00",
+    "canaries.json": "3b5a57ae5275327d77d40efbd7f488b00262e5e1d176c5f9f5464c441c37d255",
+    "inputs.json": "04d1ae5661c89978dfd7614ce5d65dff7c8492fad000e2065b9a26f59ae4f88f",
+    "protocol.json": "53825bb56f394ae6e3e19f9acf888ddee0a31bb520b8413870a0557f05d67f4f",
+    "provenance.json": "d93273ee5b921186c62a8af9d964bdfd335e6b1d0880ba85f5e89c25d68399bd",
+    "scope.json": "7bfcf69854e0a0e60e5dad291d8ce3b5725964bb27b2f89fe47653e2f2b3cf54",
+    "validation.json": "057bf4621f8c26cd02119535db0a6be24330d780f27e8e0ae52dddd2f5b53354",
+    "vm-design.json": "aafdc90db041909497f8f2f6d07a267f99d24117d5f1e49ae4574ed8e3341b1b"
+  }
+}

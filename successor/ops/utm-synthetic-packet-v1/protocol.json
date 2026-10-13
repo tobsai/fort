@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "implemented": false,
+  "transport": "Two exact owner-correlated UTM Ptty devices; binary-safe raw mode with no echo; no SSH, network listener or arbitrary shell",
+  "wire": {
+    "encoding": "UTF-8 JSON object per LF-delimited frame",
+    "max_frame_bytes_including_lf": 4096,
+    "max_pending_bytes_per_channel": 8192,
+    "max_control_frames": 64,
+    "max_control_bytes_total": 262144,
+    "max_inspection_bytes_total": 1048576,
+    "max_boot_log_bytes": 2097152,
+    "unknown_or_duplicate_json_keys": "reject",
+    "nonfinite_numbers_or_extra_fields": "reject",
+    "unsolicited_or_duplicate_responses": "quarantine; never acknowledge as progress"
+  },
+  "identity": {
+    "fixed": {
+      "installation": "fort-utm-probe-v1",
+      "epoch": 1,
+      "attempt": "probe-0001",
+      "generation": 1,
+      "runtime_unit": "fort-runtime.service",
+      "vm_package_uuid": "148664c8-5334-5c17-8b7a-d60351f3a79f"
+    },
+    "observed": [
+      "sealed_packet_digest",
+      "vm_package_uuid",
+      "host_uid",
+      "utm_pid_and_start_time",
+      "vz_process_identity",
+      "serial_dev_inode_rdev_owner_mode",
+      "guest_boot_id",
+      "runtime_invocation_id",
+      "runtime_cgroup"
+    ],
+    "cryptographic_authentication": false,
+    "trusted": "Mac owner and same-user processes, UTM/Apple VZ, guest root and broker; no shared hosting"
+  },
+  "inspection_channel": {
+    "expected_guest_device": "/dev/hvc0",
+    "operations": [
+      "fixed preflight",
+      "fixed postflight"
+    ],
+    "shell_or_arbitrary_path_arguments": false,
+    "boot_log_separate_from_framed_response": true,
+    "response_identity_required": true,
+    "root_positive_controls_required": true,
+    "standard_output_not_a_trusted_tool_receipt": true
+  },
+  "control_channel": {
+    "expected_guest_device": "/dev/hvc1",
+    "shell_getty_disabled": true,
+    "sequence": [
+      {
+        "op": "prepare",
+        "sequence": 0,
+        "effect": "Exclusively persist consumed-attempt record and fsync its directory before starting runtime barrier; tool stays inactive."
+      },
+      {
+        "op": "grant",
+        "sequence": 1,
+        "effect": "Exact boot/invocation/cgroup identity and live original runtime required; publish one immutable grant then start fixed tool."
+      },
+      {
+        "op": "heartbeat",
+        "sequences": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "count": 19,
+        "interval_target_ms": 250,
+        "effect": "Only validated exact identity/consecutive sequence refreshes heartbeat; control output alone never does."
+      },
+      {
+        "op": "stop",
+        "sequence": 21,
+        "effect": "Stop owned runtime/tool/slice; require inactive units and empty descendant cgroups; no replacement."
+      }
+    ],
+    "prepare_deadline_seconds": 4,
+    "ack_deadline_ms": 750,
+    "guest_operation_deadline_ms": 500,
+    "idle_deadline_ms": 1000,
+    "runtime_heartbeat_max_age_ms": 1500,
+    "host_session_hard_deadline_seconds": 45,
+    "durable_states": [
+      "unconsumed",
+      "consumed-preparing",
+      "prepared",
+      "granted",
+      "stopping",
+      "stopped-empty",
+      "quarantined-unknown"
+    ],
+    "terminal_states_not_reusable": [
+      "stopped-empty",
+      "quarantined-unknown"
+    ],
+    "uncertain_write_or_lost_ack": "Never resend prepare/grant/heartbeat/stop as an execution command; close execution channel and use fixed inspection/owner stop for reconciliation.",
+    "readiness_cannot_reset_consumed_record": true
+  },
+  "pty_open_requirements": [
+    "User supplies both displayed PTY paths for the exact once-started VM",
+    "Correlate package UUID, signed app executable/PID/start time and VZ process/open handles",
+    "lstat character device with expected owner/mode and recorded rdev/inode; no symlink; open with nofollow and compare fstat",
+    "Exclusive access; no chmod/chown; reject competing consumers or ambiguous attribution",
+    "Save raw terminal settings and restore only the same live device identity; close own fd on exit",
+    "Correlate startup hello/boot ID; a nonce is correlation only and never replaces host-owner trust"
+  ],
+  "fd_policy": "Controller and guest broker close all unneeded inherited descriptors; runtime/tool get only intended stdio/journal, never host paths, PTYs, management sockets or provider stores.",
+  "required_offline_regressions": [
+    "split UTF-8/partial frames",
+    "multiple complete frames without false overflow",
+    "oversized frame/aggregate output",
+    "duplicate keys/unknown fields/nonfinite number",
+    "echo/stale/unbound response",
+    "partial/nonblocking write timeout",
+    "PTY symlink/rdev/owner swap and competing consumer",
+    "wrong boot/invocation/generation/sequence",
+    "repeated grant and consumed record after restart",
+    "controller crash/cancel/hangup and no resend",
+    "slow inspection cannot renew runtime lease",
+    "normal stop and uncertainty when independent cleanup cannot be proven"
+  ],
+  "live_fault_trials_in_this_scope": 0,
+  "pty_required_owner_uid": 501,
+  "pty_required_mode": "0600",
+  "pty_permission_mismatch": "Stop; never chmod/chown or broaden to group/world access."
+}

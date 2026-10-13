@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "source_base_commit": "baadd3edcac5ffd02d97f90b66c12a879bf2366d",
+  "preparation": "Repository-only plan/data; no new download, UTM process, VM, credential or host-state root.",
+  "local_references": [
+    {
+      "path": "successor/ops/utm-isolation-proposal-v1/seal.json",
+      "bytes": 848,
+      "sha256": "99decb7c28b2c2daba3972709642a12ed4d3cce084a40bc3c3dd3e0008899159"
+    },
+    {
+      "path": "successor/ops/utm-isolation-proposal-v1/scope.json",
+      "bytes": 8163,
+      "sha256": "1e37fbd6956165834f6da921835d31b2a62d717376bbe3a51d54af01b214d157"
+    },
+    {
+      "path": "successor/ops/utm-isolation-proposal-v1/vm-intent.json",
+      "bytes": 3449,
+      "sha256": "bece6f653b75d8a9b2a8388299f1a3ebe2b05b9eeb1a34207bba91c890e0e743"
+    },
+    {
+      "path": "successor/ops/utm-isolation-proposal-v1/provenance.json",
+      "bytes": 12002,
+      "sha256": "9cb6215406844f8593d2e96ad28a9f0ec0f865817b6fa3835472765bc4d97a79"
+    },
+    {
+      "path": "successor/evidence/utm-app-inspection-2026-10-13/seal.json",
+      "bytes": 4181,
+      "sha256": "1bf88cb2a1dc5e8ecb9e3cda7d25329fad05c93b7c600376d5c040aafb4ef507"
+    },
+    {
+      "path": "successor/evidence/utm-app-inspection-2026-10-13/validation.json",
+      "bytes": 4738,
+      "sha256": "ddb4d481c6314c1e6aeab5e638be5ab12f7fa3b91c759b5aa72d7de2ae1c360e"
+    },
+    {
+      "path": "successor/evidence/utm-app-inspection-2026-10-13/app-signing-and-entitlements.json",
+      "bytes": 952,
+      "sha256": "8c5c6210830820c480e015422dfff540a065d793c0f6d01a28241e27284f6157"
+    },
+    {
+      "path": "successor/evidence/utm-app-inspection-2026-10-13/mounted-app-manifest.json",
+      "bytes": 354166,
+      "sha256": "98e8c989563c2e5ddade988940aff40597a06e7b9367e114389dad557b0c0cf0"
+    },
+    {
+      "path": "successor/evidence/utm-app-inspection-2026-10-13/nested-signatures-and-entitlements.json",
+      "bytes": 93907,
+      "sha256": "291ff5bb00cb71154351fa95ffcfa2fe740c054d34253353d8668d715e3a454e"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/fetch-public.py",
+      "bytes": 14043,
+      "sha256": "665be9a450aec4bba5d70a0937b64c95866ac9aa6e2acb13fb962bd35efb1544"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/verify-inputs.mjs",
+      "bytes": 8464,
+      "sha256": "5dcd858fdd13d26531639e165be6bcd9e005942fcdc0ad8cdcc2f9876a8e8e6a"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/verify-offline.py",
+      "bytes": 1048,
+      "sha256": "6bbe0275696738ab7c3394d4ab10b1f94486c49e313c2a98aba18e07b7b445c0"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/controller.py",
+      "bytes": 7483,
+      "sha256": "fe1b3812a6ecd96d9f27d68174e99f88492a7479a1198c30c949b7f57c66f320"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/runtime.py",
+      "bytes": 2228,
+      "sha256": "5fa0d87d223f100fa59b00080dd49ac166f86e1eebf0b7d8beb7d830ecdc03c1"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/tool.py",
+      "bytes": 1335,
+      "sha256": "ef55460089b0650e36b7b375ffdc6c7a40a7bb6608e38ed81af26854851a1c53"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/fort-runtime.service",
+      "bytes": 1335,
+      "sha256": "09f975d764d01a46087d46f813d2ea36b571f3e31bfc548367f7b3638b1ad5de"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/fort-tool.service",
+      "bytes": 1313,
+      "sha256": "f235c5f532c768e7c32bdf11a72b10ef7a5694243e93a06a922088a1a6ed3c9d"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/fort-attempt.slice",
+      "bytes": 114,
+      "sha256": "7bb92b4da96a8d35f3c115f08c1f0ccdabcec6509151a06bba2ef6ba2fc008e5"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/install.sh",
+      "bytes": 1897,
+      "sha256": "de0892ada9302bdfbcde36cfa3616ffcb2ca59177d301edb888717f9d08e9a74"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/guest/egress.nft",
+      "bytes": 625,
+      "sha256": "8f91d4e82cca562d5ebba9910a264f496a38c4685f373664e2b02595cf0af063"
+    },
+    {
+      "path": "successor/ops/isolation-probe-v1/host-session.py",
+      "bytes": 4395,
+      "sha256": "7c215f0cc27781a3cbedd50b22d3f7147550489ca5ac2e406807a879f3965e2d"
+    }
+  ],
+  "external_sources": "Pinned official text sources already identified in utm-isolation-proposal-v1/provenance.json; no new network research performed here.",
+  "reuse_policy": "Previous code is evidence/reference only. No legacy SSH installer, Lima config, network rule, source seal or approval is invoked by this packet. UTM adaptations must be separately implemented/tested/reviewed; references are not executable closure.",
+  "scope_changes_from_proposal": [
+    "Actual UTM version/build/signing identity and complete bundle hashes now measured",
+    "Exact sandbox/group candidate paths now known; first-launch footprint remains unknown",
+    "Guest-only canaries have explicit positive existence controls; legacy absent .ssh/Lima paths cannot count as denial",
+    "No-NIC firewall excludes inherited Lima DHCP/SSH allowances",
+    "Separate design-review readiness from implementation/owner execution authority",
+    "Nine-input Ubuntu-only verifier adaptation required: mutate checksum/signature/key bytes and expected fingerprint; no implicit Lima key download or invocation of the old two-publisher main."
+  ]
+}

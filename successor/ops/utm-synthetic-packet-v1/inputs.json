@@ -1,0 +1,240 @@
+{
+  "schema": 1,
+  "download_count": 9,
+  "downloads": [
+    {
+      "name": "UTM.dmg",
+      "url": "https://github.com/utmapp/UTM/releases/download/v4.7.5/UTM.dmg",
+      "sha256": "a8435c93cfb5f8bbfeea4b134cfad1ac66b67632b75e438c63b1a8ae043bef0e",
+      "observed_release_asset_bytes": 250021057,
+      "max_bytes": 268435456,
+      "kind": "candidate-notarized-application-disk-image",
+      "state": "previously-inspected-and-cleaned"
+    },
+    {
+      "name": "noble-server-cloudimg-arm64.tar.gz",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.tar.gz",
+      "sha256": "1800eb56b6b839a08c020551e16fbd8c95b2772452ecce3737a9ad25fe594126",
+      "max_bytes": 805306368,
+      "kind": "candidate-raw-filesystem-kernel-archive",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "ubuntu.sums",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS",
+      "sha256": "b61a6497608cdea66f54968d52d3457365b0645ccb2b1371c8f092ecce806183",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "ubuntu.sig",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/SHA256SUMS.gpg",
+      "sha256": "1703eef53a392af8f6834716afacc15f74eac14f07aa8d916c1fe5dc219419d1",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "ubuntu.pub",
+      "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xD2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+      "sha256": "927138de292fac4d861105a052cf56e9c5921987da385c844d88f34d19b39ab0",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "ubuntu.manifest",
+      "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.manifest",
+      "sha256": "be8373ae3b3be49905c1e9984196196cc9148c6437ec96a735e90428ee8b8ac6",
+      "max_bytes": 65536,
+      "kind": "public-package-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "openpgp-6.3.2-metadata.json",
+      "url": "https://registry.npmjs.org/openpgp/6.3.2",
+      "sha256": "847016b4cc91ec3d7c98d9f3d0b519ba41593f31ddaa222cee89f5b1a3a96700",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "npm-public-signing-keys.json",
+      "url": "https://registry.npmjs.org/-/npm/v1/keys",
+      "sha256": "faf23d8753d5bb79df250f10391ac89b63ecf7743e48487a544a99c847f9c8df",
+      "max_bytes": 65536,
+      "kind": "public-verification-metadata",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    },
+    {
+      "name": "openpgp-6.3.2.tgz",
+      "url": "https://registry.npmjs.org/openpgp/-/openpgp-6.3.2.tgz",
+      "sha512": "c1c653cc7cf8d4b57c638f331ff2650f5253f1874d9a958eb8c02343fa6876fbc2c2c8c1114dfb2b7ce7261e1441c8f7864b04e73f53cef85b51bc33b06be52d",
+      "integrity": "sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ==",
+      "max_bytes": 8388608,
+      "kind": "private-verifier-archive",
+      "state": "not-present; reacquisition not authorized in this preparation"
+    }
+  ],
+  "download_policy": {
+    "https_only": true,
+    "proxy_cookie_auth_netrc": false,
+    "allowed_hosts": [
+      "github.com",
+      "release-assets.githubusercontent.com",
+      "cloud-images.ubuntu.com",
+      "keyserver.ubuntu.com",
+      "registry.npmjs.org"
+    ],
+    "maximum_redirects": 4,
+    "socket_timeout_seconds": 30,
+    "per_input_total_timeout_seconds": 600,
+    "automatic_retry": false,
+    "receipts_max_bytes_each": 8192,
+    "failed_public_key_body_max_bytes": 65536,
+    "max_diagnostic_bytes_total": 262144,
+    "failure_receipt_vetoes_acceptance": true
+  },
+  "utm": {
+    "expected_version": "4.7.5",
+    "expected_build": "118",
+    "bundle_id": "com.utmapp.UTM",
+    "team_id": "WDNLXAD4W8",
+    "signer": "Developer ID Application: Turing Software, LLC (WDNLXAD4W8)",
+    "main_binary": "UTM.app/Contents/MacOS/UTM",
+    "main_binary_sha256": "d6fba974f81917781c303ca2838ad6b7431842f45a87b21ae2b33e29836fdc23",
+    "main_cdhashes": {
+      "arm64": "19fc43aa858d42d2ec595ade708af75bfdf19572",
+      "x86_64": "7cc2bc96dc4a5c08684dbe8c37c231676ec40e9d"
+    },
+    "full_bundle_manifest": "../../evidence/utm-app-inspection-2026-10-13/mounted-app-manifest.json",
+    "full_bundle_manifest_sha256": "98e8c989563c2e5ddade988940aff40597a06e7b9367e114389dad557b0c0cf0",
+    "compare_fields": [
+      "relative path",
+      "type",
+      "mode",
+      "bytes for regular files",
+      "sha256 for regular files",
+      "link_target for symlinks"
+    ],
+    "do_not_compare_after_copy": [
+      "inode",
+      "device",
+      "uid from mounted-volume packaging",
+      "allocated bytes"
+    ],
+    "require_copy_contents_modes_symlinks_xattrs_unchanged": true,
+    "source_commit": "048ca7498ea3a374439149d51739d94c5300bcda",
+    "source_commit_is_not_reproducible_build_attestation": true,
+    "fresh_gatekeeper_app_acceptance_required": true,
+    "outer_dmg_primary_signature_exception": "Previously accepted narrow read-only-inspection exception is evidenced; future execution request must explicitly retain it. DMG ticket plus copied app/nested-code validation required."
+  },
+  "ubuntu_publisher_primary_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+  "verifier": {
+    "package": "openpgp",
+    "version": "6.3.2",
+    "host_node_version": "26.5.0",
+    "registry_signatures_required": true,
+    "default_policy_only": true,
+    "negative_controls": [
+      "mutated checksum text",
+      "mutated detached signature bytes",
+      "altered public key bytes",
+      "wrong expected publisher fingerprint (one-character change; no new key input)"
+    ],
+    "ubuntu_checksums_entry": "noble-server-cloudimg-arm64.tar.gz",
+    "private_extraction_max_bytes": 25165824,
+    "package_manager_hooks_dependencies_addons_workers_child_network": false,
+    "negative_control_limit": "The fingerprint case tests identity binding, not cryptographic verification against another valid publisher key. No unlisted tenth download or generated key is permitted."
+  },
+  "existing_host_tools": [
+    {
+      "path": "/opt/homebrew/opt/node@26/bin/node",
+      "resolved_path": "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+      "bytes": 68032,
+      "sha256": "19fa44ac565968cd4dbf38277854c829e441598f0872223881002efb471b40e9"
+    },
+    {
+      "path": "/usr/bin/python3",
+      "resolved_path": "/usr/bin/python3",
+      "bytes": 200560,
+      "sha256": "bc708fdf9306f01bfdfd979577d18493f71bcf5879c0d59274b7cfe2cd716c1d"
+    },
+    {
+      "path": "/usr/bin/hdiutil",
+      "resolved_path": "/usr/bin/hdiutil",
+      "bytes": 763552,
+      "sha256": "91e623b7b81aeb496ee9c4a8c69211e999b02a9ca9c82da51fca11027058da7c"
+    },
+    {
+      "path": "/usr/bin/codesign",
+      "resolved_path": "/usr/bin/codesign",
+      "bytes": 973408,
+      "sha256": "7fccb3fc6b28743c766b008b7b2c48fe7fe33cf81d86ddd31f20eb79be4c42ba"
+    },
+    {
+      "path": "/usr/sbin/spctl",
+      "resolved_path": "/usr/sbin/spctl",
+      "bytes": 531552,
+      "sha256": "92faf502a33958150155e6abc1af14f6606706f5876962225340d65f053f2be4"
+    },
+    {
+      "path": "/usr/bin/xcrun",
+      "resolved_path": "/usr/bin/xcrun",
+      "bytes": 199024,
+      "sha256": "5cf366a052b1ff00e0011d21131e8ffaf9d51bab02996a79eb0ebab549336fe5"
+    },
+    {
+      "path": "/usr/bin/ditto",
+      "resolved_path": "/usr/bin/ditto",
+      "bytes": 270464,
+      "sha256": "0d18249a758d1ce7ef1c4a28e2436a69899b8cb5b179d2072fced52aa332ec69"
+    },
+    {
+      "path": "/usr/sbin/lsof",
+      "resolved_path": "/usr/sbin/lsof",
+      "bytes": 470608,
+      "sha256": "42fff127fca70793fe3d83cacb5b677604723433227930546afcfe5a096f626b"
+    },
+    {
+      "path": "/bin/ps",
+      "resolved_path": "/bin/ps",
+      "bytes": 268736,
+      "sha256": "6c39a1a8bb6aa8f2474e8c0b3138f3041d63769695be4f10a82e21f40123230d"
+    }
+  ],
+  "host_tool_pin_limit": "Entrypoint bytes observed read-only during preparation; not a full shared-library/OS closure. Node version is previously observed, not executed here. Resolve xcrun tool selection and linked Node runtime closure before launch approval. OS/tool changes require recorded revision review, not implicit substitution.",
+  "guest_image_package_versions": {
+    "python3": "3.12.3-0ubuntu2.1",
+    "python3-minimal": "3.12.3-0ubuntu2.1",
+    "systemd": "255.4-1ubuntu8.17",
+    "openssh-server": "1:9.6p1-3ubuntu13.19",
+    "sudo": "1.9.15p5-3ubuntu5.24.04.3",
+    "nftables": "1.0.9-1ubuntu0.1",
+    "iproute2": "6.1.0-1ubuntu6.4",
+    "cloud-init": "26.1-0ubuntu1~24.04.1",
+    "coreutils": "9.4-3ubuntu6.3",
+    "util-linux": "2.39.3-9ubuntu6.6",
+    "adduser": "3.137ubuntu1",
+    "bash": "5.2.21-2ubuntu4",
+    "dash": "0.5.12-6ubuntu5"
+  },
+  "derived_archive_members": {
+    "status": "uninspected-blocker",
+    "raw_disk": null,
+    "arm64_kernel": null,
+    "initrd": null,
+    "root_label": null,
+    "derived_member_hashes": null,
+    "rules": [
+      "One authenticated pinned archive only; no guessed members or fallback image",
+      "Reject traversal, absolute paths, duplicates, links, special or sparse-extension entries before extraction",
+      "Bound complete expanded archive to raw disk plus 192 MiB auxiliary; no recursive archive extraction",
+      "Exactly one raw disk <=20 GiB; authenticated metadata plus inspected raw filesystem/layout/label must agree",
+      "Kernel must yield an ARM64 Image; only bounded gzip decoding if required; initrd from same archive",
+      "No QCOW converter, disk resizing, filesystem mount on host, alternate kernel or initrd",
+      "Extract accepted members once directly into owned package Data paths; retain legal metadata under evidence cap"
+    ]
+  }
+}
