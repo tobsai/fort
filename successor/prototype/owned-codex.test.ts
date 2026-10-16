@@ -7,7 +7,7 @@ test('candidate provider entry refuses activation before any path inspection or 
   const plan = codexLaunchPlan({ workspace:'/synthetic/empty',temporaryDirectory:'/synthetic/tmp' });
   assert.equal(plan.executable,CODEX_EXECUTABLE);
   assert.deepEqual(Object.keys(plan.env).sort(),['HOME','LANG','PATH','TMPDIR','TZ']);
-  assert.equal(plan.deadlineMs,300_000);
+  assert.equal(plan.deadlineMs + (plan.terminationGraceMs ?? 0) + (plan.killGraceMs ?? 0),300_000);
   assert.equal(plan.args.includes('analytics.enabled=false'),true);
   assert.equal(plan.args.includes('skip_host_skill_discovery'),true);
 });

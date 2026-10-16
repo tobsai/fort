@@ -34,8 +34,9 @@ secrets, and resolve the host boundary and execution scope. The previous lost
 artifact's approval does not apply. Keep existing queued work held after restart;
 unknown outcomes block later work in that conversation and are never retried.
 
-The review follow-up adds an owned process group with an absolute five-minute
-session deadline, two seconds for SIGTERM and two seconds for SIGKILL. Disposal
+The review follow-up adds an owned process group with a five-minute
+total budget: dispatch ends after 296 seconds, reserving two seconds for SIGTERM
+and two seconds for SIGKILL. Disposal
 requires observed child close and absence of its owned group. Service shutdown
 disposes even an idle runtime and awaits this confirmation; cleanup failure blocks
 the restart sequence. These are bounded lifecycle controls, not OS confinement.
