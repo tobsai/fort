@@ -1,0 +1,3 @@
+sandbox_applied
+guard_network_query result=1 errno=0
+guard_exec_begin

@@ -1,0 +1,6 @@
+{
+  "pid": 31558,
+  "exit": -6,
+  "stdout": "sandbox_applied\nguard_network_query result=1 errno=0\nguard_exec_begin\n",
+  "stderr": ""
+}

@@ -1,0 +1,6 @@
+All 3 consumed attempt file sets and state/ledger hashes unchanged; 0 receipts.
+Official runtime executable and all 5 native app files unchanged.
+Main checkout git status byte-identical to recorded baseline.
+Python AST syntax passed.
+All 85 immutable upstream source hashes verified.
+All synthetic execution HOME/config/fixtures and compiled probes removed; only inert logs/policies retained.

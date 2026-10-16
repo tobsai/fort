@@ -1,0 +1,84 @@
+[
+  {
+    "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session",
+    "files": [
+      {
+        "path": "service/openai-candidate-b.sqlite",
+        "bytes": 49152,
+        "sha256": "418125696b3f6ebcf34e1e3defb5f2fb3e3e531804d8f8d91062dc03c6ef93d0"
+      },
+      {
+        "path": "session-state.json",
+        "bytes": 207,
+        "sha256": "19be731c00c39548b57717256780a48532029cc20443e6900e68b8f6917abafe"
+      }
+    ],
+    "state": {
+      "version": 1,
+      "starts": 1,
+      "phase": "blocked",
+      "credentialDeadline": 1792164816393,
+      "receipts": [],
+      "installationId": "2b234955-7c6a-4a92-b81f-156e423f4855",
+      "credentialCleanup": "deleted"
+    }
+  },
+  {
+    "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016",
+    "files": [
+      {
+        "path": "service/openai-candidate-b.sqlite",
+        "bytes": 49152,
+        "sha256": "9a93b931712d1009422bb766861ba78c05f23c1fd4addc72fe6ded2ba2ad2ddd"
+      },
+      {
+        "path": "session-state.json",
+        "bytes": 316,
+        "sha256": "8a44c67c36b7022de467b961482b076fe441e240e7bf39370fbafa9ef776a9db"
+      }
+    ],
+    "state": {
+      "version": 1,
+      "attempt": "replacement-20261016",
+      "starts": 1,
+      "phase": "blocked",
+      "credentialDeadline": 1792180402422,
+      "receipts": [],
+      "failure": {
+        "stage": "features",
+        "check": "memory_tool"
+      },
+      "installationId": "134614f8-f55e-4cef-9c27-021601a9054b",
+      "credentialCleanup": "deleted"
+    }
+  },
+  {
+    "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016",
+    "files": [
+      {
+        "path": "service/openai-candidate-b.sqlite",
+        "bytes": 49152,
+        "sha256": "e8f1f6fa12a650680e4ce6d1661d0927dba5b377f740583c96cd5921ddb54656"
+      },
+      {
+        "path": "session-state.json",
+        "bytes": 311,
+        "sha256": "da87887ae673045849fa255469ce0c4a25642f363d883f569e8023c60fd240b1"
+      }
+    ],
+    "state": {
+      "version": 1,
+      "attempt": "third-20261016",
+      "starts": 1,
+      "phase": "blocked",
+      "credentialDeadline": 1792182504867,
+      "receipts": [],
+      "failure": {
+        "stage": "features",
+        "check": "unified_exec"
+      },
+      "installationId": "5f422b4e-e043-44f2-9154-f2deb64549c2",
+      "credentialCleanup": "deleted"
+    }
+  }
+]

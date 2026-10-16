@@ -1,0 +1,11 @@
+{
+  "HOME": "/private/tmp/fort-offline-permissions-3f4db73t/home",
+  "CODEX_HOME": "/private/tmp/fort-offline-permissions-3f4db73t/codex",
+  "TMPDIR": "/private/tmp/fort-offline-permissions-3f4db73t/tmp",
+  "XDG_CONFIG_HOME": "/private/tmp/fort-offline-permissions-3f4db73t/xdg-config",
+  "XDG_DATA_HOME": "/private/tmp/fort-offline-permissions-3f4db73t/xdg-data",
+  "XDG_CACHE_HOME": "/private/tmp/fort-offline-permissions-3f4db73t/xdg-cache",
+  "PATH": "/usr/bin:/bin",
+  "LANG": "en_US.UTF-8",
+  "TZ": "UTC"
+}

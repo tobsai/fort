@@ -1,0 +1,14 @@
+[
+  {
+    "path": "iterations/04/parser-invalid.stderr.gz",
+    "rawBytes": 98,
+    "rawSHA256": "13380c19a4acbd750237c042a46d62d27f152fb8485dfa11b39e4491c2281eef",
+    "reason": "Preserve exact stderr including blank EOF lines without whitespace errors"
+  },
+  {
+    "path": "iterations/05/parser-invalid.stderr.gz",
+    "rawBytes": 98,
+    "rawSHA256": "13380c19a4acbd750237c042a46d62d27f152fb8485dfa11b39e4491c2281eef",
+    "reason": "Preserve exact stderr including blank EOF lines without whitespace errors"
+  }
+]

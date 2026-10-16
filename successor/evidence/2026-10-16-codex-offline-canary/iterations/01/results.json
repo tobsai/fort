@@ -1,0 +1,39 @@
+[
+  {
+    "name": "compile",
+    "args": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-deprecated-declarations",
+      "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/offline-canary/probe.c",
+      "-o",
+      "/private/tmp/fort-offline-permissions-1ma0kawe/probe"
+    ],
+    "exitCode": 0,
+    "timedOut": false
+  },
+  {
+    "name": "control",
+    "args": [
+      "/private/tmp/fort-offline-permissions-1ma0kawe/probe",
+      "probe",
+      "control",
+      "/private/tmp/fort-offline-permissions-1ma0kawe/control-fixture"
+    ],
+    "exitCode": 0,
+    "timedOut": false
+  },
+  {
+    "name": "safety-wrapper",
+    "args": [
+      "/private/tmp/fort-offline-permissions-1ma0kawe/probe",
+      "guard",
+      "/private/tmp/fort-offline-permissions-1ma0kawe/safety-wrapper.sb",
+      "/usr/bin/true"
+    ],
+    "exitCode": -6,
+    "timedOut": false
+  }
+]

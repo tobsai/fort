@@ -1,0 +1,50 @@
+[
+  {
+    "name": "compile",
+    "args": [
+      "/usr/bin/clang",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-deprecated-declarations",
+      "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/offline-canary/probe.c",
+      "-o",
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/probe"
+    ],
+    "exitCode": 0,
+    "timedOut": false
+  },
+  {
+    "name": "control",
+    "args": [
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/probe",
+      "probe",
+      "control",
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/control-fixture"
+    ],
+    "exitCode": 0,
+    "timedOut": false
+  },
+  {
+    "name": "deny-glob-rule",
+    "args": [
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/probe",
+      "probe",
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/deny-glob-rule.sb",
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/deny-fixture"
+    ],
+    "exitCode": 0,
+    "timedOut": false
+  },
+  {
+    "name": "safety-wrapper",
+    "args": [
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/probe",
+      "guard",
+      "/private/tmp/fort-offline-permissions-w1l6ndkh/safety-wrapper.sb",
+      "/usr/bin/true"
+    ],
+    "exitCode": -6,
+    "timedOut": false
+  }
+]

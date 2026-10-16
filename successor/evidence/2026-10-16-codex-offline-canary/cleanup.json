@@ -1,0 +1,56 @@
+[
+  {
+    "iteration": 1,
+    "root": "/private/tmp/fort-offline-permissions-1ma0kawe",
+    "temporaryHomesConfigurationsFixturesAndExecutableRemoved": true,
+    "previousExecutable": [
+      {
+        "path": "probe",
+        "bytes": 35064,
+        "sha256": "ea63ba066c27974937c20a15c1a54825d3ca0439cfd81620fbe5d6012f4ff076"
+      }
+    ]
+  },
+  {
+    "iteration": 2,
+    "root": "/private/tmp/fort-offline-permissions-5kpkkpel",
+    "temporaryHomesConfigurationsFixturesAndExecutableRemoved": true,
+    "previousExecutable": [
+      {
+        "path": "probe",
+        "bytes": 35064,
+        "sha256": "0c2bb19562f655727a7b94f0fd0e3fa3a74e9c72a8525a994edd43f34279d7fd"
+      }
+    ]
+  },
+  {
+    "iteration": 3,
+    "root": "/private/tmp/fort-offline-permissions-w1l6ndkh",
+    "temporaryHomesConfigurationsFixturesAndExecutableRemoved": true,
+    "previousExecutable": [
+      {
+        "path": "probe",
+        "bytes": 35064,
+        "sha256": "7cba29e91aedabc42e33a62566dc5e913adb39c5f1f8534d23045e8bea85229b"
+      }
+    ]
+  },
+  {
+    "iteration": 4,
+    "root": "/private/tmp/fort-offline-permissions-3f4db73t",
+    "temporaryHomesConfigurationsFixturesAndExecutableRemoved": true,
+    "previousExecutable": [
+      {
+        "path": "probe",
+        "bytes": 35064,
+        "sha256": "7cba29e91aedabc42e33a62566dc5e913adb39c5f1f8534d23045e8bea85229b"
+      }
+    ]
+  },
+  {
+    "iteration": 5,
+    "root": "/private/tmp/fort-offline-permissions-u6erp75q",
+    "temporaryHomesConfigurationsFixturesAndExecutableRemoved": true,
+    "previousExecutable": []
+  }
+]
