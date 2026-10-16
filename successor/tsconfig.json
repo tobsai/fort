@@ -6,8 +6,16 @@
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": false
   },
-  "include": ["contracts/**/*.ts", "service/**/*.ts", "runner/**/*.ts", "apple/*.ts"]
+  "include": [
+    "contracts/**/*.ts",
+    "service/**/*.ts",
+    "runner/**/*.ts",
+    "apple/*.ts",
+    "prototype/**/*.ts"
+  ]
 }
