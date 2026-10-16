@@ -12,6 +12,10 @@ struct SavedNavigation: Codable {
     let installation: Installation
     let agents: [Agent]
     let selectedAgentID: String?
+    var conversations: [Conversation]? = nil
+    var skills: [InstructionSkill]? = nil
+    var selectedConversationID: String? = nil
+    var recipientAgentID: String? = nil
 }
 public enum DeviceStorageError: Error { case keychain(OSStatus) }
 protocol DeviceCredentials {

@@ -3,24 +3,31 @@ import SwiftUI
 public struct MessengerView: View {
     @Bindable private var model: MessengerModel
     @State private var uncertainRun: Run?
+    @State private var showWorkspace = false
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
         NavigationSplitView {
-            List(selection:$model.selectedAgentID) {
+            List(selection:SwiftUI.Binding(get:{ model.installation?.mode == "openai" ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.installation?.mode == "openai" { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
                 Section("Your Agents") {
                     ForEach(model.agents) { agent in
-                        NavigationLink(value:agent.agentId) {
+                        NavigationLink(value:model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId) {
                             VStack(alignment:.leading,spacing:4) {
                                 Text(agent.name).font(.headline)
-                                Text("Fixture · \(agent.binding.selectedModel)").font(.caption).foregroundStyle(.secondary)
+                                Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary)
                             }
-                        }.tag(agent.agentId)
+                        }.tag(model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId)
                     }
+                }
+                if model.installation?.mode == "openai" {
+                    Section("Shared conversations") { ForEach(model.conversations.filter { $0.kind == "shared" }) { room in NavigationLink(room.name,value:room.id).tag(room.id) } }
                 }
             }
             .navigationTitle("Fort")
-            .toolbar { Button("Connection",systemImage:"network") { model.showConnection = true } }
+            .toolbar {
+                Button("Connection",systemImage:"network") { model.showConnection = true }
+                if model.installation?.mode == "openai" { Button("Workspace",systemImage:"plus") { showWorkspace = true } }
+            }
         } detail: {
             VStack(spacing:0) {
                 conversationHeader
@@ -30,12 +37,13 @@ public struct MessengerView: View {
                 messageComposer
             }
             .toolbar { Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy) }
-            .navigationTitle(model.selectedAgent?.name ?? "Conversation")
+            .navigationTitle(model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation")
         }
         .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
             Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
         .sheet(isPresented:$model.showConnection) { connectionForm }
+        .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .task {
             await model.restore()
             while !Task.isCancelled {
@@ -49,8 +57,8 @@ public struct MessengerView: View {
 
     private var conversationHeader: some View {
                 VStack(alignment:.leading,spacing:6) {
-                    Label("Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
-                    if let agent = model.selectedAgent {
+                    Label(model.installation?.mode == "openai" ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
+                    if let agent = model.recipient {
                         Text(agent.name).font(.title2.bold())
                         Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
                     }
@@ -65,7 +73,7 @@ public struct MessengerView: View {
                     ForEach(model.snapshot?.messages ?? []) { message in messageRow(message) }
                     ForEach(model.snapshot?.runs ?? []) { run in runRow(run) }
                     ForEach(model.snapshot?.approvals ?? []) { approval in approvalRow(approval) }
-                    ForEach(model.pending.filter { $0.conversationID == model.selectedAgent?.homeConversationId }) { pending in pendingRow(pending) }
+                    ForEach(model.pending.filter { $0.conversationID == model.activeConversationID }) { pending in pendingRow(pending) }
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
             }
@@ -76,22 +84,27 @@ public struct MessengerView: View {
     }
     private func messageRow(_ message: Message) -> some View {
         VStack(alignment:.leading,spacing:5) {
-            Text(message.role == "user" ? "You" : "Fixture Agent").font(.caption.bold()).foregroundStyle(.secondary)
+            Text(message.role == "user" ? message.recipientAgentName.map { "You → \($0)" } ?? "You" : message.agentName ?? "Fixture Agent").font(.caption.bold()).foregroundStyle(.secondary)
             Text(message.text).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
         }
         .padding(12)
         .background(message.role == "user" ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
         .accessibilityElement(children:.combine)
-        .accessibilityLabel(Text("\(message.role == "user" ? "You" : "Fixture Agent")\n\(message.text)"))
+        .accessibilityLabel(Text("\(message.role == "user" ? "You" : message.agentName ?? "Fixture Agent")\n\(message.text)"))
         .task { await model.markRead(message) }
     }
     private func runRow(_ run: Run) -> some View {
         VStack(alignment:.leading) {
             Text(run.displayState).font(.caption)
-            if ["queued","running","waitingForApproval"].contains(run.state) {
+            if let detail = run.statusDetail { Text(detail).font(.caption2) }
+            if let configuration = run.configuration {
+                Text("\(configuration.agentName) · \(configuration.selectedModel)").font(.caption2)
+                if !configuration.skills.isEmpty { Text("Skills: " + configuration.skills.map(\.name).joined(separator:", ")).font(.caption2) }
+            }
+            if model.installation?.mode == "fixture", ["queued","running","waitingForApproval"].contains(run.state) {
                 Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }
-            if run.state == "outcomeUnknown" {
+            if model.installation?.mode == "fixture", run.state == "outcomeUnknown" {
                 Button("Close without retry") { uncertainRun = run }.disabled(model.isBusy || !model.supportsCommands)
             }
             if run.state == "completed" {
@@ -116,20 +129,34 @@ public struct MessengerView: View {
         VStack(alignment:.leading,spacing:4) {
             Text(pending.text)
             if let issue = model.pendingErrors[pending.requestID] { Text(issue).font(.caption).foregroundStyle(.orange) }
-            Text(pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Recovery changed · review required before retry").font(.caption).foregroundStyle(.secondary)
+            if let reason = pending.reviewRequired { Text(reason).font(.caption).foregroundStyle(.orange) }
+            Text(pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Review required · automatic retry paused").font(.caption).foregroundStyle(.secondary)
         }.padding().overlay(RoundedRectangle(cornerRadius:12).stroke(.secondary,style:StrokeStyle(lineWidth:1,dash:[4])))
     }
     private var messageComposer: some View {
+        VStack(alignment:.leading,spacing:8) {
+            if let conversation = model.selectedConversation, conversation.kind == "shared" {
+                Picker("Recipient",selection:$model.recipientAgentID) {
+                    Text("Choose an Agent").tag(Optional<String>.none)
+                    ForEach(model.agents.filter { conversation.participantAgentIds.contains($0.id) }) { Text($0.name).tag(Optional($0.id)) }
+                }
+            }
+            if model.installation?.mode == "openai", !model.skills.isEmpty {
+                DisclosureGroup("Skills for this message (\(model.selectedSkillIDs.count))") {
+                    ForEach(model.skills) { skill in Toggle(skill.name,isOn:SwiftUI.Binding(get:{ model.selectedSkillIDs.contains(skill.id) },set:{ if $0 { model.selectedSkillIDs.insert(skill.id) } else { model.selectedSkillIDs.remove(skill.id) } })) }
+                }
+            }
                 HStack(alignment:.bottom,spacing:12) {
                     TextField("Message your Agent",text:$model.draft,axis:.vertical).autocorrectionDisabled().lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer")
                     Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
-                }.padding()
+                }
+        }.padding()
     }
     private var connectionForm: some View {
         NavigationStack {
             Form {
-                Section("Fixture installation") {
-                    Text("Use the address, installation ID and one-time enrollment code supplied by your local fixture service. A physical iPhone needs a trusted HTTPS endpoint; this slice exposes loopback only.").font(.callout)
+                Section("Local installation") {
+                    Text("Use the address, installation ID and one-time enrollment code from the approved local Fort session. This prototype uses loopback on this Mac.").font(.callout)
                     TextField("Service address",text:$model.endpoint).autocorrectionDisabled()
                     TextField("Installation ID",text:$model.expectedInstallation).autocorrectionDisabled()
                     TextField("Device name",text:$model.deviceName)

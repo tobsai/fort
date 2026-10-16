@@ -75,6 +75,7 @@ test('shared submission pins its recipient and selected skill, saves one attribu
   assert.equal(snapshot.messages[1]?.agentName, 'Reviewer');
   assert.equal(snapshot.messages[1]?.text, 'red notebook [CHECKED]');
   assert.deepEqual((await h.api<Acceptance>(path, command)).body, accepted.body);
+  assert.deepEqual((await h.api<Acceptance>('/v1/requests/sample-shared')).body, accepted.body);
   assert.equal((await h.api(path, { ...command, text: 'changed' })).status, 409);
   assert.equal(await h.service.dispatchNext(), false);
 });

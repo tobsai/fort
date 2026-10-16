@@ -6,7 +6,7 @@ public struct Installation: Codable, Equatable, Sendable {
     public let recoveryEpoch: String
     public let mode: String
     public let serviceName: String
-    public var supportsCommands: Bool { contractVersion == "1.0" && mode == "fixture" }
+    public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai"].contains(mode) }
 }
 public struct Enrollment: Codable, Sendable {
     public let installation: Installation
@@ -29,8 +29,23 @@ public struct Agent: Codable, Equatable, Sendable, Identifiable {
     public let homeConversationId: String
     public let binding: Binding
     public let readiness: String
+    public var instructions: String? = nil
 }
 public struct AgentList: Codable, Sendable { public let agents: [Agent] }
+public struct SkillReference: Codable, Equatable, Sendable { public let skillId: String; public let revisionId: String }
+public struct InstructionSkill: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { skillId }
+    public let skillId: String; public let revisionId: String; public let name: String; public let instructions: String
+    public var reference: SkillReference { SkillReference(skillId:skillId, revisionId:revisionId) }
+}
+public struct Conversation: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { conversationId }
+    public let conversationId: String; public let name: String; public let kind: String; public let participantAgentIds: [String]
+}
+public struct TurnConfiguration: Codable, Equatable, Sendable {
+    public let agentId: String; public let agentName: String; public let bindingRevisionId: String
+    public let selectedModel: String; public let instructions: String; public let skills: [InstructionSkill]
+}
 public struct Message: Codable, Equatable, Sendable, Identifiable {
     public var id: String { messageId }
     public let messageId: String
@@ -40,6 +55,10 @@ public struct Message: Codable, Equatable, Sendable, Identifiable {
     public let text: String
     public let sequence: Int
     public let createdAt: String
+    public var agentId: String? = nil
+    public var agentName: String? = nil
+    public var recipientAgentId: String? = nil
+    public var recipientAgentName: String? = nil
 }
 public struct Run: Codable, Equatable, Sendable, Identifiable {
     public var id: String { runId }
@@ -52,11 +71,14 @@ public struct Run: Codable, Equatable, Sendable, Identifiable {
     public let effectiveModel: String?
     public let modelEvidence: String
     public let attemptId: String?
+    public var configuration: TurnConfiguration? = nil
+    public var statusDetail: String? = nil
     public var displayState: String {
         switch state {
-        case "queued": "Accepted · waiting for fixture host"
-        case "running": "Fixture is running"
-        case "completed": "Fixture reply saved"
+        case "queued": "Accepted · waiting for host"
+        case "running": "Agent is responding"
+        case "completed": "Reply saved"
+        case "failed": "Could not complete this turn"
         case "outcomeUnknown": "Outcome unknown · review required"
         case "canceled": "Canceled"
         case "closedUnknown": "Closed without retry · original outcome remains unknown"

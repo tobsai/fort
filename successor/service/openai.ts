@@ -215,7 +215,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         else if (request.method === 'GET' && url.pathname === '/v1/skills') result = { skills: list('skills', decodeSkill) };
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
         else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
-        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = record(load('requests', id(url.pathname.split('/')[3]), record).acceptance).receipt;
+        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = load('requests', id(url.pathname.split('/')[3]), record).acceptance;
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/messages$/.test(url.pathname)) { result = accept(request, id(url.pathname.split('/')[3]), await readBody(request)); status = 201; }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {
           const body = await readBody(request), agentId = id(url.pathname.split('/')[3]);

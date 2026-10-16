@@ -41,11 +41,25 @@ public struct FortClient: Sendable {
         return result
     }
     public func agents() async throws -> [Agent] { let result: AgentList = try await get("v1/agents"); return result.agents }
+    public func conversations() async throws -> [Conversation] { struct Response: Decodable { let conversations: [Conversation] }; let result: Response = try await get("v1/conversations"); return result.conversations }
+    public func skills() async throws -> [InstructionSkill] { struct Response: Decodable { let skills: [InstructionSkill] }; let result: Response = try await get("v1/skills"); return result.skills }
+    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String) async throws -> Agent {
+        struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String? }
+        return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:"POST", body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId))
+    }
+    public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async throws -> InstructionSkill {
+        struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
+        return try await send(skill.map { "v1/skills/\($0.skillId)" } ?? "v1/skills", method:"POST", body:Body(name:name, instructions:instructions, expectedRevisionId:skill?.revisionId))
+    }
+    public func createConversation(name: String, participantAgentIds: [String]) async throws -> Conversation {
+        struct Body: Encodable { let name: String; let participantAgentIds: [String] }
+        return try await send("v1/conversations", method:"POST", body:Body(name:name, participantAgentIds:participantAgentIds))
+    }
     public func snapshot(conversationID: String) async throws -> Snapshot { try await get("v1/conversations/\(try segment(conversationID))/snapshot") }
     public func receipt(requestID: String) async throws -> Acceptance { try await get("v1/requests/\(try segment(requestID))") }
     public func submit(_ pending: PendingSubmission) async throws -> Acceptance {
-        struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String }
-        return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text))
+        struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String; let recipientAgentId: String?; let skills: [SkillReference]? }
+        return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text, recipientAgentId:pending.recipientAgentID, skills:pending.skills))
     }
     public func events(after cursor: Int, recoveryEpoch: String) async throws -> EventPage {
         var components = URLComponents(url: baseURL.appendingPathComponent("v1/events"), resolvingAgainstBaseURL: false)!
