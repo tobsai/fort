@@ -1,0 +1,39 @@
+(node:33878) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual entry refuses before pin reads, native inspection, enrollment or process launch (0.66125ms)
+✔ SIGINT cancels a pending start before it can expose enrollment or readiness (5.1865ms)
+✔ SIGTERM cancels a pending start before it can expose enrollment or readiness (1.570709ms)
+✔ EOF cancels a pending start before it can expose enrollment or readiness (1.754667ms)
+✔ bounded packet honors exact samples and restart gate: success (68.56675ms)
+✔ bounded packet honors exact samples and restart gate: pending (29.282541ms)
+✔ bounded packet honors exact samples and restart gate: app (27.926125ms)
+✔ bounded packet honors exact samples and restart gate: dispose (24.688416ms)
+✔ bounded packet honors exact samples and restart gate: late-pending (24.006208ms)
+✔ failed or over-budget preflight consumes the first start without opening enrollment or allowing retry (9.31325ms)
+✔ an existing session lock refuses a parallel start before launching a runtime (1.174ms)
+✔ the outer deadline closes an idle session and its listener without relying on another user command (6.818417ms)
+✔ cancellation during blocked preflight disposes promptly and permanently consumes the start (5.57ms)
+✔ an already canceled start is blocked without launching a runtime or allowing another attempt (5.065959ms)
+✔ the same cancellation handle closes a ready session and revokes its listener (7.127125ms)
+✔ canceled listener startup exposes no address or surviving listener: before (17.021042ms)
+✔ canceled listener startup exposes no address or surviving listener: during (6.02ms)
+✔ owner creates two exact Agent Homes, an instruction skill and a shared conversation that survive restart (35.784166ms)
+✔ bounded enrollment expires within ten minutes and final close invalidates its device without a new enrollment (8.960125ms)
+✔ closed sample admission rejects before durable acceptance or runtime work (10.879625ms)
+✔ bounded device authorization expires even if the service remains open (7.656334ms)
+✔ explicit automatic dispatch runs new accepted work and read acknowledgement persists monotonically (16.606083ms)
+✔ shared submission pins its recipient and selected skill, saves one attributed reply and replays the original receipt (24.8615ms)
+✔ queued turns receive completed prior context in their own conversation, including after restart (18.582708ms)
+✔ restart holds old queued work and unknown outcomes without blocking a different Home (18.783ms)
+✔ profile edits keep stable identity, fence stale submissions and preserve already accepted configuration (17.807459ms)
+✔ message acceptance preserves whitespace-only plain text and rejects malformed Unicode before dispatch (9.105375ms)
+✔ service shutdown disposes its idle runtime exactly once and awaits cleanup confirmation (5.570083ms)
+✔ active service shutdown confirms owned child exit and leaves no late reply or automatic retry (147.57475ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 460.756625

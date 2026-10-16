@@ -1,0 +1,3 @@
+(node:33580) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"abortsWhilePreflightPending":0,"abortsAfterStartResolves":1,"cancelBetween":1,"printedReadyAfterSIGINT":true}
