@@ -1,5 +1,35 @@
 # Spec 058 implementation record
 
+## Current native-provider progress — October 16
+
+The approved fourth packet completed one actual native Mac send/reply through the
+pinned official Codex runtime and existing ChatGPT sign-in. The UI operator paired
+automatically, created Writer with `gpt-6-astra` selected, sent the sole approved
+Writer Home sample without a skill, and observed `cedar` plus **Reply saved**.
+The exact receipt/run and saved reply were independently checked through an immutable
+read-only SQLite connection; execution source/app/runtime pins matched before this
+documentation update. The packet has one consumed start, one completed receipt and
+reported credential deletion. Zero service enrollment/device rows, empty native
+pending, removed connection/enrollment/lock files, and app/runtime/listener absence
+were independently confirmed. The ledger/state were unchanged by verification.
+
+Execution source `916fd00e84a75250425d7cd152cfd15252a7c0e5`, evidence
+`ea37f2b4e5934c36303b7142f7eaf9dc4c9ef322`; see the
+[acceptance record](evidence/2026-10-16-fourth-native-acceptance/README.md).
+This accepts the one-message native Mac path and scoped cleanup only. Effective
+model was not reported; full isolation, whole-spec completion, iPhone/provider
+signoff, durable restart behavior with the real provider, and distribution remain
+open. All four packets are consumed and must be preserved without reset or restart.
+
+The practical next increment is a separately approved short owner trial in the
+existing Mac app: proposed ten minutes total, five plain-text messages maximum in
+one Writer Home, and one minute for cleanup. It requires a fresh one-start packet,
+automatic local pairing, preserved archival of the completed native cache, and a
+narrow controller change from literal sample text to bounded user text. Existing
+ChatGPT/Astra selection, no-tools permissions and same-user host limits remain.
+This bounded trial uses the existing app/runtime and current access scope; broader
+isolation and release work remain separate. This documentation authorizes no live action.
+
 Toby approved “Begin implementing spec 58” on 2026-10-12 at 02:43 UTC, recorded
 in the delegated request with reference Sentinel_716f9d1af39c8191b02a147d20a17e46.
 This authorizes local product code, native project scaffolding, builds/tests,

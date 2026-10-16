@@ -1,10 +1,27 @@
-# Candidate B — fourth bounded packet
+# Candidate B — one native chat accepted, packet consumed
 
-The owner approved one further native-chat test at 21:29 UTC on October 16.
-Only UI task `01a1451b-81d7-76cf-8e5c-a85d7164201c` executes it. See the
+The fourth attempt passed its approved single-message native Mac test: automatic
+pairing, Writer Home, `gpt-6-astra` selected, exact sample sent once, visible and
+durably saved `cedar`, then scoped cleanup. The saved run is completed, effective
+model remains unreported, and the packet is finished with one consumed start.
+Read-only verification matched the receipt, ledger, exact execution pins and cleanup
+residue; [acceptance evidence](../evidence/2026-10-16-fourth-native-acceptance/README.md).
+No restart or further enrollment/message is authorized. The packet description below
+is historical execution scope, not a reusable launch authorization.
+
+The smallest useful next step is a separately approved owner trial in this same Mac
+app: recommend ten minutes total, up to five owner-chosen plain-text messages in one
+Writer Home, with one minute reserved for cleanup. It needs a fresh packet and local
+pairing, plus preserved archival of the completed native cache before the freshness
+check. Only the controller's literal-sample/duration gate needs a narrow revision;
+runtime permissions and existing failure checks stay unchanged. The same-user host
+boundary remains explicit. This proposal is documented, not implemented or activated.
+
+The owner approved the fourth native-chat test at 21:29 UTC on October 16.
+UI task `01a1451b-81d7-76cf-8e5c-a85d7164201c` executed it. See the
 [approval and exact pins](../evidence/2026-10-16-candidate-b-fourth/README.md)
 and [short operator instructions](../ops/candidate-b-fourth-20261016/MANUAL.md).
-Preparation does not start a live runtime, enroll a device or consume the attempt.
+The preparation record preceded the live result recorded above.
 
 `manual.ts` verifies the new source/app pins and selects only
 `/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016` with identity
@@ -57,6 +74,6 @@ host, Keychain, ambient startup effects or provider networking. Offline canaries
 accepted the profile in the actual parser and demonstrated pathname denials, but
 pre-opened descriptors remain usable and macOS refused nested full-policy testing.
 No complete OS isolation, escaped-descendant containment, remote cancellation or
-effective-model attestation is claimed. Native/provider UI acceptance remains the
-designated operator's job. No new OS settings, permanent services, deployment,
+effective-model attestation is claimed. The designated operator's one-message UI
+acceptance does not establish broader product acceptance. No new OS settings, permanent services, deployment,
 public ingress, provider cleanup or fifth attempt is authorized.

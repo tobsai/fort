@@ -1,0 +1,9 @@
+All execution pins matched before documentation edits.
+After documentation, only AGENTS.md, IMPLEMENTATION.md and prototype/README.md differ among the 468 executed source pins.
+Executed packet/evidence/pins, runtime/controller/service/native source and installed app/runtime remain unchanged.
+Fourth ledger/state file set, content hashes and mtimes match the before-read snapshot.
+All three earlier ledgers/states remain unchanged.
+Native pending bytes unchanged; no cache move, enrollment, Keychain operation, runtime restart or live message performed.
+Main checkout status matches the saved baseline.
+Read-only receipt and process/port assertions passed; documentation whitespace passed.
+No build or test-suite rerun for documentation-only changes.

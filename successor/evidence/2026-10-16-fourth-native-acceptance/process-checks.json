@@ -1,0 +1,23 @@
+{
+  "verifiedAtUTC": "2026-10-16T21:46:29.369831+00:00",
+  "checks": {
+    "app": {
+      "exitCode": 1,
+      "outputEmpty": true,
+      "errorEmpty": true,
+      "absent": true
+    },
+    "codex": {
+      "exitCode": 1,
+      "outputEmpty": true,
+      "errorEmpty": true,
+      "absent": true
+    },
+    "listener": {
+      "exitCode": 1,
+      "outputEmpty": true,
+      "errorEmpty": true,
+      "absent": true
+    }
+  }
+}

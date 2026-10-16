@@ -1,0 +1,39 @@
+{
+  "status": "proposal only; not approved or executable by this record",
+  "goal": "Owner tries a short free-text conversation in the existing native Mac prototype",
+  "durationRecommendation": {
+    "totalMillisecondsIncludingPairingAndCleanup": 600000,
+    "workCutoffMilliseconds": 540000,
+    "cleanupReserveMilliseconds": 60000
+  },
+  "maximumStarts": 1,
+  "maximumRestarts": 0,
+  "maximumUserMessages": 5,
+  "conversation": "one exact Writer Home",
+  "selectedModel": "gpt-6-astra",
+  "instructions": "Reply briefly using supplied context.",
+  "skills": [],
+  "messageScope": "Owner-chosen plain text; no fixed sample requirement, no attachments or computer tools",
+  "accessScope": [
+    "same pinned native Mac app and official Codex runtime",
+    "existing owner ChatGPT sign-in; no login, copied credential or API-key fallback",
+    "current same-user agent-host access; unchanged no-files computer-tool profile, empty environments/roots and all startup checks",
+    "one fresh loopback service/ledger and temporary local native device enrollment",
+    "send only trial text and its conversation context to the existing provider account",
+    "preserve completed fourth ledger/state and archive its exact native candidate cache before fresh pairing; no deletion or reuse",
+    "delete only newly issued trial device Keychain items and connection metadata during cleanup; retain trial ledger/history"
+  ],
+  "minimalImplementationChange": "Add a separate one-start trial identity with bounded free-text admission for one Writer Home, up to five messages and the approved duration; retain exact binding/model, serialized execution, failure/unknown fencing, cancellation and cleanup checks. Do not select historical five-sample packets.",
+  "beforeExecution": [
+    "Obtain owner approval for changed message scope, duration, fresh provider start/enrollment and candidate-cache archival",
+    "Prepare and test only the narrow controller change; seal source/app/runtime pins",
+    "Designated operator pairs and prepares Writer, then owner uses the app within the total budget"
+  ],
+  "unchangedRestrictions": [
+    "no additional provider/account",
+    "no computer tools, files, skills or new permission grants",
+    "no iPhone/web/public ingress in this trial",
+    "no persistent service, deployment, release or host security change",
+    "no full-spec, effective-model or isolation claim"
+  ]
+}

@@ -19,12 +19,18 @@ ops/candidate-b-fourth-20261016/MANUAL.md. Only UI task
 01a1451b-81d7-76cf-8e5c-a85d7164201c executes it: one start, no restart,
 five minutes total including cleanup, one exact Writer Home sample with no skill,
 existing ChatGPT sign-in and exact gpt-6-astra, automatic local UI pairing.
-The preparation task must not start it. Every older consumed packet stays blocked.
+That fourth attempt is now consumed and finished: one completed receipt, visible
+`cedar`, scoped cleanup reported deleted. The designated UI task completed turn
+01a146a9-2d59-729b-8481-21afbc8eb16b. Read
+evidence/2026-10-16-fourth-native-acceptance/README.md for read-only receipt/pin/
+residue verification and limits. Preserve all four state/ledger/evidence packets.
+Do not restart the fourth packet or enroll/send again. No further live trial is
+authorized by its success. Every older consumed packet stays blocked.
 Read runner/STARTUP-CONTRACT.md and runner/PERMISSION-PROFILE.md before runtime
 work. The nonlive migration replaces the rejected legacy restricted-read selector
 with a named macOS profile denying all computer-tool file reads/writes and tool
-network access. Source/fixture contracts pass; actual OS/provider enforcement is
-unverified. Do not weaken that profile, enable tools/environments or treat its
+network access. Source/fixture contracts and one real native text turn passed;
+complete OS enforcement remains unverified. Do not weaken that profile, enable tools/environments or treat its
 identity/legacy sandbox projection as a complete effective-policy attestation.
 The current manual selects only the fourth identity/root and its sealed source/app
 pins. Any persisted fourth state prevents another start, even after a failure.
