@@ -1,0 +1,27 @@
+{
+  "priorManifest": "successor/evidence/2026-10-16-candidate-b-owner-trial/native-cache-preservation.json",
+  "priorManifestSHA256": "cbfcd5eae2379c5ae1bda531fb1a185f0c6f7db4fbcf55e50e50490e9bb4467a",
+  "archive": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/native-cache-fourth-6519352d-d33b-4421-83a9-68e095457c40",
+  "files": [
+    {
+      "path": "10ec1b7938a8780b83a87aa2185647863c8ac8dd2a29442e5265793176514355/pending.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "snapshot-5fad7014ede43099f83e6069f78042bc7c3a3001f1171140909f488789300780.json",
+      "bytes": 1531,
+      "sha256": "4aa469ad9cede34576d8432b5210b3b88e02a3b683d6cd7743f12119aaa7d332"
+    },
+    {
+      "path": "snapshot-d890b0f0969338d5c602a036373baea40558bd1df391d1bea14baae5c9316e31.json",
+      "bytes": 913,
+      "sha256": "ea90244964d788a9e94a5c05691bfbf69b8ca70b922dada896eddd4599e6388b"
+    }
+  ],
+  "allHashesStillMatch": true,
+  "nativeCachePath": "/Users/tobiasgunn/Library/Application Support/FortCandidateB",
+  "nativeCacheAbsent": true,
+  "newCacheMovePerformed": false,
+  "credentialReadsOrCopies": 0
+}
