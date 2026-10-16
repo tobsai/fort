@@ -4,7 +4,9 @@
 disabled wiring, verified pins and successful runtime preflight, the operator
 will announce that the candidate is ready. Be present before the clock starts.
 Each of the two possible sessions includes all setup and cleanup within five
-minutes. If a step fails or time runs out, stop; do not retry or add a message.
+minutes; work stops at 292 seconds to reserve cleanup time. If a step fails or time runs out, stop; do not retry or add a message.
+
+The operator runs the prepared terminal controller only after authorization. Type `start` for each permitted session, `status` for receipt metadata, `done` after quitting Fort, or `abort` to stop. The temporary local enrollment file is shown by path only; the code is never printed in chat or evidence.
 
 ## First session
 
@@ -57,7 +59,7 @@ Open Writer Home, ensure no skill is selected, and send once:
 
 Observe one Writer reply containing only `cedar`, then quit when instructed.
 The operator confirms the fifth completion, empty queue and final cleanup.
-The app, ledger and Fort credential remain local; no permanent service stays up.
+The ledger and sample history remain local. The operator revokes the session credential and attempts to delete its exact Keychain item; any refused deletion is reported. No permanent service stays up.
 
 Tell the operator whether navigation, recipient labels, skill selection, readable
 text and history restoration behaved as described, and quote any visible error

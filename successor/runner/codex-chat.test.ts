@@ -4,9 +4,10 @@ import { PassThrough, Writable } from 'node:stream';
 import { CodexConnection } from './codex-rpc.ts';
 import { CodexChat } from './codex-chat.ts';
 import type { ChatInput } from './chat-runtime.ts';
+import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void } = {}) {
+function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: unknown[][]; threadMcp?:unknown[]; features?: unknown[]; cycleCursor?: boolean } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -15,6 +16,13 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
       const result = (value: unknown) => emit({ id:frame.id, result:value });
       switch (frame.method) {
         case 'initialize': result({ userAgent:'synthetic' }); break;
+        case 'config/read': result({ config:options.config ?? syntheticConfig() }); break;
+        case 'experimentalFeature/list': result({ data:options.features ?? syntheticFeatures(),nextCursor:null }); break;
+        case 'mcpServerStatus/list': {
+          if (frame.params.threadId && options.threadMcp) { result({data:options.threadMcp,nextCursor:null});break; }
+          const pages = options.mcpPages ?? [[]], page = Number(frame.params.cursor ?? 0);
+          result({ data:pages[page] ?? [],nextCursor:options.cycleCursor ? '0' : page+1<pages.length ? String(page+1) : null }); break;
+        }
         case 'account/read': result({ account:{ type:'chatgpt' }, requiresOpenaiAuth:true }); break;
         case 'model/list': result({ data:[{ id:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
         case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
@@ -47,6 +55,65 @@ test('synthetic Codex connection preserves selected instructions and conversatio
   assert.match(JSON.stringify(turn.params?.input), /Remember cedar/);
   assert.equal(fixture.calls.some(c => c.method?.includes('login')), false);
   fixture.connection.close();
+});
+
+test('ambient servers, missing features, repeated cursors and thread-only MCP capabilities fail closed',async()=>{
+  for(const options of [
+    {config:{...syntheticConfig(),mcp_servers:{...syntheticConfig().mcp_servers,hidden:{enabled:true,env:{SECRET:'synthetic-do-not-report'}}}}},
+    {features:syntheticFeatures().filter(feature=>feature.name!=='shell_tool')},
+    {cycleCursor:true},
+    {threadMcp:[{name:'thread-only',tools:{dangerous:{}}}]},
+    {config:{...syntheticConfig(),model_providers:{openai:{base_url:'https://unapproved.invalid',env_key:'synthetic'}}}},
+  ]) {
+    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const result=await runtime.execute(input,new AbortController().signal);
+    assert.equal(result.kind,'notStarted');assert.equal(fixture.calls.some(c=>c.method==='turn/start'),false);
+    assert.equal(JSON.stringify(result).includes('synthetic-do-not-report'),false);
+    await runtime.dispose();
+  }
+});
+
+test('unconfirmed effective configuration stops before thread creation, MCP discovery or turn dispatch', async () => {
+  const fixture = transport({ config:{ model_provider:'unexpected' } });
+  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
+  const result = await runtime.execute(input,new AbortController().signal);
+  assert.equal(result.kind,'notStarted');
+  assert.equal(fixture.calls.some(c => ['thread/start','mcpServerStatus/list','turn/start'].includes(c.method ?? '')),false);
+  await runtime.dispose();
+});
+
+test('MCP inventory is checked through the final page before a thread or turn is allowed', async () => {
+  const fixture = transport({ mcpPages:[[],[{ name:'unapproved',tools:{ dangerous:{} } }]] });
+  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
+  const result = await runtime.execute(input,new AbortController().signal);
+  assert.equal(result.kind,'notStarted');
+  assert.equal(fixture.calls.filter(c => c.method === 'mcpServerStatus/list').length,2);
+  assert.equal(fixture.calls.some(c => ['thread/start','turn/start'].includes(c.method ?? '')),false);
+  await runtime.dispose();
+});
+
+test('explicit no-turn preflight and later dispatch share one initialized connection', async () => {
+  const fixture=transport();
+  const runtime=new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
+  assert.deepEqual(await runtime.preflight(new AbortController().signal),{ model:'gpt-6-astra',runtimeVersion:'0.157.1' });
+  assert.equal(fixture.calls.some(c => ['thread/start','turn/start'].includes(c.method ?? '')),false);
+  assert.equal((await runtime.execute(input,new AbortController().signal)).kind,'completed');
+  assert.equal(fixture.calls.filter(c => c.method === 'initialize').length,1);
+  assert.equal(fixture.calls.some(c => c.method==='mcpServerStatus/list' && c.params?.threadId==='thread'),true);
+  await runtime.dispose();
+});
+
+test('ambient ChatGPT routing and telemetry exporters cannot bypass the selected provider controls',async()=>{
+  for(const config of [
+    {...syntheticConfig(),chatgpt_base_url:'https://unapproved.invalid/backend-api'},
+    {...syntheticConfig(),openai_base_url:'https://unapproved.invalid/v1'},
+    {...syntheticConfig(),otel:{exporter:{'otlp-http':{endpoint:'https://unapproved.invalid'}}}},
+  ]){
+    const fixture=transport({config}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const result=await runtime.execute(input,new AbortController().signal);
+    assert.equal(result.kind,'notStarted');assert.equal(fixture.calls.some(c=>c.method==='turn/start'),false);
+    await runtime.dispose();
+  }
 });
 
 test('cancellation after thread creation but before continuation never dispatches a turn', async () => {

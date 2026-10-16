@@ -10,7 +10,7 @@ import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot } from '../contracts/v1.ts';
 
-async function setup(t: TestContext, options: { runtime?: ChatRuntime; autoRun?: boolean } = {}) {
+async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
   let service = createOpenAIService({ dataDirectory: directory, ...options });
   await service.start();
@@ -47,6 +47,49 @@ test('owner creates two exact Agent Homes, an instruction skill and a shared con
   assert.equal(rooms.length, 3);
   assert.deepEqual(rooms.find(r => r.kind === 'shared'), room.body);
   assert.equal((await fetch(h.service.baseURL + '/v1/agents')).status, 401);
+});
+
+test('bounded enrollment expires within ten minutes and final close invalidates its device without a new enrollment', async t => {
+  const directory=await mkdtemp(join(tmpdir(),'fort-bounded-enrollment-'));
+  let now=Date.now(); const deadline=now+600_000;
+  let service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  t.after(async()=>{ await service.close(); await rm(directory,{ recursive:true,force:true }); });
+  await service.start();
+  const enrollment=service.issueEnrollment();
+  const response=await fetch(service.baseURL+'/v1/devices/enroll',{ method:'POST',headers:{ 'Content-Type':'application/json' },body:JSON.stringify({ ...enrollment,deviceName:'Synthetic bounded device' }) });
+  const device=await response.json() as { deviceToken:string; expiresAt:string };
+  assert.equal(Date.parse(device.expiresAt),deadline);
+  const headers={ Authorization:`Bearer ${device.deviceToken}`,'X-Fort-Installation-Id':service.installation.installationId };
+  assert.throws(()=>service.issueEnrollment(),/already issued/);
+  await service.close({ preserveSessionCredential:true });
+  service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  await service.start();
+  assert.equal((await fetch(service.baseURL+'/v1/installation',{ headers })).status,200);
+  await service.close();
+  service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  await service.start();
+  assert.equal((await fetch(service.baseURL+'/v1/installation',{ headers })).status,401);
+  assert.throws(()=>service.issueEnrollment(),/closed/);
+});
+
+test('closed sample admission rejects before durable acceptance or runtime work', async t => {
+  let executions=0;
+  const h=await setup(t,{ autoRun:true,admitSubmission:()=>false,runtime:{ async dispose(){},async execute(){ executions++;return { kind:'completed',text:'unexpected',effectiveModel:null }; } } });
+  const agent=(await h.api<Agent>('/v1/agents',{ name:'Writer',model:'gpt-6-astra',instructions:'Reply.' })).body;
+  const prefix=`/v1/conversations/${agent.homeConversationId}`;
+  const result=await h.api(`${prefix}/messages`,{ requestId:'blocked',text:'extra sample',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[] });
+  assert.equal(result.status,403);
+  assert.deepEqual((await h.api<Snapshot>(`${prefix}/snapshot`)).body.runs,[]);
+  assert.equal(executions,0);
+});
+
+test('bounded device authorization expires even if the service remains open',async t=>{
+  let now=Date.now();
+  const h=await setup(t,{credentialDeadline:now+600_000,now:()=>now});
+  assert.equal((await h.api('/v1/installation')).status,200);
+  now+=600_000;
+  assert.equal((await h.api('/v1/installation')).status,401);
+  assert.throws(()=>h.service.issueEnrollment(),/closed/);
 });
 
 test('explicit automatic dispatch runs new accepted work and read acknowledgement persists monotonically', async t => {

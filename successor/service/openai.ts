@@ -67,7 +67,10 @@ function json(row: Record<string, unknown> | undefined): unknown {
   return JSON.parse(row.data);
 }
 
-export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean }) {
+export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
+export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+  const now=options.now ?? Date.now;
+  if (options.credentialDeadline!==undefined && (!Number.isSafeInteger(options.credentialDeadline) || options.credentialDeadline>now()+600_000)) throw new Error('Bounded credential deadline exceeds ten minutes');
   if (!isAbsolute(options.dataDirectory)) throw new Error('Use an explicit absolute data directory');
   mkdirSync(options.dataDirectory, { recursive: true, mode: 0o700 });
   if (lstatSync(options.dataDirectory).isSymbolicLink()) throw new Error('Data directory cannot be a symlink');
@@ -84,6 +87,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));
     CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);`);
+  const savedDeadline=db.prepare("SELECT data FROM metadata WHERE key='credentialDeadline'").get();
+  const credentialDeadline=savedDeadline ? Number(json(savedDeadline)) : options.credentialDeadline;
+  if (savedDeadline && options.credentialDeadline!==undefined && credentialDeadline!==options.credentialDeadline) { db.close(); throw new Error('Credential deadline cannot be changed'); }
+  if (!savedDeadline && credentialDeadline!==undefined) {
+    if (credentialDeadline<=now() || db.prepare("SELECT 1 FROM metadata WHERE key='installation'").get()) { db.close(); throw new Error('Bounded enrollment requires a fresh installation'); }
+    db.prepare('INSERT INTO metadata VALUES (?,?)').run('credentialDeadline',JSON.stringify(credentialDeadline));
+  }
   const transaction = <T>(operation: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -103,11 +113,12 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
   const authenticate = (request: IncomingMessage) => {
+    if (closed) fail(503,'closed','This session has stopped.');
     if (request.headers.origin !== undefined) fail(403, 'originDenied', 'Browser origins are not enabled.');
     if (request.headers['x-fort-installation-id'] !== installation.installationId) fail(401, 'unauthorized', 'Use this installation’s device credential.');
     const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(request.headers.authorization ?? '')?.[1];
     const device = token && db.prepare('SELECT id,expires FROM devices WHERE hash=?').get(digest(token));
-    if (!device || Number(device.expires) <= Date.now()) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
+    if (!device || Number(device.expires) <= now()) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
   };
   const owner = <T>(request: IncomingMessage, operation: () => T): T => transaction(() => { authenticate(request); return operation(); });
   const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
@@ -142,6 +153,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
       const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); return skill; });
       const configuration: TurnConfiguration = { agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
+      if (options.admitSubmission && !options.admitSubmission({ text:inputText,conversation,configuration },list('runs',decodeRun))) fail(403,'sampleNotAuthorized','This message is outside the active sample or session.');
       const messageId = randomUUID(), runId = randomUUID(), acceptedAt = new Date().toISOString();
       const sequence = append(conversationId, 'messageAccepted', messageId);
       const message: Message = { messageId, conversationId, requestId, role: 'user', text: inputText, sequence, createdAt: acceptedAt, recipientAgentId, recipientAgentName: agent.name };
@@ -199,8 +211,15 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     catch (error) { if (error instanceof APIError) throw error; fail(400, 'invalidJSON', 'Use valid UTF-8 JSON.'); }
   };
   const issueEnrollment = () => {
+    if (credentialDeadline!==undefined) {
+      if (db.prepare("SELECT 1 FROM metadata WHERE key='credentialClosed'").get() || credentialDeadline<=now()) throw new Error('Bounded enrollment is closed');
+      if (db.prepare("SELECT 1 FROM metadata WHERE key='enrollmentIssued'").get()) throw new Error('Bounded enrollment already issued');
+    }
     const code = randomBytes(32).toString('base64url');
-    db.prepare('INSERT INTO enrollment VALUES (?,?)').run(digest(code), Date.now() + 300_000);
+    transaction(()=>{
+      db.prepare('INSERT INTO enrollment VALUES (?,?)').run(digest(code), Math.min(now()+300_000,credentialDeadline ?? Infinity));
+      if (credentialDeadline!==undefined) db.prepare('INSERT INTO metadata VALUES (?,?)').run('enrollmentIssued','true');
+    });
     return { installationId: installation.installationId, code };
   };
   const server = createServer(async (request, response) => {
@@ -213,9 +232,9 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           if (request.headers.origin !== undefined || body.installationId !== installation.installationId || typeof body.code !== 'string') fail(401, 'unauthorized', 'Enrollment is not authorized.');
           text(body.deviceName, 'device name', 128);
           const code = db.prepare('SELECT expires FROM enrollment WHERE hash=?').get(digest(body.code));
-          if (!code || Number(code.expires) <= Date.now()) fail(401, 'unauthorized', 'Enrollment code is invalid or expired.');
+          if (closed || !code || Number(code.expires) <= now()) fail(401, 'unauthorized', 'Enrollment code is invalid or expired.');
           db.prepare('DELETE FROM enrollment WHERE hash=?').run(digest(body.code));
-          const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = Date.now() + 30 * 86_400_000;
+          const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
           db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(deviceToken), expires);
           return { installation, deviceId, deviceToken, expiresAt: new Date(expires).toISOString() };
         }); status = 201;
@@ -284,12 +303,18 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
   let baseURL = ''; let closed = false; let closing: Promise<void> | undefined;
-  return { installation, issueEnrollment, dispatchNext, get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
+  return { installation, issueEnrollment, dispatchNext,
+    inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',value=>(record(value).acceptance as Acceptance).receipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
+    get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
     await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); }); });
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;
-  }, close(): Promise<void> {
+  }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;
     closed = true; active?.abort();
+    if (credentialDeadline!==undefined && !preserveSessionCredential) transaction(()=>{
+      db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run();
+      db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
+    });
     closing = (async () => {
       const outcomes = await Promise.allSettled([options.runtime?.dispose(), dispatching]);
       if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

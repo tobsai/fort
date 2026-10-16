@@ -1,5 +1,6 @@
 # Candidate B — exact no-turn preflight
 
+> Historical preparation record. The missing wiring below is now implemented, still disabled. The current controls and bounded credential replace the earlier proposal; see [the implemented runner](../../prototype/README.md) and [current evidence](../../evidence/2026-10-16-candidate-b-session-wiring/README.md). No additional nonlive scope decision is required.
 This is a specification for the minimal disabled execution wiring still needed,
 not an executable instruction to start the provider. A scope decision alone is
 insufficient until that wiring has a reviewed pin. Current `CodexChat.execute()`

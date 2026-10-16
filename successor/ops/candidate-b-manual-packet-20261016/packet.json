@@ -1,23 +1,12 @@
 {
   "schemaVersion": 1,
   "packetId": "candidate-b-manual-20261016",
-  "status": "prepared-scope-packet-not-executable",
+  "status": "implemented-disabled-awaiting-final-pin-review-and-live-decision",
   "executionAuthorized": false,
   "activationEnabled": false,
-  "executionWiringSourceCommit": null,
+  "executionWiringSourceCommit": "Recorded in candidatePinFile; activation remains disabled",
   "liveStartsConsumed": 0,
   "providerTurnsPerformed": 0,
-  "reviewedCandidate": {
-    "branch": "codex/fort-openai-rebuild-20261016",
-    "worktree": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016",
-    "sourceCommit": "73f644425a74463488cdce61aab8b83384ce8722",
-    "evidenceCommit": "772410e5b59a97d203171922d3802621550fee19",
-    "sourceListSHA256": "0fb368a0e358a176db114a1085d83996af8c488b2f32d503eebd137970be6e45",
-    "appListSHA256": "9c32247c3c77b1618515aec7faad3944826ec9e11d4ecc0d58483c8ecd23ad2b",
-    "appPath": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app",
-    "appSigning": "linker ad-hoc only; launch and Keychain compatibility untested",
-    "pinsFile": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/evidence/2026-10-16-candidate-b-review-fixes/pins.json"
-  },
   "review": {
     "path": "successor/evidence/2026-10-16-candidate-b-independent-acceptance.md",
     "sha256": "1fdb007dcf75665fb03de926f02db9786ce8e0cd7c31aadd61ab86b11703f073",
@@ -100,7 +89,15 @@
         "--disable",
         "image_generation",
         "--disable",
-        "imagegenext"
+        "imagegenext",
+        "--disable",
+        "browser_use",
+        "--disable",
+        "browser_use_external",
+        "--disable",
+        "browser_use_full_cdp_access",
+        "--disable",
+        "computer_use"
       ],
       "cwd": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/empty",
       "env": {
@@ -110,7 +107,7 @@
         "TZ": "UTC",
         "TMPDIR": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/tmp"
       },
-      "deadlineMs": 296000,
+      "deadlineMs": 292000,
       "terminationGraceMs": 2000,
       "killGraceMs": 2000
     },
@@ -120,12 +117,13 @@
     "authentication": "existing provider-owned ChatGPT sign-in only",
     "preflightRun": false,
     "retainedHOME": "/Users/tobiasgunn",
-    "ambientMCPVerified": false
+    "ambientMCPVerified": false,
+    "startupLimitation": "Retained HOME discovery may precede config/read; no claim of preventing host startup side effects. No direct secret/config reader added."
   },
   "budget": {
     "maxStarts": 2,
     "maxTotalMillisecondsPerStart": 300000,
-    "workCutoffMilliseconds": 296000,
+    "workCutoffMilliseconds": 292000,
     "termGraceMilliseconds": 2000,
     "killGraceMilliseconds": 2000,
     "timerSemantics": "same outer clock from first candidate app/service/runtime start; no reset; not hard-real-time",
@@ -139,7 +137,8 @@
       5
     ],
     "extraPreflightStartAllowed": false,
-    "failurePermitsRetry": false
+    "failurePermitsRetry": false,
+    "otherCleanupReserveMilliseconds": 4000
   },
   "paths": {
     "sessionRoot": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session",
@@ -154,10 +153,12 @@
     "created": false,
     "deviceCount": 1,
     "enrollmentCodeTTLSeconds": 300,
-    "deviceCredentialTTLSeconds": 2592000,
+    "deviceCredentialTTLSeconds": 600,
     "storage": "Fort.Spec058.Device Keychain item; server retains hash",
-    "expiresAtSessionEnd": false,
-    "automaticRevocationOrDeletion": false
+    "automaticRevocationOrDeletion": true,
+    "cleanup": "Final/failed close revokes server authorization; exact issued Keychain account deletion attempted without reading its secret. Refusal reported; sample history retained.",
+    "expiresAtPacketEnd": true,
+    "retainedOnlyAcrossVerifiedRestart": true
   },
   "workspace": {
     "agents": [
@@ -246,11 +247,10 @@
     "same installation and ledger revalidated before sample 5"
   ],
   "remainingPrerequisites": [
-    "minimal disabled same-connection no-turn preflight and session-controller wiring, tests, commit and pin review",
-    "narrow redacted configuration metadata check for complete ambient MCP and startup integration set",
-    "exact candidate-specific live decision including one local Fort device credential",
+    "review exact new source pins and test evidence",
+    "exact candidate-specific live execution authority; activation guard remains closed",
     "attended user readiness",
-    "same-process effective-runtime preflight; stop before any turn on failure"
+    "same-process effective runtime preflight; missing or uncertain evidence stops before any turn"
   ],
   "prohibited": [
     "new provider sign-in or auth copying",
@@ -264,5 +264,18 @@
     "provider cleanup",
     "credential values or raw runtime/config output in evidence"
   ],
-  "acceptanceLabel": "manual user-reported Mac observations plus correlated provider receipts; not screenshot/accessibility, physical-iPhone, isolation or release acceptance"
+  "acceptanceLabel": "manual user-reported Mac observations plus correlated provider receipts; not screenshot/accessibility, physical-iPhone, isolation or release acceptance",
+  "implementationPrepared": true,
+  "baselineReviewedCandidate": {
+    "branch": "codex/fort-openai-rebuild-20261016",
+    "worktree": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016",
+    "sourceCommit": "73f644425a74463488cdce61aab8b83384ce8722",
+    "evidenceCommit": "772410e5b59a97d203171922d3802621550fee19",
+    "sourceListSHA256": "0fb368a0e358a176db114a1085d83996af8c488b2f32d503eebd137970be6e45",
+    "appListSHA256": "9c32247c3c77b1618515aec7faad3944826ec9e11d4ecc0d58483c8ecd23ad2b",
+    "appPath": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app",
+    "appSigning": "linker ad-hoc only; launch and Keychain compatibility untested",
+    "pinsFile": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/evidence/2026-10-16-candidate-b-review-fixes/pins.json"
+  },
+  "candidatePinFile": "successor/evidence/2026-10-16-candidate-b-session-wiring/pins.json"
 }

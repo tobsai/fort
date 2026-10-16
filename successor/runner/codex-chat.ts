@@ -3,6 +3,7 @@ import { isAbsolute, normalize } from 'node:path';
 import { CodexTurn, type CodexOutput } from './codex.ts';
 import { CodexConnection, object } from './codex-rpc.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
+import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
 
 export class CodexChat implements ChatRuntime {
   private readonly options: { connection: CodexConnection; workspace: string; runtimeVersion: string };
@@ -14,6 +15,24 @@ export class CodexChat implements ChatRuntime {
     this.options = options;
   }
   dispose(): Promise<void> { return this.options.connection.dispose(); }
+  async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {
+    const { connection,workspace,runtimeVersion }=this.options;
+    try {
+      if (!this.initialized) {
+        await connection.request('initialize',{ clientInfo:{ name:'fort_candidate_b',title:'Fort',version:'0.1.0' },capabilities:{ experimentalApi:true,requestAttestation:false } },signal);
+        connection.notify('initialized',{}); this.initialized=true;
+      }
+      await verifyRuntimeControls(connection,workspace,signal);
+      const account=object(await connection.request('account/read',{ refreshToken:false },signal));
+      if (object(account.account).type!=='chatgpt' || account.requiresOpenaiAuth!==true) throw new Error('Expected existing ChatGPT authentication');
+      const models=await readRuntimePages(connection,'model/list',{},signal);
+      if (!models.some(value => object(value).id===model)) throw new Error('Exact requested model unavailable');
+      return { model,runtimeVersion };
+    } catch {
+      connection.close();
+      throw new Error('No-turn preflight was not confirmed; provider dispatch is blocked.');
+    }
+  }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
     const developerInstructions = input.configuration.instructions + input.configuration.skills.map(skill => `\n\nSelected instruction skill: ${skill.name}\n${skill.instructions}`).join('');
@@ -23,26 +42,13 @@ export class CodexChat implements ChatRuntime {
     this.busy = true;
     const { connection, workspace } = this.options;
     try {
-      if (!this.initialized) {
-        await connection.request('initialize', { clientInfo:{ name:'fort_candidate_b', title:'Fort', version:'0.1.0' }, capabilities:{ experimentalApi:true, requestAttestation:false } }, signal);
-        connection.notify('initialized', {}); this.initialized = true;
-      }
-      const account = object(await connection.request('account/read', { refreshToken:false }, signal));
-      if (object(account.account).type !== 'chatgpt' || account.requiresOpenaiAuth !== true) throw new Error('Expected existing ChatGPT authentication');
-      let found = false, cursor: string | null = null;
-      for (let page = 0; page < 8; page++) {
-        const models = object(await connection.request('model/list', { cursor, limit:100 }, signal));
-        if (!Array.isArray(models.data)) throw new Error('Invalid model list');
-        found ||= models.data.some(value => object(value).id === input.configuration.selectedModel);
-        if (models.nextCursor === null || models.nextCursor === undefined) break;
-        if (typeof models.nextCursor !== 'string') throw new Error('Invalid model cursor'); cursor = models.nextCursor;
-      }
-      if (!found) return { kind:'failed', message:'The exact selected model is unavailable. No replacement was selected.' };
+      await this.preflight(signal,input.configuration.selectedModel);
       const started = object(await connection.request('thread/start', { model:input.configuration.selectedModel, modelProvider:'openai', cwd:workspace, approvalPolicy:'untrusted', sandbox:'read-only', ephemeral:true, environments:[], dynamicTools:[], selectedCapabilityRoots:[], developerInstructions }, signal));
       const thread = object(started.thread);
       if (typeof thread.id !== 'string' || thread.ephemeral !== true || started.model !== input.configuration.selectedModel || started.modelProvider !== 'openai' || started.cwd !== workspace || started.approvalPolicy !== 'untrusted' || object(started.sandbox).type !== 'readOnly' || object(started.sandbox).networkAccess !== false || !Array.isArray(started.instructionSources) || started.instructionSources.length !== 0) throw new Error('Thread configuration was not confirmed');
+      await verifyRuntimeControls(connection,workspace,signal,thread.id);
       return await this.turn(input, thread.id, text, signal);
-    } catch { connection.close(); return { kind:'outcomeUnknown', message:'The Codex connection ended or did not confirm the requested configuration. Review required.' }; }
+    } catch { connection.close(); return { kind:'notStarted', message:'Runtime preflight or thread configuration was not confirmed. Nothing was dispatched.' }; }
     finally { this.busy = false; }
   }
   private turn(input: ChatInput, threadId: string, text: string, signal: AbortSignal): Promise<ChatResult> {

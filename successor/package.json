@@ -7,11 +7,12 @@
     "node": "26.5.0"
   },
   "scripts": {
-    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts runner/synthetic-process.test.ts runner/confinement-canary.test.ts service/openai.test.ts runner/codex-chat.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts",
+    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts runner/synthetic-process.test.ts runner/confinement-canary.test.ts service/openai.test.ts runner/codex-chat.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts",
     "test:native-http": "node apple/native-http-check.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test:prototype": "node --test service/openai.test.ts runner/codex-chat.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts",
-    "test:native-openai": "node apple/openai-http-check.ts"
+    "test:prototype": "node --test service/openai.test.ts runner/codex-chat.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts",
+    "test:native-openai": "node apple/openai-http-check.ts",
+    "prototype:manual": "node prototype/manual.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

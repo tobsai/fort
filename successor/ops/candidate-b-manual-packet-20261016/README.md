@@ -1,5 +1,6 @@
 # Candidate B — bounded manual-test decision packet
 
+> Historical preparation record. The missing wiring below is now implemented, still disabled. The current controls and bounded credential replace the earlier proposal; see [the implemented runner](../../prototype/README.md) and [current evidence](../../evidence/2026-10-16-candidate-b-session-wiring/README.md). No additional nonlive scope decision is required.
 **Prepared only. No execution decision has been recorded.** This packet proposes
 the replacement candidate's two supervised sessions. It does not enable the
 runtime, create credentials, consume a start, or transfer Packet A's approval.
