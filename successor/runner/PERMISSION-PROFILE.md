@@ -1,4 +1,13 @@
-# Candidate B named permissions — nonlive macOS implementation
+# Candidate B named permissions — macOS implementation and offline evidence
+
+The subsequent authorized [offline canary](../evidence/2026-10-16-codex-offline-canary/README.md)
+ran the actual pinned CLI parser and a separate source-derived deny-rule experiment.
+The exact profile parsed through to Codex's sandbox launcher; two negative controls
+were rejected. macOS refused nested sandbox application, so the complete generated
+policy remains untested. The isolated deny rule blocked the tested pathname and Unix
+socket accesses, but pre-opened file/pipe/socket descriptors remained usable.
+This was not a fourth live attempt. The original preparation scope below remains the
+authority for the product source; provider activation is still blocked.
 
 The owner authorized code and fixture validation after the complete startup audit.
 This is not authority for another attempt, runtime/provider start, persistent settings,
@@ -31,9 +40,11 @@ adds readable paths for its runtime helpers after compiling the declared profile
 Its ordinary path-rule resolution prefers more specific grants; a root denial cannot
 reliably counter those additions. The pinned macOS implementation retains unreadable
 globs and appends explicit read/write deny rules after its ordinary grants. `/**`
-lowers to the anchored pattern `^/.*$`. This is a source-level enforcement argument,
-not an executed Seatbelt/canary result. Unusual filenames and OS matching semantics
-still need real testing. No claim of bypass-proof OS confinement is made.
+lowers to the anchored pattern `^/.*$`. The complete policy still has a source-level
+enforcement argument. The later isolated rule experiment tested ordinary,
+Unicode/newline, symlink and hardlink paths on macOS; it did not apply Codex's complete
+generated policy. No claim of bypass-proof OS confinement is made, and descriptor
+revocation is explicitly not provided by the rule.
 
 ## Source trace at 36650394c5b38c2990ccf2a3457165ca3e9d9726
 
@@ -96,10 +107,12 @@ requests, writes and network escalation; altered/inherited declarations; managed
 catalog denial/substitution; missing thread-start policy fields; pagination; user-text injection;
 and shutdown/unknown-outcome handling. They do not run a filesystem access probe.
 
-All 15 `-c` assignments were independently parsed with Python's standard-library
+In the original preparation, all 15 `-c` assignments were independently parsed with Python's standard-library
 TOML parser and compared with literal expected profile/default values. This validates
 syntax, not Codex's Rust parser or runtime compilation. Source manifests and exact
-passed-test counts are in the new evidence packet. No actual profile was applied.
+passed-test counts are in that original evidence packet. No actual profile was applied
+then. The later offline canary now separately establishes actual CLI parser acceptance
+and isolated deny-rule behavior, with the limits stated above.
 
 Before any real-provider proposal, separate authorization and evidence would be needed
 for isolated non-provider runtime/OS canaries: exact binary profile parsing, actual
@@ -107,7 +120,9 @@ config/catalog/selection reports, helper additions, fallback behavior, and macOS
 read/write/network denials. Include workspace and external files, symlinks/hardlinks,
 rename paths, unusual/Unicode/newline filenames, pre-opened descriptors, IPC and
 privileged daemon transport. Verify cancellation and cleanup against the same pins.
-These checks have not run and cannot be replaced by the current synthetic successes.
+The offline canary covers a subset; actual app-server reports, complete generated
+policy application, privileged-daemon transport and provider compatibility remain
+unrun. Neither the rule experiment nor synthetic contracts replace those checks.
 
 The agent host itself still starts with the user's HOME/access and provider-owned
 authentication before Fort can inspect controls. The computer-tool profile does not
