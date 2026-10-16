@@ -1,0 +1,30 @@
+{
+  "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session",
+  "filesBefore": [
+    {
+      "bytes": 49152,
+      "path": "service/openai-candidate-b.sqlite",
+      "sha256": "418125696b3f6ebcf34e1e3defb5f2fb3e3e531804d8f8d91062dc03c6ef93d0"
+    },
+    {
+      "bytes": 207,
+      "path": "session-state.json",
+      "sha256": "19be731c00c39548b57717256780a48532029cc20443e6900e68b8f6917abafe"
+    }
+  ],
+  "filesAfter": [
+    {
+      "path": "service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "sha256": "418125696b3f6ebcf34e1e3defb5f2fb3e3e531804d8f8d91062dc03c6ef93d0"
+    },
+    {
+      "path": "session-state.json",
+      "bytes": 207,
+      "sha256": "19be731c00c39548b57717256780a48532029cc20443e6900e68b8f6917abafe"
+    }
+  ],
+  "byteIdentical": true,
+  "databaseContentsInspected": false,
+  "stateOrLedgerOpenedByController": false
+}

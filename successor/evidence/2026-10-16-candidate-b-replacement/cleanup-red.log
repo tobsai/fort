@@ -1,0 +1,31 @@
+✖ bounded packet honors exact samples and restart gate: replacement-late-cleanup (62.399666ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167.40475
+
+✖ failing tests:
+
+test at successor/prototype/session.test.ts:11:124
+✖ bounded packet honors exact samples and restart gate: replacement-late-cleanup (62.399666ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'finished'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/session.test.ts:53:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'finished',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
