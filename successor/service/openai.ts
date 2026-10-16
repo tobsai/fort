@@ -3,9 +3,10 @@ import { createServer, type IncomingMessage } from 'node:http';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Agent, Conversation, InstructionSkill, Installation } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration } from '../contracts/v1.ts';
+import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 
-type Entity = 'agents' | 'skills' | 'conversations';
+type Entity = 'agents' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -40,12 +41,29 @@ function decodeConversation(value: unknown): Conversation {
   if ((v.kind !== 'home' && v.kind !== 'shared') || !Array.isArray(v.participantAgentIds)) throw new Error('Invalid stored Conversation');
   return { conversationId: id(v.conversationId), name: text(v.name, 'name'), kind: v.kind, participantAgentIds: v.participantAgentIds.map(id) };
 }
+function decodeConfiguration(value: unknown): TurnConfiguration {
+  const v = record(value);
+  if (!Array.isArray(v.skills)) throw new Error('Invalid stored skills');
+  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill) };
+}
+function decodeMessage(value: unknown): Message {
+  const v = record(value);
+  if ((v.role !== 'user' && v.role !== 'assistant') || typeof v.sequence !== 'number' || !Number.isSafeInteger(v.sequence)) throw new Error('Invalid stored Message');
+  return { messageId: id(v.messageId), conversationId: id(v.conversationId), requestId: id(v.requestId), role: v.role, text: text(v.text, 'message', 65_536), sequence: v.sequence, createdAt: text(v.createdAt, 'date'),
+    ...(v.agentId === undefined ? {} : { agentId: id(v.agentId), agentName: text(v.agentName, 'name') }),
+    ...(v.recipientAgentId === undefined ? {} : { recipientAgentId: id(v.recipientAgentId), recipientAgentName: text(v.recipientAgentName, 'name') }) };
+}
+function decodeRun(value: unknown): Run {
+  const v = record(value);
+  if (v.state !== 'queued' && v.state !== 'running' && v.state !== 'completed' && v.state !== 'failed' && v.state !== 'outcomeUnknown' && v.state !== 'canceled' && v.state !== 'closedUnknown') throw new Error('Invalid stored Run');
+  return { runId: id(v.runId), requestId: id(v.requestId), conversationId: id(v.conversationId), bindingRevisionId: id(v.bindingRevisionId), state: v.state, selectedModel: text(v.selectedModel, 'model'), effectiveModel: null, modelEvidence: 'unreported', attemptId: v.attemptId === null ? null : id(v.attemptId), configuration: decodeConfiguration(v.configuration), ...(v.statusDetail === undefined ? {} : { statusDetail: text(v.statusDetail, 'status') }) };
+}
 function json(row: Record<string, unknown> | undefined): unknown {
   if (!row || typeof row.data !== 'string') fail(404, 'notFound', 'Record was not found.');
   return JSON.parse(row.data);
 }
 
-export function createOpenAIService(options: { dataDirectory: string }) {
+export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; holdExistingQueue?: boolean; autoRun?: boolean }) {
   if (!isAbsolute(options.dataDirectory)) throw new Error('Use an explicit absolute data directory');
   mkdirSync(options.dataDirectory, { recursive: true, mode: 0o700 });
   if (lstatSync(options.dataDirectory).isSymbolicLink()) throw new Error('Data directory cannot be a symlink');
@@ -60,7 +78,8 @@ export function createOpenAIService(options: { dataDirectory: string }) {
     CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS enrollment (hash TEXT PRIMARY KEY, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));`);
+    CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));
+    CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);`);
   const transaction = <T>(operation: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -87,6 +106,81 @@ export function createOpenAIService(options: { dataDirectory: string }) {
     if (!device || Number(device.expires) <= Date.now()) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
   };
   const owner = <T>(request: IncomingMessage, operation: () => T): T => transaction(() => { authenticate(request); return operation(); });
+  const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
+  const append = (conversationId: string, kind: string, entityId: string) => {
+    const event = { schemaVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, eventId: randomUUID(), conversationId, entityId, kind, createdAt: new Date().toISOString(), data: {} };
+    return Number(db.prepare('INSERT INTO events(data) VALUES (?)').run(JSON.stringify(event)).lastInsertRowid);
+  };
+  const held = new Set<string>();
+  transaction(() => {
+    for (const run of list('runs', decodeRun)) {
+      if (run.state === 'running') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); }
+      if (run.state === 'queued' && options.holdExistingQueue !== false) { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
+    }
+  });
+  const snapshot = (conversationId: string): Snapshot => {
+    load('conversations', conversationId, decodeConversation);
+    return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: [], lastReadMessageSequence: 0 };
+  };
+  const accept = (request: IncomingMessage, conversationId: string, body: Record<string, unknown>): Acceptance => {
+    const requestId = id(body.requestId), bindingRevisionId = id(body.bindingRevisionId), recipientAgentId = id(body.recipientAgentId), recoveryEpoch = id(body.recoveryEpoch), inputText = text(body.text, 'message', 65_536);
+    if (!Array.isArray(body.skills) || body.skills.length > 8) fail(400, 'invalidSkills', 'Select at most eight instruction skills.');
+    const references = body.skills.map(value => { const v = record(value); return { skillId: id(v.skillId), revisionId: id(v.revisionId) }; });
+    if (new Set(references.map(s => s.skillId)).size !== references.length) fail(400, 'invalidSkills', 'Select each skill once.');
+    const fingerprint = digest(JSON.stringify({ conversationId, bindingRevisionId, recipientAgentId, recoveryEpoch, text: inputText, skills: references }));
+    return owner(request, () => {
+      if (recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Review this pending message after recovery.');
+      const prior = db.prepare("SELECT data FROM entities WHERE kind='requests' AND id=?").get(requestId);
+      if (prior) { const stored = record(json(prior)); if (stored.fingerprint !== fingerprint) fail(409, 'requestConflict', 'This request already has different contents.'); return stored.acceptance as Acceptance; }
+      const conversation = load('conversations', conversationId, decodeConversation), agent = load('agents', recipientAgentId, decodeAgent);
+      if (!conversation.participantAgentIds.includes(recipientAgentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
+      if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
+      const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); return skill; });
+      const configuration: TurnConfiguration = { agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
+      const messageId = randomUUID(), runId = randomUUID(), acceptedAt = new Date().toISOString();
+      const sequence = append(conversationId, 'messageAccepted', messageId);
+      const message: Message = { messageId, conversationId, requestId, role: 'user', text: inputText, sequence, createdAt: acceptedAt, recipientAgentId, recipientAgentName: agent.name };
+      const run: Run = { runId, requestId, conversationId, bindingRevisionId, state: 'queued', selectedModel: configuration.selectedModel, effectiveModel: null, modelEvidence: 'unreported', attemptId: null, configuration };
+      put('messages', messageId, message); put('runs', runId, run);
+      const acceptance: Acceptance = { receipt: { requestId, conversationId, messageId, runId, bindingRevisionId, inputDigest: digest(inputText), acceptedAt }, snapshot: snapshot(conversationId) };
+      put('requests', requestId, { fingerprint, acceptance }); return acceptance;
+    });
+  };
+  let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined;
+  const executeNext = async (): Promise<boolean> => {
+    if (closed || !options.runtime) return false;
+    const runs = list('runs', decodeRun);
+    const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'outcomeUnknown')));
+    if (!queued?.configuration) return false;
+    const input = transaction(() => {
+      const messages = list('messages', decodeMessage).filter(m => m.conversationId === queued.conversationId);
+      const current = messages.find(m => m.requestId === queued.requestId && m.role === 'user');
+      if (!current || !queued.configuration) throw new Error('Queued run has no accepted input');
+      put('runs', queued.runId, { ...queued, state: 'running', attemptId: randomUUID() }); append(queued.conversationId, 'runStarted', queued.runId);
+      const history = messages.filter(m => m.role === 'user' && m.sequence < current.sequence).flatMap(m => [m, ...messages.filter(reply => reply.role === 'assistant' && reply.requestId === m.requestId)]);
+      const next: ChatInput = { runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: current.text, history };
+      put('contexts', queued.runId, next); return next;
+    });
+    active = new AbortController();
+    try {
+      const result = await options.runtime.execute(input, active.signal);
+      transaction(() => {
+        const run = load('runs', queued.runId, decodeRun);
+        if (result.kind === 'completed') {
+          const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
+          const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: text(result.text, 'reply', 65_536), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
+          put('messages', messageId, reply); put('runs', run.runId, { ...run, state: 'completed' });
+        } else { put('runs', run.runId, { ...run, state: result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
+      });
+    } catch {
+      transaction(() => { const run = load('runs', queued.runId, decodeRun); put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); });
+    } finally { active = undefined; }
+    return true;
+  };
+  const dispatchNext = (): Promise<boolean> => {
+    if (dispatching) return dispatching;
+    dispatching = executeNext().finally(() => { dispatching = undefined; }); return dispatching;
+  };
   const readBody = async (request: IncomingMessage) => {
     const chunks: Buffer[] = []; let size = 0;
     for await (const chunk of request) { size += chunk.length; if (size > 1_000_000) fail(413, 'tooLarge', 'Command is too large.'); chunks.push(chunk); }
@@ -120,6 +214,26 @@ export function createOpenAIService(options: { dataDirectory: string }) {
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
         else if (request.method === 'GET' && url.pathname === '/v1/skills') result = { skills: list('skills', decodeSkill) };
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
+        else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
+        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = record(load('requests', id(url.pathname.split('/')[3]), record).acceptance).receipt;
+        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/messages$/.test(url.pathname)) { result = accept(request, id(url.pathname.split('/')[3]), await readBody(request)); status = 201; }
+        else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {
+          const body = await readBody(request), agentId = id(url.pathname.split('/')[3]);
+          result = owner(request, () => {
+            const old = load('agents', agentId, decodeAgent);
+            if (body.expectedBindingRevisionId !== old.binding.bindingRevisionId) fail(409, 'bindingChanged', 'Reload the Agent before saving.');
+            const agent: Agent = { ...old, name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), binding: { ...old.binding, bindingRevisionId: randomUUID(), selectedModel: text(body.model, 'exact model', 128) } };
+            put('agents', agentId, agent);
+            const home = load('conversations', old.homeConversationId, decodeConversation); put('conversations', home.conversationId, { ...home, name: agent.name }); return agent;
+          });
+        } else if (request.method === 'POST' && /^\/v1\/skills\/[^/]+$/.test(url.pathname)) {
+          const body = await readBody(request), skillId = id(url.pathname.split('/')[3]);
+          result = owner(request, () => {
+            const old = load('skills', skillId, decodeSkill);
+            if (body.expectedRevisionId !== old.revisionId) fail(409, 'skillChanged', 'Reload the skill before saving.');
+            const skill: InstructionSkill = { skillId, revisionId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions') }; put('skills', skillId, skill); return skill;
+          });
+        }
         else if (request.method === 'POST' && url.pathname === '/v1/agents') {
           const body = await readBody(request);
           result = owner(request, () => {
@@ -151,8 +265,8 @@ export function createOpenAIService(options: { dataDirectory: string }) {
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
   let baseURL = ''; let closed = false;
-  return { installation, issueEnrollment, get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
+  return { installation, issueEnrollment, dispatchNext, get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
     await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); }); });
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;
-  }, async close() { if (closed) return; closed = true; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); } };
+  }, async close() { if (closed) return; closed = true; active?.abort(); await dispatching; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); } };
 }
