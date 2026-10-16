@@ -1,0 +1,57 @@
+✖ Codex wire adapter preserves exact input and emits only correlated terminal reply evidence (3.18875ms)
+✔ fragmented UTF-8 and coalesced frames produce authoritative final text, not provisional deltas (1.309709ms)
+✔ notifications arriving before the start response wait for its exact turn correlation (0.186083ms)
+✔ foreign threads and stale turns cannot contaminate the accepted turn (0.236041ms)
+✔ an interrupt response is not cancellation proof; a correlated interrupted terminal is (0.273ms)
+✔ interruption before the start response waits for the exact accepted turn ID (0.129708ms)
+✔ connection loss or exit without terminal evidence remains unknown and never resubmits (0.207834ms)
+✔ all server requests fail closed without granting permissions, owner approval or credentials (0.336417ms)
+✔ tool activity and model rerouting cannot be reported as an accepted exact-model text reply (0.152542ms)
+✔ provider claims inside reply text never become model or owner authority (0.159208ms)
+✔ invalid JSON, invalid UTF-8, malformed correlated fields and missing final items fail without exposing raw data (0.254667ms)
+✔ partial frames and duplicated contradictory final item evidence cannot become completion (0.118291ms)
+✔ start rejection and contradictory turn responses are bounded unknown outcomes (0.124125ms)
+✔ dispatch validates exact bounded input and copies the immutable attempt before producing wire data (0.503042ms)
+✔ bounded wire, reply and pending-event limits stop oversized output (0.461458ms)
+✔ canceling before dispatch produces never-started evidence and no wire request (0.118042ms)
+✔ the longest accepted request ID still correlates an interrupt acknowledgement (0.109333ms)
+✔ contradictory terminal correlation or failure evidence cannot claim success (0.109959ms)
+✔ per-frame, cumulative text and item-count limits bound incremental output (1.315042ms)
+✔ completed items retain reported commentary versus final-answer phase without exposing reasoning (0.185625ms)
+✔ unknown or contradictory message phases fail closed (0.110709ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 121.833875
+
+✖ failing tests:
+
+test at successor/runner/codex.test.ts:12:1
+✖ Codex wire adapter preserves exact input and emits only correlated terminal reply evidence (3.18875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+        text: '  /ordinary text\r\nCafé 🦊  ',
+  -     text_elements: [],
+        type: 'text'
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/codex.test.ts:17:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { type: 'text', text: '  /ordinary text\r\nCafé 🦊  ' } ],
+    expected: [ { type: 'text', text: '  /ordinary text\r\nCafé 🦊  ', text_elements: [] } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

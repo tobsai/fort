@@ -1,0 +1,59 @@
+Building for debugging...
+[2 / 6] FortNativeCheck-product
+[4 / 8] FortNativeCheck-product
+[5 / 8] FortNativeCheck-product
+[7 / 8] FortNativeCheck-product
+Build complete! (3.30 sec)
+Test Suite 'All tests' started at 2026-10-15 22:33:03.037.
+Test Suite 'All tests' passed at 2026-10-15 22:33:03.038.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() started.
+◇ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() started.
+◇ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() started.
+◇ Test unknownRunStateIsInformative() started.
+◇ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() started.
+◇ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() started.
+◇ Test pendingSharedMessageRetainsRecipientAndSelectedSkillRevisions() started.
+◇ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() started.
+◇ Test installationsCannotSharePendingSubmissions() started.
+◇ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() started.
+◇ Test nativeRefusesInsecureNonLoopbackEndpoint() started.
+◇ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() started.
+◇ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() started.
+◇ Test openAIWorkspaceRequiresExplicitSharedRecipientAndRestoresSelectionOffline() started.
+◇ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() started.
+◇ Test openAIModelReplaysLostAcceptanceOnceWithOriginalRecipientAndSkillsAfterRestart() started.
+◇ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() started.
+◇ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() started.
+◇ Test loadedWorkspaceFormsKeepTheirOriginalRevisionAcrossPolling() started.
+◇ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() started.
+◇ Test recoveryEpochPreventsAutomaticResubmission() started.
+◇ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() started.
+◇ Test utf8ByteLimitIsExact() started.
+✔ Test unknownRunStateIsInformative() passed after 0.002 seconds.
+✔ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() passed after 0.002 seconds.
+✔ Test pendingSharedMessageRetainsRecipientAndSelectedSkillRevisions() passed after 0.001 seconds.
+✔ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() passed after 0.002 seconds.
+✔ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() passed after 0.001 seconds.
+✔ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() passed after 0.001 seconds.
+✔ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() passed after 0.003 seconds.
+✔ Test recoveryEpochPreventsAutomaticResubmission() passed after 0.003 seconds.
+✔ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() passed after 0.003 seconds.
+✔ Test installationsCannotSharePendingSubmissions() passed after 0.003 seconds.
+✔ Test utf8ByteLimitIsExact() passed after 0.004 seconds.
+✔ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() passed after 0.004 seconds.
+✔ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() passed after 0.004 seconds.
+✔ Test nativeRefusesInsecureNonLoopbackEndpoint() passed after 0.007 seconds.
+✔ Test openAIWorkspaceRequiresExplicitSharedRecipientAndRestoresSelectionOffline() passed after 0.018 seconds.
+✔ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() passed after 0.030 seconds.
+✔ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() passed after 0.035 seconds.
+✔ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() passed after 0.036 seconds.
+✔ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() passed after 0.037 seconds.
+✔ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() passed after 0.039 seconds.
+✔ Test loadedWorkspaceFormsKeepTheirOriginalRevisionAcrossPolling() passed after 0.043 seconds.
+✔ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() passed after 0.050 seconds.
+✔ Test openAIModelReplaysLostAcceptanceOnceWithOriginalRecipientAndSkillsAfterRestart() passed after 0.052 seconds.
+✔ Test run with 23 tests in 0 suites passed after 0.052 seconds.

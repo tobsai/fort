@@ -1,0 +1,63 @@
+{
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.157.1/codex-rs/core/config.schema.json",
+      "bytes": 222210,
+      "sha256": "17fbda7e71603aa6a83e986608f2e13c27ea46ce1a4b889196ba81a07c39d907"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.157.1/codex-rs/app-server-protocol/schema/typescript/v2/ThreadStartParams.ts",
+      "bytes": 1368,
+      "sha256": "0303dcced2de5d056ba552a810dde3cf5d5cf699da9353abdfc788599829881c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.157.1/codex-rs/app-server-protocol/schema/typescript/v2/TurnStartParams.ts",
+      "bytes": 2585,
+      "sha256": "aee116ebc86d05a738ae7cdace79f791a8b99a85693c3a005c295eb7e08b647c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.157.1/codex-rs/app-server-protocol/schema/typescript/v2/UserInput.ts",
+      "bytes": 768,
+      "sha256": "c033ab3da70c17ceae32e8b4770a2557f8ef9f59c07c5419387a45c55193fc59"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.157.1/codex-rs/app-server-protocol/schema/typescript/v2/SandboxPolicy.ts",
+      "bytes": 590,
+      "sha256": "f5a4b24c0de4945e77c1573306ae4cb98a29103a6c64ee23264dc9d35a977e85"
+    }
+  ],
+  "proposedFeatureKeys": {
+    "apps": true,
+    "plugins": true,
+    "hooks": true,
+    "plugin_hooks": true,
+    "remote_control": true,
+    "remote_models": true,
+    "memories": true,
+    "memory_tool": true,
+    "multi_agent": true,
+    "multi_agent_v2": true,
+    "shell_tool": true,
+    "unified_exec": true,
+    "js_repl": true,
+    "skill_search": true,
+    "skill_mcp_dependency_install": true,
+    "skill_env_var_dependency_prompt": true,
+    "image_generation": true,
+    "imagegenext": true,
+    "skip_host_skill_discovery": true
+  },
+  "configKeys": {
+    "analytics": true,
+    "check_for_update_on_startup": true,
+    "model_provider": true,
+    "notify": true,
+    "web_search": true,
+    "project_doc_max_bytes": true,
+    "skills": true,
+    "cloud": true,
+    "orchestrator": true,
+    "mcp_servers": true
+  },
+  "meaning": "Schema presence only. No installed provider process, configuration file or credential store was accessed."
+}
