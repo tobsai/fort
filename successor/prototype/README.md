@@ -1,17 +1,16 @@
-# Candidate B — third attempt prepared
+# Candidate B — all three attempts blocked
 
-The first two attempts remain consumed and blocked with zero receipts. Their
-state, ledgers and evidence are unchanged. The owner approved one separate third
-five-minute attempt at 20:17 UTC on October 16, after the [canonical-feature
-compatibility correction](../evidence/2026-10-16-codex-feature-alias-compatibility/README.md).
-Canonical observations must still be explicitly false; absence is a failure.
+All three attempts consumed their one start and have zero receipts. The third
+failed at `features/unified_exec`; its state and ledger join the two earlier
+preserved attempts. No fourth start, reset or new enrollment is authorized.
+The [complete startup-contract audit](../runner/STARTUP-CONTRACT.md) explains
+three source-grounded compatibility corrections and the remaining restricted-read
+turn-policy incompatibility. This source is not a working provider application.
 
 The [third-attempt packet](../ops/candidate-b-third-20261016/MANUAL.md) and
-[its pins and approval](../evidence/2026-10-16-candidate-b-third/README.md) identify
-the new fixed directory. Only the designated UI operator executes it, with
-automatic local pairing. This preparation starts no runtime or attempt. One
-start is allowed, with no restart or extra sample; earlier attempt records
-cannot be adopted. The implemented limits below apply unchanged.
+[its pins and approval](../evidence/2026-10-16-candidate-b-third/README.md) are
+historical evidence. They remain unchanged and cannot authorize this revision.
+The implemented limits below describe that consumed packet.
 
 `manual.ts` verifies the source and unchanged app bytes before preparing the
 fixed third-attempt directory. It passes the explicit `third-20261016`
@@ -39,10 +38,11 @@ hard-real-time guarantee. SIGINT, SIGTERM and terminal closure cancel pending
 preflight as well as ready sessions. Cancellation consumes the start.
 
 The pinned Codex 0.157.1 launcher, gpt-6-astra selection, existing ChatGPT account
-requirement, effective configuration/feature/MCP checks, per-turn checks, refusal
-rules and allowlisted startup diagnostics are unchanged. No configuration fault
-is guessed or bypassed. A failed preflight may be the replacement's useful result;
-it does not authorize another attempt. Raw provider payloads, stderr, credentials
+requirement, per-turn restrictions, refusal rules and redacted diagnostics remain.
+Startup checks now distinguish a forced execution-backend selector from shell
+authority, inert configured MCP rows from active capabilities, and model invocation
+slugs from catalog IDs. Missing capability observations still fail closed.
+These fixes do not authorize another attempt. Raw provider payloads, stderr, credentials
 and arbitrary errors are excluded from the diagnostic `{stage, check}` pair.
 
 Cleanup revokes the exact service enrollment/device rows and attempts deletion

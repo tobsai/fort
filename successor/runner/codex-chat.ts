@@ -30,7 +30,7 @@ export class CodexChat implements ChatRuntime {
       if (object(account.account).type!=='chatgpt' || account.requiresOpenaiAuth!==true) throw new StartupCheckError({stage:'account',check:'chatgpt'});
       checkpoint={stage:'protocol',check:'model/list'};
       const models=await readRuntimePages(connection,'model/list',{},signal);
-      if (!models.some(value => object(value).id===model)) throw new StartupCheckError({stage:'model',check:'availability'});
+      if (!models.some(value => object(value).model===model)) throw new StartupCheckError({stage:'model',check:'availability'});
       return { model,runtimeVersion };
     } catch(error) {
       connection.close();

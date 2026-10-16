@@ -6,6 +6,7 @@ export const CODEX_SETTINGS = [
   ['skills.include_instructions',false],['skills.bundled.enabled',false],['cloud.skills.enabled',false],['orchestrator.mcp.enabled',false],
   ['mcp_servers.spritepipe.enabled',false],['mcp_servers.node_repl.enabled',false],['mcp_servers.computer-use.enabled',false],
 ] as const satisfies ReadonlyArray<readonly [string,string|number|boolean|readonly string[]]>;
+// Requested CLI opt-outs; pinned-runtime observations are checked separately below.
 export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use'] as const;
 
 export function verifyEffectiveConfig(value: unknown): void {
@@ -52,7 +53,8 @@ export async function readRuntimePages(connection: CodexConnection, method: stri
 export async function verifyRuntimeControls(connection: CodexConnection, workspace: string, signal: AbortSignal, threadId?: string): Promise<void> {
   let checkpoint:StartupDiagnostic={stage:'protocol',check:'config/read'};
   try {
-    verifyEffectiveConfig(object(await connection.request('config/read',{ includeLayers:false,cwd:workspace },signal)).config);
+    const config=object(object(await connection.request('config/read',{ includeLayers:false,cwd:workspace },signal)).config);
+    verifyEffectiveConfig(config);
     const scope = threadId === undefined ? {} : { threadId };
     checkpoint={stage:'protocol',check:'experimentalFeature/list'};
     const features = await readRuntimePages(connection,'experimentalFeature/list',scope,signal);
@@ -63,6 +65,9 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
       states.set(feature.name,feature.enabled);
     }
     const unconfirmed=CODEX_DISABLED_FEATURES.find(name => {
+      // 0.157.1 forces this backend selector on unless managed requirements pin it.
+      // Shell authority is blocked by explicit shell_tool:false plus empty environments.
+      if (name==='unified_exec') return !states.has(name);
       // Codex 0.157.1 lists canonical keys, not these accepted input aliases.
       const canonical=name==='memory_tool'?'memories':name==='imagegenext'?'image_generation':name;
       return states.get(canonical)!==false || (canonical!==name && states.has(name) && states.get(name)!==false);
@@ -71,6 +76,18 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
     if (states.get('skip_host_skill_discovery')!==true) throw new StartupCheckError({stage:'features',check:'skip_host_skill_discovery'});
     checkpoint={stage:'protocol',check:'mcpServerStatus/list'};
     const servers=await readRuntimePages(connection,'mcpServerStatus/list',{ ...scope,detail:'full' },signal);
-    if (servers.length!==0) throw new StartupCheckError({stage:'mcp',check:'inventory'});
+    checkpoint={stage:'mcp',check:'inventory'};
+    const configured=object(config.mcp_servers), names=new Set<string>();
+    for (const value of servers) {
+      const server=object(value);
+      if (typeof server.name!=='string' || !Object.hasOwn(configured,server.name) || names.has(server.name) ||
+          object(configured[server.name]).enabled!==false || server.runtimeStatus!==(threadId===undefined?null:'disabled') ||
+          server.authStatus!=='unsupported' || server.pluginId!==null || server.serverInfo!==null ||
+          server.serverCapabilities!==null || server.toolsError!==null ||
+          (server.httpOrigin!==null && typeof server.httpOrigin!=='string') || Object.keys(object(server.tools)).length!==0 ||
+          !Array.isArray(server.resources) || server.resources.length!==0 ||
+          !Array.isArray(server.resourceTemplates) || server.resourceTemplates.length!==0) throw new StartupCheckError(checkpoint);
+      names.add(server.name);
+    }
   } catch(error) {throw new StartupCheckError(redactedStartupFailure(error,checkpoint));}
 }
