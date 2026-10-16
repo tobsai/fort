@@ -277,5 +277,5 @@
     "appSigning": "linker ad-hoc only; launch and Keychain compatibility untested",
     "pinsFile": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/evidence/2026-10-16-candidate-b-review-fixes/pins.json"
   },
-  "candidatePinFile": "successor/evidence/2026-10-16-candidate-b-session-wiring/pins.json"
+  "candidatePinFile": "successor/evidence/2026-10-16-candidate-b-pending-start-fix/pins.json"
 }

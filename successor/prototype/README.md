@@ -24,6 +24,10 @@ in [the manual](../ops/candidate-b-manual-packet-20261016/MANUAL.md).
 - Every turn repeats effective controls, checks the ephemeral thread response and
   repeats feature/MCP inspection for that thread before the cancellation fence
   and `turn/start`. No tools, fallback, login or extra diagnostic turn is added.
+- SIGINT, SIGTERM and terminal closure cancel pending startup as well as a ready
+  session. The signal reaches preflight and listener startup; a late completion
+  cannot publish enrollment or readiness. Cancellation consumes the start and
+  leaves the packet blocked.
 - The HTTP acceptance gate allows only the next of five literal samples, with the
   expected Agent, instructions, skill and conversation. It requires earlier runs
   completed and retains the same Agent/binding/Home identities. Extra or early
@@ -89,6 +93,7 @@ These are the previously disclosed host-risk class, not completed OS-isolation
 acceptance. Actual launch, sign-in availability, native Keychain behavior, process
 cleanup and manual visuals remain unrun. The Apple source/app is unchanged.
 
-[Current source pins and validation](../evidence/2026-10-16-candidate-b-session-wiring/README.md)
-record the code delta; the earlier independent review covers its base, not this
-new implementation. No additional scope decision was needed for this nonlive work.
+[Current source pins and validation](../evidence/2026-10-16-candidate-b-pending-start-fix/README.md)
+record the pending-start cancellation fix. The preserved independent review covers
+its base; this fix awaits focused recheck. No additional scope decision was needed
+for this nonlive work.

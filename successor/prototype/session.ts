@@ -71,7 +71,7 @@ export class CandidatePacket {
       if(await this.options.native.cleanup(report.installation.installationId,report.deviceIDs))state.credentialCleanup='deleted';
     } finally {this.save(state);}
   }
-  async start() {
+  async start(signal?:AbortSignal) {
     const root=this.options.root;
     mkdirSync(root,{recursive:true,mode:0o700});
     if(lstatSync(root).isSymbolicLink())throw new Error('Packet directory cannot be a symlink');
@@ -79,9 +79,9 @@ export class CandidatePacket {
     try {writeFileSync(lock,owner,{flag:'wx',mode:0o600});} catch {throw new Error('Packet session is already active or its ownership is unresolved');}
     let released=false;
     const release=()=>{if(!released&&readFileSync(lock,'utf8')===owner){unlinkSync(lock);released=true;}};
-    try{return await this.startLocked(release);}catch(error){release();throw error;}
+    try{return await this.startLocked(release,signal);}catch(error){release();throw error;}
   }
-  private async startLocked(release:()=>void) {
+  private async startLocked(release:()=>void,signal?:AbortSignal) {
     const { root,native,launchRuntime }=this.options,now=this.options.now??Date.now;
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
@@ -112,6 +112,7 @@ export class CandidatePacket {
     });
     const finish=(requestCompletion=true):Promise<State>=>{
       if (closing) return closing;
+      signal?.removeEventListener('abort',cancel);
       accepting=false;abort.abort();cancelTimer();
       closing=(async()=>{
         const report=service.inspectSession(),expected=state.starts===1?4:5;
@@ -135,16 +136,20 @@ export class CandidatePacket {
     };
     const schedule=this.options.scheduleStop??((stop,delay)=>{const timer=setTimeout(stop,delay);return ()=>clearTimeout(timer);});
     const cancelTimer=schedule(()=>{ void finish(false).catch(()=>{}); },Math.max(1,workDeadline-now()));
+    const cancel=()=>{void finish(false).catch(()=>{});};
+    signal?.addEventListener('abort',cancel,{once:true});
     try {
+      signal?.throwIfAborted();
       if(now()>=workDeadline)throw new Error('No session work budget remains');
       if (previous) {
         const report=service.inspectSession();
         if (report.installation.installationId!==previous.installationId || report.runs.length!==4 || report.receipts.length!==4 || report.runs.some(run=>run.state!=='completed') || JSON.stringify(report.receipts)!==JSON.stringify(previous.receipts)) throw new Error('Stored first-session completions changed');
       }
       runtime=launchRuntime(Math.min(workDeadline,state.credentialDeadline)-now());
-      const preflight=await runtime.preflight(abort.signal);
+      const preflight=await Promise.race([runtime.preflight(abort.signal),closed.then(()=>{throw new Error('Session stopped during preflight');})]);
       if (preflight.model!=='gpt-6-astra' || preflight.runtimeVersion!=='0.157.1' || now()>=workDeadline || abort.signal.aborted) throw new Error('Session preflight did not complete within its budget');
-      await service.start({ port:previous?.port??0 });
+      await service.start({ port:previous?.port??0,signal:abort.signal });
+      abort.signal.throwIfAborted();
       state.installationId=service.installation.installationId;state.port=Number(new URL(service.baseURL).port);this.save(state);
       accepting=true;
       return { baseURL:service.baseURL,installationId:service.installation.installationId,enrollment:state.starts===1?service.issueEnrollment():undefined,

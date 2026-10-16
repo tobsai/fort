@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {createServer} from 'node:net';
 import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
@@ -26,6 +27,25 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+for(const when of ['before','during'] as const)test(`canceled listener startup exposes no address or surviving listener: ${when}`,async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'fort-listener-cancel-'));
+  const service=createOpenAIService({dataDirectory:directory});
+  t.after(async()=>{await service.close();await rm(directory,{recursive:true,force:true});});
+  const reservation=createServer();t.after(()=>{reservation.close();});
+  await new Promise<void>(resolve=>reservation.listen(0,'127.0.0.1',resolve));
+  const address=reservation.address();assert.ok(address&&typeof address==='object');
+  const port=address.port;
+  await new Promise<void>((resolve,reject)=>reservation.close(error=>error?reject(error):resolve()));
+  const cancellation=new AbortController();if(when==='before')cancellation.abort();
+  const starting=service.start({port,signal:cancellation.signal});
+  const result=starting.then(()=> 'unexpected success',()=> 'rejected');
+  cancellation.abort();
+  assert.equal(await result,'rejected');
+  assert.equal(service.baseURL,'');
+  await new Promise(resolve=>setImmediate(resolve));
+  await assert.rejects(()=>fetch(`http://127.0.0.1:${port}/v1/installation`));
+});
 
 test('owner creates two exact Agent Homes, an instruction skill and a shared conversation that survive restart', async t => {
   const h = await setup(t);

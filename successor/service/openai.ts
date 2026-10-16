@@ -305,8 +305,17 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   let baseURL = ''; let closed = false; let closing: Promise<void> | undefined;
   return { installation, issueEnrollment, dispatchNext,
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',value=>(record(value).acceptance as Acceptance).receipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
-    get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
-    await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); }); });
+    get baseURL() { return baseURL; }, async start({ port = 0,signal }: { port?:number;signal?:AbortSignal } = {}) {
+    if(closed)throw new Error('Service is closed');
+    signal?.throwIfAborted();
+    await new Promise<void>((resolve, reject) => {
+      const cleanup=()=>{server.off('error',failed);server.off('close',canceled);};
+      const failed=(error:unknown)=>{cleanup();reject(error);};
+      const canceled=()=>failed(new Error('Listener startup canceled'));
+      server.once('error',failed);server.once('close',canceled);
+      try {server.listen({port,host:'127.0.0.1',signal},()=>{cleanup();resolve();});}catch(error){failed(error);}
+    });
+    signal?.throwIfAborted();
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;
   }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;

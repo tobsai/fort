@@ -9,7 +9,7 @@ import {CandidatePacket} from './session.ts';
 import {createNativeSession} from './native-session.ts';
 
 function verifyPins(root:string,app:string) {
-  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-session-wiring/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
+  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-pending-start-fix/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
   for(const [base,files] of [[root,pins.sourceFiles],[app,pins.appFiles]] as const){
     if(!Array.isArray(files)||files.length===0||files.length>2_000)throw new Error('Invalid candidate pins');
     for(const file of files){
@@ -35,18 +35,21 @@ async function runPreparedPacket():Promise<void> {
   const native=createNativeSession({directory:'/Users/tobiasgunn/Library/Application Support/FortCandidateB',appExecutable:join(app,'Contents/MacOS/FortMac')});
   const packet=new CandidatePacket({root:sessionRoot,native,launchRuntime:remainingWorkMs=>launchCandidateCodex({workspace,temporaryDirectory,remainingWorkMs})});
   const terminal=createInterface({input:process.stdin,output:process.stdout});
+  const cancellation=new AbortController();
   let active:Awaited<ReturnType<CandidatePacket['start']>>|undefined;
   const enrollmentFile=join(sessionRoot,'local-enrollment.json');let wroteEnrollment=false;
   const removeEnrollment=()=>{if(wroteEnrollment&&existsSync(enrollmentFile)){unlinkSync(enrollmentFile);wroteEnrollment=false;}};
-  const stop=()=>{void active?.abort().finally(()=>terminal.close());if(!active)terminal.close();};
+  const stop=()=>{cancellation.abort();terminal.close();};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
+  terminal.once('close',stop);
   process.stdout.write('Prepared packet. Type start only when ready to attend. Commands: start, status, done (after quitting Fort), abort.\n');
   try{
     for await(const line of terminal){
       const command=line.trim();
       if(command==='start'){
         if(active){process.stdout.write('A session is already active.\n');continue;}
-        const session=await packet.start();active=session;
+        const session=await packet.start(cancellation.signal);active=session;
+        if(cancellation.signal.aborted){await session.abort();break;}
         if(session.enrollment){
           const file=openSync(enrollmentFile,'wx',0o600);wroteEnrollment=true;
           try{writeFileSync(file,JSON.stringify({baseURL:session.baseURL,...session.enrollment},null,2)+'\n');}finally{closeSync(file);}
@@ -70,6 +73,7 @@ async function runPreparedPacket():Promise<void> {
     }
   }finally{
     process.off('SIGINT',stop);process.off('SIGTERM',stop);
+    cancellation.abort();
     await active?.abort();await packet.cancelBetweenSessions();removeEnrollment();terminal.close();
   }
 }

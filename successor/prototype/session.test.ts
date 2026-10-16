@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp,rm,writeFile } from 'node:fs/promises';
+import { mkdtemp,rm,writeFile,readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CandidatePacket, SAMPLES } from './session.ts';
@@ -100,6 +100,51 @@ test('the outer deadline closes an idle session and its listener without relying
   const session=await packet.start();t.after(()=>session.abort());assert.equal(scheduled,292_000);
   now+=292_000;stop();
   assert.equal((await session.closed).phase,'blocked');assert.equal(disposed,1);
+  await assert.rejects(()=>fetch(session.baseURL+'/v1/installation'));
+  await assert.rejects(()=>packet.start(),/cannot start/);
+});
+
+test('cancellation during blocked preflight disposes promptly and permanently consumes the start',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-cancel-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const cancellation=new AbortController(),entered=Promise.withResolvers<AbortSignal>(),preflight=Promise.withResolvers<{model:string;runtimeVersion:string}>();
+  let launches=0,disposals=0,executions=0,cleanups=0;
+  const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){cleanups++;return true;}},launchRuntime:()=>{
+    launches++;return {preflight(signal:AbortSignal){entered.resolve(signal);return preflight.promise;},async execute(){executions++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposals++;}};
+  }});
+  const starting=packet.start(cancellation.signal);
+  let settled=false;
+  const result=starting.then(async session=>{await session.abort();settled=true;return 'unexpected success';},()=>{settled=true;return 'rejected';});
+  const signal=await entered.promise;cancellation.abort();
+  await new Promise(resolve=>setImmediate(resolve));
+  const observed={preflightCanceled:signal.aborted,disposals,settled};
+  preflight.resolve({model:'gpt-6-astra',runtimeVersion:'0.157.1'});
+  assert.equal(await result,'rejected');
+  assert.deepEqual(observed,{preflightCanceled:true,disposals:1,settled:true});
+  assert.equal(launches,1);assert.equal(disposals,1);assert.equal(executions,0);assert.equal(cleanups,1);
+  const state=JSON.parse(await readFile(join(root,'session-state.json'),'utf8'));
+  assert.equal(state.phase,'blocked');assert.equal(state.starts,1);assert.equal(state.port,undefined);
+  assert.equal(state.credentialCleanup,'deleted');
+  await assert.rejects(()=>packet.start(),/cannot start/);
+});
+
+test('an already canceled start is blocked without launching a runtime or allowing another attempt',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-precanceled-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let launches=0;
+  const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>{launches++;throw new Error('Unexpected runtime launch');}});
+  const cancellation=new AbortController();cancellation.abort();
+  await assert.rejects(()=>packet.start(cancellation.signal),/preflight failed/);
+  const state=JSON.parse(await readFile(join(root,'session-state.json'),'utf8'));
+  assert.equal(state.phase,'blocked');assert.equal(state.starts,1);assert.equal(state.port,undefined);
+  await assert.rejects(()=>packet.start(),/cannot start/);assert.equal(launches,0);
+});
+
+test('the same cancellation handle closes a ready session and revokes its listener',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-ready-cancel-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let disposals=0;
+  const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw new Error('Unexpected turn');},async dispose(){disposals++;}})});
+  const cancellation=new AbortController(),session=await packet.start(cancellation.signal);t.after(()=>session.abort());
+  cancellation.abort();
+  assert.equal((await session.closed).phase,'blocked');assert.equal(disposals,1);
   await assert.rejects(()=>fetch(session.baseURL+'/v1/installation'));
   await assert.rejects(()=>packet.start(),/cannot start/);
 });
