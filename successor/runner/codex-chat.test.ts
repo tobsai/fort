@@ -8,7 +8,7 @@ import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; cycleCursor?: boolean; rejectMethod?:string } = {}) {
+function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -19,7 +19,11 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
       switch (frame.method) {
         case 'initialize': result({ userAgent:'synthetic' }); break;
         case 'config/read': result({ config:options.config ?? syntheticConfig() }); break;
-        case 'experimentalFeature/list': result({ data:options.features ?? syntheticFeatures(),nextCursor:null }); break;
+        case 'experimentalFeature/list': {
+          if(frame.params.threadId&&options.threadFeatures){result({data:options.threadFeatures,nextCursor:null});break;}
+          const pages=options.featurePages??[options.features??syntheticFeatures()],page=Number(frame.params.cursor??0);
+          result({data:pages[page]??[],nextCursor:page+1<pages.length?String(page+1):null});break;
+        }
         case 'mcpServerStatus/list': {
           if (frame.params.threadId && options.threadMcp) { result({data:options.threadMcp,nextCursor:null});break; }
           const pages = options.mcpPages ?? [[]], page = Number(frame.params.cursor ?? 0);
@@ -161,3 +165,48 @@ test('unavailable exact model, changed thread model, oversized context and tool 
     fixture.connection.close();
   }
 });
+
+
+test('Codex 0.157.1 canonical inventory confirms disabled memory and images without legacy alias entries',async()=>{
+  const features=syntheticFeatures().filter(feature=>!['memory_tool','imagegenext'].includes(feature.name));
+  const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  try{
+    assert.deepEqual(await runtime.preflight(new AbortController().signal),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});
+    assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')),false);
+    assert.equal((await runtime.execute(input,new AbortController().signal)).kind,'completed');
+    assert.equal(fixture.calls.some(call=>call.method==='experimentalFeature/list'&&call.params?.threadId==='thread'),true);
+  }finally{await runtime.dispose();}
+});
+
+
+for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image_generation']] as const){
+  for(const mode of ['enabled','missing','alias-only','renamed','alias-enabled','nonboolean','duplicate'] as const){
+    test(`${alias} compatibility still refuses ${mode} inventory before a thread or turn`,async()=>{
+      let features:{name:string;enabled:unknown}[]=syntheticFeatures();
+      if(mode==='enabled')features=features.map(feature=>feature.name===canonical?{...feature,enabled:true}:feature);
+      if(mode==='missing'||mode==='alias-only')features=features.filter(feature=>feature.name!==canonical);
+      if(mode==='alias-only')features.push({name:alias,enabled:false});
+      if(mode==='renamed')features=features.map(feature=>feature.name===canonical?{...feature,name:'unreviewed_'+canonical}:feature);
+      if(mode==='alias-enabled')features.push({name:alias,enabled:true});
+      if(mode==='nonboolean')features.push({name:alias,enabled:'false'});
+      if(mode==='duplicate')features.push({name:canonical,enabled:false});
+      const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+      let failure:unknown;
+      try{await runtime.preflight(new AbortController().signal);}catch(error){failure=error;}
+      finally{await runtime.dispose();}
+      const check=mode==='nonboolean'||mode==='duplicate'?'inventory':mode==='alias-enabled'?alias:canonical;
+      assert.deepEqual(redactedStartupFailure(failure,{stage:'session',check:'runtime-preflight'}),{stage:'features',check});
+      assert.equal(fixture.calls.some(call=>['thread/start','turn/start','mcpServerStatus/list','account/read'].includes(call.method??'')),false);
+      assert.equal(fixture.closed,true);
+    });
+  }
+  test(`${canonical} is rechecked in thread scope before turn dispatch`,async()=>{
+    const fixture=transport({threadFeatures:syntheticFeatures().map(feature=>feature.name===canonical?{...feature,enabled:true}:feature)});
+    const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    try{
+      assert.equal((await runtime.execute(input,new AbortController().signal)).kind,'notStarted');
+      assert.equal(fixture.calls.some(call=>call.method==='thread/start'),true);
+      assert.equal(fixture.calls.some(call=>call.method==='turn/start'),false);
+    }finally{await runtime.dispose();}
+  });
+}

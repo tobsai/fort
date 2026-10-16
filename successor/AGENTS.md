@@ -8,12 +8,13 @@ The bounded Candidate B test was approved on 2026-10-16, including its minimal
 activation revision; see evidence/2026-10-16-candidate-b-activation/approval.json.
 Its first authorized start failed closed with zero receipts. That original packet
 remains blocked and must not be retried, reset or adopted by another attempt.
-The owner approved one separate five-minute replacement at 19:34:56 UTC on
-2026-10-16. See ops/candidate-b-replacement-20261016/MANUAL.md and
-its linked approval/pins. The replacement has its own fixed directory, permits
-one start and the same five exact samples within one session, and cannot restart.
-Only the designated UI task executes it; preparation/tests do not launch it.
-Preserve original evidence, exact runtime controls and all failure stop checks.
+The separately approved one-start replacement also failed closed with zero
+receipts, at features/memory_tool. Both attempts are consumed and blocked;
+no additional start, reset or new attempt is authorized. The current correction
+is nonlive feature-inventory compatibility only. See
+evidence/2026-10-16-codex-feature-alias-compatibility/README.md for exact pins,
+upstream proof and tests. Preserve both state/ledger records and all prior
+approvals/evidence. No model, launch flag, deadline or credential change is made.
 Broader provider activation, external account enrollment, permanent services and
 public ingress still require their exact authority and acceptance gates.
 No imports from ../foundation or old Fort implementation belong in this graph.

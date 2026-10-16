@@ -62,7 +62,11 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
       if (typeof feature.name !== 'string' || typeof feature.enabled !== 'boolean' || states.has(feature.name)) throw new StartupCheckError({stage:'features',check:'inventory'});
       states.set(feature.name,feature.enabled);
     }
-    const unconfirmed=CODEX_DISABLED_FEATURES.find(name => states.get(name)!==false);
+    const unconfirmed=CODEX_DISABLED_FEATURES.find(name => {
+      // Codex 0.157.1 lists canonical keys, not these accepted input aliases.
+      const canonical=name==='memory_tool'?'memories':name==='imagegenext'?'image_generation':name;
+      return states.get(canonical)!==false || (canonical!==name && states.has(name) && states.get(name)!==false);
+    });
     if (unconfirmed) throw new StartupCheckError({stage:'features',check:unconfirmed});
     if (states.get('skip_host_skill_discovery')!==true) throw new StartupCheckError({stage:'features',check:'skip_host_skill_discovery'});
     checkpoint={stage:'protocol',check:'mcpServerStatus/list'};

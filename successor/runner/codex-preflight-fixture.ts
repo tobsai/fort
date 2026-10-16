@@ -5,6 +5,6 @@ export const syntheticConfig = () => ({
   mcp_servers:{ spritepipe:{ enabled:false },node_repl:{ enabled:false },'computer-use':{ enabled:false } },
 });
 export const syntheticFeatures = () => [
-  'apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl',
-  'skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use',
+  'apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl',
+  'skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use',
 ].map(name => ({ name,enabled:false })).concat([{ name:'skip_host_skill_discovery',enabled:true }]);

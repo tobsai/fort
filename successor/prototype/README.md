@@ -1,11 +1,19 @@
-# Candidate B — one approved replacement
+# Candidate B — both attempts blocked
 
-The original attempt remains blocked with one consumed start and zero receipts.
-Its directory, ledger and [diagnostic evidence](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md)
-are preserved. The owner approved one separate replacement on October 16 at
-19:34:56 UTC. The [replacement packet](../ops/candidate-b-replacement-20261016/MANUAL.md)
-contains the exact UI-task launch instructions, samples and cleanup checks;
-[its evidence](../evidence/2026-10-16-candidate-b-replacement/README.md) pins this revision.
+The original attempt and separately approved replacement each consumed one start
+and failed closed with zero receipts. Both state directories, ledgers and prior
+evidence are preserved. No retry, reset or further attempt is authorized.
+The replacement recorded `features/memory_tool`; the [nonlive compatibility
+correction](../evidence/2026-10-16-codex-feature-alias-compatibility/README.md)
+proves that Codex 0.157.1 lists canonical `memories` and `image_generation`
+features while accepting `memory_tool` and `imagegenext` as input aliases.
+Canonical controls must still be explicitly false. Their absence is a failure.
+
+The [replacement packet](../ops/candidate-b-replacement-20261016/MANUAL.md)
+and [its evidence](../evidence/2026-10-16-candidate-b-replacement/README.md) are
+historical execution authority, now consumed. The manual entry retains those
+original pins; the new diagnostic pins are for review and do not enable a run.
+The descriptions below preserve the replacement's implemented limits.
 
 `manual.ts` verifies the source and unchanged app bytes before preparing the
 fixed replacement directory. It passes the explicit `replacement-20261016`
