@@ -1,0 +1,18 @@
+(node:73017) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ approved activation permits only the manual packet entry without starting it (2.42925ms)
+(node:73018) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual entry refuses indirect use before pin reads, native inspection, enrollment or process launch (0.710042ms)
+✔ SIGINT cancels a pending start before it can expose enrollment or readiness (5.068625ms)
+✔ SIGTERM cancels a pending start before it can expose enrollment or readiness (1.604709ms)
+✔ EOF cancels a pending start before it can expose enrollment or readiness (1.753458ms)
+✔ candidate provider entry refuses use outside the approved manual packet before path inspection or launch (1.189292ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 136.803542
