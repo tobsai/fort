@@ -16,26 +16,27 @@ export const SAMPLES = [
 type PreparedRuntime = ChatRuntime & { preflight(signal:AbortSignal):Promise<{model:string;runtimeVersion:string}> };
 export type NativeSession = {
   assertFresh():void;
-  inspect(installationId:string):{ appExited:boolean; pendingCount:number };
+  stop?():Promise<boolean>;
+  inspect(installationId:string,options?:{allowUncreatedQueue:boolean}):{ appExited:boolean; pendingCount:number };
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type OneStartAttempt='replacement-20261016'|'third-20261016'|'fourth-20261016';
+type OneStartAttempt='replacement-20261016'|'third-20261016'|'fourth-20261016'|'owner-trial-20261016';
 type State={ version:1; attempt?:OneStartAttempt; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
 type Options={ root:string; attempt?:OneStartAttempt; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
-function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean,singleSample:boolean):boolean {
-  const index=runs.length,sample=SAMPLES[index],config=submission.configuration,conversation=submission.conversation;
+function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean,singleSample:boolean,ownerTrial:boolean):boolean {
+  const index=runs.length,sample=ownerTrial?{text:submission.text,agent:'Writer'}:SAMPLES[index],config=submission.configuration,conversation=submission.conversation;
   if (!sample || index>=(singleSample?1:replacement||session===2?5:4) || (session===2&&index!==4) || runs.some(run=>run.state!=='completed')) return false;
   if (submission.text!==sample.text || config.agentName!==sample.agent || config.selectedModel!=='gpt-6-astra') return false;
   if (config.instructions!==(sample.agent==='Writer'?'Reply briefly using supplied context.':'Check the sample claim.')) return false;
   const prior=runs.find(run=>run.configuration?.agentName===sample.agent);
   if (prior && (prior.configuration?.agentId!==config.agentId || prior.bindingRevisionId!==config.bindingRevisionId)) return false;
-  if (index===3) {
+  if (index===3&&!ownerTrial) {
     const writer=runs.find(run=>run.configuration?.agentName==='Writer')?.configuration?.agentId;
     if (conversation.kind!=='shared' || conversation.name!=='Sample planning' || conversation.participantAgentIds.length!==2 || !writer || !conversation.participantAgentIds.includes(writer) || !conversation.participantAgentIds.includes(config.agentId)) return false;
   } else if (conversation.kind!=='home' || conversation.participantAgentIds.length!==1 || conversation.participantAgentIds[0]!==config.agentId || (prior && prior.conversationId!==conversation.conversationId)) return false;
-  return index===2
+  return index===2&&!ownerTrial
     ? config.skills.length===1 && config.skills[0]?.name==='Check marker' && config.skills[0]?.instructions==='End with [CHECKED].'
     : config.skills.length===0;
 }
@@ -89,11 +90,12 @@ export class CandidatePacket {
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
     const singleSample=this.options.attempt==='fourth-20261016';
-    const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016'||singleSample;
+    const ownerTrial=this.options.attempt==='owner-trial-20261016';
+    const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016'||singleSample||ownerTrial;
     const previous=this.read();
     if (previous && (replacement || previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
     const began=now();
-    const state:State={ version:1,...(replacement?{attempt:this.options.attempt}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
+    const state:State={ version:1,...(replacement?{attempt:this.options.attempt}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement&&!ownerTrial?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
     if(replacement)this.save(state);
     if (previous) {
       try {
@@ -103,13 +105,15 @@ export class CandidatePacket {
     } else {
       try {
         native.assertFresh();
+        if(ownerTrial&&!native.stop)throw new Error('Owner trial requires automatic native shutdown');
         if (existsSync(join(root,'service'))) throw new Error('First session requires a fresh ledger');
       } catch(error) {
         if(replacement){state.phase='blocked';state.failure={stage:'session',check:'entry'};this.save(state);throw new StartupCheckError(state.failure);}
         throw error;
       }
     }
-    const workDeadline=Math.min(began+292_000,state.credentialDeadline-8_000);
+    const workDeadline=ownerTrial?began+540_000:Math.min(began+292_000,state.credentialDeadline-8_000);
+    const cleanupDeadline=ownerTrial?state.credentialDeadline:began+300_000;
     this.save(state);
     const abort=new AbortController();let runtime:PreparedRuntime|undefined,accepting=false,closing:Promise<State>|undefined;
     let resolveClosed!:(state:State)=>void;
@@ -119,21 +123,24 @@ export class CandidatePacket {
       dispose:async()=>{ await runtime?.dispose(); },
     };
     const service=createOpenAIService({ dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,
-      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement,singleSample),
+      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement,singleSample,ownerTrial),
     });
     const finish=(requestCompletion=true):Promise<State>=>{
       if (closing) return closing;
       signal?.removeEventListener('abort',cancel);
+      const wasAccepting=accepting;
       accepting=false;abort.abort();cancelTimer();
       closing=(async()=>{
         const report=service.inspectSession(),expected=singleSample?1:replacement||state.starts===2?5:4;
-        let passed=requestCompletion && now()<=workDeadline && report.receipts.length===expected && report.runs.length===expected && report.runs.every(run=>run.state==='completed');
+        let passed=requestCompletion && wasAccepting && now()<=(ownerTrial?cleanupDeadline:workDeadline) && (ownerTrial?report.receipts.length<=5&&report.receipts.length===report.runs.length:report.receipts.length===expected&&report.runs.length===expected) && report.runs.every(run=>run.state==='completed');
+        if(ownerTrial){try{if(!await native.stop!())passed=false;}catch{passed=false;}}
+        const nativeOptions=ownerTrial?{allowUncreatedQueue:report.receipts.length===0}:undefined;
         if (passed) {
-          try { const observed=native.inspect(service.installation.installationId);passed=observed.appExited&&observed.pendingCount===0; } catch { passed=false; }
+          try { const observed=native.inspect(service.installation.installationId,nativeOptions);passed=observed.appExited&&observed.pendingCount===0; } catch { passed=false; }
         }
         try { await service.close({ preserveSessionCredential:passed&&!replacement&&state.starts===1 }); } catch { passed=false; }
         if (passed) {
-          try { const observed=native.inspect(service.installation.installationId);passed=observed.appExited&&observed.pendingCount===0&&now()<=began+300_000; } catch { passed=false; }
+          try { const observed=native.inspect(service.installation.installationId,nativeOptions);passed=observed.appExited&&observed.pendingCount===0&&now()<=cleanupDeadline; } catch { passed=false; }
         }
         state.receipts=report.receipts;state.installationId=service.installation.installationId;
         state.phase=passed ? !replacement&&state.starts===1?'between':'finished' : 'blocked';
@@ -142,12 +149,12 @@ export class CandidatePacket {
           try { const cleanup=createOpenAIService({ dataDirectory:join(root,'service'),now });await cleanup.close(); } catch { state.phase='blocked'; }
           try { if (!await native.cleanup(service.installation.installationId,report.deviceIDs)) state.phase='blocked';else state.credentialCleanup='deleted'; } catch { state.phase='blocked'; }
         }
-        if(replacement&&now()>began+300_000)state.phase='blocked';
+        if(replacement&&now()>cleanupDeadline)state.phase='blocked';
         this.save(state);release();const result=structuredClone(state);resolveClosed(result);return result;
       })();return closing;
     };
     const schedule=this.options.scheduleStop??((stop,delay)=>{const timer=setTimeout(stop,delay);return ()=>clearTimeout(timer);});
-    const cancelTimer=schedule(()=>{ void finish(false).catch(()=>{}); },Math.max(1,workDeadline-now()));
+    const cancelTimer=schedule(()=>{ void finish(ownerTrial).catch(()=>{}); },Math.max(1,workDeadline-now()));
     const cancel=()=>{void finish(false).catch(()=>{});};
     signal?.addEventListener('abort',cancel,{once:true});
     let checkpoint:StartupDiagnostic={stage:'session',check:'runtime-launch'};

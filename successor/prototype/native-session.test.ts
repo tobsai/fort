@@ -6,6 +6,26 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {createNativeSession} from './native-session.ts';
 
+test('automatic shutdown confirms the exact native process exit without touching credentials',async()=>{
+  let exited=false,stops=0,erases=0;
+  const native=createNativeSession({directory:'/synthetic/cache',appExecutable:'/synthetic/FortMac',appExited:()=>exited,stopApp:async()=>{stops++;exited=true;},eraseCredential:async()=>{erases++;return true;}});
+  assert.equal(await native.stop!(),true);assert.equal(await native.stop!(),true);
+  assert.equal(stops,1);assert.equal(erases,0);
+  const refused=createNativeSession({directory:'/synthetic/cache',appExecutable:'/synthetic/FortMac',appExited:()=>false,stopApp:async()=>{throw Error('Synthetic stop failure');}});
+  assert.equal(await refused.stop!(),false);
+});
+
+test('a paired owner who sends nothing has an uncreated queue; historical inspections still fail closed',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'fort-native-zero-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+  const native=createNativeSession({directory,appExecutable:'/synthetic/FortMac',appExited:()=>true,eraseCredential:async()=>true});
+  await writeFile(join(directory,'connection.json'),JSON.stringify({installationID:'installation',deviceID:'device'}));
+  const scope=join(directory,createHash('sha256').update('installation').digest('hex'));await mkdir(scope);
+  assert.throws(()=>native.inspect('installation'),/native state/);
+  assert.deepEqual(native.inspect('installation',{allowUncreatedQueue:true}),{appExited:true,pendingCount:0});
+  await writeFile(join(scope,'pending.json'),'invalid');
+  assert.throws(()=>native.inspect('installation',{allowUncreatedQueue:true}),/native state/);
+});
+
 test('native restart inspection reads the actual installation queue and cleanup targets only its own credential',async t=>{
   const directory=await mkdtemp(join(tmpdir(),'fort-native-inspection-'));t.after(()=>rm(directory,{recursive:true,force:true}));
   const erased:string[]=[];

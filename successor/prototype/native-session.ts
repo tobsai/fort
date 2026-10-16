@@ -4,8 +4,9 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import type {NativeSession} from './session.ts';
 
+function processPattern(executable:string):string {return '^'+executable.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($| )';}
 function appHasExited(executable:string):boolean {
-  const pattern='^'+executable.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($| )';
+  const pattern=processPattern(executable);
   try { execFileSync('/usr/bin/pgrep',['-f',pattern],{stdio:'ignore',timeout:1_000});return false; }
   catch(error) { if(error instanceof Error && 'status' in error && error.status===1)return true;throw new Error('Native process status is unknown'); }
 }
@@ -13,10 +14,11 @@ async function eraseKeychainCredential(account:string):Promise<boolean> {
   try { execFileSync('/usr/bin/security',['delete-generic-password','-s','Fort.Spec058.Device','-a',account],{stdio:'ignore',timeout:1_500});return true; }
   catch(error) { return error instanceof Error && 'status' in error && error.status===44; }
 }
-export function createNativeSession(options:{directory:string;appExecutable:string;appExited?:()=>boolean;eraseCredential?:(account:string)=>Promise<boolean>}):NativeSession {
+export function createNativeSession(options:{directory:string;appExecutable:string;appExited?:()=>boolean;stopApp?:()=>Promise<void>;eraseCredential?:(account:string)=>Promise<boolean>}):NativeSession {
   const {directory,appExecutable}=options;
   if([directory,appExecutable].some(path=>!isAbsolute(path)||normalize(path)!==path||path==='/'||path.includes('\0')))throw new Error('Use exact native paths');
   const appExited=options.appExited??(()=>appHasExited(appExecutable)),erase=options.eraseCredential??eraseKeychainCredential;
+  const stopApp=options.stopApp??(async()=>{try{execFileSync('/usr/bin/pkill',['-TERM','-f',processPattern(appExecutable)],{stdio:'ignore',timeout:1_000});}catch(error){if(!(error instanceof Error&&'status' in error&&error.status===1))throw error;}});
   const connectionPath=join(directory,'connection.json');
   const read=(path:string):unknown=>{
     if(lstatSync(directory).isSymbolicLink()||!lstatSync(path).isFile()||lstatSync(path).size>1_000_000)throw new Error('Invalid native state');
@@ -29,12 +31,21 @@ export function createNativeSession(options:{directory:string;appExecutable:stri
   };
   return {
     assertFresh(){ if(!appExited()||(existsSync(directory)&&(lstatSync(directory).isSymbolicLink()||readdirSync(directory).length!==0)))throw new Error('Native candidate state is not fresh'); },
-    inspect(installationId){
+    async stop(){
+      try{
+        if(appExited())return true;
+        await stopApp();
+        for(let attempt=0;attempt<30;attempt++){if(appExited())return true;await new Promise(resolve=>setTimeout(resolve,100));}
+        return appExited();
+      }catch{return false;}
+    },
+    inspect(installationId,inspection){
       try {
         identity(installationId);
         const scope=join(directory,createHash('sha256').update(installationId).digest('hex'));
         if(lstatSync(scope).isSymbolicLink())throw new Error('Invalid native state');
-        const pending=read(join(scope,'pending.json'));
+        const pendingPath=join(scope,'pending.json');
+        const pending=inspection?.allowUncreatedQueue&&!lstatSync(pendingPath,{throwIfNoEntry:false})?[]:read(pendingPath);
         if(!Array.isArray(pending))throw new Error('Invalid native state');
         return {appExited:appExited(),pendingCount:pending.length};
       }catch{throw new Error('Actual native state could not be confirmed');}

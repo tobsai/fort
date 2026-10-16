@@ -10,7 +10,7 @@ import {createNativeSession} from './native-session.ts';
 import {redactedStartupFailure} from '../runner/startup-diagnostic.ts';
 
 function verifyPins(root:string,app:string) {
-  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-fourth/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
+  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-owner-trial/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
   for(const [base,files] of [[root,pins.sourceFiles],[app,pins.appFiles]] as const){
     if(!Array.isArray(files)||files.length===0||files.length>2_000)throw new Error('Invalid candidate pins');
     for(const file of files){
@@ -30,11 +30,11 @@ async function runPreparedPacket():Promise<void> {
   const root=fileURLToPath(new URL('../..',import.meta.url));
   const app=join(root,'successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app');
   verifyPins(root,app);
-  const sessionRoot='/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016';
+  const sessionRoot='/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016';
   const workspace=join(sessionRoot,'empty'),temporaryDirectory=join(sessionRoot,'tmp');
   for(const path of [sessionRoot,workspace,temporaryDirectory]){mkdirSync(path,{recursive:true,mode:0o700});if(lstatSync(path).isSymbolicLink())throw new Error('Session path cannot be a symlink');}
   const native=createNativeSession({directory:'/Users/tobiasgunn/Library/Application Support/FortCandidateB',appExecutable:join(app,'Contents/MacOS/FortMac')});
-  const packet=new CandidatePacket({root:sessionRoot,attempt:'fourth-20261016',native,launchRuntime:remainingWorkMs=>launchCandidateCodex({workspace,temporaryDirectory,remainingWorkMs})});
+  const packet=new CandidatePacket({root:sessionRoot,attempt:'owner-trial-20261016',native,launchRuntime:remainingWorkMs=>launchCandidateCodex({workspace,temporaryDirectory,remainingWorkMs,ownerTrial:true})});
   const terminal=createInterface({input:process.stdin,output:process.stdout});
   const cancellation=new AbortController();
   let active:Awaited<ReturnType<CandidatePacket['start']>>|undefined;
@@ -43,7 +43,7 @@ async function runPreparedPacket():Promise<void> {
   const stop=()=>{cancellation.abort();terminal.close();};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
   terminal.once('close',stop);
-  process.stdout.write('Prepared one-start fourth attempt: one Writer Home sample, five minutes including cleanup. Designated UI operator only. No restart is authorized. Commands: start, status, done (after quitting Fort), abort.\n');
+  process.stdout.write('Prepared owner trial: up to five owner-entered Writer Home messages, ten minutes total with the final minute reserved for automatic cleanup. Designated UI operator only; no operator messages or restart. Commands: start, status, done (end early), abort.\n');
   try{
     for await(const line of terminal){
       const command=line.trim();
@@ -57,7 +57,8 @@ async function runPreparedPacket():Promise<void> {
         }
         process.stdout.write(`Preflight passed. Open this exact app: ${app}\n`);
         process.stdout.write(session.enrollment?`UI operator: pair automatically from ${enrollmentFile}; never emit enrollment values into chat or screenshots.\n`:'Use the existing candidate connection; do not enroll again.\n');
-        process.stdout.write(`Work cutoff: ${new Date(session.workDeadline).toISOString()}. Quit Fort fully before typing done.\n`);
+        process.stdout.write(JSON.stringify({workCutoff:new Date(session.workDeadline).toISOString(),credentialExpiry:new Date(session.credentialDeadline).toISOString(),messageLimit:5})+'\n');
+        process.stdout.write('After pairing and opening Writer Home, immediately notify the parent that the owner can type, including both exact deadlines. Send no messages on the owner\'s behalf. Automatic shutdown starts at the work cutoff; done ends early.\n');
         void session.closed.then(state=>{
           removeEnrollment();if(active===session)active=undefined;
           process.stdout.write(JSON.stringify({phase:state.phase,starts:state.starts,receiptCount:state.receipts.length,credentialCleanup:state.credentialCleanup})+'\n');

@@ -24,23 +24,34 @@ That fourth attempt is now consumed and finished: one completed receipt, visible
 01a146a9-2d59-729b-8481-21afbc8eb16b. Read
 evidence/2026-10-16-fourth-native-acceptance/README.md for read-only receipt/pin/
 residue verification and limits. Preserve all four state/ledger/evidence packets.
-Do not restart the fourth packet or enroll/send again. No further live trial is
-authorized by its success. Every older consumed packet stays blocked.
+Do not restart the fourth packet or enroll/send in any consumed packet.
+The owner separately approved a fresh owner trial at 21:52 UTC on 2026-10-16.
+See evidence/2026-10-16-candidate-b-owner-trial/approval.json and
+ops/candidate-b-owner-trial-20261016/MANUAL.md. Only designated UI task
+01a1451b-81d7-76cf-8e5c-a85d7164201c may start it once: ten minutes total,
+with the last minute reserved for automatic shutdown/cleanup, up to five
+owner-entered plain-text messages in one Writer Home, no skill, the same existing
+ChatGPT/gpt-6-astra setup and unchanged permission/host limitations. The operator
+pairs automatically and immediately notifies the parent of readiness and exact
+work cutoff/credential expiry. Only the human types/sends the messages; no operator
+sample or corrective prompt may consume the budget. Preserve all four prior ledgers
+and the completed native cache archive. Preparation must not start this trial.
 Read runner/STARTUP-CONTRACT.md and runner/PERMISSION-PROFILE.md before runtime
 work. The nonlive migration replaces the rejected legacy restricted-read selector
 with a named macOS profile denying all computer-tool file reads/writes and tool
 network access. Source/fixture contracts and one real native text turn passed;
 complete OS enforcement remains unverified. Do not weaken that profile, enable tools/environments or treat its
 identity/legacy sandbox projection as a complete effective-policy attestation.
-The current manual selects only the fourth identity/root and its sealed source/app
-pins. Any persisted fourth state prevents another start, even after a failure.
+The current manual selects only owner-trial-20261016 and its sealed source/app pins.
+Any persisted owner-trial state prevents another start, even after a failure.
 Preparation/tests must not start the live runtime or read credentials/settings.
 The actual offline CLI parser accepted the profile; the separate deny-rule canary
 passed pathname denials but not descriptor revocation, and nested sandbox application
 was blocked. Full isolation remains unproven; the agent host has the Mac user's access.
 Do not broaden the profile or weaken any startup/cleanup check to make the test pass.
 No persistent settings, OS/network/security configuration or credentials were changed
-by preparation. No fifth attempt or permission to reset a packet is implied.
+by preparation. The separate owner-trial approval permits only its fresh packet;
+no permission to reset any packet or broaden runtime controls is implied.
 Broader provider activation, external account enrollment, permanent services and
 public ingress still require their exact authority and acceptance gates.
 No imports from ../foundation or old Fort implementation belong in this graph.

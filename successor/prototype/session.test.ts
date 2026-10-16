@@ -8,6 +8,60 @@ import type { Agent,InstructionSkill,Conversation,Acceptance,Snapshot } from '..
 import type { ChatInput } from '../runner/chat-runtime.ts';
 import {StartupCheckError} from '../runner/startup-diagnostic.ts';
 
+for(const count of [0,1,4,5])test(`owner trial admits up to five chosen messages and automatically closes: ${count}`,async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-owner-trial-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const began=Date.now();let now=began,stop!:()=>void,scheduled=0,stops=0,disposals=0,cleanups=0,budget=0,exited=false;
+  const calls:ChatInput[]=[];
+  const options={root,attempt:'owner-trial-20261016' as const,now:()=>now,scheduleStop:(callback:()=>void,delay:number)=>{stop=callback;scheduled=delay;return ()=>{};},
+    native:{assertFresh(){},async stop(){stops++;exited=true;return true;},inspect(){return {appExited:exited,pendingCount:0};},async cleanup(){cleanups++;return true;}},
+    launchRuntime:(remaining:number)=>{budget=remaining;return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(input:ChatInput){calls.push(input);return {kind:'completed' as const,text:'Synthetic reply',effectiveModel:null};},async dispose(){disposals++;}};}};
+  const packet=new CandidatePacket(options),session=await packet.start();t.after(()=>session.abort());
+  assert.equal(session.workDeadline,began+540_000);assert.equal(session.credentialDeadline,began+600_000);assert.equal(scheduled,540_000);assert.equal(budget,540_000);
+  const enrollment=await fetch(session.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session.enrollment,deviceName:'Synthetic owner trial'})});
+  const {deviceToken}=await enrollment.json() as {deviceToken:string};
+  const headers={'Content-Type':'application/json',Connection:'close',Authorization:`Bearer ${deviceToken}`,'X-Fort-Installation-Id':session.installationId};
+  async function api<T>(path:string,body?:unknown){const result=await fetch(session.baseURL+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)});return {status:result.status,body:await result.json() as T};}
+  const writer=(await api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly using supplied context.'})).body;
+  const epoch=(await api<{recoveryEpoch:string}>('/v1/installation')).body.recoveryEpoch;
+  const path=`/v1/conversations/${writer.homeConversationId}/messages`;
+  const submission={requestId:'owner-0',recoveryEpoch:epoch,bindingRevisionId:writer.binding.bindingRevisionId,recipientAgentId:writer.agentId,text:'A personally chosen question.',skills:[]};
+  const reviewer=(await api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Check the sample claim.'})).body;
+  const skill=(await api<InstructionSkill>('/v1/skills',{name:'Check marker',instructions:'End with [CHECKED].'})).body;
+  const shared=(await api<Conversation>('/v1/conversations',{name:'Denied shared',participantAgentIds:[writer.agentId,reviewer.agentId]})).body;
+  assert.equal((await api(path,{...submission,requestId:'with-skill',skills:[{skillId:skill.skillId,revisionId:skill.revisionId}]})).status,403);
+  assert.equal((await api(`/v1/conversations/${reviewer.homeConversationId}/messages`,{...submission,requestId:'other-agent',bindingRevisionId:reviewer.binding.bindingRevisionId,recipientAgentId:reviewer.agentId})).status,403);
+  assert.equal((await api(`/v1/conversations/${shared.conversationId}/messages`,{...submission,requestId:'shared'})).status,403);
+  for(let index=0;index<count;index++){
+    const message={...submission,requestId:`owner-${index}`,text:`  Owner question ${index}: café\nPlease answer briefly.  `};
+    const accepted=await api<Acceptance>(path,message);assert.equal(accepted.status,201);
+    for(let count=0;count<50&&session.status().runs[index]?.state!=='completed';count++)await new Promise(resolve=>setTimeout(resolve,2));
+    assert.equal(session.status().runs[index]?.state,'completed');
+    const replay=await api<Acceptance>(path,message);assert.equal(replay.status,201);assert.deepEqual(replay.body.receipt,accepted.body.receipt);
+    assert.equal(calls[index]?.text,message.text);
+  }
+  if(count===5)assert.equal((await api(path,{...submission,requestId:'sixth'})).status,403);
+  now=began+540_000;
+  assert.equal((await api(path,{...submission,requestId:'after-cutoff'})).status,403);
+  now=began+540_001;stop();
+  const result=await session.closed;
+  assert.equal(result.phase,'finished');assert.equal(result.receipts.length,count);assert.equal(result.credentialCleanup,'deleted');
+  assert.deepEqual({stops,disposals,cleanups},{stops:1,disposals:1,cleanups:1});assert.equal(calls.length,count);
+  await assert.rejects(()=>fetch(session.baseURL+'/v1/installation'));
+  await assert.rejects(()=>packet.start(),/cannot start/);await assert.rejects(()=>new CandidatePacket(options).start(),/cannot start/);
+});
+
+for(const mode of ['stop-refused','stop-threw','app','pending','cleanup','late-cleanup','abort','preflight','no-stop'] as const)test(`owner trial fails closed and consumes its start: ${mode}`,async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-owner-failure-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const began=Date.now();let now=began,stops=0,launches=0,disposals=0,cleanups=0;
+  const native={assertFresh(){},...(mode==='no-stop'?{}:{async stop(){stops++;if(mode==='stop-threw')throw Error('Synthetic stop failure');return mode!=='stop-refused';}}),inspect(){return {appExited:mode!=='app',pendingCount:mode==='pending'?1:0};},async cleanup(){cleanups++;if(mode==='late-cleanup')now=began+600_001;return mode!=='cleanup';}};
+  const options={root,attempt:'owner-trial-20261016' as const,now:()=>now,native,launchRuntime:()=>{launches++;return {async preflight(){if(mode==='preflight')throw Error('Synthetic preflight failure');return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No fixture message expected');},async dispose(){disposals++;}};}};
+  const packet=new CandidatePacket(options);
+  if(mode==='preflight'||mode==='no-stop')await assert.rejects(()=>packet.start());
+  else{const session=await packet.start();t.after(()=>session.abort());const result=await (mode==='abort'?session.abort():session.finish());assert.equal(result.phase,'blocked');assert.equal(result.receipts.length,0);assert.equal(result.credentialCleanup,mode==='cleanup'?'unconfirmed':'deleted');}
+  await assert.rejects(()=>packet.start(),/cannot start/);
+  assert.deepEqual({launches,stops,disposals,cleanups},mode==='no-stop'?{launches:0,stops:0,disposals:0,cleanups:0}:{launches:1,stops:1,disposals:1,cleanups:1});
+});
+
 for(const mode of ['success','pending','app','cleanup','late-cleanup'] as const)test(`fourth packet admits one exact Writer Home sample and cannot restart: ${mode}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-fourth-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const began=Date.now();let now=began,starts=0,disposals=0,cleanups=0;
@@ -228,7 +282,7 @@ for(const recognized of [false,true])test(`a failed startup records its redacted
   assert.equal(disposals,1);assert.equal(launches,1);
 });
 
-for(const attempt of ['third-20261016','fourth-20261016'] as const)for(const priorAttempt of [undefined,'replacement-20261016','third-20261016'] as const)if(attempt!==priorAttempt)test(`${attempt} cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
+for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016'] as const)for(const priorAttempt of [undefined,'replacement-20261016','third-20261016','fourth-20261016'] as const)if(attempt!==priorAttempt)test(`${attempt} cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-original-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const path=join(root,'session-state.json');
   const original=JSON.stringify({version:1,attempt:priorAttempt,starts:1,phase:'between',credentialDeadline:Date.now()+600_000,receipts:[]});
@@ -241,7 +295,7 @@ for(const attempt of ['third-20261016','fourth-20261016'] as const)for(const pri
   assert.equal(nativeCalls,0);assert.equal(launches,0);
 });
 
-for(const attempt of ['third-20261016','fourth-20261016'] as const)test(`freshness refusal consumes the sole start before provider launch: ${attempt}`,async t=>{
+for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016'] as const)test(`freshness refusal consumes the sole start before provider launch: ${attempt}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-freshness-'));t.after(()=>rm(root,{recursive:true,force:true}));
   let inspections=0,launches=0;
   const options={root,attempt,native:{assertFresh(){inspections++;throw new Error('Synthetic native state is not fresh');},inspect(){throw new Error('Unexpected inspection');},async cleanup(){throw new Error('Unexpected cleanup');}},launchRuntime(){launches++;throw new Error('Unexpected launch');}};

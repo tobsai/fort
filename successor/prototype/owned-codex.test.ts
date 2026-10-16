@@ -2,6 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { codexLaunchPlan, launchCandidateCodex, CODEX_EXECUTABLE } from './owned-codex.ts';
 
+test('only the named owner trial permits nine minutes and preserves every other runtime setting',()=>{
+  const paths={workspace:'/synthetic/empty',temporaryDirectory:'/synthetic/tmp'};
+  const prior=codexLaunchPlan(paths);
+  const trial=codexLaunchPlan({...paths,ownerTrial:true,remainingWorkMs:540_000});
+  assert.deepEqual({...trial,deadlineMs:prior.deadlineMs},prior);
+  assert.equal(trial.deadlineMs,540_000);
+  assert.throws(()=>codexLaunchPlan({...paths,remainingWorkMs:540_000}),/budget/);
+  assert.throws(()=>codexLaunchPlan({...paths,ownerTrial:true,remainingWorkMs:540_001}),/budget/);
+});
+
 test('candidate provider entry refuses use outside the approved manual packet before path inspection or launch', () => {
   assert.throws(() => launchCandidateCodex({ workspace:'/does-not-exist',temporaryDirectory:'/does-not-exist' }),/approved only through the pinned manual packet/);
   const plan = codexLaunchPlan({ workspace:'/synthetic/empty',temporaryDirectory:'/synthetic/tmp' });

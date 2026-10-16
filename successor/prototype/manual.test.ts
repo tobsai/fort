@@ -15,7 +15,7 @@ test('manual entry refuses indirect use before pin reads, native inspection, enr
   await assert.rejects(()=>runManualPacket(),/approved only through the pinned manual packet/);
 });
 
-for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pending start before it can expose enrollment or readiness`,async()=>{
+for(const stop of ['SIGINT','SIGTERM','EOF','READY'] as const)test(`${stop}: manual cancellation or redacted owner readiness`,async()=>{
   let source=stripTypeScriptTypes(readFileSync(new URL('./manual.ts',import.meta.url),'utf8'));
   source=source.split(/\nif\s*\(import\.meta\.main\)/)[0]!;
   source=source.replace(/^import .*?;\n/gm,'').replace('export async function runManualPacket','async function runManualPacket').replaceAll('import.meta.url',JSON.stringify('file:///synthetic/successor/prototype/manual.ts'));
@@ -43,11 +43,24 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
   const entry:()=>Promise<void>=vm.runInContext(source+'\nrunManualPacket;',context);
   const running=entry();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(starts,0);assert.equal(enrollmentWrites,0);
-  assert.equal(packetOptions?.root,'/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016');
-  assert.equal(packetOptions?.attempt,'fourth-20261016');
-  assert.deepEqual(pinReads,['/synthetic/successor/evidence/2026-10-16-candidate-b-fourth/pins.json']);
+  assert.equal(packetOptions?.root,'/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016');
+  assert.equal(packetOptions?.attempt,'owner-trial-20261016');
+  assert.deepEqual(pinReads,['/synthetic/successor/evidence/2026-10-16-candidate-b-owner-trial/pins.json']);
   assert.equal(output.includes('Preflight passed. Open this exact app:'),false);
   input.write('start\n');await entered.promise;
+  if(stop==='READY'){
+    pendingStart.resolve({closed:closed.promise,workDeadline:1_000_000,credentialDeadline:1_060_000,enrollment:{code:'synthetic-only'},async abort(){aborts++;closed.resolve(state);return state;}});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.match(output,/"workCutoff":"1970-01-01T00:16:40.000Z"/);
+    assert.match(output,/"credentialExpiry":"1970-01-01T00:17:40.000Z"/);
+    assert.match(output,/"messageLimit":5/);
+    assert.match(output,/immediately notify the parent/);
+    assert.equal(output.includes('synthetic-only'),false);
+    input.write('a message that the controller must not send\n');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.match(output,/No prompt text is accepted here/);assert.equal(starts,1);assert.equal(enrollmentWrites,1);
+    input.end();await running;input.destroy();return;
+  }
   if(stop==='EOF')input.end();else fakeProcess.emit(stop);
   await new Promise(resolve=>setImmediate(resolve));
   const cancellationsWhilePending=cancellations;
