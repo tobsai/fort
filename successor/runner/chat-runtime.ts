@@ -6,5 +6,5 @@ export type ChatInput = {
 };
 export type ChatResult =
   | { kind: 'completed'; text: string; effectiveModel: null }
-  | { kind: 'failed' | 'outcomeUnknown'; message: string };
-export type ChatRuntime = { execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> };
+  | { kind: 'notStarted' | 'failed' | 'outcomeUnknown'; message: string };
+export type ChatRuntime = { execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult>; dispose(): Promise<void> };

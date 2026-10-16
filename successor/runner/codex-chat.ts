@@ -13,12 +13,13 @@ export class CodexChat implements ChatRuntime {
     if (!isAbsolute(options.workspace) || options.workspace === '/' || normalize(options.workspace) !== options.workspace) throw new Error('Use an explicit empty workspace');
     this.options = options;
   }
+  dispose(): Promise<void> { return this.options.connection.dispose(); }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
     const developerInstructions = input.configuration.instructions + input.configuration.skills.map(skill => `\n\nSelected instruction skill: ${skill.name}\n${skill.instructions}`).join('');
     const text = JSON.stringify({ conversationId:input.conversationId, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text } });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };
-    if (signal.aborted) return { kind:'failed', message:'Canceled before runtime dispatch.' };
+    if (signal.aborted) return { kind:'notStarted', message:'Canceled before runtime dispatch.' };
     this.busy = true;
     const { connection, workspace } = this.options;
     try {
@@ -72,7 +73,8 @@ export class CodexChat implements ChatRuntime {
       const deadline = setTimeout(interrupt, 60_000);
       const unsubscribe = connection.subscribe({ frame:bytes => handle(turn.receive(bytes)), closed:() => handle(turn.disconnected()) });
       signal.addEventListener('abort', interrupt, { once:true });
-      handle(turn.start()); if (signal.aborted) interrupt();
+      if (signal.aborted) { finish({ kind:'notStarted', message:'Canceled before turn dispatch.' }, true); return; }
+      handle(turn.start());
     });
   }
 }

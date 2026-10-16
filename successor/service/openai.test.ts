@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { launchOwnedProcess } from '../runner/owned-process.ts';
+import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot } from '../contracts/v1.ts';
@@ -47,7 +50,7 @@ test('owner creates two exact Agent Homes, an instruction skill and a shared con
 });
 
 test('explicit automatic dispatch runs new accepted work and read acknowledgement persists monotonically', async t => {
-  const h = await setup(t, { autoRun: true, runtime: { async execute() { return { kind: 'completed', text: 'Saved reply', effectiveModel: null }; } } });
+  const h = await setup(t, { autoRun: true, runtime: { async dispose() {}, async execute() { return { kind: 'completed', text: 'Saved reply', effectiveModel: null }; } } });
   const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Reply.' })).body;
   const prefix = `/v1/conversations/${agent.homeConversationId}`;
   await h.api(`${prefix}/messages`, { requestId: 'automatic', text: 'Sample', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
@@ -64,7 +67,7 @@ test('explicit automatic dispatch runs new accepted work and read acknowledgemen
 
 test('shared submission pins its recipient and selected skill, saves one attributed reply and replays the original receipt', async t => {
   const inputs: ChatInput[] = [];
-  const runtime: ChatRuntime = { async execute(input) { inputs.push(structuredClone(input)); return { kind: 'completed', text: 'red notebook [CHECKED]', effectiveModel: null }; } };
+  const runtime: ChatRuntime = { async dispose() {}, async execute(input) { inputs.push(structuredClone(input)); return { kind: 'completed', text: 'red notebook [CHECKED]', effectiveModel: null }; } };
   const h = await setup(t, { runtime });
   const writer = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Write briefly.' })).body;
   const reviewer = (await h.api<Agent>('/v1/agents', { name: 'Reviewer', model: 'gpt-6-astra', instructions: 'Check the claim.' })).body;
@@ -97,7 +100,7 @@ test('shared submission pins its recipient and selected skill, saves one attribu
 
 test('queued turns receive completed prior context in their own conversation, including after restart', async t => {
   const inputs: ChatInput[] = [];
-  const runtime: ChatRuntime = { async execute(input) { inputs.push(structuredClone(input)); return { kind: 'completed', text: 'cedar', effectiveModel: null }; } };
+  const runtime: ChatRuntime = { async dispose() {}, async execute(input) { inputs.push(structuredClone(input)); return { kind: 'completed', text: 'cedar', effectiveModel: null }; } };
   const h = await setup(t, { runtime });
   const writer = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Remember the sample word.' })).body;
   const reviewer = (await h.api<Agent>('/v1/agents', { name: 'Reviewer', model: 'gpt-6-astra', instructions: 'Check the sample.' })).body;
@@ -120,7 +123,7 @@ test('restart holds old queued work and unknown outcomes without blocking a diff
   const calls: ChatInput[] = [];
   let started!: () => void;
   const entered = new Promise<void>(resolve => { started = resolve; });
-  const runtime: ChatRuntime = { async execute(input, signal) {
+  const runtime: ChatRuntime = { async dispose() {}, async execute(input, signal) {
     calls.push(input);
     if (input.requestId === 'uncertain') { started(); await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true })); return { kind: 'outcomeUnknown', message: 'Stopped before confirmation.' }; }
     return { kind: 'completed', text: 'Synthetic reply', effectiveModel: null };
@@ -143,7 +146,7 @@ test('restart holds old queued work and unknown outcomes without blocking a diff
 
 test('profile edits keep stable identity, fence stale submissions and preserve already accepted configuration', async t => {
   const calls: ChatInput[] = [];
-  const h = await setup(t, { runtime: { async execute(input) { calls.push(input); return { kind: 'completed', text: 'Done.', effectiveModel: null }; } } });
+  const h = await setup(t, { runtime: { async dispose() {}, async execute(input) { calls.push(input); return { kind: 'completed', text: 'Done.', effectiveModel: null }; } } });
   const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Original instructions.' })).body;
   const skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Marker', instructions: 'Use [ONE].' })).body;
   const command = { requestId: 'before-edit', text: 'Sample.', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [{ skillId: skill.skillId, revisionId: skill.revisionId }] };
@@ -173,4 +176,41 @@ test('message acceptance preserves whitespace-only plain text and rejects malfor
   assert.equal(result.status,201);
   assert.equal(result.body.snapshot.messages[0]?.text,command.text);
   assert.equal((await h.api(path,{ ...command,requestId:'invalid-unicode',text:'\ud800' })).status,400);
+});
+
+test('service shutdown disposes its idle runtime exactly once and awaits cleanup confirmation', async t => {
+  let disposalCalls = 0, confirm!: () => void;
+  const cleanup = new Promise<void>(resolve => { confirm = resolve; });
+  const runtime = { async execute() { return { kind:'completed' as const, text:'unused', effectiveModel:null }; }, async dispose() { disposalCalls++; await cleanup; } };
+  const h = await setup(t,{ runtime });
+  let closed = false;
+  const closing = h.service.close().then(() => { closed = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(disposalCalls,1);
+  assert.equal(closed,false);
+  confirm(); await closing; await h.service.close();
+  assert.equal(disposalCalls,1);
+  assert.equal(closed,true);
+});
+
+test('active service shutdown confirms owned child exit and leaves no late reply or automatic retry', async t => {
+  const workspace = fileURLToPath(new URL('../runner',import.meta.url));
+  const owned = launchOwnedProcess({ executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],cwd:workspace,env:{ PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'ignore-term' },deadlineMs:5_000,terminationGraceMs:50,killGraceMs:500 });
+  t.after(() => owned.dispose());
+  let started!: () => void;
+  const entered = new Promise<void>(resolve => { started=resolve; });
+  owned.connection.subscribe({ frame:bytes => { const frame=JSON.parse(Buffer.from(bytes).toString()); if(frame.result?.turn?.status==='inProgress')started(); },closed:()=>{} });
+  const runtime = new CodexChat({ connection:owned.connection,workspace,runtimeVersion:'0.157.1' });
+  const h = await setup(t,{ runtime });
+  const agent = (await h.api<Agent>('/v1/agents',{ name:'Writer',model:'gpt-6-astra',instructions:'Reply.' })).body;
+  await h.api(`/v1/conversations/${agent.homeConversationId}/messages`,{ requestId:'active-shutdown',text:'Synthetic active turn',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[] });
+  const turn = h.service.dispatchNext(); await entered;
+  await h.service.close(); await turn;
+  assert.equal(owned.cleanupConfirmed,true);
+  assert.equal(owned.exit?.signal,'SIGKILL');
+  await h.restart();
+  const snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+  assert.equal(snapshot.runs[0]?.state,'outcomeUnknown');
+  assert.equal(snapshot.messages.length,1);
+  assert.equal(await h.service.dispatchNext(),false);
 });

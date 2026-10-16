@@ -60,7 +60,7 @@ export class CodexTurn {
     const output=this.output();
     if (this.sent || this.terminal) return output;
     this.sent=true;
-    output.writes.push(wire({id:this.input.requestId,method:'turn/start',params:{threadId:this.input.threadId,input:[{type:'text',text:this.input.text}],model:this.input.attempt.selectedModel,cwd:this.input.workspace,environments:[],approvalPolicy:'untrusted',sandboxPolicy:{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:[this.input.workspace]}}}}));
+    output.writes.push(wire({id:this.input.requestId,method:'turn/start',params:{threadId:this.input.threadId,input:[{type:'text',text:this.input.text,text_elements:[]}],model:this.input.attempt.selectedModel,cwd:this.input.workspace,environments:[],approvalPolicy:'untrusted',sandboxPolicy:{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:[this.input.workspace]}}}}));
     return output;
   }
   interrupt(): CodexOutput {

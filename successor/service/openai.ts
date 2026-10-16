@@ -175,7 +175,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
           const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
           put('messages', messageId, reply); put('runs', run.runId, { ...run, state: 'completed' });
-        } else { put('runs', run.runId, { ...run, state: result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
+        } else { put('runs', run.runId, { ...run, state: result.kind === 'notStarted' ? 'canceled' : result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
       });
     } catch {
       transaction(() => { const run = load('runs', queued.runId, decodeRun); put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); });
@@ -283,9 +283,19 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
-  let baseURL = ''; let closed = false;
+  let baseURL = ''; let closed = false; let closing: Promise<void> | undefined;
   return { installation, issueEnrollment, dispatchNext, get baseURL() { return baseURL; }, async start({ port = 0 } = {}) {
     await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); }); });
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;
-  }, async close() { if (closed) return; closed = true; active?.abort(); await dispatching; if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); } };
+  }, close(): Promise<void> {
+    if (closing) return closing;
+    closed = true; active?.abort();
+    closing = (async () => {
+      const outcomes = await Promise.allSettled([options.runtime?.dispose(), dispatching]);
+      if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      db.close();
+      if (outcomes.some(result => result.status === 'rejected')) throw new Error('Runtime cleanup was not confirmed; restart is blocked.');
+    })();
+    return closing;
+  } };
 }

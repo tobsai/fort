@@ -8,13 +8,14 @@ export function object(value: unknown): Record<string, unknown> {
 type Pending = { resolve(value: unknown): void; reject(error: Error): void; cleanup(): void };
 type Subscriber = { frame(bytes: Uint8Array): void; closed(): void };
 export class CodexConnection {
-  private readonly io: { input: Writable; output: Readable; close(): void };
+  private readonly io: { input: Writable; output: Readable; close(): void | Promise<void> };
+  private disposal: Promise<void> | undefined;
   private readonly pending = new Map<string, Pending>();
   private readonly subscribers = new Set<Subscriber>();
   private readonly decoder = new TextDecoder('utf-8', { fatal:true });
   private buffer = '';
   private stopped = false;
-  constructor(io: { input: Writable; output: Readable; close(): void }) {
+  constructor(io: { input: Writable; output: Readable; close(): void | Promise<void> }) {
     this.io = io;
     io.output.on('data', (bytes: Buffer) => this.receive(bytes));
     io.output.on('end', () => this.close()); io.output.on('error', () => this.close()); io.input.on('error', () => this.close());
@@ -45,8 +46,11 @@ export class CodexConnection {
     for (const pending of this.pending.values()) { pending.cleanup(); pending.reject(new Error('Codex connection ended without confirmation')); }
     this.pending.clear();
     for (const subscriber of [...this.subscribers]) subscriber.closed();
-    this.subscribers.clear(); this.io.close();
+    this.subscribers.clear();
+    try { this.disposal = Promise.resolve(this.io.close()); } catch { this.disposal = Promise.reject(new Error('Owned transport cleanup failed')); }
+    void this.disposal.catch(() => {});
   }
+  async dispose(): Promise<void> { this.close(); await this.disposal; }
   private receive(bytes: Uint8Array) {
     if (this.stopped) return;
     try {

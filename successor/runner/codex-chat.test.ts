@@ -6,7 +6,7 @@ import { CodexChat } from './codex-chat.ts';
 import type { ChatInput } from './chat-runtime.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean } = {}) {
+function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -17,7 +17,7 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
         case 'initialize': result({ userAgent:'synthetic' }); break;
         case 'account/read': result({ account:{ type:'chatgpt' }, requiresOpenaiAuth:true }); break;
         case 'model/list': result({ data:[{ id:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
-        case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); break;
+        case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
         case 'turn/start':
           result({ turn:{ id:'turn', status:'inProgress' } });
           if (options.tool) { emit({ id:93, method:'item/tool/call', params:{ threadId:'thread', turnId:'turn' } }); break; }
@@ -46,6 +46,16 @@ test('synthetic Codex connection preserves selected instructions and conversatio
   assert.deepEqual(turn.params?.environments, []);
   assert.match(JSON.stringify(turn.params?.input), /Remember cedar/);
   assert.equal(fixture.calls.some(c => c.method?.includes('login')), false);
+  fixture.connection.close();
+});
+
+test('cancellation after thread creation but before continuation never dispatches a turn', async () => {
+  const abort = new AbortController();
+  const fixture = transport({ afterThread:() => abort.abort() });
+  const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.157.1' });
+  const result = await runtime.execute(input,abort.signal);
+  assert.equal(fixture.calls.some(c => c.method === 'turn/start'),false);
+  assert.equal(result.kind,'notStarted');
   fixture.connection.close();
 });
 

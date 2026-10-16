@@ -14,7 +14,7 @@ test('Codex wire adapter preserves exact input and emits only correlated termina
   const start = turn.start();
   const request = JSON.parse(start.writes[0]);
   assert.equal(request.method,'turn/start');
-  assert.deepEqual(request.params.input,[{type:'text',text}]);
+  assert.deepEqual(request.params.input,[{type:'text',text,text_elements:[]}]);
   assert.equal(request.params.model,attempt.selectedModel);
   assert.equal(request.params.approvalPolicy,'untrusted');
   assert.equal(request.params.sandboxPolicy.networkAccess,false);
