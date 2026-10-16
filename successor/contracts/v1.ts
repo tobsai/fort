@@ -1,6 +1,6 @@
-export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture'; serviceName: 'Fort Fixture' };
-export type Binding = { bindingRevisionId: string; provider: 'fixture'; runtimeVersion: '1'; selectedModel: 'fixture-echo-v1'; hostId: 'fixture-local'; enabled: boolean };
-export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' };
+export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai'; serviceName: 'Fort Fixture' | 'Fort Prototype' };
+export type Binding = { bindingRevisionId: string; provider: 'fixture' | 'codex'; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
+export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string };
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string };
 export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null };
 export type Snapshot = { installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };
@@ -11,3 +11,8 @@ export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryE
 export const MAX_TEXT_BYTES = 65_536;
 
 export type Approval = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; resourceScope: ['fixture:reply']; actionDescription: 'Produce the fixture reply'; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };
+
+export type SkillReference = { skillId: string; revisionId: string };
+export type InstructionSkill = SkillReference & { name: string; instructions: string };
+export type Conversation = { conversationId: string; name: string; kind: 'home' | 'shared'; participantAgentIds: string[] };
+export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[] };
