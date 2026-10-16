@@ -16,6 +16,8 @@ test('Codex wire adapter preserves exact input and emits only correlated termina
   assert.equal(request.method,'turn/start');
   assert.deepEqual(request.params.input,[{type:'text',text}]);
   assert.equal(request.params.model,attempt.selectedModel);
+  assert.equal(request.params.approvalPolicy,'untrusted');
+  assert.equal(request.params.sandboxPolicy.networkAccess,false);
   assert.deepEqual(start.events,[]);
   assert.equal(turn.receive(started()).events[0].kind,'started');
   assert.equal(turn.receive(notification('item/agentMessage/delta',{itemId:'reply-one',delta:'provisional'})).events[0].kind,'textDelta');
@@ -130,7 +132,7 @@ test('dispatch validates exact bounded input and copies the immutable attempt be
   const input: CodexTurnInput={attempt:{...attempt},threadId:'thread-one',requestId:'start-one',workspace:'/fixture/workspace',text};
   const turn=new CodexTurn(input);Object.assign(input.attempt,{selectedModel:'changed'});input.text='changed';
   const request=JSON.parse(turn.start().writes[0]);assert.equal(request.params.model,attempt.selectedModel);assert.equal(request.params.input[0].text,text);
-  assert.deepEqual(request.params.sandboxPolicy,{type:'readOnly',access:{type:'restricted',includePlatformDefaults:false,readableRoots:['/fixture/workspace']}});
+  assert.deepEqual(request.params.sandboxPolicy,{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:['/fixture/workspace']}});
   for (const changes of [{text:''},{text:'x'.repeat(65537)},{text:'\ud800'},{workspace:'/'},{workspace:'/fixture/../home'},{attempt:{...attempt,generation:0}},{attempt:{...attempt,ownerToken:'must not forward'}}]) {
     assert.throws(()=>new CodexTurn({...input,...changes} as typeof input),/Invalid Codex turn input/);
   }

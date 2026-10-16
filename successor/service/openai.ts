@@ -6,7 +6,7 @@ import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 
-type Entity = 'agents' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts';
+type Entity = 'agents' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -63,7 +63,7 @@ function json(row: Record<string, unknown> | undefined): unknown {
   return JSON.parse(row.data);
 }
 
-export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; holdExistingQueue?: boolean; autoRun?: boolean }) {
+export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean }) {
   if (!isAbsolute(options.dataDirectory)) throw new Error('Use an explicit absolute data directory');
   mkdirSync(options.dataDirectory, { recursive: true, mode: 0o700 });
   if (lstatSync(options.dataDirectory).isSymbolicLink()) throw new Error('Data directory cannot be a symlink');
@@ -115,12 +115,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   transaction(() => {
     for (const run of list('runs', decodeRun)) {
       if (run.state === 'running') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); }
-      if (run.state === 'queued' && options.holdExistingQueue !== false) { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
+      if (run.state === 'queued') { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
     }
   });
   const snapshot = (conversationId: string): Snapshot => {
     load('conversations', conversationId, decodeConversation);
-    return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: [], lastReadMessageSequence: 0 };
+    const read = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
+    return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: [], lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
   };
   const accept = (request: IncomingMessage, conversationId: string, body: Record<string, unknown>): Acceptance => {
     const requestId = id(body.requestId), bindingRevisionId = id(body.bindingRevisionId), recipientAgentId = id(body.recipientAgentId), recoveryEpoch = id(body.recoveryEpoch), inputText = text(body.text, 'message', 65_536);
@@ -181,6 +182,12 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if (dispatching) return dispatching;
     dispatching = executeNext().finally(() => { dispatching = undefined; }); return dispatching;
   };
+  let pumping = false;
+  const wake = () => {
+    if (!options.autoRun || pumping || closed) return;
+    pumping = true;
+    void (async () => { try { while (await dispatchNext()) { /* One serialized durable claim per turn. */ } } finally { pumping = false; } })().catch(() => { active?.abort(); });
+  };
   const readBody = async (request: IncomingMessage) => {
     const chunks: Buffer[] = []; let size = 0;
     for await (const chunk of request) { size += chunk.length; if (size > 1_000_000) fail(413, 'tooLarge', 'Command is too large.'); chunks.push(chunk); }
@@ -216,7 +223,15 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
         else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
         else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = load('requests', id(url.pathname.split('/')[3]), record).acceptance;
-        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/messages$/.test(url.pathname)) { result = accept(request, id(url.pathname.split('/')[3]), await readBody(request)); status = 201; }
+        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/messages$/.test(url.pathname)) { result = accept(request, id(url.pathname.split('/')[3]), await readBody(request)); status = 201; queueMicrotask(wake); }
+        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/read$/.test(url.pathname)) {
+          const body = await readBody(request), conversationId = id(url.pathname.split('/')[3]);
+          result = owner(request, () => {
+            const current = snapshot(conversationId), message = current.messages.find(m => m.messageId === body.messageId);
+            if (body.recoveryEpoch !== installation.recoveryEpoch || typeof body.cursor !== 'number' || !Number.isSafeInteger(body.cursor) || body.cursor > current.cursor || !message || message.sequence > body.cursor) fail(409, 'readConflict', 'Read acknowledgement does not match this conversation.');
+            const sequence = Math.max(current.lastReadMessageSequence, message.sequence); put('reads', conversationId, { sequence }); return { lastReadMessageSequence: sequence };
+          });
+        }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {
           const body = await readBody(request), agentId = id(url.pathname.split('/')[3]);
           result = owner(request, () => {

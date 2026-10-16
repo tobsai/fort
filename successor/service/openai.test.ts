@@ -7,7 +7,7 @@ import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot } from '../contracts/v1.ts';
 
-async function setup(t: TestContext, options: { runtime?: ChatRuntime; holdExistingQueue?: boolean } = {}) {
+async function setup(t: TestContext, options: { runtime?: ChatRuntime; autoRun?: boolean } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
   let service = createOpenAIService({ dataDirectory: directory, ...options });
   await service.start();
@@ -44,6 +44,21 @@ test('owner creates two exact Agent Homes, an instruction skill and a shared con
   assert.equal(rooms.length, 3);
   assert.deepEqual(rooms.find(r => r.kind === 'shared'), room.body);
   assert.equal((await fetch(h.service.baseURL + '/v1/agents')).status, 401);
+});
+
+test('explicit automatic dispatch runs new accepted work and read acknowledgement persists monotonically', async t => {
+  const h = await setup(t, { autoRun: true, runtime: { async execute() { return { kind: 'completed', text: 'Saved reply', effectiveModel: null }; } } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Reply.' })).body;
+  const prefix = `/v1/conversations/${agent.homeConversationId}`;
+  await h.api(`${prefix}/messages`, { requestId: 'automatic', text: 'Sample', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
+  let snapshot = (await h.api<Snapshot>(`${prefix}/snapshot`)).body;
+  for (let count = 0; count < 20 && snapshot.runs[0]?.state !== 'completed'; count++) { await new Promise(resolve => setTimeout(resolve, 5)); snapshot = (await h.api<Snapshot>(`${prefix}/snapshot`)).body; }
+  assert.equal(snapshot.runs[0]?.state, 'completed');
+  const message = snapshot.messages[1]!;
+  assert.equal((await h.api(`${prefix}/read`, { recoveryEpoch: h.service.installation.recoveryEpoch, cursor: snapshot.cursor, messageId: message.messageId })).status, 200);
+  await h.api(`${prefix}/read`, { recoveryEpoch: h.service.installation.recoveryEpoch, cursor: snapshot.cursor, messageId: snapshot.messages[0]!.messageId });
+  await h.restart();
+  assert.equal((await h.api<Snapshot>(`${prefix}/snapshot`)).body.lastReadMessageSequence, message.sequence);
 });
 
 
