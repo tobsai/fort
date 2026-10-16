@@ -8,6 +8,48 @@ import type { Agent,InstructionSkill,Conversation,Acceptance,Snapshot } from '..
 import type { ChatInput } from '../runner/chat-runtime.ts';
 import {StartupCheckError} from '../runner/startup-diagnostic.ts';
 
+for(const mode of ['success','pending','app','cleanup','late-cleanup'] as const)test(`fourth packet admits one exact Writer Home sample and cannot restart: ${mode}`,async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-fourth-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const began=Date.now();let now=began,starts=0,disposals=0,cleanups=0;
+  const calls:ChatInput[]=[];
+  const native={assertFresh(){},inspect(){return {appExited:mode!=='app',pendingCount:mode==='pending'?1:0};},async cleanup(){cleanups++;if(mode==='late-cleanup')now=began+300_001;return mode!=='cleanup';}};
+  const options={root,attempt:'fourth-20261016' as const,now:()=>now,native,launchRuntime:()=>{
+    starts++;return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(input:ChatInput){calls.push(input);return {kind:'completed' as const,text:'cedar',effectiveModel:null};},async dispose(){disposals++;}};
+  }};
+  const packet=new CandidatePacket(options),session=await packet.start();t.after(()=>session.abort());
+  assert.equal(session.workDeadline,began+292_000);
+  assert.equal(session.credentialDeadline,began+300_000);
+  const response=await fetch(session.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session.enrollment,deviceName:'Synthetic fourth device'})});
+  const {deviceToken}=await response.json() as {deviceToken:string};
+  const headers={'Content-Type':'application/json',Connection:'close',Authorization:`Bearer ${deviceToken}`,'X-Fort-Installation-Id':session.installationId};
+  async function api<T>(path:string,body?:unknown){const result=await fetch(session.baseURL+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)});return {status:result.status,body:await result.json() as T};}
+  const writer=(await api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly using supplied context.'})).body;
+  const epoch=(await api<{recoveryEpoch:string}>('/v1/installation')).body.recoveryEpoch;
+  const text='Remember the sample word cedar. Reply with that word only.';
+  const submission={requestId:'sole-sample',recoveryEpoch:epoch,bindingRevisionId:writer.binding.bindingRevisionId,recipientAgentId:writer.agentId,text,skills:[]};
+  const path=`/v1/conversations/${writer.homeConversationId}/messages`;
+  const skill=(await api<InstructionSkill>('/v1/skills',{name:'Check marker',instructions:'End with [CHECKED].'})).body;
+  const reviewer=(await api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Check the sample claim.'})).body;
+  const shared=(await api<Conversation>('/v1/conversations',{name:'Synthetic denied shared',participantAgentIds:[writer.agentId,reviewer.agentId]})).body;
+  assert.equal((await api(path,{...submission,requestId:'wrong-text',text:'Corrective prompt'})).status,403);
+  assert.equal((await api(path,{...submission,requestId:'with-skill',skills:[{skillId:skill.skillId,revisionId:skill.revisionId}]})).status,403);
+  assert.equal((await api(`/v1/conversations/${reviewer.homeConversationId}/messages`,{...submission,requestId:'wrong-agent',bindingRevisionId:reviewer.binding.bindingRevisionId,recipientAgentId:reviewer.agentId})).status,403);
+  assert.equal((await api(`/v1/conversations/${shared.conversationId}/messages`,{...submission,requestId:'wrong-conversation'})).status,403);
+  assert.equal(calls.length,0);
+  const accepted=await api<Acceptance>(path,submission);assert.equal(accepted.status,201);
+  for(let count=0;count<50&&session.status().runs[0]?.state!=='completed';count++)await new Promise(resolve=>setTimeout(resolve,2));
+  assert.equal(session.status().runs[0]?.state,'completed');
+  assert.equal((await api(path,{...submission,requestId:'extra-sample'})).status,403);
+  const replay=await api<Acceptance>(path,submission);assert.equal(replay.status,201);assert.deepEqual(replay.body.receipt,accepted.body.receipt);
+  const result=await session.finish();
+  assert.equal(result.phase,mode==='success'?'finished':'blocked');assert.equal(result.attempt,'fourth-20261016');assert.equal(result.starts,1);
+  assert.equal(result.receipts.length,1);assert.equal(result.credentialCleanup,mode==='cleanup'?'unconfirmed':'deleted');
+  assert.equal(starts,1);assert.equal(disposals,1);assert.equal(cleanups,1);assert.deepEqual(calls.map(input=>input.text),[text]);
+  await assert.rejects(()=>packet.start(),/cannot start/);
+  await assert.rejects(()=>new CandidatePacket(options).start(),/cannot start/);
+  assert.equal(starts,1);
+});
+
 for (const mode of ['success','pending','app','dispose','late-pending','replacement','replacement-late-cleanup','third','third-late-cleanup'] as const) test(`bounded packet honors exact samples and restart gate: ${mode}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-unit-'));
   t.after(()=>rm(root,{ recursive:true,force:true }));
@@ -89,12 +131,12 @@ for (const mode of ['success','pending','app','dispose','late-pending','replacem
   await assert.rejects(()=>packet.start(),/cannot start/);
 });
 
-test('failed or over-budget preflight consumes the first start without opening enrollment or allowing retry',async t=>{
+for(const attempt of ['third-20261016','fourth-20261016'] as const)test(`failed or over-budget preflight consumes the first start without enrollment or retry: ${attempt}`,async t=>{
   for (const mode of ['failed','late']) {
     const root=await mkdtemp(join(tmpdir(),'fort-packet-preflight-'));
     t.after(()=>rm(root,{recursive:true,force:true}));
     let now=Date.now(),disposed=0,executed=0;
-    const options={root,attempt:'third-20261016' as const,now:()=>now,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({
+    const options={root,attempt,now:()=>now,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({
       async preflight(){if(mode==='failed')throw new Error('synthetic failure');now+=296_001;return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},
       async execute(){executed++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposed++;},
     })};
@@ -113,10 +155,10 @@ test('an existing session lock refuses a parallel start before launching a runti
   assert.equal(launches,0);
 });
 
-test('the outer deadline closes an idle session and its listener without relying on another user command',async t=>{
+for(const attempt of ['third-20261016','fourth-20261016'] as const)test(`outer deadline closes an idle session and listener without another user command: ${attempt}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-deadline-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const began=Date.now();let now=began,stop!:()=>void,scheduled=0,disposed=0;
-  const packet=new CandidatePacket({root,attempt:'third-20261016',now:()=>now,scheduleStop:(callback,delay)=>{stop=callback;scheduled=delay;return ()=>{};},native:{assertFresh(){now+=1_000;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){return {kind:'completed',text:'unused',effectiveModel:null};},async dispose(){disposed++;}})});
+  const packet=new CandidatePacket({root,attempt,now:()=>now,scheduleStop:(callback,delay)=>{stop=callback;scheduled=delay;return ()=>{};},native:{assertFresh(){now+=1_000;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){return {kind:'completed',text:'unused',effectiveModel:null};},async dispose(){disposed++;}})});
   const session=await packet.start();t.after(()=>session.abort());assert.equal(scheduled,291_000);assert.equal(session.credentialDeadline,began+300_000);
   now+=291_000;stop();
   assert.equal((await session.closed).phase,'blocked');assert.equal(disposed,1);
@@ -124,11 +166,11 @@ test('the outer deadline closes an idle session and its listener without relying
   await assert.rejects(()=>packet.start(),/cannot start/);
 });
 
-for(const cooperative of [false,true])test(`cancellation during blocked preflight disposes promptly and permanently consumes the start: ${cooperative}`,async t=>{
+for(const attempt of [undefined,'fourth-20261016'] as const)for(const cooperative of [false,true])test(`cancellation during blocked preflight consumes the start: ${attempt??'original'} / ${cooperative}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-cancel-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const cancellation=new AbortController(),entered=Promise.withResolvers<AbortSignal>(),preflight=Promise.withResolvers<{model:string;runtimeVersion:string}>();
   let launches=0,disposals=0,executions=0,cleanups=0;
-  const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){cleanups++;return true;}},launchRuntime:()=>{
+  const packet=new CandidatePacket({root,...(attempt?{attempt}:{}),native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){cleanups++;return true;}},launchRuntime:()=>{
     launches++;return {preflight(signal:AbortSignal){entered.resolve(signal);if(cooperative)signal.addEventListener('abort',()=>preflight.reject(new StartupCheckError({stage:'protocol',check:'initialize'})),{once:true});return preflight.promise;},async execute(){executions++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposals++;}};
   }});
   const starting=packet.start(cancellation.signal);
@@ -186,23 +228,23 @@ for(const recognized of [false,true])test(`a failed startup records its redacted
   assert.equal(disposals,1);assert.equal(launches,1);
 });
 
-for(const priorAttempt of [undefined,'replacement-20261016'] as const)test(`third attempt cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
+for(const attempt of ['third-20261016','fourth-20261016'] as const)for(const priorAttempt of [undefined,'replacement-20261016','third-20261016'] as const)if(attempt!==priorAttempt)test(`${attempt} cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-original-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const path=join(root,'session-state.json');
   const original=JSON.stringify({version:1,attempt:priorAttempt,starts:1,phase:'between',credentialDeadline:Date.now()+600_000,receipts:[]});
   await writeFile(path,original);
   let nativeCalls=0,launches=0;
-  const packet=new CandidatePacket({root,attempt:'third-20261016',native:{assertFresh(){nativeCalls++;},inspect(){nativeCalls++;return {appExited:true,pendingCount:0};},async cleanup(){nativeCalls++;return true;}},launchRuntime(){launches++;throw new Error('Unexpected launch');}});
+  const packet=new CandidatePacket({root,attempt,native:{assertFresh(){nativeCalls++;},inspect(){nativeCalls++;return {appExited:true,pendingCount:0};},async cleanup(){nativeCalls++;return true;}},launchRuntime(){launches++;throw new Error('Unexpected launch');}});
   await assert.rejects(()=>packet.start(),/another attempt/);
   await assert.rejects(()=>packet.cancelBetweenSessions(),/another attempt/);
   assert.equal(await readFile(path,'utf8'),original);
   assert.equal(nativeCalls,0);assert.equal(launches,0);
 });
 
-test('third-attempt freshness refusal consumes its sole start before any provider launch',async t=>{
+for(const attempt of ['third-20261016','fourth-20261016'] as const)test(`freshness refusal consumes the sole start before provider launch: ${attempt}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-freshness-'));t.after(()=>rm(root,{recursive:true,force:true}));
   let inspections=0,launches=0;
-  const options={root,attempt:'third-20261016' as const,native:{assertFresh(){inspections++;throw new Error('Synthetic native state is not fresh');},inspect(){throw new Error('Unexpected inspection');},async cleanup(){throw new Error('Unexpected cleanup');}},launchRuntime(){launches++;throw new Error('Unexpected launch');}};
+  const options={root,attempt,native:{assertFresh(){inspections++;throw new Error('Synthetic native state is not fresh');},inspect(){throw new Error('Unexpected inspection');},async cleanup(){throw new Error('Unexpected cleanup');}},launchRuntime(){launches++;throw new Error('Unexpected launch');}};
   await assert.rejects(()=>new CandidatePacket(options).start());
   await assert.rejects(()=>new CandidatePacket(options).start(),/cannot start/);
   const state=JSON.parse(await readFile(join(root,'session-state.json'),'utf8'));

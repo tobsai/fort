@@ -20,13 +20,13 @@ export type NativeSession = {
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type OneStartAttempt='replacement-20261016'|'third-20261016';
+type OneStartAttempt='replacement-20261016'|'third-20261016'|'fourth-20261016';
 type State={ version:1; attempt?:OneStartAttempt; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
 type Options={ root:string; attempt?:OneStartAttempt; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
-function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean):boolean {
+function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean,singleSample:boolean):boolean {
   const index=runs.length,sample=SAMPLES[index],config=submission.configuration,conversation=submission.conversation;
-  if (!sample || index>=(replacement||session===2?5:4) || (session===2&&index!==4) || runs.some(run=>run.state!=='completed')) return false;
+  if (!sample || index>=(singleSample?1:replacement||session===2?5:4) || (session===2&&index!==4) || runs.some(run=>run.state!=='completed')) return false;
   if (submission.text!==sample.text || config.agentName!==sample.agent || config.selectedModel!=='gpt-6-astra') return false;
   if (config.instructions!==(sample.agent==='Writer'?'Reply briefly using supplied context.':'Check the sample claim.')) return false;
   const prior=runs.find(run=>run.configuration?.agentName===sample.agent);
@@ -88,7 +88,8 @@ export class CandidatePacket {
     const { root,native,launchRuntime }=this.options,now=this.options.now??Date.now;
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
-    const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016';
+    const singleSample=this.options.attempt==='fourth-20261016';
+    const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016'||singleSample;
     const previous=this.read();
     if (previous && (replacement || previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
     const began=now();
@@ -118,14 +119,14 @@ export class CandidatePacket {
       dispose:async()=>{ await runtime?.dispose(); },
     };
     const service=createOpenAIService({ dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,
-      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement),
+      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement,singleSample),
     });
     const finish=(requestCompletion=true):Promise<State>=>{
       if (closing) return closing;
       signal?.removeEventListener('abort',cancel);
       accepting=false;abort.abort();cancelTimer();
       closing=(async()=>{
-        const report=service.inspectSession(),expected=replacement||state.starts===2?5:4;
+        const report=service.inspectSession(),expected=singleSample?1:replacement||state.starts===2?5:4;
         let passed=requestCompletion && now()<=workDeadline && report.receipts.length===expected && report.runs.length===expected && report.runs.every(run=>run.state==='completed');
         if (passed) {
           try { const observed=native.inspect(service.installation.installationId);passed=observed.appExited&&observed.pendingCount===0; } catch { passed=false; }
