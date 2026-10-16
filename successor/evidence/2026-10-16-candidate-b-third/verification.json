@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "85d8544f395580e26a5244ba290701d5f300008c",
+  "sourceFilesVerified": 459,
+  "sourceMatchesCommit": true,
+  "sourceListSHA256": "414976ca416f54d569b05f27bca3c2e03d9fad75234742cdd2733fb8cc007115",
+  "appFilesVerified": 5,
+  "appListSHA256": "9c32247c3c77b1618515aec7faad3944826ec9e11d4ecc0d58483c8ecd23ad2b",
+  "appUnchanged": true,
+  "runtimeBytesVerifiedWithoutExecution": true,
+  "canonicalFeatureChecksUnchangedFrom": "6e0ebb69f559695d89446cc53b5c566db2fb84c8",
+  "settingsModelAndSamplesUnchanged": true,
+  "bothPriorAttemptsByteIdentical": true,
+  "priorPacketsAndEvidenceUnchanged": true,
+  "mainCheckoutStatusMatchesBaseline": true,
+  "thirdAttemptDirectoryAbsent": true,
+  "liveRuntimeNotStarted": true,
+  "checks": {
+    "affectedNonliveTests": {
+      "passed": 56,
+      "failed": 0,
+      "output": "affected-tests.log"
+    },
+    "strictTypeScript": {
+      "exitCode": 0,
+      "output": "typecheck.log"
+    },
+    "whitespace": "passed",
+    "unrun": [
+      "live controller and official Codex runtime",
+      "native app launch, pairing and Keychain operation",
+      "real provider turns",
+      "Swift/build reruns and installed UI signoff",
+      "independent review of this delta"
+    ]
+  },
+  "commands": {
+    "affectedSuites": "/opt/homebrew/opt/node@26/bin/node --test --test-timeout=10000 successor/runner/startup-diagnostic.test.ts successor/runner/codex-chat.test.ts successor/prototype/activation.test.ts successor/prototype/manual.test.ts successor/prototype/owned-codex.test.ts successor/prototype/session.test.ts successor/prototype/native-session.test.ts",
+    "strictTypeScript": "/opt/homebrew/opt/node@26/bin/node successor/node_modules/typescript/bin/tsc -p successor/tsconfig.json"
+  }
+}
