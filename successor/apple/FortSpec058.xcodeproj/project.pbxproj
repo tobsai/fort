@@ -287,7 +287,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -302,7 +302,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FortiOS;
@@ -320,7 +320,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -337,7 +337,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -401,7 +401,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -468,7 +468,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -493,7 +493,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -508,7 +508,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac.uitests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = FortMac;
 			};
@@ -523,7 +523,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FortiOS;
@@ -540,7 +540,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac.uitests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = FortMac;
 			};

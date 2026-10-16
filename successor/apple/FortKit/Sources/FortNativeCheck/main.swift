@@ -4,6 +4,7 @@ import FortKit
 struct Configuration: Codable { let baseURL: URL; let installationId: String; let codeA: String; let codeB: String; let stateDirectory: URL }
 struct CheckState: Codable { let tokenA: String; let tokenB: String; let pending: PendingSubmission; let expectedSnapshot: Snapshot }
 struct CheckFailure: Error { let reason: String }
+struct WorkspaceCheckState: Codable { let token: String; let writer: Agent; let reviewer: Agent; let room: Conversation; let skill: InstructionSkill; let pending: PendingSubmission }
 func require(_ condition: Bool, _ message: String) throws { if !condition { throw CheckFailure(reason:message) } }
 
 func awaitState(_ client: FortClient, conversationID: String, state: String, runID: String? = nil) async throws -> Snapshot {
@@ -29,6 +30,58 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
         }
         let stateFile = config.stateDirectory.appendingPathComponent("native-check.json")
         let store = try PendingStore(directory:config.stateDirectory,installationID:config.installationId)
+        if CommandLine.arguments[1] == "workspace-prepare" {
+            let initial = try FortClient(baseURL:config.baseURL,installationID:config.installationId,fixtureLoopback:true)
+            let enrollment = try await initial.enroll(code:config.codeA,deviceName:"Synthetic native workspace")
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:enrollment.deviceToken,fixtureLoopback:true)
+            let writer = try await client.saveAgent(nil,name:"Writer",model:"gpt-6-astra",instructions:"Reply briefly using supplied context.")
+            let reviewer = try await client.saveAgent(nil,name:"Reviewer",model:"gpt-6-astra",instructions:"Check the sample claim.")
+            let skill = try await client.saveSkill(nil,name:"Check marker",instructions:"End with [CHECKED].")
+            let room = try await client.createConversation(name:"Sample planning",participantAgentIds:[writer.id,reviewer.id])
+            var first: PendingSubmission?
+            let samples: [(Agent,String,String,[SkillReference])] = [
+                (writer,writer.homeConversationId,"Remember the sample word cedar. Reply with that word only.",[]),
+                (reviewer,reviewer.homeConversationId,"In one sentence, explain why a checklist is useful.",[]),
+                (writer,writer.homeConversationId,"Suggest one short title for a sample packing list.",[skill.reference]),
+                (reviewer,room.id,"Our sample plan is to pack a red notebook. Repeat the item.",[])
+            ]
+            for (agent,conversationID,text,selectedSkills) in samples {
+                let pending = try store.enqueue(conversationID:conversationID,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:enrollment.installation.recoveryEpoch,text:text,recipientAgentID:agent.id,skills:selectedSkills)
+                if first == nil { first = pending }
+                let acceptance = try await client.submit(pending)
+                let replay = try await client.receipt(requestID:pending.requestID)
+                try require(replay.receipt.runId == acceptance.receipt.runId,"receipt lookup changed run")
+                let snapshot = try await awaitState(client,conversationID:conversationID,state:"completed",runID:acceptance.receipt.runId)
+                let reply = snapshot.messages.first { $0.requestId == pending.requestID && $0.role == "assistant" }
+                try require(reply?.agentId == agent.id,"reply attribution changed")
+                let acceptedRun = snapshot.runs.first { $0.runId == acceptance.receipt.runId }
+                try require(acceptedRun?.configuration?.skills.map(\.reference) == selectedSkills,"selected skill revision changed")
+                try store.remove(requestID:pending.requestID)
+            }
+            try require(try store.pending().isEmpty,"native queue is not empty")
+            let state = WorkspaceCheckState(token:enrollment.deviceToken,writer:writer,reviewer:reviewer,room:room,skill:skill,pending:first!)
+            try JSONEncoder().encode(state).write(to:stateFile,options:.atomic)
+            try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:stateFile.path)
+            print("PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue")
+            return
+        }
+        if CommandLine.arguments[1] == "workspace-replay" {
+            let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:stateFile))
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            let agents = try await client.agents(), skills = try await client.skills(), rooms = try await client.conversations()
+            try require(agents.contains(state.writer) && agents.contains(state.reviewer),"Agent identity changed after restart")
+            try require(skills == [state.skill] && rooms.contains(state.room),"workspace changed after restart")
+            let duplicate = try await client.submit(state.pending)
+            try require(duplicate.receipt.requestId == state.pending.requestID,"request identity changed")
+            let pending = try store.enqueue(conversationID:state.writer.homeConversationId,bindingRevision:state.writer.binding.bindingRevisionId,recoveryEpoch:state.pending.recoveryEpoch,text:"What sample word did I ask you to remember earlier? Reply with that word only.",recipientAgentID:state.writer.id,skills:[])
+            let acceptance = try await client.submit(pending)
+            let snapshot = try await awaitState(client,conversationID:pending.conversationID,state:"completed",runID:acceptance.receipt.runId)
+            try require(snapshot.messages.last?.text == "cedar","synthetic restart reply was not saved")
+            try store.remove(requestID:pending.requestID)
+            try require(try store.pending().isEmpty,"pending queue remained after restart sample")
+            print("PASS native and service restart, exact workspace identity, duplicate receipt and fifth synthetic reply")
+            return
+        }
         if CommandLine.arguments[1] == "controls-prepare" {
             let initial = try FortClient(baseURL:config.baseURL,installationID:config.installationId,fixtureLoopback:true)
             let a = try await initial.enroll(code:config.codeA,deviceName:"Native control A")

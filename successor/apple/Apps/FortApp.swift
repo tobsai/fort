@@ -5,7 +5,7 @@ import FortKit
     @State private var model: MessengerModel?
     @State private var startupError: String?
     var body: some Scene {
-        WindowGroup("Fort Fixture") {
+        WindowGroup("Fort") {
             Group {
                 if let model { MessengerView(model:model) }
                 else { ContentUnavailableView("Fort could not open local storage",systemImage:"externaldrive.badge.exclamationmark",description:Text(startupError ?? "Opening Fort…")) }
@@ -13,7 +13,7 @@ import FortKit
             .task {
                 guard model == nil else { return }
                 do {
-                    var directory = try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true).appendingPathComponent("FortSpec058",isDirectory:true)
+                    var directory = try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true).appendingPathComponent("FortCandidateB",isDirectory:true)
                     #if DEBUG
                     let environment = ProcessInfo.processInfo.environment
                     let isUITest = ProcessInfo.processInfo.arguments.contains("--fixture-ui-test") && UUID(uuidString:environment["FORT_UI_TEST_SESSION"] ?? "") != nil
