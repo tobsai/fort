@@ -11,3 +11,12 @@ test('candidate provider entry refuses use outside the approved manual packet be
   assert.equal(plan.args.includes('analytics.enabled=false'),true);
   assert.equal(plan.args.includes('skip_host_skill_discovery'),true);
 });
+
+test('the inert launch plan supplies a process-scoped no-files profile without a settings file or legacy sandbox override',()=>{
+  const plan=codexLaunchPlan({workspace:'/synthetic/empty',temporaryDirectory:'/synthetic/tmp'});
+  const overrides=plan.args.filter((_value,index)=>plan.args[index-1]==='-c');
+  assert.equal(overrides.includes('default_permissions="fort_candidate_b_no_files"'),true);
+  assert.equal(overrides.includes('permissions.fort_candidate_b_no_files={filesystem={"/**"="deny"},network={enabled=false}}'),true);
+  assert.equal(overrides.some(value=>value.startsWith('sandbox_mode=')||value.startsWith('sandbox_workspace_write=')),false);
+  assert.equal(plan.args.includes('--config-file'),false);
+});

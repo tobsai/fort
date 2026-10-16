@@ -70,6 +70,33 @@
       "unified_exec": false,
       "shell_tool": false,
       "memories": false
+    },
+    "default_permissions": "fort_candidate_b_no_files",
+    "permissions": {
+      "fort_candidate_b_no_files": {
+        "description": null,
+        "extends": null,
+        "workspace_roots": null,
+        "filesystem": {
+          "glob_scan_max_depth": null,
+          "/**": "deny"
+        },
+        "network": {
+          "proxy_url": null,
+          "enable_socks5": null,
+          "socks_url": null,
+          "enable_socks5_udp": null,
+          "allow_upstream_proxy": null,
+          "dangerously_allow_non_loopback_proxy": null,
+          "dangerously_allow_all_unix_sockets": null,
+          "mode": null,
+          "domains": null,
+          "unix_sockets": null,
+          "allow_local_binding": null,
+          "mitm": null,
+          "enabled": false
+        }
+      }
     }
   },
   "features": [
@@ -1549,6 +1576,23 @@
       "type": "readOnly",
       "networkAccess": false
     },
-    "reasoningEffort": null
-  }
+    "reasoningEffort": null,
+    "activePermissionProfile": {
+      "id": "fort_candidate_b_no_files",
+      "extends": null
+    },
+    "runtimeWorkspaceRoots": []
+  },
+  "profiles": [
+    {
+      "id": ":read-only",
+      "description": null,
+      "allowed": true
+    },
+    {
+      "id": "fort_candidate_b_no_files",
+      "description": null,
+      "allowed": true
+    }
+  ]
 }

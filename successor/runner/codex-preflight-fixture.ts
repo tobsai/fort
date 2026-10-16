@@ -3,6 +3,8 @@ export const syntheticConfig = () => ({
   model_provider:'openai',analytics:{ enabled:false },check_for_update_on_startup:false,notify:[],web_search:'disabled',project_doc_max_bytes:0,
   skills:{ include_instructions:false,bundled:{ enabled:false } },cloud:{ skills:{ enabled:false } },orchestrator:{ mcp:{ enabled:false } },
   mcp_servers:{ spritepipe:{ enabled:false },node_repl:{ enabled:false },'computer-use':{ enabled:false } },
+  default_permissions:'fort_candidate_b_no_files',
+  permissions:{fort_candidate_b_no_files:{filesystem:{'/**':'deny'},network:{enabled:false}}},
 });
 export const syntheticFeatures = () => [
   'apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl',

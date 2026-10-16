@@ -5,6 +5,7 @@ import { CodexConnection, object } from './codex-rpc.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
+import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
 
 export class CodexChat implements ChatRuntime {
   private readonly options: { connection: CodexConnection; workspace: string; runtimeVersion: string };
@@ -47,9 +48,10 @@ export class CodexChat implements ChatRuntime {
     const { connection, workspace } = this.options;
     try {
       await this.preflight(signal,input.configuration.selectedModel);
-      const started = object(await connection.request('thread/start', { model:input.configuration.selectedModel, modelProvider:'openai', cwd:workspace, approvalPolicy:'untrusted', sandbox:'read-only', ephemeral:true, environments:[], dynamicTools:[], selectedCapabilityRoots:[], developerInstructions }, signal));
+      const started = object(await connection.request('thread/start', { model:input.configuration.selectedModel, modelProvider:'openai', cwd:workspace, approvalPolicy:'untrusted', approvalsReviewer:'user', permissions:CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots:[], ephemeral:true, environments:[], dynamicTools:[], selectedCapabilityRoots:[], developerInstructions }, signal));
       const thread = object(started.thread);
-      if (typeof thread.id !== 'string' || thread.ephemeral !== true || started.model !== input.configuration.selectedModel || started.modelProvider !== 'openai' || started.cwd !== workspace || started.approvalPolicy !== 'untrusted' || object(started.sandbox).type !== 'readOnly' || object(started.sandbox).networkAccess !== false || !Array.isArray(started.instructionSources) || started.instructionSources.length !== 0) throw new Error('Thread configuration was not confirmed');
+      verifyPermissionSelection(started.activePermissionProfile);
+      if (typeof thread.id !== 'string' || thread.ephemeral !== true || started.model !== input.configuration.selectedModel || started.modelProvider !== 'openai' || started.cwd !== workspace || started.approvalPolicy !== 'untrusted' || started.approvalsReviewer!=='user' || !Array.isArray(started.runtimeWorkspaceRoots) || started.runtimeWorkspaceRoots.length!==0 || object(started.sandbox).type !== 'readOnly' || object(started.sandbox).networkAccess !== false || !Array.isArray(started.instructionSources) || started.instructionSources.length !== 0) throw new Error('Thread configuration was not confirmed');
       await verifyRuntimeControls(connection,workspace,signal,thread.id);
       return await this.turn(input, thread.id, text, signal);
     } catch { connection.close(); return { kind:'notStarted', message:'Runtime preflight or thread configuration was not confirmed. Nothing was dispatched.' }; }

@@ -31,7 +31,8 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
         }
         case 'account/read': result({ account:{ type:'chatgpt' }, requiresOpenaiAuth:true }); break;
         case 'model/list': result({ data:[{ id:options.model ?? 'gpt-6-astra',model:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
-        case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
+        case 'permissionProfile/list': result({data:[{id:'fort_candidate_b_no_files',description:null,allowed:true}],nextCursor:null});break;
+        case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', approvalsReviewer:'user',activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null},runtimeWorkspaceRoots:[],sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
         case 'turn/start':
           result({ turn:{ id:'turn', status:'inProgress' } });
           if (options.tool) { emit({ id:93, method:'item/tool/call', params:{ threadId:'thread', turnId:'turn' } }); break; }

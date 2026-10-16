@@ -1,10 +1,12 @@
 import { CodexConnection, object } from './codex-rpc.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
+import {CODEX_PERMISSION_PROFILE,verifyPermissionDeclaration,verifyPermissionCatalog} from './codex-permissions.ts';
 
 export const CODEX_SETTINGS = [
   ['analytics.enabled',false],['check_for_update_on_startup',false],['model_provider','openai'],['notify',[]],['web_search','disabled'],['project_doc_max_bytes',0],
   ['skills.include_instructions',false],['skills.bundled.enabled',false],['cloud.skills.enabled',false],['orchestrator.mcp.enabled',false],
   ['mcp_servers.spritepipe.enabled',false],['mcp_servers.node_repl.enabled',false],['mcp_servers.computer-use.enabled',false],
+  ['default_permissions',CODEX_PERMISSION_PROFILE],
 ] as const satisfies ReadonlyArray<readonly [string,string|number|boolean|readonly string[]]>;
 // Requested CLI opt-outs; pinned-runtime observations are checked separately below.
 export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use'] as const;
@@ -34,6 +36,7 @@ export function verifyEffectiveConfig(value: unknown): void {
   for (const key of ['browser_use','computer_use']) {
     if (config[key] != null && Object.values(object(config[key])).some(value => value != null)) throw new StartupCheckError({stage:'config',check:'computer-capabilities'});
   }
+  verifyPermissionDeclaration(config);
 }
 
 export async function readRuntimePages(connection: CodexConnection, method: string, params: Record<string,unknown>, signal: AbortSignal): Promise<unknown[]> {
@@ -55,6 +58,8 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
   try {
     const config=object(object(await connection.request('config/read',{ includeLayers:false,cwd:workspace },signal)).config);
     verifyEffectiveConfig(config);
+    checkpoint={stage:'protocol',check:'permissionProfile/list'};
+    verifyPermissionCatalog(await readRuntimePages(connection,'permissionProfile/list',{cwd:workspace},signal));
     const scope = threadId === undefined ? {} : { threadId };
     checkpoint={stage:'protocol',check:'experimentalFeature/list'};
     const features = await readRuntimePages(connection,'experimentalFeature/list',scope,signal);

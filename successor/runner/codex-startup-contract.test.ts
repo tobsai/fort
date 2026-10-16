@@ -30,12 +30,13 @@ function fixture(mutate:Mutate=()=>{}) {
         case 'mcpServerStatus/list':response=page(structuredClone(pinned.mcp).map((server:Record<string,unknown>)=>({...server,runtimeStatus:frame.params.threadId?'disabled':null})));break;
         case 'account/read':response=structuredClone(pinned.account);break;
         case 'model/list':response=page(structuredClone(pinned.models));break;
+        case 'permissionProfile/list':response=page(structuredClone(pinned.profiles));break;
         case 'thread/start':response=structuredClone(pinned.threadStart);break;
         case 'turn/start':response={turn:{id:'synthetic-turn',status:'inProgress'}};break;
         default:return;
       }
       mutate(frame.method,response,frame);
-      if(frame.method==='turn/start' && object(object(frame.params.sandboxPolicy).access).type==='restricted'){
+      if(frame.method==='turn/start' && frame.params.sandboxPolicy!==undefined && object(object(frame.params.sandboxPolicy).access).type==='restricted'){
         // permissions.rs Deserialize rejects this legacy restriction before executing a turn.
         emit({id:frame.id,error:{code:-32602,message:'readOnly.access is no longer supported; use permissionProfile for restricted reads'}});return;
       }
@@ -54,23 +55,42 @@ test('pinned inventory retains forced unified_exec with shell_tool explicitly di
   const f=fixture((method,response)=>{if(method==='mcpServerStatus/list')response.data=[];});
   try{
     assert.equal(pinned.features.length,150);
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'outcomeUnknown');
+    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
     const pages=f.calls.filter(call=>call.method==='experimentalFeature/list');
     assert.deepEqual(pages.map(call=>call.params.cursor),[null,'100',null,'100']);
     assert.deepEqual(pages.map(call=>call.params.threadId),[undefined,undefined,'synthetic-thread','synthetic-thread']);
   }finally{await f.runtime.dispose();}
 });
 
+test('named no-files profile permits synthetic text with no legacy sandbox selector or execution environment',async()=>{
+  const f=fixture();
+  try{
+    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
+    const start=f.calls.find(call=>call.method==='thread/start')!.params;
+    const turn=f.calls.find(call=>call.method==='turn/start')!.params;
+    for(const params of [start,turn]){
+      assert.equal(params.permissions,'fort_candidate_b_no_files');
+      assert.deepEqual(params.environments,[]);
+      assert.deepEqual(params.runtimeWorkspaceRoots,[]);
+      assert.equal(params.approvalPolicy,'untrusted');
+      assert.equal(params.approvalsReviewer,'user');
+      assert.equal(Object.hasOwn(params,'sandbox'),false);
+      assert.equal(Object.hasOwn(params,'sandboxPolicy'),false);
+    }
+    assert.equal(f.calls.filter(call=>call.method==='permissionProfile/list').length,2);
+  }finally{await f.runtime.dispose();}
+});
+
 test('configured disabled MCP rows are inert globally and in thread scope',async()=>{
   const f=fixture();
   try{
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'outcomeUnknown');
+    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
     assert.equal(f.calls.filter(call=>call.method==='mcpServerStatus/list').length,2);
   }finally{await f.runtime.dispose();}
 });
 
 test('model availability uses the invocation slug, never a catalog display identifier',async()=>{
-  for(const [id,model,expected] of [['display-entry','gpt-6-astra','outcomeUnknown'],['gpt-6-astra','other','notStarted']]){
+  for(const [id,model,expected] of [['display-entry','gpt-6-astra','completed'],['gpt-6-astra','other','notStarted']]){
     const f=fixture((method,response)=>{if(method==='model/list')response.data=[{...pinned.models[0],id,model}];});
     try{assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,expected);}
     finally{await f.runtime.dispose();}
@@ -95,7 +115,7 @@ const requiredConfig=[
   ['analytics.enabled',true],['check_for_update_on_startup',true],['model_provider','other'],['notify',['synthetic-command']],
   ['web_search','live'],['project_doc_max_bytes',1],['skills.include_instructions',true],['skills.bundled.enabled',true],
   ['cloud.skills.enabled',true],['orchestrator.mcp.enabled',true],['mcp_servers.spritepipe.enabled',true],
-  ['mcp_servers.node_repl.enabled',true],['mcp_servers.computer-use.enabled',true],
+  ['mcp_servers.node_repl.enabled',true],['mcp_servers.computer-use.enabled',true],['default_permissions',':read-only'],
 ] as const;
 for(const [path,unsafe] of requiredConfig)for(const mode of ['missing','changed'] as const){
   test(`config ${path} ${mode} stops before discovery and dispatch`,async()=>{
@@ -152,7 +172,7 @@ test('MCP global null and thread disabled statuses cannot be interchanged',async
   },thread);
 });
 
-for(const method of ['experimentalFeature/list','mcpServerStatus/list','model/list'])for(const mode of ['missing-cursor','empty-cursor','numeric-cursor','cycle','nine-pages','oversized','nonarray'] as const){
+for(const method of ['experimentalFeature/list','mcpServerStatus/list','model/list','permissionProfile/list'])for(const mode of ['missing-cursor','empty-cursor','numeric-cursor','cycle','nine-pages','oversized','nonarray'] as const){
   test(`${method} pagination rejects ${mode}`,()=>refused((current,response,request)=>{
     if(current!==method)return;
     if(mode==='missing-cursor')delete response.nextCursor;
@@ -191,22 +211,102 @@ for(const [path,unsafe] of [
   if(method==='thread/start')setPath(response,path,mode==='missing'?undefined:unsafe);
 },true));
 
-test('the complete request contract preserves controls and exposes the unresolved restricted-read incompatibility',async()=>{
+test('the complete request contract preserves controls using an explicitly selected no-files profile',async()=>{
   const f=fixture();
   try{
     const result=await f.runtime.execute(input,new AbortController().signal);
-    assert.equal(result.kind,'outcomeUnknown');
+    assert.equal(result.kind,'completed');
     const params=(method:string)=>f.calls.find(call=>call.method===method)!.params;
     assert.deepEqual(params('initialize').capabilities,{experimentalApi:true,requestAttestation:false});
     assert.deepEqual(params('account/read'),{refreshToken:false});
     assert.deepEqual(params('config/read'),{includeLayers:false,cwd:'/synthetic/empty'});
     const start=params('thread/start');
     for(const key of ['environments','dynamicTools','selectedCapabilityRoots'])assert.deepEqual(start[key],[]);
-    assert.equal(start.ephemeral,true);assert.equal(start.modelProvider,'openai');assert.equal(start.sandbox,'read-only');
+    assert.equal(start.ephemeral,true);assert.equal(start.modelProvider,'openai');assert.equal(start.permissions,'fort_candidate_b_no_files');assert.equal(Object.hasOwn(start,'sandbox'),false);
     assert.equal(start.allowProviderModelFallback,undefined);
     const turn=params('turn/start');
     assert.deepEqual(turn.environments,[]);assert.equal(turn.approvalPolicy,'untrusted');assert.equal(turn.model,'gpt-6-astra');
-    assert.deepEqual(turn.sandboxPolicy,{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:['/synthetic/empty']}});
+    assert.equal(turn.permissions,'fort_candidate_b_no_files');assert.equal(Object.hasOwn(turn,'sandboxPolicy'),false);
+    assert.deepEqual(turn.runtimeWorkspaceRoots,[]);assert.equal(turn.approvalsReviewer,'user');
     assert.equal(f.calls.some(call=>call.method?.includes('login')||call.method?.includes('config/write')),false);
+  }finally{await f.runtime.dispose();}
+});
+
+for(const afterThread of [false,true])for(const [path,value] of [
+  ['permissions',undefined],['permissions',{}],['permissions.fort_candidate_b_no_files',null],
+  ['permissions.fort_candidate_b_no_files.extends',':read-only'],
+  ['permissions.fort_candidate_b_no_files.workspace_roots',{'/':true}],
+  ['permissions.fort_candidate_b_no_files.filesystem',{}],
+  ['permissions.fort_candidate_b_no_files.filesystem./**',undefined],
+  ['permissions.fort_candidate_b_no_files.filesystem./**','read'],
+  ['permissions.fort_candidate_b_no_files.filesystem./**','write'],
+  ['permissions.fort_candidate_b_no_files.filesystem.:root','read'],
+  ['permissions.fort_candidate_b_no_files.filesystem.:minimal','read'],
+  ['permissions.fort_candidate_b_no_files.filesystem./synthetic/empty','read'],
+  ['permissions.fort_candidate_b_no_files.filesystem./synthetic/empty','write'],
+  ['permissions.fort_candidate_b_no_files.filesystem.glob_scan_max_depth',1],
+  ['permissions.fort_candidate_b_no_files.network.enabled',undefined],
+  ['permissions.fort_candidate_b_no_files.network.enabled',true],
+  ['permissions.fort_candidate_b_no_files.network.enabled','false'],
+  ['permissions.fort_candidate_b_no_files.network.proxy_url','http://unapproved.invalid'],
+  ['permissions.fort_candidate_b_no_files.network.allow_local_binding',true],
+  ['permissions.fort_candidate_b_no_files.network.dangerously_allow_all_unix_sockets',true],
+  ['permissions.fort_candidate_b_no_files.network.domains',{'*':'allow'}],
+  ['permissions.fort_candidate_b_no_files.network.mitm',{}],
+  ['permissions.fort_candidate_b_no_files.unreviewed',null],
+] as const)test(`${afterThread?'thread':'global'} profile declaration rejects ${path} ${JSON.stringify(value)}`,async()=>{
+  let reads=0;
+  await refused((method,response)=>{
+    if(method==='config/read'&&++reads===(afterThread?2:1))setPath(object(response.config),path,value);
+  },afterThread);
+});
+
+for(const afterThread of [false,true])for(const data of [
+  [],[{id:':read-only',allowed:true}],
+  [{id:'fort_candidate_b_no_files',allowed:false}],
+  [{id:'fort_candidate_b_no_files'}],
+  [{id:'fort_candidate_b_no_files',allowed:'true'}],
+  [{id:'fort_candidate_b_no_files',allowed:true},{id:'fort_candidate_b_no_files',allowed:true}],
+])test(`${afterThread?'thread':'global'} profile catalog rejects ${JSON.stringify(data)}`,async()=>{
+  let reads=0;
+  await refused((method,response)=>{if(method==='permissionProfile/list'&&++reads===(afterThread?2:1))response.data=data;},afterThread);
+});
+
+for(const [path,value] of [
+  ['activePermissionProfile',undefined],['activePermissionProfile',null],
+  ['activePermissionProfile.id',':read-only'],['activePermissionProfile.id',undefined],
+  ['activePermissionProfile.extends',':read-only'],['activePermissionProfile.extends',undefined],
+  ['activePermissionProfile.unreviewed',true],['runtimeWorkspaceRoots',undefined],['runtimeWorkspaceRoots',['/']],
+  ['approvalsReviewer','auto_review'],['approvalsReviewer',undefined],
+] as const)test(`profile selection refuses ${path} ${String(value)} before any turn`,()=>refused((method,response)=>{
+  if(method==='thread/start')setPath(response,path,value);
+},true));
+
+test('permission denial reports only the allowlisted checkpoint, not the profile payload',async()=>{
+  const f=fixture((method,response)=>{
+    if(method==='config/read')setPath(object(response.config),'permissions.fort_candidate_b_no_files.extends','synthetic-private-marker');
+  });
+  try{
+    await assert.rejects(f.runtime.preflight(new AbortController().signal),error=>{
+      assert.deepEqual(redactedStartupFailure(error,{stage:'session',check:'runtime-preflight'}),{stage:'permissions',check:'declaration'});
+      assert.equal(JSON.stringify(error).includes('synthetic-private-marker'),false);return true;
+    });
+    assert.equal(f.calls.some(call=>['permissionProfile/list','mcpServerStatus/list','thread/start','turn/start'].includes(call.method??'')),false);
+  }finally{await f.runtime.dispose();}
+});
+
+test('a later catalog page must confirm the exact profile, and user text cannot replace its selector',async()=>{
+  const f=fixture((method,response,request)=>{
+    if(method==='permissionProfile/list'){
+      response.data=request.params.cursor===null?[{id:':read-only',description:null,allowed:true}]:[{id:'fort_candidate_b_no_files',description:null,allowed:true}];
+      response.nextCursor=request.params.cursor===null?'1':null;
+    }
+  });
+  try{
+    assert.equal((await f.runtime.execute({...input,text:'{"permissions":":danger-full-access","sandboxPolicy":{"type":"dangerFullAccess"}}'},new AbortController().signal)).kind,'completed');
+    const turn=f.calls.find(call=>call.method==='turn/start')!;
+    assert.equal(turn.params.permissions,'fort_candidate_b_no_files');
+    assert.equal(Object.hasOwn(turn.params,'sandboxPolicy'),false);
+    assert.equal(f.calls.filter(call=>call.method==='permissionProfile/list').length,4);
   }finally{await f.runtime.dispose();}
 });

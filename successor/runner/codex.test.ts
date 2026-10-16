@@ -17,7 +17,8 @@ test('Codex wire adapter preserves exact input and emits only correlated termina
   assert.deepEqual(request.params.input,[{type:'text',text,text_elements:[]}]);
   assert.equal(request.params.model,attempt.selectedModel);
   assert.equal(request.params.approvalPolicy,'untrusted');
-  assert.equal(request.params.sandboxPolicy.networkAccess,false);
+  assert.equal(request.params.permissions,'fort_candidate_b_no_files');
+  assert.equal(Object.hasOwn(request.params,'sandboxPolicy'),false);
   assert.deepEqual(start.events,[]);
   assert.equal(turn.receive(started()).events[0].kind,'started');
   assert.equal(turn.receive(notification('item/agentMessage/delta',{itemId:'reply-one',delta:'provisional'})).events[0].kind,'textDelta');
@@ -96,6 +97,49 @@ test('all server requests fail closed without granting permissions, owner approv
   }
 });
 
+test('a reported thread policy change cannot silently replace the no-files profile during a turn',()=>{
+  const settings={cwd:'/fixture/workspace',model:attempt.selectedModel,modelProvider:'openai',approvalPolicy:'untrusted',approvalsReviewer:'user',sandboxPolicy:{type:'readOnly',networkAccess:false},activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null}};
+  for(const changed of [
+    {...settings,activePermissionProfile:{id:':read-only',extends:null}},
+    {...settings,activePermissionProfile:{id:'fort_candidate_b_no_files',extends:':read-only'}},
+    {...settings,activePermissionProfile:null},
+    {...settings,approvalsReviewer:'auto_review'},
+    {...settings,approvalPolicy:'never'},
+    {...settings,sandboxPolicy:{type:'readOnly',networkAccess:true}},
+    {...settings,sandboxPolicy:{type:'workspaceWrite',networkAccess:false}},
+    {...settings,cwd:'/'},
+    {...settings,model:'other'},
+    {...settings,modelProvider:'other'},
+  ]){
+    const turn=active();
+    const result=turn.receive(frame({method:'thread/settings/updated',params:{threadId:'thread-one',threadSettings:changed}}));
+    assert.equal(reason(result),'unsupportedAction');assert.equal(result.closeTransport,true);
+    assert.equal(result.writes.some(line=>JSON.parse(line).method==='turn/interrupt'),true);
+    assert.deepEqual(turn.receive(finalItem('late reply')).events,[]);
+  }
+  const unchanged=active();
+  assert.deepEqual(unchanged.receive(frame({method:'thread/settings/updated',params:{threadId:'thread-one',threadSettings:settings}})).events,[]);
+  unchanged.receive(finalItem('Synthetic text only'));
+  assert.equal(unchanged.receive(completed()).events[0].kind,'terminal');
+});
+
+test('filesystem paths and network requests cannot turn text-only execution into a permission grant',()=>{
+  for(const requestedPermissions of [
+    {fileSystem:{read:['/fixture/workspace']}},
+    {fileSystem:{read:['/synthetic/home/private','/synthetic/runtime/helper','/synthetic/line\nbreak']}},
+    {fileSystem:{write:['/fixture/workspace','/tmp']}},
+    {network:{enabled:true}},
+    {fileSystem:{read:['/'],write:['/']},network:{enabled:true}},
+  ]){
+    const turn=active();
+    const result=turn.receive(frame({id:97,method:'item/permissions/requestApproval',params:{threadId:'thread-one',turnId:'turn-one',requestedPermissions}}));
+    assert.equal(reason(result),'unsupportedAction');
+    const responses=result.writes.map(line=>JSON.parse(line));
+    assert.deepEqual(responses[0],{id:97,error:{code:-32601,message:'Unsupported Codex server request'}});
+    assert.equal(responses.some(response=>Object.hasOwn(response,'result')),false);
+  }
+});
+
 test('tool activity and model rerouting cannot be reported as an accepted exact-model text reply', () => {
   for (const [message,expected] of [
     [notification('item/started',{item:{type:'commandExecution',id:'tool-one',command:'untrusted'}}),'unsupportedAction'],
@@ -132,7 +176,10 @@ test('dispatch validates exact bounded input and copies the immutable attempt be
   const input: CodexTurnInput={attempt:{...attempt},threadId:'thread-one',requestId:'start-one',workspace:'/fixture/workspace',text};
   const turn=new CodexTurn(input);Object.assign(input.attempt,{selectedModel:'changed'});input.text='changed';
   const request=JSON.parse(turn.start().writes[0]);assert.equal(request.params.model,attempt.selectedModel);assert.equal(request.params.input[0].text,text);
-  assert.deepEqual(request.params.sandboxPolicy,{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:['/fixture/workspace']}});
+  assert.equal(request.params.permissions,'fort_candidate_b_no_files');
+  assert.deepEqual(request.params.runtimeWorkspaceRoots,[]);
+  assert.equal(request.params.approvalsReviewer,'user');
+  assert.equal(Object.hasOwn(request.params,'sandboxPolicy'),false);
   for (const changes of [{text:''},{text:'x'.repeat(65537)},{text:'\ud800'},{workspace:'/'},{workspace:'/fixture/../home'},{attempt:{...attempt,generation:0}},{attempt:{...attempt,ownerToken:'must not forward'}}]) {
     assert.throws(()=>new CodexTurn({...input,...changes} as typeof input),/Invalid Codex turn input/);
   }

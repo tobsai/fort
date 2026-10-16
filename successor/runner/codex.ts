@@ -1,4 +1,5 @@
 import { posix } from 'node:path';
+import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
 import type { RuntimeAttempt, RuntimeEvidence, RuntimeEvidenceBody, RuntimeFailure, RuntimeMessagePhase } from '../contracts/runtime.ts';
 
 export type CodexTurnInput = { attempt: RuntimeAttempt; threadId: string; requestId: string; workspace: string; text: string };
@@ -60,7 +61,7 @@ export class CodexTurn {
     const output=this.output();
     if (this.sent || this.terminal) return output;
     this.sent=true;
-    output.writes.push(wire({id:this.input.requestId,method:'turn/start',params:{threadId:this.input.threadId,input:[{type:'text',text:this.input.text,text_elements:[]}],model:this.input.attempt.selectedModel,cwd:this.input.workspace,environments:[],approvalPolicy:'untrusted',sandboxPolicy:{type:'readOnly',networkAccess:false,access:{type:'restricted',includePlatformDefaults:false,readableRoots:[this.input.workspace]}}}}));
+    output.writes.push(wire({id:this.input.requestId,method:'turn/start',params:{threadId:this.input.threadId,input:[{type:'text',text:this.input.text,text_elements:[]}],model:this.input.attempt.selectedModel,cwd:this.input.workspace,environments:[],runtimeWorkspaceRoots:[],approvalPolicy:'untrusted',approvalsReviewer:'user',permissions:CODEX_PERMISSION_PROFILE}}));
     return output;
   }
   interrupt(): CodexOutput {
@@ -122,6 +123,17 @@ export class CodexTurn {
   }
   private notification(message:Record<string,unknown>, output:CodexOutput) {
     const method=message.method;
+    if(method==='thread/settings/updated'){
+      const params=object(message.params);
+      if(!params||!id(params.threadId)){this.stop(output,'invalidProtocol');return;}
+      if(params.threadId!==this.input.threadId)return;
+      const settings=object(params.threadSettings),sandbox=object(settings?.sandboxPolicy);
+      try{verifyPermissionSelection(settings?.activePermissionProfile);}
+      catch{this.stop(output,'unsupportedAction');return;}
+      if(settings?.cwd!==this.input.workspace||settings.model!==this.input.attempt.selectedModel||settings.modelProvider!=='openai'||
+          settings.approvalPolicy!=='untrusted'||settings.approvalsReviewer!=='user'||sandbox?.type!=='readOnly'||sandbox.networkAccess!==false)this.stop(output,'unsupportedAction');
+      return;
+    }
     if (!['turn/started','turn/completed','item/agentMessage/delta','item/started','item/completed','model/rerouted'].includes(String(method))) return;
     const params=object(message.params);
     if (!params || !id(params.threadId)) { this.stop(output,'invalidProtocol'); return; }

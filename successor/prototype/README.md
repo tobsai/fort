@@ -4,8 +4,11 @@ All three attempts consumed their one start and have zero receipts. The third
 failed at `features/unified_exec`; its state and ledger join the two earlier
 preserved attempts. No fourth start, reset or new enrollment is authorized.
 The [complete startup-contract audit](../runner/STARTUP-CONTRACT.md) explains
-three source-grounded compatibility corrections and the remaining restricted-read
-turn-policy incompatibility. This source is not a working provider application.
+three source-grounded compatibility corrections. The subsequent
+[named-profile migration](../runner/PERMISSION-PROFILE.md) removes the rejected
+legacy selector and narrows computer-tool file access to none. It is source and
+fixture validation only; actual OS/provider enforcement remains unverified.
+This source is not a working tested provider application.
 
 The [third-attempt packet](../ops/candidate-b-third-20261016/MANUAL.md) and
 [its pins and approval](../evidence/2026-10-16-candidate-b-third/README.md) are
@@ -37,8 +40,10 @@ is blocked. These are supervised timers and bounded subprocess waits, not a
 hard-real-time guarantee. SIGINT, SIGTERM and terminal closure cancel pending
 preflight as well as ready sessions. Cancellation consumes the start.
 
-The pinned Codex 0.157.1 launcher, gpt-6-astra selection, existing ChatGPT account
-requirement, per-turn restrictions, refusal rules and redacted diagnostics remain.
+The pinned Codex 0.157.1 executable, gpt-6-astra selection, existing ChatGPT account
+requirement, refusal rules and redacted diagnostics remain. The inert launch plan
+adds a process-scoped named profile and default; it applies no persistent setting.
+Thread and turn requests select that profile with empty environments and roots.
 Startup checks now distinguish a forced execution-backend selector from shell
 authority, inert configured MCP rows from active capabilities, and model invocation
 slugs from catalog IDs. Missing capability observations still fail closed.
