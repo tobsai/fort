@@ -1,0 +1,32 @@
+✖ a reported thread policy change cannot silently replace the no-files profile during a turn (1.573041ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.888291
+
+✖ failing tests:
+
+test at successor/runner/codex.test.ts:100:1
+✖ a reported thread policy change cannot silently replace the no-files profile during a turn (1.573041ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'unsupportedAction'
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/codex.test.ts:116:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'unsupportedAction',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

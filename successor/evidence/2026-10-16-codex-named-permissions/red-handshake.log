@@ -1,0 +1,30 @@
+✖ named no-files profile permits synthetic text with no legacy sandbox selector or execution environment (6.531125ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 114.732208
+
+✖ failing tests:
+
+test at successor/runner/codex-startup-contract.test.ts:65:1
+✖ named no-files profile permits synthetic text with no legacy sandbox selector or execution environment (6.531125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'outcomeUnknown'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/codex-startup-contract.test.ts:68:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'outcomeUnknown',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
