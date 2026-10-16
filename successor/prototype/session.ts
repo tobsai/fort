@@ -161,7 +161,7 @@ export class CandidatePacket {
       return { baseURL:service.baseURL,installationId:service.installation.installationId,enrollment:state.starts===1?service.issueEnrollment():undefined,
         finish:()=>finish(true),abort:()=>finish(false),status:()=>service.inspectSession(),closed,workDeadline,credentialDeadline:state.credentialDeadline };
     } catch(error) {
-      state.failure=redactedStartupFailure(error,abort.signal.aborted?{stage:'session',check:'cancelled-or-expired'}:checkpoint);
+      state.failure=abort.signal.aborted?{stage:'session',check:'cancelled-or-expired'}:redactedStartupFailure(error,checkpoint);
       await finish(false);this.save(state);throw new StartupCheckError(state.failure);
     }
   }

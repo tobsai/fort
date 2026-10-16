@@ -105,12 +105,12 @@ test('the outer deadline closes an idle session and its listener without relying
   await assert.rejects(()=>packet.start(),/cannot start/);
 });
 
-test('cancellation during blocked preflight disposes promptly and permanently consumes the start',async t=>{
+for(const cooperative of [false,true])test(`cancellation during blocked preflight disposes promptly and permanently consumes the start: ${cooperative}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-cancel-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const cancellation=new AbortController(),entered=Promise.withResolvers<AbortSignal>(),preflight=Promise.withResolvers<{model:string;runtimeVersion:string}>();
   let launches=0,disposals=0,executions=0,cleanups=0;
   const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){cleanups++;return true;}},launchRuntime:()=>{
-    launches++;return {preflight(signal:AbortSignal){entered.resolve(signal);return preflight.promise;},async execute(){executions++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposals++;}};
+    launches++;return {preflight(signal:AbortSignal){entered.resolve(signal);if(cooperative)signal.addEventListener('abort',()=>preflight.reject(new StartupCheckError({stage:'protocol',check:'initialize'})),{once:true});return preflight.promise;},async execute(){executions++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposals++;}};
   }});
   const starting=packet.start(cancellation.signal);
   let settled=false;
@@ -125,6 +125,7 @@ test('cancellation during blocked preflight disposes promptly and permanently co
   const state=JSON.parse(await readFile(join(root,'session-state.json'),'utf8'));
   assert.equal(state.phase,'blocked');assert.equal(state.starts,1);assert.equal(state.port,undefined);
   assert.equal(state.credentialCleanup,'deleted');
+  assert.deepEqual(state.failure,{stage:'session',check:'cancelled-or-expired'});
   await assert.rejects(()=>packet.start(),/cannot start/);
 });
 
