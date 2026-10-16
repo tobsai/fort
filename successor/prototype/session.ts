@@ -20,12 +20,12 @@ export type NativeSession = {
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type State={ version:1; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
-type Options={ root:string; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
+type State={ version:1; attempt?:'replacement-20261016'; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
+type Options={ root:string; attempt?:'replacement-20261016'; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
-function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number):boolean {
+function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean):boolean {
   const index=runs.length,sample=SAMPLES[index],config=submission.configuration,conversation=submission.conversation;
-  if (!sample || index>=(session===1?4:5) || (session===2&&index!==4) || runs.some(run=>run.state!=='completed')) return false;
+  if (!sample || index>=(replacement||session===2?5:4) || (session===2&&index!==4) || runs.some(run=>run.state!=='completed')) return false;
   if (submission.text!==sample.text || config.agentName!==sample.agent || config.selectedModel!=='gpt-6-astra') return false;
   if (config.instructions!==(sample.agent==='Writer'?'Reply briefly using supplied context.':'Check the sample claim.')) return false;
   const prior=runs.find(run=>run.configuration?.agentName===sample.agent);
@@ -51,6 +51,7 @@ export class CandidatePacket {
     if (lstatSync(this.statePath).isSymbolicLink()) throw new Error('Packet state cannot be a symlink');
     const state=JSON.parse(readFileSync(this.statePath,'utf8')) as State;
     if (state.version!==1 || ![1,2].includes(state.starts) || !['running','between','finished','blocked'].includes(state.phase) || !Number.isSafeInteger(state.credentialDeadline) || !Array.isArray(state.receipts)) throw new Error('Invalid packet state');
+    if(state.attempt!==this.options.attempt)throw new Error('Packet belongs to another attempt');
     return state;
   }
   private save(state:State) {
@@ -86,19 +87,26 @@ export class CandidatePacket {
     const { root,native,launchRuntime }=this.options,now=this.options.now??Date.now;
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
+    const replacement=this.options.attempt==='replacement-20261016';
     const previous=this.read();
-    if (previous && (previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
+    if (previous && (replacement || previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
+    const began=now();
+    const state:State={ version:1,...(replacement?{attempt:'replacement-20261016' as const}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
+    if(replacement)this.save(state);
     if (previous) {
       try {
         const observation=native.inspect(previous.installationId!);
         if (!observation.appExited || observation.pendingCount!==0 || previous.receipts.length!==4 || previous.credentialDeadline<=now()) throw new Error('Restart gate is not confirmed');
       } catch {await this.discardHandoff(previous);throw new Error('Restart gate failed; the packet is blocked.');}
     } else {
-      native.assertFresh();
-      if (existsSync(join(root,'service'))) throw new Error('First session requires a fresh ledger');
+      try {
+        native.assertFresh();
+        if (existsSync(join(root,'service'))) throw new Error('First session requires a fresh ledger');
+      } catch(error) {
+        if(replacement){state.phase='blocked';state.failure={stage:'session',check:'entry'};this.save(state);throw new StartupCheckError(state.failure);}
+        throw error;
+      }
     }
-    const began=now();
-    const state:State={ version:1,starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+600_000,receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
     const workDeadline=Math.min(began+292_000,state.credentialDeadline-8_000);
     this.save(state);
     const abort=new AbortController();let runtime:PreparedRuntime|undefined,accepting=false,closing:Promise<State>|undefined;
@@ -109,29 +117,30 @@ export class CandidatePacket {
       dispose:async()=>{ await runtime?.dispose(); },
     };
     const service=createOpenAIService({ dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,
-      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts),
+      admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement),
     });
     const finish=(requestCompletion=true):Promise<State>=>{
       if (closing) return closing;
       signal?.removeEventListener('abort',cancel);
       accepting=false;abort.abort();cancelTimer();
       closing=(async()=>{
-        const report=service.inspectSession(),expected=state.starts===1?4:5;
+        const report=service.inspectSession(),expected=replacement||state.starts===2?5:4;
         let passed=requestCompletion && now()<=workDeadline && report.receipts.length===expected && report.runs.length===expected && report.runs.every(run=>run.state==='completed');
         if (passed) {
           try { const observed=native.inspect(service.installation.installationId);passed=observed.appExited&&observed.pendingCount===0; } catch { passed=false; }
         }
-        try { await service.close({ preserveSessionCredential:passed&&state.starts===1 }); } catch { passed=false; }
+        try { await service.close({ preserveSessionCredential:passed&&!replacement&&state.starts===1 }); } catch { passed=false; }
         if (passed) {
           try { const observed=native.inspect(service.installation.installationId);passed=observed.appExited&&observed.pendingCount===0&&now()<=began+300_000; } catch { passed=false; }
         }
         state.receipts=report.receipts;state.installationId=service.installation.installationId;
-        state.phase=passed ? state.starts===1?'between':'finished' : 'blocked';
+        state.phase=passed ? !replacement&&state.starts===1?'between':'finished' : 'blocked';
         state.credentialCleanup=state.phase==='between'?'retained-for-restart':'unconfirmed';
         if (state.phase!=='between') {
           try { const cleanup=createOpenAIService({ dataDirectory:join(root,'service'),now });await cleanup.close(); } catch { state.phase='blocked'; }
           try { if (!await native.cleanup(service.installation.installationId,report.deviceIDs)) state.phase='blocked';else state.credentialCleanup='deleted'; } catch { state.phase='blocked'; }
         }
+        if(replacement&&now()>began+300_000)state.phase='blocked';
         this.save(state);release();const result=structuredClone(state);resolveClosed(result);return result;
       })();return closing;
     };

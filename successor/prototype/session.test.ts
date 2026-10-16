@@ -8,12 +8,13 @@ import type { Agent,InstructionSkill,Conversation,Acceptance,Snapshot } from '..
 import type { ChatInput } from '../runner/chat-runtime.ts';
 import {StartupCheckError} from '../runner/startup-diagnostic.ts';
 
-for (const mode of ['success','pending','app','dispose','late-pending'] as const) test(`bounded packet honors exact samples and restart gate: ${mode}`,async t=>{
+for (const mode of ['success','pending','app','dispose','late-pending','replacement','replacement-late-cleanup'] as const) test(`bounded packet honors exact samples and restart gate: ${mode}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-unit-'));
   t.after(()=>rm(root,{ recursive:true,force:true }));
+  const replacement=mode.startsWith('replacement');let now=Date.now();
   const calls:ChatInput[]=[];let starts=0,disposals=0,cleanups=0,pendingCount=0,appExited=true,failDisposal=false;
-  const native={ assertFresh(){},inspect(){return { appExited,pendingCount };},async cleanup(){cleanups++;return true;} };
-  const packet=new CandidatePacket({ root,native,launchRuntime:()=>{ starts++;return { async preflight(){return { model:'gpt-6-astra',runtimeVersion:'0.157.1' };},async execute(input:ChatInput){calls.push(input);return { kind:'completed' as const,text:'Synthetic reply',effectiveModel:null };},async dispose(){disposals++;if(failDisposal)throw new Error('Synthetic cleanup failure');} };} });
+  const native={ assertFresh(){},inspect(){return { appExited,pendingCount };},async cleanup(){cleanups++;if(mode==='replacement-late-cleanup')now+=300_001;return true;} };
+  const packet=new CandidatePacket({ root,native,...(replacement?{attempt:'replacement-20261016' as const,now:()=>now}:{}),launchRuntime:()=>{ starts++;return { async preflight(){return { model:'gpt-6-astra',runtimeVersion:'0.157.1' };},async execute(input:ChatInput){calls.push(input);return { kind:'completed' as const,text:'Synthetic reply',effectiveModel:null };},async dispose(){disposals++;if(failDisposal)throw new Error('Synthetic cleanup failure');} };} });
   const first=await packet.start();
   t.after(()=>first.abort());
   const enrolled=await fetch(first.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...first.enrollment,deviceName:'Synthetic packet device'})});
@@ -39,6 +40,23 @@ for (const mode of ['success','pending','app','dispose','late-pending'] as const
       if(snapshot.runs.some(r=>r.runId===result.body.receipt.runId&&r.state==='completed'))break;
       await new Promise(resolve=>setTimeout(resolve,2));
     }
+  }
+  if(replacement){
+    assert.equal(first.credentialDeadline-first.workDeadline,8_000);
+    assert.equal((await send(4)).status,201);
+    for(let count=0;count<30;count++){
+      if(first.status().runs.every(run=>run.state==='completed'))break;
+      await new Promise(resolve=>setTimeout(resolve,2));
+    }
+    assert.equal((await send(5,'unapproved sixth sample')).status,403);
+    const result=await first.finish();
+    assert.equal(result.phase,mode==='replacement-late-cleanup'?'blocked':'finished');assert.equal(result.starts,1);
+    assert.equal(result.credentialCleanup,'deleted');assert.equal(cleanups,1);
+    assert.equal(disposals,1);assert.deepEqual(calls.map(input=>input.text),SAMPLES.map(sample=>sample.text));
+    await assert.rejects(()=>packet.start(),/cannot start/);
+    const reopened=new CandidatePacket({root,native,attempt:'replacement-20261016',launchRuntime(){throw new Error('No second start');}});
+    await assert.rejects(()=>reopened.start(),/cannot start/);
+    assert.equal(starts,1);return;
   }
   assert.equal((await send(4)).status,403);
   if (mode!=='success'&&mode!=='late-pending') {
@@ -75,7 +93,7 @@ test('failed or over-budget preflight consumes the first start without opening e
     const root=await mkdtemp(join(tmpdir(),'fort-packet-preflight-'));
     t.after(()=>rm(root,{recursive:true,force:true}));
     let now=Date.now(),disposed=0,executed=0;
-    const options={root,now:()=>now,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({
+    const options={root,attempt:'replacement-20261016' as const,now:()=>now,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({
       async preflight(){if(mode==='failed')throw new Error('synthetic failure');now+=296_001;return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},
       async execute(){executed++;return {kind:'completed' as const,text:'unused',effectiveModel:null};},async dispose(){disposed++;},
     })};
@@ -96,10 +114,10 @@ test('an existing session lock refuses a parallel start before launching a runti
 
 test('the outer deadline closes an idle session and its listener without relying on another user command',async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-deadline-'));t.after(()=>rm(root,{recursive:true,force:true}));
-  let now=Date.now(),stop!:()=>void,scheduled=0,disposed=0;
-  const packet=new CandidatePacket({root,now:()=>now,scheduleStop:(callback,delay)=>{stop=callback;scheduled=delay;return ()=>{};},native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){return {kind:'completed',text:'unused',effectiveModel:null};},async dispose(){disposed++;}})});
-  const session=await packet.start();t.after(()=>session.abort());assert.equal(scheduled,292_000);
-  now+=292_000;stop();
+  const began=Date.now();let now=began,stop!:()=>void,scheduled=0,disposed=0;
+  const packet=new CandidatePacket({root,attempt:'replacement-20261016',now:()=>now,scheduleStop:(callback,delay)=>{stop=callback;scheduled=delay;return ()=>{};},native:{assertFresh(){now+=1_000;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>({async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){return {kind:'completed',text:'unused',effectiveModel:null};},async dispose(){disposed++;}})});
+  const session=await packet.start();t.after(()=>session.abort());assert.equal(scheduled,291_000);assert.equal(session.credentialDeadline,began+300_000);
+  now+=291_000;stop();
   assert.equal((await session.closed).phase,'blocked');assert.equal(disposed,1);
   await assert.rejects(()=>fetch(session.baseURL+'/v1/installation'));
   await assert.rejects(()=>packet.start(),/cannot start/);
@@ -165,4 +183,29 @@ for(const recognized of [false,true])test(`a failed startup records its redacted
   assert.equal(state.receipts.length,0);assert.equal(state.credentialCleanup,'deleted');
   await assert.rejects(()=>packet.start(),/cannot start/);
   assert.equal(disposals,1);assert.equal(launches,1);
+});
+
+test('a replacement cannot adopt or alter the original attempt even if it presents a restart handoff',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-original-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const path=join(root,'session-state.json');
+  const original=JSON.stringify({version:1,starts:1,phase:'between',credentialDeadline:Date.now()+600_000,receipts:[]});
+  await writeFile(path,original);
+  let nativeCalls=0,launches=0;
+  const packet=new CandidatePacket({root,attempt:'replacement-20261016',native:{assertFresh(){nativeCalls++;},inspect(){nativeCalls++;return {appExited:true,pendingCount:0};},async cleanup(){nativeCalls++;return true;}},launchRuntime(){launches++;throw new Error('Unexpected launch');}});
+  await assert.rejects(()=>packet.start(),/another attempt/);
+  await assert.rejects(()=>packet.cancelBetweenSessions(),/another attempt/);
+  assert.equal(await readFile(path,'utf8'),original);
+  assert.equal(nativeCalls,0);assert.equal(launches,0);
+});
+
+test('replacement freshness refusal consumes its sole start before any provider launch',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-freshness-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let inspections=0,launches=0;
+  const options={root,attempt:'replacement-20261016' as const,native:{assertFresh(){inspections++;throw new Error('Synthetic native state is not fresh');},inspect(){throw new Error('Unexpected inspection');},async cleanup(){throw new Error('Unexpected cleanup');}},launchRuntime(){launches++;throw new Error('Unexpected launch');}};
+  await assert.rejects(()=>new CandidatePacket(options).start());
+  await assert.rejects(()=>new CandidatePacket(options).start(),/cannot start/);
+  const state=JSON.parse(await readFile(join(root,'session-state.json'),'utf8'));
+  assert.equal(state.phase,'blocked');assert.equal(state.starts,1);
+  assert.deepEqual(state.failure,{stage:'session',check:'entry'});
+  assert.equal(inspections,1);assert.equal(launches,0);
 });

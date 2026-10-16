@@ -23,8 +23,10 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
   const fakeProcess=Object.assign(new EventEmitter(),{stdin:input,stdout:new Writable({write(chunk,_encoding,done){output+=chunk.toString();done();}})});
   const entered=Promise.withResolvers<void>(),pendingStart=Promise.withResolvers<unknown>(),closed=Promise.withResolvers<unknown>();
   let starts=0,cancellations=0,aborts=0,cancelBetween=0,enrollmentWrites=0;
+  let packetOptions:{root:string;attempt?:string}|undefined;const pinReads:string[]=[];
   const state={phase:'blocked',starts:1,receipts:[],credentialCleanup:'deleted'};
   class InertPacket {
+    constructor(options:{root:string;attempt?:string}){packetOptions=options;}
     async start(signal?:AbortSignal){starts++;signal?.addEventListener('abort',()=>{cancellations++;},{once:true});entered.resolve();return pendingStart.promise;}
     async cancelBetweenSessions(){cancelBetween++;}
   }
@@ -32,7 +34,7 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
   const pins=JSON.stringify({sourceCommit:'a'.repeat(40),sourceFiles:[{path:'source',sha256:digest}],appFiles:[{path:'app',sha256:digest}]});
   const context=vm.createContext({
     process:fakeProcess,createInterface,createHash,join,normalize,isAbsolute,fileURLToPath,Date,JSON,URL,Buffer,AbortController,
-    readFileSync:(file:unknown)=>String(file).endsWith('pins.json')?pins:Buffer.from('inert bytes'),
+    readFileSync:(file:unknown)=>{if(String(file).endsWith('pins.json')){pinReads.push(String(file));return pins;}return Buffer.from('inert bytes');},
     lstatSync:()=>({isFile:()=>true,isSymbolicLink:()=>false}),mkdirSync(){},existsSync:()=>false,
     unlinkSync(){throw Error('Unexpected filesystem mutation');},writeFileSync(){enrollmentWrites++;},openSync(){return 1;},closeSync(){},
     requireCandidateBActivation(){},createNativeSession:()=>({}),CandidatePacket:InertPacket,
@@ -41,6 +43,9 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
   const entry:()=>Promise<void>=vm.runInContext(source+'\nrunManualPacket;',context);
   const running=entry();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(starts,0);assert.equal(enrollmentWrites,0);
+  assert.equal(packetOptions?.root,'/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016');
+  assert.equal(packetOptions?.attempt,'replacement-20261016');
+  assert.deepEqual(pinReads,['/synthetic/successor/evidence/2026-10-16-candidate-b-replacement/pins.json']);
   assert.equal(output.includes('Preflight passed. Open this exact app:'),false);
   input.write('start\n');await entered.promise;
   if(stop==='EOF')input.end();else fakeProcess.emit(stop);

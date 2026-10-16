@@ -10,7 +10,7 @@ import {createNativeSession} from './native-session.ts';
 import {redactedStartupFailure} from '../runner/startup-diagnostic.ts';
 
 function verifyPins(root:string,app:string) {
-  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-startup-diagnostic/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
+  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-replacement/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
   for(const [base,files] of [[root,pins.sourceFiles],[app,pins.appFiles]] as const){
     if(!Array.isArray(files)||files.length===0||files.length>2_000)throw new Error('Invalid candidate pins');
     for(const file of files){
@@ -30,11 +30,11 @@ async function runPreparedPacket():Promise<void> {
   const root=fileURLToPath(new URL('../..',import.meta.url));
   const app=join(root,'successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app');
   verifyPins(root,app);
-  const sessionRoot='/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session';
+  const sessionRoot='/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016';
   const workspace=join(sessionRoot,'empty'),temporaryDirectory=join(sessionRoot,'tmp');
   for(const path of [sessionRoot,workspace,temporaryDirectory]){mkdirSync(path,{recursive:true,mode:0o700});if(lstatSync(path).isSymbolicLink())throw new Error('Session path cannot be a symlink');}
   const native=createNativeSession({directory:'/Users/tobiasgunn/Library/Application Support/FortCandidateB',appExecutable:join(app,'Contents/MacOS/FortMac')});
-  const packet=new CandidatePacket({root:sessionRoot,native,launchRuntime:remainingWorkMs=>launchCandidateCodex({workspace,temporaryDirectory,remainingWorkMs})});
+  const packet=new CandidatePacket({root:sessionRoot,attempt:'replacement-20261016',native,launchRuntime:remainingWorkMs=>launchCandidateCodex({workspace,temporaryDirectory,remainingWorkMs})});
   const terminal=createInterface({input:process.stdin,output:process.stdout});
   const cancellation=new AbortController();
   let active:Awaited<ReturnType<CandidatePacket['start']>>|undefined;
@@ -43,7 +43,7 @@ async function runPreparedPacket():Promise<void> {
   const stop=()=>{cancellation.abort();terminal.close();};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
   terminal.once('close',stop);
-  process.stdout.write('Prepared packet. Type start only when ready to attend. Commands: start, status, done (after quitting Fort), abort.\n');
+  process.stdout.write('Prepared one-start replacement. Type start only when the UI operator is ready. No restart is authorized. Commands: start, status, done (after quitting Fort), abort.\n');
   try{
     for await(const line of terminal){
       const command=line.trim();

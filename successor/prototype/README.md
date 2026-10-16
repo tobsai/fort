@@ -1,107 +1,56 @@
-# Candidate B — blocked after first start
+# Candidate B — one approved replacement
 
-The authorized autonomous attempt consumed one start and failed closed before
-readiness, enrollment or any sample. Its original state remains untouched. Do
-not rerun the controller or reset the packet. The current revision adds only
-[redacted startup diagnostics](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md);
-it does not authorize another provider start or change any preflight requirement.
+The original attempt remains blocked with one consumed start and zero receipts.
+Its directory, ledger and [diagnostic evidence](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md)
+are preserved. The owner approved one separate replacement on October 16 at
+19:34:56 UTC. The [replacement packet](../ops/candidate-b-replacement-20261016/MANUAL.md)
+contains the exact UI-task launch instructions, samples and cleanup checks;
+[its evidence](../evidence/2026-10-16-candidate-b-replacement/README.md) pins this revision.
 
-The owner approved this bounded replacement test and its minimal activation
-revision; [the approval record](../evidence/2026-10-16-candidate-b-activation/approval.json)
-preserves the exact scope. `requireCandidateBActivation()` now permits only the
-manual entrypoint. It is an application routing check, not a host security boundary.
-No provider process, real credential or local provider configuration was accessed
-while preparing activation. The subsequent autonomous attempt and current
-diagnostic work are recorded separately in the evidence above.
+`manual.ts` verifies the source and unchanged app bytes before preparing the
+fixed replacement directory. It passes the explicit `replacement-20261016`
+attempt identity to `CandidatePacket`. No environment switch, retry or second
+session is offered. Any persisted replacement state prevents another start.
+The old two-session controller behavior remains available only for historical
+nonlive regression coverage; the live manual entry selects the replacement.
+The application entry guard is a routing check, not host isolation.
 
-The existing entry is `/opt/homebrew/opt/node@26/bin/node successor/prototype/manual.ts`
-in the candidate worktree. Do not invoke it: the packet is blocked, and this
-diagnostic revision grants no live retry. It verifies source/app bytes, owns
-the two-session controller and exposes only `start`, `status`, `done` and `abort`
-terminal commands. Runtime preflight and the session clock begin only on `start`.
-The user opens/quits the exact pinned app and performs the five samples described
-in [the manual](../ops/candidate-b-manual-packet-20261016/MANUAL.md).
+The replacement accepts the same five literal samples in order with the same
+Agent names, instructions, bindings, skills and conversations. Earlier runs must
+complete before the next sample is admitted. Sample 5 now occurs in the same
+session, so it does not establish recall across a restart. Extra or mismatched
+messages are refused before durable acceptance; cached receipt replay does not
+create another run. Failed, canceled, crashed or uncertain attempts cannot resume.
 
-## Implemented controls
+Work stops at 292 seconds. Eight seconds are reserved within the five-minute
+total for owned-process termination, listener closure and exact credential
+cleanup. The replacement credential expires no later than five minutes from
+start and is never retained for a restart. Success requires all five completed
+runs, the exact native app fully exited, an empty actual native pending queue,
+confirmed cleanup, and completion of cleanup by the total deadline. Overshoot
+is blocked. These are supervised timers and bounded subprocess waits, not a
+hard-real-time guarantee. SIGINT, SIGTERM and terminal closure cancel pending
+preflight as well as ready sessions. Cancellation consumes the start.
 
-- One initialized Codex connection is preflighted before enrollment or HTTP service
-  exposure. `config/read` must confirm every pinned setting and the entire MCP map
-  has no enabled/unknown server. The feature list and full MCP status list must
-  terminate within eight pages. Missing fields, repeated cursors, an unexpected
-  provider override or any MCP status entry fail closed. Account class must be
-  existing ChatGPT and the exact model must be available.
-- Every turn repeats effective controls, checks the ephemeral thread response and
-  repeats feature/MCP inspection for that thread before the cancellation fence
-  and `turn/start`. No tools, fallback, login or extra diagnostic turn is added.
-- SIGINT, SIGTERM and terminal closure cancel pending startup as well as a ready
-  session. The signal reaches preflight and listener startup; a late completion
-  cannot publish enrollment or readiness. Cancellation consumes the start and
-  leaves the packet blocked.
-- The HTTP acceptance gate allows only the next of five literal samples, with the
-  expected Agent, instructions, skill and conversation. It requires earlier runs
-  completed and retains the same Agent/binding/Home identities. Extra or early
-  samples are rejected before durable acceptance. Cached receipt replay creates
-  no additional run.
-- Durable start state plus an exclusive lock permits at most two sessions. A
-  failed/crashed/uncertain session cannot be resumed automatically. Each session
-  now stops work at **292 seconds**, reserving eight seconds within the unchanged
-  five-minute limit for TERM/KILL, process checks and credential cleanup. The
-  owned-runtime allowance is bounded by that remaining outer budget. This is
-  timer-based supervision, not a hard-real-time or host-confinement guarantee.
-- Restart requires four retained completed receipts, the actual installation's
-  native pending file decoding to an empty array, exact app exit, and successful
-  service/runtime cleanup. The same port, ledger and installation reopen for
-  sample 5. The gate is checked again before native relaunch. A missing or malformed
-  queue fails; the synthetic harness queue is never used as native evidence.
+The pinned Codex 0.157.1 launcher, gpt-6-astra selection, existing ChatGPT account
+requirement, effective configuration/feature/MCP checks, per-turn checks, refusal
+rules and allowlisted startup diagnostics are unchanged. No configuration fault
+is guessed or bypassed. A failed preflight may be the replacement's useful result;
+it does not authorize another attempt. Raw provider payloads, stderr, credentials
+and arbitrary errors are excluded from the diagnostic `{stage, check}` pair.
 
-## Local credential lifetime and cleanup
+Cleanup revokes the exact service enrollment/device rows and attempts deletion
+of only the issued installation/device Keychain items under `Fort.Spec058.Device`.
+It reads no secret value. Successful deletion also removes matching connection
+metadata; history and pending files remain. The local enrollment file is removed
+on shutdown. Failed Keychain deletion is reported as `unconfirmed` and blocks the
+packet. A crash can leave files or an inactive expiring item; no reset or global
+credential sweep is authorized.
 
-The packet explicitly selects bounded enrollment. It can issue one enrollment
-code and one device credential, with an immutable deadline at most ten minutes
-from the first session start, including the gap. The second session cannot extend
-it. This replaces the earlier packet's proposed 30-day credential; ordinary
-fixture-service defaults are unchanged.
-
-Final/failed shutdown deletes the candidate's enrollment/device authorization
-rows and closes future enrollment. Only a fully confirmed first-session handoff
-retains the device for session two. Exiting the controller between sessions
-revokes it too. Native cleanup targets only `Fort.Spec058.Device` and the exact
-installation/device account IDs issued by this ledger, without reading secret
-values; it also removes that matching connection metadata after successful
-Keychain deletion. It handles an issued item whose connection-file write failed.
-The local enrollment-code file is removed on shutdown and never printed in logs.
-
-If macOS refuses Keychain deletion, the result is `credentialCleanup:unconfirmed`
-and the packet is blocked. The item/connection metadata may remain, but the server
-has revoked its token. An uncatchable controller crash can also leave local state
-or an inactive/expiring item; its persisted deadline is never extended and a stale
-lock blocks further starts. Sample history, pending files and redacted receipts
-are retained. No global credential sweep or system-permission change occurs.
-
-## Runtime limits that remain unproven
-
-The pinned 0.157.1 executable has not run in this increment. Its actual merged
-settings may omit a field this strict preflight requires; the result is a stop,
-not an assumption or relaxed default. A nonempty MCP status list also stops even
-if an implementation reports disabled entries. These compatibility questions
-require the eventual authorized no-turn preflight.
-
-The official host starts before it can answer `config/read`. Retained HOME may
-allow ambient discovery or startup side effects before that response. This code
-cannot prove their absence without starting the runtime or inspecting sensitive
-configuration, and neither was done. It does block thread creation/MCP discovery
-requests until the effective map is confirmed, then blocks turns until both global
-and thread checks pass. No direct user-config reader is added.
-
-Requested read-only/untrusted/network-disabled computer-tool policy is not host
-filesystem, Keychain, IPC or network confinement. Extra empty-environment/tool/root
-fields may be ignored; tool-event refusal cannot undo an effect. Owned-group
-cleanup cannot contain escaped descendants or prove remote provider cancellation.
-The exact requested model is checked; effective-model attestation remains absent.
-These are the previously disclosed host-risk class, not completed OS-isolation
-acceptance. Actual launch, sign-in availability, native Keychain behavior, process
-cleanup and manual visuals remain unrun. The Apple source/app is unchanged.
-
-[Current source pins and validation](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md)
-record the diagnostic revision. The prior activation evidence remains preserved.
-This revision claims only nonlive diagnostic checks, not a successful live test.
+The official host starts with the Mac user's HOME/access before effective config
+can be checked. Ambient startup effects remain possible. Computer-tool policy is
+not host filesystem, Keychain, IPC or network confinement; group cleanup cannot
+contain escaped descendants or prove remote cancellation. Effective-model
+attestation is absent. No provider sign-in, OS settings change, permanent service,
+public ingress or deployment is added. Native/provider acceptance and screenshots
+must be supplied by the designated UI task after the exact pinned run.
