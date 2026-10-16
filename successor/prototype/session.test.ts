@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { CandidatePacket, SAMPLES } from './session.ts';
 import type { Agent,InstructionSkill,Conversation,Acceptance,Snapshot } from '../contracts/v1.ts';
 import type { ChatInput } from '../runner/chat-runtime.ts';
+import {StartupCheckError} from '../runner/startup-diagnostic.ts';
 
 for (const mode of ['success','pending','app','dispose','late-pending'] as const) test(`bounded packet honors exact samples and restart gate: ${mode}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-unit-'));
@@ -147,4 +148,20 @@ test('the same cancellation handle closes a ready session and revokes its listen
   assert.equal((await session.closed).phase,'blocked');assert.equal(disposals,1);
   await assert.rejects(()=>fetch(session.baseURL+'/v1/installation'));
   await assert.rejects(()=>packet.start(),/cannot start/);
+});
+
+for(const recognized of [false,true])test(`a failed startup records its redacted check without allowing retry or copying the underlying error: ${recognized}`,async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-packet-diagnostic-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let disposals=0,launches=0;
+  const packet=new CandidatePacket({root,native:{assertFresh(){},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:()=>{
+    launches++;return {async preflight(){throw recognized?Object.assign(new StartupCheckError({stage:'config',check:'analytics.enabled'}),{message:'synthetic-secret-must-not-persist'}):new Error('synthetic-secret-must-not-persist');},async execute(){throw new Error('Unexpected turn');},async dispose(){disposals++;}};
+  }});
+  await assert.rejects(()=>packet.start(),/preflight failed/);
+  const raw=await readFile(join(root,'session-state.json'),'utf8'),state=JSON.parse(raw);
+  assert.deepEqual(state.failure,recognized?{stage:'config',check:'analytics.enabled'}:{stage:'session',check:'runtime-preflight'});
+  assert.equal(raw.includes('synthetic-secret-must-not-persist'),false);
+  assert.equal(state.phase,'blocked');assert.equal(state.starts,1);assert.equal(state.port,undefined);
+  assert.equal(state.receipts.length,0);assert.equal(state.credentialCleanup,'deleted');
+  await assert.rejects(()=>packet.start(),/cannot start/);
+  assert.equal(disposals,1);assert.equal(launches,1);
 });

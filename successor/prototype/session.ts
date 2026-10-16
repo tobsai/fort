@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createOpenAIService,type SubmissionAdmission } from '../service/openai.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { Acceptance,Run } from '../contracts/v1.ts';
+import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from '../runner/startup-diagnostic.ts';
 
 export const SAMPLES = [
   { text:'Remember the sample word cedar. Reply with that word only.',agent:'Writer' },
@@ -19,7 +20,7 @@ export type NativeSession = {
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type State={ version:1; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed' };
+type State={ version:1; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
 type Options={ root:string; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
 function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number):boolean {
@@ -138,6 +139,7 @@ export class CandidatePacket {
     const cancelTimer=schedule(()=>{ void finish(false).catch(()=>{}); },Math.max(1,workDeadline-now()));
     const cancel=()=>{void finish(false).catch(()=>{});};
     signal?.addEventListener('abort',cancel,{once:true});
+    let checkpoint:StartupDiagnostic={stage:'session',check:'runtime-launch'};
     try {
       signal?.throwIfAborted();
       if(now()>=workDeadline)throw new Error('No session work budget remains');
@@ -146,16 +148,21 @@ export class CandidatePacket {
         if (report.installation.installationId!==previous.installationId || report.runs.length!==4 || report.receipts.length!==4 || report.runs.some(run=>run.state!=='completed') || JSON.stringify(report.receipts)!==JSON.stringify(previous.receipts)) throw new Error('Stored first-session completions changed');
       }
       runtime=launchRuntime(Math.min(workDeadline,state.credentialDeadline)-now());
+      checkpoint={stage:'session',check:'runtime-preflight'};
       const preflight=await Promise.race([runtime.preflight(abort.signal),closed.then(()=>{throw new Error('Session stopped during preflight');})]);
+      checkpoint={stage:'session',check:'preflight-identity'};
       if (preflight.model!=='gpt-6-astra' || preflight.runtimeVersion!=='0.157.1' || now()>=workDeadline || abort.signal.aborted) throw new Error('Session preflight did not complete within its budget');
+      checkpoint={stage:'session',check:'listener-start'};
       await service.start({ port:previous?.port??0,signal:abort.signal });
       abort.signal.throwIfAborted();
       state.installationId=service.installation.installationId;state.port=Number(new URL(service.baseURL).port);this.save(state);
       accepting=true;
+      checkpoint={stage:'session',check:'enrollment'};
       return { baseURL:service.baseURL,installationId:service.installation.installationId,enrollment:state.starts===1?service.issueEnrollment():undefined,
         finish:()=>finish(true),abort:()=>finish(false),status:()=>service.inspectSession(),closed,workDeadline,credentialDeadline:state.credentialDeadline };
-    } catch {
-      await finish(false);throw new Error('Session preflight failed; no retry or extra start is authorized.');
+    } catch(error) {
+      state.failure=redactedStartupFailure(error,abort.signal.aborted?{stage:'session',check:'cancelled-or-expired'}:checkpoint);
+      await finish(false);this.save(state);throw new StartupCheckError(state.failure);
     }
   }
 }

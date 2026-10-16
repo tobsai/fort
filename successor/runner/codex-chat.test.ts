@@ -5,15 +5,17 @@ import { CodexConnection } from './codex-rpc.ts';
 import { CodexChat } from './codex-chat.ts';
 import type { ChatInput } from './chat-runtime.ts';
 import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts';
+import {redactedStartupFailure} from './startup-diagnostic.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: unknown[][]; threadMcp?:unknown[]; features?: unknown[]; cycleCursor?: boolean } = {}) {
+function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; cycleCursor?: boolean; rejectMethod?:string } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
     const frame = JSON.parse(chunk.toString()); calls.push(frame);
     queueMicrotask(() => {
       const result = (value: unknown) => emit({ id:frame.id, result:value });
+      if(frame.method===options.rejectMethod){emit({id:frame.id,error:{code:-32602,message:'synthetic-secret-must-not-report',data:{token:'synthetic-secret-must-not-report'}}});return;}
       switch (frame.method) {
         case 'initialize': result({ userAgent:'synthetic' }); break;
         case 'config/read': result({ config:options.config ?? syntheticConfig() }); break;
@@ -55,6 +57,27 @@ test('synthetic Codex connection preserves selected instructions and conversatio
   assert.match(JSON.stringify(turn.params?.input), /Remember cedar/);
   assert.equal(fixture.calls.some(c => c.method?.includes('login')), false);
   fixture.connection.close();
+});
+
+test('no-turn preflight reports only the exact failed check, never provider payloads',async()=>{
+  for(const [options,expected] of [
+    [{rejectMethod:'initialize'},{stage:'protocol',check:'initialize'}],
+    [{rejectMethod:'config/read'},{stage:'protocol',check:'config/read'}],
+    [{config:{...syntheticConfig(),analytics:{enabled:'synthetic-secret-must-not-report'}}},{stage:'config',check:'analytics.enabled'}],
+    [{config:{...syntheticConfig(),check_for_update_on_startup:undefined}},{stage:'config',check:'check_for_update_on_startup'}],
+    [{features:syntheticFeatures().filter(feature=>feature.name!=='shell_tool')},{stage:'features',check:'shell_tool'}],
+    [{mcpPages:[[{name:'synthetic-secret-must-not-report'}]]},{stage:'mcp',check:'inventory'}],
+    [{model:'synthetic-secret-must-not-report'},{stage:'model',check:'availability'}],
+  ] as const){
+    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    let failure:unknown;
+    try{await runtime.preflight(new AbortController().signal);}catch(error){failure=error;}
+    await runtime.dispose();
+    assert.deepEqual(redactedStartupFailure(failure,{stage:'session',check:'runtime-preflight'}),expected);
+    assert.equal(JSON.stringify(failure).includes('synthetic-secret-must-not-report'),false);
+    assert.equal(fixture.calls.some(call=>call.method==='thread/start'||call.method==='turn/start'),false);
+    assert.equal(fixture.closed,true);
+  }
 });
 
 test('ambient servers, missing features, repeated cursors and thread-only MCP capabilities fail closed',async()=>{

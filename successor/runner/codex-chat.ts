@@ -4,6 +4,7 @@ import { CodexTurn, type CodexOutput } from './codex.ts';
 import { CodexConnection, object } from './codex-rpc.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
+import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
 
 export class CodexChat implements ChatRuntime {
   private readonly options: { connection: CodexConnection; workspace: string; runtimeVersion: string };
@@ -17,20 +18,23 @@ export class CodexChat implements ChatRuntime {
   dispose(): Promise<void> { return this.options.connection.dispose(); }
   async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {
     const { connection,workspace,runtimeVersion }=this.options;
+    let checkpoint:StartupDiagnostic={stage:'protocol',check:'initialize'};
     try {
       if (!this.initialized) {
         await connection.request('initialize',{ clientInfo:{ name:'fort_candidate_b',title:'Fort',version:'0.1.0' },capabilities:{ experimentalApi:true,requestAttestation:false } },signal);
         connection.notify('initialized',{}); this.initialized=true;
       }
       await verifyRuntimeControls(connection,workspace,signal);
+      checkpoint={stage:'protocol',check:'account/read'};
       const account=object(await connection.request('account/read',{ refreshToken:false },signal));
-      if (object(account.account).type!=='chatgpt' || account.requiresOpenaiAuth!==true) throw new Error('Expected existing ChatGPT authentication');
+      if (object(account.account).type!=='chatgpt' || account.requiresOpenaiAuth!==true) throw new StartupCheckError({stage:'account',check:'chatgpt'});
+      checkpoint={stage:'protocol',check:'model/list'};
       const models=await readRuntimePages(connection,'model/list',{},signal);
-      if (!models.some(value => object(value).id===model)) throw new Error('Exact requested model unavailable');
+      if (!models.some(value => object(value).id===model)) throw new StartupCheckError({stage:'model',check:'availability'});
       return { model,runtimeVersion };
-    } catch {
+    } catch(error) {
       connection.close();
-      throw new Error('No-turn preflight was not confirmed; provider dispatch is blocked.');
+      throw new StartupCheckError(redactedStartupFailure(error,checkpoint));
     }
   }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {

@@ -7,9 +7,10 @@ import {requireCandidateBActivation} from './activation.ts';
 import {launchCandidateCodex} from './owned-codex.ts';
 import {CandidatePacket} from './session.ts';
 import {createNativeSession} from './native-session.ts';
+import {redactedStartupFailure} from '../runner/startup-diagnostic.ts';
 
 function verifyPins(root:string,app:string) {
-  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-activation/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
+  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-startup-diagnostic/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
   for(const [base,files] of [[root,pins.sourceFiles],[app,pins.appFiles]] as const){
     if(!Array.isArray(files)||files.length===0||files.length>2_000)throw new Error('Invalid candidate pins');
     for(const file of files){
@@ -78,4 +79,4 @@ async function runPreparedPacket():Promise<void> {
   }
 }
 
-if(import.meta.main){try{await runManualPacket();}catch{process.stderr.write('Candidate session refused or stopped. Inspect its redacted state; do not retry automatically.\n');process.exitCode=1;}}
+if(import.meta.main){try{await runManualPacket();}catch(error){process.stderr.write(JSON.stringify({failure:redactedStartupFailure(error,{stage:'session',check:'entry'})})+'\n');process.stderr.write('Candidate session refused or stopped. Inspect its redacted state; do not retry automatically.\n');process.exitCode=1;}}

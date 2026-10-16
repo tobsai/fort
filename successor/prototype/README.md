@@ -1,15 +1,22 @@
-# Candidate B — approved attended runner, awaiting Mac readiness
+# Candidate B — blocked after first start
+
+The authorized autonomous attempt consumed one start and failed closed before
+readiness, enrollment or any sample. Its original state remains untouched. Do
+not rerun the controller or reset the packet. The current revision adds only
+[redacted startup diagnostics](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md);
+it does not authorize another provider start or change any preflight requirement.
 
 The owner approved this bounded replacement test and its minimal activation
 revision; [the approval record](../evidence/2026-10-16-candidate-b-activation/approval.json)
 preserves the exact scope. `requireCandidateBActivation()` now permits only the
 manual entrypoint. It is an application routing check, not a host security boundary.
 No provider process, real credential or local provider configuration was accessed
-while preparing activation. The owner has not yet confirmed readiness at the Mac.
+while preparing activation. The subsequent autonomous attempt and current
+diagnostic work are recorded separately in the evidence above.
 
-After the coordinator relays Mac readiness and the current pins are verified,
-the entry is `/opt/homebrew/opt/node@26/bin/node successor/prototype/manual.ts` in
-the candidate worktree. Do not invoke it yet. It verifies source/app bytes, owns
+The existing entry is `/opt/homebrew/opt/node@26/bin/node successor/prototype/manual.ts`
+in the candidate worktree. Do not invoke it: the packet is blocked, and this
+diagnostic revision grants no live retry. It verifies source/app bytes, owns
 the two-session controller and exposes only `start`, `status`, `done` and `abort`
 terminal commands. Runtime preflight and the session clock begin only on `start`.
 The user opens/quits the exact pinned app and performs the five samples described
@@ -95,7 +102,6 @@ These are the previously disclosed host-risk class, not completed OS-isolation
 acceptance. Actual launch, sign-in availability, native Keychain behavior, process
 cleanup and manual visuals remain unrun. The Apple source/app is unchanged.
 
-[Current source pins and validation](../evidence/2026-10-16-candidate-b-activation/README.md)
-record the minimal activation revision. The coordinator reported final focused
-review of the preceding candidate before the owner approved execution. This
-preparation supplies nonlive activation checks; it claims no live acceptance.
+[Current source pins and validation](../evidence/2026-10-16-candidate-b-startup-diagnostic/README.md)
+record the diagnostic revision. The prior activation evidence remains preserved.
+This revision claims only nonlive diagnostic checks, not a successful live test.
