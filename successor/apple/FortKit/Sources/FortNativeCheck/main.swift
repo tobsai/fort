@@ -4,7 +4,7 @@ import FortKit
 struct Configuration: Codable { let baseURL: URL; let installationId: String; let codeA: String; let codeB: String; let stateDirectory: URL }
 struct CheckState: Codable { let tokenA: String; let tokenB: String; let pending: PendingSubmission; let expectedSnapshot: Snapshot }
 struct CheckFailure: Error { let reason: String }
-struct WorkspaceCheckState: Codable { let token: String; let writer: Agent; let reviewer: Agent; let room: Conversation; let skill: InstructionSkill; let pending: PendingSubmission }
+struct WorkspaceCheckState: Codable { let token: String; let writer: Agent; let reviewer: Agent; let room: Conversation; let skill: InstructionSkill; let pending: PendingSubmission; let receipts: [Receipt]; let completedRunIDs: [String]; let pendingRequestCount: Int }
 func require(_ condition: Bool, _ message: String) throws { if !condition { throw CheckFailure(reason:message) } }
 
 func awaitState(_ client: FortClient, conversationID: String, state: String, runID: String? = nil) async throws -> Snapshot {
@@ -39,6 +39,7 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             let skill = try await client.saveSkill(nil,name:"Check marker",instructions:"End with [CHECKED].")
             let room = try await client.createConversation(name:"Sample planning",participantAgentIds:[writer.id,reviewer.id])
             var first: PendingSubmission?
+            var receipts: [Receipt] = [], completedRunIDs: [String] = []
             let samples: [(Agent,String,String,[SkillReference])] = [
                 (writer,writer.homeConversationId,"Remember the sample word cedar. Reply with that word only.",[]),
                 (reviewer,reviewer.homeConversationId,"In one sentence, explain why a checklist is useful.",[]),
@@ -56,10 +57,13 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
                 try require(reply?.agentId == agent.id,"reply attribution changed")
                 let acceptedRun = snapshot.runs.first { $0.runId == acceptance.receipt.runId }
                 try require(acceptedRun?.configuration?.skills.map(\.reference) == selectedSkills,"selected skill revision changed")
+                try require(acceptedRun?.state == "completed","sample run was not completed")
+                receipts.append(acceptance.receipt); completedRunIDs.append(acceptance.receipt.runId)
                 try store.remove(requestID:pending.requestID)
             }
             try require(try store.pending().isEmpty,"native queue is not empty")
-            let state = WorkspaceCheckState(token:enrollment.deviceToken,writer:writer,reviewer:reviewer,room:room,skill:skill,pending:first!)
+            try require(receipts.count == 4 && Set(completedRunIDs).count == 4,"four distinct completed sample receipts are required")
+            let state = WorkspaceCheckState(token:enrollment.deviceToken,writer:writer,reviewer:reviewer,room:room,skill:skill,pending:first!,receipts:receipts,completedRunIDs:completedRunIDs,pendingRequestCount:try store.pending().count)
             try JSONEncoder().encode(state).write(to:stateFile,options:.atomic)
             try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:stateFile.path)
             print("PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue")
@@ -67,7 +71,15 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
         }
         if CommandLine.arguments[1] == "workspace-replay" {
             let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:stateFile))
+            try require(state.receipts.count == 4 && Set(state.completedRunIDs).count == 4 && state.pendingRequestCount == 0,"restart gate is missing first-session evidence")
+            try require(try store.pending().isEmpty,"restart gate refuses a nonempty native pending queue")
             let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            for receipt in state.receipts {
+                let saved = try await client.receipt(requestID:receipt.requestId)
+                let snapshot = try await client.snapshot(conversationID:receipt.conversationId)
+                try require(saved.receipt.runId == receipt.runId && state.completedRunIDs.contains(receipt.runId),"sample receipt identity changed")
+                try require(snapshot.runs.contains { $0.runId == receipt.runId && $0.state == "completed" },"sample completion is missing after restart")
+            }
             let agents = try await client.agents(), skills = try await client.skills(), rooms = try await client.conversations()
             try require(agents.contains(state.writer) && agents.contains(state.reviewer),"Agent identity changed after restart")
             try require(skills == [state.skill] && rooms.contains(state.room),"workspace changed after restart")

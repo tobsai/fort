@@ -1,18 +1,17 @@
 import SwiftUI
+import Observation
 
 struct WorkspaceEditor: View {
     @Bindable var model: MessengerModel
     @Environment(\.dismiss) private var dismiss
     @State private var kind = "Agent"
     @State private var editingID = "new"
-    @State private var name = ""
-    @State private var exactModel = "gpt-6-astra"
-    @State private var instructions = ""
+    @State private var form = WorkspaceForm(agent:nil)
     @State private var participants: Set<String> = []
     private var valid: Bool {
-        !name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty &&
-        (kind == "Conversation" ? participants.count >= 2 && participants.count <= 8 : !instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) &&
-        (kind != "Agent" || !exactModel.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
+        !form.name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty &&
+        (kind == "Conversation" ? participants.count >= 2 && participants.count <= 8 : !form.instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) &&
+        (kind != "Agent" || !form.exactModel.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
     }
     var body: some View {
         NavigationStack {
@@ -26,8 +25,8 @@ struct WorkspaceEditor: View {
                         else { ForEach(model.skills) { Text($0.name).tag($0.id) } }
                     }
                 }
-                TextField("Name", text:$name)
-                if kind == "Agent" { TextField("Exact model ID", text:$exactModel).autocorrectionDisabled() }
+                TextField("Name", text:$form.name)
+                if kind == "Agent" { TextField("Exact model ID", text:$form.exactModel).autocorrectionDisabled() }
                 if kind == "Conversation" {
                     Section("Participants") {
                         ForEach(model.agents) { agent in
@@ -37,7 +36,7 @@ struct WorkspaceEditor: View {
                     Text("Choose one recipient when sending each message.").font(.caption)
                 } else {
                     Section(kind == "Skill" ? "Instruction skill" : "Agent instructions") {
-                        TextEditor(text:$instructions).frame(minHeight:130).accessibilityLabel("Instructions")
+                        TextEditor(text:$form.instructions).frame(minHeight:130).accessibilityLabel("Instructions")
                     }
                     if kind == "Skill" { Text("Selected instructions apply only to the messages you choose. Skills do not install tools or execute files.").font(.caption) }
                 }
@@ -53,15 +52,34 @@ struct WorkspaceEditor: View {
         .onChange(of:editingID) { _,_ in load() }
     }
     private func load() {
-        name = ""; instructions = ""; participants = []
-        if kind == "Agent", let agent = model.agents.first(where:{$0.id == editingID}) { name = agent.name; instructions = agent.instructions ?? ""; exactModel = agent.binding.selectedModel }
-        if kind == "Skill", let skill = model.skills.first(where:{$0.id == editingID}) { name = skill.name; instructions = skill.instructions }
+        participants = []
+        if kind == "Skill" { form = WorkspaceForm(skill:model.skills.first(where:{$0.id == editingID})) }
+        else { form = WorkspaceForm(agent:model.agents.first(where:{$0.id == editingID})) }
     }
     private func save() async {
         let saved: Bool
-        if kind == "Agent" { saved = await model.saveAgent(model.agents.first(where:{$0.id == editingID}),name:name,model:exactModel,instructions:instructions) }
-        else if kind == "Skill" { saved = await model.saveSkill(model.skills.first(where:{$0.id == editingID}),name:name,instructions:instructions) }
-        else { saved = await model.createConversation(name:name,participantAgentIDs:model.agents.filter { participants.contains($0.id) }.map(\.id)) }
+        if kind == "Conversation" { saved = await model.createConversation(name:form.name,participantAgentIDs:model.agents.filter { participants.contains($0.id) }.map(\.id)) }
+        else { saved = await form.save(using:model) }
         if saved { dismiss() }
+    }
+}
+
+@Observable @MainActor final class WorkspaceForm {
+    private enum Source { case agent(Agent?); case skill(InstructionSkill?) }
+    private let source: Source
+    var name: String
+    var exactModel: String
+    var instructions: String
+    init(agent: Agent?) {
+        source = .agent(agent); name = agent?.name ?? ""; exactModel = agent?.binding.selectedModel ?? "gpt-6-astra"; instructions = agent?.instructions ?? ""
+    }
+    init(skill: InstructionSkill?) {
+        source = .skill(skill); name = skill?.name ?? ""; exactModel = ""; instructions = skill?.instructions ?? ""
+    }
+    func save(using model: MessengerModel) async -> Bool {
+        switch source {
+        case .agent(let loaded): await model.saveAgent(loaded,name:name,model:exactModel,instructions:instructions)
+        case .skill(let loaded): await model.saveSkill(loaded,name:name,instructions:instructions)
+        }
     }
 }
