@@ -1,0 +1,17 @@
+[
+  {
+    "path": "session-red.log.gz",
+    "rawBytes": 1115,
+    "rawSHA256": "5055ff9bfc7c0ad1f43d81e961906fd33cf07eaf6014619d228c396b808408d1"
+  },
+  {
+    "path": "manual-red.log.gz",
+    "rawBytes": 3632,
+    "rawSHA256": "684b2ac52f44215173ce6150428aff2f22ddea46db1766c4a2509b99b7e1683d"
+  },
+  {
+    "path": "replay-expectation-correction.log.gz",
+    "rawBytes": 1038,
+    "rawSHA256": "9d49d565388bc98757d634e4693d676513176ad1e55b4431498cb6e4c2d63452"
+  }
+]

@@ -1,0 +1,6 @@
+Three old attempt file sets, state and ledger hashes unchanged; one consumed start and zero receipts each.
+Fourth live root is absent: no state, ledger, enrollment, lock or live start created.
+Runtime executable and all five native app files match prior pins.
+Entire runner, service, Apple source, official launcher, native cleanup and activation guard byte-identical to fcc3685.
+Main checkout status byte-identical to saved baseline.
+No live controller/runtime/native app, real enrollment, credential read/copy, sign-in or OS change performed by preparation.

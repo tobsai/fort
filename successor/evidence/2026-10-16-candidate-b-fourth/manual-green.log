@@ -1,0 +1,14 @@
+(node:33381) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual entry refuses indirect use before pin reads, native inspection, enrollment or process launch (0.663125ms)
+✔ SIGINT cancels a pending start before it can expose enrollment or readiness (5.637333ms)
+✔ SIGTERM cancels a pending start before it can expose enrollment or readiness (1.518125ms)
+✔ EOF cancels a pending start before it can expose enrollment or readiness (1.597167ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 136.735667

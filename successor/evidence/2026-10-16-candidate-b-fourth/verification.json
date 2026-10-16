@@ -1,0 +1,41 @@
+{
+  "sourceCommit": "916fd00e84a75250425d7cd152cfd15252a7c0e5",
+  "sourceFileCount": 468,
+  "sourceListSHA256": "3a398e49c4c7e2494f7969c1f772e5cf2fd2d322380c60343e45ad74b8a04a32",
+  "sourceBytesMatchCommit": true,
+  "appFileCount": 5,
+  "appListSHA256": "9c32247c3c77b1618515aec7faad3944826ec9e11d4ecc0d58483c8ecd23ad2b",
+  "runtimeSHA256": "27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d",
+  "focusedTests": {
+    "passed": 434,
+    "failed": 0,
+    "exitCode": 0,
+    "command": "node --test prototype/session.test.ts prototype/manual.test.ts prototype/native-session.test.ts prototype/owned-codex.test.ts runner/codex.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts"
+  },
+  "strictTypeScript": {
+    "exitCode": 0
+  },
+  "redGreen": [
+    "session-red.log.gz: fourth identity was not using the one-start five-minute deadline",
+    "manual-red.log.gz: entry still selected third root/pins",
+    "session-green.log and manual-green.log passed; full final focused-tests.log passed"
+  ],
+  "otherExploratoryFailures": [
+    "session-environment-block.log: command sandbox prevented temporary loopback listener; rerun with approved permission",
+    "replay-expectation-correction.log.gz: test expected 200, corrected to existing receipt-replay contract 201; product HTTP behavior unchanged"
+  ],
+  "preservation": "passed",
+  "fourthRootAbsent": true,
+  "liveControllerStarted": false,
+  "realRuntimeStarted": false,
+  "realNativeAppStarted": false,
+  "realEnrollmentCreated": false,
+  "persistentSettingsChanged": false,
+  "unrun": [
+    "fourth live preflight/provider turn",
+    "real native pairing/Keychain cleanup and UI screenshots",
+    "native/Swift rebuild",
+    "full unrelated test suite",
+    "independent review of this delta"
+  ]
+}

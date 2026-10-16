@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "packetId": "candidate-b-fourth-20261016",
+  "attempt": "fourth-20261016",
+  "sourceCommit": "916fd00e84a75250425d7cd152cfd15252a7c0e5",
+  "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016",
+  "rootAbsentAtPreparation": true,
+  "approvalFile": "successor/evidence/2026-10-16-candidate-b-fourth/approval.json",
+  "pinsFile": "successor/evidence/2026-10-16-candidate-b-fourth/pins.json",
+  "entry": "successor/prototype/manual.ts",
+  "executorThreadId": "01a1451b-81d7-76cf-8e5c-a85d7164201c",
+  "maximumStarts": 1,
+  "maximumRestarts": 0,
+  "totalMillisecondsIncludingCleanup": 300000,
+  "workMilliseconds": 292000,
+  "cleanupReserveMilliseconds": 8000,
+  "samples": [
+    {
+      "agent": "Writer",
+      "conversation": "Writer Home",
+      "skills": [],
+      "model": "gpt-6-astra",
+      "instructions": "Reply briefly using supplied context.",
+      "text": "Remember the sample word cedar. Reply with that word only.",
+      "expectedReply": "cedar"
+    }
+  ],
+  "preservedRoots": [
+    "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session",
+    "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016",
+    "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016"
+  ],
+  "nativeDirectory": "/Users/tobiasgunn/Library/Application Support/FortCandidateB",
+  "appPath": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app",
+  "operatorInstructions": "successor/ops/candidate-b-fourth-20261016/MANUAL.md",
+  "preparationOnly": true
+}
