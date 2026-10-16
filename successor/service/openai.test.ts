@@ -163,3 +163,14 @@ test('profile edits keep stable identity, fence stale submissions and preserve a
   assert.deepEqual(calls[0]?.configuration.skills, [skill]);
   assert.equal((await h.api(path, command)).status, 201);
 });
+
+test('message acceptance preserves whitespace-only plain text and rejects malformed Unicode before dispatch', async t => {
+  const h = await setup(t);
+  const agent = (await h.api<Agent>('/v1/agents', { name:'Writer', model:'gpt-6-astra', instructions:'Reply.' })).body;
+  const path = `/v1/conversations/${agent.homeConversationId}/messages`;
+  const command = { requestId:'whitespace', text:' \t\r\n ', recipientAgentId:agent.agentId, bindingRevisionId:agent.binding.bindingRevisionId, recoveryEpoch:h.service.installation.recoveryEpoch, skills:[] };
+  const result = await h.api<Acceptance>(path,command);
+  assert.equal(result.status,201);
+  assert.equal(result.body.snapshot.messages[0]?.text,command.text);
+  assert.equal((await h.api(path,{ ...command,requestId:'invalid-unicode',text:'\ud800' })).status,400);
+});

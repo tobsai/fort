@@ -21,6 +21,10 @@ function text(value: unknown, label: string, max = 16_384): string {
   if (typeof value !== 'string' || !value.isWellFormed() || value.trim().length === 0 || Buffer.byteLength(value) > max) fail(400, 'invalidCommand', `Invalid ${label}.`);
   return value;
 }
+function messageText(value: unknown): string {
+  if (typeof value !== 'string' || !value.isWellFormed() || value.length === 0 || Buffer.byteLength(value) > 65_536) fail(400, 'invalidCommand', 'Use nonempty valid Unicode text within the message limit.');
+  return value;
+}
 function id(value: unknown): string {
   const result = text(value, 'identifier', 128);
   if (!/^[A-Za-z0-9_-]+$/.test(result)) fail(400, 'invalidCommand', 'Invalid identifier.');
@@ -49,7 +53,7 @@ function decodeConfiguration(value: unknown): TurnConfiguration {
 function decodeMessage(value: unknown): Message {
   const v = record(value);
   if ((v.role !== 'user' && v.role !== 'assistant') || typeof v.sequence !== 'number' || !Number.isSafeInteger(v.sequence)) throw new Error('Invalid stored Message');
-  return { messageId: id(v.messageId), conversationId: id(v.conversationId), requestId: id(v.requestId), role: v.role, text: text(v.text, 'message', 65_536), sequence: v.sequence, createdAt: text(v.createdAt, 'date'),
+  return { messageId: id(v.messageId), conversationId: id(v.conversationId), requestId: id(v.requestId), role: v.role, text: messageText(v.text), sequence: v.sequence, createdAt: text(v.createdAt, 'date'),
     ...(v.agentId === undefined ? {} : { agentId: id(v.agentId), agentName: text(v.agentName, 'name') }),
     ...(v.recipientAgentId === undefined ? {} : { recipientAgentId: id(v.recipientAgentId), recipientAgentName: text(v.recipientAgentName, 'name') }) };
 }
@@ -124,7 +128,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: [], lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
   };
   const accept = (request: IncomingMessage, conversationId: string, body: Record<string, unknown>): Acceptance => {
-    const requestId = id(body.requestId), bindingRevisionId = id(body.bindingRevisionId), recipientAgentId = id(body.recipientAgentId), recoveryEpoch = id(body.recoveryEpoch), inputText = text(body.text, 'message', 65_536);
+    const requestId = id(body.requestId), bindingRevisionId = id(body.bindingRevisionId), recipientAgentId = id(body.recipientAgentId), recoveryEpoch = id(body.recoveryEpoch), inputText = messageText(body.text);
     if (!Array.isArray(body.skills) || body.skills.length > 8) fail(400, 'invalidSkills', 'Select at most eight instruction skills.');
     const references = body.skills.map(value => { const v = record(value); return { skillId: id(v.skillId), revisionId: id(v.revisionId) }; });
     if (new Set(references.map(s => s.skillId)).size !== references.length) fail(400, 'invalidSkills', 'Select each skill once.');
@@ -169,7 +173,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         const run = load('runs', queued.runId, decodeRun);
         if (result.kind === 'completed') {
           const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
-          const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: text(result.text, 'reply', 65_536), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
+          const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
           put('messages', messageId, reply); put('runs', run.runId, { ...run, state: 'completed' });
         } else { put('runs', run.runId, { ...run, state: result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
       });
