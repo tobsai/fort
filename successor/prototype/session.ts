@@ -20,8 +20,9 @@ export type NativeSession = {
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type State={ version:1; attempt?:'replacement-20261016'; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
-type Options={ root:string; attempt?:'replacement-20261016'; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
+type OneStartAttempt='replacement-20261016'|'third-20261016';
+type State={ version:1; attempt?:OneStartAttempt; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
+type Options={ root:string; attempt?:OneStartAttempt; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
 function allowed(submission:SubmissionAdmission,runs:readonly Run[],session:number,replacement:boolean):boolean {
   const index=runs.length,sample=SAMPLES[index],config=submission.configuration,conversation=submission.conversation;
@@ -87,11 +88,11 @@ export class CandidatePacket {
     const { root,native,launchRuntime }=this.options,now=this.options.now??Date.now;
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
-    const replacement=this.options.attempt==='replacement-20261016';
+    const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016';
     const previous=this.read();
     if (previous && (replacement || previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
     const began=now();
-    const state:State={ version:1,...(replacement?{attempt:'replacement-20261016' as const}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
+    const state:State={ version:1,...(replacement?{attempt:this.options.attempt}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
     if(replacement)this.save(state);
     if (previous) {
       try {

@@ -1,26 +1,24 @@
-# Candidate B — both attempts blocked
+# Candidate B — third attempt prepared
 
-The original attempt and separately approved replacement each consumed one start
-and failed closed with zero receipts. Both state directories, ledgers and prior
-evidence are preserved. No retry, reset or further attempt is authorized.
-The replacement recorded `features/memory_tool`; the [nonlive compatibility
-correction](../evidence/2026-10-16-codex-feature-alias-compatibility/README.md)
-proves that Codex 0.157.1 lists canonical `memories` and `image_generation`
-features while accepting `memory_tool` and `imagegenext` as input aliases.
-Canonical controls must still be explicitly false. Their absence is a failure.
+The first two attempts remain consumed and blocked with zero receipts. Their
+state, ledgers and evidence are unchanged. The owner approved one separate third
+five-minute attempt at 20:17 UTC on October 16, after the [canonical-feature
+compatibility correction](../evidence/2026-10-16-codex-feature-alias-compatibility/README.md).
+Canonical observations must still be explicitly false; absence is a failure.
 
-The [replacement packet](../ops/candidate-b-replacement-20261016/MANUAL.md)
-and [its evidence](../evidence/2026-10-16-candidate-b-replacement/README.md) are
-historical execution authority, now consumed. The manual entry retains those
-original pins; the new diagnostic pins are for review and do not enable a run.
-The descriptions below preserve the replacement's implemented limits.
+The [third-attempt packet](../ops/candidate-b-third-20261016/MANUAL.md) and
+[its pins and approval](../evidence/2026-10-16-candidate-b-third/README.md) identify
+the new fixed directory. Only the designated UI operator executes it, with
+automatic local pairing. This preparation starts no runtime or attempt. One
+start is allowed, with no restart or extra sample; earlier attempt records
+cannot be adopted. The implemented limits below apply unchanged.
 
 `manual.ts` verifies the source and unchanged app bytes before preparing the
-fixed replacement directory. It passes the explicit `replacement-20261016`
+fixed third-attempt directory. It passes the explicit `third-20261016`
 attempt identity to `CandidatePacket`. No environment switch, retry or second
-session is offered. Any persisted replacement state prevents another start.
+session is offered. Any persisted third-attempt state prevents another start.
 The old two-session controller behavior remains available only for historical
-nonlive regression coverage; the live manual entry selects the replacement.
+nonlive regression coverage; the live manual entry selects the third attempt.
 The application entry guard is a routing check, not host isolation.
 
 The replacement accepts the same five literal samples in order with the same
