@@ -1,0 +1,21 @@
+✖ Codex 0.157.1 canonical inventory confirms disabled memory and images without legacy alias entries (2.234875ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 98.855209
+
+✖ failing tests:
+
+test at successor/runner/codex-chat.test.ts:166:1
+✖ Codex 0.157.1 canonical inventory confirms disabled memory and images without legacy alias entries (2.234875ms)
+  Error: Session preflight failed; no retry or extra start is authorized.
+      at CodexChat.preflight (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/codex-chat.ts:37:13)
+      at async TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/runner/codex-chat.test.ts:170:22)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    diagnostic: { stage: 'features', check: 'memory_tool' }
+  }
