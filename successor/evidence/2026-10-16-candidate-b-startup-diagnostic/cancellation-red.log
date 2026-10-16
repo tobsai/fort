@@ -1,0 +1,35 @@
+✔ cancellation during blocked preflight disposes promptly and permanently consumes the start: false (11.397084ms)
+✖ cancellation during blocked preflight disposes promptly and permanently consumes the start: true (6.416708ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127.484125
+
+✖ failing tests:
+
+test at successor/prototype/session.test.ts:108:39
+✖ cancellation during blocked preflight disposes promptly and permanently consumes the start: true (6.416708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   check: 'initialize',
+  +   stage: 'protocol'
+  -   check: 'cancelled-or-expired',
+  -   stage: 'session'
+    }
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/session.test.ts:128:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { stage: 'protocol', check: 'initialize' },
+    expected: { stage: 'session', check: 'cancelled-or-expired' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,23 @@
+(node:86583) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual entry refuses indirect use before pin reads, native inspection, enrollment or process launch (0.797125ms)
+✔ SIGINT cancels a pending start before it can expose enrollment or readiness (5.772375ms)
+✔ SIGTERM cancels a pending start before it can expose enrollment or readiness (1.624375ms)
+✔ EOF cancels a pending start before it can expose enrollment or readiness (1.754583ms)
+✔ synthetic Codex connection preserves selected instructions and conversation context without login or model substitution (4.41725ms)
+✔ no-turn preflight reports only the exact failed check, never provider payloads (1.459917ms)
+✔ ambient servers, missing features, repeated cursors and thread-only MCP capabilities fail closed (1.238542ms)
+✔ unconfirmed effective configuration stops before thread creation, MCP discovery or turn dispatch (0.214667ms)
+✔ MCP inventory is checked through the final page before a thread or turn is allowed (0.292334ms)
+✔ explicit no-turn preflight and later dispatch share one initialized connection (0.697125ms)
+✔ ambient ChatGPT routing and telemetry exporters cannot bypass the selected provider controls (0.927667ms)
+✔ cancellation after thread creation but before continuation never dispatches a turn (0.407292ms)
+✔ unavailable exact model, changed thread model, oversized context and tool requests fail without fallback (1.064917ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 129.234958
