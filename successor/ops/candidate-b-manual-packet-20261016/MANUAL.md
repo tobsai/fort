@@ -1,8 +1,10 @@
 # Candidate B — attended Mac test
 
-**Not authorized to run yet.** After the exact execution decision, completed
-disabled wiring, verified pins and successful runtime preflight, the operator
-will announce that the candidate is ready. Be present before the clock starts.
+**Approved; waiting for the owner at the Mac.** Do not start the controller,
+runtime, enrollment or either clock until the coordinator relays readiness.
+After verifying the activation revision's pins and successful same-process
+runtime preflight, the operator will announce that the candidate is ready.
+Be present before the clock starts.
 Each of the two possible sessions includes all setup and cleanup within five
 minutes; work stops at 292 seconds to reserve cleanup time. If a step fails or time runs out, stop; do not retry or add a message.
 

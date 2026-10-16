@@ -11,8 +11,8 @@ import {createHash} from 'node:crypto';
 import {join,normalize,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-test('manual entry refuses before pin reads, native inspection, enrollment or process launch',async()=>{
-  await assert.rejects(()=>runManualPacket(),/not approved for execution/);
+test('manual entry refuses indirect use before pin reads, native inspection, enrollment or process launch',async()=>{
+  await assert.rejects(()=>runManualPacket(),/approved only through the pinned manual packet/);
 });
 
 for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pending start before it can expose enrollment or readiness`,async()=>{
@@ -22,10 +22,10 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
   const input=new PassThrough();let output='';
   const fakeProcess=Object.assign(new EventEmitter(),{stdin:input,stdout:new Writable({write(chunk,_encoding,done){output+=chunk.toString();done();}})});
   const entered=Promise.withResolvers<void>(),pendingStart=Promise.withResolvers<unknown>(),closed=Promise.withResolvers<unknown>();
-  let cancellations=0,aborts=0,cancelBetween=0,enrollmentWrites=0;
+  let starts=0,cancellations=0,aborts=0,cancelBetween=0,enrollmentWrites=0;
   const state={phase:'blocked',starts:1,receipts:[],credentialCleanup:'deleted'};
   class InertPacket {
-    async start(signal?:AbortSignal){signal?.addEventListener('abort',()=>{cancellations++;},{once:true});entered.resolve();return pendingStart.promise;}
+    async start(signal?:AbortSignal){starts++;signal?.addEventListener('abort',()=>{cancellations++;},{once:true});entered.resolve();return pendingStart.promise;}
     async cancelBetweenSessions(){cancelBetween++;}
   }
   const digest=createHash('sha256').update('inert bytes').digest('hex');
@@ -39,7 +39,10 @@ for(const stop of ['SIGINT','SIGTERM','EOF'] as const)test(`${stop} cancels a pe
     launchCandidateCodex(){throw Error('Official launcher must never be invoked');}
   });
   const entry:()=>Promise<void>=vm.runInContext(source+'\nrunManualPacket;',context);
-  const running=entry();input.write('start\n');await entered.promise;
+  const running=entry();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(starts,0);assert.equal(enrollmentWrites,0);
+  assert.equal(output.includes('Preflight passed. Open this exact app:'),false);
+  input.write('start\n');await entered.promise;
   if(stop==='EOF')input.end();else fakeProcess.emit(stop);
   await new Promise(resolve=>setImmediate(resolve));
   const cancellationsWhilePending=cancellations;

@@ -1,15 +1,17 @@
-# Candidate B — disabled attended runner
+# Candidate B — approved attended runner, awaiting Mac readiness
 
-The manual entrypoint is implemented and remains disabled by the unchanged
-`requireCandidateBActivation()` guard. There is no environment flag or old Packet A
-approval that enables it. No provider process, real credential or local provider
-configuration was accessed while implementing this wiring.
+The owner approved this bounded replacement test and its minimal activation
+revision; [the approval record](../evidence/2026-10-16-candidate-b-activation/approval.json)
+preserves the exact scope. `requireCandidateBActivation()` now permits only the
+manual entrypoint. It is an application routing check, not a host security boundary.
+No provider process, real credential or local provider configuration was accessed
+while preparing activation. The owner has not yet confirmed readiness at the Mac.
 
-After a separate exact execution decision and pin verification, the intended
-entry is `/opt/homebrew/opt/node@26/bin/node successor/prototype/manual.ts` in the
-candidate worktree. Today it refuses before reading pins, native state or starting
-anything. The private implementation verifies source/app bytes, owns the two-session
-controller and exposes only `start`, `status`, `done` and `abort` terminal commands.
+After the coordinator relays Mac readiness and the current pins are verified,
+the entry is `/opt/homebrew/opt/node@26/bin/node successor/prototype/manual.ts` in
+the candidate worktree. Do not invoke it yet. It verifies source/app bytes, owns
+the two-session controller and exposes only `start`, `status`, `done` and `abort`
+terminal commands. Runtime preflight and the session clock begin only on `start`.
 The user opens/quits the exact pinned app and performs the five samples described
 in [the manual](../ops/candidate-b-manual-packet-20261016/MANUAL.md).
 
@@ -93,7 +95,7 @@ These are the previously disclosed host-risk class, not completed OS-isolation
 acceptance. Actual launch, sign-in availability, native Keychain behavior, process
 cleanup and manual visuals remain unrun. The Apple source/app is unchanged.
 
-[Current source pins and validation](../evidence/2026-10-16-candidate-b-pending-start-fix/README.md)
-record the pending-start cancellation fix. The preserved independent review covers
-its base; this fix awaits focused recheck. No additional scope decision was needed
-for this nonlive work.
+[Current source pins and validation](../evidence/2026-10-16-candidate-b-activation/README.md)
+record the minimal activation revision. The coordinator reported final focused
+review of the preceding candidate before the owner approved execution. This
+preparation supplies nonlive activation checks; it claims no live acceptance.

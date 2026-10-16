@@ -9,7 +9,7 @@ import {CandidatePacket} from './session.ts';
 import {createNativeSession} from './native-session.ts';
 
 function verifyPins(root:string,app:string) {
-  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-pending-start-fix/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
+  const pins=JSON.parse(readFileSync(join(root,'successor/evidence/2026-10-16-candidate-b-activation/pins.json'),'utf8')) as { sourceFiles:{path:string;sha256:string}[];appFiles:{path:string;sha256:string}[];sourceCommit:string };
   for(const [base,files] of [[root,pins.sourceFiles],[app,pins.appFiles]] as const){
     if(!Array.isArray(files)||files.length===0||files.length>2_000)throw new Error('Invalid candidate pins');
     for(const file of files){
