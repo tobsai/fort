@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-16T04:04:57.404707+00:00",
+  "preparationBaseCommit": "772410e5b59a97d203171922d3802621550fee19",
+  "checks": {
+    "sourceFiles": {
+      "count": 759,
+      "mismatches": []
+    },
+    "appFiles": {
+      "count": 5,
+      "mismatches": []
+    },
+    "sourceCanonicalListHashMatches": true,
+    "appCanonicalListHashMatches": true,
+    "independentReviewCopiedExactly": true,
+    "fiveExactSamplesMatchReviewedSourceAndManual": true,
+    "twoStartsFiveSamplesAnd300SecondBudget": true,
+    "activationSourceUnchangedAndRefuses": true,
+    "mainStatusUnchanged": true,
+    "localDocumentLinksAndWhitespace": "passed"
+  },
+  "artifacts": [
+    {
+      "path": "successor/ops/candidate-b-manual-packet-20261016/README.md",
+      "bytes": 8467,
+      "sha256": "7be61befce9f7859a49316862ecb290c8967258af3dd426a6daf244ba3530f3d"
+    },
+    {
+      "path": "successor/ops/candidate-b-manual-packet-20261016/PREFLIGHT.md",
+      "bytes": 12291,
+      "sha256": "996e7f6eae683d8b0624f08a798a96f050e27a3c5eda7396403529df883743bd"
+    },
+    {
+      "path": "successor/ops/candidate-b-manual-packet-20261016/MANUAL.md",
+      "bytes": 3787,
+      "sha256": "20bdf72e2cf29631891a070496c3d6bc63db4a15466c5b874474b76d07a99d37"
+    },
+    {
+      "path": "successor/ops/candidate-b-manual-packet-20261016/packet.json",
+      "bytes": 9327,
+      "sha256": "b23790482432c27a788c688d232cfceaa5f2e760065241bec32bfff4cb161189"
+    },
+    {
+      "path": "successor/evidence/2026-10-16-candidate-b-independent-acceptance.md",
+      "bytes": 6097,
+      "sha256": "1fdb007dcf75665fb03de926f02db9786ce8e0cd7c31aadd61ab86b11703f073"
+    }
+  ],
+  "applicationTestsRerun": false,
+  "runtimeExecuted": false,
+  "credentialsAccessedOrCreated": false,
+  "localAuthOrConfigurationInspected": false,
+  "liveStartsConsumed": 0,
+  "unrun": [
+    "effective runtime/configuration preflight",
+    "app launch/Keychain compatibility",
+    "provider inference",
+    "actual native queue and cleanup",
+    "manual visual inspection"
+  ],
+  "executionReady": false,
+  "reason": "Decision absent; minimal disabled same-connection preflight/session wiring requires implementation, nonlive checks and reviewed final source pin."
+}

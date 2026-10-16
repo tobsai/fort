@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "packetId": "candidate-b-manual-20261016",
+  "status": "prepared-scope-packet-not-executable",
+  "executionAuthorized": false,
+  "activationEnabled": false,
+  "executionWiringSourceCommit": null,
+  "liveStartsConsumed": 0,
+  "providerTurnsPerformed": 0,
+  "reviewedCandidate": {
+    "branch": "codex/fort-openai-rebuild-20261016",
+    "worktree": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016",
+    "sourceCommit": "73f644425a74463488cdce61aab8b83384ce8722",
+    "evidenceCommit": "772410e5b59a97d203171922d3802621550fee19",
+    "sourceListSHA256": "0fb368a0e358a176db114a1085d83996af8c488b2f32d503eebd137970be6e45",
+    "appListSHA256": "9c32247c3c77b1618515aec7faad3944826ec9e11d4ecc0d58483c8ecd23ad2b",
+    "appPath": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/candidate-b-review-mac/Build/Products/Debug/FortMac.app",
+    "appSigning": "linker ad-hoc only; launch and Keychain compatibility untested",
+    "pinsFile": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/evidence/2026-10-16-candidate-b-review-fixes/pins.json"
+  },
+  "review": {
+    "path": "successor/evidence/2026-10-16-candidate-b-independent-acceptance.md",
+    "sha256": "1fdb007dcf75665fb03de926f02db9786ce8e0cd7c31aadd61ab86b11703f073",
+    "independentFocusedTestsPassed": 15,
+    "independentSourceHashesPassed": 759,
+    "independentAppHashesPassed": 5,
+    "scope": "three findings resolved; no new material code blocker; no live acceptance"
+  },
+  "runtime": {
+    "executable": "/opt/homebrew/Caskroom/codex/0.157.1/bin/codex",
+    "sha256": "27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d",
+    "bytes": 238223808,
+    "version": "0.157.1",
+    "launchPlan": {
+      "executable": "/opt/homebrew/Caskroom/codex/0.157.1/bin/codex",
+      "args": [
+        "app-server",
+        "--listen",
+        "stdio://",
+        "-c",
+        "analytics.enabled=false",
+        "-c",
+        "check_for_update_on_startup=false",
+        "-c",
+        "model_provider=\"openai\"",
+        "-c",
+        "notify=[]",
+        "-c",
+        "web_search=\"disabled\"",
+        "-c",
+        "project_doc_max_bytes=0",
+        "-c",
+        "skills.include_instructions=false",
+        "-c",
+        "skills.bundled.enabled=false",
+        "-c",
+        "cloud.skills.enabled=false",
+        "-c",
+        "orchestrator.mcp.enabled=false",
+        "-c",
+        "mcp_servers.spritepipe.enabled=false",
+        "-c",
+        "mcp_servers.node_repl.enabled=false",
+        "-c",
+        "mcp_servers.computer-use.enabled=false",
+        "--enable",
+        "skip_host_skill_discovery",
+        "--disable",
+        "apps",
+        "--disable",
+        "plugins",
+        "--disable",
+        "hooks",
+        "--disable",
+        "plugin_hooks",
+        "--disable",
+        "remote_control",
+        "--disable",
+        "remote_models",
+        "--disable",
+        "memories",
+        "--disable",
+        "memory_tool",
+        "--disable",
+        "multi_agent",
+        "--disable",
+        "multi_agent_v2",
+        "--disable",
+        "shell_tool",
+        "--disable",
+        "unified_exec",
+        "--disable",
+        "js_repl",
+        "--disable",
+        "skill_search",
+        "--disable",
+        "skill_mcp_dependency_install",
+        "--disable",
+        "skill_env_var_dependency_prompt",
+        "--disable",
+        "image_generation",
+        "--disable",
+        "imagegenext"
+      ],
+      "cwd": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/empty",
+      "env": {
+        "HOME": "/Users/tobiasgunn",
+        "PATH": "/usr/bin:/bin",
+        "LANG": "en_US.UTF8",
+        "TZ": "UTC",
+        "TMPDIR": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/tmp"
+      },
+      "deadlineMs": 296000,
+      "terminationGraceMs": 2000,
+      "killGraceMs": 2000
+    },
+    "provider": "openai",
+    "requestedModel": "gpt-6-astra",
+    "effectiveModelAttested": false,
+    "authentication": "existing provider-owned ChatGPT sign-in only",
+    "preflightRun": false,
+    "retainedHOME": "/Users/tobiasgunn",
+    "ambientMCPVerified": false
+  },
+  "budget": {
+    "maxStarts": 2,
+    "maxTotalMillisecondsPerStart": 300000,
+    "workCutoffMilliseconds": 296000,
+    "termGraceMilliseconds": 2000,
+    "killGraceMilliseconds": 2000,
+    "timerSemantics": "same outer clock from first candidate app/service/runtime start; no reset; not hard-real-time",
+    "firstStartSamples": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "conditionalSecondStartSamples": [
+      5
+    ],
+    "extraPreflightStartAllowed": false,
+    "failurePermitsRetry": false
+  },
+  "paths": {
+    "sessionRoot": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session",
+    "workspace": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/empty",
+    "temporaryDirectory": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/tmp",
+    "serviceData": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/service",
+    "nativeData": "/Users/tobiasgunn/Library/Application Support/FortCandidateB",
+    "nativePendingRelativePath": "<sha256(installationId UTF-8)>/pending.json",
+    "createdByPreparation": false
+  },
+  "localEnrollment": {
+    "created": false,
+    "deviceCount": 1,
+    "enrollmentCodeTTLSeconds": 300,
+    "deviceCredentialTTLSeconds": 2592000,
+    "storage": "Fort.Spec058.Device Keychain item; server retains hash",
+    "expiresAtSessionEnd": false,
+    "automaticRevocationOrDeletion": false
+  },
+  "workspace": {
+    "agents": [
+      {
+        "name": "Writer",
+        "model": "gpt-6-astra",
+        "instructions": "Reply briefly using supplied context."
+      },
+      {
+        "name": "Reviewer",
+        "model": "gpt-6-astra",
+        "instructions": "Check the sample claim."
+      }
+    ],
+    "skills": [
+      {
+        "name": "Check marker",
+        "instructions": "End with [CHECKED]."
+      }
+    ],
+    "sharedConversation": {
+      "name": "Sample planning",
+      "participants": [
+        "Writer",
+        "Reviewer"
+      ]
+    }
+  },
+  "samples": [
+    {
+      "ordinal": 1,
+      "session": 1,
+      "conversation": "Writer Home",
+      "recipient": "Writer",
+      "skills": [],
+      "text": "Remember the sample word cedar. Reply with that word only.",
+      "utf8SHA256": "8df1b15ab36d1c594cb4052cd62e20bd49105b74394f6ec17faad9fc25d2910d"
+    },
+    {
+      "ordinal": 2,
+      "session": 1,
+      "conversation": "Reviewer Home",
+      "recipient": "Reviewer",
+      "skills": [],
+      "text": "In one sentence, explain why a checklist is useful.",
+      "utf8SHA256": "f7f9b95c2596cf298058f1a2c18b9af0e6f8ce9f4cf017beb36fdee7456771e5"
+    },
+    {
+      "ordinal": 3,
+      "session": 1,
+      "conversation": "Writer Home",
+      "recipient": "Writer",
+      "skills": [
+        "Check marker"
+      ],
+      "text": "Suggest one short title for a sample packing list.",
+      "utf8SHA256": "1ec68a9abd743f8cc11cce86966ab3bbb334457676553e714b3335d832d859a1"
+    },
+    {
+      "ordinal": 4,
+      "session": 1,
+      "conversation": "Sample planning",
+      "recipient": "Reviewer",
+      "skills": [],
+      "text": "Our sample plan is to pack a red notebook. Repeat the item.",
+      "utf8SHA256": "6a17c15fce16f0c52380aba7b4ac09edd394fe401cf369fd6856e0085b287719"
+    },
+    {
+      "ordinal": 5,
+      "session": 2,
+      "conversation": "Writer Home",
+      "recipient": "Writer",
+      "skills": [],
+      "text": "What sample word did I ask you to remember earlier? Reply with that word only.",
+      "utf8SHA256": "8e969827d2294282ffaf858969c52b4dfda6361da34108072c303333d5b9877c"
+    }
+  ],
+  "restartGate": [
+    "four distinct accepted receipts matched to samples 1-4",
+    "four exact durable runs completed",
+    "actual native pending file decodes to empty array after app exit and before relaunch",
+    "successful service close and runtime disposal",
+    "observed owned child close and owned process-group absence",
+    "loopback listener closed",
+    "exact app process exited",
+    "same installation and ledger revalidated before sample 5"
+  ],
+  "remainingPrerequisites": [
+    "minimal disabled same-connection no-turn preflight and session-controller wiring, tests, commit and pin review",
+    "narrow redacted configuration metadata check for complete ambient MCP and startup integration set",
+    "exact candidate-specific live decision including one local Fort device credential",
+    "attended user readiness",
+    "same-process effective-runtime preflight; stop before any turn on failure"
+  ],
+  "prohibited": [
+    "new provider sign-in or auth copying",
+    "API-key fallback or model/account substitution",
+    "extra prompts or uncertain retries",
+    "separate diagnostic provider process",
+    "enabled ambient MCP or unrelated integrations",
+    "OS security changes",
+    "unreviewed re-signing or artifact substitution",
+    "deployment/public ingress/startup services",
+    "provider cleanup",
+    "credential values or raw runtime/config output in evidence"
+  ],
+  "acceptanceLabel": "manual user-reported Mac observations plus correlated provider receipts; not screenshot/accessibility, physical-iPhone, isolation or release acceptance"
+}
