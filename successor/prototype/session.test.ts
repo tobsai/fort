@@ -7,12 +7,33 @@ import { CandidatePacket, SAMPLES } from './session.ts';
 import type { Agent,InstructionSkill,Conversation,Acceptance,Snapshot } from '../contracts/v1.ts';
 import type { ChatInput } from '../runner/chat-runtime.ts';
 import {StartupCheckError} from '../runner/startup-diagnostic.ts';
+import {codexLaunchPlan} from './owned-codex.ts';
+import {validateOwnedProcessOptions} from '../runner/owned-process.ts';
+
+for(const elapsedMs of [0,120_000,539_999])test(`controller remaining budget reaches actual launcher validation with the complete cleanup reserve: ${elapsedMs}`,async t=>{
+  const root=await mkdtemp(join(tmpdir(),'fort-owner-budget-contract-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const began=Date.now();let now=began,checked=false;
+  const packet=new CandidatePacket({root,attempt:'owner-trial-replacement-20261016',now:()=>now,scheduleStop:()=>()=>{},
+    native:{assertFresh(){now+=elapsedMs;},async stop(){return true;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},
+    launchRuntime:remainingWorkMs=>{
+      const plan=codexLaunchPlan({workspace:root,temporaryDirectory:'/synthetic/tmp',packet:'owner-trial-replacement-20261016',remainingWorkMs});
+      const cleanup=validateOwnedProcessOptions(plan);
+      assert.equal(plan.deadlineMs,540_000-elapsedMs);
+      assert.equal(began+600_000-(now+plan.deadlineMs),60_000);
+      assert.ok(now+plan.deadlineMs+cleanup.terminationGraceMs+cleanup.killGraceMs<=began+600_000);
+      checked=true;return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No message expected');},async dispose(){}};
+    }});
+  const session=await packet.start();t.after(()=>session.abort());
+  assert.equal(checked,true);assert.equal(session.credentialDeadline-session.workDeadline,60_000);
+  assert.equal(session.workDeadline,began+540_000);assert.equal(session.credentialDeadline,began+600_000);
+  assert.equal((await session.finish()).phase,'finished');
+});
 
 for(const count of [0,1,4,5])test(`owner trial admits up to five chosen messages and automatically closes: ${count}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-owner-trial-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const began=Date.now();let now=began,stop!:()=>void,scheduled=0,stops=0,disposals=0,cleanups=0,budget=0,exited=false;
   const calls:ChatInput[]=[];
-  const options={root,attempt:'owner-trial-20261016' as const,now:()=>now,scheduleStop:(callback:()=>void,delay:number)=>{stop=callback;scheduled=delay;return ()=>{};},
+  const options={root,attempt:'owner-trial-replacement-20261016' as const,now:()=>now,scheduleStop:(callback:()=>void,delay:number)=>{stop=callback;scheduled=delay;return ()=>{};},
     native:{assertFresh(){},async stop(){stops++;exited=true;return true;},inspect(){return {appExited:exited,pendingCount:0};},async cleanup(){cleanups++;return true;}},
     launchRuntime:(remaining:number)=>{budget=remaining;return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(input:ChatInput){calls.push(input);return {kind:'completed' as const,text:'Synthetic reply',effectiveModel:null};},async dispose(){disposals++;}};}};
   const packet=new CandidatePacket(options),session=await packet.start();t.after(()=>session.abort());
@@ -54,7 +75,7 @@ for(const mode of ['stop-refused','stop-threw','app','pending','cleanup','late-c
   const root=await mkdtemp(join(tmpdir(),'fort-owner-failure-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const began=Date.now();let now=began,stops=0,launches=0,disposals=0,cleanups=0;
   const native={assertFresh(){},...(mode==='no-stop'?{}:{async stop(){stops++;if(mode==='stop-threw')throw Error('Synthetic stop failure');return mode!=='stop-refused';}}),inspect(){return {appExited:mode!=='app',pendingCount:mode==='pending'?1:0};},async cleanup(){cleanups++;if(mode==='late-cleanup')now=began+600_001;return mode!=='cleanup';}};
-  const options={root,attempt:'owner-trial-20261016' as const,now:()=>now,native,launchRuntime:()=>{launches++;return {async preflight(){if(mode==='preflight')throw Error('Synthetic preflight failure');return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No fixture message expected');},async dispose(){disposals++;}};}};
+  const options={root,attempt:'owner-trial-replacement-20261016' as const,now:()=>now,native,launchRuntime:()=>{launches++;return {async preflight(){if(mode==='preflight')throw Error('Synthetic preflight failure');return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No fixture message expected');},async dispose(){disposals++;}};}};
   const packet=new CandidatePacket(options);
   if(mode==='preflight'||mode==='no-stop')await assert.rejects(()=>packet.start());
   else{const session=await packet.start();t.after(()=>session.abort());const result=await (mode==='abort'?session.abort():session.finish());assert.equal(result.phase,'blocked');assert.equal(result.receipts.length,0);assert.equal(result.credentialCleanup,mode==='cleanup'?'unconfirmed':'deleted');}
@@ -282,7 +303,7 @@ for(const recognized of [false,true])test(`a failed startup records its redacted
   assert.equal(disposals,1);assert.equal(launches,1);
 });
 
-for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016'] as const)for(const priorAttempt of [undefined,'replacement-20261016','third-20261016','fourth-20261016'] as const)if(attempt!==priorAttempt)test(`${attempt} cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
+for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016','owner-trial-replacement-20261016'] as const)for(const priorAttempt of [undefined,'replacement-20261016','third-20261016','fourth-20261016','owner-trial-20261016'] as const)if(attempt!==priorAttempt)test(`${attempt} cannot adopt a prior packet: ${priorAttempt??'original'}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-original-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const path=join(root,'session-state.json');
   const original=JSON.stringify({version:1,attempt:priorAttempt,starts:1,phase:'between',credentialDeadline:Date.now()+600_000,receipts:[]});
@@ -295,7 +316,7 @@ for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016']
   assert.equal(nativeCalls,0);assert.equal(launches,0);
 });
 
-for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016'] as const)test(`freshness refusal consumes the sole start before provider launch: ${attempt}`,async t=>{
+for(const attempt of ['third-20261016','fourth-20261016','owner-trial-20261016','owner-trial-replacement-20261016'] as const)test(`freshness refusal consumes the sole start before provider launch: ${attempt}`,async t=>{
   const root=await mkdtemp(join(tmpdir(),'fort-packet-freshness-'));t.after(()=>rm(root,{recursive:true,force:true}));
   let inspections=0,launches=0;
   const options={root,attempt,native:{assertFresh(){inspections++;throw new Error('Synthetic native state is not fresh');},inspect(){throw new Error('Unexpected inspection');},async cleanup(){throw new Error('Unexpected cleanup');}},launchRuntime(){launches++;throw new Error('Unexpected launch');}};

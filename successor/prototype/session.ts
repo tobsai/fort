@@ -5,6 +5,7 @@ import { createOpenAIService,type SubmissionAdmission } from '../service/openai.
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { Acceptance,Run } from '../contracts/v1.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from '../runner/startup-diagnostic.ts';
+import {OWNER_TRIAL_PROCESS_BUDGET} from '../runner/owned-process.ts';
 
 export const SAMPLES = [
   { text:'Remember the sample word cedar. Reply with that word only.',agent:'Writer' },
@@ -21,7 +22,7 @@ export type NativeSession = {
   cleanup(installationId:string,issuedDeviceIDs?:readonly string[]):Promise<boolean>;
 };
 type Receipt=Acceptance['receipt'];
-type OneStartAttempt='replacement-20261016'|'third-20261016'|'fourth-20261016'|'owner-trial-20261016';
+type OneStartAttempt='replacement-20261016'|'third-20261016'|'fourth-20261016'|'owner-trial-20261016'|typeof OWNER_TRIAL_PROCESS_BUDGET.packet;
 type State={ version:1; attempt?:OneStartAttempt; starts:number; phase:'running'|'between'|'finished'|'blocked'; credentialDeadline:number; installationId?:string; port?:number; receipts:Receipt[]; credentialCleanup?:'retained-for-restart'|'deleted'|'unconfirmed'; failure?:StartupDiagnostic };
 type Options={ root:string; attempt?:OneStartAttempt; native:NativeSession; launchRuntime:(remainingWorkMs:number)=>PreparedRuntime; now?:()=>number; scheduleStop?:(stop:()=>void,delayMs:number)=>()=>void };
 
@@ -90,12 +91,12 @@ export class CandidatePacket {
     mkdirSync(root,{ recursive:true,mode:0o700 });
     if (lstatSync(root).isSymbolicLink()) throw new Error('Packet directory cannot be a symlink');
     const singleSample=this.options.attempt==='fourth-20261016';
-    const ownerTrial=this.options.attempt==='owner-trial-20261016';
+    const ownerTrial=this.options.attempt==='owner-trial-20261016'||this.options.attempt===OWNER_TRIAL_PROCESS_BUDGET.packet;
     const replacement=this.options.attempt==='replacement-20261016'||this.options.attempt==='third-20261016'||singleSample||ownerTrial;
     const previous=this.read();
     if (previous && (replacement || previous.phase!=='between' || previous.starts!==1)) throw new Error('Packet cannot start another session');
     const began=now();
-    const state:State={ version:1,...(replacement?{attempt:this.options.attempt}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(replacement&&!ownerTrial?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
+    const state:State={ version:1,...(replacement?{attempt:this.options.attempt}:{}),starts:previous?2:1,phase:'running',credentialDeadline:previous?.credentialDeadline??began+(ownerTrial?OWNER_TRIAL_PROCESS_BUDGET.totalMs:replacement?300_000:600_000),receipts:previous?.receipts??[],...(previous?.installationId?{installationId:previous.installationId}:{}),...(previous?.port?{port:previous.port}:{}) };
     if(replacement)this.save(state);
     if (previous) {
       try {
@@ -112,7 +113,7 @@ export class CandidatePacket {
         throw error;
       }
     }
-    const workDeadline=ownerTrial?began+540_000:Math.min(began+292_000,state.credentialDeadline-8_000);
+    const workDeadline=ownerTrial?began+OWNER_TRIAL_PROCESS_BUDGET.workMs:Math.min(began+292_000,state.credentialDeadline-8_000);
     const cleanupDeadline=ownerTrial?state.credentialDeadline:began+300_000;
     this.save(state);
     const abort=new AbortController();let runtime:PreparedRuntime|undefined,accepting=false,closing:Promise<State>|undefined;

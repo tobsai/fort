@@ -43,9 +43,9 @@ for(const stop of ['SIGINT','SIGTERM','EOF','READY'] as const)test(`${stop}: man
   const entry:()=>Promise<void>=vm.runInContext(source+'\nrunManualPacket;',context);
   const running=entry();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(starts,0);assert.equal(enrollmentWrites,0);
-  assert.equal(packetOptions?.root,'/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016');
-  assert.equal(packetOptions?.attempt,'owner-trial-20261016');
-  assert.deepEqual(pinReads,['/synthetic/successor/evidence/2026-10-16-candidate-b-owner-trial/pins.json']);
+  assert.equal(packetOptions?.root,'/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016');
+  assert.equal(packetOptions?.attempt,'owner-trial-replacement-20261016');
+  assert.deepEqual(pinReads,['/synthetic/successor/evidence/2026-10-16-candidate-b-owner-trial-replacement/pins.json']);
   assert.equal(output.includes('Preflight passed. Open this exact app:'),false);
   input.write('start\n');await entered.promise;
   if(stop==='READY'){

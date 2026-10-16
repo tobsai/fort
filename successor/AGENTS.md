@@ -35,14 +35,26 @@ ChatGPT/gpt-6-astra setup and unchanged permission/host limitations. The operato
 pairs automatically and immediately notifies the parent of readiness and exact
 work cutoff/credential expiry. Only the human types/sends the messages; no operator
 sample or corrective prompt may consume the budget. Preserve all four prior ledgers
-and the completed native cache archive. Preparation must not start this trial.
+and the completed native cache archive. That owner-trial start is now consumed:
+it failed before READY at session/runtime-launch, with zero receipts and cleanup
+reported deleted. The generated 540-second work plan exceeded the owned launcher's
+unchanged 300-second ceiling. Preserve its ledger/state alongside the prior four.
+The coordinator authorized a narrow timer repair and replacement preparation under
+the same ten-minute/five-owner-message scope, with no permission changes.
+See evidence/2026-10-16-candidate-b-owner-trial-replacement/README.md and
+ops/candidate-b-owner-trial-replacement-20261016/MANUAL.md. Preparation must not
+start it; only the designated UI task may execute on the coordinator's handoff.
+The replacement has a separate fixed identity/root; never reset the consumed trial.
 Read runner/STARTUP-CONTRACT.md and runner/PERMISSION-PROFILE.md before runtime
 work. The nonlive migration replaces the rejected legacy restricted-read selector
 with a named macOS profile denying all computer-tool file reads/writes and tool
 network access. Source/fixture contracts and one real native text turn passed;
 complete OS enforcement remains unverified. Do not weaken that profile, enable tools/environments or treat its
 identity/legacy sandbox projection as a complete effective-policy attestation.
-The current manual selects only owner-trial-20261016 and its sealed source/app pins.
+The current manual selects only owner-trial-replacement-20261016 and its sealed
+source/app pins. The generic owned-process ceiling remains 300 seconds. Only this
+exact packet budget admits up to 540 seconds of work in a 600-second total, retaining
+a 60-second cleanup reserve and unchanged two-second TERM/KILL grace limits.
 Any persisted owner-trial state prevents another start, even after a failure.
 Preparation/tests must not start the live runtime or read credentials/settings.
 The actual offline CLI parser accepted the profile; the separate deny-rule canary
