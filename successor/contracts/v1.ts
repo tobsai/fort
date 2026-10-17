@@ -49,3 +49,7 @@ export type CalendarOccurrence = { localDate:string; localTime:string; intendedA
 export type SchedulePreview = { revisionId:string; digest:string; expiresAt:string; timezone:string; occurrences:CalendarOccurrence[]; overlap:'skip'; missed:'skip'|'catchUpOne' };
 export type ScheduleRevision = { scheduleId:string; revisionId:string; digest:string; definition:ScheduleDefinition; state:'paused'|'enabled'; checkedThrough:number; consent?:{deviceId:string;at:string;previewDigest:string}; preview?:SchedulePreview };
 export type ScheduleOccurrence = { occurrenceId:string; scheduleId:string; scheduleRevisionId:string; routineId:string; routineRevisionId:string; intendedAt:string|null; localDate:string; localTime:string; state:'accepted'|'skippedOverlap'|'skippedMissed'|'skippedGap'|'blocked'|'skippedMissedRange'; runId?:string; detail?:string };
+
+export type OwnerPairingPolicy = { expiresAfterDays: number | null };
+export type PairingStatus = { deviceId: string; mode: 'temporary' | 'owner-local'; expiresAt: string | null };
+export type HostStopReceipt = { runtimeStopped: true; revoked: boolean };

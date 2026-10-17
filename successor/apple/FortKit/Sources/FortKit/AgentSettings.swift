@@ -41,10 +41,7 @@ struct FortSettingsView: View {
                     }
                     NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: { Label("Add agent",systemImage:"plus") }
                 }
-                Section("This Mac") {
-                    Text("Your pairing and local service settings will appear here after owner setup.")
-                    Text("Pairing will stay until you disconnect. An expiry will be optional. Stopping or disconnecting keeps conversation history.").font(.caption).foregroundStyle(.secondary)
-                }
+                NavigationLink { PairingSettingsView(model:model) } label: { Label("Pairing and local host",systemImage:"desktopcomputer") }
             }
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Done") { dismiss() } } }

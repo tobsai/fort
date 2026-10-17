@@ -14,7 +14,7 @@ public struct Enrollment: Codable, Sendable {
     public let installation: Installation
     public let deviceId: String
     public let deviceToken: String
-    public let expiresAt: String
+    public let expiresAt: String?
 }
 public struct Binding: Codable, Equatable, Sendable {
     public let bindingRevisionId: String

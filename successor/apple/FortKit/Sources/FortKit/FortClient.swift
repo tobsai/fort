@@ -43,6 +43,16 @@ public struct FortClient: Sendable {
     public func agents() async throws -> [Agent] { let result: AgentList = try await get("v1/agents"); return result.agents }
     public func conversations() async throws -> [Conversation] { struct Response: Decodable { let conversations: [Conversation] }; let result: Response = try await get("v1/conversations"); return result.conversations }
     public func skills() async throws -> [InstructionSkill] { struct Response: Decodable { let skills: [InstructionSkill] }; let result: Response = try await get("v1/skills"); return result.skills }
+    public func pairing() async throws -> PairingStatus { try await get("v1/pairing") }
+    public func setPairingExpiry(days: Int?) async throws -> PairingStatus {
+        let body: [String:Any] = ["expiresAfterDays":days.map { $0 as Any } ?? NSNull()]
+        return try await request(url:baseURL.appendingPathComponent("v1/pairing/expiry"),method:"POST",data:JSONSerialization.data(withJSONObject:body))
+    }
+    public func stopHost(disconnect: Bool) async throws -> HostStopReceipt {
+        let receipt: HostStopReceipt = try await send(disconnect ? "v1/pairing/disconnect" : "v1/host/stop",method:"POST",body:[String:String]())
+        guard receipt.runtimeStopped, receipt.revoked == disconnect else { throw OwnerLifecycleError.stopUnconfirmed }
+        return receipt
+    }
     public func models() async throws -> ModelCatalog { try await get("v1/models") }
     public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
         struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }

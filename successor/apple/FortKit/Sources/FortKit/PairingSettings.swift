@@ -1,0 +1,78 @@
+import SwiftUI
+
+struct PairingSettingsView: View {
+    @Bindable var model: MessengerModel
+    @State private var noExpiry = true
+    @State private var days = "7"
+    @State private var action: Action?
+    @State private var showConfirmation = false
+    private enum Action { case stop, disconnect, uninstall, deleteHistory }
+    private var validDays: Int? { guard let value = Int(days), (1...365).contains(value) else { return nil }; return value }
+    private var title: String {
+        switch action {
+        case .stop: "Stop local host?"
+        case .disconnect: "Disconnect this device?"
+        case .uninstall: "Remove Fort and keep history?"
+        case .deleteHistory: "Also delete local history?"
+        case nil: "Confirm"
+        }
+    }
+    private var explanation: String {
+        switch action {
+        case .stop: "Stops the connected runtime. Pairing and saved conversations are kept."
+        case .disconnect: "Stops the connected runtime, revokes this pairing and removes its Keychain token. Saved conversations are kept."
+        case .uninstall: "Stops the owned host, removes pairing and removes this app: \(model.uninstallAppURL?.path ?? "unavailable"). Conversation history is kept."
+        case .deleteHistory: "Stops the owned host and removes Fort, its pairing and its local conversation history. This separate deletion cannot be undone."
+        case nil: ""
+        }
+    }
+    private func confirm(_ selected: Action) { action = selected; showConfirmation = true }
+    var body: some View {
+        Form {
+            Section("Pairing") {
+                if let pairing = model.pairingStatus {
+                    Text(pairing.expiresAt.map { "Expires: \($0)" } ?? "No expiry · stays paired until you disconnect")
+                } else { Text("New owner pairings have no default expiry.") }
+                Text(model.pairingMessage).font(.caption).foregroundStyle(.secondary)
+                if model.canManagePairing {
+                    Toggle("No expiry",isOn:$noExpiry)
+                    if !noExpiry { TextField("Days from now (1–365)",text:$days) }
+                    Button("Save expiry") { Task { await model.setPairingExpiry(days:noExpiry ? nil : validDays) } }
+                        .disabled(!noExpiry && validDays == nil || model.lifecycleBusy)
+                    Button("Stop local host") { confirm(.stop) }.disabled(model.isBusy || model.lifecycleBusy)
+                    Button("Disconnect this device",role:.destructive) { confirm(.disconnect) }.disabled(model.isBusy || model.lifecycleBusy)
+                } else if !model.pairingCleanupPending {
+                    Text("Temporary demos keep their original deadline. Owner setup is required before these controls become available.").font(.caption).foregroundStyle(.secondary)
+                }
+                if model.pairingCleanupPending { Button("Finish removing local pairing") { model.finishPairingRemoval() } }
+                Text("Stopping or disconnecting keeps your saved conversations and local image previews.").font(.caption)
+            }
+            #if os(macOS)
+            Section("Uninstall") {
+                Button("Uninstall Fort…",role:.destructive) { confirm(.uninstall) }
+                    .disabled(model.uninstallAppURL == nil || model.isBusy || model.lifecycleBusy)
+                Button("Uninstall and delete local history…",role:.destructive) { confirm(.deleteHistory) }
+                    .disabled(model.uninstallAppURL == nil || model.isBusy || model.lifecycleBusy)
+                if model.uninstallAppURL == nil { Text("Uninstall is available after this Mac’s owned local host is installed. This development build cannot yet verify and remove an installed host.").font(.caption).foregroundStyle(.secondary) }
+                Text("History is kept by default. Deleting it requires a separate confirmation.").font(.caption)
+            }
+            #endif
+        }.formStyle(.grouped).navigationTitle("Pairing and local host")
+        .task { await model.refreshPairing(); noExpiry = model.pairingStatus?.expiresAt == nil }
+        .alert(title,isPresented:$showConfirmation) {
+            Button("Cancel",role:.cancel) {}
+            Button("Confirm",role:.destructive) {
+                let selected = action
+                Task {
+                    switch selected {
+                    case .stop: await model.stopLocalHost(disconnect:false)
+                    case .disconnect: await model.stopLocalHost(disconnect:true)
+                    case .uninstall: await model.uninstall()
+                    case .deleteHistory: await model.uninstall(history:.deleteConfirmed)
+                    case nil: break
+                    }
+                }
+            }
+        } message: { Text(explanation) }
+    }
+}

@@ -30,6 +30,15 @@ import Observation
     private var imageStore: LocalChatImageStore { LocalChatImageStore(directory:storage.directory.appendingPathComponent("local-images",isDirectory:true)) }
     public var modelCatalog: ModelCatalog = .unchecked
     public var loadingModels = false
+    public var pairingStatus: PairingStatus?
+    public var pairingMessage = "Owner setup has not been activated."
+    public var lifecycleBusy = false
+    private var pairingRemoved = false
+    private var hostStopped = false
+    public var pairingCleanupPending = false
+    private var ownedInstallation: (any OwnedMacInstallation)?
+    public var uninstallAppURL: URL? { ownedInstallation?.appURL }
+    public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var runtimeReadiness: RuntimeReadiness?
     public var status = "Connect to your fixture installation."
     public var isBusy = false
@@ -52,17 +61,21 @@ import Observation
         return installation?.mode == "fixture" ? selectedAgent : nil
     }
     public var supportsRoutines: Bool { installation?.supports("routines") == true }
-    public var supportsCommands: Bool { !isOfflinePreview && installation?.supportsCommands == true }
+    public var supportsCommands: Bool { !isOfflinePreview && !pairingRemoved && !hostStopped && installation?.supportsCommands == true }
     public var supportsMemory: Bool { installation?.supports("conversationMemory") == true }
     public var conversationMemory: ConversationMemory? { snapshot?.conversationId == activeConversationID ? snapshot?.memory : nil }
     public var canEditMemory: Bool { supportsMemory && snapshot?.conversationId == activeConversationID && snapshot?.recoveryEpoch == installation?.recoveryEpoch }
     public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false }
-    init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview }
+    init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false, ownedInstallation: (any OwnedMacInstallation)? = nil) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview; self.ownedInstallation = ownedInstallation }
     public func restore() async {
         guard !isOfflinePreview, client == nil else { return }
         do {
-            guard let connection = try storage.connection() else { return }
+            let active = try storage.connection()
+            guard let connection = try active ?? storage.disconnectedConnection() else { return }
+            let disconnected = try storage.disconnectedConnection()
+            pairingRemoved = active == nil || active == disconnected
+            pairingCleanupPending = active != nil && active == disconnected
             endpoint = connection.baseURL.absoluteString; expectedInstallation = connection.installationID
             pendingStore = try PendingStore(directory:storage.directory,installationID:connection.installationID)
             pending = try pendingStore?.pending() ?? []
@@ -76,6 +89,12 @@ import Observation
                 }
             }
             showConnection = false
+            if pairingRemoved {
+                loadLocalImages(); status = "Disconnected · saved history"
+                pairingMessage = pairingCleanupPending ? "Pairing was revoked; local credential removal still needs to finish." : "Pairing removed. History is kept on this device."
+                return
+            }
+            hostStopped = false
             client = try FortClient(baseURL:connection.baseURL,installationID:connection.installationID,token:storage.token(for:connection),fixtureLoopback:connection.fixtureLoopback,session:session)
             loadLocalImages();await refresh()
         } catch { status = "Could not restore this device connection. Enroll again to continue." }
@@ -88,12 +107,67 @@ import Observation
             let enrolled = try await initial.enroll(code:enrollmentCode,deviceName:deviceName)
             let connection = DeviceConnection(baseURL:url,installationID:expectedInstallation,deviceID:enrolled.deviceId,fixtureLoopback:true)
             try storage.save(connection,token:enrolled.deviceToken)
+            pairingRemoved = false; hostStopped = false; pairingCleanupPending = false; pairingStatus = nil
             client = try FortClient(baseURL:url,installationID:expectedInstallation,token:enrolled.deviceToken,fixtureLoopback:true,session:session)
             pendingStore = try PendingStore(directory:storage.directory,installationID:expectedInstallation)
             pending = try pendingStore?.pending() ?? []; installation = enrolled.installation
             snapshot = nil; agents = []; conversations = []; skills = []; selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []; enrollmentCode = ""; showConnection = false
             await synchronize()
         } catch { status = error.localizedDescription }
+    }
+    public func refreshPairing() async {
+        guard canManagePairing, let client else { return }
+        do {
+            let pairing = try await client.pairing()
+            guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal else { throw OwnerLifecycleError.wrongPairing }
+            pairingStatus = pairing; pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
+        } catch { pairingMessage = error.localizedDescription }
+    }
+    public func setPairingExpiry(days: Int?) async {
+        guard canManagePairing, !lifecycleBusy, let client else { return }
+        lifecycleBusy = true; defer { lifecycleBusy = false }
+        do {
+            let pairing = try await client.setPairingExpiry(days:days)
+            guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal else { throw OwnerLifecycleError.wrongPairing }
+            pairingStatus = pairing; pairingMessage = "Pairing expiry saved."
+        } catch { pairingMessage = error.localizedDescription }
+    }
+    public func stopLocalHost(disconnect: Bool) async {
+        guard canManagePairing, !isBusy, !lifecycleBusy, let client else { return }
+        lifecycleBusy = true; isBusy = true
+        defer { lifecycleBusy = false; isBusy = false }
+        do {
+            guard let connection = try storage.connection() else { throw OwnerLifecycleError.wrongPairing }
+            _ = try await client.stopHost(disconnect:disconnect)
+            self.client = nil; connected = false; hostStopped = true
+            if disconnect {
+                pairingRemoved = true; pairingStatus = nil; pairingCleanupPending = true
+                try storage.removePairing(connection)
+                pairingCleanupPending = false
+                pairingMessage = "Disconnected. The runtime stopped and pairing was removed. History is kept."
+            } else { pairingMessage = "Runtime stopped. Pairing and history are kept. Start the owned local host to reconnect." }
+            status = pairingMessage
+        } catch { pairingMessage = error.localizedDescription }
+    }
+    public func finishPairingRemoval() {
+        guard pairingCleanupPending, !lifecycleBusy else { return }
+        do {
+            guard let connection = try storage.connection() ?? storage.disconnectedConnection() else { throw OwnerLifecycleError.wrongPairing }
+            try storage.removePairing(connection); pairingCleanupPending = false
+            pairingMessage = "Pairing removed. History is kept on this device."
+        } catch { pairingMessage = "Local credential removal is incomplete. Try again after Keychain access is available." }
+    }
+    public func uninstall(history: HistoryRemoval = .keep) async {
+        guard !isOfflinePreview, !isBusy, !lifecycleBusy, let ownedInstallation else { return }
+        lifecycleBusy = true; isBusy = true
+        defer { lifecycleBusy = false; isBusy = false }
+        do {
+            guard let connection = try storage.connection() ?? storage.disconnectedConnection() else { throw OwnerLifecycleError.wrongPairing }
+            let removal = OwnerLifecycle(installation:ownedInstallation,removeCredential:{ self.client = nil; self.connected = false; self.pairingRemoved = true; self.pairingCleanupPending = true; try self.storage.removePairing(connection); self.pairingCleanupPending = false })
+            try await removal.uninstall(history:history)
+            client = nil; connected = false; pairingRemoved = true
+            pairingMessage = history == .keep ? "Fort was removed. History is kept." : "Fort and the confirmed local history were removed."
+        } catch { pairingMessage = error.localizedDescription }
     }
     public func refresh() async {
         guard !isBusy, client != nil else { return }

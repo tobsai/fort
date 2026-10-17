@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -110,8 +110,17 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
   const now=options.now ?? Date.now;
+  const expiryDays = (value:unknown):number|null => {
+    if(value===null)return null;
+    if(typeof value!=='number'||!Number.isSafeInteger(value)||value<1||value>365)fail(400,'invalidExpiry','Choose no expiry or a whole number of days from 1 to 365.');
+    return value;
+  };
+  if(options.ownerPairingPolicy){
+    expiryDays(options.ownerPairingPolicy.expiresAfterDays);
+    if(options.credentialDeadline!==undefined)throw new Error('Owner pairing cannot extend a bounded session');
+  }
   if (options.credentialDeadline!==undefined && (!Number.isSafeInteger(options.credentialDeadline) || options.credentialDeadline>now()+600_000)) throw new Error('Bounded credential deadline exceeds ten minutes');
   if (!isAbsolute(options.dataDirectory)) throw new Error('Use an explicit absolute data directory');
   mkdirSync(options.dataDirectory, { recursive: true, mode: 0o700 });
@@ -136,6 +145,18 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if (credentialDeadline<=now() || db.prepare("SELECT 1 FROM metadata WHERE key='installation'").get()) { db.close(); throw new Error('Bounded enrollment requires a fresh installation'); }
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('credentialDeadline',JSON.stringify(credentialDeadline));
   }
+  const savedPairing=db.prepare("SELECT data FROM metadata WHERE key='ownerPairingPolicy'").get();
+  let ownerPairingPolicy:OwnerPairingPolicy|undefined;
+  try {
+    if(savedPairing){
+      if(credentialDeadline!==undefined)throw new Error('Conflicting pairing policy');
+      ownerPairingPolicy={expiresAfterDays:expiryDays(record(json(savedPairing)).expiresAfterDays)};
+    }else if(options.ownerPairingPolicy){
+      if(credentialDeadline!==undefined||db.prepare("SELECT 1 FROM metadata WHERE key='installation'").get())throw new Error('Owner pairing requires a fresh explicitly configured installation');
+      ownerPairingPolicy={expiresAfterDays:options.ownerPairingPolicy.expiresAfterDays};
+      db.prepare('INSERT INTO metadata VALUES (?,?)').run('ownerPairingPolicy',JSON.stringify(ownerPairingPolicy));
+    }
+  }catch(error){db.close();throw error;}
   const transaction = <T>(operation: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -156,7 +177,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     installation = { contractVersion: '1.0', mode: 'openai', serviceName: 'Fort Prototype', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,capabilities:[...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
@@ -166,8 +187,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if (request.headers['x-fort-installation-id'] !== installation.installationId) fail(401, 'unauthorized', 'Use this installation’s device credential.');
     const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(request.headers.authorization ?? '')?.[1];
     const device = token && db.prepare('SELECT id,expires FROM devices WHERE hash=?').get(digest(token));
-    if (!device || Number(device.expires) <= now()) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
+    if (!device || (!(ownerPairingPolicy && device.expires===0) && Number(device.expires) <= now())) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
     return id(device.id);
+  };
+  const pairingStatus=(deviceId:string):PairingStatus=>{
+    const device=db.prepare('SELECT expires FROM devices WHERE id=?').get(deviceId);
+    if(!device)fail(401,'unauthorized','This pairing has been removed.');
+    return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString()};
   };
   const owner = <T>(request: IncomingMessage, operation: (deviceId:string) => T): T => transaction(() => operation(authenticate(request)));
   const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
@@ -399,12 +425,15 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     catch (error) { if (error instanceof APIError) throw error; fail(400, 'invalidJSON', 'Use valid UTF-8 JSON.'); }
   };
   const issueEnrollment = () => {
+    if(closed)throw new Error('Service is closed');
+    if(ownerPairingPolicy&&db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now()))throw new Error('Disconnect the paired device before enrolling another');
     if (credentialDeadline!==undefined) {
       if (db.prepare("SELECT 1 FROM metadata WHERE key='credentialClosed'").get() || credentialDeadline<=now()) throw new Error('Bounded enrollment is closed');
       if (db.prepare("SELECT 1 FROM metadata WHERE key='enrollmentIssued'").get()) throw new Error('Bounded enrollment already issued');
     }
     const code = randomBytes(32).toString('base64url');
     transaction(()=>{
+      if(ownerPairingPolicy)db.prepare('DELETE FROM enrollment').run();
       db.prepare('INSERT INTO enrollment VALUES (?,?)').run(digest(code), Math.min(now()+300_000,credentialDeadline ?? Infinity));
       if (credentialDeadline!==undefined) db.prepare('INSERT INTO metadata VALUES (?,?)').run('enrollmentIssued','true');
     });
@@ -423,14 +452,43 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           text(body.deviceName, 'device name', 128);
           const code = db.prepare('SELECT expires FROM enrollment WHERE hash=?').get(digest(body.code));
           if (closed || !code || Number(code.expires) <= now()) fail(401, 'unauthorized', 'Enrollment code is invalid or expired.');
+          if(ownerPairingPolicy&&db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now()))fail(409,'alreadyPaired','Disconnect the paired device before enrolling another.');
+          if(ownerPairingPolicy)db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
           db.prepare('DELETE FROM enrollment WHERE hash=?').run(digest(body.code));
-          const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
+          const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = ownerPairingPolicy ? (ownerPairingPolicy.expiresAfterDays===null?0:now()+ownerPairingPolicy.expiresAfterDays*86_400_000) : Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
           db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(deviceToken), expires);
-          return { installation, deviceId, deviceToken, expiresAt: new Date(expires).toISOString() };
+          return { installation, deviceId, deviceToken, expiresAt: expires===0?null:new Date(expires).toISOString() };
         }); status = 201;
       } else {
         authenticate(request);
         if (request.method === 'GET' && url.pathname === '/v1/installation') result = installation;
+        else if(request.method==='GET'&&url.pathname==='/v1/pairing')result=owner(request,pairingStatus);
+        else if(request.method==='POST'&&url.pathname==='/v1/pairing/expiry'){
+          const body=await readBody(request);
+          result=owner(request,deviceId=>{
+            if(!ownerPairingPolicy)fail(403,'temporaryPairing','This temporary session cannot be extended.');
+            if(Object.keys(body).some(key=>key!=='expiresAfterDays'))fail(400,'invalidExpiry','Use only the pairing expiry field.');
+            const days=expiryDays(body.expiresAfterDays);
+            const policy:OwnerPairingPolicy={expiresAfterDays:days};
+            db.prepare('UPDATE devices SET expires=? WHERE id=?').run(days===null?0:now()+days*86_400_000,deviceId);
+            db.prepare("UPDATE metadata SET data=? WHERE key='ownerPairingPolicy'").run(JSON.stringify(policy));
+            ownerPairingPolicy=policy;return pairingStatus(deviceId);
+          });
+        }
+        else if(request.method==='POST'&&(url.pathname==='/v1/host/stop'||url.pathname==='/v1/pairing/disconnect')){
+          const body=await readBody(request);
+          const deviceId=owner(request,deviceId=>{
+            if(!ownerPairingPolicy)fail(403,'temporaryPairing','Use the temporary session cleanup procedure.');
+            if(Object.keys(body).length)fail(400,'invalidStop','This command accepts no additional fields.');
+            return deviceId;
+          });
+          closed=true;clearInterval(scheduleTimer);active?.abort();
+          try{await stopRuntime();}catch{fail(503,'stopUnconfirmed','Runtime shutdown was not confirmed. Pairing is retained for recovery.');}
+          const revoked=url.pathname==='/v1/pairing/disconnect';
+          if(revoked)transaction(()=>{db.prepare('DELETE FROM devices WHERE id=?').run(deviceId);db.prepare('DELETE FROM enrollment').run();});
+          result={runtimeStopped:true,revoked};
+          response.once('finish',()=>{void api.close({preserveSessionCredential:true}).catch(()=>{ /* close() retains its rejected promise for the host supervisor. */ });});
+        }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
           if(!options.runtime?.models)result={provider:'codex',state:'unavailable',models:[],detail:'Connect a reviewed Codex runtime to check model availability.'};
           else try{result=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));}
@@ -665,7 +723,15 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       await Promise.all([...acceptedConnections.values()]);
     }
   };
-  return { installation, issueEnrollment, dispatchNext, tickSchedules,
+  let runtimeStopped:Promise<void>|undefined;
+  const stopRuntime=()=>{
+    runtimeStopped??=(async()=>{
+      const outcomes=await Promise.allSettled([Promise.resolve().then(()=>options.runtime?.dispose()),dispatching]);
+      if(outcomes.some(outcome=>outcome.status==='rejected'))throw new Error('Runtime shutdown unconfirmed');
+    })().catch(error=>{runtimeStopped=undefined;throw error;});
+    return runtimeStopped;
+  };
+  const api = { installation, issueEnrollment, dispatchNext, tickSchedules,
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',value=>(record(value).acceptance as Acceptance).receipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
     get baseURL() { return baseURL; }, async start({ port = 0,signal }: { port?:number;signal?:AbortSignal } = {}) {
     if(closed)throw new Error('Service is closed');
@@ -689,10 +755,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
     });
     closing = (async () => {
-      const outcomes = await Promise.allSettled([closeHTTP(),Promise.resolve().then(()=>options.runtime?.dispose()),dispatching]);
+      const outcomes = await Promise.allSettled([closeHTTP(),stopRuntime()]);
       db.close();
       if (outcomes.some(result => result.status === 'rejected')) throw new Error('Runtime or HTTP cleanup was not confirmed; restart is blocked.');
     })();
     return closing;
   } };
+  return api;
 }

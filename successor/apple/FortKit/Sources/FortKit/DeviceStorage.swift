@@ -2,7 +2,7 @@ import Foundation
 import Security
 import CryptoKit
 
-public struct DeviceConnection: Codable, Sendable {
+public struct DeviceConnection: Codable, Equatable, Sendable {
     public let baseURL: URL
     public let installationID: String
     public let deviceID: String
@@ -17,10 +17,14 @@ struct SavedNavigation: Codable {
     var selectedConversationID: String? = nil
     var recipientAgentID: String? = nil
 }
-public enum DeviceStorageError: Error { case keychain(OSStatus) }
+public enum DeviceStorageError: Error { case keychain(OSStatus), removalUnavailable }
 protocol DeviceCredentials {
     func save(_ connection: DeviceConnection, token: String) throws
     func token(for connection: DeviceConnection) throws -> String
+    func remove(_ connection: DeviceConnection) throws
+}
+extension DeviceCredentials {
+    func remove(_ connection: DeviceConnection) throws { throw DeviceStorageError.removalUnavailable }
 }
 private struct KeychainCredentials: DeviceCredentials {
     public func save(_ connection: DeviceConnection, token: String) throws {
@@ -33,6 +37,11 @@ private struct KeychainCredentials: DeviceCredentials {
             let inserted = SecItemAdd(add as CFDictionary, nil)
             guard inserted == errSecSuccess else { throw DeviceStorageError.keychain(inserted) }
         } else if status != errSecSuccess { throw DeviceStorageError.keychain(status) }
+    }
+    public func remove(_ connection: DeviceConnection) throws {
+        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"Fort.Spec058.Device",kSecAttrAccount as String:"\(connection.installationID)/\(connection.deviceID)"]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw DeviceStorageError.keychain(status) }
     }
     public func token(for connection: DeviceConnection) throws -> String {
         let query: [String: Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"Fort.Spec058.Device",kSecAttrAccount as String:"\(connection.installationID)/\(connection.deviceID)",kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne]
@@ -62,6 +71,19 @@ public final class DeviceStorage {
         try protectedWrite(JSONEncoder().encode(connection),to:directory.appendingPathComponent("connection.json"))
     }
     public func token(for connection: DeviceConnection) throws -> String { try credentials.token(for:connection) }
+    public func disconnectedConnection() throws -> DeviceConnection? {
+        let file = directory.appendingPathComponent("disconnected.json")
+        guard FileManager.default.fileExists(atPath:file.path) else { return nil }
+        return try JSONDecoder().decode(DeviceConnection.self,from:Data(contentsOf:file))
+    }
+    public func removePairing(_ expected: DeviceConnection) throws {
+        let current = try connection()
+        let disconnected = try disconnectedConnection()
+        guard current == expected || (current == nil && disconnected == expected) else { throw OwnerLifecycleError.wrongPairing }
+        try protectedWrite(JSONEncoder().encode(expected),to:directory.appendingPathComponent("disconnected.json"))
+        try credentials.remove(expected)
+        if current != nil { try FileManager.default.removeItem(at:directory.appendingPathComponent("connection.json")) }
+    }
     private func snapshotFile(_ installationID: String, _ conversationID: String) -> URL {
         let key = SHA256.hash(data:Data("\(installationID)/\(conversationID)".utf8)).map { String(format:"%02x",$0) }.joined()
         return directory.appendingPathComponent("snapshot-\(key).json")
