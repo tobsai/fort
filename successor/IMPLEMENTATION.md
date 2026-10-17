@@ -26,6 +26,14 @@ replacement opened, received zero owner messages and finished cleanup. All six
 historical packets are retained. The following October 16 account and proposals
 are historical; the active plan does not reuse or reset them.
 
+
+Source `8a877fff2730d7dd99bb45b9f47e31158182383c` adds durable pending-request
+cancellation across offline/relaunch/lost-response races. Service cancellation
+records prevent late acceptance; accepted work keeps its exact receipt and runtime
+outcome. Validation passes 654 TypeScript and 33 Swift checks, strict typechecking,
+a ten-call/six-restart Swift HTTP journey and fresh signed native builds.
+[Pending cancellation evidence](evidence/2026-10-17-mvp-pending/README.md).
+
 ## Historical native-provider progress — October 16
 
 The approved fourth packet completed one actual native Mac send/reply through the

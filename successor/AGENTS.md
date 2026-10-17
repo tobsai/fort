@@ -26,8 +26,9 @@ See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.js
 for byte hashes and the distinction between observed state and operator timing.
 The original preparation records remain historical evidence.
 
-The current source milestone is `a524c4a6fbe4d53e9f8e514a5e89a71f8cda8968`;
-read evidence/2026-10-17-mvp-skill-migration/README.md before further validation.
+The current source milestone is `8a877fff2730d7dd99bb45b9f47e31158182383c`;
+read evidence/2026-10-17-mvp-pending/README.md before further validation.
+Pending request cancellation now survives lost responses and client/service restart.
 Native routines, schedules and complete instruction-bundle authoring have synthetic
 and build evidence. Installed/provider acceptance remains open. Reconnection did
 not approve the pending three-session temporary enrollment proposal.

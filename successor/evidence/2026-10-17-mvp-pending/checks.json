@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "8a877fff2730d7dd99bb45b9f47e31158182383c",
+  "typescriptTestsPassed": 654,
+  "swiftTestsPassed": 33,
+  "typecheckExit": 0,
+  "nativeHTTP": "ten synthetic executions, six service restarts, two discarded acceptances, one discarded cancellation, zero duplicate or canceled dispatches; schedule enable/pause produced no runtime call",
+  "logs": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/active-cancellation.log",
+      "bytes": 789,
+      "sha256": "e5c4b077edfc6f98fe95eba03f51029b7cef9a20377453947a736d185cc15351"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/ios-build.log",
+      "bytes": 273680,
+      "sha256": "5c93792dfa88fd55c9c024db052bc7c74080508256d6dc526cd4c3b167d29a87"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/mac-build.log",
+      "bytes": 150802,
+      "sha256": "6e6ced1b8bc2e6debf9dbcfecc49130cf54d4081c85736e7f5f83367140e4fff"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/native-http.log",
+      "bytes": 1457,
+      "sha256": "df859e5a92718fa1d5d65d504eba62ae2e1fcb23513a354078b4f38dea502bcc"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/service-green.log",
+      "bytes": 359,
+      "sha256": "0f11da312e8abcf3d8a3f2af0e6c4a16f0358a1ab23364f1732aef3b06c77bfc"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/service-red.log",
+      "bytes": 1942,
+      "sha256": "8bb0271689d057629eb795cff775eeccf746df37e9d2544bcd8bb5d5ce0c3f7c"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/swift-red.log",
+      "bytes": 15284,
+      "sha256": "93731ff60744a977ec36e2109577224c0f1eac41d787816ac2c75a9b827ea2ef"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/swift-tests.log",
+      "bytes": 6324,
+      "sha256": "12bcc0b4d5416e5540737bf165b8133ab19c70d24ea204a2d0e2c46e150bc58e"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-pending-validation-20261017/typescript-tests.log",
+      "bytes": 60333,
+      "sha256": "be68d647cc61475f4e89330b635a24de918ea5a2516d87ef93a3da30d4cb711f"
+    }
+  ],
+  "unrun": [
+    "installed accessibility/screenshots",
+    "actual provider tests of this source",
+    "physical iPhone",
+    "live schedule execution",
+    "distribution"
+  ]
+}
