@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "session": 2,
+  "phase": "blocked",
+  "began": 1792253755977,
+  "workDeadline": 1792254295977,
+  "credentialDeadline": 1792254355977,
+  "launches": 1,
+  "restarts": 1,
+  "receipts": [
+    {
+      "requestId": "7188679e-1a82-4594-b0ab-8a51a57e90e6",
+      "conversationId": "5907a136-11e1-4724-842f-93a4c5d53d3d",
+      "messageId": "8b6c2c45-cd11-4c7c-9dd0-2344ce708d58",
+      "runId": "710cb653-25d6-4ca5-9ff5-fe4e13f6558f",
+      "bindingRevisionId": "3ab238b6-476a-40d9-8995-4bb3eb55acae",
+      "inputDigest": "1ec68a9abd743f8cc11cce86966ab3bbb334457676553e714b3335d832d859a1",
+      "acceptedAt": "2026-10-17T16:18:00.460Z"
+    }
+  ],
+  "credentialCleanup": "deleted",
+  "runtimeCleanup": "confirmed",
+  "nativeCleanup": "unconfirmed",
+  "installationId": "5ea42d40-135c-4c04-b32b-aafb011a7e1e",
+  "port": 55280
+}

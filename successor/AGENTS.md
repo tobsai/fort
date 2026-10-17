@@ -1,22 +1,29 @@
 # Spec 058 successor
 
-Current launcher source is `409a11eaa7752d39b26ff33d89305648e6865b7d`.
-Owner approval for the unchanged three-session Mac batch was recorded at
-2026-10-17 15:32:58 UTC in the local `ops/mvp-native-acceptance-20261017/owner-approval.json`.
-Session 1 is consumed: three completed receipts, one launch and one restart;
-its original blocked state and all history remain unchanged. Its separately verified
-cleanup reconciliation preserves the old lock and permits session 2, then session 3
-only after session 2 cleanup. Neither unused session has started. Never reset or
-replay session 1 or transfer its unused budget to another session.
+Current launcher source is `e5a4ef54e67cfd2df506f42b191b8f80378581d8`.
+The owner-approved three-session Mac batch has one unused session: session 3.
+Sessions 1 and 2 remain blocked and consumed in their original files, each with
+one launch and one restart. They have three and one completed receipts respectively.
+Separate verified cleanup records preserve both retained locks and permit only the
+third session. No counts, deadlines, credentials or transcript entries were reset.
 
-The launcher discovers the registered macOS container and matches the exact canonical
-bundle/executable through NSWorkspace, including `/tmp` to `/private/tmp` aliases.
-Read [recovery evidence](evidence/2026-10-17-mvp-native-path-recovery/README.md) and
-[the operator plan](ops/mvp-native-acceptance-20261017/PLAN.md). Validation: 94 selected
-non-enrollment tests, strict TypeScript checking and three preparation-checker unit
-tests pass. Enrollment-fixture suites remain unrun. Native source/artifacts remain
-`996e19849f5104e71b26b7c14d201aaa56b31c87`; no native build or live session was run
-by this repair. Only the existing designated operator executes remaining sessions.
+The actual macOS bridge bug is fixed: Foundation normalized observed paths to
+`/tmp` while Node supplied `/private/tmp`. Both sides now use Foundation before
+comparison; Node still checks filesystem identity. The production bridge passed an
+actual inert AppKit canary with exact PID matching, wrong-copy refusal and graceful
+exit. The previous mocked bridge tests did not cover that failure.
+
+Read [shutdown recovery evidence](evidence/2026-10-17-mvp-native-shutdown-recovery/README.md)
+and [the current operator plan](ops/mvp-native-acceptance-20261017/PLAN.md).
+Validation: 99 selected non-enrollment tests, one actual AppKit canary and strict
+TypeScript checking passed. Native Fort source/artifacts remain
+`996e19849f5104e71b26b7c14d201aaa56b31c87`; no live Fort/provider operation or
+new enrollment occurred during this repair. Before terminal restart or done, the
+operator quits Fort through supported UI and uses `native-status` to confirm exit.
+The corrected helper has real canary coverage; live Fort termination is not claimed
+as verified. The existing local owner approval and original scope are unchanged.
+B invocation/export, live routine execution and physical-iPhone acceptance remain
+untested. Never replay a consumed packet or transfer its unused allowance.
 
 
 Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a

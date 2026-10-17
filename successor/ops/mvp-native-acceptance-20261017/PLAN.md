@@ -3,19 +3,22 @@
 The owner approved the unchanged three-session scope at 2026-10-17 15:32:58 UTC.
 The separate local `owner-approval.json` records user message
 `Sentinel_c9ad1471c1088191a9141d2ed2797c03`; the original proposal snapshot is retained.
-Current launcher source: `409a11eaa7752d39b26ff33d89305648e6865b7d`.
+Current launcher source: `e5a4ef54e67cfd2df506f42b191b8f80378581d8`.
 Unchanged native artifact source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
 Source/app/scope pins are in `pins.json`; its `activationAuthorized: false` means the
 seal itself does not grant authority. The separate owner record supplies authority.
 
-Session 1 is consumed and remains recorded as blocked: one launch, one restart,
-three completed receipts. Memory, same-Home history and app-only relaunch passed;
-service/runtime restart failed on incorrect native path/process checks. The operator
-completed scoped cleanup. A separate verified cleanup reconciliation now permits
-session 2, then session 3 after session 2 cleanup. Both remain unstarted. Do not
-replay session 1's unfinished checklist or transfer its unused limits.
+Sessions 1 and 2 are consumed and remain blocked in their original records, each
+with one launch and one restart. They have three and one completed receipts
+respectively. Their separate cleanup reconciliations preserve the original states,
+ledgers, history and locks. Only session 3 remains unstarted and available. Do not
+replay either earlier checklist or transfer any unused allowance.
 
-Read [recovery evidence](../../evidence/2026-10-17-mvp-native-path-recovery/README.md).
+The actual macOS bridge failure was an inconsistent path comparison: Foundation
+returned `/tmp` while Node supplied `/private/tmp`. Both sides now use Foundation
+normalization inside the helper; Node retains its filesystem check. The actual
+bridge passed an inert AppKit canary, including graceful exit and wrong-copy refusal.
+Read [shutdown recovery evidence](../../evidence/2026-10-17-mvp-native-shutdown-recovery/README.md).
 The former `check.py --check` is a historical pre-activation checker that expects
 absent session roots and the old native cache location. Use the current launcher
 `--check` below for this resumed batch. The old checker and its three passing unit
@@ -30,11 +33,11 @@ remain supported by the service and adapter.
 
 ## Activation gate and operator commands
 
-The corrected launcher is committed and sealed across 117 product files. All 94
-selected non-enrollment tests, strict TypeScript checking and three checker unit
-tests pass. The enrollment-fixture suite remains unrun under the existing execution
-boundary; do not bypass that boundary. Actual native termination/restart with this
-new helper remains installed acceptance work for the designated operator.
+The corrected launcher is committed and sealed across 119 product files. All 99
+selected non-enrollment tests, one actual AppKit canary and strict TypeScript
+checking pass. The enrollment-fixture suite remains unrun under the existing execution
+boundary; do not bypass that boundary. Live Fort termination/restart with this
+helper remains installed acceptance work; the real canary does not substitute for it.
 
 Keep `../mvp-native-test-scope-20261017.json` and the existing owner record unchanged.
 Routine code and cleanup reconciliation do not expand enrollment, duration, message,
@@ -51,16 +54,23 @@ With the existing explicit approval and a successful check, the designated opera
 may start the next unused session:
 
 ```sh
-/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 2
+/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 3
 ```
 
 Enter `start` once. Wait for READY, then open the exact `appPath` and pair using the
 local `pairingFile`; never print its contents or capture the code/token. Immediately
 report the work cutoff and credential expiry to the parent. The terminal accepts
-`status`, `restart`, `done` and `abort`; no prompt text is accepted there. App messages
-must match the fixed synthetic samples below. Use session 3 only after session 2 has confirmed cleanup. These are separate
-attended windows within the original batch.
+`status`, `native-status`, `restart`, `done` and `abort`; no prompt text is accepted
+there. App messages must match the fixed synthetic samples below. This is the sole
+remaining attended window. At most 12 further turns and one fresh expiring
+enrollment remain; earlier sessions completed four turns total.
 No automatic loop, retry, renewal or fourth session is available.
+
+Before terminal `restart` or `done`, first resolve any active/queued request, quit
+the exact Fort app through supported UI, and enter `native-status`. Require **Native
+app exit confirmed**. This read-only command consumes no launch or restart. If exit
+is unconfirmed, stop and report it; do not spend a restart on a detection failure.
+The same original deadlines and automatic bounded cleanup remain in force.
 
 The single restart allowance is shared by terminal `restart` and the native
 **Restart runtime** action. Terminal restart stops the app, confirms no active or
@@ -78,14 +88,15 @@ Unconfirmed cleanup retains the lock and blocks later sessions. A missing/moved
 ledger is never recreated as proof of cleanup. Unknown turns are never resubmitted.
 
 Before pairing, the launcher validates `io.fort.candidateb.mac` against the app
-Info.plist and registered container metadata. NSWorkspace checks the canonical bundle
-and executable paths; another copy of that bundle blocks the operation. The storage
+Info.plist and registered container metadata. NSWorkspace compares both expected
+and observed bundle/executable paths using Foundation normalization, then Node
+verifies filesystem identity; another copy of that bundle blocks the operation. The storage
 root is `~/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB`.
 After confirming the exact app is stopped, it moves that cache into
-`session-N/native-cache-before`, recording
-and verifying its hashes. It preserves earlier session histories and all six older
-packets. Session 1 retains both its original non-container archive and the actual container
-history; session 2 preparation will preserve the latter in its own archive.
+`session-N/native-cache-before`, recording and verifying its hashes. It preserves earlier session histories and all six older
+packets. Session 1 retains its original non-container archive. Session 2's archive preserves
+the actual session 1 container history; session 3 preparation preserves session 2's
+current container history in its own archive.
 Do not reset roots, delete locks, replace archives or reuse the historical
 `prototype/manual.ts`. No historical activation gate was modified.
 
@@ -134,7 +145,11 @@ Steps 5–7 remain incomplete and are not authorized for replay in this packet.
    word ready.` and verify exact Reviewer attribution. Do not claim model behavior
    alone proves isolation; inspect the recorded configuration and context scope.
 
-## Session 2 — native bundle lifecycle and historical revocation (up to four turns)
+## Session 2 — consumed; historical checklist only
+
+A invocation, inert routine pinning, B review/enable and historical A revocation
+passed. Restart failed before a replacement runtime launch. B invocation/export
+and all routine execution remain untested; do not replay this consumed packet.
 
 1. Create an instruction skill named Check marker with `End with [CHECKED].` through
    the native editor. Verify it produces a complete disabled bundle. Inspect source,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceCommit": "409a11eaa7752d39b26ff33d89305648e6865b7d",
+  "sourceCommit": "e5a4ef54e67cfd2df506f42b191b8f80378581d8",
   "nativeSourceCommit": "996e19849f5104e71b26b7c14d201aaa56b31c87",
   "scopeSHA256": "24232f4c96da97a3fa2b64620bedcc4752332d17e111bc8c7d583eac26bdf4f6",
   "appPath": "/tmp/fort058-mvp-memory-review-mac-20261017/Build/Products/Debug/FortMac.app",
@@ -171,7 +171,7 @@
     },
     {
       "path": "successor/package.json",
-      "sha256": "ea8010387e173179e541cc573a365e935efb1fde5581aa6bc86b876747b147fb"
+      "sha256": "1ae90519448c96e12d02fef5cf96975693e3a601dd6eb2423e6448359ea8c361"
     },
     {
       "path": "successor/prototype/README.md",
@@ -184,6 +184,10 @@
     {
       "path": "successor/prototype/activation.ts",
       "sha256": "f943abb09a333035001cd2e8b252c2be1b6701d765a81dc6b7f80a989aa347c7"
+    },
+    {
+      "path": "successor/prototype/fixtures/native-shutdown-canary.swift",
+      "sha256": "8a42a149a1d974bf459eb2398b69a665fb0cbfdc631c2ab6cb3adffd212afbca"
     },
     {
       "path": "successor/prototype/manual.test.ts",
@@ -207,11 +211,15 @@
     },
     {
       "path": "successor/prototype/mvp-app.jxa",
-      "sha256": "08bd65a0c7adf3d02c8819cb1e7a9c925b20f3eabf0e11f2fe98dd35b3f40c17"
+      "sha256": "977594f753fc8c2dd36c8e2bffc969782420867162f0d2300a3350360e07c375"
+    },
+    {
+      "path": "successor/prototype/mvp-app.test.ts",
+      "sha256": "f2a32865b3fa8a299fb9c61b86fba67b396289c52285743cf22210ea45d8a120"
     },
     {
       "path": "successor/prototype/mvp-manual.ts",
-      "sha256": "cb31f2f9c369dd9a50e32af3e8b66928ca1ca067c1ff0c117100af9a77f5138f"
+      "sha256": "287e818dd396e68a7a38cf96d84053a0c2182668b3c09899aa6d51e2f3a07c42"
     },
     {
       "path": "successor/prototype/mvp-native.test.ts",
@@ -231,15 +239,15 @@
     },
     {
       "path": "successor/prototype/mvp-reconcile.ts",
-      "sha256": "9a8230bc3c68f2fed2fd73f297e587015a7da0a6e548c3d5222ae10087a34310"
+      "sha256": "18a9c3ff76b11f83b47f8fdb4bb5348b23c238541b9665a49c0396d42b2d5f05"
     },
     {
       "path": "successor/prototype/mvp-reconciliation.test.ts",
-      "sha256": "e16b4bf8b14465c4996b55dabc2146ad96a873915852d38834c4e36a60469254"
+      "sha256": "cc145389d2cd337e0665a79d66db33a8d78705a0685cfcf1b05b3faa3c91bbec"
     },
     {
       "path": "successor/prototype/mvp-reconciliation.ts",
-      "sha256": "7055bae1a100999e9f4f4ed1c8deca140bb021b7dd276b9743fbaa3229bbdcb3"
+      "sha256": "8b8f43196fd43cf5bd6f9634de0b2f515567cd66f0ece5dfbcb90bf3ae905460"
     },
     {
       "path": "successor/prototype/mvp-runtime.ts",

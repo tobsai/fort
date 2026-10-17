@@ -1,0 +1,9 @@
+✔ the actual macOS bridge detects and gracefully terminates an owned inert app (10790.712167ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10875.979333
