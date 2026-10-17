@@ -3,13 +3,13 @@ import { createServer, type IncomingMessage } from 'node:http';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 
-type Entity = 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -139,7 +139,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     installation = { contractVersion: '1.0', mode: 'openai', serviceName: 'Fort Prototype', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,capabilities:['skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,capabilities:['requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
@@ -170,6 +170,14 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     const read = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
     return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: list('routineApprovals',decodeRoutineApproval).filter(approval=>load('runs',approval.runId,decodeRun).conversationId===conversationId), lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
   };
+  const cancelRun=(runId:string):Run=>{
+    const run=load('runs',runId,decodeRun);
+    if(run.state!=='queued'&&run.state!=='running'&&run.state!=='waitingForApproval')return run;
+    const immediate=run.state!=='running';
+    const canceled:Run={...run,state:immediate?'canceled':'cancelRequested',statusDetail:immediate?'Canceled before runtime dispatch.':'Stop requested; waiting for runtime confirmation.',...(immediate&&run.routine?{routine:stopRoutine(run.routine,'canceled','Owner canceled the routine.')}:{})};
+    if(immediate)for(const approval of list('routineApprovals',decodeRoutineApproval)){if(approval.runId===runId&&approval.state==='pending')put('routineApprovals',approval.approvalId,{...approval,state:'canceled'});}
+    put('runs',runId,canceled);append(run.conversationId,'runStopped',runId);return canceled;
+  };
   const bindingDisabled=(bindingRevisionId:string)=>Boolean(db.prepare("SELECT 1 FROM entities WHERE kind='disabledBindings' AND id=?").get(bindingRevisionId));
   const saveRoutine=(request:IncomingMessage,body:Record<string,unknown>,routineId?:string):RoutineRevision=>{
     const definition=parseRoutineDefinition(body.definition);
@@ -190,6 +198,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
+    if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
     const messageId=randomUUID(),runId=randomUUID(),acceptedAt=new Date().toISOString(),sequence=append(conversationId,'messageAccepted',messageId);
     const message:Message={messageId,conversationId,requestId,role:'user',text:inputText,sequence,createdAt:acceptedAt,recipientAgentId:configuration.agentId,recipientAgentName:configuration.agentName};
     const run:Run={runId,requestId,conversationId,bindingRevisionId,state:'queued',selectedModel:configuration.selectedModel,effectiveModel:null,modelEvidence:'unreported',attemptId:null,configuration,...(routine?{routine}:{})};
@@ -497,16 +506,32 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
             put('runs',runId,resolved);append(run.conversationId,'runClosed',runId);return {run:resolved};
           });queueMicrotask(wake);
         }
+        else if (request.method === 'POST' && /^\/v1\/requests\/[^/]+\/cancel$/.test(url.pathname)) {
+          const body=await readBody(request),requestId=id(url.pathname.split('/')[3]);
+          const cancellation:RequestCancellation=owner(request,()=>{
+            if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before changing work.');
+            const scope={requestId,recoveryEpoch:installation.recoveryEpoch,conversationId:id(body.conversationId),bindingRevisionId:id(body.bindingRevisionId)};
+            const prior=db.prepare("SELECT data FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId);
+            if(prior){const stored=record(json(prior));if(stored.conversationId!==scope.conversationId||stored.bindingRevisionId!==scope.bindingRevisionId||stored.recoveryEpoch!==scope.recoveryEpoch)fail(409,'requestConflict','The cancellation belongs to a different request scope.');}
+            const accepted=db.prepare("SELECT data FROM entities WHERE kind='requests' AND id=?").get(requestId);
+            if(accepted){
+              const {receipt}=record(json(accepted)).acceptance as Acceptance;
+              if(receipt.conversationId!==scope.conversationId||receipt.bindingRevisionId!==scope.bindingRevisionId)fail(409,'requestConflict','The accepted request belongs to a different scope.');
+              const run=cancelRun(receipt.runId);put('requestCancellations',requestId,scope);
+              return {...scope,status:'accepted',receipt,run,snapshot:snapshot(scope.conversationId)};
+            }
+            load('conversations',scope.conversationId,decodeConversation);
+            put('requestCancellations',requestId,scope);return {...scope,status:'notAccepted'};
+          });
+          result=cancellation;
+          if(cancellation.status==='accepted'&&activeRunId===cancellation.run.runId)active?.abort();
+          queueMicrotask(wake);
+        }
         else if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/cancel$/.test(url.pathname)) {
           const body=await readBody(request),runId=id(url.pathname.split('/')[3]);
           result=owner(request,()=>{
             if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before changing work.');
-            const run=load('runs',runId,decodeRun);
-            if(run.state!=='queued'&&run.state!=='running'&&run.state!=='waitingForApproval')return {run};
-            const immediate=run.state!=='running';
-            const canceled:Run={...run,state:immediate?'canceled':'cancelRequested',statusDetail:immediate?'Canceled before runtime dispatch.':'Stop requested; waiting for runtime confirmation.',...(immediate&&run.routine?{routine:stopRoutine(run.routine,'canceled','Owner canceled the routine.')}:{})};
-            if(immediate)for(const approval of list('routineApprovals',decodeRoutineApproval)){if(approval.runId===runId&&approval.state==='pending')put('routineApprovals',approval.approvalId,{...approval,state:'canceled'});}
-            put('runs',runId,canceled);append(run.conversationId,'runStopped',runId);return {run:canceled};
+            return {run:cancelRun(runId)};
           });
           if(activeRunId===runId)active?.abort();
           queueMicrotask(wake);

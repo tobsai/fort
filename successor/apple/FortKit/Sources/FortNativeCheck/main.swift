@@ -32,6 +32,45 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
         }
         let stateFile = config.stateDirectory.appendingPathComponent("native-check.json")
         let store = try PendingStore(directory:config.stateDirectory,installationID:config.installationId)
+        if CommandLine.arguments[1].hasPrefix("workspace-pending-") {
+            let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:stateFile))
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            let installation = try await client.installation()
+            try require(installation.supports("requestCancellation"),"request cancellation capability missing")
+            if CommandLine.arguments[1] == "workspace-pending-prepare" {
+                try require(try store.pending().isEmpty,"pending cancellation fixture requires an empty queue")
+                let unsent = try store.enqueue(conversationID:state.writer.homeConversationId,bindingRevision:state.writer.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:"Synthetic never submitted",recipientAgentID:state.writer.id,skills:[])
+                try store.requestCancellation(unsent)
+                let uncertain = try store.enqueue(conversationID:state.writer.homeConversationId,bindingRevision:state.writer.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:"Synthetic pending cancellation acceptance lost",recipientAgentID:state.writer.id,skills:[])
+                do { _ = try await client.submit(uncertain); throw CheckFailure(reason:"expected a discarded acceptance") }
+                catch ClientError.service(let code,_) { try require(code == "syntheticLostAcceptance","unexpected acceptance error") }
+                try store.requestCancellation(uncertain)
+                do { _ = try await client.cancelPending(uncertain); throw CheckFailure(reason:"expected a discarded cancellation") }
+                catch ClientError.service(let code,_) { try require(code == "syntheticLostCancellation","unexpected cancellation error") }
+                try require(try store.pending().allSatisfy { $0.cancelRequested == true && !$0.canRetry(in:installation.recoveryEpoch) },"cancellation intent was not durably held")
+                print("PASS native cancellation intent persisted after discarded acceptance and cancellation responses")
+            } else if CommandLine.arguments[1] == "workspace-pending-replay" {
+                let pending = try store.pending(); try require(pending.count == 2,"restart lost pending cancellations")
+                for item in pending {
+                    try require(item.cancelRequested == true && !item.canRetry(in:installation.recoveryEpoch),"restart would replay canceled submission")
+                    let result = try await client.cancelPending(item)
+                    try require(result.requestId == item.requestID && result.conversationId == item.conversationID && result.bindingRevisionId == item.bindingRevision && result.recoveryEpoch == item.recoveryEpoch,"cancellation scope mismatch")
+                    if item.text == "Synthetic never submitted" {
+                        try require(result.status == .notAccepted && result.receipt == nil,"unsent request unexpectedly accepted")
+                        do { _ = try await client.submit(item); throw CheckFailure(reason:"canceled request accepted late") }
+                        catch ClientError.service(let code,_) { try require(code == "requestCanceled","wrong late-submission error") }
+                    } else {
+                        guard let receipt = result.receipt, let snapshot = result.snapshot else { throw CheckFailure(reason:"lost acceptance not reconciled") }
+                        let original = try await client.receipt(requestID:item.requestID)
+                        try require(result.status == .accepted && result.run?.state == "canceled" && snapshot.runs.contains { $0.id == receipt.runId && $0.state == "canceled" } && receipt == original.receipt && item.matches(original),"accepted queued request not canceled")
+                    }
+                    try store.remove(requestID:item.requestID)
+                }
+                try require(try store.pending().isEmpty,"cancellation acknowledgement did not clear pending")
+                print("PASS native cancellation replay after restart, exact acceptance reconciliation and late-submission fence")
+            } else { throw CheckFailure(reason:"unknown pending cancellation phase") }
+            return
+        }
         if CommandLine.arguments[1] == "workspace-prepare" {
             let initial = try FortClient(baseURL:config.baseURL,installationID:config.installationId,fixtureLoopback:true)
             let enrollment = try await initial.enroll(code:config.codeA,deviceName:"Synthetic native workspace")

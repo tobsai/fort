@@ -110,17 +110,23 @@ import Observation
             pending = try pendingStore?.pending() ?? []
             pendingErrors = [:]
             if current.supportsCommands {
-                for item in pending where item.canRetry(in:current.recoveryEpoch) && (item.routine == nil || current.supports("routines")) {
+                for queued in pending where queued.recoveryEpoch == current.recoveryEpoch {
+                    guard let item = try pendingStore?.pending().first(where: { $0.requestID == queued.requestID }) else { continue }
                     do {
-                        let acceptance = try await client.submit(item)
-                        guard item.matches(acceptance) else { throw ClientError.invalidResponse }
-                        try persist(acceptance.snapshot,conversationID:item.conversationID,epoch:current.recoveryEpoch)
-                        try pendingStore?.remove(requestID:item.requestID)
+                        if item.cancelRequested == true {
+                            if current.supports("requestCancellation") { try await reconcileCancellation(item,client:client) }
+                        } else if item.canRetry(in:current.recoveryEpoch) && (item.routine == nil || current.supports("routines")) {
+                            let acceptance = try await client.submit(item)
+                            guard item.matches(acceptance) else { throw ClientError.invalidResponse }
+                            try persist(acceptance.snapshot,conversationID:item.conversationID,epoch:current.recoveryEpoch)
+                            if let retained = try pendingStore?.pending().first(where: { $0.requestID == item.requestID }), retained.cancelRequested == true {
+                                if current.supports("requestCancellation") { try await reconcileCancellation(retained,client:client) }
+                            } else { try pendingStore?.remove(requestID:item.requestID) }
+                        }
                     } catch {
                         pendingErrors[item.requestID] = error.localizedDescription
-                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","bindingConflict","bindingDisabled","routineChanged","invalidRoutine"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
+                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","requestCanceled","bindingConflict","bindingDisabled","routineChanged","invalidRoutine"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
                     }
-
                 }
             }
             pending = try pendingStore?.pending() ?? []
@@ -129,11 +135,36 @@ import Observation
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
             connected = true
-            status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
+            status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
         } catch {
             connected = false; status = error.localizedDescription
             if snapshot == nil, let conversationID = activeConversationID { snapshot = try? storage.snapshot(installationID:expectedInstallation,conversationID:conversationID) }
         }
+    }
+    public func cancelPending(_ item: PendingSubmission) async {
+        guard installation?.supports("requestCancellation") == true, item.recoveryEpoch == installation?.recoveryEpoch, let pendingStore else { return }
+        do {
+            try pendingStore.requestCancellation(item)
+            pending = try pendingStore.pending()
+            status = "Cancellation saved on this device · confirmation pending"
+            if !isBusy { await refresh() }
+        } catch { status = error.localizedDescription }
+    }
+    private func reconcileCancellation(_ item: PendingSubmission, client: FortClient) async throws {
+        let cancellation = try await client.cancelPending(item)
+        guard cancellation.requestId == item.requestID, cancellation.conversationId == item.conversationID,
+              cancellation.bindingRevisionId == item.bindingRevision, cancellation.recoveryEpoch == item.recoveryEpoch else { throw ClientError.invalidResponse }
+        switch cancellation.status {
+        case .notAccepted:
+            guard cancellation.receipt == nil, cancellation.run == nil, cancellation.snapshot == nil else { throw ClientError.invalidResponse }
+        case .accepted:
+            guard let receipt = cancellation.receipt, let run = cancellation.run, let snapshot = cancellation.snapshot,
+                  run.runId == receipt.runId, run.requestId == item.requestID, run.conversationId == item.conversationID,
+                  run.bindingRevisionId == item.bindingRevision, ["cancelRequested","canceled","completed","failed","outcomeUnknown","closedUnknown"].contains(run.state), snapshot.runs.contains(run),
+                  item.matches(Acceptance(receipt:receipt,snapshot:snapshot)) else { throw ClientError.invalidResponse }
+            try persist(snapshot,conversationID:item.conversationID,epoch:item.recoveryEpoch)
+        }
+        try pendingStore?.remove(requestID:item.requestID)
     }
     private func persist(_ incoming: Snapshot, conversationID: String, epoch: String) throws {
         guard incoming.recoveryEpoch == epoch else { throw ClientError.invalidResponse }

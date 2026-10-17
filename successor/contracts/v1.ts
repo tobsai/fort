@@ -7,6 +7,7 @@ export type Snapshot = { installationId: string; recoveryEpoch: string; conversa
 export type Submission = { requestId: string; bindingRevisionId: string; recoveryEpoch: string; text: string };
 export type Receipt = { requestId: string; conversationId: string; messageId: string; runId: string; bindingRevisionId: string; inputDigest: string; acceptedAt: string };
 export type Acceptance = { receipt: Receipt; snapshot: Snapshot };
+export type RequestCancellation = { requestId: string; recoveryEpoch: string; conversationId: string; bindingRevisionId: string } & ({ status: 'notAccepted' } | { status: 'accepted'; receipt: Receipt; run: Run; snapshot: Snapshot });
 export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryEpoch: string; eventId: string; sequence: number; entityId: string; conversationId: string; kind: string; createdAt: string; data: unknown };
 export const MAX_TEXT_BYTES = 65_536;
 

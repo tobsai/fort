@@ -121,6 +121,10 @@ public struct FortClient: Sendable {
         struct Response: Decodable { let lastReadMessageSequence: Int }
         let _: Response = try await send("v1/conversations/\(try segment(conversationID))/read", method: "POST", body: Body(recoveryEpoch: recoveryEpoch, messageId: messageID, cursor: cursor))
     }
+    public func cancelPending(_ pending: PendingSubmission) async throws -> RequestCancellation {
+        struct Body: Encodable { let recoveryEpoch: String; let conversationId: String; let bindingRevisionId: String }
+        return try await send("v1/requests/\(try segment(pending.requestID))/cancel",method:"POST",body:Body(recoveryEpoch:pending.recoveryEpoch,conversationId:pending.conversationID,bindingRevisionId:pending.bindingRevision))
+    }
     public func cancel(runID: String, recoveryEpoch: String) async throws -> Run {
         struct Body: Encodable { let recoveryEpoch: String }
         let response: RunResponse = try await send("v1/runs/\(try segment(runID))/cancel",method:"POST",body:Body(recoveryEpoch:recoveryEpoch))

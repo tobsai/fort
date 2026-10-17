@@ -299,3 +299,11 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable, Identifiable {
         switch state { case "accepted": "Accepted"; case "skippedOverlap": "Skipped: another run was active"; case "skippedMissed": "Skipped after downtime"; case "skippedGap": "Skipped: local time did not exist"; case "blocked": "Blocked: review required"; case "skippedMissedRange": "Earlier downtime skipped"; default: "Unsupported occurrence state" }
     }
 }
+
+public struct RequestCancellation: Codable, Sendable {
+    public enum Status: String, Codable, Sendable { case notAccepted, accepted }
+    public let requestId: String; public let recoveryEpoch: String
+    public let conversationId: String; public let bindingRevisionId: String
+    public let status: Status
+    public let receipt: Receipt?; public let run: Run?; public let snapshot: Snapshot?
+}

@@ -10,7 +10,7 @@ import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition, RequestCancellation } from '../contracts/v1.ts';
 
 async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
@@ -28,6 +28,42 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('request cancellation persists before acceptance and fences late chat or routine submission after restart',async t=>{
+  const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const command={requestId:'cancel-before-accept',recoveryEpoch:epoch,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,text:'Late original message',skills:[]};
+  const scope={recoveryEpoch:epoch,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId},path=`/v1/requests/${command.requestId}/cancel`;
+  const canceled=await h.api<RequestCancellation>(path,scope);assert.equal(canceled.status,200);assert.equal(canceled.body.status,'notAccepted');assert.equal(canceled.body.requestId,command.requestId);
+  await h.restart();assert.deepEqual((await h.api<RequestCancellation>(path,scope)).body,canceled.body);
+  const late=await h.api<{error:{code:string}}>(`/v1/conversations/${agent.homeConversationId}/messages`,{...command,recipientAgentId:agent.agentId});assert.equal(late.status,409);assert.equal(late.body.error.code,'requestCanceled');
+  assert.equal((await h.api(path,{...scope,bindingRevisionId:'different'})).status,409);
+  assert.equal((await h.api(path,{...scope,recoveryEpoch:'old-epoch'})).status,409);
+  const routine=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Canceled task',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Use declared inputs.',inputs:[],skills:[],steps:[{stepId:'task',name:'Task',type:'task',instructions:'Write.',inputNames:[],outputStepIds:[]}]}})).body;
+  assert.equal((await h.api(`/v1/routines/${routine.routineId}/run`,{requestId:command.requestId,routineRevisionId:routine.revisionId,recoveryEpoch:epoch,inputs:{}})).status,409);
+  assert.equal((await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body.runs.length,0);
+});
+
+test('request cancellation reconciles a lost acceptance and a submit race without duplicate or late dispatch',async t=>{
+  let calls=0;const h=await setup(t,{runtime:{async execute(){calls++;return {kind:'completed',text:'Synthetic',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const scope={recoveryEpoch:epoch,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId};
+  const command={requestId:'lost-acceptance-cancel',text:'Synthetic sample',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]},path=`/v1/conversations/${agent.homeConversationId}/messages`;
+  const accepted=(await h.api<Acceptance>(path,command)).body;
+  assert.equal((await h.api(`/v1/requests/${command.requestId}/cancel`,{...scope,conversationId:'wrong-home'})).status,409);
+  const canceled=await h.api<RequestCancellation>(`/v1/requests/${command.requestId}/cancel`,scope);assert.equal(canceled.status,200);assert.equal(canceled.body.status,'accepted');
+  if(canceled.body.status!=='accepted')throw new Error('Expected accepted cancellation');
+  assert.deepEqual(canceled.body.receipt,accepted.receipt);assert.equal(canceled.body.run.state,'canceled');
+  await h.restart();assert.equal((await h.api<Acceptance>(path,command)).body.receipt.runId,accepted.receipt.runId);
+  for(let index=0;index<12;index++){
+    const requestId='cancel-race-'+index;
+    const [submission,cancellation]=await Promise.all([h.api<Acceptance>(path,{...command,requestId}),h.api<RequestCancellation>(`/v1/requests/${requestId}/cancel`,scope)]);
+    assert.equal(cancellation.status,200);assert.ok(submission.status===201||submission.status===409);
+    if(submission.status===201){assert.equal(cancellation.body.status,'accepted');if(cancellation.body.status==='accepted')assert.equal(cancellation.body.run.state,'canceled');}
+    else assert.equal(cancellation.body.status,'notAccepted');
+  }
+  assert.equal(await h.service.dispatchNext(),false);assert.equal(calls,0);
+  assert.ok((await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body.runs.every(run=>run.state==='canceled'));
+});
 
 test('an old instruction record migrates only by an explicit save and review, retaining its original revision',async t=>{
   const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body;
@@ -359,7 +395,7 @@ test('owner cancels queued work without executing it and the same Home can conti
   await h.restart();assert.deepEqual((await h.api<Snapshot>(path+'/snapshot')).body.runs.map(run=>run.state),['canceled','completed']);
 });
 
-for(const outcome of ['canceled','completed','outcomeUnknown'] as const)test(`active cancellation preserves runtime evidence and the Conversation barrier: ${outcome}`,async t=>{
+for(const target of ['run','request'])for(const outcome of ['canceled','completed','outcomeUnknown'] as const)test(`active ${target} cancellation preserves runtime evidence and the Conversation barrier: ${outcome}`,async t=>{
   const started=Promise.withResolvers<AbortSignal>(),terminal=Promise.withResolvers<Awaited<ReturnType<ChatRuntime['execute']>>>();
   const calls:string[]=[];
   const h=await setup(t,{runtime:{async execute(input,signal){calls.push(input.requestId);if(input.requestId==='active'){started.resolve(signal);return terminal.promise;}return {kind:'completed',text:'Synthetic later reply',effectiveModel:null};},async dispose(){terminal.resolve({kind:'canceled',message:'Synthetic confirmed interruption'});}}});
@@ -370,12 +406,15 @@ for(const outcome of ['canceled','completed','outcomeUnknown'] as const)test(`ac
   await send('later');
   assert.equal((await h.api(`/v1/runs/${first.receipt.runId}/close-unknown`,{recoveryEpoch:epoch,acknowledgeUncertainty:true})).status,409);
   assert.equal((await h.api(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:'wrong'})).status,409);
-  const response=await h.api<{run:Run}>(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:epoch});
+  const cancelPath=target==='run'?`/v1/runs/${first.receipt.runId}/cancel`:'/v1/requests/active/cancel';
+  const scope={recoveryEpoch:epoch,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId};
+  const response=await h.api<{run:Run}>(cancelPath,scope);
   assert.equal(response.status,200);assert.equal(response.body.run.state,'cancelRequested');assert.equal(signal.aborted,true);
   assert.deepEqual((await h.api<Snapshot>(path+'/snapshot')).body.runs.map(run=>run.state),['cancelRequested','queued']);assert.deepEqual(calls,['active']);
   terminal.resolve(outcome==='completed'?{kind:'completed',text:'Synthetic completion won the race',effectiveModel:null}:{kind:outcome,message:'Synthetic terminal evidence'});await dispatch;
   const final=(await h.api<Snapshot>(path+'/snapshot')).body;
   assert.equal(final.runs[0]?.state,outcome);
+  assert.equal((await h.api<{run:Run}>(cancelPath,scope)).body.run.state,outcome);
   assert.equal(final.messages.filter(message=>message.role==='assistant').length,outcome==='completed'?1:0);
   assert.equal(await h.service.dispatchNext(),outcome!=='outcomeUnknown');
   assert.deepEqual(calls,outcome==='outcomeUnknown'?['active']:['active','later']);

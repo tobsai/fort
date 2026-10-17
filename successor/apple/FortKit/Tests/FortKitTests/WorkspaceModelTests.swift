@@ -9,6 +9,22 @@ private actor WorkspaceServer {
         func add(_ server: WorkspaceServer, host: String) { servers[host] = server }
         func response(_ request: URLRequest) async throws -> (Int,Data) { try await servers[request.url!.host!]!.response(request) }
     }
+    var corruptCancellation = false
+    func setCorruptCancellation(_ value: Bool) { corruptCancellation = value }
+    var cancellationSupport = false, loseCancelResponse = false
+    var cancellations: [String] = []
+    var holdAcceptance = false, acceptanceHeld = false
+    var releaseAcceptance: CheckedContinuation<Void,Never>?, heldWaiter: CheckedContinuation<Void,Never>?
+    func enableCancellation() { cancellationSupport = true }
+    func disconnect() { offline = true }
+    func loseCancellationResponse() { loseCancelResponse = true }
+    func pauseAcceptanceResponse() { holdAcceptance = true }
+    func waitForHeldAcceptance() async { if !acceptanceHeld { await withCheckedContinuation { heldWaiter = $0 } } }
+    func resumeAcceptanceResponse() { releaseAcceptance?.resume(); releaseAcceptance = nil }
+    func cancellationSummary() -> [String] { cancellations }
+    func holdResponseIfRequested() async {
+        if holdAcceptance { holdAcceptance = false; acceptanceHeld = true; heldWaiter?.resume(); heldWaiter = nil; await withCheckedContinuation { releaseAcceptance = $0 } }
+    }
     var routineSupport = false, routineVersion = "routine-one"
     func enableRoutines() { routineSupport = true }
     func advanceRoutine() { routineVersion = "routine-two" }
@@ -20,7 +36,7 @@ private actor WorkspaceServer {
     var revision = "one", offline = false, loseNextResponse = false
     var savedRevisions: [String] = [], submissions: [[String:Any]] = []
     var acceptance: [String:Any]?
-    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":routineSupport ? ["routines","routineGates"] : []] }
+    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":(routineSupport ? ["routines","routineGates"] : []) + (cancellationSupport ? ["requestCancellation"] : [])] }
     func agent(_ id: String) -> [String:Any] { ["agentId":id,"name":id.capitalized,"homeConversationId":id+"-home","readiness":"requiresLiveReview","instructions":"Original instructions.","binding":["bindingRevisionId":id+"-"+revision,"provider":"codex","runtimeVersion":"0.157.1","selectedModel":"gpt-6-astra","hostId":"local-codex","enabled":true]] }
     var skill: [String:Any] {
         var value: [String:Any] = ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."]
@@ -39,7 +55,7 @@ private actor WorkspaceServer {
         if let acceptance, let snapshot = acceptance["snapshot"] as? [String:Any], snapshot["conversationId"] as? String == conversation { return snapshot }
         return ["installationId":"model-test","recoveryEpoch":"epoch","conversationId":conversation,"cursor":0,"messages":[],"runs":[],"approvals":[],"lastReadMessageSequence":0]
     }
-    func response(_ request: URLRequest) throws -> (Int,Data) {
+    func response(_ request: URLRequest) async throws -> (Int,Data) {
         if offline { throw URLError(.notConnectedToInternet) }
         func result(_ body: [String:Any], _ status: Int = 200) throws -> (Int,Data) { (status,try JSONSerialization.data(withJSONObject:body)) }
         let path = request.url!.path
@@ -53,6 +69,19 @@ private actor WorkspaceServer {
         var data = request.httpBody ?? Data()
         if let stream = request.httpBodyStream { stream.open(); defer { stream.close() }; var bytes=[UInt8](repeating:0,count:1024); while stream.hasBytesAvailable { let n=stream.read(&bytes,maxLength:bytes.count); if n<=0 { break }; data.append(contentsOf:bytes.prefix(n)) } }
         let body = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
+        if path.hasPrefix("/v1/requests/"), path.hasSuffix("/cancel"), cancellationSupport {
+            let requestID = String(path.split(separator:"/")[2]); cancellations.append(requestID)
+            var response = body; response["requestId"] = requestID
+            if var accepted = acceptance, let receipt = accepted["receipt"] as? [String:Any], receipt["requestId"] as? String == requestID,
+               var snapshot = accepted["snapshot"] as? [String:Any], var runs = snapshot["runs"] as? [[String:Any]] {
+                if runs[0]["state"] as? String == "queued" { runs[0]["state"] = "canceled" }
+                snapshot["runs"] = runs; snapshot["cursor"] = 3; accepted["snapshot"] = snapshot; acceptance = accepted
+                response["status"] = "accepted"; response["receipt"] = receipt; response["run"] = runs[0]; response["snapshot"] = snapshot
+            } else { response["status"] = "notAccepted" }
+            if corruptCancellation { response["bindingRevisionId"] = "wrong-binding" }
+            if loseCancelResponse { loseCancelResponse = false; offline = true; throw URLError(.networkConnectionLost) }
+            return try result(response)
+        }
         if path == "/v1/routines/routine" {
             let expected = body["expectedRevisionId"] as? String ?? "missing"; savedRevisions.append(expected)
             if expected != routineVersion { return try result(["error":["code":"routineChanged","message":"Another client changed the routine."]],409) }
@@ -67,6 +96,7 @@ private actor WorkspaceServer {
                 let run: [String:Any] = ["runId":"routine-run","requestId":requestID,"conversationId":"writer-home","bindingRevisionId":"writer-one","state":"queued","selectedModel":"gpt-6-astra","modelEvidence":"unreported","routine":["routineId":"routine","revisionId":revision,"definition":routine["definition"]!,"inputs":inputs,"steps":[["stepId":"draft","stepRevisionId":"synthetic","state":"pending"]]]]
                 acceptance = ["receipt":["requestId":requestID,"conversationId":"writer-home","messageId":"user","runId":"routine-run","bindingRevisionId":"writer-one","inputDigest":"synthetic","acceptedAt":"2026-10-17T00:00:00Z"],"snapshot":["installationId":"model-test","recoveryEpoch":"epoch","conversationId":"writer-home","cursor":1,"messages":[message],"runs":[run],"approvals":[],"lastReadMessageSequence":0]]
             }
+            await holdResponseIfRequested()
             if loseNextResponse { loseNextResponse = false; offline = true; throw URLError(.networkConnectionLost) }
             return try result(acceptance!,201)
         }
@@ -87,6 +117,7 @@ private actor WorkspaceServer {
                 let run: [String:Any] = ["runId":"only-run","requestId":requestID,"conversationId":"shared","bindingRevisionId":binding,"state":"completed","selectedModel":"gpt-6-astra","modelEvidence":"unreported"]
                 acceptance = ["receipt":["requestId":requestID,"conversationId":"shared","messageId":"user","runId":"only-run","bindingRevisionId":binding,"inputDigest":"synthetic","acceptedAt":"2026-10-16T00:00:00Z"],"snapshot":["installationId":"model-test","recoveryEpoch":"epoch","conversationId":"shared","cursor":2,"messages":messages,"runs":[run],"approvals":[],"lastReadMessageSequence":0]]
             }
+            await holdResponseIfRequested()
             if loseNextResponse { loseNextResponse = false; offline = true; throw URLError(.networkConnectionLost) }
             return try result(acceptance!,201)
         }
@@ -177,4 +208,68 @@ private final class ModelCredentials: DeviceCredentials {
     #expect(await server.edits() == ["routine-one"])
     let roundTrip = try JSONDecoder().decode(RoutineDefinition.self,from:JSONEncoder().encode(revision.definition))
     #expect(roundTrip == revision.definition)
+}
+
+@Test @MainActor func pendingCancellationSurvivesLostAcceptanceAndLostCancelResponseAcrossRelaunches() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableCancellation(); await server.enableRoutines(); await model.refresh()
+    await server.loseAcceptanceResponse()
+    #expect(await model.runRoutine(try #require(model.routines.first),inputs:["topic":.text("Synthetic")]))
+    let pending = try #require(model.pending.first)
+    await model.cancelPending(pending)
+    #expect(model.pending.first?.cancelRequested == true)
+    #expect(model.pending.first?.canRetry(in:"epoch") == false)
+    await server.reconnect(); await server.loseCancellationResponse()
+    let second = MessengerModel(storage:storage,session:session); await second.restore()
+    #expect(second.pending.first?.cancelRequested == true)
+    await server.reconnect()
+    let third = MessengerModel(storage:storage,session:session); await third.restore()
+    #expect(third.pending.isEmpty)
+    #expect(third.snapshot?.runs.first?.state == "canceled")
+    #expect(await server.replaySummary().0 == 1)
+    #expect(await server.cancellationSummary() == [pending.requestID,pending.requestID])
+}
+
+@Test @MainActor func offlinePendingCancellationIsAcknowledgedWithoutSubmittingAfterRelaunch() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableCancellation(); await model.refresh(); await model.selectConversation("shared"); model.recipientAgentID = "reviewer"
+    await server.disconnect(); model.draft = "Never send this"; await model.send()
+    let pending = try #require(model.pending.first); await model.cancelPending(pending)
+    await server.reconnect()
+    let restarted = MessengerModel(storage:storage,session:session); await restarted.restore()
+    #expect(restarted.pending.isEmpty && restarted.snapshot?.runs.isEmpty == true)
+    #expect(await server.replaySummary().0 == 0)
+    #expect(await server.cancellationSummary() == [pending.requestID])
+}
+
+@Test @MainActor func cancellationWhileAcceptanceResponseIsInFlightIsNotLost() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableCancellation(); await server.enableRoutines(); await model.refresh()
+    let routine = try #require(model.routines.first)
+    await server.pauseAcceptanceResponse()
+    let send = Task { await model.runRoutine(routine,inputs:["topic":.text("Synthetic race")]) }
+    await server.waitForHeldAcceptance()
+    let pending = try #require(model.pending.first); await model.cancelPending(pending)
+    #expect(model.pending.first?.cancelRequested == true)
+    await server.resumeAcceptanceResponse(); #expect(await send.value)
+    #expect(model.pending.isEmpty && model.snapshot?.runs.first?.state == "canceled")
+    #expect(await server.replaySummary().0 == 1)
+    #expect(await server.cancellationSummary() == [pending.requestID])
+}
+
+@Test @MainActor func mismatchedCancellationAcknowledgementCannotErasePendingIntent() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableCancellation(); await server.enableRoutines(); await model.refresh()
+    await server.loseAcceptanceResponse()
+    #expect(await model.runRoutine(try #require(model.routines.first),inputs:["topic":.text("Synthetic")]))
+    let pending = try #require(model.pending.first); await model.cancelPending(pending)
+    await server.reconnect(); await server.setCorruptCancellation(true); await model.refresh()
+    #expect(model.pending.first?.cancelRequested == true && !model.pendingErrors.isEmpty)
+    #expect(await server.replaySummary().0 == 1)
+    await server.setCorruptCancellation(false); await model.refresh()
+    #expect(model.pending.isEmpty && model.snapshot?.runs.first?.state == "canceled")
 }

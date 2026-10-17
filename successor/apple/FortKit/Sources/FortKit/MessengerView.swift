@@ -142,7 +142,10 @@ public struct MessengerView: View {
             Text(pending.text)
             if let issue = model.pendingErrors[pending.requestID] { Text(issue).font(.caption).foregroundStyle(.orange) }
             if let reason = pending.reviewRequired { Text(reason).font(.caption).foregroundStyle(.orange) }
-            Text(pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Review required · automatic retry paused").font(.caption).foregroundStyle(.secondary)
+            Text(pending.cancelRequested == true ? "Cancellation saved on this device · confirmation pending" : pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Review required · automatic retry paused").font(.caption).foregroundStyle(.secondary)
+            if pending.cancelRequested != true, model.installation?.supports("requestCancellation") == true, pending.recoveryEpoch == model.installation?.recoveryEpoch {
+                Button("Cancel pending request",role:.destructive) { Task { await model.cancelPending(pending) } }
+            }
         }.padding().overlay(RoundedRectangle(cornerRadius:12).stroke(.secondary,style:StrokeStyle(lineWidth:1,dash:[4])))
     }
     private var messageComposer: some View {

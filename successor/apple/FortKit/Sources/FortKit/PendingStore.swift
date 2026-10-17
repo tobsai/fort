@@ -14,8 +14,9 @@ public struct PendingSubmission: Codable, Equatable, Sendable, Identifiable {
     public var recipientAgentID: String? = nil
     public var skills: [SkillReference]? = nil
     public var reviewRequired: String? = nil
+    public var cancelRequested: Bool? = nil
     public var routine: RoutineCommand? = nil
-    public func canRetry(in epoch: String) -> Bool { recoveryEpoch == epoch && reviewRequired == nil }
+    public func canRetry(in epoch: String) -> Bool { recoveryEpoch == epoch && reviewRequired == nil && cancelRequested != true }
     public func matches(_ acceptance: Acceptance) -> Bool {
         let receipt = acceptance.receipt
         guard receipt.requestId == requestID, receipt.conversationId == conversationID, receipt.bindingRevisionId == bindingRevision,
@@ -56,6 +57,12 @@ public final class PendingStore {
         var item = PendingSubmission(requestID:UUID().uuidString.lowercased(),conversationID:revision.definition.conversationId,bindingRevision:revision.definition.bindingRevisionId,recoveryEpoch:recoveryEpoch,text:"Run routine: " + revision.definition.name,createdAt:Date())
         item.routine = command
         var items = try pending(); items.append(item); try write(items); return item
+    }
+    public func requestCancellation(_ item: PendingSubmission) throws {
+        var items = try pending()
+        if let index = items.firstIndex(where: { $0.requestID == item.requestID }) { items[index].cancelRequested = true }
+        else { var retained = item; retained.cancelRequested = true; items.append(retained) }
+        try write(items)
     }
     public func remove(requestID: String) throws { try write(pending().filter { $0.requestID != requestID }) }
     public func requireReview(requestID: String, reason: String) throws {

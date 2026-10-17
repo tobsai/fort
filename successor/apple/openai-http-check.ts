@@ -20,7 +20,7 @@ const runtime: ChatRuntime = { async dispose() { cleanupConfirmations++; }, asyn
   return { kind:'completed', text:input.configuration.skills.length ? 'Packing list [CHECKED]' : input.conversationId === inputs[0]?.conversationId ? 'cedar' : 'Synthetic sample reply', effectiveModel:null };
 } };
 let service = createOpenAIService({ dataDirectory:join(directory,'ledger'), runtime, autoRun:true });
-let discardedAcceptances = 0;
+let discardedAcceptances = 0, discardedPendingAcceptances = 0, discardedCancellations = 0;
 const gateway = createServer((request,response)=>{void(async()=>{
   let body='';for await(const chunk of request)body+=String(chunk);
   const headers:Record<string,string>={};
@@ -31,6 +31,12 @@ const gateway = createServer((request,response)=>{void(async()=>{
     assert.equal(upstream.status,201);discardedAcceptances++;
     response.writeHead(503,{'Content-Type':'application/json'});
     response.end(JSON.stringify({error:{code:'syntheticLostAcceptance',message:'Synthetic gateway discarded the committed acceptance response.'}}));
+  }else if(request.method==='POST'&&request.url?.endsWith('/messages')&&body.includes('Synthetic pending cancellation acceptance lost')&&discardedPendingAcceptances===0){
+    assert.equal(upstream.status,201);discardedPendingAcceptances++;
+    response.writeHead(503,{'Content-Type':'application/json'});response.end(JSON.stringify({error:{code:'syntheticLostAcceptance',message:'Synthetic discarded acceptance.'}}));
+  }else if(request.method==='POST'&&request.url?.startsWith('/v1/requests/')&&request.url.endsWith('/cancel')&&discardedCancellations===0){
+    assert.equal(upstream.status,200);discardedCancellations++;
+    response.writeHead(503,{'Content-Type':'application/json'});response.end(JSON.stringify({error:{code:'syntheticLostCancellation',message:'Synthetic discarded cancellation.'}}));
   }else{response.writeHead(upstream.status,{'Content-Type':'application/json'});response.end(result);}
 })().catch(()=>{response.writeHead(500);response.end();});});
 try {
@@ -91,5 +97,9 @@ try {
   const finalTask=JSON.parse(inputs[9]!.text);assert.equal(finalTask.stepId,'finish');assert.equal(finalTask.previousOutputs.length,1);assert.equal(finalTask.previousOutputs[0]?.text,'cedar');
   assert.equal(cleanupConfirmations,4);
   process.stdout.write('PASS routine HTTP conformance: two synthetic task executions separated by a durable gate and restart, schedule consent and pause without execution\n');
-  process.stdout.write('PASS FortClient/PendingStore HTTP conformance: ten synthetic executions, four service restarts, explicit recovery, one discarded acceptance, no duplicate dispatch and empty pending queue\n');
+  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
+  await run('workspace-pending-prepare');assert.equal(inputs.length,10);assert.equal(discardedPendingAcceptances,1);assert.equal(discardedCancellations,1);
+  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
+  await run('workspace-pending-replay');assert.equal(await service.dispatchNext(),false);assert.equal(inputs.length,10);assert.equal(cleanupConfirmations,6);
+  process.stdout.write('PASS FortClient/PendingStore HTTP conformance: ten synthetic executions, six service restarts, two discarded acceptances, one discarded cancellation, no duplicate or canceled dispatch and empty pending queue\n');
 } finally { await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve())); await service.close(); await rm(directory,{ recursive:true,force:true }); }
