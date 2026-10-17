@@ -22,6 +22,7 @@ import Observation
     public var pending: [PendingSubmission] = []
     public var pendingErrors: [String:String] = [:]
     public var installation: Installation?
+    public var runtimeReadiness: RuntimeReadiness?
     public var status = "Connect to your fixture installation."
     public var isBusy = false
     public var connected = false
@@ -44,7 +45,10 @@ import Observation
     }
     public var supportsRoutines: Bool { installation?.supports("routines") == true }
     public var supportsCommands: Bool { installation?.supportsCommands == true }
-    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
+    public var supportsMemory: Bool { installation?.supports("conversationMemory") == true }
+    public var conversationMemory: ConversationMemory? { snapshot?.conversationId == activeConversationID ? snapshot?.memory : nil }
+    public var canEditMemory: Bool { supportsMemory && snapshot?.conversationId == activeConversationID && snapshot?.recoveryEpoch == installation?.recoveryEpoch }
+    public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
     init(storage: DeviceStorage, session: URLSession) { self.storage = storage; self.session = session }
     public func restore() async {
@@ -98,6 +102,7 @@ import Observation
         do {
             let current = try await client.installation()
             installation = current
+            runtimeReadiness = current.supports("runtimeRecovery") ? try await client.runtimeReadiness() : nil
             agents = try await client.agents()
             if !agents.contains(where:{$0.agentId == selectedAgentID}) { selectedAgentID = agents.first?.agentId }
             if current.mode == "openai" {
@@ -125,7 +130,7 @@ import Observation
                         }
                     } catch {
                         pendingErrors[item.requestID] = error.localizedDescription
-                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","requestCanceled","bindingConflict","bindingDisabled","routineChanged","invalidRoutine"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
+                        if case ClientError.service(let code, let reason) = error, ["invalidConfiguration","memoryChanged","bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","requestCanceled","bindingConflict","bindingDisabled","routineChanged","invalidRoutine"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
                     }
                 }
             }
@@ -179,7 +184,7 @@ import Observation
     public func send() async {
         guard canSend, let agent = recipient, let conversationID = activeConversationID, let installation, let pendingStore else { return }
         do {
-            try pendingStore.enqueue(conversationID:conversationID,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:draft,recipientAgentID:installation.mode == "openai" ? agent.id : nil,skills:installation.mode == "openai" ? skills.filter { selectedSkillIDs.contains($0.id) }.map(\.reference) : nil)
+            try pendingStore.enqueue(conversationID:conversationID,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:draft,recipientAgentID:installation.mode == "openai" ? agent.id : nil,skills:installation.mode == "openai" ? skills.filter { selectedSkillIDs.contains($0.id) }.map(\.reference) : nil,memoryRevisionId:supportsMemory ? conversationMemory?.revisionId : nil)
             draft = ""; selectedSkillIDs = []; pending = try pendingStore.pending(); try saveNavigation()
             status = "Saved on this device · not yet accepted by Fort"
             await refresh()
@@ -212,6 +217,14 @@ import Observation
             isBusy = false; await refresh(); workspaceSaving = false; return true
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
     }
+    public func saveMemory(conversationID: String, memory: ConversationMemory?, text: String) async -> Bool {
+        guard supportsMemory, text.utf8.count <= 8192, let client = await beginWorkspaceSave(), let installation else { return false }
+        do {
+            let saved = try await client.saveMemory(conversationID:conversationID,memory:memory,text:text,recoveryEpoch:installation.recoveryEpoch)
+            guard saved.conversationId == conversationID, saved.text == text, !saved.revisionId.isEmpty else { throw ClientError.invalidResponse }
+            isBusy = false; await refresh(); workspaceSaving = false; return true
+        } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
+    }
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }
         do {
@@ -232,6 +245,12 @@ import Observation
             let saved = try await client.reviewSkill(skill,enable:enable)
             isBusy = false; await refresh(); workspaceSaving = false; return saved
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return nil }
+    }
+    public func skillRevision(_ reference: RoutineSkill) async throws -> InstructionSkill {
+        guard let client else { throw ClientError.service("offline","Connect to review this pinned skill.") }
+        let skill = try await client.skillRevision(skillID:reference.skillId,revisionID:reference.revisionId)
+        guard skill.id == reference.skillId, skill.revisionId == reference.revisionId, skill.bundle?.digest == reference.digest else { throw ClientError.invalidResponse }
+        return skill
     }
     public func previousRevision(for skill: InstructionSkill) async throws -> InstructionSkill? {
         guard let revision = skill.previousRevisionId else { return nil }
@@ -290,6 +309,14 @@ import Observation
         } catch { status = error.localizedDescription }
         isBusy = false
         await refresh()
+    }
+    public func restartRuntime() async {
+        if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
+        guard installation?.supports("runtimeRecovery") == true, runtimeReadiness?.state == "restartRequired", runtimeReadiness?.canRestart == true, !isBusy, let client, let installation else { return }
+        isBusy = true
+        do { runtimeReadiness = try await client.restartRuntime(recoveryEpoch:installation.recoveryEpoch) }
+        catch { status = error.localizedDescription }
+        isBusy = false; await refresh()
     }
     public func cancel(_ run: Run) async {
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }

@@ -9,6 +9,18 @@ private actor WorkspaceServer {
         func add(_ server: WorkspaceServer, host: String) { servers[host] = server }
         func response(_ request: URLRequest) async throws -> (Int,Data) { try await servers[request.url!.host!]!.response(request) }
     }
+    var priorSkill: [String:Any]?
+    func editSkillKeepingPrevious() { priorSkill = skill; revision = "two" }
+    var runtimeSupport = false, runtimeRestarts = 0, runtimeReady = false
+    func enableRuntimeRecovery() { runtimeSupport = true }
+    func runtimeRestartCount() -> Int { runtimeRestarts }
+    var runtime: [String:Any] { ["state":runtimeReady ? "ready" : "restartRequired","canRestart":!runtimeReady,"detail":"Synthetic runtime readiness"] }
+    var memorySupport = false, memoryCursor = 0
+    var memories: [String:[String:Any]] = [:]
+    func enableMemory() { memorySupport = true }
+    func advanceMemory(_ conversation: String, text: String) {
+        memoryCursor += 1; memories[conversation] = ["conversationId":conversation,"revisionId":"memory-"+String(memoryCursor),"text":text]
+    }
     var corruptCancellation = false
     func setCorruptCancellation(_ value: Bool) { corruptCancellation = value }
     var cancellationSupport = false, loseCancelResponse = false
@@ -36,7 +48,7 @@ private actor WorkspaceServer {
     var revision = "one", offline = false, loseNextResponse = false
     var savedRevisions: [String] = [], submissions: [[String:Any]] = []
     var acceptance: [String:Any]?
-    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":(routineSupport ? ["routines","routineGates"] : []) + (cancellationSupport ? ["requestCancellation"] : [])] }
+    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":(routineSupport ? ["routines","routineGates"] : []) + (cancellationSupport ? ["requestCancellation"] : []) + (memorySupport ? ["conversationMemory"] : []) + (runtimeSupport ? ["runtimeRecovery"] : [])] }
     func agent(_ id: String) -> [String:Any] { ["agentId":id,"name":id.capitalized,"homeConversationId":id+"-home","readiness":"requiresLiveReview","instructions":"Original instructions.","binding":["bindingRevisionId":id+"-"+revision,"provider":"codex","runtimeVersion":"0.157.1","selectedModel":"gpt-6-astra","hostId":"local-codex","enabled":true]] }
     var skill: [String:Any] {
         var value: [String:Any] = ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."]
@@ -52,23 +64,39 @@ private actor WorkspaceServer {
     func edits() -> [String] { savedRevisions }
     func replaySummary() -> (Int,Bool) { (submissions.count, submissions.count == 2 && NSDictionary(dictionary:submissions[0]).isEqual(to:submissions[1])) }
     func snapshot(_ conversation: String) -> [String:Any] {
-        if let acceptance, let snapshot = acceptance["snapshot"] as? [String:Any], snapshot["conversationId"] as? String == conversation { return snapshot }
-        return ["installationId":"model-test","recoveryEpoch":"epoch","conversationId":conversation,"cursor":0,"messages":[],"runs":[],"approvals":[],"lastReadMessageSequence":0]
+        var current: [String:Any] = ["installationId":"model-test","recoveryEpoch":"epoch","conversationId":conversation,"cursor":memoryCursor,"messages":[],"runs":[],"approvals":[],"lastReadMessageSequence":0]
+        if let acceptance, let snapshot = acceptance["snapshot"] as? [String:Any], snapshot["conversationId"] as? String == conversation { current = snapshot }
+        current["cursor"] = max(current["cursor"] as? Int ?? 0,memoryCursor)
+        if let memory = memories[conversation] { current["memory"] = memory }
+        return current
     }
     func response(_ request: URLRequest) async throws -> (Int,Data) {
         if offline { throw URLError(.notConnectedToInternet) }
         func result(_ body: [String:Any], _ status: Int = 200) throws -> (Int,Data) { (status,try JSONSerialization.data(withJSONObject:body)) }
         let path = request.url!.path
         if path == "/v1/devices/enroll" { return try result(["installation":installation,"deviceId":"synthetic","deviceToken":"synthetic-only","expiresAt":"2099-01-01T00:00:00Z"]) }
+        if path == "/v1/runtime", runtimeSupport { return try result(runtime) }
         if path == "/v1/installation" { return try result(installation) }
         if path == "/v1/routines", request.httpMethod == "GET", routineSupport { return try result(["routines":[routine]]) }
         if path == "/v1/agents" { return try result(["agents":[agent("writer"),agent("reviewer")]]) }
+        if path == "/v1/skills/marker/revisions/one", let priorSkill { return try result(priorSkill) }
         if path == "/v1/skills" { return try result(["skills":[skill]]) }
         if path == "/v1/conversations" { return try result(["conversations":[["conversationId":"shared","name":"Sample planning","kind":"shared","participantAgentIds":["writer","reviewer"]],["conversationId":"writer-home","name":"Writer","kind":"home","participantAgentIds":["writer"]],["conversationId":"reviewer-home","name":"Reviewer","kind":"home","participantAgentIds":["reviewer"]]]]) }
         if path.hasSuffix("/snapshot") { return try result(snapshot(path.split(separator:"/").map(String.init)[2])) }
         var data = request.httpBody ?? Data()
         if let stream = request.httpBodyStream { stream.open(); defer { stream.close() }; var bytes=[UInt8](repeating:0,count:1024); while stream.hasBytesAvailable { let n=stream.read(&bytes,maxLength:bytes.count); if n<=0 { break }; data.append(contentsOf:bytes.prefix(n)) } }
         let body = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
+        if path == "/v1/skills/marker/review", body["revisionId"] as? String == "one", var prior = priorSkill {
+            prior["review"] = ["state":body["enable"] as? Bool == true ? "enabled" : "disabled","digest":"synthetic"]; priorSkill = prior; return try result(prior)
+        }
+        if path == "/v1/runtime/restart", runtimeSupport { runtimeRestarts += 1; runtimeReady = true; return try result(runtime) }
+        if path.hasPrefix("/v1/conversations/"), path.hasSuffix("/memory"), memorySupport {
+            let conversation = String(path.split(separator:"/")[2]), expected = body["expectedRevisionId"] as? String
+            savedRevisions.append(expected ?? "none")
+            if expected != memories[conversation]?["revisionId"] as? String { return try result(["error":["code":"memoryChanged","message":"Memory changed in another client."]],409) }
+            advanceMemory(conversation,text:try #require(body["text"] as? String))
+            return try result(memories[conversation]!)
+        }
         if path.hasPrefix("/v1/requests/"), path.hasSuffix("/cancel"), cancellationSupport {
             let requestID = String(path.split(separator:"/")[2]); cancellations.append(requestID)
             var response = body; response["requestId"] = requestID
@@ -114,7 +142,10 @@ private actor WorkspaceServer {
                 let binding = try #require(body["bindingRevisionId"] as? String)
                 let text = try #require(body["text"] as? String)
                 let messages: [[String:Any]] = [["messageId":"user","conversationId":"shared","requestId":requestID,"role":"user","text":text,"sequence":1,"createdAt":"2026-10-16T00:00:00Z","recipientAgentId":"reviewer","recipientAgentName":"Reviewer"],["messageId":"reply","conversationId":"shared","requestId":requestID,"role":"assistant","text":"Synthetic [CHECKED]","sequence":2,"createdAt":"2026-10-16T00:00:01Z","agentId":"reviewer","agentName":"Reviewer"]]
-                let run: [String:Any] = ["runId":"only-run","requestId":requestID,"conversationId":"shared","bindingRevisionId":binding,"state":"completed","selectedModel":"gpt-6-astra","modelEvidence":"unreported"]
+                var run: [String:Any] = ["runId":"only-run","requestId":requestID,"conversationId":"shared","bindingRevisionId":binding,"state":"completed","selectedModel":"gpt-6-astra","modelEvidence":"unreported"]
+                if let memory = memories["shared"] {
+                    run["configuration"] = ["agentId":"reviewer","agentName":"Reviewer","bindingRevisionId":binding,"selectedModel":"gpt-6-astra","instructions":"Original instructions.","skills":[],"memory":memory]
+                }
                 acceptance = ["receipt":["requestId":requestID,"conversationId":"shared","messageId":"user","runId":"only-run","bindingRevisionId":binding,"inputDigest":"synthetic","acceptedAt":"2026-10-16T00:00:00Z"],"snapshot":["installationId":"model-test","recoveryEpoch":"epoch","conversationId":"shared","cursor":2,"messages":messages,"runs":[run],"approvals":[],"lastReadMessageSequence":0]]
             }
             await holdResponseIfRequested()
@@ -272,4 +303,58 @@ private final class ModelCredentials: DeviceCredentials {
     #expect(await server.replaySummary().0 == 1)
     await server.setCorruptCancellation(false); await model.refresh()
     #expect(model.pending.isEmpty && model.snapshot?.runs.first?.state == "canceled")
+}
+
+@Test @MainActor func nativeMemoryEditorPreservesItsLoadedRevisionAndPendingReplayKeepsTheAcceptedNote() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableMemory(); await model.refresh(); await model.selectConversation("shared"); model.recipientAgentID = "reviewer"
+    let form = ConversationMemoryForm(conversationID:"shared",memory:model.conversationMemory)
+    form.text = "  Shared sample note: cedar.\r\n"
+    #expect(await form.save(using:model))
+    let saved = try #require(model.conversationMemory)
+    #expect(saved.text == form.text)
+    let stale = ConversationMemoryForm(conversationID:"shared",memory:saved); stale.text = "Stale replacement"
+    await server.loseAcceptanceResponse(); model.draft = "Use the saved note"; await model.send()
+    let pending = try #require(model.pending.first); #expect(pending.memoryRevisionId == saved.revisionId)
+    await server.advanceMemory("shared",text:"New note: birch"); await server.reconnect()
+    let restarted = MessengerModel(storage:storage,session:session); await restarted.restore()
+    #expect(restarted.pending.isEmpty)
+    #expect(restarted.snapshot?.runs.first?.configuration?.memory == saved)
+    #expect(restarted.conversationMemory?.text == "New note: birch")
+    #expect(await stale.save(using:restarted) == false)
+    #expect(stale.text == "Stale replacement")
+    #expect(await server.edits() == ["none",saved.revisionId])
+    let clear = ConversationMemoryForm(conversationID:"shared",memory:restarted.conversationMemory); clear.text = ""
+    #expect(await clear.save(using:restarted))
+    #expect(restarted.conversationMemory?.text == "")
+    await restarted.selectConversation("writer-home"); #expect(restarted.conversationMemory == nil)
+    let summary = await server.replaySummary(); #expect(summary.0 == 2 && summary.1)
+}
+
+@Test @MainActor func nativeRuntimeRecoveryIsVisibleAndOnlyAnExplicitAvailableActionRestartsIt() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableRuntimeRecovery(); await model.refresh()
+    #expect(model.runtimeReadiness?.state == "restartRequired" && model.runtimeReadiness?.canRestart == true)
+    #expect(await server.runtimeRestartCount() == 0)
+    await model.restartRuntime()
+    #expect(model.runtimeReadiness?.state == "ready")
+    #expect(await server.runtimeRestartCount() == 1)
+    await model.restartRuntime(); #expect(await server.runtimeRestartCount() == 1)
+}
+
+@Test @MainActor func nativePinnedSkillReviewLoadsAndRevokesTheHistoricalRevisionWithoutDisablingCurrent() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    let old = try #require(model.skills.first), bundle = try #require(old.bundle)
+    let ref = RoutineSkill(skillId:old.id,revisionId:old.revisionId,digest:bundle.digest)
+    await server.editSkillKeepingPrevious(); await model.refresh()
+    #expect(model.skills.first?.revisionId == "two")
+    let pinned = try await model.skillRevision(ref)
+    #expect(pinned.revisionId == old.revisionId && pinned.canInvoke)
+    let disabled = try #require(await model.reviewSkill(pinned,enable:false))
+    #expect(disabled.revisionId == "one" && !disabled.canInvoke)
+    #expect(model.skills.first?.revisionId == "two" && model.skills.first?.canInvoke == true)
+    #expect(try await model.skillRevision(ref).canInvoke == false)
 }

@@ -88,3 +88,35 @@ struct WorkspaceEditor: View {
         }
     }
 }
+
+@Observable @MainActor final class ConversationMemoryForm: Identifiable {
+    nonisolated var id: String { conversationID }
+    nonisolated let conversationID: String
+    private let loaded: ConversationMemory?
+    var text: String
+    init(conversationID: String, memory: ConversationMemory?) { self.conversationID = conversationID; loaded = memory; text = memory?.text ?? "" }
+    func save(using model: MessengerModel) async -> Bool { await model.saveMemory(conversationID:conversationID,memory:loaded,text:text) }
+}
+
+struct ConversationMemoryEditor: View {
+    @Bindable var model: MessengerModel
+    @Bindable var form: ConversationMemoryForm
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            Form {
+                Text("Write notes you want the selected agents to use in this conversation. Other conversations keep their own notes.").font(.callout)
+                TextEditor(text:$form.text).frame(minHeight:180).accessibilityLabel("Conversation memory notes")
+                Text("Applies to future chat messages. Clearing these notes keeps earlier messages and the memory recorded with accepted turns. Routines keep their saved plan.").font(.caption).foregroundStyle(.secondary)
+                Text("\(form.text.utf8.count) of 8192 bytes").font(.caption)
+                Button("Clear notes") { form.text = "" }.disabled(model.workspaceSaving)
+                Text(model.status).font(.caption)
+            }.formStyle(.grouped)
+            .navigationTitle("Conversation memory")
+            .toolbar {
+                ToolbarItem(placement:.cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.workspaceSaving) }
+                ToolbarItem(placement:.confirmationAction) { Button("Save memory") { Task { if await form.save(using:model) { dismiss() } } }.disabled(model.workspaceSaving || form.text.utf8.count > 8192) }
+            }
+        }.frame(minWidth:320,minHeight:430)
+    }
+}

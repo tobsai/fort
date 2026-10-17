@@ -13,6 +13,12 @@ createInterface({ input:process.stdin }).on('line',line=>{
   if(frame.method==='model/list')reply(frame.id,{ data:[{ id:'gpt-6-astra',model:'gpt-6-astra' }],nextCursor:null });
   if(frame.method==='permissionProfile/list')reply(frame.id,{data:[{id:'fort_candidate_b_no_files',description:null,allowed:true}],nextCursor:null});
   if(frame.method==='thread/start')reply(frame.id,{ thread:{ id:'synthetic-thread',ephemeral:true },model:'gpt-6-astra',modelProvider:'openai',cwd:frame.params.cwd,approvalPolicy:'untrusted',approvalsReviewer:'user',activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null},runtimeWorkspaceRoots:[],sandbox:{ type:'readOnly',networkAccess:false },instructionSources:[] });
-  if(frame.method==='turn/start')reply(frame.id,{ turn:{ id:'synthetic-turn',status:'inProgress' } });
+  if(frame.method==='turn/start'){
+    reply(frame.id,{turn:{id:'synthetic-turn',status:'inProgress'}});
+    if(process.env.FORT_SYNTHETIC_MODE==='complete'){
+      process.stdout.write(JSON.stringify({method:'item/completed',params:{threadId:'synthetic-thread',turnId:'synthetic-turn',item:{id:'reply',type:'agentMessage',phase:'final_answer',text:'Synthetic replacement reply'}}})+'\n');
+      process.stdout.write(JSON.stringify({method:'turn/completed',params:{threadId:'synthetic-thread',turn:{id:'synthetic-turn',status:'completed',error:null}}})+'\n');
+    }
+  }
 });
 setInterval(()=>{},1000);

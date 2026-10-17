@@ -3,13 +3,13 @@ import { createServer, type IncomingMessage } from 'node:http';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 
-type Entity = 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -52,10 +52,16 @@ function decodeConversation(value: unknown): Conversation {
   if ((v.kind !== 'home' && v.kind !== 'shared') || !Array.isArray(v.participantAgentIds)) throw new Error('Invalid stored Conversation');
   return { conversationId: id(v.conversationId), name: text(v.name, 'name'), kind: v.kind, participantAgentIds: v.participantAgentIds.map(id) };
 }
+function memoryText(value:unknown):string {
+  if(typeof value!=='string'||!value.isWellFormed()||Buffer.byteLength(value)>8192)fail(400,'invalidMemory','Use plain Unicode notes within 8192 bytes.');return value;
+}
+function decodeMemory(value:unknown):ConversationMemory {
+  const v=record(value);return {conversationId:id(v.conversationId),revisionId:id(v.revisionId),text:memoryText(v.text)};
+}
 function decodeConfiguration(value: unknown): TurnConfiguration {
   const v = record(value);
   if (!Array.isArray(v.skills)) throw new Error('Invalid stored skills');
-  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill) };
+  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill),...(v.memory===undefined?{}:{memory:decodeMemory(v.memory)}) };
 }
 function decodeMessage(value: unknown): Message {
   const v = record(value);
@@ -129,6 +135,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     try { const result = operation(); db.exec('COMMIT'); return result; }
     catch (error) { db.exec('ROLLBACK'); throw error; }
   };
+  const acceptanceTransaction=<T>(operation:()=>T):T=>{
+    db.exec('SAVEPOINT acceptance');
+    try { const result=operation();db.exec('RELEASE acceptance');return result; }
+    catch(error){db.exec('ROLLBACK TO acceptance; RELEASE acceptance');throw error;}
+  };
   let installation: Installation;
   const saved = db.prepare("SELECT data FROM metadata WHERE key='installation'").get();
   if (saved) {
@@ -139,7 +150,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     installation = { contractVersion: '1.0', mode: 'openai', serviceName: 'Fort Prototype', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,capabilities:['requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,capabilities:[...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
@@ -165,10 +176,14 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       if (run.state === 'queued'&&!run.routine) { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
     }
   });
+  const conversationMemory=(conversationId:string):ConversationMemory|undefined=>{
+    const row=db.prepare("SELECT data FROM entities WHERE kind='conversationMemory' AND id=?").get(conversationId);return row?decodeMemory(json(row)):undefined;
+  };
   const snapshot = (conversationId: string): Snapshot => {
     load('conversations', conversationId, decodeConversation);
     const read = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
-    return { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: list('routineApprovals',decodeRoutineApproval).filter(approval=>load('runs',approval.runId,decodeRun).conversationId===conversationId), lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
+    const memory=conversationMemory(conversationId);
+    return { ...(memory?{memory}:{}),installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: list('routineApprovals',decodeRoutineApproval).filter(approval=>load('runs',approval.runId,decodeRun).conversationId===conversationId), lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
   };
   const cancelRun=(runId:string):Run=>{
     const run=load('runs',runId,decodeRun);
@@ -196,16 +211,18 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if(!prior)return undefined;
     const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');return stored.acceptance as Acceptance;
   };
-  const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>{
+  const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
+    try { decodeConfiguration(configuration); }
+    catch(error){if(error instanceof APIError&&error.status===400)fail(400,'invalidConfiguration','Combined Agent and routine instructions must fit within 16384 bytes. Shorten the saved configuration before running it.');throw error;}
     const messageId=randomUUID(),runId=randomUUID(),acceptedAt=new Date().toISOString(),sequence=append(conversationId,'messageAccepted',messageId);
     const message:Message={messageId,conversationId,requestId,role:'user',text:inputText,sequence,createdAt:acceptedAt,recipientAgentId:configuration.agentId,recipientAgentName:configuration.agentName};
     const run:Run={runId,requestId,conversationId,bindingRevisionId,state:'queued',selectedModel:configuration.selectedModel,effectiveModel:null,modelEvidence:'unreported',attemptId:null,configuration,...(routine?{routine}:{})};
     put('messages',messageId,message);put('runs',runId,run);
     const acceptance:Acceptance={receipt:{requestId,conversationId,messageId,runId,bindingRevisionId,inputDigest:digest(inputText),acceptedAt},snapshot:snapshot(conversationId)};
     put('requests',requestId,{fingerprint,acceptance});return acceptance;
-  };
+  });
   const saveInstructions=(request:IncomingMessage,body:Record<string,unknown>,skillId?:string)=>owner(request,()=>{
     if(Object.keys(body).some(key=>!['name','instructions','expectedRevisionId'].includes(key)))fail(400,'invalidCommand','Use only the instruction authoring fields. Review authority separately.');
     const old=skillId?load('skills',skillId,decodeSkill):undefined;
@@ -222,7 +239,8 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if (!Array.isArray(body.skills) || body.skills.length > 8) fail(400, 'invalidSkills', 'Select at most eight instruction skills.');
     const references = body.skills.map(value => { const v = record(value); return { skillId: id(v.skillId), revisionId: id(v.revisionId) }; });
     if (new Set(references.map(s => s.skillId)).size !== references.length) fail(400, 'invalidSkills', 'Select each skill once.');
-    const fingerprint = digest(JSON.stringify({ conversationId, bindingRevisionId, recipientAgentId, recoveryEpoch, text: inputText, skills: references }));
+    const memoryRevisionId=body.memoryRevisionId===undefined?undefined:id(body.memoryRevisionId);
+    const fingerprint = digest(JSON.stringify({ conversationId, bindingRevisionId, recipientAgentId, recoveryEpoch, text: inputText, skills: references, memoryRevisionId }));
     return owner(request, () => {
       if (recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Review this pending message after recovery.');
       const prior=priorAcceptance(requestId,fingerprint);if(prior)return prior;
@@ -230,7 +248,9 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       if (!conversation.participantAgentIds.includes(recipientAgentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
       if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
       const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); if(!skill.bundle||skill.review?.state!=='enabled')fail(409,'skillReviewRequired','Migrate, review and enable the exact complete skill bundle before submitting.'); return skill; });
-      const configuration: TurnConfiguration = { agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
+      const memory=conversationMemory(conversationId);
+      if(memory?.revisionId!==memoryRevisionId)fail(409,'memoryChanged','Review the changed conversation memory before submitting.');
+      const configuration: TurnConfiguration = { ...(memory?{memory}:{}),agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
       if (options.admitSubmission && !options.admitSubmission({ text:inputText,conversation,configuration },list('runs',decodeRun))) fail(403,'sampleNotAuthorized','This message is outside the active sample or session.');
       return recordSubmission({conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration});
     });
@@ -298,9 +318,10 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     }
     if(admitted)queueMicrotask(wake);return admitted;
   };
+  const runtimeReadiness=():RuntimeReadiness=>options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
-    if (closed) return false;
+    if (closed || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
     const runs = list('runs', decodeRun);
     const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'cancelRequested' || prior.state === 'waitingForApproval' || prior.state === 'outcomeUnknown')));
     if (!queued?.configuration) return false;
@@ -506,6 +527,29 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
             const resolved:Run={...run,state:'closedUnknown',statusDetail:'Closed by owner acknowledgment; earlier effects remain unknown. This turn was not retried.',...(run.routine?{routine:stopRoutine(run.routine,'canceled','Routine closed without retry; earlier effects remain unknown.')}: {})};
             put('runs',runId,resolved);append(run.conversationId,'runClosed',runId);return {run:resolved};
           });queueMicrotask(wake);
+        }
+        else if(request.method==='GET'&&url.pathname==='/v1/runtime')result=owner(request,()=>runtimeReadiness());
+        else if(request.method==='POST'&&url.pathname==='/v1/runtime/restart'){
+          const body=await readBody(request);
+          const restart=owner(request,()=>{
+            if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before restarting the runtime.');
+            const operation=options.runtime?.restart?.bind(options.runtime);
+            if(!operation||!runtimeReadiness().canRestart||dispatching)fail(409,'runtimeRestartUnavailable','Runtime replacement is unavailable, busy or outside its existing budget.');
+            return operation;
+          });
+          await restart(AbortSignal.timeout(Math.max(1,Math.min(10_000,(credentialDeadline??now()+10_000)-now()))));
+          result=runtimeReadiness();queueMicrotask(wake);
+        }
+        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/memory$/.test(url.pathname)) {
+          const body=await readBody(request),conversationId=id(url.pathname.split('/')[3]);
+          result=owner(request,()=>{
+            if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before editing memory.');
+            if(Object.keys(body).some(key=>!['recoveryEpoch','expectedRevisionId','text'].includes(key)))fail(400,'invalidMemory','Use only the owner memory fields.');
+            load('conversations',conversationId,decodeConversation);
+            if((conversationMemory(conversationId)?.revisionId??null)!==body.expectedRevisionId)fail(409,'memoryChanged','Reload conversation memory before saving.');
+            const memory:ConversationMemory={conversationId,revisionId:randomUUID(),text:memoryText(body.text)};
+            put('conversationMemory',conversationId,memory);append(conversationId,'memoryChanged',memory.revisionId);return memory;
+          });
         }
         else if (request.method === 'POST' && /^\/v1\/requests\/[^/]+\/cancel$/.test(url.pathname)) {
           const body=await readBody(request),requestId=id(url.pathname.split('/')[3]);

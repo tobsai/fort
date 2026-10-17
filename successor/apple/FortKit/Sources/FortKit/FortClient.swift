@@ -103,13 +103,22 @@ public struct FortClient: Sendable {
     public func routineRevision(routineID: String, revisionID: String) async throws -> RoutineRevision {
         try await get("v1/routines/\(try segment(routineID))/revisions/\(try segment(revisionID))")
     }
+    public func runtimeReadiness() async throws -> RuntimeReadiness { try await get("v1/runtime") }
+    public func restartRuntime(recoveryEpoch: String) async throws -> RuntimeReadiness {
+        struct Body: Encodable { let recoveryEpoch: String }
+        return try await send("v1/runtime/restart",method:"POST",body:Body(recoveryEpoch:recoveryEpoch))
+    }
+    public func saveMemory(conversationID: String, memory: ConversationMemory?, text: String, recoveryEpoch: String) async throws -> ConversationMemory {
+        let body: [String:Any] = ["expectedRevisionId":memory.map { $0.revisionId as Any } ?? NSNull(),"recoveryEpoch":recoveryEpoch,"text":text]
+        return try await request(url:baseURL.appendingPathComponent("v1/conversations/\(try segment(conversationID))/memory"),method:"POST",data:JSONSerialization.data(withJSONObject:body))
+    }
     public func submit(_ pending: PendingSubmission) async throws -> Acceptance {
         if let routine = pending.routine {
             struct RoutineBody: Encodable { let requestId: String; let routineRevisionId: String; let recoveryEpoch: String; let inputs: [String:RoutineValue] }
             return try await send("v1/routines/\(try segment(routine.routineId))/run",method:"POST",body:RoutineBody(requestId:pending.requestID,routineRevisionId:routine.revisionId,recoveryEpoch:pending.recoveryEpoch,inputs:routine.inputs))
         }
-        struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String; let recipientAgentId: String?; let skills: [SkillReference]? }
-        return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text, recipientAgentId:pending.recipientAgentID, skills:pending.skills))
+        struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String; let recipientAgentId: String?; let skills: [SkillReference]?; let memoryRevisionId: String? }
+        return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text, recipientAgentId:pending.recipientAgentID, skills:pending.skills,memoryRevisionId:pending.memoryRevisionId))
     }
     public func events(after cursor: Int, recoveryEpoch: String) async throws -> EventPage {
         var components = URLComponents(url: baseURL.appendingPathComponent("v1/events"), resolvingAgainstBaseURL: false)!

@@ -1,3 +1,4 @@
+import type { RuntimeReadiness } from '../contracts/v1.ts';
 import { randomUUID } from 'node:crypto';
 import { prepareSkillContext } from './skill-context.ts';
 import { isAbsolute, normalize } from 'node:path';
@@ -8,16 +9,42 @@ import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
 import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
 
+type CodexChatOptions={ connection:CodexConnection; workspace:string; runtimeVersion:string; replacement?:{ maximumConnections:number; deadline:number; now?:()=>number; connect:()=>CodexConnection } };
 export class CodexChat implements ChatRuntime {
-  private readonly options: { connection: CodexConnection; workspace: string; runtimeVersion: string };
+  private readonly options: CodexChatOptions;
   private initialized = false;
   private busy = false;
-  constructor(options: { connection: CodexConnection; workspace: string; runtimeVersion: string }) {
+  private disposed = false;
+  private recoveryBlocked = false;
+  private connectionsUsed = 1;
+  private detail = 'Ready for the exact selected model.';
+  constructor(options: CodexChatOptions) {
     if (options.runtimeVersion !== '0.157.1') throw new Error('Unreviewed runtime version');
     if (!isAbsolute(options.workspace) || options.workspace === '/' || normalize(options.workspace) !== options.workspace) throw new Error('Use an explicit empty workspace');
+    if(options.replacement){const r=options.replacement,now=(r.now??Date.now)();if(!Number.isInteger(r.maximumConnections)||r.maximumConnections<1||r.maximumConnections>3||!Number.isSafeInteger(r.deadline)||r.deadline<=now||r.deadline>now+540_000)throw new Error('Use an explicit bounded replacement budget');}
     this.options = options;
   }
-  dispose(): Promise<void> { return this.options.connection.dispose(); }
+  async dispose(): Promise<void> { this.disposed=true;await this.options.connection.dispose(); }
+  readiness():RuntimeReadiness {
+    const replacement=this.options.replacement,closed=this.options.connection.isClosed;
+    return {state:this.disposed?'stopped':this.busy?'busy':closed?'restartRequired':'ready',canRestart:!this.disposed&&!this.busy&&!this.recoveryBlocked&&closed&&replacement!==undefined&&this.connectionsUsed<replacement.maximumConnections&&(replacement.now??Date.now)()<replacement.deadline,detail:this.disposed?'Runtime stopped.':this.detail,connectionsUsed:this.connectionsUsed,...(replacement?{maximumConnections:replacement.maximumConnections}:{})};
+  }
+  async restart(signal:AbortSignal):Promise<void> {
+    const replacement=this.options.replacement;
+    if(!replacement||!this.readiness().canRestart)throw new Error('Runtime replacement is unavailable or its budget is exhausted');
+    signal=AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,replacement.deadline-(replacement.now??Date.now)()))]);
+    signal.throwIfAborted();this.busy=true;this.detail='Stopping the previous runtime before replacement.';
+    let removeAbort=()=>{};
+    try {
+      try {
+        await Promise.race([this.options.connection.dispose(),new Promise<never>((_,reject)=>{const abort=()=>reject(new Error('Runtime cleanup was not confirmed before cancellation'));signal.addEventListener('abort',abort,{once:true});removeAbort=()=>signal.removeEventListener('abort',abort);if(signal.aborted)abort();})]);
+      } catch(error){this.recoveryBlocked=true;this.detail='Previous runtime cleanup is unconfirmed. Replacement is blocked.';throw error;}
+      signal.throwIfAborted();if((replacement.now??Date.now)()>=replacement.deadline)throw new Error('Runtime replacement deadline expired');
+      this.connectionsUsed++;
+      this.options.connection=replacement.connect();this.initialized=false;
+      await this.preflight(signal);this.detail='Replacement verified. Earlier requests were not retried.';
+    } finally {removeAbort();this.busy=false;}
+  }
   async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {
     const { connection,workspace,runtimeVersion }=this.options;
     let checkpoint:StartupDiagnostic={stage:'protocol',check:'initialize'};
@@ -35,16 +62,20 @@ export class CodexChat implements ChatRuntime {
       if (!models.some(value => object(value).model===model)) throw new StartupCheckError({stage:'model',check:'availability'});
       return { model,runtimeVersion };
     } catch(error) {
+      const failure=redactedStartupFailure(error,checkpoint);this.detail=failure.stage==='model'?'The exact selected model is unavailable. Runtime restart is required before a new request.':'Runtime setup stopped. An explicit restart is required before a new request.';
       connection.close();
       throw new StartupCheckError(redactedStartupFailure(error,checkpoint));
     }
   }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
+    if(this.disposed||this.options.connection.isClosed)return {kind:'notStarted',message:'Runtime restart is required before a new request. This request was not dispatched.'};
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
+    const memory=input.configuration.memory;
+    if(memory&&(memory.conversationId!==input.conversationId||!memory.revisionId||typeof memory.text!=='string'||!memory.text.isWellFormed()||Buffer.byteLength(memory.text)>8192))return {kind:'notStarted',message:'Conversation memory identity or size was not confirmed. Nothing was sent.'};
     const skills = prepareSkillContext(input.configuration.skills);
     if (skills.kind === 'unsupported') return {kind:'notStarted',message:skills.message};
     const developerInstructions = input.configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '');
-    const text = JSON.stringify({ conversationId:input.conversationId, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles });
+    const text = JSON.stringify({ conversationId:input.conversationId,conversationMemory:memory, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };
     if (signal.aborted) return { kind:'notStarted', message:'Canceled before runtime dispatch.' };
     this.busy = true;
@@ -67,7 +98,7 @@ export class CodexChat implements ChatRuntime {
       let done = false; let interruptTimer: ReturnType<typeof setTimeout> | undefined;
       const finish = (result: ChatResult, close: boolean) => {
         if (done) return; done = true; clearTimeout(deadline); clearTimeout(interruptTimer); signal.removeEventListener('abort', interrupt); unsubscribe();
-        resolve(result); if (close) connection.close();
+        resolve(result); if (close) {this.detail='Runtime connection ended. Earlier outcomes remain recorded; restart before a new request.';connection.close();}
       };
       const handle = (output: CodexOutput) => {
         try { for (const line of output.writes) connection.write(line); }

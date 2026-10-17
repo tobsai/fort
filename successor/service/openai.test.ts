@@ -10,7 +10,7 @@ import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition, RequestCancellation } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition, RequestCancellation, ConversationMemory, RuntimeReadiness } from '../contracts/v1.ts';
 
 async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
@@ -32,6 +32,81 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('explicit authenticated runtime replacement recovers a new queued turn without retrying the rejected model request',async t=>{
+  const workspace=fileURLToPath(new URL('../runner',import.meta.url)),processes:ReturnType<typeof launchOwnedProcess>[]=[];
+  const launch=()=>{const child=launchOwnedProcess({executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],cwd:workspace,env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'},deadlineMs:15_000,terminationGraceMs:50,killGraceMs:500});processes.push(child);return child.connection;};
+  t.after(async()=>{for(const child of processes)await child.dispose();});
+  const runtime=new CodexChat({connection:launch(),workspace,runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:Date.now()+20_000,connect:()=>{assert.equal(processes[0]?.cleanupConfirmed,true);return launch();}}});
+  const h=await setup(t,{runtime});let agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'unavailable-exact-model',instructions:'Reply.'})).body;
+  const epoch=h.service.installation.recoveryEpoch,path=`/v1/conversations/${agent.homeConversationId}`;
+  const send=(requestId:string)=>h.api(path+'/messages',{requestId,text:'Synthetic '+requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
+  await send('rejected-model');await h.service.dispatchNext();
+  const readiness=await h.api<RuntimeReadiness>('/v1/runtime');assert.equal(readiness.status,200);assert.equal(readiness.body.state,'restartRequired');assert.equal(readiness.body.canRestart,true);
+  agent=(await h.api<Agent>(`/v1/agents/${agent.agentId}`,{expectedBindingRevisionId:agent.binding.bindingRevisionId,name:agent.name,model:'gpt-6-astra',instructions:'Reply.'})).body;
+  await send('new-valid-request');assert.equal(await h.service.dispatchNext(),false);
+  assert.equal((await h.api('/v1/runtime/restart',{recoveryEpoch:'wrong'})).status,409);assert.equal(processes.length,1);
+  assert.equal((await h.api<RuntimeReadiness>('/v1/runtime/restart',{recoveryEpoch:epoch})).body.state,'ready');
+  await h.service.dispatchNext();const snapshot=(await h.api<Snapshot>(path+'/snapshot')).body;
+  assert.deepEqual(snapshot.runs.map(run=>[run.requestId,run.state]),[['rejected-model','failed'],['new-valid-request','completed']]);
+  assert.equal(snapshot.messages.filter(message=>message.role==='assistant').length,1);assert.equal(h.service.inspectSession().receipts.length,2);assert.equal(processes.length,2);
+  assert.equal((await h.api('/v1/runtime/restart',{recoveryEpoch:epoch})).status,409);await h.service.close();assert.ok(processes.every(child=>child.cleanupConfirmed));
+});
+
+test('oversized composed routine configuration cannot partially commit manual or scheduled acceptance',async t=>{
+  let now=Date.parse('2026-10-17T08:59:30Z'),calls=0;
+  const h=await setup(t,{now:()=>now,runtime:{async execute(){calls++;return {kind:'completed',text:'Healthy subsequent work',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Calendar',model:'gpt-6-astra',instructions:'a'.repeat(9000)})).body,epoch=h.service.installation.recoveryEpoch;
+  const definition={schemaVersion:1,name:'Combined limit',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'r'.repeat(9000),inputs:[],skills:[],steps:[{stepId:'task',name:'Task',type:'task',instructions:'Write.',inputNames:[],outputStepIds:[]}]};
+  const routine=(await h.api<RoutineRevision>('/v1/routines',{definition})).body;
+  const invalid=await h.api<{error:{code:string}}>(`/v1/routines/${routine.routineId}/run`,{requestId:'invalid-combined',routineRevisionId:routine.revisionId,recoveryEpoch:epoch,inputs:{}});
+  assert.equal(invalid.status,400);
+  const saved=(await h.api<ScheduleRevision>('/v1/schedules',{definition:{schemaVersion:1,routineId:routine.routineId,routineRevisionId:routine.revisionId,kind:'daily',timezone:'UTC',time:'09:00',inputs:{},missed:'skip'}})).body;
+  const path=`/v1/schedules/${saved.scheduleId}`,preview=(await h.api<SchedulePreview>(path+'/preview')).body;
+  await h.api(path+'/state',{recoveryEpoch:epoch,revisionId:saved.revisionId,previewDigest:preview.digest,enable:true});
+  const before=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+  now+=60_000;assert.equal(h.service.tickSchedules(),0);
+  const after=await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`);assert.equal(after.status,200);assert.deepEqual(after.body,before);
+  assert.equal(invalid.body.error.code,'invalidConfiguration');
+  const inspection=h.service.inspectSession();assert.equal(inspection.runs.length,0);assert.equal(inspection.receipts.length,0);assert.equal(calls,0);
+  const occurrence=(await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences;assert.equal(occurrence.length,1);assert.equal(occurrence[0]?.state,'blocked');
+  await h.restart();assert.equal(h.service.inspectSession().runs.length,0);
+  const healthy=(await h.api<RoutineRevision>(`/v1/routines/${routine.routineId}`,{expectedRevisionId:routine.revisionId,definition:{...definition,instructions:'Use declared inputs.'}})).body;
+  const revised=(await h.api<ScheduleRevision>(path,{expectedRevisionId:saved.revisionId,definition:{...saved.definition,routineRevisionId:healthy.revisionId,time:'09:01'}})).body;
+  const nextPreview=(await h.api<SchedulePreview>(path+'/preview')).body;
+  await h.api(path+'/state',{recoveryEpoch:epoch,revisionId:revised.revisionId,previewDigest:nextPreview.digest,enable:true});
+  now+=60_000;assert.equal(h.service.tickSchedules(),1);await h.service.dispatchNext();assert.equal(calls,1);assert.equal(h.service.inspectSession().receipts.length,1);
+});
+
+test('owner memory is conversation-scoped, revision-pinned at acceptance and durable across restart',async t=>{
+  const inputs:ChatInput[]=[];const h=await setup(t,{runtime:{async execute(input){inputs.push(structuredClone(input));return {kind:'completed',text:'Synthetic reply',effectiveModel:null};},async dispose(){}}});
+  const writer=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Use supplied context.'})).body;
+  const reviewer=(await h.api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Review supplied context.'})).body;
+  const room=(await h.api<Conversation>('/v1/conversations',{name:'Sample planning',participantAgentIds:[writer.agentId,reviewer.agentId]})).body,epoch=h.service.installation.recoveryEpoch;
+  const home=`/v1/conversations/${writer.homeConversationId}`,shared=`/v1/conversations/${room.conversationId}`;
+  const first=await h.api<ConversationMemory>(home+'/memory',{expectedRevisionId:null,recoveryEpoch:epoch,text:'  Private sample word: cedar.\r\n'});assert.equal(first.status,200);
+  const sharedMemory=(await h.api<ConversationMemory>(shared+'/memory',{expectedRevisionId:null,recoveryEpoch:epoch,text:'Shared sample item: red notebook.'})).body;
+  const command={requestId:'memory-before-edit',text:'Use my saved note.',recipientAgentId:writer.agentId,bindingRevisionId:writer.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[],memoryRevisionId:first.body.revisionId};
+  const accepted=(await h.api<Acceptance>(home+'/messages',command)).body;
+  const changed=await h.api<ConversationMemory>(home+'/memory',{expectedRevisionId:first.body.revisionId,recoveryEpoch:epoch,text:'New sample word: birch.'});assert.equal(changed.status,200);
+  assert.equal((await h.api(home+'/memory',{expectedRevisionId:first.body.revisionId,recoveryEpoch:epoch,text:'Stale replacement.'})).status,409);
+  assert.equal((await h.api(home+'/messages',{...command,requestId:'stale-memory'})).status,409);
+  assert.equal((await h.api(home+'/messages',{...command,requestId:'missing-memory',memoryRevisionId:undefined})).status,409);
+  assert.deepEqual((await h.api<Acceptance>(home+'/messages',command)).body,accepted);
+  await h.service.dispatchNext();assert.deepEqual(inputs[0]?.configuration.memory,first.body);
+  for(const [agent,requestId] of [[writer,'shared-writer'],[reviewer,'shared-reviewer']] as const){
+    assert.equal((await h.api(shared+'/messages',{...command,requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,memoryRevisionId:sharedMemory.revisionId})).status,201);await h.service.dispatchNext();
+  }
+  assert.ok(inputs.slice(1).every(input=>input.configuration.memory?.text==='Shared sample item: red notebook.'));
+  assert.equal(JSON.stringify(inputs.slice(1)).includes('Private sample word'),false);
+  assert.equal((await h.api(`/v1/conversations/${reviewer.homeConversationId}/messages`,{...command,requestId:'other-home',recipientAgentId:reviewer.agentId,bindingRevisionId:reviewer.binding.bindingRevisionId,memoryRevisionId:undefined})).status,201);await h.service.dispatchNext();assert.equal(inputs[3]?.configuration.memory,undefined);
+  await h.restart();assert.deepEqual((await h.api<Snapshot>(home+'/snapshot')).body.memory,changed.body);
+  const cleared=await h.api<ConversationMemory>(home+'/memory',{expectedRevisionId:changed.body.revisionId,recoveryEpoch:epoch,text:''});assert.equal(cleared.status,200);assert.equal(cleared.body.text,'');
+  assert.equal((await h.api(home+'/messages',{...command,requestId:'cleared-memory',memoryRevisionId:cleared.body.revisionId})).status,201);await h.service.dispatchNext();assert.equal(inputs[4]?.configuration.memory?.text,'');
+  const snapshot=(await h.api<Snapshot>(home+'/snapshot')).body;assert.equal(snapshot.runs[0]?.configuration?.memory?.text,first.body.text);assert.equal(snapshot.messages.length,4);
+  assert.equal((await h.api(home+'/memory',{expectedRevisionId:cleared.body.revisionId,recoveryEpoch:'old',text:'Wrong epoch.'})).status,409);
+  assert.equal((await h.api(home+'/memory',{expectedRevisionId:cleared.body.revisionId,recoveryEpoch:epoch,text:'x'.repeat(8193)})).status,400);
+});
 
 test('request cancellation persists before acceptance and fences late chat or routine submission after restart',async t=>{
   const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
@@ -358,6 +433,24 @@ test('bundle import rejects unsafe paths, links, undeclared executables and malf
   for(const bundle of invalid){const result=await h.api<{error:{code:string}}>('/v1/skill-bundles',{bundle});assert.equal(result.status,400);assert.equal(result.body.error.code,'invalidSkillBundle');}
   assert.deepEqual((await h.api<{skills:InstructionSkill[]}>('/v1/skills')).body.skills,[]);
   assert.equal(await h.service.dispatchNext(),false);
+});
+
+test('revoking a historical pinned skill blocks queued and new routine invocation while retaining the current revision',async t=>{
+  let calls=0;const h=await setup(t,{runtime:{async execute(){calls++;return {kind:'completed',text:'Must not dispatch',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const a=(await h.api<InstructionSkill>('/v1/skills',{name:'Revision A',instructions:'Original reviewed instructions.'})).body;assert.ok(a.bundle);
+  await h.api(`/v1/skills/${a.skillId}/review`,{revisionId:a.revisionId,digest:a.bundle.digest,enable:true});
+  const routine=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Pinned A',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Use this pinned revision.',inputs:[],skills:[{skillId:a.skillId,revisionId:a.revisionId,digest:a.bundle.digest}],steps:[{stepId:'task',name:'Task',type:'task',instructions:'Write.',inputNames:[],outputStepIds:[]}]}})).body;
+  const command={requestId:'queued-with-a',routineRevisionId:routine.revisionId,recoveryEpoch:epoch,inputs:{}},path=`/v1/routines/${routine.routineId}/run`;
+  assert.equal((await h.api(path,command)).status,201);
+  const b=(await h.api<InstructionSkill>(`/v1/skills/${a.skillId}`,{expectedRevisionId:a.revisionId,name:'Revision B',instructions:'New instructions.'})).body;assert.ok(b.bundle);
+  await h.api(`/v1/skills/${b.skillId}/review`,{revisionId:b.revisionId,digest:b.bundle.digest,enable:true});
+  const pinned=(await h.api<InstructionSkill>(`/v1/skills/${a.skillId}/revisions/${a.revisionId}`)).body;assert.equal(pinned.review?.state,'enabled');
+  assert.equal((await h.api(`/v1/skills/${a.skillId}/review`,{revisionId:a.revisionId,digest:a.bundle.digest,enable:false})).status,200);
+  assert.equal((await h.api<{skills:InstructionSkill[]}>('/v1/skills')).body.skills[0]?.revisionId,b.revisionId);
+  assert.equal((await h.api(path,{...command,requestId:'new-with-a'})).status,409);
+  await h.service.dispatchNext();assert.equal(calls,0);assert.equal(h.service.inspectSession().runs[0]?.state,'failed');
+  await h.restart();assert.equal((await h.api<InstructionSkill>(`/v1/skills/${a.skillId}/revisions/${a.revisionId}`)).body.review?.state,'disabled');
 });
 
 test('explicitly disabling a reviewed skill before dispatch blocks accepted work without a runtime call',async t=>{

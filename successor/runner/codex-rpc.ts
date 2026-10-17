@@ -20,6 +20,7 @@ export class CodexConnection {
     io.output.on('data', (bytes: Buffer) => this.receive(bytes));
     io.output.on('end', () => this.close()); io.output.on('error', () => this.close()); io.input.on('error', () => this.close());
   }
+  get isClosed():boolean { return this.stopped; }
   request(method: string, params: unknown, signal: AbortSignal): Promise<unknown> {
     if (this.stopped || signal.aborted) return Promise.reject(new Error('Codex connection unavailable'));
     const id = randomUUID();

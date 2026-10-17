@@ -48,6 +48,7 @@ struct RoutineLibrary: View {
     @State private var editing: RoutineRevision?
     @State private var running: RoutineRevision?
     @State private var scheduling: RoutineRevision?
+    @State private var pinnedSkill: InstructionSkill?
     @State private var error: String?
     var body: some View {
         NavigationStack {
@@ -61,6 +62,14 @@ struct RoutineLibrary: View {
                     VStack(alignment:.leading,spacing:8) {
                         Text(routine.definition.name).font(.headline)
                         Text("\(routine.agentSnapshot.name) · \(routine.agentSnapshot.binding.selectedModel)").font(.caption)
+                        ForEach(routine.definition.skills,id:\.skillId) { reference in
+                            Button("Review pinned skill: " + (routine.skills.first(where: { $0.id == reference.skillId })?.name ?? reference.skillId)) {
+                                Task {
+                                    do { pinnedSkill = try await model.skillRevision(reference); error = nil }
+                                    catch { self.error = error.localizedDescription }
+                                }
+                            }
+                        }
                         if model.installation?.supports("schedules") == true { Button("Schedules") { scheduling = routine } }
                         HStack { Button("Edit") { editing = routine }; Button("Run now") { running = routine }.disabled(!routine.definition.isSupported) }.buttonStyle(.bordered)
                     }
@@ -85,6 +94,7 @@ struct RoutineLibrary: View {
             .sheet(item:$editing) { RoutineEditor(model:model,revision:$0) }
             .sheet(item:$running) { RoutineRunView(model:model,revision:$0) }
             .sheet(item:$scheduling) { ScheduleLibrary(model:model,routine:$0) }
+            .sheet(item:$pinnedSkill) { SkillBundleReviewView(model:model,skill:$0) }
         }
         #if os(macOS)
         .frame(minWidth:560,minHeight:550)

@@ -14,6 +14,7 @@ public struct PendingSubmission: Codable, Equatable, Sendable, Identifiable {
     public var recipientAgentID: String? = nil
     public var skills: [SkillReference]? = nil
     public var reviewRequired: String? = nil
+    public var memoryRevisionId: String? = nil
     public var cancelRequested: Bool? = nil
     public var routine: RoutineCommand? = nil
     public func canRetry(in epoch: String) -> Bool { recoveryEpoch == epoch && reviewRequired == nil && cancelRequested != true }
@@ -21,6 +22,7 @@ public struct PendingSubmission: Codable, Equatable, Sendable, Identifiable {
         let receipt = acceptance.receipt
         guard receipt.requestId == requestID, receipt.conversationId == conversationID, receipt.bindingRevisionId == bindingRevision,
               acceptance.snapshot.messages.contains(where: { $0.messageId == receipt.messageId && $0.requestId == requestID && $0.role == "user" }) else { return false }
+        if let memoryRevisionId, acceptance.snapshot.runs.first(where: { $0.runId == receipt.runId })?.configuration?.memory?.revisionId != memoryRevisionId { return false }
         if let routine {
             guard let accepted = acceptance.snapshot.runs.first(where: { $0.runId == receipt.runId && $0.requestId == requestID })?.routine else { return false }
             return accepted.routineId == routine.routineId && accepted.revisionId == routine.revisionId && accepted.definition == routine.definition && accepted.inputs == routine.inputs
@@ -43,9 +45,9 @@ public final class PendingStore {
         guard FileManager.default.fileExists(atPath: file.path) else { return [] }
         return try JSONDecoder().decode([PendingSubmission].self, from: Data(contentsOf: file))
     }
-    @discardableResult public func enqueue(conversationID: String, bindingRevision: String, recoveryEpoch: String, text: String, recipientAgentID: String? = nil, skills: [SkillReference]? = nil) throws -> PendingSubmission {
+    @discardableResult public func enqueue(conversationID: String, bindingRevision: String, recoveryEpoch: String, text: String, recipientAgentID: String? = nil, skills: [SkillReference]? = nil, memoryRevisionId: String? = nil) throws -> PendingSubmission {
         guard text.utf8.count <= 65_536 else { throw PendingStoreError.textTooLarge }
-        let item = PendingSubmission(requestID: UUID().uuidString.lowercased(), conversationID: conversationID, bindingRevision: bindingRevision, recoveryEpoch: recoveryEpoch, text: text, createdAt: Date(), recipientAgentID:recipientAgentID, skills:skills)
+        let item = PendingSubmission(requestID: UUID().uuidString.lowercased(), conversationID: conversationID, bindingRevision: bindingRevision, recoveryEpoch: recoveryEpoch, text: text, createdAt: Date(), recipientAgentID:recipientAgentID, skills:skills, memoryRevisionId:memoryRevisionId)
         var items = try pending()
         items.append(item)
         try write(items)

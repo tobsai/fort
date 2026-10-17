@@ -71,6 +71,7 @@ struct SkillBundleReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var skill: InstructionSkill
     @State private var previous: InstructionSkill?
+    @State private var historical: InstructionSkill?
     @State private var comparing = true
     @State private var comparisonError: String?
     @State private var errorText: String?
@@ -79,6 +80,7 @@ struct SkillBundleReviewView: View {
     @State private var exporting = false
     @State private var exportDocument: BundleDocument?
     init(model: MessengerModel, skill: InstructionSkill) { self.model = model; _skill = State(initialValue:skill) }
+    private var isCurrentRevision: Bool { model.skills.contains { $0.id == skill.id && $0.revisionId == skill.revisionId } }
     var body: some View {
         NavigationStack {
             if let bundle = skill.bundle {
@@ -86,11 +88,22 @@ struct SkillBundleReviewView: View {
                     Section("Revision") {
                         LabeledContent("Name",value:bundle.name)
                         LabeledContent("Version",value:bundle.version)
+                        Text("Revision: " + skill.revisionId).font(.caption).textSelection(.enabled)
                         Text("Source: " + bundle.source).textSelection(.enabled)
                         Text("License: " + bundle.license).textSelection(.enabled)
                         Text("Digest: " + bundle.digest).font(.caption).textSelection(.enabled)
                         Text(skill.canInvoke ? "This exact revision is enabled." : "This revision is not enabled.")
-                        if let previous { Text("Previous version: " + (previous.bundle?.version ?? "Instruction skill")) }
+                        if let previous {
+                            Text("Previous version: " + (previous.bundle?.version ?? "Instruction skill"))
+                            if let previousBundle = previous.bundle {
+                                Button("Review previous revision") {
+                                    Task {
+                                        do { historical = try await model.skillRevision(RoutineSkill(skillId:previous.id,revisionId:previous.revisionId,digest:previousBundle.digest)); errorText = nil }
+                                        catch { errorText = error.localizedDescription }
+                                    }
+                                }
+                            }
+                        }
                     }
                     if let previous, previous.bundle == nil {
                         Section("Previous instructions") { Text(previous.instructions).textSelection(.enabled) }
@@ -131,8 +144,8 @@ struct SkillBundleReviewView: View {
                     Section {
                         Button(skill.canInvoke ? "Disable this revision" : "Enable reviewed revision") {
                             Task { if let updated = await model.reviewSkill(skill,enable:!skill.canInvoke) { skill = updated } }
-                        }.disabled(comparing || comparisonError != nil || model.workspaceSaving || !model.supportsCommands || bundle.schemaVersion != 1)
-                        Button("Import revised bundle") { importing = true }.disabled(model.workspaceSaving || !model.supportsCommands)
+                        }.disabled((!skill.canInvoke && (comparing || comparisonError != nil || !isCurrentRevision)) || model.workspaceSaving || !model.supportsCommands || bundle.schemaVersion != 1)
+                        if isCurrentRevision { Button("Import revised bundle") { importing = true }.disabled(model.workspaceSaving || !model.supportsCommands) }
                         Button("Export complete bundle") {
                             do {
                                 let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted,.sortedKeys]
@@ -160,6 +173,7 @@ struct SkillBundleReviewView: View {
                 .fileExporter(isPresented:$exporting,document:exportDocument,contentType:.json,defaultFilename:"Fort-skill-bundle") { result in
                     if case .failure(let error) = result { errorText = error.localizedDescription }
                 }
+                .sheet(item:$historical) { SkillBundleReviewView(model:model,skill:$0) }
                 .sheet(item:$selectedFile) { file in
                     NavigationStack {
                         ScrollView {

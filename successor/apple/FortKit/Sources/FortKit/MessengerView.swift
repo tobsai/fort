@@ -3,6 +3,7 @@ import SwiftUI
 public struct MessengerView: View {
     @Bindable private var model: MessengerModel
     @State private var uncertainRun: Run?
+    @State private var memoryForm: ConversationMemoryForm?
     @State private var showWorkspace = false
     @State private var showRoutines = false
     @Environment(\.scenePhase) private var scenePhase
@@ -38,13 +39,17 @@ public struct MessengerView: View {
                 Divider()
                 messageComposer
             }
-            .toolbar { Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy) }
+            .toolbar {
+                if model.canEditMemory, let conversationID = model.activeConversationID { Button("Memory",systemImage:"note.text") { memoryForm = ConversationMemoryForm(conversationID:conversationID,memory:model.conversationMemory) } }
+                Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy)
+            }
             .navigationTitle(model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation")
         }
         .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
             Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
         .sheet(isPresented:$model.showConnection) { connectionForm }
+        .sheet(item:$memoryForm) { ConversationMemoryEditor(model:model,form:$0) }
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
         .task {
@@ -64,6 +69,11 @@ public struct MessengerView: View {
                     if let agent = model.recipient {
                         Text(agent.name).font(.title2.bold())
                         Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let memory = model.conversationMemory, !memory.text.isEmpty { Text("Saved memory applies to this conversation").font(.caption).foregroundStyle(.secondary) }
+                    if let runtime = model.runtimeReadiness {
+                        Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
+                        if runtime.state == "restartRequired" { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
                     }
                     Text(model.status).font(.callout).accessibilityIdentifier("connection-status")
                 }.frame(maxWidth:.infinity,alignment:.leading).padding()
@@ -113,6 +123,7 @@ public struct MessengerView: View {
                     }
                 }
             }
+            if let memory = run.configuration?.memory, !memory.text.isEmpty { DisclosureGroup("Memory used for this turn") { Text(memory.text).font(.caption).textSelection(.enabled) } }
             if run.canRequestCancellation {
                 Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }

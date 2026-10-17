@@ -66,6 +66,44 @@ test('synthetic Codex connection preserves selected instructions and conversatio
   fixture.connection.close();
 });
 
+test('owner conversation memory reaches the exact Codex turn as scoped context without enabling provider memory tools',async()=>{
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const memory={conversationId:input.conversationId,revisionId:'memory-one',text:'  Owner sample note: cedar.\r\n'};
+  const result=await runtime.execute({...input,configuration:{...input.configuration,memory}},new AbortController().signal);assert.equal(result.kind,'completed');
+  const turn=fixture.calls.find(call=>call.method==='turn/start');assert.match(JSON.stringify(turn?.params?.input),/Owner sample note/);
+  const payload=turn?.params?.input as {text:string}[];assert.deepEqual(JSON.parse(payload[0]!.text).conversationMemory,memory);
+  assert.equal(String(fixture.calls.find(call=>call.method==='thread/start')?.params?.developerInstructions).includes(memory.text),false);
+  assert.equal(fixture.calls.some(call=>call.method?.startsWith('memory/')),false);await runtime.dispose();
+  const foreign=transport(),blocked=new CodexChat({connection:foreign.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  assert.equal((await blocked.execute({...input,configuration:{...input.configuration,memory:{...memory,conversationId:'another-home'}}},new AbortController().signal)).kind,'notStarted');
+  assert.equal(foreign.calls.length,0);await blocked.dispose();
+});
+
+for(const failure of ['unavailable-model','setup-cancel','unknown-turn'] as const)test(`explicit bounded Codex replacement permits a new turn after ${failure} without replay`,async()=>{
+  const cancellation=new AbortController();
+  const first=transport(failure==='unavailable-model'?{model:'unavailable'}:failure==='setup-cancel'?{afterThread:()=>cancellation.abort()}:{afterTurn:()=>cancellation.abort(),interruption:'disconnect'}),second=transport();
+  let replacements=0;
+  const runtime=new CodexChat({connection:first.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:10_000,now:()=>0,connect:()=>{assert.equal(first.closed,true);replacements++;return second.connection;}}});
+  const failed=await runtime.execute(input,cancellation.signal);assert.equal(failed.kind,failure==='unknown-turn'?'outcomeUnknown':'notStarted');
+  assert.equal(runtime.readiness().state,'restartRequired');assert.equal(runtime.readiness().canRestart,true);assert.equal(replacements,0);
+  await runtime.restart(new AbortController().signal);assert.equal(replacements,1);assert.equal(runtime.readiness().state,'ready');
+  const fresh=await runtime.execute({...input,runId:'new-run',requestId:'new-request',text:'A separate new request.'},new AbortController().signal);assert.equal(fresh.kind,'completed');
+  assert.equal(first.calls.filter(call=>call.method==='turn/start').length,failure==='unknown-turn'?1:0);assert.equal(second.calls.filter(call=>call.method==='turn/start').length,1);
+  second.connection.close();assert.equal(runtime.readiness().canRestart,false);await assert.rejects(runtime.restart(new AbortController().signal));assert.equal(replacements,1);await runtime.dispose();
+});
+
+test('Codex replacement never launches if old transport cleanup is unconfirmed or the fixed deadline expired',async()=>{
+  for(const blocked of ['cleanup','deadline']){
+    let now=0,launches=0;
+    const output=new PassThrough(),stdin=new Writable({write(_chunk,_encoding,done){done();}});
+    const connection=new CodexConnection({input:stdin,output,close:async()=>{stdin.destroy();output.destroy();if(blocked==='cleanup')throw new Error('Synthetic cleanup failure');}});
+    const runtime=new CodexChat({connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:1000,now:()=>now,connect:()=>{launches++;return transport().connection;}}});
+    connection.close();if(blocked==='deadline')now=1001;
+    await assert.rejects(runtime.restart(new AbortController().signal));assert.equal(launches,0);
+    try{await runtime.dispose();}catch{}
+  }
+});
+
 test('no-turn preflight reports only the exact failed check, never provider payloads',async()=>{
   for(const [options,expected] of [
     [{rejectMethod:'initialize'},{stage:'protocol',check:'initialize'}],

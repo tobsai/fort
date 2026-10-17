@@ -84,9 +84,11 @@ public struct Conversation: Codable, Equatable, Sendable, Identifiable {
     public var id: String { conversationId }
     public let conversationId: String; public let name: String; public let kind: String; public let participantAgentIds: [String]
 }
+public struct ConversationMemory: Codable, Equatable, Sendable { public let conversationId: String; public let revisionId: String; public let text: String }
 public struct TurnConfiguration: Codable, Equatable, Sendable {
     public let agentId: String; public let agentName: String; public let bindingRevisionId: String
     public let selectedModel: String; public let instructions: String; public let skills: [InstructionSkill]
+    public var memory: ConversationMemory? = nil
 }
 public struct Message: Codable, Equatable, Sendable, Identifiable {
     public var id: String { messageId }
@@ -169,10 +171,11 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public let runs: [Run]
     public let lastReadMessageSequence: Int
     public let approvals: [Approval]
-    public init(installationId: String, recoveryEpoch: String, conversationId: String, cursor: Int, messages: [Message], runs: [Run], lastReadMessageSequence: Int, approvals: [Approval] = []) {
-        self.installationId=installationId; self.recoveryEpoch=recoveryEpoch; self.conversationId=conversationId; self.cursor=cursor; self.messages=messages; self.runs=runs; self.lastReadMessageSequence=lastReadMessageSequence; self.approvals=approvals
+    public let memory: ConversationMemory?
+    public init(installationId: String, recoveryEpoch: String, conversationId: String, cursor: Int, messages: [Message], runs: [Run], lastReadMessageSequence: Int, approvals: [Approval] = [], memory: ConversationMemory? = nil) {
+        self.installationId=installationId; self.recoveryEpoch=recoveryEpoch; self.conversationId=conversationId; self.cursor=cursor; self.messages=messages; self.runs=runs; self.lastReadMessageSequence=lastReadMessageSequence; self.approvals=approvals; self.memory=memory
     }
-    private enum CodingKeys: CodingKey { case installationId,recoveryEpoch,conversationId,cursor,messages,runs,lastReadMessageSequence,approvals }
+    private enum CodingKeys: CodingKey { case installationId,recoveryEpoch,conversationId,cursor,messages,runs,lastReadMessageSequence,approvals,memory }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self)
         installationId = try values.decode(String.self,forKey:.installationId)
@@ -183,6 +186,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
         runs = try values.decode([Run].self,forKey:.runs)
         lastReadMessageSequence = try values.decode(Int.self,forKey:.lastReadMessageSequence)
         approvals = try values.decodeIfPresent([Approval].self,forKey:.approvals) ?? []
+        memory = try values.decodeIfPresent(ConversationMemory.self,forKey:.memory)
     }
 }
 public struct Receipt: Codable, Equatable, Sendable {
@@ -221,6 +225,7 @@ public struct Transcript: Sendable {
     public mutating func apply(_ incoming: Snapshot) throws {
         guard incoming.installationId == installationID else { throw ContractError.wrongInstallation }
         guard incoming.conversationId == conversationID else { throw ContractError.wrongConversation }
+        guard incoming.memory.map({ $0.conversationId == conversationID && !$0.revisionId.isEmpty && $0.text.utf8.count <= 8192 }) ?? true else { throw ContractError.invalidSnapshot }
         guard incoming.cursor >= 0, Set(incoming.messages.map(\.messageId)).count == incoming.messages.count,
               incoming.messages.allSatisfy({ $0.conversationId == conversationID && $0.sequence > 0 && $0.sequence <= incoming.cursor }),
               zip(incoming.messages, incoming.messages.dropFirst()).allSatisfy({ $0.sequence < $1.sequence }) else { throw ContractError.invalidSnapshot }
@@ -306,4 +311,9 @@ public struct RequestCancellation: Codable, Sendable {
     public let conversationId: String; public let bindingRevisionId: String
     public let status: Status
     public let receipt: Receipt?; public let run: Run?; public let snapshot: Snapshot?
+}
+
+public struct RuntimeReadiness: Codable, Equatable, Sendable {
+    public let state: String; public let canRestart: Bool; public let detail: String
+    public var connectionsUsed: Int? = nil; public var maximumConnections: Int? = nil
 }
