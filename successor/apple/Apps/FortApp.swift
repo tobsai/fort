@@ -13,6 +13,12 @@ import FortKit
             .task {
                 guard model == nil else { return }
                 do {
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--offline-preview") {
+                        model = try OfflinePreview.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortOfflinePreview-" + UUID().uuidString,isDirectory:true))
+                        return
+                    }
+                    #endif
                     var directory = try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true).appendingPathComponent("FortCandidateB",isDirectory:true)
                     #if DEBUG
                     let environment = ProcessInfo.processInfo.environment
@@ -31,5 +37,8 @@ import FortKit
                 } catch { startupError = "Local storage is unavailable. Your service history has not changed." }
             }
         }
+        #if os(macOS)
+        .defaultSize(width:900,height:650)
+        #endif
     }
 }

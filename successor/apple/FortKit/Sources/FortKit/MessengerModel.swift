@@ -2,6 +2,7 @@ import Foundation
 import Observation
 
 @Observable @MainActor public final class MessengerModel {
+    public let isOfflinePreview: Bool
     public var endpoint = "http://127.0.0.1:8788"
     public var expectedInstallation = ""
     public var enrollmentCode = ""
@@ -44,15 +45,15 @@ import Observation
         return installation?.mode == "fixture" ? selectedAgent : nil
     }
     public var supportsRoutines: Bool { installation?.supports("routines") == true }
-    public var supportsCommands: Bool { installation?.supportsCommands == true }
+    public var supportsCommands: Bool { !isOfflinePreview && installation?.supportsCommands == true }
     public var supportsMemory: Bool { installation?.supports("conversationMemory") == true }
     public var conversationMemory: ConversationMemory? { snapshot?.conversationId == activeConversationID ? snapshot?.memory : nil }
     public var canEditMemory: Bool { supportsMemory && snapshot?.conversationId == activeConversationID && snapshot?.recoveryEpoch == installation?.recoveryEpoch }
     public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
-    public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
-    init(storage: DeviceStorage, session: URLSession) { self.storage = storage; self.session = session }
+    public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false }
+    init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview }
     public func restore() async {
-        guard client == nil else { return }
+        guard !isOfflinePreview, client == nil else { return }
         do {
             guard let connection = try storage.connection() else { return }
             endpoint = connection.baseURL.absoluteString; expectedInstallation = connection.installationID
@@ -73,7 +74,7 @@ import Observation
         } catch { status = "Could not restore this device connection. Enroll again to continue." }
     }
     public func enroll() async {
-        guard !isBusy, let url = URL(string:endpoint) else { return }
+        guard !isOfflinePreview, !isBusy, let url = URL(string:endpoint) else { return }
         isBusy = true; defer { isBusy = false }
         do {
             let initial = try FortClient(baseURL:url,installationID:expectedInstallation,fixtureLoopback:true,session:session)

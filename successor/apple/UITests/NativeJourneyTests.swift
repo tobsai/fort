@@ -1,6 +1,29 @@
 import XCTest
 
 final class NativeJourneyTests: XCTestCase {
+    @MainActor func testOfflineTranscriptKeepsLatestReplyVisibleAtBottom() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(); app.launchArguments = ["--offline-preview"]
+        app.launch(); defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["Read-only sample · no connection"].waitForExistence(timeout:15))
+        XCTAssertFalse(app.buttons["send-message"].isEnabled)
+        XCTAssertFalse(app.buttons["Enroll this device"].exists)
+        let history = app.scrollViews["conversation-history"]
+        for _ in 0..<6 {
+            #if os(macOS)
+            history.scroll(byDeltaX:0,deltaY:-600)
+            #else
+            history.swipeUp()
+            #endif
+        }
+        let hierarchy = XCTAttachment(string:app.windows.firstMatch.debugDescription); hierarchy.name = "Offline transcript accessibility"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        let screenshot = XCTAttachment(screenshot:capture(app)); screenshot.name = "Offline transcript at bottom"; screenshot.lifetime = .keepAlways; add(screenshot)
+        let latest = app.descendants(matching:.any)["message-sample-reply-6"]
+        XCTAssertTrue(latest.exists)
+        XCTAssertTrue(latest.label.contains("Latest sample reply: pack the red notebook."))
+        XCTAssertTrue(history.frame.intersects(latest.frame),"Latest reply must intersect the visible transcript viewport")
+        XCTAssertTrue(latest.isHittable,"Latest reply should remain visible beside its own status at the bottom")
+    }
     @MainActor func testEnrollSendAndReplayAfterAppRestart() async throws {
         continueAfterFailure = false
         let environment = ProcessInfo.processInfo.environment

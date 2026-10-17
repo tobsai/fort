@@ -28,7 +28,7 @@ public struct MessengerView: View {
             .navigationTitle("Fort")
             .toolbar {
                 if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
-                Button("Connection",systemImage:"network") { model.showConnection = true }
+                if !model.isOfflinePreview { Button("Connection",systemImage:"network") { model.showConnection = true } }
                 if model.installation?.mode == "openai" { Button("Workspace",systemImage:"plus") { showWorkspace = true } }
             }
         } detail: {
@@ -53,6 +53,7 @@ public struct MessengerView: View {
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
         .task {
+            guard !model.isOfflinePreview else { return }
             await model.restore()
             while !Task.isCancelled {
                 try? await Task.sleep(for:.seconds(2))
@@ -65,7 +66,7 @@ public struct MessengerView: View {
 
     private var conversationHeader: some View {
                 VStack(alignment:.leading,spacing:6) {
-                    Label(model.installation?.mode == "openai" ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
+                    Label(model.isOfflinePreview ? "Offline preview · sample conversation" : model.installation?.mode == "openai" ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
                     if let agent = model.recipient {
                         Text(agent.name).font(.title2.bold())
                         Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
@@ -83,9 +84,13 @@ public struct MessengerView: View {
         ScrollViewReader { position in
             ScrollView {
                 LazyVStack(alignment:.leading,spacing:16) {
-                    ForEach(model.snapshot?.messages ?? []) { message in messageRow(message) }
-                    ForEach(model.snapshot?.runs ?? []) { run in runRow(run) }
-                    ForEach(model.snapshot?.approvals ?? []) { approval in approvalRow(approval) }
+                    ForEach(model.snapshot?.transcriptRows ?? []) { row in
+                        switch row {
+                        case .message(let message): messageRow(message)
+                        case .run(let run): runRow(run)
+                        case .approval(let approval): approvalRow(approval)
+                        }
+                    }
                     ForEach(model.pending.filter { $0.conversationID == model.activeConversationID }) { pending in pendingRow(pending) }
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
@@ -103,6 +108,7 @@ public struct MessengerView: View {
         .padding(12)
         .background(message.role == "user" ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
         .accessibilityElement(children:.combine)
+        .accessibilityIdentifier("message-" + message.id)
         .accessibilityLabel(Text("\(message.role == "user" ? "You" : message.agentName ?? "Fixture Agent")\n\(message.text)"))
         .task { await model.markRead(message) }
     }
@@ -177,7 +183,7 @@ public struct MessengerView: View {
                 }
             }
                 HStack(alignment:.bottom,spacing:12) {
-                    TextField("Message your Agent",text:$model.draft,axis:.vertical).autocorrectionDisabled().lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer")
+                    TextField("Message your Agent",text:$model.draft,axis:.vertical).autocorrectionDisabled().lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer").disabled(model.isOfflinePreview)
                     Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
                 }
         }.padding()
