@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Acceptance, Receipt, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -75,6 +75,11 @@ function decodeMessage(value: unknown): Message {
   return { messageId: id(v.messageId), conversationId: id(v.conversationId), requestId: id(v.requestId), role: v.role, text: messageText(v.text), sequence: v.sequence, createdAt: text(v.createdAt, 'date'),
     ...(v.agentId === undefined ? {} : { agentId: id(v.agentId), agentName: text(v.agentName, 'name') }),
     ...(v.recipientAgentId === undefined ? {} : { recipientAgentId: id(v.recipientAgentId), recipientAgentName: text(v.recipientAgentName, 'name') }) };
+}
+function storedReceipt(value: unknown): Receipt {
+  const stored = record(value);
+  const v = record(stored.receipt ?? record(stored.acceptance).receipt);
+  return { requestId: id(v.requestId), conversationId: id(v.conversationId), messageId: id(v.messageId), runId: id(v.runId), bindingRevisionId: id(v.bindingRevisionId), inputDigest: text(v.inputDigest, 'input digest', 64), acceptedAt: text(v.acceptedAt, 'acceptance time') };
 }
 function decodeRun(value: unknown): Run {
   const v = record(value);
@@ -246,7 +251,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   const priorAcceptance=(requestId:string,fingerprint:string):Acceptance|undefined=>{
     const prior=db.prepare("SELECT data FROM entities WHERE kind='requests' AND id=?").get(requestId);
     if(!prior)return undefined;
-    const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');return stored.acceptance as Acceptance;
+    const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return {receipt,snapshot:snapshot(receipt.conversationId)};
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
@@ -258,7 +263,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     const run:Run={runId,requestId,conversationId,bindingRevisionId,state:'queued',selectedModel:configuration.selectedModel,effectiveModel:null,modelEvidence:'unreported',attemptId:null,configuration,...(routine?{routine}:{})};
     put('messages',messageId,message);put('runs',runId,run);
     const acceptance:Acceptance={receipt:{requestId,conversationId,messageId,runId,bindingRevisionId,inputDigest:digest(inputText),acceptedAt},snapshot:snapshot(conversationId)};
-    put('requests',requestId,{fingerprint,acceptance});return acceptance;
+    put('requests',requestId,{fingerprint,receipt:acceptance.receipt});return acceptance;
   });
   const saveInstructions=(request:IncomingMessage,body:Record<string,unknown>,skillId?:string)=>owner(request,()=>{
     if(Object.keys(body).some(key=>!['name','instructions','expectedRevisionId'].includes(key)))fail(400,'invalidCommand','Use only the instruction authoring fields. Review authority separately.');
@@ -391,7 +396,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       put('runs', queued.runId, { ...queued, state: 'running', attemptId, attemptGeneration,...(routine?{routine}:{}) }); append(queued.conversationId, 'runStarted', queued.runId);
       const history = messages.filter(m => m.role === 'user' && m.sequence < current.sequence).flatMap(m => [m, ...messages.filter(reply => reply.role === 'assistant' && reply.requestId === m.requestId)]);
       const next: ChatInput = { attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
-      put('contexts', queued.runId, next); return next;
+      put('contexts', attemptId, {
+        runId: queued.runId, attempt: next.attempt, inputMessageId: current.messageId,
+        inputDigest: digest(next.text), configurationDigest: digest(JSON.stringify(next.configuration)),
+        historyDigest: digest(JSON.stringify(history)),
+        historyWindow: { beforeUserSequence: current.sequence, throughEventSequence: cursor() }
+      });
+      return next;
     });
     active = new AbortController(); activeRunId=queued.runId;
     try {
@@ -595,7 +606,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         }
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
         else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
-        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = load('requests', id(url.pathname.split('/')[3]), record).acceptance;
+        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) { const receipt = load('requests', id(url.pathname.split('/')[3]), storedReceipt); result = { receipt, snapshot: snapshot(receipt.conversationId) }; }
         else if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/close-unknown$/.test(url.pathname)) {
           const body=await readBody(request),runId=id(url.pathname.split('/')[3]);
           result=owner(request,()=>{
@@ -640,7 +651,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
             if(prior){const stored=record(json(prior));if(stored.conversationId!==scope.conversationId||stored.bindingRevisionId!==scope.bindingRevisionId||stored.recoveryEpoch!==scope.recoveryEpoch)fail(409,'requestConflict','The cancellation belongs to a different request scope.');}
             const accepted=db.prepare("SELECT data FROM entities WHERE kind='requests' AND id=?").get(requestId);
             if(accepted){
-              const {receipt}=record(json(accepted)).acceptance as Acceptance;
+              const receipt=storedReceipt(json(accepted));
               if(receipt.conversationId!==scope.conversationId||receipt.bindingRevisionId!==scope.bindingRevisionId)fail(409,'requestConflict','The accepted request belongs to a different scope.');
               const run=cancelRun(receipt.runId);put('requestCancellations',requestId,scope);
               return {...scope,status:'accepted',receipt,run,snapshot:snapshot(scope.conversationId)};
@@ -741,7 +752,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     return runtimeStopped;
   };
   const api = { installation, issueEnrollment, dispatchNext, tickSchedules,
-    inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',value=>(record(value).acceptance as Acceptance).receipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
+    inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',storedReceipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
     get baseURL() { return baseURL; }, async start({ port = 0,signal }: { port?:number;signal?:AbortSignal } = {}) {
     if(closed)throw new Error('Service is closed');
     signal=signal?AbortSignal.any([signal,listenerAbort.signal]):listenerAbort.signal;

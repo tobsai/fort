@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,35 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('two hundred durable turns retain exact replay within a four MiB ledger budget', async t => {
+  let lastInput: ChatInput | undefined;
+  const h = await setup(t, { runtime: {
+    async execute(input) { lastInput = input; return { kind: 'completed', text: 'r'.repeat(1024), effectiveModel: null }; },
+    async dispose() {}
+  } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Reply.' })).body;
+  const path = `/v1/conversations/${agent.homeConversationId}`;
+  let first: Acceptance | undefined;
+  for (let index = 0; index < 200; index++) {
+    const accepted = await h.api<Acceptance>(path + '/messages', { requestId: 'compact-' + index, text: String(index).padStart(4, '0') + 'u'.repeat(1020), recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
+    assert.equal(accepted.status, 201);
+    first ??= accepted.body;
+    assert.equal(await h.service.dispatchNext(), true);
+  }
+  assert.ok(first);
+  assert.equal(lastInput?.history.length, 398);
+  assert.equal(lastInput?.history[0]?.text, '0000' + 'u'.repeat(1020));
+  await h.restart();
+  const recovered = (await h.api<Acceptance>('/v1/requests/compact-0')).body;
+  assert.deepEqual(recovered.receipt, first.receipt);
+  assert.equal(recovered.snapshot.messages.length, 400);
+  assert.equal(recovered.snapshot.messages.at(-1)?.text, 'r'.repeat(1024));
+  await h.service.close();
+  const bytes = (await stat(join(h.directory, 'openai-candidate-b.sqlite'))).size;
+  assert.ok(bytes <= 4 * 1024 * 1024, `ledger used ${bytes} bytes for 200 synthetic turns`);
+  t.diagnostic(`200 turns, 400 one-KiB messages: ${bytes} database bytes after close`);
+});
 
 test('runtime dispatch carries the exact durable service attempt and generation', async t => {
   const calls: ChatInput[] = [];
@@ -129,7 +158,9 @@ test('owner memory is conversation-scoped, revision-pinned at acceptance and dur
   assert.equal((await h.api(home+'/memory',{expectedRevisionId:first.body.revisionId,recoveryEpoch:epoch,text:'Stale replacement.'})).status,409);
   assert.equal((await h.api(home+'/messages',{...command,requestId:'stale-memory'})).status,409);
   assert.equal((await h.api(home+'/messages',{...command,requestId:'missing-memory',memoryRevisionId:undefined})).status,409);
-  assert.deepEqual((await h.api<Acceptance>(home+'/messages',command)).body,accepted);
+  const repeated = (await h.api<Acceptance>(home+'/messages',command)).body;
+  assert.deepEqual(repeated.receipt,accepted.receipt);
+  assert.deepEqual(repeated.snapshot.memory,changed.body);
   await h.service.dispatchNext();assert.deepEqual(inputs[0]?.configuration.memory,first.body);
   for(const [agent,requestId] of [[writer,'shared-writer'],[reviewer,'shared-reviewer']] as const){
     assert.equal((await h.api(shared+'/messages',{...command,requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,memoryRevisionId:sharedMemory.revisionId})).status,201);await h.service.dispatchNext();
@@ -742,8 +773,12 @@ test('shared submission pins its recipient and selected skill, saves one attribu
   assert.equal(snapshot.messages[1]?.agentId, reviewer.agentId);
   assert.equal(snapshot.messages[1]?.agentName, 'Reviewer');
   assert.equal(snapshot.messages[1]?.text, 'red notebook [CHECKED]');
-  assert.deepEqual((await h.api<Acceptance>(path, command)).body, accepted.body);
-  assert.deepEqual((await h.api<Acceptance>('/v1/requests/sample-shared')).body, accepted.body);
+  const repeated = (await h.api<Acceptance>(path, command)).body;
+  const recovered = (await h.api<Acceptance>('/v1/requests/sample-shared')).body;
+  assert.deepEqual(repeated.receipt, accepted.body.receipt);
+  assert.deepEqual(recovered.receipt, accepted.body.receipt);
+  assert.deepEqual(repeated.snapshot, snapshot);
+  assert.deepEqual(recovered.snapshot, snapshot);
   assert.equal((await h.api(path, { ...command, text: 'changed' })).status, 409);
   assert.equal(await h.service.dispatchNext(), false);
 });

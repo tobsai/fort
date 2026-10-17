@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 1f4616a98318445018ccf1af796ba6024a0464a011d5991648ae34e45aecd150
+Reviewed content SHA256: 0f18656ebea9dbb3c6312ccc2755ff39139e0846bd92214b2c59dcc9df7a1b51
 
 ### Vendor independence
 Status: planned
@@ -116,6 +116,8 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/compact-ledger.md`
 
 - `successor/contracts/v1.ts`
 - `successor/runner/chat-runtime.ts`
