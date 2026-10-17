@@ -1,5 +1,15 @@
 # Spec 058 implementation record
 
+Current reviewed-fix source is `996e19849f5104e71b26b7c14d201aaa56b31c87`:
+atomic scheduled acceptance, bounded explicit runtime recovery, historical skill
+revocation and native conversation memory. Validation: 665 TypeScript / 36 Swift
+passes, strict typecheck, Swift HTTP journey and fresh Mac/Simulator builds.
+Read [the memory/review evidence](evidence/2026-10-17-mvp-memory-review/README.md)
+and [the acceptance preparation](ops/mvp-native-acceptance-20261017/PLAN.md).
+No live session was started. The three-session proposal still lacks owner approval
+and its own sealed launcher; the consumed historical manual cannot execute it.
+
+
 ## Current implementation — October 17
 
 The owner requested continued app testing and implementation through the MVP on

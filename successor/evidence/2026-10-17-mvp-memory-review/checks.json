@@ -1,0 +1,105 @@
+{
+  "sourceCommit": "996e19849f5104e71b26b7c14d201aaa56b31c87",
+  "typescriptTestsPassed": 665,
+  "swiftTestsPassed": 36,
+  "typecheckExit": 0,
+  "nativeHTTP": "ten synthetic executions, six service restarts, two discarded acceptances, one discarded cancellation, zero duplicate or canceled dispatches; schedule enable/pause produced no runtime call",
+  "logs": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/atomicity-green.log",
+      "bytes": 229,
+      "sha256": "c6a24f57e787d7789efb2d1d3ece20750b845a0f53288ae216caae50dad9892b"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/atomicity-red.log",
+      "bytes": 1021,
+      "sha256": "ee32ae0841b5a65f56df22fde9b6742b2edaf43c8933b0a7fd83bff584e5f3cd"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/history-native-red.log",
+      "bytes": 12637,
+      "sha256": "a24cad97406b5ffb8a1926ac488f9276f1a209014e8e9c36726730120a238825"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/history-service.log",
+      "bytes": 246,
+      "sha256": "780fa1987a6d86b38cc37433caf00b9e180fdec8955d6ea9d0dc486fd3679928"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/ios-build.log",
+      "bytes": 280812,
+      "sha256": "b6b3675efea53d31b3f58a4c1f706938ed58cece7e647b25363d166fdd6f036a"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/mac-build.log",
+      "bytes": 154932,
+      "sha256": "2751e1c50df11f6c868c404eccbd7230221aee963a7c2f0b9dff1ee4aae0c852"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/native-http.log",
+      "bytes": 1457,
+      "sha256": "df859e5a92718fa1d5d65d504eba62ae2e1fcb23513a354078b4f38dea502bcc"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/preparation-check.log",
+      "bytes": 570,
+      "sha256": "eba184117c0bb3f41a3e899b2fc196b64d39c663803193533fd54fcf307a2e3e"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/preparation-tests.log",
+      "bytes": 101,
+      "sha256": "3a172c55de7c4fc985c2eec12502fa584b176585174d269e7bf8844dda63959f"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/runtime-green.log",
+      "bytes": 559,
+      "sha256": "1a26722f1caac88b2ff3436723d7c84e6950d129609641a95f7697a640e8f86d"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/runtime-native-red.log",
+      "bytes": 13700,
+      "sha256": "f4c52cd03badd57257894997b24a6fd8f24c82e456cc6313919ac3790c92b78d"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/runtime-red.log",
+      "bytes": 3014,
+      "sha256": "be5a08609eee054e609c525d3468a63c18536a116d8baa34bb5c7bb14b5247e8"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/runtime-service-green.log",
+      "bytes": 248,
+      "sha256": "a0ad9fb5e2f6dcb5dec8b9a2f83bff4db5b3a51c9ae35ecb47204d79fd62f94e"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/runtime-service-red.log",
+      "bytes": 1058,
+      "sha256": "498ad7b9232e83f8dae7491fade11aeb800d8312bd1311a1ac870bd5611c0f0d"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/swift-tests.log",
+      "bytes": 9053,
+      "sha256": "1eeedea448286266b9b6024428bc943da24e0059dd878fe8d8309862cf212b7d"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-review-fixes-validation-20261017/typescript-tests.log",
+      "bytes": 61621,
+      "sha256": "3f76ead906a45004fd2dd5c51c1e206a0963c107c08ad20ab040ab8ff3146d56"
+    }
+  ],
+  "unrun": [
+    "installed accessibility/screenshots",
+    "actual provider tests of this source",
+    "physical iPhone",
+    "live schedule execution",
+    "distribution"
+  ],
+  "preparationCheckerTestsPassed": 3,
+  "preparationChecker": "Passed file/source/preservation checks; activation blocked by pending authority and missing dedicated launcher.",
+  "finalFailures": [],
+  "environmentRetry": "Initial sandboxed Swift manifest invocation could not use Xcode caches; rerun under approved host execution passed."
+}
