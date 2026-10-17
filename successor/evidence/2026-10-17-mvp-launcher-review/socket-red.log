@@ -1,0 +1,54 @@
+✖ service closes every accepted peer after listener abort without enrollment (297.634291ms)
+✖ service closes every accepted peer after normal shutdown without enrollment (548.332292ms)
+✔ service shutdown is idempotent without listener readiness or enrollment: never-started (9.338625ms)
+✔ service shutdown is idempotent without listener readiness or enrollment: already-aborted (7.88025ms)
+✔ service shutdown is idempotent without listener readiness or enrollment: abort-while-starting (5.4115ms)
+✖ service shutdown is idempotent without listener readiness or enrollment: close-while-starting (4.779417ms)
+
+Interrupted while running:
+
+⚠ service/openai-shutdown.test.ts (service/openai-shutdown.test.ts:1:1)
+✖ service/openai-shutdown.test.ts (54807.171375ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 3
+ℹ fail 3
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 54810.048209
+
+✖ failing tests:
+
+test at service/openai-shutdown.test.ts:25:38
+✖ service closes every accepted peer after listener abort without enrollment (297.634291ms)
+  Error: Socket cleanup exceeded its bound
+      at Timeout.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/service/openai-shutdown.test.ts:17:104)
+      at listOnTimeout (node:internal/timers:635:17)
+      at process.processTimers (node:internal/timers:571:7)
+
+test at service/openai-shutdown.test.ts:25:38
+✖ service closes every accepted peer after normal shutdown without enrollment (548.332292ms)
+  Error: Socket cleanup exceeded its bound
+      at Timeout.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/service/openai-shutdown.test.ts:17:104)
+      at listOnTimeout (node:internal/timers:635:17)
+      at process.processTimers (node:internal/timers:571:7)
+
+test at service/openai-shutdown.test.ts:41:110
+✖ service shutdown is idempotent without listener readiness or enrollment: close-while-starting (4.779417ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/service/openai-shutdown.test.ts:48:7)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at service/openai-shutdown.test.ts:1:1
+✖ service/openai-shutdown.test.ts (54807.171375ms)
+  'Promise resolution is still pending but the event loop has already resolved'

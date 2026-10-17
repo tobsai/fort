@@ -2,7 +2,7 @@
 
 Preparation only. The owner has not approved the three temporary enrollments.
 No session root, credential, provider process or installed UI session was created.
-Launcher/service source: `a8a14c8d623e12af37b020735588e08bb4100180`.
+Launcher/service source: `2cbe35323b6aa3b3b5ad35e20ced8c71b7bf5ce8`.
 Unchanged native artifact source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
 The runtime stop/restart fix is independently reviewable at
 `99ab5bc449c71f39d6e0fb835b8ac15166ff5014`. Source/app/scope pins are in `pins.json`.
@@ -24,12 +24,24 @@ roots remain absent. A changed source/build requires new verification, not renew
 approval for unchanged scope. A changed scope requires reconciliation. There is
 intentionally no `--start` or approval-writing action.
 
+The packet admits only the exact one-file Check marker bundle produced by the
+instruction editor: CHECKED at version 1, then REVIEWED at version 2. The complete
+canonical digest binds the entry bytes, file set, source/license/runtime metadata
+and absent tool/script authority. Additional assets or metadata are refused. This
+restriction applies to the temporary acceptance packet; general reviewed bundles
+remain supported by the service and adapter.
+
 ## Activation gate and operator commands
 
-The dedicated launcher is implemented, tested and sealed. Preparation checks pass;
-activation remains blocked only by the pending owner decision and any platform
-permission prompts encountered on the actual host. Installed inspection/provider
-results are acceptance work to perform after activation, not prior approval evidence.
+The corrected launcher is implemented and sealed. Its 68 non-enrollment tests,
+strict typecheck and preparation checks pass. The full launcher suite has not been
+rerun for this revision: the reviewer reported automatic approval rejection because
+its synthetic enrollment fixtures conflict with the explicit no-enrollment boundary.
+Any such rerun needs explicit authorization for those fixtures; do not bypass it.
+Activation still requires the pending owner decision and any platform permissions
+encountered on the actual host. Installed inspection/provider results remain
+acceptance work after approved activation. See
+[review-fix evidence](../../evidence/2026-10-17-mvp-launcher-review/README.md).
 
 Keep `../mvp-native-test-scope-20261017.json` unchanged as the exact proposal snapshot.
 After a direct, explicit owner answer, the coordinator records `owner-approval.json`

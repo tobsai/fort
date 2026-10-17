@@ -1,0 +1,298 @@
+✔ complete synthetic instruction-editor bundle is admitted: CHECKED version 1 (1.72025ms)
+✔ complete synthetic instruction-editor bundle is admitted: REVIEWED version 2 (0.179208ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: extra-file (0.692167ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: entrypoint (0.147208ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: source (0.132791ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: license (0.095709ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: runtime (0.088417ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: version (0.082167ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: arbitrary-version (0.090792ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: entry-bytes (0.135083ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: unreviewed (0.093875ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: review-digest (0.081958ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: skill-id (0.074542ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: revision-id (0.063042ms)
+✖ synthetic packet rejects altered complete outbound bundle before admission: extra-metadata (0.089958ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 2
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.522209
+
+✖ failing tests:
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: extra-file (0.692167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: entrypoint (0.147208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: source (0.132791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: license (0.095709ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: runtime (0.088417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: version (0.082167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: arbitrary-version (0.090792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: entry-bytes (0.135083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: unreviewed (0.093875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: review-digest (0.081958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: skill-id (0.074542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: revision-id (0.063042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototype/mvp-admission.test.ts:21:202
+✖ synthetic packet rejects altered complete outbound bundle before admission: extra-metadata (0.089958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/prototype/mvp-admission.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

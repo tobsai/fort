@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceCommit": "a8a14c8d623e12af37b020735588e08bb4100180",
+  "sourceCommit": "2cbe35323b6aa3b3b5ad35e20ced8c71b7bf5ce8",
   "nativeSourceCommit": "996e19849f5104e71b26b7c14d201aaa56b31c87",
   "scopeSHA256": "24232f4c96da97a3fa2b64620bedcc4752332d17e111bc8c7d583eac26bdf4f6",
   "appPath": "/tmp/fort058-mvp-memory-review-mac-20261017/Build/Products/Debug/FortMac.app",
@@ -171,7 +171,7 @@
     },
     {
       "path": "successor/package.json",
-      "sha256": "846964656708add7c7ee5108fca96ef3de2f4929b94403b5addbdbbf08973ca4"
+      "sha256": "0c183e8e4ca20ff39eea9327e1dde35eb9dc19fa3770ddf14d53c29367ce84bb"
     },
     {
       "path": "successor/prototype/README.md",
@@ -198,6 +198,14 @@
       "sha256": "24e0104b305359806a1e76cd7d5f6567f6a8f285f7663559ced7322a017c4e45"
     },
     {
+      "path": "successor/prototype/mvp-admission.test.ts",
+      "sha256": "d08962917c26edbb50bfdd25d4c30e3beddf51ef2264f167c0e89cadf9bbeaad"
+    },
+    {
+      "path": "successor/prototype/mvp-admission.ts",
+      "sha256": "f43ceccf26b0c6e8dd5f54152d5515d14ee0e9889944d1a2f57a09b0f214db0c"
+    },
+    {
       "path": "successor/prototype/mvp-manual.ts",
       "sha256": "650cd3271423de2c0c4df47390a442b6f0a777bf856599c7ab1a5febe2b1cef8"
     },
@@ -215,11 +223,11 @@
     },
     {
       "path": "successor/prototype/mvp-session.test.ts",
-      "sha256": "2996ec3c1ee59d784e167f8021f2c19ed5b8a95b35a2b1e6507867cdade5406e"
+      "sha256": "1df867767bc206a2b14e83558f94292f828850d43923c782278786a346e0c2b6"
     },
     {
       "path": "successor/prototype/mvp-session.ts",
-      "sha256": "4c26b3c39a2c0c34202ef02fdb69287368ba113f47d9ac3be90f5950e73e4407"
+      "sha256": "d1d0dd782c61a5eac27fc49a4fc15ba038c30c989bdd2ece7446e75adab486a1"
     },
     {
       "path": "successor/prototype/native-session.test.ts",
@@ -402,12 +410,16 @@
       "sha256": "5cd848081bbaffa29c10ea50e8cef60769759826eaadd89689dc23da8869bdd1"
     },
     {
+      "path": "successor/service/openai-shutdown.test.ts",
+      "sha256": "8a61389349b09c03a831d77b113cc20569e566402d594e77301e0ddb56b4e9f0"
+    },
+    {
       "path": "successor/service/openai.test.ts",
       "sha256": "a9c143c92339c3f24694f874d026fa2dd6af4fa26fc37c865e8e64da1a9b6757"
     },
     {
       "path": "successor/service/openai.ts",
-      "sha256": "ab809fbe1443810eb63066c72618527d6c8a0ae9b6293844514a082bc579e860"
+      "sha256": "1dc8d701d41851028f66bea0f63e6c377fa533d1db1055840d914a093dabd252"
     },
     {
       "path": "successor/service/routine.ts",

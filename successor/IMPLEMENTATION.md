@@ -1,15 +1,19 @@
 # Spec 058 implementation record
 
-Current prepared candidate source is `a8a14c8d623e12af37b020735588e08bb4100180`.
-The dedicated three-session launcher is implemented and sealed behind an absent
-owner-approval record. Its scope remains the original pending proposal. Runtime
-stop joins in-flight replacement (`99ab5bc449c71f39d6e0fb835b8ac15166ff5014`).
-Full synthetic validation passes 689 TypeScript tests, including 22 launcher/
-preparation tests. Native source/artifacts remain exactly `996e19849f5104e71b26b7c14d201aaa56b31c87`.
-Read [launcher evidence](evidence/2026-10-17-mvp-launcher/README.md) and
+Current prepared candidate source is `2cbe35323b6aa3b3b5ad35e20ced8c71b7bf5ce8`.
+The two launcher review findings are fixed: shutdown joins accepted socket closure,
+and sample admission checks the complete canonical instruction-bundle digest.
+Current validation: 68 non-enrollment TypeScript tests, strict typechecking and
+three preparation-checker tests pass. The full enrollment-fixture suite remains
+unrun for this revision; 689 passes are historical evidence for `a8a14c8` only.
+The reviewer reported an automatic approval rejection of that suite because its
+synthetic enrollment fixtures conflict with the review's no-enrollment instruction.
+Native source/artifacts remain exactly `996e19849f5104e71b26b7c14d201aaa56b31c87`.
+Read [review-fix evidence](evidence/2026-10-17-mvp-launcher-review/README.md) and
 [the pinned operator plan](ops/mvp-native-acceptance-20261017/PLAN.md).
-No live session, actual enrollment, cache archive or provider process was started.
-Explicit owner approval is still required; do not reuse any historical manual packet.
+The original proposal is unchanged and the owner-approval record remains absent.
+No live session, enrollment, cache archive, app or provider process was started.
+Do not reuse any historical manual packet.
 
 
 ## Current implementation — October 17
