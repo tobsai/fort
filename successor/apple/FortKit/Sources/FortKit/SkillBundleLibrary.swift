@@ -123,7 +123,7 @@ private struct SkillBundleReviewView: View {
                         }
                         if let prior = previous?.bundle, prior.scripts != bundle.scripts { Text("Script declarations changed from the previous revision.") }
                         Text("Enablement records your review. The runtime still enforces its own permissions.").font(.caption)
-                        if !bundle.supportsCurrentChat { Text("The current no-tool Codex chat will refuse this bundle because it cannot preserve its files, scripts, requested tools or declared runtime.").foregroundStyle(.secondary) }
+                        if !bundle.supportsCurrentChat { Text("The current no-tool Codex chat supports UTF-8 text bundles declared for Codex. This bundle has binary content, scripts, requested tools or another runtime.").foregroundStyle(.secondary) }
                     }
                     Section {
                         Button(skill.canInvoke ? "Disable this revision" : "Enable reviewed revision") {

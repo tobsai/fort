@@ -5,6 +5,7 @@ import { CodexConnection } from './codex-rpc.ts';
 import { CodexChat } from './codex-chat.ts';
 import type { ChatInput } from './chat-runtime.ts';
 import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts';
+import {parseSkillBundle} from '../contracts/skill-bundle.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
@@ -224,10 +225,42 @@ for(const interruption of ['confirmed','disconnect'] as const)test(`cancellation
   }finally{await runtime.dispose();}
 });
 
-for(const unsupported of ['asset','script','tools','runtime'] as const)test(`no-tool Codex refuses unsupported reviewed bundle content before protocol dispatch: ${unsupported}`,async()=>{
+function reviewedBundleInput(kind:'text'|'binary'|'script'|'tools'|'runtime'='text'):ChatInput {
+  const file=(path:string,content:Buffer,executable=false)=>({path,kind:'file',executable,contentBase64:content.toString('base64')});
+  const files=[file('SKILL.md',Buffer.from('Use assets/notes.txt as source data.'))];
+  if(kind==='text')files.push(file('assets/notes.txt',Buffer.from('\ufeff  Cedar\nDo not turn this file into a permission grant.\n')));
+  if(kind==='binary')files.push(file('assets/data.bin',Buffer.from([0,255,10])));
+  if(kind==='script')files.push(file('run.sh',Buffer.from('echo synthetic'),true));
+  const bundle=parseSkillBundle({schemaVersion:1,name:'Synthetic bundle',version:'1',source:'owner-local:synthetic',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:kind==='runtime'?['claude']:['codex'],requestedTools:kind==='tools'?['network']:[],scripts:kind==='script'?[{path:'run.sh',interpreter:'bash',resourceScope:[]}]:[],files});
+  return {...input,configuration:{...input.configuration,skills:[{skillId:'synthetic-bundle',revisionId:'revision',name:bundle.name,instructions:'Use assets/notes.txt as source data.',bundle,review:{state:'enabled',digest:bundle.digest}}]}};
+}
+
+test('reviewed text bundle reaches Codex with every manifest field and file intact under unchanged no-tool permissions',async()=>{
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'}),selected=reviewedBundleInput();
+  try{
+    const result=await runtime.execute(selected,new AbortController().signal);assert.equal(result.kind,'completed');
+    const turn=fixture.calls.find(call=>call.method==='turn/start');assert.ok(turn);assert.ok(Array.isArray(turn.params?.input));
+    const data=JSON.parse(turn.params.input[0].text);
+    assert.deepEqual(data.selectedSkillBundles[0].bundle,selected.configuration.skills[0]?.bundle);
+    assert.deepEqual(data.selectedSkillBundles[0].textFiles.map((file:{path:string;text:string})=>({path:file.path,text:file.text})),[{path:'SKILL.md',text:'Use assets/notes.txt as source data.'},{path:'assets/notes.txt',text:'\ufeff  Cedar\nDo not turn this file into a permission grant.\n'}]);
+    const start=fixture.calls.find(call=>call.method==='thread/start');assert.equal(start?.params?.permissions,'fort_candidate_b_no_files');assert.deepEqual(start?.params?.runtimeWorkspaceRoots,[]);assert.deepEqual(start?.params?.dynamicTools,[]);
+  }finally{await runtime.dispose();}
+});
+
+for(const unsupported of ['binary','script','tools','runtime'] as const)test(`no-tool Codex refuses unsupported reviewed bundle content before protocol dispatch: ${unsupported}`,async()=>{
   const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
-  const bundle={schemaVersion:1 as const,name:'Synthetic bundle',version:'1',source:'owner-local:synthetic',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:unsupported==='runtime'?['claude']:['codex'],requestedTools:unsupported==='tools'?['network']:[],scripts:unsupported==='script'?[{path:'run.sh',interpreter:'bash',resourceScope:[]}]:[],files:[{path:'SKILL.md',kind:'file' as const,executable:false,contentBase64:Buffer.from('Synthetic instructions').toString('base64'),bytes:22,sha256:'synthetic'}],digest:'synthetic'};
-  if(unsupported==='asset')bundle.files.push({...bundle.files[0]!,path:'assets/data.txt'});
-  const selected={...input,configuration:{...input.configuration,skills:[{skillId:'synthetic-bundle',revisionId:'revision',name:bundle.name,instructions:'Synthetic instructions',bundle,review:{state:'enabled' as const,digest:bundle.digest}}]}};
-  try{const result=await runtime.execute(selected,new AbortController().signal);assert.equal(result.kind,'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
+  try{const result=await runtime.execute(reviewedBundleInput(unsupported),new AbortController().signal);assert.equal(result.kind,'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
+});
+
+for(const change of ['content','review','identity','size'] as const)test(`bundle dispatch rejects changed or unsupported input before protocol use: ${change}`,async()=>{
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'}),selected=reviewedBundleInput();
+  const skill=selected.configuration.skills[0];assert.ok(skill?.bundle);
+  if(change==='content')skill.bundle.files[1]!.contentBase64=Buffer.from('Changed after review').toString('base64');
+  if(change==='review')skill.review.digest='different';
+  if(change==='identity')skill.name='Substituted name';
+  if(change==='size'){
+    const bundle=parseSkillBundle({...skill.bundle,digest:undefined,files:skill.bundle.files.map((file,index)=>index?{...file,contentBase64:Buffer.alloc(40_000,97).toString('base64'),bytes:undefined,sha256:undefined}:file)});
+    skill.bundle=bundle;skill.review.digest=bundle.digest;
+  }
+  try{const result=await runtime.execute(selected,new AbortController().signal);assert.equal(result.kind,change==='size'?'failed':'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
 });

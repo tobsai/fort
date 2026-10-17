@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { SkillBundle, SkillBundleFile } from '../contracts/v1.ts';
+import type { SkillBundle, SkillBundleFile } from './v1.ts';
 
 export class InvalidSkillBundle extends Error {}
 function reject(message: string): never { throw new InvalidSkillBundle(message); }

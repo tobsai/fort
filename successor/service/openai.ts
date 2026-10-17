@@ -5,7 +5,7 @@ import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
-import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from './skill-bundle.ts';
+import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 
 type Entity = 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {

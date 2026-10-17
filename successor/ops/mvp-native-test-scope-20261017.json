@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed-awaiting-owner-approval",
+  "scopeId": "mvp-native-tests-20261017",
+  "operatorThreadId": "01a1451b-81d7-76cf-8e5c-a85d7164201c",
+  "maximumSessions": 3,
+  "sessionSeconds": 600,
+  "workSeconds": 540,
+  "cleanupReserveSeconds": 60,
+  "maximumFreshMacEnrollmentsPerSession": 1,
+  "maximumEnrollmentsTotal": 3,
+  "renewExistingCredential": false,
+  "reenrollmentOfConsumedInstallation": false,
+  "maximumPlainTextTurnsPerSession": 12,
+  "maximumPlainTextTurnsTotal": 36,
+  "dataCategory": "synthetic operator-authored samples only; no personal, repository, account or provider message data",
+  "provider": {
+    "runtime": "official Codex",
+    "runtimeVersion": "0.157.1",
+    "runtimePath": "/opt/homebrew/Caskroom/codex/0.157.1/bin/codex",
+    "runtimeSHA256": "27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d",
+    "subscription": "existing ChatGPT sign-in",
+    "selectedModel": "gpt-6-astra",
+    "newSignIn": false,
+    "apiBilling": false,
+    "fallback": false
+  },
+  "permissions": {
+    "profile": "fort_candidate_b_no_files",
+    "tools": false,
+    "externalActions": false,
+    "newHostAccess": false,
+    "persistentAccess": false
+  },
+  "restartBounds": {
+    "appRelaunch": true,
+    "explicitServiceRuntimeRestartsPerSession": 1,
+    "ownedRuntimeLaunchesPerSession": 3,
+    "secondsPerOwnedRuntimeLaunch": 300,
+    "sharedAbsoluteSessionDeadline": true
+  },
+  "credentialLifecycle": {
+    "enrollmentCodeSecondsAtMost": 300,
+    "deviceTokenExpiresAt": "session start plus 600 seconds; unchanged across restart",
+    "cleanup": "At work cutoff stop admission, interrupt and reap owned runtime, stop listener and native app, revoke session enrollment/device rows, delete only issued Fort Keychain items and temporary connection/enrollment files, verify no residue before absolute expiry",
+    "failure": "Consume session start, preserve state/ledger, stop; no renewal or automatic replacement outside remaining approved sessions"
+  },
+  "preservation": {
+    "priorSixPackets": "unchanged",
+    "nativeCache": "archive exact current cache before pairing; retain each new synthetic session history",
+    "newRoots": [
+      "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1",
+      "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-2",
+      "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-3"
+    ]
+  },
+  "riskDelta": "More synthetic model turns and one supervised restart than the previous one-message trial. No higher privileges or new sensitive data. The agent host retains the Mac user access; the computer-tool profile does not provide agent-host confinement.",
+  "executionPins": "Verify each source, app and runtime revision independently against this unchanged scope before launch. A routine code revision is not renewed credential authority.",
+  "notAuthorized": [
+    "provider sign-in or credential copying",
+    "persistent service credentials",
+    "new OS/security/trust configuration",
+    "startup services",
+    "public ingress",
+    "remote hosting",
+    "provider cleanup",
+    "push, merge or deployment"
+  ]
+}

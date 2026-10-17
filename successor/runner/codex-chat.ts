@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { prepareSkillContext } from './skill-context.ts';
 import { isAbsolute, normalize } from 'node:path';
 import { CodexTurn, type CodexOutput } from './codex.ts';
 import { CodexConnection, object } from './codex-rpc.ts';
@@ -40,14 +41,10 @@ export class CodexChat implements ChatRuntime {
   }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
-    for(const skill of input.configuration.skills){
-      const bundle=skill.bundle;
-      if(bundle&&(skill.review.state!=='enabled'||!bundle.supportedRuntimes.includes('codex')||bundle.requestedTools.length!==0||bundle.scripts.length!==0||bundle.files.length!==1||bundle.files[0]?.path!==bundle.entrypoint||bundle.files[0].executable)){
-        return {kind:'notStarted',message:'This no-tool Codex runtime cannot preserve the selected bundle files, scripts, tools or declared runtime. Nothing was dispatched.'};
-      }
-    }
-    const developerInstructions = input.configuration.instructions + input.configuration.skills.map(skill => `\n\nSelected instruction skill: ${skill.name}\n${skill.instructions}`).join('');
-    const text = JSON.stringify({ conversationId:input.conversationId, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text } });
+    const skills = prepareSkillContext(input.configuration.skills);
+    if (skills.kind === 'unsupported') return {kind:'notStarted',message:skills.message};
+    const developerInstructions = input.configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '');
+    const text = JSON.stringify({ conversationId:input.conversationId, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };
     if (signal.aborted) return { kind:'notStarted', message:'Canceled before runtime dispatch.' };
     this.busy = true;

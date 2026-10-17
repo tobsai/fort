@@ -64,7 +64,7 @@ public struct SkillBundle: Codable, Equatable, Sendable {
     public let source: String; public let license: String; public let entrypoint: String
     public let supportedRuntimes: [String]; public let requestedTools: [String]
     public let scripts: [SkillBundleScript]; public let files: [SkillBundleFile]; public let digest: String
-    public var supportsCurrentChat: Bool { schemaVersion == 1 && supportedRuntimes.contains("codex") && requestedTools.isEmpty && scripts.isEmpty && files.count == 1 && files.first?.path == entrypoint && files.first?.executable == false }
+    public var supportsCurrentChat: Bool { schemaVersion == 1 && supportedRuntimes.contains("codex") && requestedTools.isEmpty && scripts.isEmpty && files.contains { $0.path == entrypoint } && files.allSatisfy { $0.kind == "file" && !$0.executable && $0.text != nil } }
     public func changes(from previous: SkillBundle?) -> [SkillFileChange] {
         let before = Dictionary((previous?.files ?? []).map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })
         let after = Dictionary(files.map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })
