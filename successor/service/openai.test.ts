@@ -26,7 +26,11 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
     const response = await fetch(service.baseURL + path, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() as T };
   }
-  return { api, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
+  async function reenroll() {
+    const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
+    assert.equal(response.status,201);const device=await response.json() as {deviceToken:string};headers.Authorization=`Bearer ${device.deviceToken}`;
+  }
+  return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
 
 test('request cancellation persists before acceptance and fences late chat or routine submission after restart',async t=>{
@@ -133,6 +137,33 @@ test('downtime skips missed work by default, allows one catch-up, and an approva
       now+=86_400_000;await fixture.h.service.tickSchedules();assert.equal((await fixture.occurrences()).length,4);
       assert.equal((await fixture.h.api<Snapshot>(`/v1/conversations/${fixture.agent.homeConversationId}/snapshot`)).body.runs[0]?.state,'waitingForApproval');
     }
+  }
+});
+
+test('multi-year recurring downtime records a bounded summary and admits at most one catch-up without replay',async t=>{
+  for(const missed of ['skip','catchUpOne'] as const){
+    let now=Date.parse('2026-10-17T08:00:00Z');const f=await scheduleFixture(t,()=>now,{kind:'daily',timezone:'UTC',time:'09:00',missed});
+    now=Date.parse('2030-10-17T10:00:00Z');await f.h.restart();
+    assert.equal((await f.h.api(f.path+'/occurrences')).status,401);await f.h.reenroll();
+    const rows=await f.occurrences();assert.equal(rows.length,367);assert.equal(rows[0]?.state,'skippedMissedRange');
+    assert.match(rows[0]?.detail??'',/No backlog was dispatched/);
+    assert.equal(rows.filter(row=>row.state==='accepted').length,missed==='catchUpOne'?1:0);
+    if(missed==='catchUpOne')assert.equal(rows.at(-1)?.intendedAt,'2030-10-17T09:00:00.000Z');
+    assert.equal((await f.h.api<Snapshot>(`/v1/conversations/${f.agent.homeConversationId}/snapshot`)).body.runs.length,missed==='catchUpOne'?1:0);
+    await f.h.restart();await f.h.service.tickSchedules();assert.deepEqual(await f.occurrences(),rows);
+  }
+});
+
+test('one-time schedules retain their exact missed occurrence and owner catch-up policy after multi-year downtime',async t=>{
+  for(const missed of ['skip','catchUpOne'] as const){
+    let now=Date.parse('2026-10-17T08:00:00Z');const f=await scheduleFixture(t,()=>now,{kind:'once',date:'2026-10-18',timezone:'UTC',time:'09:00',missed});
+    now=Date.parse('2030-10-17T10:00:00Z');await f.h.restart();await f.h.reenroll();
+    const rows=await f.occurrences();assert.equal(rows.length,1);assert.equal(rows[0]?.intendedAt,'2026-10-18T09:00:00.000Z');
+    assert.equal(rows[0]?.state,missed==='skip'?'skippedMissed':'accepted');
+    const snapshot=(await f.h.api<Snapshot>(`/v1/conversations/${f.agent.homeConversationId}/snapshot`)).body;
+    assert.equal(snapshot.runs.length,missed==='catchUpOne'?1:0);
+    if(missed==='catchUpOne')assert.equal(snapshot.runs[0]?.requestId,'occurrence-'+rows[0]?.occurrenceId);
+    await f.h.restart();await f.h.service.tickSchedules();assert.deepEqual(await f.occurrences(),rows);
   }
 });
 

@@ -270,12 +270,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         const schedule=load('schedules',saved.scheduleId,decodeSchedule),through=now();
         if(schedule.state!=='enabled'||through<=schedule.checkedThrough)return;
         let after=schedule.checkedThrough;
-        if(through-after>366*86_400_000){
+        if(schedule.definition.kind!=='once'&&through-after>366*86_400_000){
           const cutoff=through-366*86_400_000,occurrenceId=routineDigest({scheduleRevisionId:schedule.revisionId,from:after,through:cutoff});
           const summary:ScheduleOccurrence={occurrenceId,scheduleId:schedule.scheduleId,scheduleRevisionId:schedule.revisionId,routineId:schedule.definition.routineId,routineRevisionId:schedule.definition.routineRevisionId,intendedAt:null,localDate:'',localTime:schedule.definition.time,state:'skippedMissedRange',detail:'Skipped the downtime range '+new Date(after).toISOString()+' through '+new Date(cutoff).toISOString()+'. No backlog was dispatched.'};
           put('scheduleOccurrences',occurrenceId,summary);after=cutoff;
         }
-        const due=calendarBetween(schedule.definition,after,through),missed=downtime||through-schedule.checkedThrough>60_000;
+        const due=schedule.definition.kind==='once'?previewCalendar(schedule.definition,after).filter(occurrence=>Date.parse(occurrence.decisionAt)<=through):calendarBetween(schedule.definition,after,through);
+        const missed=downtime||through-schedule.checkedThrough>60_000;
         const catchUp=missed&&schedule.definition.missed==='catchUpOne'?due.findLast(occurrence=>occurrence.intendedAt!==null):undefined;
         for(const occurrence of due){
           const occurrenceId=routineDigest(occurrence.intendedAt===null?{routineRevisionId:schedule.definition.routineRevisionId,gap:occurrence.localDate+'T'+occurrence.localTime,timezone:schedule.definition.timezone}:{routineRevisionId:schedule.definition.routineRevisionId,intendedAt:occurrence.intendedAt});
