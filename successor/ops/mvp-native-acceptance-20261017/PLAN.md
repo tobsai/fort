@@ -2,7 +2,10 @@
 
 Preparation only. The owner has not approved the three temporary enrollments.
 No session root, credential, provider process or installed UI session was created.
-Source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
+Launcher/service source: `a8a14c8d623e12af37b020735588e08bb4100180`.
+Unchanged native artifact source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
+The runtime stop/restart fix is independently reviewable at
+`99ab5bc449c71f39d6e0fb835b8ac15166ff5014`. Source/app/scope pins are in `pins.json`.
 The instruction-skill migration is already committed at
 `a524c4a6fbe4d53e9f8e514a5e89a71f8cda8968` and included in these builds.
 
@@ -21,31 +24,67 @@ roots remain absent. A changed source/build requires new verification, not renew
 approval for unchanged scope. A changed scope requires reconciliation. There is
 intentionally no `--start` or approval-writing action.
 
-## Launch prerequisites
+## Activation gate and operator commands
 
-1. Record the owner's explicit answer to the existing proposal in
-   `../mvp-native-test-scope-20261017.json`; do not infer it from development authority.
-2. Implement and test a new launcher against that exact scope, then seal its source
-   and app pins. `prototype/manual.ts` remains bound to a consumed historical packet;
-   do not run it or weaken its entry gate. Current runtime recovery supports a bounded
-   injected replacement factory; the historical launcher supplies no such factory.
-3. The new launcher must enforce all three distinct roots, consume each attempt
-   before any launch, admit at most 12 synthetic plain-text turns per session, and
-   allow only one explicit service/runtime restart across both UI and terminal paths.
-   At most three owned process launches share the original absolute deadline; each
-   process has at most 300 seconds including cleanup. It must stop admission at
-   540 seconds, finish cleanup before 600, and never extend or renew enrollment.
-   Test late cancellation, launch/cleanup failure, a concurrent restart, process death,
-   budget exhaustion, failure before READY, and same-ledger restart with fake children.
-4. Preserve the native cache by an exact archive before pairing. Do not overwrite
-   existing archives. Stop the exact app before archiving; never touch another app or
-   credential. Fresh session roots are listed in the proposal and must not be reused.
-5. Only the designated UI operator `01a1451b-81d7-76cf-8e5c-a85d7164201c`, coordinated
-   through the parent, performs the attended sessions. Capture the exact installed
-   build's accessibility tree and screenshots. Suppress enrollment values and tokens.
+The dedicated launcher is implemented, tested and sealed. Preparation checks pass;
+activation remains blocked only by the pending owner decision and any platform
+permission prompts encountered on the actual host. Installed inspection/provider
+results are acceptance work to perform after activation, not prior approval evidence.
 
-The current preparation is executable. The live batch is **not launch-ready** until
-items 1–3 are satisfied. No fabricated launch command is supplied.
+Keep `../mvp-native-test-scope-20261017.json` unchanged as the exact proposal snapshot.
+After a direct, explicit owner answer, the coordinator records `owner-approval.json`
+next to this plan with schemaVersion 1, decision `approved`, actor `owner`, this
+scope ID and its SHA-256 from `pins.json`, the designated operator thread ID,
+source thread `01a0f307-3940-7333-96b0-a3b0b854e0e8`, and the actual approval time
+in `approvedAtUTC`. Do not create that record from development authority, delegation,
+a test fixture, a proposed answer, or elapsed time. No approval file exists now.
+The launcher validates that separate record before creating any session state.
+
+The operator first runs this read-only command from the worktree root:
+
+```sh
+/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --check
+```
+
+**Only after explicit approval**, start one attended terminal for the chosen session:
+
+```sh
+/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 1
+```
+
+Enter `start` once. Wait for READY, then open the exact `appPath` and pair using the
+local `pairingFile`; never print its contents or capture the code/token. Immediately
+report the work cutoff and credential expiry to the parent. The terminal accepts
+`status`, `restart`, `done` and `abort`; no prompt text is accepted there. App messages
+must match the fixed synthetic samples below. Use the same command with session 2
+and then 3 for their separate attended windows, after confirmed previous cleanup.
+No automatic loop, retry, renewal or fourth session is available.
+
+The single restart allowance is shared by terminal `restart` and the native
+**Restart runtime** action. Terminal restart stops the app, confirms no active or
+pending request, closes the old service/runtime and reopens the same ledger/port
+with the original installation and credential deadline. Relaunch the same app
+without enrollment. A runtime-only restart leaves the app connected and awaits
+confirmed old-process cleanup before creating the replacement.
+
+The controller enforces 12 accepted turns, one fresh enrollment, one explicit
+restart and at most three owned launches per session. Each child gets at most
+296 seconds of work plus four seconds for TERM/KILL; the original session deadline
+is shared. Admission stops at 540 seconds and cleanup must finish before 600.
+One durable consumed state and a batch lock prevent reuse and concurrent sessions.
+Unconfirmed cleanup retains the lock and blocks later sessions. A missing/moved
+ledger is never recreated as proof of cleanup. Unknown turns are never resubmitted.
+
+Before pairing, the launcher refuses a running FortMac instance or symlinked cache,
+then moves the exact current cache into `session-N/native-cache-before`, recording
+and verifying its hashes. It preserves earlier session histories and all six older
+packets. Do not reset roots, delete locks, replace archives or reuse the historical
+`prototype/manual.ts`. No historical activation gate was modified.
+
+Only UI operator `01a1451b-81d7-76cf-8e5c-a85d7164201c`, coordinated through the
+parent, performs the attended sessions. Capture accessibility and screenshots of
+these exact artifacts. Permission prompts require their actual disposition; never
+change OS security/trust settings to bypass them.
 
 ## Common session contract
 
@@ -96,8 +135,7 @@ Agent instructions. No repository or account content belongs in any prompt.
 4. Edit the skill into B with `End with [REVIEWED].` Verify B starts disabled and A
    remains the routine pin. Review and enable B. From Routines choose “Review pinned
    skill”; verify exact A identity/digest, disable A, and reload to confirm A is revoked.
-5. Open current B and verify it remains enabled. Invoke B for a new plain-text title
-   request. Require B in the accepted configuration; no A invocation is authorized.
+5. Open current B and verify it remains enabled. Invoke B with `Suggest another short title for a sample packing list.`. Require B in the accepted configuration; no A invocation is authorized.
 6. Export the inert bundle to the session's synthetic evidence directory and inspect
    the export using the native review workflow. Importing or previewing enables nothing.
 
@@ -113,10 +151,11 @@ Actual-provider routine/schedule execution is outside this plain-text batch prop
 3. Select Reviewer and send `Check that sample plan and name the packing item.`
    Require Reviewer attribution and only this shared conversation's history.
 4. Save shared Memory `The shared sample departure is Monday.` Select each recipient
-   for one short question about the saved departure. Verify the same shared memory
+   with `What departure is saved in this shared conversation?`. Verify the same shared memory
    revision and distinct exact recipient identities. Open both Homes and confirm the
    shared note is absent there.
-5. Send one synthetic request and use Stop while it is active if timing permits.
+5. Send `Write a short synthetic packing checklist for a red notebook.` and use
+   Stop while it is active if timing permits.
    Record the real observed outcome: completion, confirmed cancellation, or unknown.
    Do not invent cancellation evidence if completion wins. For unknown, inspect and
    explicitly close the old outcome; never resubmit that request.

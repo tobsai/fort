@@ -7,7 +7,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-SOURCE = '996e19849f5104e71b26b7c14d201aaa56b31c87'
+NATIVE_SOURCE = '996e19849f5104e71b26b7c14d201aaa56b31c87'
+PIN_FILE = Path(__file__).with_name('pins.json')
 EVIDENCE = ROOT / 'successor/evidence/2026-10-17-mvp-memory-review'
 SCOPE = ROOT / 'successor/ops/mvp-native-test-scope-20261017.json'
 PRODUCT_PATHS = ['successor/contracts', 'successor/runner', 'successor/service',
@@ -50,11 +51,13 @@ def verify_scope(scope):
 def check():
     require(hashlib.sha256(SCOPE.read_bytes()).hexdigest() == '24232f4c96da97a3fa2b64620bedcc4752332d17e111bc8c7d583eac26bdf4f6', 'Scope bytes changed; reconcile the proposal before acceptance')
     scope = json.loads(SCOPE.read_text())
+    pins = json.loads(PIN_FILE.read_text())
+    source = pins['sourceCommit']
     verify_scope(scope)
     builds = json.loads((EVIDENCE / 'builds.json').read_text())
-    require(builds['sourceCommit'] == SOURCE and builds['appsLaunched'] is False, 'Unexpected build evidence')
-    subprocess.run(['git', 'merge-base', '--is-ancestor', SOURCE, 'HEAD'], cwd=ROOT, check=True, capture_output=True)
-    changed = subprocess.check_output(['git', 'diff', '--name-only', SOURCE, '--', *PRODUCT_PATHS], cwd=ROOT, text=True)
+    require(builds['sourceCommit'] == NATIVE_SOURCE and builds['appsLaunched'] is False, 'Unexpected build evidence')
+    subprocess.run(['git', 'merge-base', '--is-ancestor', source, 'HEAD'], cwd=ROOT, check=True, capture_output=True)
+    changed = subprocess.check_output(['git', 'diff', '--name-only', source, '--', *PRODUCT_PATHS], cwd=ROOT, text=True)
     require(not changed.strip(), 'Product source differs from the tested build; reseal before acceptance')
     untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', *PRODUCT_PATHS], cwd=ROOT, text=True)
     require(not untracked.strip(), 'Untracked product files require review')
@@ -79,10 +82,12 @@ def check():
     runtime = Path(scope['provider']['runtimePath'])
     require(runtime.is_file(), 'Pinned runtime file is missing')
     require(hashlib.sha256(runtime.read_bytes()).hexdigest() == scope['provider']['runtimeSHA256'], 'Pinned runtime bytes changed')
-    return {'preparationChecks': 'passed', 'sourceCommit': SOURCE, 'artifactsVerified': len(builds['artifacts']),
+    subprocess.run(['/opt/homebrew/opt/node@26/bin/node', 'successor/prototype/mvp-manual.ts', '--check'], cwd=ROOT, check=True, capture_output=True)
+    return {'preparationChecks': 'passed', 'sourceCommit': source, 'artifactsVerified': len(builds['artifacts']),
             'activation': 'blocked', 'blockers': ['Owner approval for the proposed temporary enrollment batch is pending.',
-            'A separately sealed three-session launcher is not implemented. The old manual launcher is consumed.'],
-            'liveActionsPerformed': False, 'credentialsReadOrCreated': False,
+            'The actual host may require platform permission prompts for approved execution.'],
+            'acceptanceUnrun': ['installed accessibility/screenshots', 'current real-provider behavior', 'physical iPhone'],
+            'liveActionsPerformed': False, 'credentialsReadOrCreated': False, 'launcher': 'implemented and sealed; no activation',
             'checklist': str(Path(__file__).with_name('PLAN.md'))}
 
 

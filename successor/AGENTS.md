@@ -1,13 +1,15 @@
 # Spec 058 successor
 
-Current reviewed-fix source is `996e19849f5104e71b26b7c14d201aaa56b31c87`:
-atomic scheduled acceptance, bounded explicit runtime recovery, historical skill
-revocation and native conversation memory. Validation: 665 TypeScript / 36 Swift
-passes, strict typecheck, Swift HTTP journey and fresh Mac/Simulator builds.
-Read [the memory/review evidence](evidence/2026-10-17-mvp-memory-review/README.md)
-and [the acceptance preparation](ops/mvp-native-acceptance-20261017/PLAN.md).
-No live session was started. The three-session proposal still lacks owner approval
-and its own sealed launcher; the consumed historical manual cannot execute it.
+Current prepared candidate source is `a8a14c8d623e12af37b020735588e08bb4100180`.
+The dedicated three-session launcher is implemented and sealed behind an absent
+owner-approval record. Its scope remains the original pending proposal. Runtime
+stop joins in-flight replacement (`99ab5bc449c71f39d6e0fb835b8ac15166ff5014`).
+Full synthetic validation passes 689 TypeScript tests, including 22 launcher/
+preparation tests. Native source/artifacts remain exactly `996e19849f5104e71b26b7c14d201aaa56b31c87`.
+Read [launcher evidence](evidence/2026-10-17-mvp-launcher/README.md) and
+[the pinned operator plan](ops/mvp-native-acceptance-20261017/PLAN.md).
+No live session, actual enrollment, cache archive or provider process was started.
+Explicit owner approval is still required; do not reuse any historical manual packet.
 
 
 Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
@@ -36,9 +38,9 @@ See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.js
 for byte hashes and the distinction between observed state and operator timing.
 The original preparation records remain historical evidence.
 
-The current service milestone is `ced1cc6ad74c6866c9fee353c8ce42b27e1ef1c6`;
+The historical schedule checkpoint is `ced1cc6ad74c6866c9fee353c8ce42b27e1ef1c6`;
 read evidence/2026-10-17-mvp-schedule-recovery/README.md before further validation.
-Native build source remains `8a877fff2730d7dd99bb45b9f47e31158182383c`; its
+Its earlier native build source was `8a877fff2730d7dd99bb45b9f47e31158182383c`; its
 evidence is in evidence/2026-10-17-mvp-pending/README.md.
 Pending request cancellation now survives lost responses and client/service restart.
 Native routines, schedules and complete instruction-bundle authoring have synthetic

@@ -1,0 +1,103 @@
+{
+  "sourceCommit": "a8a14c8d623e12af37b020735588e08bb4100180",
+  "runtimeRaceFixCommit": "99ab5bc449c71f39d6e0fb835b8ac15166ff5014",
+  "nativeSourceCommit": "996e19849f5104e71b26b7c14d201aaa56b31c87",
+  "typescriptTestsPassed": 689,
+  "adapterTestsPassed": 44,
+  "dedicatedLauncherAndPreparationTestsPassed": 22,
+  "typecheckExit": 0,
+  "readOnlyCheckerTestsPassed": 3,
+  "readiness": "passed; owner approval pending",
+  "realSessionRootsCreated": false,
+  "actualEnrollmentIssued": false,
+  "officialProviderRuntimeLaunched": false,
+  "nativeAppLaunched": false,
+  "realKeychainAccessed": false,
+  "nativeTestsAndBuilds": "Unchanged artifacts from 996e198; earlier 36 Swift tests and native HTTP/build results retained, not rerun. Four signatures and bytes reverified.",
+  "finalFailedChecks": [],
+  "unrun": [
+    "independent review of new launcher",
+    "installed accessibility/screenshots",
+    "real-provider acceptance of this candidate",
+    "physical iPhone and reachable authenticated HTTPS service",
+    "two-device history/read state",
+    "real host lifecycle and schedule behavior"
+  ],
+  "logs": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/adapter-tests.log",
+      "bytes": 4672,
+      "sha256": "51805183b277aa453603cbd5ddaedc16f5c478c9b8e6a58d7acf19695a0b32c5"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/cleanup-identity-red.log",
+      "bytes": 991,
+      "sha256": "2418d60fa0286d32c2f013e114371dca469c5c75f902bd46e99f0b839e5560fb"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/construction-cleanup-red.log",
+      "bytes": 981,
+      "sha256": "61eebd8a31ee063f808e43c887ff198b47266075a088c3b75c2c66b0d318c27e"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/controller-green.log",
+      "bytes": 239,
+      "sha256": "eb0094c97b4982a668a787eaf8d229660688700e6bb0c613ab0734bad279b444"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/controller-red.log",
+      "bytes": 1549,
+      "sha256": "6c6626a469bc51eaa42c5114cae581b60803aecba4a0430ce2d858a557efbf43"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/controller-tests.log",
+      "bytes": 1627,
+      "sha256": "d9cbc3e826b8d16ac1e8e6c19c869fe8025a9035f4156771a93d3496bdc20bc4"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/dispose-race-red.log",
+      "bytes": 1073,
+      "sha256": "489bfd04f440fd873fe6d8350bc74085a27d8e9005ee5b36220552bf08de8c3a"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/failures-red.log",
+      "bytes": 5969,
+      "sha256": "97ee08dae4609f194444ca3a3285a6767cb3072a63606ca71281b4e0866b652b"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/launcher-tests.log",
+      "bytes": 2422,
+      "sha256": "e164a61bf9182192b5997c39e0a3291c9d4c8959a21d96ef442b041bb539a2a0"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/manual-check.log",
+      "bytes": 248,
+      "sha256": "46e390ae85c6c35c7b6dacbf3598ed294a9931e2494fa41ee880adff5fc2849b"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/preparation-check.log",
+      "bytes": 736,
+      "sha256": "2b625eb7ce5c29a008305908b57ad4e2bbfe6df624b3438b0bdd9a0d4466e2c9"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/preparation-tests.log",
+      "bytes": 101,
+      "sha256": "903a371054920cecf53d6e8054f10298ffa960bbb71e7c70d5f2485c5a7350d9"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/stalled-http-red.log",
+      "bytes": 235,
+      "sha256": "4ed68b32a6b4e38c3c2acf6cd38f64ad8197266ec3a4f95fa38636b07a9e53d5"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-launcher-validation-20261017/typescript-tests.log",
+      "bytes": 64281,
+      "sha256": "5c91dbb0dbabb0d239e87cd20b4cc57eeed8ca2b672a1b8dfecb0d50500649c9"
+    }
+  ]
+}
