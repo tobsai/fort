@@ -33,6 +33,43 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
 
+test('runtime dispatch carries the exact durable service attempt and generation', async t => {
+  const calls: ChatInput[] = [];
+  const observedRuns: Run[] = [];
+  const h = await setup(t, { runtime: {
+    async execute(input) {
+      calls.push(input);
+      const snapshot = (await h.api<Snapshot>(`/v1/conversations/${input.conversationId}/snapshot`)).body;
+      const running = snapshot.runs.find(run => run.runId === input.runId);
+      assert.ok(running);
+      observedRuns.push(running);
+      return { kind: 'completed', text: 'Correlated synthetic result', effectiveModel: null };
+    },
+    async dispose() {}
+  } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Reply.' })).body;
+  const path = `/v1/conversations/${agent.homeConversationId}`;
+  const command = { requestId: 'correlated-attempt', text: 'Synthetic request', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] };
+  assert.equal((await h.api(path + '/messages', command)).status, 201);
+  await h.service.dispatchNext();
+  const completed = (await h.api<Snapshot>(path + '/snapshot')).body;
+  assert.equal(completed.runs[0]?.state, 'completed');
+  const running = observedRuns[0];
+  assert.ok(running);
+  assert.equal(running.state, 'running');
+  assert.deepEqual(calls[0]?.attempt, {
+    runId: running.runId, attemptId: running.attemptId, generation: 1,
+    bindingRevisionId: running.bindingRevisionId, selectedModel: running.selectedModel,
+    runtimeVersion: '0.157.1'
+  });
+  assert.equal(completed.runs[0]?.attemptId, calls[0]?.attempt.attemptId);
+  await h.api(path + '/messages', command);
+  assert.equal(await h.service.dispatchNext(), false);
+  assert.equal(calls.length, 1);
+  await h.restart();
+  assert.equal((await h.api<Snapshot>(path + '/snapshot')).body.runs[0]?.attemptId, completed.runs[0]?.attemptId);
+});
+
 test('explicit authenticated runtime replacement recovers a new queued turn without retrying the rejected model request',async t=>{
   const workspace=fileURLToPath(new URL('../runner',import.meta.url)),processes:ReturnType<typeof launchOwnedProcess>[]=[];
   const launch=()=>{const child=launchOwnedProcess({executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],cwd:workspace,env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'},deadlineMs:15_000,terminationGraceMs:50,killGraceMs:500});processes.push(child);return child.connection;};

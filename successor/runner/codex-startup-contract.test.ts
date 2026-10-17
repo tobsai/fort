@@ -10,7 +10,7 @@ import {redactedStartupFailure} from './startup-diagnostic.ts';
 const pinned=JSON.parse(readFileSync(new URL('./fixtures/codex-0.157.1-startup.json',import.meta.url),'utf8'));
 type Frame={id?:unknown;method?:string;params:Record<string,unknown>};
 type Mutate=(method:string,response:Record<string,unknown>,request:Frame)=>void;
-const input:ChatInput={runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
+const input:ChatInput={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
 
 function fixture(mutate:Mutate=()=>{}) {
   const calls:Frame[]=[], output=new PassThrough();

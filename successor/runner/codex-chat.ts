@@ -114,6 +114,8 @@ export class CodexChat implements ChatRuntime {
     }
   }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
+    const attempt = input.attempt;
+    if (!attempt || attempt.runId !== input.runId || attempt.bindingRevisionId !== input.configuration.bindingRevisionId || attempt.selectedModel !== input.configuration.selectedModel || attempt.runtimeVersion !== this.options.runtimeVersion || !Number.isSafeInteger(attempt.generation) || attempt.generation < 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(attempt.attemptId)) return { kind: 'notStarted', message: 'Service attempt identity was not confirmed. Nothing was sent.' };
     if(this.disposed||this.options.connection.isClosed)return {kind:'notStarted',message:'Runtime restart is required before a new request. This request was not dispatched.'};
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
     const memory=input.configuration.memory;
@@ -138,8 +140,8 @@ export class CodexChat implements ChatRuntime {
     finally { this.busy = false; }
   }
   private turn(input: ChatInput, threadId: string, text: string, signal: AbortSignal): Promise<ChatResult> {
-    const { connection, workspace, runtimeVersion } = this.options;
-    const turn = new CodexTurn({ attempt:{ runId:input.runId, attemptId:randomUUID(), generation:1, bindingRevisionId:input.configuration.bindingRevisionId, runtimeVersion, selectedModel:input.configuration.selectedModel }, threadId, requestId:randomUUID(), workspace, text });
+    const { connection, workspace } = this.options;
+    const turn = new CodexTurn({ attempt: input.attempt, threadId, requestId:randomUUID(), workspace, text });
     return new Promise(resolve => {
       let done = false; let interruptTimer: ReturnType<typeof setTimeout> | undefined;
       const finish = (result: ChatResult, close: boolean) => {

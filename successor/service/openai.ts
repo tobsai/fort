@@ -79,7 +79,8 @@ function decodeMessage(value: unknown): Message {
 function decodeRun(value: unknown): Run {
   const v = record(value);
   if (v.state !== 'queued' && v.state !== 'running' && v.state !== 'waitingForApproval' && v.state !== 'cancelRequested' && v.state !== 'completed' && v.state !== 'failed' && v.state !== 'outcomeUnknown' && v.state !== 'canceled' && v.state !== 'closedUnknown') throw new Error('Invalid stored Run');
-  return { runId: id(v.runId), requestId: id(v.requestId), conversationId: id(v.conversationId), bindingRevisionId: id(v.bindingRevisionId), state: v.state, selectedModel: text(v.selectedModel, 'model'), effectiveModel: null, modelEvidence: 'unreported', attemptId: v.attemptId === null ? null : id(v.attemptId), configuration: decodeConfiguration(v.configuration), ...(v.routine===undefined?{}:{routine:parseRoutineExecution(v.routine)}), ...(v.statusDetail === undefined ? {} : { statusDetail: text(v.statusDetail, 'status') }) };
+  if (v.attemptGeneration !== undefined && (typeof v.attemptGeneration !== 'number' || !Number.isSafeInteger(v.attemptGeneration) || v.attemptGeneration < 1)) throw new Error('Invalid stored attempt generation');
+  return { ...(v.attemptGeneration === undefined ? {} : { attemptGeneration: v.attemptGeneration }), runId: id(v.runId), requestId: id(v.requestId), conversationId: id(v.conversationId), bindingRevisionId: id(v.bindingRevisionId), state: v.state, selectedModel: text(v.selectedModel, 'model'), effectiveModel: null, modelEvidence: 'unreported', attemptId: v.attemptId === null ? null : id(v.attemptId), configuration: decodeConfiguration(v.configuration), ...(v.routine===undefined?{}:{routine:parseRoutineExecution(v.routine)}), ...(v.statusDetail === undefined ? {} : { statusDetail: text(v.statusDetail, 'status') }) };
 }
 function decodeRoutineApproval(value:unknown):RoutineApproval {
   const v=record(value);
@@ -385,9 +386,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       const current = messages.find(m => m.requestId === queued.requestId && m.role === 'user');
       if (!current || !queued.configuration) throw new Error('Queued run has no accepted input');
       const attemptId=randomUUID(),routine=queued.routine?{...queued.routine,steps:queued.routine.steps.map((step,index)=>index===stepIndex?{stepId:step.stepId,stepRevisionId:step.stepRevisionId,state:'running' as const,attemptId}:step)}:undefined;
-      put('runs', queued.runId, { ...queued, state: 'running', attemptId,...(routine?{routine}:{}) }); append(queued.conversationId, 'runStarted', queued.runId);
+      const attemptGeneration = (queued.attemptGeneration ?? 0) + 1;
+      const binding = load('agentBindings', queued.bindingRevisionId, decodeAgent).binding;
+      put('runs', queued.runId, { ...queued, state: 'running', attemptId, attemptGeneration,...(routine?{routine}:{}) }); append(queued.conversationId, 'runStarted', queued.runId);
       const history = messages.filter(m => m.role === 'user' && m.sequence < current.sequence).flatMap(m => [m, ...messages.filter(reply => reply.role === 'assistant' && reply.requestId === m.requestId)]);
-      const next: ChatInput = { runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
+      const next: ChatInput = { attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
       put('contexts', queued.runId, next); return next;
     });
     active = new AbortController(); activeRunId=queued.runId;

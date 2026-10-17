@@ -8,7 +8,7 @@ import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts
 import {parseSkillBundle} from '../contracts/skill-bundle.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
-const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
+const input: ChatInput = { attempt:{runId:'run-1',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'}, runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
 function transport(options: { catalogModels?:unknown[]; model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
@@ -49,6 +49,16 @@ function transport(options: { catalogModels?:unknown[]; model?: string; tool?: b
   return { connection, calls, get closed() { return closed; } };
 }
 
+test('Codex rejects a dispatch whose service attempt names a different run before provider I/O', async () => {
+  const fixture = transport();
+  const runtime = new CodexChat({ connection: fixture.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+  try {
+    const result = await runtime.execute({ ...input, attempt: { ...input.attempt, runId: 'foreign-run' } }, new AbortController().signal);
+    assert.equal(result.kind, 'notStarted');
+    assert.equal(fixture.calls.length, 0);
+  } finally { await runtime.dispose(); }
+});
+
 test('synthetic Codex connection preserves selected instructions and conversation context without login or model substitution', async () => {
   const fixture = transport(); const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.157.1' });
   const result = await runtime.execute(input, new AbortController().signal);
@@ -87,7 +97,7 @@ for(const failure of ['unavailable-model','setup-cancel','unknown-turn'] as cons
   const failed=await runtime.execute(input,cancellation.signal);assert.equal(failed.kind,failure==='unknown-turn'?'outcomeUnknown':'notStarted');
   assert.equal(runtime.readiness().state,'restartRequired');assert.equal(runtime.readiness().canRestart,true);assert.equal(replacements,0);
   await runtime.restart(new AbortController().signal);assert.equal(replacements,1);assert.equal(runtime.readiness().state,'ready');
-  const fresh=await runtime.execute({...input,runId:'new-run',requestId:'new-request',text:'A separate new request.'},new AbortController().signal);assert.equal(fresh.kind,'completed');
+  const fresh=await runtime.execute({...input,attempt:{...input.attempt,runId:'new-run',attemptId:'new-service-attempt'},runId:'new-run',requestId:'new-request',text:'A separate new request.'},new AbortController().signal);assert.equal(fresh.kind,'completed');
   assert.equal(first.calls.filter(call=>call.method==='turn/start').length,failure==='unknown-turn'?1:0);assert.equal(second.calls.filter(call=>call.method==='turn/start').length,1);
   second.connection.close();assert.equal(runtime.readiness().canRestart,false);await assert.rejects(runtime.restart(new AbortController().signal));assert.equal(replacements,1);await runtime.dispose();
 });

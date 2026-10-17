@@ -1,6 +1,8 @@
+import type { RuntimeAttempt } from '../contracts/runtime.ts';
 import type { Message, TurnConfiguration, RuntimeReadiness, ModelCatalog } from '../contracts/v1.ts';
 
 export type ChatInput = {
+  attempt: RuntimeAttempt;
   runId: string; requestId: string; conversationId: string;
   configuration: TurnConfiguration; history: Message[]; text: string;
 };
