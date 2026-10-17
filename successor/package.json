@@ -19,7 +19,8 @@
     "check:specs": "node ../ops/architecture/validate-specs.mjs",
     "test:specs": "node --test ../ops/architecture/validate-specs.test.mjs",
     "pretest": "npm run check:specs",
-    "pretypecheck": "npm run check:specs"
+    "pretypecheck": "npm run check:specs",
+    "test:packaging": "node --test packaging/node-bundle.test.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

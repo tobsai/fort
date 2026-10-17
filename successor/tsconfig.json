@@ -16,6 +16,7 @@
     "service/**/*.ts",
     "runner/**/*.ts",
     "apple/*.ts",
-    "prototype/**/*.ts"
+    "prototype/**/*.ts",
+    "packaging/**/*.ts"
   ]
 }
