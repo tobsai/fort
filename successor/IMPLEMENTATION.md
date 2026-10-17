@@ -277,3 +277,13 @@ Mac and iPhone Simulator build-for-testing artifacts and strict signatures pass.
 See [the evidence and remaining gates](evidence/2026-10-17-mvp-routines/README.md).
 No installed app, live enrollment, provider runtime, startup registration or remote
 resource was activated. The temporary enrollment proposal remains pending.
+
+## Complete instruction authoring — October 17 reconnect
+
+`a524c4a6fbe4d53e9f8e514a5e89a71f8cda8968` migrates native plain instruction
+creation/editing into complete bundles requiring exact review, and preserves old
+instruction revisions during explicit migration. Fresh checks pass 649 TypeScript,
+29 Swift, strict typechecking, the ten-call/four-restart synthetic HTTP journey and
+both native build/signature checks. [Evidence](evidence/2026-10-17-mvp-skill-migration/README.md).
+The earlier temporary logs/builds were lost during disconnect and were regenerated.
+Installed/provider/physical-device gates remain open; no live enrollment was issued.

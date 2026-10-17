@@ -26,11 +26,11 @@ See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.js
 for byte hashes and the distinction between observed state and operator timing.
 The original preparation records remain historical evidence.
 
-The current source milestone is `f6e4615c8ce962d4d90948613b6339381e3c533e`;
-read evidence/2026-10-17-mvp-routines/README.md before installed validation or further
-skill/runtime/routine work. Native routines and calendar schedules now have synthetic
-and build evidence; installed acceptance remains open. Its builds and synthetic checks pass; installed and provider
-checks remain open. One temporary-enrollment permission question is pending.
+The current source milestone is `a524c4a6fbe4d53e9f8e514a5e89a71f8cda8968`;
+read evidence/2026-10-17-mvp-skill-migration/README.md before further validation.
+Native routines, schedules and complete instruction-bundle authoring have synthetic
+and build evidence. Installed/provider acceptance remains open. Reconnection did
+not approve the pending three-session temporary enrollment proposal.
 
 Expired service enrollment is not renewed by this development authorization.
 Identify the exact temporary credential scope before another live test. Keep
