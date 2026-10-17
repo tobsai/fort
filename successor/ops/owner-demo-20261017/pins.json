@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceCommit": "c5ed393371fa439c82ff462f1b18ef5739d310c5",
+  "sourceCommit": "7f8ec030861c52b92305d0f025a3c789d56f7929",
   "nativeSourceCommit": "6fe7120919b660ffc030521839cba8a8ba23706e",
   "scopeSHA256": "8c97798f55ae6b68366c426561e35c63945d313f74b2bb3a9fd49eb20eca7fb5",
   "appPath": "/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app",
@@ -183,7 +183,7 @@
     },
     {
       "path": "successor/ops/owner-demo-20261017/MANUAL.md",
-      "sha256": "18e421885e1a0b6d177c7b884ef3d9bc21e34ab7d6c7b3736b69ca16fd2d1b9a"
+      "sha256": "70577ee9bae679199aec3b467c683880957e229eea4d945c2cfad91aaa7c34fb"
     },
     {
       "path": "successor/ops/owner-demo-20261017/owner-approval.json",
@@ -311,11 +311,19 @@
     },
     {
       "path": "successor/prototype/owner-demo-manual.ts",
-      "sha256": "d9466303bc280a27498183809d9a9cb986903657ee181d994828fe802db58d97"
+      "sha256": "dc0a19fba7415bda23877fbf21944fdd2877a1a370503522a8d477d0d1297ec6"
     },
     {
       "path": "successor/prototype/owner-demo-policy.ts",
       "sha256": "f36132e80634384dbba8fd9558a073beef2ef0d5aef46782f51451196131386c"
+    },
+    {
+      "path": "successor/prototype/owner-demo-startup.test.ts",
+      "sha256": "bb677bcc9b05e8f1b6164d4eaa397397691ab50f94fe31f6904d63685d5c52f5"
+    },
+    {
+      "path": "successor/prototype/owner-demo-startup.ts",
+      "sha256": "d839b4a478de6274d84778f4d4f2093a44bded1a9f40ff0a28d0084f0589421b"
     },
     {
       "path": "successor/prototype/owner-demo.test.ts",
@@ -2214,7 +2222,13 @@
     {
       "path": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/ops/utm-synthetic-packet-v1/vm-design.json",
       "sha256": "aafdc90db041909497f8f2f6d07a267f99d24117d5f1e49ae4574ed8e3341b1b"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/evidence/2026-10-17-owner-demo-startup-repair/initial-pins.json",
+      "sha256": "0111451285f4448cfe8293669f4e1e4e15ce5fde245faf21999f337c277fa5ba"
     }
   ],
-  "activationAuthorized": true
+  "activationAuthorized": true,
+  "revision": 2,
+  "previousPinsSHA256": "0111451285f4448cfe8293669f4e1e4e15ce5fde245faf21999f337c277fa5ba"
 }
