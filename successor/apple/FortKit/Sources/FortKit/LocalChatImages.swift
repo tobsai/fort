@@ -104,7 +104,7 @@ struct LocalImageCard: View {
     var body: some View {
         VStack(alignment:.leading,spacing:8) {
             if let bitmap = image.rendered {
-                Image(decorative:bitmap,scale:1).resizable().scaledToFit().frame(maxWidth:480,maxHeight:360).clipShape(RoundedRectangle(cornerRadius:10)).accessibilityLabel("Local image: " + image.name)
+                Image(bitmap,scale:1,label:Text("Local image: " + image.name)).resizable().scaledToFit().frame(maxWidth:480,maxHeight:360).clipShape(RoundedRectangle(cornerRadius:10)).accessibilityLabel("Local image: " + image.name)
             } else { Label("Image unavailable",systemImage:"photo") }
             HStack {
                 VStack(alignment:.leading) { Text(image.name).font(.caption); Text("Only on this device · not sent to the agent").font(.caption2).foregroundStyle(.secondary) }

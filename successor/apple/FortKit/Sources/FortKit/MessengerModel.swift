@@ -292,7 +292,7 @@ import Observation
             }
             loadLocalImages();connected = true
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
-            if isInteractiveFixture { status = "Interactive QA · simulated replies · no network or credentials" }
+            if isInteractiveFixture && pendingErrors.isEmpty { status = "Interactive QA · simulated replies · no network or credentials" }
         } catch {
             connected = false; status = error.localizedDescription
             if snapshot == nil, let conversationID = activeConversationID { snapshot = try? storage.snapshot(installationID:expectedInstallation,conversationID:conversationID) }

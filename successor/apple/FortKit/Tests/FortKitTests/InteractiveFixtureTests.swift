@@ -25,6 +25,8 @@ import Testing
     #expect(restored.selectedAgent?.avatar == .ember)
     #expect(restored.snapshot?.messages == snapshot?.messages)
     #expect(restored.localImages.count == 1)
+    await restored.setFixtureCatalog(.missingSelection)
+    #expect(!restored.modelCatalog.canSelect("fixture-beta"))
     restored.endpoint = "https://must-not-contact.invalid"; restored.enrollmentCode = "not-a-credential"
     await restored.enroll(); await restored.restore()
     #expect(!restored.showConnection)
