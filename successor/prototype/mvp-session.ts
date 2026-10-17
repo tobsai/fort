@@ -2,16 +2,13 @@ import {mkdirSync,existsSync,lstatSync,readFileSync,writeFileSync,renameSync,unl
 import {isAbsolute,join,normalize} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
-import {createOpenAIService,type SubmissionAdmission} from '../service/openai.ts';
-import type {Acceptance,Run,RuntimeReadiness} from '../contracts/v1.ts';
+import {createOpenAIService} from '../service/openai.ts';
+import type {Acceptance,RuntimeReadiness} from '../contracts/v1.ts';
 import type {ChatRuntime} from '../runner/chat-runtime.ts';
 import type {NativeSession} from './session.ts';
 
-export const MVP_PROMPTS:Readonly<Record<1|2|3,readonly string[]>>={
-  1:['What sample packing item is saved in this conversation\'s memory?','Our sample code word is cedar. Reply with that word only.','What sample code word did I give you earlier?','What sample packing item and code word have we used?','Reply with the single word ready.'],
-  2:['Suggest one short title for a sample packing list.','Suggest another short title for a sample packing list.'],
-  3:['Our sample plan is to pack a red notebook. Repeat the item.','Check that sample plan and name the packing item.','What departure is saved in this shared conversation?','Reply with the single word ready.','Write a short synthetic packing checklist for a red notebook.'],
-};
+export {MVP_PROMPTS} from './mvp-admission.ts';
+import {admitMvpSubmission} from './mvp-admission.ts';
 export type RuntimeBudget={workDeadline:number;signal:AbortSignal;remainingConnections:()=>number;claimLaunch:()=>number};
 export type PreparedRuntime=ChatRuntime&{preflight(signal:AbortSignal):Promise<{model:string;runtimeVersion:string}>};
 type State={version:1;session:1|2|3;phase:'running'|'finished'|'blocked';began:number;workDeadline:number;credentialDeadline:number;launches:number;restarts:number;installationId?:string;port?:number;receipts:Acceptance['receipt'][];credentialCleanup:'pending'|'deleted'|'unconfirmed';runtimeCleanup:'pending'|'confirmed'|'unconfirmed';nativeCleanup:'pending'|'confirmed'|'unconfirmed'};
@@ -19,17 +16,6 @@ type Options={batchRoot:string;session:1|2|3;native:NativeSession;prepareNative?
 function safeDirectory(path:string){
   if(!isAbsolute(path)||normalize(path)!==path||path==='/'||path.includes('\0'))throw new Error('Use an exact session directory');
   let current=path;while(current!=='/'){if(existsSync(current)&&lstatSync(current).isSymbolicLink())throw new Error('Session directories cannot contain symlinks');current=join(current,'..');}
-}
-function permitted(submission:SubmissionAdmission,runs:readonly Run[],session:1|2|3):boolean {
-  const c=submission.configuration,room=submission.conversation;
-  if(runs.length>=12||!MVP_PROMPTS[session].includes(submission.text)||c.selectedModel!=='gpt-6-astra')return false;
-  if(c.instructions!==(c.agentName==='Writer'?'Reply briefly using supplied context.':c.agentName==='Reviewer'?'Check the sample claim.':null))return false;
-  if(room.kind==='shared'&&(session!==3||room.participantAgentIds.length!==2))return false;
-  if(room.kind==='home'&&(room.participantAgentIds.length!==1||room.participantAgentIds[0]!==c.agentId))return false;
-  const note=c.memory?.text??'';
-  if(!['',...(session===1?['The sample packing item is a red notebook.']:session===3?['The shared sample departure is Monday.']:[])].includes(note))return false;
-  if(c.skills.length>1||(c.skills.length>0&&session!==2))return false;
-  return c.skills.every(skill=>skill.name==='Check marker'&&['End with [CHECKED].','End with [REVIEWED].'].includes(skill.instructions)&&skill.bundle?.requestedTools.length===0&&skill.bundle.scripts.length===0);
 }
 
 export class MvpPacket {
@@ -73,7 +59,7 @@ export class MvpPacket {
         catch(error){queueMicrotask(()=>{void finish(false);});throw error;}finally{restarting=false;}
       },
     };
-    const openService=()=>createOpenAIService({dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&permitted(submission,runs,session)});
+    const openService=()=>createOpenAIService({dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&admitMvpSubmission(submission,runs,session)});
     const finish=(success=true):Promise<State>=>{
       if(closing)return closing;
       accepting=false;abort.abort();cancelTimer();signal?.removeEventListener('abort',cancel);

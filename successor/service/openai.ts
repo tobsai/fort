@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createServer, type IncomingMessage } from 'node:http';
+import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
@@ -404,6 +405,8 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     });
     return { installationId: installation.installationId, code };
   };
+  const listenerAbort = new AbortController();
+  const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {
     let status = 200; let result: unknown;
     try {
@@ -634,11 +637,30 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
   let baseURL = ''; let closed = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setInterval>|undefined;
+  server.on('connection',socket=>{
+    let resolveClosed!:()=>void;
+    acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));
+    socket.once('close',()=>{acceptedConnections.delete(socket);resolveClosed();});
+    if(closed)socket.destroy();
+  });
+  const closeHTTP=async()=>{
+    listenerAbort.abort();
+    const stopped=new Promise<void>((resolve,reject)=>server.close(error=>{
+      if(error&&(!('code' in error)||error.code!=='ERR_SERVER_NOT_RUNNING'))reject(error);else resolve();
+    }));
+    for(const socket of acceptedConnections.keys())socket.destroy();
+    await stopped;
+    while(acceptedConnections.size){
+      for(const socket of acceptedConnections.keys())socket.destroy();
+      await Promise.all([...acceptedConnections.values()]);
+    }
+  };
   return { installation, issueEnrollment, dispatchNext, tickSchedules,
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',value=>(record(value).acceptance as Acceptance).receipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
     get baseURL() { return baseURL; }, async start({ port = 0,signal }: { port?:number;signal?:AbortSignal } = {}) {
     if(closed)throw new Error('Service is closed');
-    signal?.throwIfAborted();
+    signal=signal?AbortSignal.any([signal,listenerAbort.signal]):listenerAbort.signal;
+    signal.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const cleanup=()=>{server.off('error',failed);server.off('close',canceled);};
       const failed=(error:unknown)=>{cleanup();reject(error);};
@@ -657,10 +679,9 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
     });
     closing = (async () => {
-      const outcomes = await Promise.allSettled([options.runtime?.dispose(), dispatching]);
-      if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      const outcomes = await Promise.allSettled([closeHTTP(),Promise.resolve().then(()=>options.runtime?.dispose()),dispatching]);
       db.close();
-      if (outcomes.some(result => result.status === 'rejected')) throw new Error('Runtime cleanup was not confirmed; restart is blocked.');
+      if (outcomes.some(result => result.status === 'rejected')) throw new Error('Runtime or HTTP cleanup was not confirmed; restart is blocked.');
     })();
     return closing;
   } };

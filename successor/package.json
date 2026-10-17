@@ -7,13 +7,14 @@
     "node": "26.5.0"
   },
   "scripts": {
-    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts runner/synthetic-process.test.ts runner/confinement-canary.test.ts service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts",
+    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts runner/synthetic-process.test.ts runner/confinement-canary.test.ts service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts service/openai-shutdown.test.ts prototype/mvp-admission.test.ts",
     "test:native-http": "node apple/native-http-check.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test:prototype": "node --test service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts",
+    "test:prototype": "node --test service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts service/openai-shutdown.test.ts prototype/mvp-admission.test.ts",
     "test:native-openai": "node apple/openai-http-check.ts",
     "prototype:manual": "node prototype/manual.ts",
-    "prototype:mvp:check": "node prototype/mvp-manual.ts --check"
+    "prototype:mvp:check": "node prototype/mvp-manual.ts --check",
+    "test:non-enrollment": "node --test runner/codex-chat.test.ts prototype/mvp-preparation.test.ts prototype/mvp-admission.test.ts service/openai-shutdown.test.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

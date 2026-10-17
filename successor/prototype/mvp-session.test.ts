@@ -95,9 +95,15 @@ test('MVP shutdown closes a stalled HTTP body instead of spending its cleanup re
   const base=await realpath(await mkdtemp(join(tmpdir(),'fort-mvp-stalled-')));t.after(()=>rm(base,{recursive:true,force:true}));
   const packet=new MvpPacket({batchRoot:base,session:1,native:{assertFresh(){},async stop(){return true;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:budget=>{budget.claimLaunch();return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No input');},async dispose(){}};}});
   const session=await packet.start(),socket=connect(Number(new URL(session.baseURL).port),'127.0.0.1');
+  const peerClosed=new Promise<void>(resolve=>socket.once('close',()=>resolve()));
+  socket.on('error',()=>{});socket.resume();
   await new Promise<void>(resolve=>socket.once('connect',resolve));socket.write('POST /v1/devices/enroll HTTP/1.1\r\nHost: localhost\r\nContent-Length: 500\r\n\r\n{');
   await new Promise(resolve=>setTimeout(resolve,10));const closing=session.finish();
-  try{assert.notEqual(await Promise.race([closing,new Promise(resolve=>setTimeout(()=>resolve('hung'),250))]),'hung');}
+  try{
+    assert.notEqual(await Promise.race([closing,new Promise(resolve=>setTimeout(()=>resolve('hung'),250))]),'hung');
+    assert.notEqual(await Promise.race([peerClosed.then(()=>'closed'),new Promise(resolve=>setTimeout(()=>resolve('still-open'),250))]),'still-open');
+    assert.equal(socket.destroyed,true);
+  }
   finally{socket.destroy();await closing;}
 });
 
