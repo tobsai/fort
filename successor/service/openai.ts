@@ -195,7 +195,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if(!device)fail(401,'unauthorized','This pairing has been removed.');
     return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString()};
   };
-  const owner = <T>(request: IncomingMessage, operation: (deviceId:string) => T): T => transaction(() => operation(authenticate(request)));
+  const owner = <T>(request: IncomingMessage, operation: (deviceId:string) => T): T => transaction(() => {
+    const deviceId=authenticate(request);
+    if(dispatchStopped&&request.method!=='GET'&&!['/v1/host/stop','/v1/pairing/disconnect'].includes(request.url??''))fail(503,'dispatchStopped','Work is stopped. Retry disconnect or finish local host recovery.');
+    return operation(deviceId);
+  });
   const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
   const append = (conversationId: string, kind: string, entityId: string) => {
     const event = { schemaVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, eventId: randomUUID(), conversationId, entityId, kind, createdAt: new Date().toISOString(), data: {} };
@@ -314,7 +318,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     put('schedules',scheduleId,{...schedule,preview});return preview;
   });
   const tickSchedules=(downtime=false):number=>{
-    if(closed||(credentialDeadline!==undefined&&now()>=credentialDeadline))return 0;
+    if(closed||dispatchStopped||(credentialDeadline!==undefined&&now()>=credentialDeadline))return 0;
     let admitted=0;
     for(const saved of list('schedules',decodeSchedule)){
       if(saved.state!=='enabled')continue;
@@ -353,7 +357,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   const runtimeReadiness=():RuntimeReadiness=>options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
-    if (closed || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
+    if (closed || dispatchStopped || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
     const runs = list('runs', decodeRun);
     const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'cancelRequested' || prior.state === 'waitingForApproval' || prior.state === 'outcomeUnknown')));
     if (!queued?.configuration) return false;
@@ -399,7 +403,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const canceled=remaining&&run.state==='cancelRequested';
           put('messages',messageId,reply);put('runs',run.runId,{...run,state:canceled?'canceled':remaining?'queued':'completed',...(routine?{routine:canceled?stopRoutine(routine,'canceled','Owner cancellation stopped remaining steps.'):routine}:{}),statusDetail:canceled?'Current task completed; remaining routine steps were canceled.':undefined});
         } else {
-          const state=result.kind==='notStarted'?(run.state==='cancelRequested'||closed?'canceled':'failed'):result.kind;
+          const state=result.kind==='notStarted'?(run.state==='cancelRequested'||closed||dispatchStopped?'canceled':'failed'):result.kind;
           put('runs',run.runId,{...run,state,statusDetail:result.message,...(run.routine?{routine:stopRoutine(run.routine,state,result.message)}:{})});append(run.conversationId,'runStopped',run.runId);
         }
       });
@@ -414,7 +418,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   };
   let pumping = false;
   const wake = () => {
-    if (!options.autoRun || pumping || closed) return;
+    if (!options.autoRun || pumping || closed || dispatchStopped) return;
     pumping = true;
     void (async () => { try { while (await dispatchNext()) { /* One serialized durable claim per turn. */ } } finally { pumping = false; } })().catch(() => { active?.abort(); });
   };
@@ -425,7 +429,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     catch (error) { if (error instanceof APIError) throw error; fail(400, 'invalidJSON', 'Use valid UTF-8 JSON.'); }
   };
   const issueEnrollment = () => {
-    if(closed)throw new Error('Service is closed');
+    if(closed||dispatchStopped)throw new Error('Service is stopped');
     if(ownerPairingPolicy&&db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now()))throw new Error('Disconnect the paired device before enrolling another');
     if (credentialDeadline!==undefined) {
       if (db.prepare("SELECT 1 FROM metadata WHERE key='credentialClosed'").get() || credentialDeadline<=now()) throw new Error('Bounded enrollment is closed');
@@ -451,7 +455,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           if (request.headers.origin !== undefined || body.installationId !== installation.installationId || typeof body.code !== 'string') fail(401, 'unauthorized', 'Enrollment is not authorized.');
           text(body.deviceName, 'device name', 128);
           const code = db.prepare('SELECT expires FROM enrollment WHERE hash=?').get(digest(body.code));
-          if (closed || !code || Number(code.expires) <= now()) fail(401, 'unauthorized', 'Enrollment code is invalid or expired.');
+          if (closed || dispatchStopped || !code || Number(code.expires) <= now()) fail(401, 'unauthorized', 'Enrollment code is invalid or expired.');
           if(ownerPairingPolicy&&db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now()))fail(409,'alreadyPaired','Disconnect the paired device before enrolling another.');
           if(ownerPairingPolicy)db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
           db.prepare('DELETE FROM enrollment WHERE hash=?').run(digest(body.code));
@@ -479,18 +483,20 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const body=await readBody(request);
           const deviceId=owner(request,deviceId=>{
             if(!ownerPairingPolicy)fail(403,'temporaryPairing','Use the temporary session cleanup procedure.');
+            if(stopCommandActive)fail(409,'stopInProgress','A stop request is still waiting for runtime confirmation.');
             if(Object.keys(body).length)fail(400,'invalidStop','This command accepts no additional fields.');
             return deviceId;
           });
-          closed=true;clearInterval(scheduleTimer);active?.abort();
-          try{await stopRuntime();}catch{fail(503,'stopUnconfirmed','Runtime shutdown was not confirmed. Pairing is retained for recovery.');}
+          stopCommandActive=true;dispatchStopped=true;clearInterval(scheduleTimer);active?.abort();
+          try{await stopRuntime();}catch{stopCommandActive=false;fail(503,'stopUnconfirmed','Runtime shutdown was not confirmed. Pairing is retained for recovery.');}
           const revoked=url.pathname==='/v1/pairing/disconnect';
           if(revoked)transaction(()=>{db.prepare('DELETE FROM devices WHERE id=?').run(deviceId);db.prepare('DELETE FROM enrollment').run();});
           result={runtimeStopped:true,revoked};
           response.once('finish',()=>{void api.close({preserveSessionCredential:true}).catch(()=>{ /* close() retains its rejected promise for the host supervisor. */ });});
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if(!options.runtime?.models)result={provider:'codex',state:'unavailable',models:[],detail:'Connect a reviewed Codex runtime to check model availability.'};
+          if(dispatchStopped)result={provider:'codex',state:'unavailable',models:[],detail:'The runtime is stopped; model discovery is unavailable.'};
+          else if(!options.runtime?.models)result={provider:'codex',state:'unavailable',models:[],detail:'Connect a reviewed Codex runtime to check model availability.'};
           else try{result=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));}
           catch{result={provider:'codex',state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
         }
@@ -704,7 +710,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
-  let baseURL = ''; let closed = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setInterval>|undefined;
+  let baseURL = ''; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setInterval>|undefined;
   server.on('connection',socket=>{
     let resolveClosed!:()=>void;
     acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));

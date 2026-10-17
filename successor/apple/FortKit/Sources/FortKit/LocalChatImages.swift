@@ -18,7 +18,7 @@ public struct LocalChatImage: Codable, Equatable, Sendable, Identifiable {
     public let png: Data
     var rendered: CGImage? { CGImageSourceCreateWithData(png as CFData,[kCGImageSourceShouldCache:false] as CFDictionary).flatMap { CGImageSourceCreateImageAtIndex($0,0,nil) } }
 }
-enum LocalImageError: Error, LocalizedError {
+enum LocalImageError: Error, LocalizedError, Equatable {
     case unsupported, tooLarge, unavailable, capacity
     var errorDescription: String? {
         switch self {
@@ -42,7 +42,7 @@ struct LocalChatImageStore: Sendable {
     }
     private func read(_ url: URL, maximum: Int) throws -> Data {
         guard url.isFileURL else { throw LocalImageError.unsupported }
-        let fd = url.withUnsafeFileSystemRepresentation { path in path.map { Darwin.open($0,O_RDONLY|O_NOFOLLOW|O_CLOEXEC) } ?? -1 }
+        let fd = url.withUnsafeFileSystemRepresentation { path in path.map { Darwin.open($0,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) } ?? -1 }
         guard fd >= 0 else { throw LocalImageError.unsupported }
         let file = FileHandle(fileDescriptor:fd,closeOnDealloc:true)
         defer { try? file.close() }
@@ -72,7 +72,7 @@ struct LocalChatImageStore: Sendable {
         let record = LocalChatImage(id:UUID().uuidString,installationID:installationID,conversationID:conversationID,afterSequence:afterSequence,createdAt:Date(),name:String(url.lastPathComponent.prefix(128)),width:width,height:height,png:png)
         let folder = scope(installationID,conversationID)
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700]);try plainDirectory(directory)
-        try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700]);try plainDirectory(folder)
+        try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700]);try plainDirectory(folder)
         let target = folder.appendingPathComponent(record.id+".json")
         guard !FileManager.default.fileExists(atPath:target.path) else { throw LocalImageError.unavailable }
         try JSONEncoder().encode(record).write(to:target,options:.atomic)

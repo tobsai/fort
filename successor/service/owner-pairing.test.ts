@@ -79,5 +79,14 @@ test('disconnect retains pairing until the owned runtime confirms shutdown',asyn
  const h=await setup(t,{ownerPairingPolicy:{expiresAfterDays:null},runtime:{async execute(){return {kind:'notStarted',message:'fixture'};},async dispose(){stopping();await stopped;}}});
  const response=h.api('/v1/pairing/disconnect',{});await stoppingSignal;
  assert.equal(h.service.inspectSession().deviceIDs.length,1);
+ assert.equal((await h.api('/v1/pairing/disconnect',{})).status,409);
  confirm();assert.equal((await response).status,200);
+});
+test('failed disposal leaves management reachable for an explicit disconnect retry but blocks new work',async t=>{
+ let attempts=0;const h=await setup(t,{ownerPairingPolicy:{expiresAfterDays:null},runtime:{async execute(){return {kind:'notStarted',message:'fixture'};},async dispose(){if(++attempts===1)throw new Error('synthetic disposal failure');}}});
+ assert.equal((await h.api('/v1/pairing/disconnect',{})).status,503);
+ assert.equal((await h.api('/v1/pairing')).status,200);
+ assert.equal((await h.api('/v1/agents',{name:'Must not create',instructions:'Fixture',model:'exact'})).status,503);
+ assert.equal((await h.api('/v1/pairing/disconnect',{})).status,200);
+ assert.equal(attempts,2);
 });
