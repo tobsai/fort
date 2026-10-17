@@ -1,0 +1,28 @@
+Building for debugging...
+[2 / 18] FortKit
+[3 / 19] FortKit
+[5 / 20] FortKit
+[8 / 13] FortKitTests-product
+[10 / 15] FortKitTests-product
+[13 / 19] FortKitTests-product
+[15 / 19] FortKitTests-product
+Build complete! (3.40 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test interactiveFixtureUsesRealSettingsAndComposerWithoutEnrollmentOrCredentials() started.
+✘ Test interactiveFixtureUsesRealSettingsAndComposerWithoutEnrollmentOrCredentials() recorded an issue at InteractiveFixtureTests.swift:29:5: Expectation failed: !restored.modelCatalog.canSelect("fixture-beta")
+↳ !restored.modelCatalog.canSelect("fixture-beta") → true
+↳   restored.modelCatalog.canSelect("fixture-beta") → false
+↳     restored.modelCatalog → ModelCatalog(provider: "codex", state: "ready", models: [FortKit.ModelOption(id: "fixture-beta", name: "QA Beta", availability: "available", detail: nil), FortKit.ModelOption(id: "fixture-retired", name: "QA Retired", availability: "unavailable", detail: Optional("This simulated model is unavailable."))], checkedAt: Optional("2026-10-17T00:00:00Z"), detail: Optional("Simulated catalog · no provider discovery"))
+↳       provider → "codex"
+↳       state → "ready"
+↳       models → [FortKit.ModelOption(id: "fixture-beta", name: "QA Beta", availability: "available", detail: nil), FortKit.ModelOption(id: "fixture-retired", name: "QA Retired", availability: "unavailable", detail: Optional("This simulated model is unavailable."))]
+↳       checkedAt → "2026-10-17T00:00:00Z"
+↳         some → "2026-10-17T00:00:00Z"
+↳       detail → "Simulated catalog · no provider discovery"
+↳         some → "Simulated catalog · no provider discovery"
+✘ Test interactiveFixtureUsesRealSettingsAndComposerWithoutEnrollmentOrCredentials() failed after 0.034 seconds with 1 issue.
+✘ Test run with 1 test in 0 suites failed after 0.034 seconds with 1 issue.
+Note: Some test targets reported failures:
+  - FortKitTests (Swift Testing)

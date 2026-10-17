@@ -1,0 +1,6 @@
+{
+  "pid": 29922,
+  "expectedExecutable": "/private/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac",
+  "signal": "TERM",
+  "outcome": "confirmed absent"
+}

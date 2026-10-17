@@ -1,6 +1,36 @@
 # Spec 058 successor
 
-## Current handoff — first-wave source and fixture lifecycle
+## Current handoff — interactive engineering QA, review fixes and TestFlight
+
+Read [the interactive QA handoff](evidence/2026-10-17-interactive-qa/README.md)
+and [TestFlight delivery plan](TESTFLIGHT-DELIVERY-20261017.md). Current source is
+`09788c132647458cbdc683506c8bd5622f0be1af`. The dedicated `FortQA` target uses
+`io.fort.qa.firstwave.20261017`, a labeled interactive fixture and temporary session
+storage. The exact-path launcher preserves a QA session across relaunches. Normal
+setup is excluded from that target; no credential, provider or network path is enabled.
+Use this unique identity for engineering UI inspection, not the old shared Mac ID.
+The known old read-only preview PID 29922 was verified and stopped; other apps/data
+were not removed. Screenshots/accessibility of the new QA artifact remain unverified.
+
+120 service/runtime tests and 56 native tests pass. QA, Mac and iPhone Simulator
+builds plus Release FortKit compilation pass. Review corrections cover management
+retry after failed runtime disposal, nonblocking FIFO rejection, image cache reuse,
+JPEG/orientation/animation/pixel/capacity coverage and persisted disconnect intent.
+Lost replies/expired credentials remain explicitly unconfirmed until verified
+recovery; local forget never claims revocation. The owned-host recovery/removal
+adapter is still only a protocol with fixture implementations, not installed.
+
+The owner now explicitly requires **TestFlight**, not standalone user delivery.
+Local apps are engineering artifacts only. Apple Distribution signing metadata for
+team T3JB5MYZ93 exists, but the successor's real app IDs/profiles/App Store Connect
+records, access, versions and tester groups remain unverified. Do not reuse the
+historical Developer ID Mac export path as TestFlight delivery. Archive, upload,
+processing, tester availability and physical acceptance must be reported separately.
+No new credentials, agreements, security changes, persistent activation, actual app
+removal, provider cleanup or publication are authorized by this preparation. Keep
+all prior reviewed commits, demo ledgers, pins and unrelated work.
+
+## Earlier handoff — first-wave source and fixture lifecycle
 
 The first-wave source is committed through
 `1a3e5bdc4902ba7fdf4c936730174754f6a6b2e6`; its settings/image predecessor is

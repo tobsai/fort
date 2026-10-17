@@ -1,0 +1,8 @@
+[Dict]
+	[Key] com.apple.security.app-sandbox
+	[Value]
+		[Bool] true
+	[Key] com.apple.security.get-task-allow
+	[Value]
+		[Bool] true
+Executable=/private/tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/MacOS/FortQA

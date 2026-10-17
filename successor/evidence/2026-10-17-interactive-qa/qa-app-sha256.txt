@@ -1,0 +1,12 @@
+06cd247a263de18789dcd5005351b0e6622e19d803815e397e6f5305e36d38ea  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Info.plist
+8ff1b1f171973b0a795de07116f2645ff91fc96a9665af722efa638f730817fc  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/MacOS/FortQA
+88f5a9b1d4df7ef427737dc6642a5bac5894da6919e889ec3094006553972a89  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/MacOS/FortQA.debug.dylib
+0cb86653cd9761a1892c59c9e58b9ee612d47e990c7119406f0b15321444b22a  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/MacOS/__preview.dylib
+82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/PkgInfo
+860c6da00e818dbadcebb07749eaee97e907cbcff98ad34f5ed39fd132e8d8b4  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist
+be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png
+fc1dd2d5e87e26be18328f60cabc4fd9b0c94baad6d75da5d09064dce9d49030  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeDirectory
+987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeRequirements
+febbfec249c6ec91c1cfa3c7700053545b8e9bd61c6c5b878d611d07e982c2fa  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeResources
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeSignature
+1b71791af5d0d10786c80675a31913f080baa5ad00ba790ff38ec1c168dff233  /tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app/Contents/_CodeSignature/CodeResources

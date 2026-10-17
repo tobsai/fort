@@ -1,0 +1,7 @@
+Building for production...
+[2 / 10]
+[3 / 11] FortKit
+[5 / 12] FortKit
+[10 / 11] FortNativeCheck-product
+[11 / 11] FortNativeCheck-product
+Build complete! (17.87 sec)

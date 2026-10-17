@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-17T22:23:36.499501+00:00",
+  "sourceCommit": "09788c132647458cbdc683506c8bd5622f0be1af",
+  "sourceCommits": [
+    "e30f1163d3182a8b18888875ac6b5938c9e69c5c",
+    "eeb88f4d29134c4d5a3b5c20a8933ec1fd2fc326",
+    "14342d12c2af8246280477fc8989e97fdd048398",
+    "09788c132647458cbdc683506c8bd5622f0be1af"
+  ],
+  "checks": {
+    "service-tests": {
+      "result": "passed",
+      "count": 120,
+      "originalSHA256": "a90d4430446b0c1ce6797e1bfa5a6c6ec8e16a803a9a6f9c40b24104e01ba3ac",
+      "log": "service-tests.txt"
+    },
+    "native-tests": {
+      "result": "passed",
+      "count": 56,
+      "originalSHA256": "a4385f7414e429223dbf68370a4d638718c29d9e63d350186cfa42560a0d0e81",
+      "log": "native-tests.txt"
+    },
+    "qa-build": {
+      "result": "passed",
+      "count": null,
+      "originalSHA256": "828642fba188aea527cfe0b2526910625245788b49dec9fc735afdd886f1297d",
+      "log": "qa-build.txt"
+    },
+    "mac-build": {
+      "result": "passed",
+      "count": null,
+      "originalSHA256": "54fbd91339452d399e4b35a7a24bca9b0ad8207cb1ab3ec9a194e0a8e6871bbe",
+      "log": "mac-build.txt"
+    },
+    "ios-build": {
+      "result": "passed",
+      "count": null,
+      "originalSHA256": "6bf76db7c578d5141ea5f8eee475e38320a73d96cece1ab5921207e392f11953",
+      "log": "ios-build.txt"
+    },
+    "release-build": {
+      "result": "passed",
+      "count": null,
+      "originalSHA256": "869f1312c4f01c46a0661b3ba5f9c0ea0ea9480af684dd63cb0d823efd49071e",
+      "log": "release-build.txt"
+    },
+    "shutdown-retry-red": {
+      "result": "expected regression failure",
+      "count": null,
+      "originalSHA256": "b6b108ce99aaa3c589272ef826e20d63b521a860f0c59b6ef05ad80ceefc8b2c",
+      "log": "shutdown-retry-red.txt"
+    },
+    "image-rejection-red": {
+      "result": "expected regression failure",
+      "count": null,
+      "originalSHA256": "8dd869db15ddd5278e703b49fd6c03739280064d157ca331ade326e859bfe736",
+      "log": "image-rejection-red.txt"
+    },
+    "saved-model-red": {
+      "result": "expected regression failure",
+      "count": null,
+      "originalSHA256": "69559327ad009e4cc6994a4882e4aa5e0756606540a32d71c72b56126d5152d4",
+      "log": "saved-model-red.txt"
+    }
+  },
+  "typecheck": "passed",
+  "diffCheck": "passed",
+  "artifacts": {
+    "qa": {
+      "path": "/tmp/fort058-interactive-qa-20261017/Build/Products/Debug/FortQA.app",
+      "bundleID": "io.fort.qa.firstwave.20261017",
+      "version": "0.1.0",
+      "build": "1",
+      "signature": "ad-hoc; strict verification passed",
+      "files": {
+        "Contents/Info.plist": "06cd247a263de18789dcd5005351b0e6622e19d803815e397e6f5305e36d38ea",
+        "Contents/MacOS/FortQA": "8ff1b1f171973b0a795de07116f2645ff91fc96a9665af722efa638f730817fc",
+        "Contents/MacOS/FortQA.debug.dylib": "88f5a9b1d4df7ef427737dc6642a5bac5894da6919e889ec3094006553972a89",
+        "Contents/MacOS/__preview.dylib": "0cb86653cd9761a1892c59c9e58b9ee612d47e990c7119406f0b15321444b22a",
+        "Contents/PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist": "860c6da00e818dbadcebb07749eaee97e907cbcff98ad34f5ed39fd132e8d8b4",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeDirectory": "fc1dd2d5e87e26be18328f60cabc4fd9b0c94baad6d75da5d09064dce9d49030",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeRequirements": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeResources": "febbfec249c6ec91c1cfa3c7700053545b8e9bd61c6c5b878d611d07e982c2fa",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeSignature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "Contents/_CodeSignature/CodeResources": "1b71791af5d0d10786c80675a31913f080baa5ad00ba790ff38ec1c168dff233"
+      }
+    },
+    "mac": {
+      "path": "/tmp/fort058-reviewed-mac-20261017/Build/Products/Debug/FortMac.app",
+      "bundleID": "io.fort.candidateb.mac",
+      "version": "0.1.0",
+      "build": "1",
+      "signature": "ad-hoc; strict verification passed",
+      "files": {
+        "Contents/Info.plist": "ce7f6185214b1d26846c65efa5d29a9d053949ade7a7cb731245f2ef4e743b1d",
+        "Contents/MacOS/FortMac": "1d3be0494977e60583fc5f31b9bb07c114614999f994dbd7f0452c9d93d294c2",
+        "Contents/MacOS/FortMac.debug.dylib": "7f289e4430ff1b2c77f64ec88f81d3e202d785b352a1ddb4be9501e7c063d252",
+        "Contents/MacOS/__preview.dylib": "bfeea6cb0cae281198649e5a65031dc66306cacb352c55eee0726a544db9e680",
+        "Contents/PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist": "2b3bca6d1462da0868a04cdf099311b2a03aa334060a4dabe72c9d6914a4f41a",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeDirectory": "07008049509a1276735a4f446948f94797fb6bfc1aea1fd1d73d35d1523f6c71",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeRequirements": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeResources": "febbfec249c6ec91c1cfa3c7700053545b8e9bd61c6c5b878d611d07e982c2fa",
+        "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeSignature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "Contents/_CodeSignature/CodeResources": "27d2e270c4c4c48da68315976e3141b536e61ecd252cacb25bcf22ca02bc8af6"
+      }
+    },
+    "ios": {
+      "path": "/tmp/fort058-reviewed-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOS.app",
+      "bundleID": "io.fort.spec058.fixture.ios",
+      "version": "0.1.0",
+      "build": "1",
+      "signature": "ad-hoc; strict verification passed",
+      "files": {
+        "FortKit_FortKit.bundle/Info.plist": "4435ca3ecdf833e1b80ab64ab8ba524120532f70982b494eed5265cf4284c4d4",
+        "FortKit_FortKit.bundle/_CodeSignature/CodeDirectory": "5a6e7524796b057aefa9d1298e35686901ebc0327d03ecd913c547ebd41195a8",
+        "FortKit_FortKit.bundle/_CodeSignature/CodeRequirements": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986",
+        "FortKit_FortKit.bundle/_CodeSignature/CodeResources": "0acf1420c46881d0b9cc6228d8cc387f239c091500a1b87177230733c3146d9c",
+        "FortKit_FortKit.bundle/_CodeSignature/CodeSignature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "FortKit_FortKit.bundle/qa-sample.png": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe",
+        "FortiOS": "575dfffc04a0ae50642bb181c9ae2b3e43f9c709e3605ee9cc9172317f070fad",
+        "FortiOS.debug.dylib": "89435fa191b657cf8a2890c595e2281be2aee8c3037143384ca00cb1ec686357",
+        "Info.plist": "24c5f61cc2b9cbe304e45ffbf9c059c08f61c6544bee909e0542223968796c13",
+        "PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+        "_CodeSignature/CodeResources": "f5342de18caaa67aa7c30d2138279b4cd72333bd24e9e968123ab1d9f3838339",
+        "__preview.dylib": "8bf9ee981fb6509bfb2ef9dc91fe5f870202e9394119cffebf5c92159951118b"
+      }
+    }
+  },
+  "qaSessionUUID": "75abd0d4-45b0-475b-a7a7-2eee514e6e38",
+  "qaLaunchedByThisTask": false,
+  "delivery": "TestFlight required; engineering artifacts only",
+  "testflight": {
+    "archive": "not attempted",
+    "upload": "not attempted",
+    "processing": "unverified",
+    "testerAvailability": "unverified",
+    "physicalAcceptance": "not performed"
+  },
+  "signingMetadata": {
+    "query": "security find-identity -v -p codesigning; normal execution context",
+    "validIdentityCount": 4,
+    "classes": {
+      "Apple Distribution": 1,
+      "Developer ID Application": 2,
+      "Apple Development": 1
+    },
+    "distributionTeam": "T3JB5MYZ93",
+    "secretValuesRead": false,
+    "credentialsCreated": false,
+    "sandboxQueryInitiallyReturnedZero": true
+  },
+  "remaining": [
+    "installed QA screenshots/accessibility",
+    "external file picker access",
+    "real model discovery/dispatch",
+    "real owned-host lifecycle adapter",
+    "persistent setup activation",
+    "verified App Store Connect identities/profiles/access",
+    "TestFlight release pipeline",
+    "physical iPhone connectivity/acceptance"
+  ]
+}
