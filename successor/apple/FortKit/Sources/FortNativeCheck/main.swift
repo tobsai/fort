@@ -38,7 +38,9 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:enrollment.deviceToken,fixtureLoopback:true)
             let writer = try await client.saveAgent(nil,name:"Writer",model:"gpt-6-astra",instructions:"Reply briefly using supplied context.")
             let reviewer = try await client.saveAgent(nil,name:"Reviewer",model:"gpt-6-astra",instructions:"Check the sample claim.")
-            let skill = try await client.saveSkill(nil,name:"Check marker",instructions:"End with [CHECKED].")
+            let draftSkill = try await client.saveSkill(nil,name:"Check marker",instructions:"End with [CHECKED].")
+            try require(!draftSkill.canInvoke && draftSkill.bundle?.files.count == 1,"instruction authoring bypassed bundle review")
+            let skill = try await client.reviewSkill(draftSkill,enable:true)
             let room = try await client.createConversation(name:"Sample planning",participantAgentIds:[writer.id,reviewer.id])
             var first: PendingSubmission?
             var receipts: [Receipt] = [], completedRunIDs: [String] = []

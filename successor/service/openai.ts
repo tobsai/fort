@@ -197,6 +197,17 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     const acceptance:Acceptance={receipt:{requestId,conversationId,messageId,runId,bindingRevisionId,inputDigest:digest(inputText),acceptedAt},snapshot:snapshot(conversationId)};
     put('requests',requestId,{fingerprint,acceptance});return acceptance;
   };
+  const saveInstructions=(request:IncomingMessage,body:Record<string,unknown>,skillId?:string)=>owner(request,()=>{
+    if(Object.keys(body).some(key=>!['name','instructions','expectedRevisionId'].includes(key)))fail(400,'invalidCommand','Use only the instruction authoring fields. Review authority separately.');
+    const old=skillId?load('skills',skillId,decodeSkill):undefined;
+    if(old&&body.expectedRevisionId!==old.revisionId)fail(409,'skillChanged','Reload the skill before saving.');
+    if(old?.bundle&&(old.bundle.source!=='owner-local:Fort-instructions'||old.bundle.files.length!==1||old.bundle.requestedTools.length!==0||old.bundle.scripts.length!==0||old.bundle.files[0]?.executable||JSON.stringify(old.bundle.supportedRuntimes)!==JSON.stringify(['codex'])))fail(409,'bundleEditRequired','Import the complete revised bundle so its files and authority can be reviewed.');
+    const name=text(body.name,'name',128),instructions=text(body.instructions,'instructions'),version=Number(old?.bundle?.version??'0');
+    const bundle=parseSkillBundle({schemaVersion:1,name,version:Number.isSafeInteger(version)&&version>=0&&version<Number.MAX_SAFE_INTEGER?String(version+1):randomUUID(),source:old?.bundle?.source??'owner-local:Fort-instructions',license:old?.bundle?.license??'LicenseRef-Owner-Private',entrypoint:old?.bundle?.entrypoint??'SKILL.md',supportedRuntimes:['codex'],requestedTools:[],scripts:[],files:[{path:old?.bundle?.entrypoint??'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from(instructions).toString('base64')}]});
+    const skill:InstructionSkill={skillId:skillId??randomUUID(),revisionId:randomUUID(),name,instructions,bundle,review:{state:'reviewRequired',digest:bundle.digest},...(old?{previousRevisionId:old.revisionId}:{})};
+    if(old)put('skillRevisions',old.revisionId,old);
+    put('skillRevisions',skill.revisionId,skill);put('skills',skill.skillId,skill);return skill;
+  });
   const accept = (request: IncomingMessage, conversationId: string, body: Record<string, unknown>): Acceptance => {
     const requestId = id(body.requestId), bindingRevisionId = id(body.bindingRevisionId), recipientAgentId = id(body.recipientAgentId), recoveryEpoch = id(body.recoveryEpoch), inputText = messageText(body.text);
     if (!Array.isArray(body.skills) || body.skills.length > 8) fail(400, 'invalidSkills', 'Select at most eight instruction skills.');
@@ -209,7 +220,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       const conversation = load('conversations', conversationId, decodeConversation), agent = load('agents', recipientAgentId, decodeAgent);
       if (!conversation.participantAgentIds.includes(recipientAgentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
       if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
-      const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); if(skill.review && skill.review.state!=='enabled')fail(409,'skillReviewRequired','Review and enable the exact skill bundle before submitting.'); return skill; });
+      const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); if(!skill.bundle||skill.review?.state!=='enabled')fail(409,'skillReviewRequired','Migrate, review and enable the exact complete skill bundle before submitting.'); return skill; });
       const configuration: TurnConfiguration = { agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
       if (options.admitSubmission && !options.admitSubmission({ text:inputText,conversation,configuration },list('runs',decodeRun))) fail(403,'sampleNotAuthorized','This message is outside the active sample or session.');
       return recordSubmission({conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration});
@@ -520,12 +531,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           });
         } else if (request.method === 'POST' && /^\/v1\/skills\/[^/]+$/.test(url.pathname)) {
           const body = await readBody(request), skillId = id(url.pathname.split('/')[3]);
-          result = owner(request, () => {
-            const old = load('skills', skillId, decodeSkill);
-            if (old.bundle) fail(409,'bundleEditRequired','Import the complete revised bundle so its files and authority can be reviewed.');
-            if (body.expectedRevisionId !== old.revisionId) fail(409, 'skillChanged', 'Reload the skill before saving.');
-            const skill: InstructionSkill = { skillId, revisionId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions') }; put('skills', skillId, skill); return skill;
-          });
+          result = saveInstructions(request,body,skillId);
         }
         else if (request.method === 'POST' && url.pathname === '/v1/agents') {
           const body = await readBody(request);
@@ -538,7 +544,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           }); status = 201;
         } else if (request.method === 'POST' && url.pathname === '/v1/skills') {
           const body = await readBody(request);
-          result = owner(request, () => { const skill: InstructionSkill = { skillId: randomUUID(), revisionId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions') }; put('skills', skill.skillId, skill); return skill; }); status = 201;
+          result = saveInstructions(request,body); status = 201;
         } else if (request.method === 'POST' && url.pathname === '/v1/conversations') {
           const body = await readBody(request);
           result = owner(request, () => {

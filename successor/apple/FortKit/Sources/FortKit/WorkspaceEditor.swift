@@ -5,6 +5,7 @@ struct WorkspaceEditor: View {
     @Bindable var model: MessengerModel
     @Environment(\.dismiss) private var dismiss
     @State private var showBundles = false
+    @State private var savedSkill: InstructionSkill?
     @State private var kind = "Agent"
     @State private var editingID = "new"
     @State private var form = WorkspaceForm(agent:nil)
@@ -23,7 +24,7 @@ struct WorkspaceEditor: View {
                     Picker("Item", selection:$editingID) {
                         Text("Create new").tag("new")
                         if kind == "Agent" { ForEach(model.agents) { Text($0.name).tag($0.id) } }
-                        else { ForEach(model.skills.filter { $0.bundle == nil }) { Text($0.name).tag($0.id) } }
+                        else { ForEach(model.skills.filter(\.canEditInstructions)) { Text($0.name).tag($0.id) } }
                     }
                 }
                 TextField("Name", text:$form.name)
@@ -39,7 +40,7 @@ struct WorkspaceEditor: View {
                     Section(kind == "Skill" ? "Instruction skill" : "Agent instructions") {
                         TextEditor(text:$form.instructions).frame(minHeight:130).accessibilityLabel("Instructions")
                     }
-                    if kind == "Skill" { Text("Selected instructions apply only to the messages you choose. Skills do not install tools or execute files.").font(.caption) }
+                    if kind == "Skill" { Text("Saving creates a complete private instruction bundle. Review and enable its exact revision before selecting it for a message or routine.").font(.caption) }
                 }
                 if kind == "Skill" { Button("Import and review complete bundles") { showBundles = true } }
                 Text(model.status).font(.caption).foregroundStyle(.secondary)
@@ -47,10 +48,11 @@ struct WorkspaceEditor: View {
             .navigationTitle("Fort workspace")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.workspaceSaving) }
-                ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { await save() } }.disabled(!valid || model.workspaceSaving) }
+                ToolbarItem(placement:.confirmationAction) { Button(kind == "Skill" ? "Save for review" : "Save") { Task { await save() } }.disabled(!valid || model.workspaceSaving) }
             }
         }.frame(minWidth:440,minHeight:470)
         .sheet(isPresented:$showBundles) { SkillBundleLibrary(model:model) }
+        .sheet(item:$savedSkill,onDismiss:{ dismiss() }) { SkillBundleReviewView(model:model,skill:$0) }
         .onChange(of:kind) { _,_ in editingID = "new"; load() }
         .onChange(of:editingID) { _,_ in load() }
     }
@@ -63,7 +65,7 @@ struct WorkspaceEditor: View {
         let saved: Bool
         if kind == "Conversation" { saved = await model.createConversation(name:form.name,participantAgentIDs:model.agents.filter { participants.contains($0.id) }.map(\.id)) }
         else { saved = await form.save(using:model) }
-        if saved { dismiss() }
+        if saved { if kind == "Skill", let skill = model.lastSavedSkill, skill.bundle != nil { savedSkill = skill } else { dismiss() } }
     }
 }
 

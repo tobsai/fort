@@ -11,6 +11,7 @@ import Observation
     public var selectedAgentID: String?
     public var conversations: [Conversation] = []
     public var skills: [InstructionSkill] = []
+    public var lastSavedSkill: InstructionSkill?
     public var routines: [RoutineRevision] = []
     public var schedules: [ScheduleRevision] = []
     public var selectedConversationID: String?
@@ -183,7 +184,7 @@ import Observation
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }
         do {
-            _ = try await client.saveSkill(skill,name:name,instructions:instructions)
+            lastSavedSkill = try await client.saveSkill(skill,name:name,instructions:instructions)
             isBusy = false; await refresh(); workspaceSaving = false; return true
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
     }

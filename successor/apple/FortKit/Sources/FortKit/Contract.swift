@@ -42,8 +42,12 @@ public struct InstructionSkill: Codable, Equatable, Sendable, Identifiable {
     public var review: SkillReview? = nil
     public var previousRevisionId: String? = nil
     public var reference: SkillReference { SkillReference(skillId:skillId, revisionId:revisionId) }
+    public var canEditInstructions: Bool {
+        guard let bundle else { return true }
+        return bundle.source == "owner-local:Fort-instructions" && bundle.files.count == 1 && bundle.files[0].path == bundle.entrypoint && !bundle.files[0].executable && bundle.requestedTools.isEmpty && bundle.scripts.isEmpty && bundle.supportedRuntimes == ["codex"]
+    }
     public var canInvoke: Bool {
-        guard let bundle else { return review == nil }
+        guard let bundle else { return false }
         return bundle.schemaVersion == 1 && review?.state == "enabled" && review?.digest == bundle.digest
     }
 }

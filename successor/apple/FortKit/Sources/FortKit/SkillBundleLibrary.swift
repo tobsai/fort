@@ -66,7 +66,7 @@ struct SkillBundleLibrary: View {
     }
 }
 
-private struct SkillBundleReviewView: View {
+struct SkillBundleReviewView: View {
     @Bindable var model: MessengerModel
     @Environment(\.dismiss) private var dismiss
     @State private var skill: InstructionSkill
@@ -91,6 +91,9 @@ private struct SkillBundleReviewView: View {
                         Text("Digest: " + bundle.digest).font(.caption).textSelection(.enabled)
                         Text(skill.canInvoke ? "This exact revision is enabled." : "This revision is not enabled.")
                         if let previous { Text("Previous version: " + (previous.bundle?.version ?? "Instruction skill")) }
+                    }
+                    if let previous, previous.bundle == nil {
+                        Section("Previous instructions") { Text(previous.instructions).textSelection(.enabled) }
                     }
                     Section("Files") {
                         ForEach(bundle.files) { file in

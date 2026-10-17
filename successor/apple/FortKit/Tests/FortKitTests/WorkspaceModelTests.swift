@@ -15,7 +15,7 @@ private actor WorkspaceServer {
     var routine: [String:Any] {
         ["routineId":"routine","revisionId":routineVersion,"digest":"synthetic","agentSnapshot":agent("writer"),"skills":[],"definition":["schemaVersion":1,"name":"Summary","agentId":"writer","conversationId":"writer-home","bindingRevisionId":"writer-one","instructions":"Follow the declared steps.","inputs":[["name":"topic","type":"text","required":true]],"skills":[],"steps":[["stepId":"draft","name":"Draft","type":"task","instructions":"Summarize the topic.","inputNames":["topic"],"outputStepIds":[]]]]]
     }
-    var reviewState: String?
+    var reviewState: String? = "enabled"
     func setReviewState(_ value: String) { reviewState = value }
     var revision = "one", offline = false, loseNextResponse = false
     var savedRevisions: [String] = [], submissions: [[String:Any]] = []
@@ -25,7 +25,7 @@ private actor WorkspaceServer {
     var skill: [String:Any] {
         var value: [String:Any] = ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."]
         if let reviewState {
-            value["bundle"] = ["schemaVersion":1,"name":"Marker","version":revision,"source":"owner-local:synthetic","license":"CC0-1.0","entrypoint":"SKILL.md","supportedRuntimes":["codex"],"requestedTools":[],"scripts":[],"files":[["path":"SKILL.md","kind":"file","executable":false,"contentBase64":Data("End with [CHECKED].".utf8).base64EncodedString(),"bytes":19,"sha256":"synthetic"]],"digest":"synthetic"]
+            value["bundle"] = ["schemaVersion":1,"name":"Marker","version":revision,"source":"owner-local:Fort-instructions","license":"CC0-1.0","entrypoint":"SKILL.md","supportedRuntimes":["codex"],"requestedTools":[],"scripts":[],"files":[["path":"SKILL.md","kind":"file","executable":false,"contentBase64":Data("End with [CHECKED].".utf8).base64EncodedString(),"bytes":19,"sha256":"synthetic"]],"digest":"synthetic"]
             value["review"] = ["state":reviewState,"digest":"synthetic"]
         }
         return value

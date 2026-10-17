@@ -48,6 +48,7 @@ for(const count of [0,1,4,5])test(`owner trial admits up to five chosen messages
   const submission={requestId:'owner-0',recoveryEpoch:epoch,bindingRevisionId:writer.binding.bindingRevisionId,recipientAgentId:writer.agentId,text:'A personally chosen question.',skills:[]};
   const reviewer=(await api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Check the sample claim.'})).body;
   const skill=(await api<InstructionSkill>('/v1/skills',{name:'Check marker',instructions:'End with [CHECKED].'})).body;
+  assert.ok(skill.bundle);assert.equal((await api(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle.digest,enable:true})).status,200);
   const shared=(await api<Conversation>('/v1/conversations',{name:'Denied shared',participantAgentIds:[writer.agentId,reviewer.agentId]})).body;
   assert.equal((await api(path,{...submission,requestId:'with-skill',skills:[{skillId:skill.skillId,revisionId:skill.revisionId}]})).status,403);
   assert.equal((await api(`/v1/conversations/${reviewer.homeConversationId}/messages`,{...submission,requestId:'other-agent',bindingRevisionId:reviewer.binding.bindingRevisionId,recipientAgentId:reviewer.agentId})).status,403);
@@ -104,6 +105,7 @@ for(const mode of ['success','pending','app','cleanup','late-cleanup'] as const)
   const submission={requestId:'sole-sample',recoveryEpoch:epoch,bindingRevisionId:writer.binding.bindingRevisionId,recipientAgentId:writer.agentId,text,skills:[]};
   const path=`/v1/conversations/${writer.homeConversationId}/messages`;
   const skill=(await api<InstructionSkill>('/v1/skills',{name:'Check marker',instructions:'End with [CHECKED].'})).body;
+  assert.ok(skill.bundle);assert.equal((await api(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle.digest,enable:true})).status,200);
   const reviewer=(await api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Check the sample claim.'})).body;
   const shared=(await api<Conversation>('/v1/conversations',{name:'Synthetic denied shared',participantAgentIds:[writer.agentId,reviewer.agentId]})).body;
   assert.equal((await api(path,{...submission,requestId:'wrong-text',text:'Corrective prompt'})).status,403);
@@ -143,6 +145,7 @@ for (const mode of ['success','pending','app','dispose','late-pending','replacem
   const writer=(await api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly using supplied context.'})).body;
   const reviewer=(await api<Agent>('/v1/agents',{name:'Reviewer',model:'gpt-6-astra',instructions:'Check the sample claim.'})).body;
   const skill=(await api<InstructionSkill>('/v1/skills',{name:'Check marker',instructions:'End with [CHECKED].'})).body;
+  assert.ok(skill.bundle);assert.equal((await api(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle.digest,enable:true})).status,200);
   const room=(await api<Conversation>('/v1/conversations',{name:'Sample planning',participantAgentIds:[writer.agentId,reviewer.agentId]})).body;
   const epoch=(await api<{recoveryEpoch:string}>('/v1/installation')).body.recoveryEpoch;
   async function send(index:number,text:string=SAMPLES[index]!.text){

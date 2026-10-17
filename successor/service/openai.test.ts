@@ -1,3 +1,4 @@
+import { DatabaseSync } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -25,8 +26,41 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
     const response = await fetch(service.baseURL + path, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() as T };
   }
-  return { api, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
+  return { api, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('an old instruction record migrates only by an explicit save and review, retaining its original revision',async t=>{
+  const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body;
+  const legacy={skillId:'legacy',revisionId:'legacy-revision',name:'Historical skill',instructions:'  Legacy exact instructions.\r\n'};
+  await h.service.close();
+  const db=new DatabaseSync(join(h.directory,'openai-candidate-b.sqlite'));db.prepare('INSERT INTO entities VALUES (?,?,?)').run('skills',legacy.skillId,JSON.stringify(legacy));db.close();
+  await h.restart();assert.deepEqual((await h.api<{skills:InstructionSkill[]}>('/v1/skills')).body.skills,[legacy]);
+  const command={requestId:'legacy-new-use',text:'Synthetic',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[{skillId:legacy.skillId,revisionId:legacy.revisionId}]},route=`/v1/conversations/${agent.homeConversationId}/messages`;
+  assert.equal((await h.api(route,command)).status,409);
+  const migrated=await h.api<InstructionSkill>('/v1/skills/legacy',{expectedRevisionId:legacy.revisionId,name:legacy.name,instructions:legacy.instructions});assert.equal(migrated.status,200);assert.equal(migrated.body.review?.state,'reviewRequired');
+  assert.ok(migrated.body.bundle);assert.equal(migrated.body.instructions,legacy.instructions);assert.equal(migrated.body.previousRevisionId,legacy.revisionId);
+  assert.deepEqual((await h.api<InstructionSkill>('/v1/skills/legacy/revisions/legacy-revision')).body,legacy);
+  assert.ok(migrated.body.bundle);await h.api('/v1/skills/legacy/review',{revisionId:migrated.body.revisionId,digest:migrated.body.bundle.digest,enable:true});
+  assert.equal((await h.api(route,{...command,skills:[{skillId:legacy.skillId,revisionId:migrated.body.revisionId}]})).status,201);
+});
+
+test('native instruction authoring creates a complete inert revision and every edit requires exact review',async t=>{
+  const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body;
+  const created=await h.api<InstructionSkill>('/v1/skills',{name:'My instructions',instructions:'  Preserve Café e\u0301\r\n'});assert.equal(created.status,201);
+  const skill=created.body;assert.equal(skill.review?.state,'reviewRequired');assert.equal(skill.bundle?.files.length,1);
+  assert.equal(Buffer.from(skill.bundle!.files[0]!.contentBase64,'base64').toString('utf8'),skill.instructions);
+  assert.equal(skill.bundle?.license,'LicenseRef-Owner-Private');assert.deepEqual(skill.bundle?.requestedTools,[]);
+  const command={requestId:'new-instructions',text:'Synthetic sample',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[{skillId:skill.skillId,revisionId:skill.revisionId}]},path=`/v1/conversations/${agent.homeConversationId}/messages`;
+  assert.equal((await h.api(path,command)).status,409);
+  const enabled=(await h.api<InstructionSkill>(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle!.digest,enable:true})).body;
+  assert.equal((await h.api(path,command)).status,201);
+  const changed=await h.api<InstructionSkill>(`/v1/skills/${skill.skillId}`,{expectedRevisionId:skill.revisionId,name:'My updated instructions',instructions:'  Changed exact text.  '});assert.equal(changed.status,200);
+  assert.ok(changed.body.bundle);assert.equal(changed.body.review?.state,'reviewRequired');assert.equal(changed.body.previousRevisionId,skill.revisionId);
+  assert.equal(changed.body.bundle?.license,skill.bundle?.license);assert.equal(changed.body.bundle?.source,skill.bundle?.source);
+  assert.deepEqual((await h.api<InstructionSkill>(`/v1/skills/${skill.skillId}/revisions/${skill.revisionId}`)).body,enabled);
+  assert.equal((await h.api(path,{...command,requestId:'new-revision',skills:[{skillId:skill.skillId,revisionId:changed.body.revisionId}]})).status,409);
+  assert.equal((await h.api(path,command)).status,201);
+});
 
 async function scheduleFixture(t:TestContext,clock:()=>number,calendar:Omit<ScheduleDefinition,'schemaVersion'|'routineId'|'routineRevisionId'|'inputs'>,gate=false){
   const h=await setup(t,{now:clock}),agent=(await h.api<Agent>('/v1/agents',{name:'Calendar',model:'gpt-6-astra',instructions:'Use synthetic inputs.'})).body;
@@ -486,7 +520,8 @@ test('shared submission pins its recipient and selected skill, saves one attribu
   const h = await setup(t, { runtime });
   const writer = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Write briefly.' })).body;
   const reviewer = (await h.api<Agent>('/v1/agents', { name: 'Reviewer', model: 'gpt-6-astra', instructions: 'Check the claim.' })).body;
-  const skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Check marker', instructions: 'End with [CHECKED].' })).body;
+  let skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Check marker', instructions: 'End with [CHECKED].' })).body;
+  assert.ok(skill.bundle);skill=(await h.api<InstructionSkill>(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle.digest,enable:true})).body;
   const room = (await h.api<Conversation>('/v1/conversations', { name: 'Sample planning', participantAgentIds: [writer.agentId, reviewer.agentId] })).body;
   const path = `/v1/conversations/${room.conversationId}/messages`;
   const command = { requestId: 'sample-shared', recoveryEpoch: h.service.installation.recoveryEpoch, bindingRevisionId: reviewer.binding.bindingRevisionId, recipientAgentId: reviewer.agentId, skills: [{ skillId: skill.skillId, revisionId: skill.revisionId }], text: '  red notebook\n' };
@@ -563,7 +598,8 @@ test('profile edits keep stable identity, fence stale submissions and preserve a
   const calls: ChatInput[] = [];
   const h = await setup(t, { runtime: { async dispose() {}, async execute(input) { calls.push(input); return { kind: 'completed', text: 'Done.', effectiveModel: null }; } } });
   const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Original instructions.' })).body;
-  const skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Marker', instructions: 'Use [ONE].' })).body;
+  let skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Marker', instructions: 'Use [ONE].' })).body;
+  assert.ok(skill.bundle);skill=(await h.api<InstructionSkill>(`/v1/skills/${skill.skillId}/review`,{revisionId:skill.revisionId,digest:skill.bundle.digest,enable:true})).body;
   const command = { requestId: 'before-edit', text: 'Sample.', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [{ skillId: skill.skillId, revisionId: skill.revisionId }] };
   const path = `/v1/conversations/${agent.homeConversationId}/messages`;
   assert.equal((await h.api(path, command)).status, 201);

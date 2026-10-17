@@ -71,3 +71,9 @@ import Testing
     let unknown = Approval(approvalId:approval.approvalId,installationId:approval.installationId,recoveryEpoch:approval.recoveryEpoch,runId:approval.runId,attemptId:approval.attemptId,bindingRevisionId:approval.bindingRevisionId,actionDigest:approval.actionDigest,resourceScope:["future:unrecognized"],actionDescription:"Unknown future action",expiresAt:"2099-01-01T00:00:00.000Z",state:"pending",decidedByDeviceId:nil,decidedAt:nil)
     #expect(!unknown.canDecide)
 }
+
+@Test func legacyInstructionSkillsStayReadableButNeedMigrationBeforeNewInvocation() throws {
+    let value = InstructionSkill(skillId:"legacy",revisionId:"old",name:"Historical instructions",instructions:"Preserve exact text.")
+    #expect(value.instructions == "Preserve exact text.")
+    #expect(!value.canInvoke)
+}
