@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		25A463B50675A556B79DCCED /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
+		39F12B140A8750F249A1EA86 /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
+		73A5A220DFEB2195787C5A32 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9879AC4BE78E0915A76A7A94 /* FortKit */; };
 		A79A1A763DF7D0977098A771 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD9921B37AD9B66D20A41BED /* FortKit */; };
 		BD1862C279922A400780F2AB /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		C445733B345FBC225CD53A84 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5EA0927D7A956DB1973A38B1 /* FortKit */; };
@@ -36,6 +38,7 @@
 		0BEC1FA69D5048919908B89B /* FortiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FortiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D63AC390E2E1F9BC1A071BB /* FortMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FortMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FortApp.swift; sourceTree = "<group>"; };
+		1B8E288C1F8DFA02A3CB4416 /* FortQA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FortQA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35B06F30ACB2232278049438 /* FortMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FortMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeJourneyTests.swift; sourceTree = "<group>"; };
 		6A9B943A9D96276439005E45 /* FortiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FortiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -56,6 +59,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A79A1A763DF7D0977098A771 /* FortKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C93625BEFA4718A5E1053291 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73A5A220DFEB2195787C5A32 /* FortKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +114,7 @@
 				6A9B943A9D96276439005E45 /* FortiOSUITests.xctest */,
 				0D63AC390E2E1F9BC1A071BB /* FortMac.app */,
 				35B06F30ACB2232278049438 /* FortMacUITests.xctest */,
+				1B8E288C1F8DFA02A3CB4416 /* FortQA.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,6 +157,25 @@
 			);
 			productName = FortMac;
 			productReference = 0D63AC390E2E1F9BC1A071BB /* FortMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+		ABE46552601AD79A09758839 /* FortQA */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7231603CA7CEB14C844FF9B3 /* Build configuration list for PBXNativeTarget "FortQA" */;
+			buildPhases = (
+				441AB5B3046F97F21FB7F6F4 /* Sources */,
+				C93625BEFA4718A5E1053291 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FortQA;
+			packageProductDependencies = (
+				9879AC4BE78E0915A76A7A94 /* FortKit */,
+			);
+			productName = FortQA;
+			productReference = 1B8E288C1F8DFA02A3CB4416 /* FortQA.app */;
 			productType = "com.apple.product-type.application";
 		};
 		AC7BD399AF1732FCAD78A3AB /* FortMacUITests */ = {
@@ -220,6 +251,7 @@
 			targets = (
 				7616329AC9339C18F5D96413 /* FortMac */,
 				AC7BD399AF1732FCAD78A3AB /* FortMacUITests */,
+				ABE46552601AD79A09758839 /* FortQA */,
 				FFD52F3F5698920F124307C3 /* FortiOS */,
 				0315CA94B05B88B1802ACC40 /* FortiOSUITests */,
 			);
@@ -232,6 +264,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				25A463B50675A556B79DCCED /* FortApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		441AB5B3046F97F21FB7F6F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39F12B140A8750F249A1EA86 /* FortApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,7 +327,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -302,7 +342,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FortiOS;
@@ -320,7 +360,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -337,9 +377,28 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		3A59CD8013491E9AAAA95E60 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort QA First Wave";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.qa.firstwave.20261017;
+				PRODUCT_NAME = FortQA;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG FORT_INTERACTIVE_QA";
 			};
 			name = Debug;
 		};
@@ -401,7 +460,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort";
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -468,7 +527,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort";
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -479,6 +538,25 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		94E32FBAC3E8A8741ABE3C2B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort QA First Wave";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.qa.firstwave.20261017;
+				PRODUCT_NAME = FortQA;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) FORT_INTERACTIVE_QA";
 			};
 			name = Release;
 		};
@@ -493,7 +571,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -508,7 +586,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.uitests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = FortMac;
 			};
@@ -523,7 +601,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.ios.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FortiOS;
@@ -540,7 +618,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.uitests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = FortMac;
 			};
@@ -576,6 +654,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		7231603CA7CEB14C844FF9B3 /* Build configuration list for PBXNativeTarget "FortQA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3A59CD8013491E9AAAA95E60 /* Debug */,
+				94E32FBAC3E8A8741ABE3C2B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7620F6DB191D13442F40F7EF /* Build configuration list for PBXNativeTarget "FortiOSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -605,6 +692,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		5EA0927D7A956DB1973A38B1 /* FortKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FortKit;
+		};
+		9879AC4BE78E0915A76A7A94 /* FortKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FortKit;
 		};

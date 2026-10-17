@@ -76,10 +76,23 @@ public final class DeviceStorage {
         guard FileManager.default.fileExists(atPath:file.path) else { return nil }
         return try JSONDecoder().decode(DeviceConnection.self,from:Data(contentsOf:file))
     }
-    public func removePairing(_ expected: DeviceConnection) throws {
+    public func pairingRemoval() throws -> PairingRemovalIntent? {
+        let file = directory.appendingPathComponent("pairing-removal.json")
+        guard FileManager.default.fileExists(atPath:file.path) else { return nil }
+        return try JSONDecoder().decode(PairingRemovalIntent.self,from:Data(contentsOf:file))
+    }
+    public func beginPairingRemoval(_ expected: DeviceConnection) throws {
+        guard try connection() == expected else { throw OwnerLifecycleError.wrongPairing }
+        if let prior = try pairingRemoval(), prior.connection == expected { return }
+        try protectedWrite(JSONEncoder().encode(PairingRemovalIntent(connection:expected,state:.requested)),to:directory.appendingPathComponent("pairing-removal.json"))
+    }
+    public func removePairing(_ expected: DeviceConnection, revocationConfirmed: Bool = true) throws {
         let current = try connection()
         let disconnected = try disconnectedConnection()
         guard current == expected || (current == nil && disconnected == expected) else { throw OwnerLifecycleError.wrongPairing }
+        let prior = try pairingRemoval()
+        let confirmed = revocationConfirmed || (prior?.connection == expected && prior?.state == .confirmed)
+        try protectedWrite(JSONEncoder().encode(PairingRemovalIntent(connection:expected,state:confirmed ? .confirmed : .locallyForgotten)),to:directory.appendingPathComponent("pairing-removal.json"))
         try protectedWrite(JSONEncoder().encode(expected),to:directory.appendingPathComponent("disconnected.json"))
         try credentials.remove(expected)
         if current != nil { try FileManager.default.removeItem(at:directory.appendingPathComponent("connection.json")) }

@@ -6,12 +6,13 @@ struct PairingSettingsView: View {
     @State private var days = "7"
     @State private var action: Action?
     @State private var showConfirmation = false
-    private enum Action { case stop, disconnect, uninstall, deleteHistory }
+    private enum Action { case stop, disconnect, forget, uninstall, deleteHistory }
     private var validDays: Int? { guard let value = Int(days), (1...365).contains(value) else { return nil }; return value }
     private var title: String {
         switch action {
         case .stop: "Stop local host?"
         case .disconnect: "Disconnect this device?"
+        case .forget: "Forget only this device’s credential?"
         case .uninstall: "Remove Fort and keep history?"
         case .deleteHistory: "Also delete local history?"
         case nil: "Confirm"
@@ -21,6 +22,7 @@ struct PairingSettingsView: View {
         switch action {
         case .stop: "Stops the connected runtime. Pairing and saved conversations are kept."
         case .disconnect: "Stops the connected runtime, revokes this pairing and removes its Keychain token. Saved conversations are kept."
+        case .forget: "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
         case .uninstall: "Stops the owned host, removes pairing and removes this app: \(model.uninstallAppURL?.path ?? "unavailable"). Conversation history is kept."
         case .deleteHistory: "Stops the owned host and removes Fort, its pairing and its local conversation history. This separate deletion cannot be undone."
         case nil: ""
@@ -43,6 +45,10 @@ struct PairingSettingsView: View {
                     Button("Disconnect this device",role:.destructive) { confirm(.disconnect) }.disabled(model.isBusy || model.lifecycleBusy)
                 } else if !model.pairingCleanupPending {
                     Text("Temporary demos keep their original deadline. Owner setup is required before these controls become available.").font(.caption).foregroundStyle(.secondary)
+                }
+                if model.pairingRemovalPending {
+                    Button("Retry disconnect recovery") { Task { await model.retryPairingRemoval() } }.disabled(model.lifecycleBusy)
+                    if !model.localPairingForgotten { Button("Forget local credential only…",role:.destructive) { confirm(.forget) }.disabled(model.lifecycleBusy) }
                 }
                 if model.pairingCleanupPending { Button("Finish removing local pairing") { model.finishPairingRemoval() } }
                 Text("Stopping or disconnecting keeps your saved conversations and local image previews.").font(.caption)
@@ -67,6 +73,7 @@ struct PairingSettingsView: View {
                     switch selected {
                     case .stop: await model.stopLocalHost(disconnect:false)
                     case .disconnect: await model.stopLocalHost(disconnect:true)
+                    case .forget: model.forgetLocalPairing()
                     case .uninstall: await model.uninstall()
                     case .deleteHistory: await model.uninstall(history:.deleteConfirmed)
                     case nil: break

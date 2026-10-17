@@ -28,6 +28,9 @@ struct FortSettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                #if DEBUG
+                if model.isInteractiveFixture { InteractiveFixtureControls(model:model) }
+                #endif
                 Section("Agents") {
                     ForEach(model.agents) { agent in
                         NavigationLink {
@@ -61,6 +64,9 @@ struct AgentSettingsEditor: View {
     }
     var body: some View {
         Form {
+            #if DEBUG
+            if model.isInteractiveFixture { InteractiveFixtureControls(model:model) }
+            #endif
             Section("Identity") {
                 TextField("Name",text:$form.name)
                 TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
@@ -68,7 +74,7 @@ struct AgentSettingsEditor: View {
                 Text("\(form.instructions.utf8.count) / 16,384 bytes").font(.caption).foregroundStyle(form.instructions.utf8.count > 16_384 ? .red : .secondary)
             }
             Section("Model") {
-                Text("Provider: Codex · existing ChatGPT account").font(.caption)
+                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Provider: Codex · existing ChatGPT account").font(.caption)
                 Picker("Model",selection:$form.exactModel) {
                     if form.exactModel.isEmpty { Text("Choose a model").tag("") }
                     ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in
@@ -77,7 +83,7 @@ struct AgentSettingsEditor: View {
                 }
                 if let choice = model.modelCatalog.options(preserving:form.exactModel).first(where:{$0.id == form.exactModel}), let detail = choice.detail { Text(detail).font(.caption) }
                 if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
-                if model.modelCatalog.state == "ready" { Text("Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
+                if model.modelCatalog.state == "ready" { Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
                 Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(model.loadingModels)
             }
             Section("Avatar") {
@@ -97,3 +103,17 @@ struct AgentSettingsEditor: View {
         .task { await model.refreshModels() }
     }
 }
+
+#if DEBUG
+private struct InteractiveFixtureControls: View {
+    @Bindable var model: MessengerModel
+    var body: some View {
+        Section("Interactive QA · no provider") {
+            Picker("Catalog scenario",selection:SwiftUI.Binding(get:{model.fixtureCatalogScenario},set:{ scenario in Task { await model.setFixtureCatalog(scenario) } })) {
+                ForEach(FixtureCatalogScenario.allCases) { Text($0.name).tag($0) }
+            }.accessibilityIdentifier("qa-catalog-scenario")
+            Text("Edits and replies are saved only in this temporary QA session. No enrollment, Keychain or network access.").font(.caption)
+        }
+    }
+}
+#endif

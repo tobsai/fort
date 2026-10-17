@@ -13,12 +13,30 @@ public struct HostStopReceipt: Codable, Sendable {
 public struct OwnedHostStop: Sendable {
     public let hostStopped: Bool
     public let pairingRevoked: Bool
+    public init(hostStopped: Bool, pairingRevoked: Bool) { self.hostStopped = hostStopped; self.pairingRevoked = pairingRevoked }
+}
+public struct PairingRemovalIntent: Codable, Equatable, Sendable {
+    public enum State: String, Codable, Sendable { case requested, confirmed, locallyForgotten }
+    public let connection: DeviceConnection
+    public let state: State
+}
+public struct PairingRecoveryProof: Sendable {
+    public let connection: DeviceConnection
+    public let hostStopped: Bool
+    public let pairingRevoked: Bool
+    public init(connection: DeviceConnection, hostStopped: Bool, pairingRevoked: Bool) {
+        self.connection = connection; self.hostStopped = hostStopped; self.pairingRevoked = pairingRevoked
+    }
 }
 @MainActor public protocol OwnedMacInstallation {
     var appURL: URL { get }
     func stopAndRevoke() async throws -> OwnedHostStop
+    func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof
     func removeApp() throws
     func removeHistory() throws
+}
+extension OwnedMacInstallation {
+    public func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof { throw OwnerLifecycleError.unavailable }
 }
 public enum HistoryRemoval: Sendable { case keep; case deleteConfirmed }
 public enum OwnerLifecycleError: Error, LocalizedError {

@@ -45,6 +45,23 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.mac
         ENABLE_APP_SANDBOX: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+  FortQA:
+    type: application
+    platform: macOS
+    sources: [Apps]
+    dependencies:
+      - package: FortKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.fort.qa.firstwave.20261017
+        PRODUCT_NAME: FortQA
+        INFOPLIST_KEY_CFBundleDisplayName: Fort QA First Wave
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) FORT_INTERACTIVE_QA"
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG FORT_INTERACTIVE_QA"
   FortiOSUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -78,3 +95,7 @@ schemes:
         FortMac: all
     test:
       targets: [FortMacUITests]
+  FortQA:
+    build:
+      targets:
+        FortQA: all

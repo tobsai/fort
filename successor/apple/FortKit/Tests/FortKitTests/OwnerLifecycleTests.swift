@@ -45,7 +45,13 @@ private final class LifecycleCredentials: DeviceCredentials {
     let appURL = URL(fileURLWithPath:"/synthetic/Fort.app")
     var operations: [String] = []
     var stopped = false
+    var wrongScope = false
     func stopAndRevoke() async throws -> OwnedHostStop { operations.append("stop"); return OwnedHostStop(hostStopped:stopped,pairingRevoked:stopped) }
+    func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof {
+        operations.append("recover")
+        let scope = wrongScope ? DeviceConnection(baseURL:connection.baseURL,installationID:"another-installation",deviceID:connection.deviceID,fixtureLoopback:connection.fixtureLoopback) : connection
+        return PairingRecoveryProof(connection:scope,hostStopped:stopped,pairingRevoked:stopped)
+    }
     func removeApp() throws { operations.append("app") }
     func removeHistory() throws { operations.append("history") }
 }
@@ -72,6 +78,14 @@ private final class LifecycleHTTPProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let path = request.url?.path ?? ""
+        if path == "/v1/pairing/disconnect", request.url?.host == "lost.fixture.invalid" {
+            client?.urlProtocol(self,didFailWithError:URLError(.networkConnectionLost)); return
+        }
+        if path == "/v1/pairing/disconnect", request.url?.host == "expired.fixture.invalid", let url = request.url, let response = HTTPURLResponse(url:url,statusCode:401,httpVersion:nil,headerFields:nil) {
+            client?.urlProtocol(self,didReceive:response,cacheStoragePolicy:.notAllowed)
+            client?.urlProtocol(self,didLoad:Data(#"{"error":{"code":"unauthorized","message":"Fixture credential expired"}}"#.utf8))
+            client?.urlProtocolDidFinishLoading(self); return
+        }
         let body: String
         switch path {
         case "/v1/installation": body = #"{"contractVersion":"1.0","installationId":"one","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":["ownerPairing"]}"#
@@ -111,4 +125,36 @@ private final class LifecycleHTTPProtocol: URLProtocol, @unchecked Sendable {
     credentials.failRemoval = false; relaunched.finishPairingRemoval()
     #expect(!relaunched.pairingCleanupPending); #expect(try storage.connection() == nil)
     #expect(credentials.removed == [connection]); #expect(try storage.navigation(installationID:"one") != nil)
+}
+
+@Test @MainActor func lostDisconnectReplyAndExpiredCredentialRetainIntentWithoutClaimingRevocation() async throws {
+    for host in ["lost.fixture.invalid","expired.fixture.invalid"] {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let credentials = LifecycleCredentials(), storage = try DeviceStorage(directory:root,credentials:credentials)
+        let connection = DeviceConnection(baseURL:try #require(URL(string:"https://" + host)),installationID:"one",deviceID:"device",fixtureLoopback:false)
+        try storage.save(connection,token:"fixture-only")
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [LifecycleHTTPProtocol.self]
+        let session = URLSession(configuration:config); defer { session.invalidateAndCancel() }
+        let model = MessengerModel(storage:storage,session:session); await model.restore()
+        await model.stopLocalHost(disconnect:true)
+        #expect(try storage.pairingRemoval()?.state == .requested)
+        #expect(credentials.removed.isEmpty); #expect(model.pairingRemovalPending); #expect(!model.supportsCommands)
+        let reads = credentials.reads
+        let restored = MessengerModel(storage:storage,session:session); await restored.restore()
+        #expect(credentials.reads == reads); #expect(restored.pairingRemovalPending)
+        restored.forgetLocalPairing()
+        #expect(try storage.connection() == nil); #expect(try storage.pairingRemoval()?.state == .locallyForgotten)
+        #expect(restored.pairingMessage.contains("unconfirmed")); #expect(credentials.removed == [connection])
+        let host = RemovalFixture()
+        let recovery = MessengerModel(storage:storage,session:session,ownedInstallation:host); await recovery.restore()
+        await recovery.retryPairingRemoval()
+        #expect(try storage.pairingRemoval()?.state == .locallyForgotten)
+        host.stopped = true; host.wrongScope = true; await recovery.retryPairingRemoval()
+        #expect(try storage.pairingRemoval()?.state == .locallyForgotten)
+        host.wrongScope = false; await recovery.retryPairingRemoval()
+        #expect(try storage.pairingRemoval()?.state == .confirmed)
+        #expect(host.operations == ["recover","recover","recover"])
+        #expect(try storage.navigation(installationID:"one") != nil)
+    }
 }

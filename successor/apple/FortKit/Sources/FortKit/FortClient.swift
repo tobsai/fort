@@ -19,15 +19,22 @@ private final class RefuseRedirects: NSObject, URLSessionTaskDelegate {
 }
 private struct ErrorEnvelope: Decodable { struct Detail: Decodable { let code: String; let message: String }; let error: Detail }
 
+protocol FortHTTPTransport: Sendable { func data(for request: URLRequest) async throws -> (Data,URLResponse) }
+
 public struct FortClient: Sendable {
     public let baseURL: URL
     public let installationID: String
     private let token: String?
     private let session: URLSession
+    private var transport: (any FortHTTPTransport)? = nil
     public init(baseURL: URL, installationID: String, token: String? = nil, fixtureLoopback: Bool = false, session: URLSession = .shared) throws {
         guard baseURL.user == nil, baseURL.password == nil, baseURL.query == nil, baseURL.fragment == nil,
               baseURL.scheme == "https" || (fixtureLoopback && baseURL.scheme == "http" && ["127.0.0.1", "localhost", "::1"].contains(baseURL.host ?? "")) else { throw ClientError.insecureEndpoint }
         self.baseURL = baseURL; self.installationID = installationID; self.token = token; self.session = session
+    }
+    init(baseURL: URL, installationID: String, transport: any FortHTTPTransport) throws {
+        try self.init(baseURL:baseURL,installationID:installationID)
+        self.transport = transport
     }
     public func enroll(code: String, deviceName: String) async throws -> Enrollment {
         struct Body: Encodable { let installationId: String; let code: String; let deviceName: String }
@@ -173,7 +180,10 @@ public struct FortClient: Sendable {
         request.setValue(installationID, forHTTPHeaderField: "X-Fort-Installation-Id")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        let (data, response) = try await session.data(for: request,delegate:RefuseRedirects.shared)
+        let output: (Data,URLResponse)
+        if let transport { output = try await transport.data(for:request) }
+        else { output = try await session.data(for:request,delegate:RefuseRedirects.shared) }
+        let (data,response) = output
         guard let response = response as? HTTPURLResponse else { throw ClientError.invalidResponse }
         if !(200..<300).contains(response.statusCode) {
             let error = try? JSONDecoder().decode(ErrorEnvelope.self, from: data)

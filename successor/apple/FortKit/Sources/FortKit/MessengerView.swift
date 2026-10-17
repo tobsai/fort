@@ -13,10 +13,10 @@ public struct MessengerView: View {
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
         NavigationSplitView {
-            List(selection:SwiftUI.Binding(get:{ model.installation?.mode == "openai" ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.installation?.mode == "openai" { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
+            List(selection:SwiftUI.Binding(get:{ model.hasWorkspace ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.hasWorkspace { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
                 Section("Your Agents") {
                     ForEach(model.agents) { agent in
-                        NavigationLink(value:model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId) {
+                        NavigationLink(value:model.hasWorkspace ? agent.homeConversationId : agent.agentId) {
                             HStack(spacing:10) {
                             AgentAvatarView(avatar:agent.avatar ?? .orbit)
                             VStack(alignment:.leading,spacing:4) {
@@ -24,23 +24,32 @@ public struct MessengerView: View {
                                 Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary)
                             }
                             }
-                        }.tag(model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId)
+                        }.tag(model.hasWorkspace ? agent.homeConversationId : agent.agentId)
                     }
                 }
-                if model.installation?.mode == "openai" {
+                if model.hasWorkspace {
                     Section("Shared conversations") { ForEach(model.conversations.filter { $0.kind == "shared" }) { room in NavigationLink(room.name,value:room.id).tag(room.id) } }
                 }
             }
-            .navigationTitle("Fort")
+            .navigationTitle(model.isInteractiveFixture ? "Fort QA · First wave" : "Fort")
             .toolbar {
-                if model.installation?.mode == "openai" { Button("Settings",systemImage:"gearshape") { showSettings = true } }
+                if model.hasWorkspace { Button("Settings",systemImage:"gearshape") { showSettings = true } }
                 if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
-                if !model.isOfflinePreview { Button("Connection",systemImage:"network") { model.showConnection = true } }
-                if model.installation?.mode == "openai" { Button("Library",systemImage:"books.vertical") { showWorkspace = true } }
+                if !model.isOfflinePreview && !model.isInteractiveFixture { Button("Connection",systemImage:"network") { model.showConnection = true } }
+                if model.hasWorkspace && !model.isInteractiveFixture { Button("Library",systemImage:"books.vertical") { showWorkspace = true } }
             }
         } detail: {
             VStack(spacing:0) {
                 conversationHeader
+                #if DEBUG
+                if model.isInteractiveFixture {
+                    HStack {
+                        Button("Settings",systemImage:"gearshape") { showSettings = true }.accessibilityIdentifier("qa-open-settings")
+                        Button("Add sample image",systemImage:"photo") { Task { await model.addFixtureImage() } }.accessibilityIdentifier("qa-add-image")
+                        Button("Reload saved fixture",systemImage:"arrow.clockwise") { Task { await model.reloadInteractiveFixture() } }.accessibilityIdentifier("qa-reload")
+                    }.padding(.horizontal).padding(.bottom,8)
+                }
+                #endif
                 Divider()
                 conversationHistory
                 Divider()
@@ -50,7 +59,7 @@ public struct MessengerView: View {
                 if model.canEditMemory, let conversationID = model.activeConversationID { Button("Memory",systemImage:"note.text") { memoryForm = ConversationMemoryForm(conversationID:conversationID,memory:model.conversationMemory) } }
                 Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy)
             }
-            .navigationTitle(model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation")
+            .navigationTitle((model.isInteractiveFixture ? "Fort QA — " : "") + (model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation"))
         }
         .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
             Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
@@ -66,6 +75,7 @@ public struct MessengerView: View {
         .task {
             guard !model.isOfflinePreview else { return }
             await model.restore()
+            guard !model.isInteractiveFixture else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for:.seconds(2))
                 if scenePhase == .active { await model.refresh() }
@@ -77,7 +87,7 @@ public struct MessengerView: View {
 
     private var conversationHeader: some View {
                 VStack(alignment:.leading,spacing:6) {
-                    Label(model.isOfflinePreview ? "Offline preview · sample conversation" : model.installation?.mode == "openai" ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
+                    Label(model.isInteractiveFixture ? "Interactive QA · simulated models and replies · no network" : model.isOfflinePreview ? "Offline preview · sample conversation" : model.hasWorkspace ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
                     if let agent = model.recipient {
                         Text(agent.name).font(.title2.bold())
                         Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
@@ -193,7 +203,7 @@ public struct MessengerView: View {
                     ForEach(model.agents.filter { conversation.participantAgentIds.contains($0.id) }) { Text($0.name).tag(Optional($0.id)) }
                 }
             }
-            if model.installation?.mode == "openai", !model.skills.isEmpty {
+            if model.hasWorkspace, !model.skills.isEmpty {
                 DisclosureGroup("Skills for this message (\(model.selectedSkillIDs.count))") {
                     ForEach(model.skills) { skill in
                         Toggle(skill.name + (skill.canInvoke ? "" : " · review required"),isOn:SwiftUI.Binding(get:{ model.selectedSkillIDs.contains(skill.id) },set:{ if $0 && skill.canInvoke { model.selectedSkillIDs.insert(skill.id) } else { model.selectedSkillIDs.remove(skill.id) } }))
