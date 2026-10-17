@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "ced1cc6ad74c6866c9fee353c8ce42b27e1ef1c6",
+  "actualServiceSyntheticTests": {
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typecheckExit": 0,
+  "nativeHTTP": "ten synthetic executions, six restarts, two discarded acceptances, one discarded cancellation, no duplicate or canceled dispatch",
+  "nativeSourceUnchangedSince": "8a877fff2730d7dd99bb45b9f47e31158182383c",
+  "priorBroadValidation": "../2026-10-17-mvp-pending/checks.json",
+  "logs": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-schedule-recovery-validation-20261017/native-http.log",
+      "bytes": 1457,
+      "sha256": "df859e5a92718fa1d5d65d504eba62ae2e1fcb23513a354078b4f38dea502bcc"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-schedule-recovery-validation-20261017/service-green.log",
+      "bytes": 5059,
+      "sha256": "2fcdfcc9146d65b8292435f6a3d918b840cbf5962fa67f4d0ad3254d116d8153"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-schedule-recovery-validation-20261017/service-red.log",
+      "bytes": 1240,
+      "sha256": "3467a9ab8aa4784dd34b484bbd546b12c63480edc0301aad55721db7deb8a48f"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-recovery-20261016T021809Z/mvp-schedule-recovery-validation-20261017/typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "unrun": [
+    "installed UI/accessibility/screenshots",
+    "current actual-provider acceptance",
+    "physical iPhone",
+    "real host sleep/reboot",
+    "backup/restore",
+    "distribution"
+  ]
+}

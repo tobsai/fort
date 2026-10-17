@@ -26,8 +26,10 @@ See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.js
 for byte hashes and the distinction between observed state and operator timing.
 The original preparation records remain historical evidence.
 
-The current source milestone is `8a877fff2730d7dd99bb45b9f47e31158182383c`;
-read evidence/2026-10-17-mvp-pending/README.md before further validation.
+The current service milestone is `ced1cc6ad74c6866c9fee353c8ce42b27e1ef1c6`;
+read evidence/2026-10-17-mvp-schedule-recovery/README.md before further validation.
+Native build source remains `8a877fff2730d7dd99bb45b9f47e31158182383c`; its
+evidence is in evidence/2026-10-17-mvp-pending/README.md.
 Pending request cancellation now survives lost responses and client/service restart.
 Native routines, schedules and complete instruction-bundle authoring have synthetic
 and build evidence. Installed/provider acceptance remains open. Reconnection did

@@ -34,6 +34,12 @@ outcome. Validation passes 654 TypeScript and 33 Swift checks, strict typechecki
 a ten-call/six-restart Swift HTTP journey and fresh signed native builds.
 [Pending cancellation evidence](evidence/2026-10-17-mvp-pending/README.md).
 
+
+Service source `ced1cc6ad74c6866c9fee353c8ce42b27e1ef1c6` closes the synthetic
+multi-year scheduling gap, including exact one-time skip/catch-up policy. All 43
+actual-service tests, strict typechecking and the Swift HTTP journey pass; unchanged
+native artifacts remain pinned to `8a877ff`. [Schedule recovery evidence](evidence/2026-10-17-mvp-schedule-recovery/README.md).
+
 ## Historical native-provider progress — October 16
 
 The approved fourth packet completed one actual native Mac send/reply through the

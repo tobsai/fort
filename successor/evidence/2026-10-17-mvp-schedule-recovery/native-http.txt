@@ -1,0 +1,12 @@
+PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue
+PASS native and service restart, exact workspace identity, duplicate receipt and fifth synthetic reply
+PASS native unknown outcome holds later work before restart
+PASS native restarted queued cancellation, idempotent explicit closure and retained pending after lost acceptance
+PASS native lost acceptance reconciliation after restart, no duplicate execution and same-Home continuation
+PASS native complete bundle import/review, binary asset preservation, changed-file review, stale-revision rejection and export/import without enablement
+PASS native routine client contract, typed inputs, immutable export, saved task and exact owner gate
+PASS native routine restart, idempotent receipt and gate decision, declared-output continuation, schedule preview/enable/pause with no schedule execution
+PASS routine HTTP conformance: two synthetic task executions separated by a durable gate and restart, schedule consent and pause without execution
+PASS native cancellation intent persisted after discarded acceptance and cancellation responses
+PASS native cancellation replay after restart, exact acceptance reconciliation and late-submission fence
+PASS FortClient/PendingStore HTTP conformance: ten synthetic executions, six service restarts, two discarded acceptances, one discarded cancellation, no duplicate or canceled dispatch and empty pending queue
