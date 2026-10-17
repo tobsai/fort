@@ -9,6 +9,7 @@ import type {NativeSession} from './session.ts';
 
 export {MVP_PROMPTS} from './mvp-admission.ts';
 import {admitMvpSubmission} from './mvp-admission.ts';
+import {assertMvpSessionAvailable} from './mvp-reconciliation.ts';
 export type RuntimeBudget={workDeadline:number;signal:AbortSignal;remainingConnections:()=>number;claimLaunch:()=>number};
 export type PreparedRuntime=ChatRuntime&{preflight(signal:AbortSignal):Promise<{model:string;runtimeVersion:string}>};
 type State={version:1;session:1|2|3;phase:'running'|'finished'|'blocked';began:number;workDeadline:number;credentialDeadline:number;launches:number;restarts:number;installationId?:string;port?:number;receipts:Acceptance['receipt'][];credentialCleanup:'pending'|'deleted'|'unconfirmed';runtimeCleanup:'pending'|'confirmed'|'unconfirmed';nativeCleanup:'pending'|'confirmed'|'unconfirmed'};
@@ -24,13 +25,7 @@ export class MvpPacket {
   async start(signal?:AbortSignal){
     const {batchRoot,session,native}=this.options,now=this.options.now??Date.now,root=join(batchRoot,`session-${session}`),lock=join(batchRoot,'active.lock');
     safeDirectory(batchRoot);mkdirSync(batchRoot,{recursive:true,mode:0o700});
-    if(existsSync(root))throw new Error('This session start is consumed; never reset or reuse it');
-    for(let prior=1;prior<session;prior++){
-      const path=join(batchRoot,`session-${prior}`,'session-state.json');
-      if(!existsSync(path)||lstatSync(path).isSymbolicLink())throw new Error('Previous session cleanup must be confirmed');
-      const state=JSON.parse(readFileSync(path,'utf8')) as State;
-      if(state.session!==prior||state.phase==='running'||state.credentialCleanup!=='deleted'||state.runtimeCleanup!=='confirmed'||state.nativeCleanup!=='confirmed')throw new Error('Previous session cleanup must be confirmed');
-    }
+    assertMvpSessionAvailable(batchRoot,session);
     const owner=randomUUID();writeFileSync(lock,owner,{flag:'wx',mode:0o600});
     try{mkdirSync(root,{mode:0o700});}catch(error){unlinkSync(lock);throw error;}
     const began=now(),state:State={version:1,session,phase:'running',began,workDeadline:began+540_000,credentialDeadline:began+600_000,launches:0,restarts:0,receipts:[],credentialCleanup:'pending',runtimeCleanup:'pending',nativeCleanup:'pending'};

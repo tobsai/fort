@@ -1,0 +1,10 @@
+ObjC.import('AppKit');
+function run(args) {
+  if(args.length!==4||!['status','stop'].includes(args[0]))throw new Error('Use an exact app identity');
+  const canonical=url=>ObjC.unwrap(url.URLByResolvingSymlinksInPath.path);
+  const apps=ObjC.unwrap($.NSWorkspace.sharedWorkspace.runningApplications).filter(app=>ObjC.unwrap(app.bundleIdentifier)===args[1]);
+  const records=apps.map(app=>({pid:Number(app.processIdentifier),bundleIdentifier:ObjC.unwrap(app.bundleIdentifier),bundlePath:canonical(app.bundleURL),executablePath:canonical(app.executableURL)}));
+  if(records.some(app=>app.bundlePath!==args[2]||app.executablePath!==args[3]))throw new Error('A different app has the native bundle identity');
+  if(args[0]==='stop')for(const app of apps)if(!app.terminate)throw new Error('Native termination was refused');
+  return JSON.stringify(records);
+}
