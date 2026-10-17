@@ -18,6 +18,12 @@ unchanged no-tool profile. The launcher opens the current Mac build without the
 read-only preview flag. Longer use needs separate duration/lifecycle authority.
 The nine consumed packets and every historical approval/pin stay preserved.
 Historical activation source pins are intentionally not updated to this revision.
+The first fresh operator invocation failed before the root/session directory was
+created. All native/cache evidence stayed unchanged; no runtime, enrollment or
+session clock started. The action remains unused. Read the startup-repair evidence
+and current manual: use supported permission escalation for --check-writes and the
+attended launcher from the operator workspace. A permission refusal before durable
+session creation is repairable under the same approval, not a consumed credential.
 
 
 ## Current handoff — completed batch and offline preview
