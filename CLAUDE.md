@@ -33,6 +33,9 @@ The donor under `foundation/` stays quarantined with its license/provenance inta
    slice, also run it with `--implementation specs/<NNN>-<slug>.md`. Both must
    pass; a human must assess the evidence and actual owner decision separately.
    Reuse existing authorization for unchanged scope; do not invent approval.
+   Before committing product changes, run the implementation gate with `--staged`
+   against the exact staged slice. Every changed path must be declared by that
+   reviewed spec; verify its actual applicability and decision separately.
 3. Use test-first development: one failing behavioral test at a confirmed public
    interface, then the smallest passing change. Run relevant checks; report
    passed, failed and unrun checks without conflating fixtures with real operation.

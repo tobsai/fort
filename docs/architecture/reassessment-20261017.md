@@ -44,6 +44,12 @@ must not convert any row into architectural compliance. Fixture provider proof,
 module removal and performance checks are **planned requirements, not tests run
 in this documentation task**.
 
+Independent review additionally identified competing attempt identifiers,
+repeated full-history persistence and per-second scheduler writes. Preserve these
+as redesign findings: clarify ownership of attempt identity, bound persistence
+work and measure idle/write amplification. They are not benchmark results or
+fixes performed by this gate task; product source remains unchanged.
+
 ## Independence by dimension
 
 | Dimension | Current limitation | Requirement for the new proposal |
@@ -149,6 +155,43 @@ host installation, background permissions or external runtimes require separate
 owner action. Do not promise a removable background service based only on a
 passing command-line build. No signed archive, upload, installer, background
 registration, credential or CI runner is created during reassessment.
+
+## Proposed CI enforcement of change scope
+
+The local gate now supports an exact per-spec `Implementation paths` declaration
+with `--implementation <spec> --staged [--base <full-commit-SHA>]`. This adds path
+coverage, not authenticated approval or architectural compliance. A future CI job
+should implement this procedure; none of it configures remote enforcement now:
+
+1. Obtain the base-branch and head commit IDs from trusted PR event/review context,
+   derive their merge-base, and use that full SHA for the comparison. Use a clean
+   checkout/index of the head and retain/fetch the exact comparison object. Fail
+   if it is unavailable; never silently fall back to HEAD.
+2. Read the proposed applicable spec path as data. A reviewer must verify semantic
+   applicability. Run the full structural check and the selected spec's staged
+   gate against that trusted base. Every changed path, including deleted paths
+   and both sides of a rename, must appear in its reviewed declaration (the
+   selected spec itself is implicit). Current local tooling handles one spec per
+   bounded slice; split unrelated scopes or design a reviewed multi-spec extension.
+3. Run the validator from a trusted reviewed revision rather than blindly trust
+   a PR's rewritten gate. Gate/template/baseline changes require explicit owner
+   review. Reject changed scope without an updated applicable decision and digest.
+   Ordinary CI must not receive signing, provider or deployment credentials.
+4. Separately require an authenticated owner/reviewer decision bound to the exact
+   head and spec digest, with prior approval dismissed on relevant changes.
+   Verify the real record and any tradeoffs; `accepted`, a named owner and a hash
+   inside the submitted Markdown can all be self-authored and are not proof.
+5. A future required status check/merge policy must enforce both the automated
+   result and that authenticated review. No workflow, approval service, required
+   check or branch protection is configured here; portable local commands alone
+   cannot prevent someone from bypassing them.
+
+The local index check deliberately ignores unstaged/untracked work and does not
+associate already committed changes unless an explicit base is supplied. It also
+does not prove that code follows the listed spec, that evidence is true or that
+unlisted behavioral changes are absent. Those remain human review and behavior-test
+responsibilities. No product change has been marked accepted to demonstrate this
+feature: accepted records in tests are clearly synthetic, temporary fixtures.
 
 ## Next review packet
 

@@ -12,7 +12,8 @@ It is the authoritative four-principle design grid.
   record actual owner decisions. Structural validation is not architecture approval.
 - **Before implementation:** run the spec's `--implementation` gate, then use a
   red → green behavioral slice at the public seam. Fixture, provider and installed
-  product evidence are different claims.
+  product evidence are different claims. Before committing product changes, add
+  `--staged` to check every changed path against the spec's reviewed declaration.
 - **Surgical work:** name exact files, preserve unrelated changes, historical
   approvals and source pins. Do not revive legacy services or reset consumed demos.
 - **Working in `successor/`:** read [its handoff](successor/AGENTS.md). It contains

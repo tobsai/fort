@@ -54,6 +54,10 @@ Unresolved judgment: <decision to resolve, or none>
 
 <Exact paths for the next slice; preserve unrelated work.>
 
+## Implementation paths
+
+- `<exact/repository-relative/file-for-this-slice>`
+
 ## Test criteria
 
 <Public behavior tests, removal/dependency checks, benchmark commands and installed proof.>

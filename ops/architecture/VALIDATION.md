@@ -38,3 +38,28 @@ No workflows/runners/branch protections, credentials, signing settings, archive,
 upload, Apple processing or tester access were configured. CI and background-host
 choices remain proposals for the broader research/design review. No tests/builds
 are left running at this handoff.
+
+## Follow-up: changed-path coverage
+
+Independent review requested a small local changed-path-to-spec check. The CLI
+now accepts `--implementation <spec> --staged [--base <full-commit-SHA>]`. It
+checks all indexed changes against the selected spec's exact `Implementation
+paths`, including additions, deletions and both sides of renames. The spec must
+match its indexed contents; its declaration remains covered by the review digest.
+
+The test-first extension produced 7 expected failures (`--staged` was not yet
+supported), with the original 10 tests still passing. After implementation all
+17 tests pass, including a path containing spaces, an undeclared path, unstaged
+spec changes, a rename, deletion, explicit committed-range base, excluded
+unstaged/untracked files, invalid options and wildcard rejection. The real Spec
+058 with `--staged` still rejects implementation with exit 1. The full structural
+check still reports 1 needs-reassessment spec and 55 unchanged historical files.
+
+This does not authenticate an approval, prove semantic applicability or enforce
+remote merge policy. It covers the staged index only, and defaults to changes
+since HEAD; earlier committed changes require an explicit trusted base. The
+[assessment](../../docs/architecture/reassessment-20261017.md#proposed-ci-enforcement-of-change-scope)
+records the proposed trusted CI procedure and independent review findings on
+attempt IDs, full-history persistence and scheduler writes. No product rewrites,
+remote settings, credentials or approval integration were added. Full product
+and native tests/builds were not rerun for this tooling-only extension.

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,29 +80,60 @@ function specFiles(root, directory = 'specs') {
   }).sort();
 }
 
+const git = (root, ...args) => execFileSync('git', ['--literal-pathspecs', ...args], { cwd: root, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+
+function checkStagedPaths(root, file, text, base) {
+  const entries = section(visibleLines(text), 'Implementation paths', 2).filter(line => line.trim());
+  const declared = new Set([file]);
+  if (!entries.length) throw new Error('Implementation paths requires exact repository-relative file paths');
+  for (const line of entries) {
+    const match = line.match(/^- `([^`]+)`$/);
+    const path = match?.[1];
+    if (!path || /[\\*?\[\]\x00-\x1f]/.test(path) || path.split('/').some(part => ['', '.', '..'].includes(part))) {
+      throw new Error('Implementation paths requires exact repository-relative file paths; no globs or traversal');
+    }
+    if (declared.has(path)) throw new Error(`duplicate implementation path: ${path}`);
+    declared.add(path);
+  }
+  const baseCommit = git(root, 'rev-parse', '--verify', '--end-of-options', `${base}^{commit}`).trim();
+  const changed = git(root, 'diff', '--cached', '--no-ext-diff', '--no-renames', '--name-only', '-z', baseCommit, '--').split('\0').filter(Boolean);
+  const missing = changed.filter(path => !declared.has(path));
+  if (missing.length) throw new Error(missing.map(path => `${path}: not declared by ${file}`).join('\n'));
+  console.log(`${changed.length} staged path(s) declared by ${file}, relative to ${baseCommit}. Unstaged and untracked files are excluded; approval is not authenticated.`);
+}
+
 function options(args) {
   let root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   let mode = 'check';
   let target;
+  let staged = false;
+  let base = 'HEAD';
   const seen = new Set();
   while (args.length) {
     const flag = args.shift();
-    if (!['--root', '--implementation', '--digest'].includes(flag) || seen.has(flag)) throw new Error(`invalid option: ${flag}`);
+    if (!['--root', '--implementation', '--digest', '--staged', '--base'].includes(flag) || seen.has(flag)) throw new Error(`invalid option: ${flag}`);
     seen.add(flag);
+    if (flag === '--staged') { staged = true; continue; }
     const value = args.shift();
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${flag}`);
     if (flag === '--root') root = resolve(value);
+    else if (flag === '--base') {
+      if (!/^[a-f0-9]{40}$/.test(value)) throw new Error('--base requires a full commit SHA');
+      base = value;
+    }
     else {
       if (target) throw new Error('choose either --implementation or --digest');
       mode = flag.slice(2);
       target = value;
     }
   }
-  return { root, mode, target };
+  if (staged && mode !== 'implementation') throw new Error('--staged requires --implementation');
+  if (seen.has('--base') && !staged) throw new Error('--base requires --staged');
+  return { root, mode, target, staged, base };
 }
 
 try {
-  const { root, mode, target } = options(process.argv.slice(2));
+  const { root, mode, target, staged, base } = options(process.argv.slice(2));
   const files = specFiles(root);
   if (target && !files.includes(target)) throw new Error('target must be a discovered spec Markdown file');
   if (mode === 'digest') {
@@ -123,11 +155,13 @@ try {
     for (const file of target ? [target] : files) {
       try {
         const text = readFileSync(resolve(root, file), 'utf8');
+        if (staged && text !== git(root, 'show', `:${file}`)) throw new Error('spec differs from the index; stage the reviewed spec before checking staged implementation');
         if (sha256(text) === manifest.files[file]) {
           if (mode === 'implementation') throw new Error('historical preservation is not implementation authority; add an architecture review');
           historical++;
         } else {
           const status = validate(text, mode === 'implementation');
+          if (staged) checkStagedPaths(root, file, text, base);
           console.log(`${file}: ${status}`);
           reviewed++;
         }

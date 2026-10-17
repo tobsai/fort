@@ -13,6 +13,8 @@ architecture. Do not continue a historical handoff as current implementation aut
 Run `npm run check:specs` and `npm run test:specs` here for the structural gate.
 Before any later product implementation, require the full check plus the relevant
 spec's accepted `--implementation` gate and the actual human design decision.
+Before committing a product slice, also run that gate with `--staged`; the spec's
+reviewed `Implementation paths` must cover every staged change.
 Passing a form does not establish vendor independence, removability, speed or
 installed-product correctness. No tests/builds were left running at the pause.
 

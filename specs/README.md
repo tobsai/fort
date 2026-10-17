@@ -25,14 +25,21 @@ to a reviewed spec before implementation. Historical approval is not a substitut
    Use a red → green public behavior slice and collect the promised evidence.
    Updating an accepted spec invalidates its digest: return to reassessment and
    obtain an applicable decision before accepting changed content.
+6. Before committing a product slice, stage its exact files and run
+   `node ops/architecture/validate-specs.mjs --implementation specs/<NNN>-<slug>.md --staged`.
+   Every staged path must be declared in that spec's `Implementation paths`
+   section. The selected spec itself is implicitly covered. Use one applicable
+   spec per bounded slice; split unrelated work rather than claim an arbitrary
+   accepted spec applies. The declaration is covered by the reviewed digest.
 
 ## Status vocabulary
 
 Review status is one of `draft`, `needs-reassessment`, `ready-for-review`,
 `accepted`, `rejected`. Only `accepted` can pass the implementation gate; it
 requires a decision reference and matching digest. Blocked principles and unresolved
-judgments prevent acceptance. Accepted design is permission for its bounded plan,
-not a claim that planned tests have already passed or that release is authorized.
+judgments prevent acceptance. Only actual owner acceptance grants authority for
+its bounded plan. The `accepted` string declares that decision; it does not
+authenticate it, verify implementation or authorize release.
 
 Each principle has a separate progress status:
 
@@ -49,6 +56,29 @@ placeholder is insufficient evidence. Drafts may state a specific unknown and
 how to resolve it. Speed reviews require numeric budgets, measurement conditions
 and separated provider latency before design acceptance; the validator does not
 judge whether prose or budgets meet these substantive requirements.
+
+## Changed-path declaration
+
+The template's `Implementation paths` section contains only exact file paths,
+one Markdown bullet/code span per line (for example, `-` followed by a code span
+containing `successor/contracts/v1.ts`). No directories, globs or traversal are
+accepted. Include tests, dependency/build settings and supporting documents in
+the same slice. Deletion needs the old path; a rename needs both old and new paths.
+Changing this list changes the reviewed spec digest and requires reassessment.
+
+`--staged` compares Git's index to HEAD by default, and requires the selected spec
+on disk to match its index content. It excludes unstaged and untracked files;
+stage every intended change before claiming coverage. An empty comparison proves
+nothing about previous commits. Do not stage unrelated work to satisfy this check.
+For a committed branch/CI range, add `--base <full-40-character-base-commit-SHA>`
+with a clean index at the reviewed head. The base must come from trusted review
+context, not a convenient commit chosen to hide changes.
+
+This is exact-path coverage, not semantic applicability or authenticated approval.
+A reviewer must check that the declared spec actually governs the change, its
+real owner decision covers the scope, and promised behavior/evidence is adequate.
+There is no automatic mapping for multiple specs or historical code, no approval
+service and no remote CI enforcement. See the [proposed CI procedure](../docs/architecture/reassessment-20261017.md#proposed-ci-enforcement-of-change-scope).
 
 ## Preservation and enforcement limits
 

@@ -130,3 +130,91 @@ test('invalid CLI paths and options cannot skip review', t => {
   assert.equal(f.run('--implementation', 'specs/README.md').code, 1);
   assert.equal(f.run('--implementation').code, 1);
 });
+
+function stagedFixture(t, paths = ['successor/service/example.mjs']) {
+  const content = review('accepted') + '\n## Implementation paths\n' + paths.map(path => '- `' + path + '`').join('\n') + '\n';
+  const f = fixture(t, content.replace('Reviewed content SHA256: pending', `Reviewed content SHA256: ${digest(content)}`));
+  const git = (...args) => {
+    const result = spawnSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Gate Test', '-c', 'user.email=gate-test@example.invalid', ...args], { cwd: f.root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  const source = (path, text = 'export const value = 1;\n') => {
+    mkdirSync(join(f.root, path, '..'), { recursive: true });
+    writeFileSync(join(f.root, path), text);
+  };
+  git('init', '--quiet');
+  git('add', '.');
+  git('commit', '--quiet', '-m', 'Fixture baseline');
+  const base = git('rev-parse', 'HEAD');
+  return { ...f, git, source, base, check: (...args) => f.run('--implementation', f.spec, '--staged', ...args) };
+}
+
+test('staged changes require exact applicable-spec path declarations', t => {
+  const f = stagedFixture(t);
+  f.source('successor/service/undeclared.mjs');
+  f.git('add', 'successor/service/undeclared.mjs');
+  const result = f.check();
+  assert.equal(result.code, 1);
+  assert.match(result.output, /undeclared.mjs.*not declared/);
+});
+
+test('declared staged paths pass as declarations, not authenticated approval', t => {
+  const f = stagedFixture(t, ['successor/service/file with spaces.mjs']);
+  f.source('successor/service/file with spaces.mjs');
+  f.git('add', 'successor/service/file with spaces.mjs');
+  const result = f.check();
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /1 staged path.*declared/);
+  assert.match(result.output, /approval is not authenticated/);
+});
+
+test('unstaged spec content cannot authorize staged implementation', t => {
+  const f = stagedFixture(t);
+  f.source('successor/service/example.mjs');
+  f.git('add', 'successor/service/example.mjs');
+  f.write(readFileSync(join(f.root, f.spec), 'utf8') + '\nUnstaged scope edit.\n');
+  const result = f.check();
+  assert.equal(result.code, 1);
+  assert.match(result.output, /spec differs from the index/);
+});
+
+test('staged renames require declarations for old and new paths', t => {
+  const f = stagedFixture(t);
+  f.source('successor/service/example.mjs');
+  f.git('add', 'successor/service/example.mjs');
+  f.git('commit', '--quiet', '-m', 'Fixture source');
+  f.git('mv', 'successor/service/example.mjs', 'successor/service/renamed.mjs');
+  assert.match(f.check().output, /renamed.mjs.*not declared/);
+});
+
+test('explicit base finds committed changes in a clean CI checkout index', t => {
+  const f = stagedFixture(t);
+  f.source('successor/service/undeclared.mjs');
+  f.git('add', 'successor/service/undeclared.mjs');
+  f.git('commit', '--quiet', '-m', 'Fixture change');
+  assert.match(f.check('--base', f.base).output, /undeclared.mjs.*not declared/);
+  assert.equal(f.check('--base', 'not-a-sha').code, 1);
+});
+
+test('declared deletion is checked and untracked or unstaged files stay outside staged scope', t => {
+  const f = stagedFixture(t);
+  f.source('successor/service/example.mjs');
+  f.source('successor/service/unstaged.mjs');
+  f.git('add', 'successor/service/example.mjs', 'successor/service/unstaged.mjs');
+  f.git('commit', '--quiet', '-m', 'Fixture source');
+  f.git('rm', 'successor/service/example.mjs');
+  f.source('untracked.mjs');
+  f.source('successor/service/unstaged.mjs', 'export const value = 2;\n');
+  const result = f.check();
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /1 staged path.*declared/);
+  assert.match(result.output, /Unstaged and untracked files are excluded/);
+});
+
+test('staged mode requires an implementation spec and rejects wildcard scope', t => {
+  const f = stagedFixture(t, ['successor/**']);
+  assert.equal(f.run('--staged').code, 1);
+  assert.equal(f.run('--base', f.base).code, 1);
+  assert.match(f.check().output, /exact repository-relative file paths/);
+});
