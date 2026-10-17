@@ -1,0 +1,1 @@
+Executable=/private/tmp/fort058-first-wave-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOS.app/FortiOS

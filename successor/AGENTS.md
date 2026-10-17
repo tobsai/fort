@@ -1,6 +1,37 @@
 # Spec 058 successor
 
-## Current handoff — separate approved interactive owner demo
+## Current handoff — first-wave source and fixture lifecycle
+
+The first-wave source is committed through
+`1a3e5bdc4902ba7fdf4c936730174754f6a6b2e6`; its settings/image predecessor is
+`60675b5fd8b4cc6c9e86cca188ee684628c84e0a`. Read
+[FIRST-WAVE-20261017.md](FIRST-WAVE-20261017.md) and
+[the evidence](evidence/2026-10-17-first-wave/README.md).
+119 service/runtime tests, 50 Swift tests, strict typechecking, fresh Mac/iPhone
+Simulator builds and signature checks pass. Installed screenshot/accessibility,
+file-picker behavior and actual model discovery remain open. The new Mac build is
+ad-hoc signed and has no user-selected-file entitlement; do not change permissions
+or treat fixture image tests as installed file-picker acceptance.
+
+The owner explicitly changed pairing to **no default expiry**, with optional expiry
+and easy disconnect/uninstall. The thirty-day proposal is superseded. The new
+owner-local policy and stop/revoke/removal ordering are fixture-tested only; no
+persistent setup has been activated. The real owned-host launcher/removal adapter
+is still absent and uninstall is disabled in ordinary native construction. Keep
+history by default; deletion requires a separate explicit choice. Confirm exact
+persistent access scope once when setup is concrete. No login startup, other-device
+access or tool/network expansion is authorized by this preparation.
+
+The coordinator relayed that the owner reported the separate demo working at
+21:24 UTC. That is basic chat acceptance, not first-wave/MVP signoff. Its preparation
+notes below are historical and do not authorize a replay; this implementation turn
+has not independently verified its final cleanup. Preserve all demo records,
+credentials' historical lifecycle evidence and old source/app pins. Do not start,
+reenroll, reset or reseal any historical packet. Continue ordinary isolated source,
+fixture and build work; no new provider/account access, persistent credential,
+security setting, deployment or provider cleanup is authorized here.
+
+## Historical preparation — separate approved interactive owner demo
 
 The owner approved one new ten-minute interactive session at 2026-10-17
 21:00:19 UTC, message `Sentinel_f671f601a3148191bae54d2de3b281c1`. Read
@@ -20,7 +51,7 @@ The nine consumed packets and every historical approval/pin stay preserved.
 Historical activation source pins are intentionally not updated to this revision.
 The first fresh operator invocation failed before the root/session directory was
 created. All native/cache evidence stayed unchanged; no runtime, enrollment or
-session clock started. The action remains unused. Read the startup-repair evidence
+session clock started. At that point the action remained unused. Read the startup-repair evidence
 and current manual: use supported permission escalation for --check-writes and the
 attended launcher from the operator workspace. A permission refusal before durable
 session creation is repairable under the same approval, not a consumed credential.

@@ -1,0 +1,815 @@
+2026-10-17 16:53:09.040 xcodebuild[28855:1180108]  DVTErrorPresenter: Unable to load simulator devices.
+Domain: DVTCoreSimulatorAdditionsErrorDomain
+Code: 3
+Failure Reason: The version of the CoreSimulator framework installed on this Mac is out-of-date and not supported by this version of Xcode.
+Recovery Suggestion: Please ensure that you have installed all available updates to your Mac's software, and that you are running the most recent version of Xcode supported by macOS.
+--
+CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2).
+Domain: DVTCoreSimulatorAdditionsErrorDomain
+Code: 3
+--
+
+2026-10-17 16:53:09.040 xcodebuild[28855:1180108]  iOSSimulator: [SimServiceContext sharedServiceContextForDeveloperDir:error:] returned nil (Error Domain=DVTCoreSimulatorAdditionsErrorDomain Code=3 "CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2)." UserInfo={NSLocalizedDescription=CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2).}). Simulator device support disabled.
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -project successor/apple/FortSpec058.xcodeproj -scheme FortMac -destination platform=macOS -derivedDataPath /tmp/fort058-first-wave-mac-20261017 -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PRODUCT_BUNDLE_IDENTIFIER=io.fort.candidateb.mac
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = -
+    CODE_SIGNING_ALLOWED = YES
+    DEVELOPMENT_TEAM =
+    PRODUCT_BUNDLE_IDENTIFIER = io.fort.candidateb.mac
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  FortKit: /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006001-000429402202801E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006001-000429402202801E, name:My Mac }
+note: Using codesigning identity override: -
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (3 targets)
+    Target 'FortMac' in project 'FortSpec058'
+        ➜ Explicit dependency on target 'FortKit-product' in project 'FortKit'
+    Target 'FortKit-product' in project 'FortKit'
+        ➜ Explicit dependency on target 'FortKit' in project 'FortKit'
+    Target 'FortKit' in project 'FortKit' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: eae5ab02116fdfb5542406e8180b7ee2
+Build description path: /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/XCBuildData/eae5ab02116fdfb5542406e8180b7ee2.xcbuilddata
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/CompilationCache.noindex
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/CompilationCache.noindex
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -o /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Products
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Products
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/PrecompiledHeaders
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/PrecompiledHeaders
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml
+
+CreateBuildDirectory /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-create-build-directory /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftConstValuesFileList (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_const_extract_protocols.json (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.LinkFileList (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.LinkFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-OutputFileMap.json (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyStaticMetadataFileList (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyMetadataFileList (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-project-headers.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-project-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-own-target-headers.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-own-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-generated-files.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-generated-files.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-target-headers.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-non-framework-target-headers.hmap (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibPath-normal-arm64.txt (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibInstallName-normal-arm64.txt (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibInstallName-normal-arm64.txt
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/Entitlements.plist (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/Entitlements.plist
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_const_extract_protocols.json (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftConstValuesFileList (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.LinkFileList (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.LinkFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-OutputFileMap.json (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.modulemap (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.modulemap
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyStaticMetadataFileList (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyMetadataFileList (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    write-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyMetadataFileList
+
+MkDir /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS
+
+MkDir /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents
+
+MkDir /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/GeneratedModuleMaps/FortKit.modulemap /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.modulemap (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.modulemap /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/GeneratedModuleMaps
+
+SwiftDriver FortKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -parse-as-library -module-name FortKit -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -package-name fortkit -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_const_extract_protocols.json -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ptrcheck-ANP3I4IACQQR5T51E9OJVWYFJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-1VYUE6LA9BTN1LOI35EIZA356.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_AvailabilityInternal-5KVHNUU4ZFBZ0NGGER0YEKQ2A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stddef-7LC3LG5A6N6842T2CESMWJ6YC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DeveloperToolsSupport-D50ZWNJKRSUOA6WI2Z24YO0KB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftShims-BE4ARRNOKUYFSRG1B4CV26012.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdarg-A0XCE4RAJB14R7KG3UXITXRY8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_float-4IVDO6BPO8T77HQP6LCO7HB9Y.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdbool-5HEVDFHWITJV2U53HB4R0MBI9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ptrauth-7RSO6C7IQLS03EAKTNGCVYUGU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation1-3WKM3DDI7NUAYG05S57Z0U57W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation2-BRWUVQDRTEC9F553A1ZSYAU2I.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_limits-5AMT04CVFKJ4RYZOMJMOKPIBN.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/string_h-7HCS1T2W6V4O9GX7IKTDSFOIJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdint-9ZUZPEF4FBM4AR150KB8PLZ18.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/sys_types-2DZR3DRE6CVZCQVBLZ26KFD6S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_tgmath-2FK310BVYAO10X4PMZH32UO78.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_intrinsics-BNQCU329E4OVO7QVN5DTY7E7Z.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/libDER-EWEX9WQK58YWTVMF95GNBAWTB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdatomic-E9KUF8NMVLSSCEQT46S4RXZ7Y.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation3-2SDR2CB1VTU64BL3I4JJPAKD6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_inttypes-CAH5DY0BX7IDJ8IRDSA1AVGFR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/simd-41IXPYVWBWMK647QDCAUJIMYR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Darwin-CD3O5AGA9CHWB0DDQVWKQOHEK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CUPS-ADGE2BESF9UTBIT2UZZL8NJZ8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/MachO-1O3NN2II7NN2GWO7NRGP9O5HM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/launch-3OK5FKMVPCQQM5EWMG0LDTV0Z.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/libkern-DBPA64346FH6FUC87RLPD0LT2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Spatial-EOB18QQUXXS7M10UY8EKMGE40.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ObjectiveC-D2ZE2JJ4NECEELRP78GBQCNJM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os_object-EK752T0SKTMJ6IWL5PO61L7K4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os_workgroup-5Z74W3XCLVWRT3J11OMJVP6JV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Dispatch-22KIJDBUPUVZCDRLO7HU17D5R.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreFoundation-7J152EGQINHNS88E7J8WVELBF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/XPC-3S6WBRWKM69IPF014GDVDO2XK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os-C146UBX3R7TT4U0UA5QS175KT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Security-6L7HL6J6S0ZBSRYAK40V1PX0S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreAudioTypes-9JXYWFK5S6DBSU2804YO8GHH0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CFNetwork-9F0J4NMIAI40TYLDZ8EHTKJHP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ColorSync-1LHGKPNP9XICNFWP7MNHN7XTB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/IOKit-B5628GL6D6IA8HDZTVMDGM7XR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DiskArbitration-28GTU3E9HU6Z2E0AROYPOA4HS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreGraphics-BP8HL4VYLUVO2P8OC75KX291C.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreServices-79UAGCMHO8ZBE5IROF4VX0VT8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ImageIO-5NPB45Y8WNXW4SAT62YXMLMGD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreText-BFXRKRN7SHD8K0QBH66N5EC6B.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Foundation-8UX98DX3VWSN6CF5OQKHG10AV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/LocalAuthentication-78F3A7WC2XXV60QID778Z09VV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Symbols-2E973DV5OST143WA43V3IT841.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Accessibility-38OVUMCULW0OY3VEDRI9YH5IJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DataDetection-2KXYMAGIMKW5QXJ70K19M9O2P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreData-CGP7JDU79VUDT9W9HE4JRGJFA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-1JVZMF5BI0DV7MKHUEAM4JF24.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ApplicationServices-F26NRW0MWG1W22ANAIH1QOXF1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreAudio-3APOBXXOC3XWHQT91FZGZFIQ8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreTransferable-2VHQPB0CKGDMI6U2YDMPC0T4Q.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/IOSurface-2UQS98LGY6OEMGC8MNQPO6KN3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/OSLog-3EEK09HK817MM8JNYBSTMDSL1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Metal-1Y7KME9ADQ4B0QAVKMHVNNHXY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/OpenGL-9O6VQAEMEREL8ERZ4R7KE3BA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreVideo-BA6XUZP4JQVWM1SMN29NH7ZSC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/QuartzCore-15RQ9H53FZCZZPKDRD181D6H3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreImage-5DEM0APDCEXBE8KZMA8APCE5Q.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreMedia-7LHHV3GQIAIZ5QH3EZSAS2HNN.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUICore-CUR5RWPI37DRMEEE0IWNNZBAW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/AppKit-2LCBOQEBUCOX8RXSZ6MITTLAU.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUICore-2GBE2X7EJHQCS.swiftmodule
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUI-AAZ5ETR82HP9KQBDD2UFTDW3F.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/AppKit-SX9EQ2SYU4DJ.swiftmodule
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUI-OFHN5S36SCK0.swiftmodule
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ FortKit (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+
+
+SwiftCompile normal arm64 Compiling\ FortClient.swift,\ LocalChatImages.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/FortClient.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/LocalChatImages.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/FortClient.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile FortClient.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/LocalChatImages.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile LocalChatImages.swift
+
+SwiftCompile normal arm64 Compiling\ OfflinePreview.swift,\ OwnerLifecycle.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/OfflinePreview.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/OfflinePreview.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile OfflinePreview.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile OwnerLifecycle.swift
+
+SwiftCompile normal arm64 Compiling\ PairingSettings.swift,\ PendingStore.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/PairingSettings.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/PendingStore.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/PairingSettings.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile PairingSettings.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/PendingStore.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile PendingStore.swift
+
+SwiftCompile normal arm64 Compiling\ RoutineLibrary.swift,\ ScheduleLibrary.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/RoutineLibrary.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/ScheduleLibrary.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/RoutineLibrary.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile RoutineLibrary.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/ScheduleLibrary.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile ScheduleLibrary.swift
+
+SwiftCompile normal arm64 Compiling\ TranscriptRows.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/TranscriptRows.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/TranscriptRows.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile TranscriptRows.swift
+
+SwiftCompile normal arm64 Compiling\ SkillBundleLibrary.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/SkillBundleLibrary.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/SkillBundleLibrary.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile SkillBundleLibrary.swift
+
+SwiftCompile normal arm64 Compiling\ MessengerModel.swift,\ MessengerView.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/MessengerModel.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/MessengerView.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/MessengerModel.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile MessengerModel.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/MessengerView.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile MessengerView.swift
+
+SwiftCompile normal arm64 Compiling\ AgentAvatar.swift,\ AgentSettings.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/AgentAvatar.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/AgentSettings.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/AgentAvatar.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile AgentAvatar.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/AgentSettings.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile AgentSettings.swift
+
+SwiftCompile normal arm64 Compiling\ WorkspaceEditor.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/WorkspaceEditor.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/WorkspaceEditor.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile WorkspaceEditor.swift
+
+SwiftCompile normal arm64 Compiling\ Contract.swift,\ DeviceStorage.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/Contract.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/Contract.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile Contract.swift
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-SwiftPerFileCompile DeviceStorage.swift
+
+SwiftDriverJobDiscovery normal arm64 Compiling TranscriptRows.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for FortKit (in target 'FortKit' from project 'FortKit')
+
+SwiftDriver\ Compilation\ Requirements FortKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -parse-as-library -module-name FortKit -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -package-name fortkit -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_const_extract_protocols.json -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/GeneratedModuleMaps/FortKit-Swift.h /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-Swift.h (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-swiftHeaderTool -arch arm64 /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-Swift.h -o /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/GeneratedModuleMaps/FortKit-Swift.h
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.swiftmodule /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.swiftmodule
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.swiftdoc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftdoc (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftdoc /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.abi.json /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.abi.json (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.abi.json /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftsourceinfo (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftsourceinfo /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+ProcessProductPackaging "" /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Entitlements:
+
+    {
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.get-task-allow" = 1;
+    "com.apple.security.network.client" = 1;
+}
+
+    builtin-productPackagingUtility -entitlements -format xml -o /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent
+
+ProcessProductPackagingDER /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent.der (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /usr/bin/derq query -f xml -i /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent -o /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent.der --raw
+
+SwiftDriver FortMac normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMac -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-generated-files.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-own-target-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-project-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling OfflinePreview.swift, OwnerLifecycle.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftShims-2HTFTODRCNZKBHXMU8SZAIS54.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ptrcheck-6RJ4IKNQNJP91W33XZTODOU4I.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdarg-3LHACPC1OILB4V9C0KE52317M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stddef-1DCE9OT26GR3J85GBRCCRJI8S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_float-1QH0CKZCHMYI9LUSSQVB2L0L1.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling Contract.swift, DeviceStorage.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DeveloperToolsSupport-34AJ5UAC85NDOONHRTVX5P5A7.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_AvailabilityInternal-T37RU93H7QWSG0B1GVOY1KTI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-BXF6WDOYI8LZF6ZS8Z5LOBMXN.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdbool-E7QSLZU0KPT1C76SEFF92DD36.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ptrauth-4YO3XJX4GS2P8WA9PBTDPRU99.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation1-4BQF7E8BP2NPWT1Y0SI20P39T.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation2-71FDLAPLP9PCXMQL2MHYE3EMB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_limits-69SDTROT99B3NM2KHY03OXNVT.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling AgentAvatar.swift, AgentSettings.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftDriverJobDiscovery normal arm64 Compiling PairingSettings.swift, PendingStore.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftDriverJobDiscovery normal arm64 Compiling FortClient.swift, LocalChatImages.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/sys_types-58Z5DNB1FPI4QCEF8X143RXGS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdint-3VAM66EASL2LDH9RE8SKHZJ1J.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/string_h-3OMKBVWSZK8RBFC2VK8XUZN8D.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_tgmath-EZ6ZR1H46ZVYX7AGZLDFVNYK4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_DarwinFoundation3-3KJ8SVSPB8EGOTILCGPR1SC38.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_intrinsics-518A68YSTOXKF46BDVUS744W8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_stdatomic-URDQ0AR8CJCV8NX2K7P1H9UH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/libDER-4CAIDESKRU2F34GP97ULS6LRY.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling WorkspaceEditor.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/_Builtin_inttypes-665KNHIBK6PU7TSK0YAT8QW78.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Darwin-1R6ER2NWM0230QHMDPZ3X3ZG.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling SkillBundleLibrary.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RoutineLibrary.swift, ScheduleLibrary.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/simd-80WXZEK0NRBJ4YAR62W6PQOGH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/launch-5I48BSV9OSGYALJAM5YMJJELL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/libkern-2JZUSLEKQS0K7RQMQDSPK6VMV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CUPS-3QWFFBGE4K3UCDOD0LA5WJBT0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/MachO-5J3XX8GABSZBFKE4JIRK5MHZW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ObjectiveC-BJ1QNR1Y0B0PHCCFN4B8PBTZX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Spatial-4OELV4HC0JFR0V40PBSPN798T.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os_object-8TMSRLY3URDI2DP9HP8V89ZVF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os_workgroup-BDG8S6WIQRML3YRN45OYPJU59.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Dispatch-2P9CLFEPLU4H8476SUK1M81IQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreFoundation-CFRSI5I22V3JXZDSXFT7MC50Y.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/XPC-1SE5MY7UJCFBZDMGPW5QQUC1B.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/os-25BEUSVZMANXJJ2VH3OE4V6QD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreAudioTypes-8EJQDOR214AISZ5LGDU42IVNX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Security-CNLSDXCWNZ2OMW42GRMI4XVKK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ColorSync-4EZ9HF4POCMIZSAM9HALPGVVV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/IOKit-13ULOI10MXGXYHYOZYGSGHNUD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CFNetwork-43JBFSMJ4E7U0XBSJIWQ8A8XJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreGraphics-A6LXF7D0DU3GTH5SOLAGAIVTM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DiskArbitration-ECNCIXBKO7J64ZLV02T01CKY9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreServices-7Z52QH7FEB3KUSD2B7T13UJ2W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ImageIO-COYQ1H3M9OT89TFQKZEI9NETO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreText-ATA2FKZX3UPCNE6G4S10UZ4XG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Foundation-2IPYG4AXH4UU8ZAK8B54QOT30.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/DataDetection-9VR6RAO0KSWZ4GIOJ8SAR34EA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/OSLog-673O1SQZDFV7NB5TZLRTHLII6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Symbols-595S1QQD3Z4M1PID1YHXQH7I1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreAudio-AIG56MV7V2EDFF3516COLQ72.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/IOSurface-CSW0VP6YEIRWV2689NNIC1BO6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-8TMWH3BR04WIPGYTJ36GSO40P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/ApplicationServices-9EATUF8KV7DJE4F2TJSAEMG4Y.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/LocalAuthentication-F2396LWC9Z3W4PJ6WAOY8M0FZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreData-CO91EFDCZY1TLTIUX239KN7S5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Accessibility-8ZPGYAD5WJ7V7LA3QVWI989LU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreTransferable-1GQJ7DKMCHKSZM1NMJ30943Y9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/Metal-BGQRFW7P5ARLFCWX6HTH376QR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/OpenGL-AVS3S83FAOVPF7KWA0HQ5NN6D.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling MessengerModel.swift, MessengerView.swift (in target 'FortKit' from project 'FortKit')
+
+SwiftDriver\ Compilation FortKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -parse-as-library -module-name FortKit -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -package-name fortkit -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_const_extract_protocols.json -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.o normal (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -F/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.swiftmodule -o /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.o
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreVideo-967LD8Q7PT64X0ROELXI1XU89.pcm
+
+ExtractAppIntentsMetadata (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name FortKit --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk --xcode-version 27A9275 --platform-family macOS --deployment-target 14.0 --bundle-identifier io.fort.candidateb.mac --output /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.appintents --target-triple arm64-apple-macos14.0 --binary-file /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.o --dependency-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit_dependency_info.dat --stringsdata-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftFileList --metadata-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyMetadataFileList --static-metadata-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/FortKit.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortKit.build/Debug/FortKit-t.build/Objects-normal/arm64/FortKit.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-17 16:53:30.380 appintentsmetadataprocessor[29399:1182248] Starting appintentsmetadataprocessor export
+2026-10-17 16:53:30.430 appintentsmetadataprocessor[29399:1182248] Extracted no relevant App Intents symbols, skipping writing output
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/QuartzCore-CD2M9DUGF6H6Y9RW8REBIZNY3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreImage-4VLG19C7272S4BFK84G23Z5PR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/CoreMedia-9P3M1D71IFTEB7DMBOQW1ZGN4.pcm
+
+CodeSign /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.o (in target 'FortKit' from project 'FortKit')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortKit.o
+
+ProcessInfoPlistFile /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Info.plist /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-infoPlistUtility /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist -producttype com.apple.product-type.application -genpkginfo /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/PkgInfo -expandbuildsettings -platform macosx -o /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Info.plist
+
+Ld /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/__preview.dylib normal (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -install_name @rpath/FortMac.debug.dylib -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_dependency_info.dat -Xlinker -no_adhoc_codesign -o /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/__preview.dylib
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUICore-3VN84ZJ57G3UAO1H5Z9TX5P1J.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/AppKit-3QPMBETV1M0OQL3NMVTRY540G.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUICore-3M074NQYIBUNR.swiftmodule
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUI-C04AQAGXBIL8Y1OO9M2SGEY8Q.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/AppKit-17029OAPYGP9Q.swiftmodule
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules/SwiftUI-V0LJLF7QXPYL.swiftmodule
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ FortMac (in target 'FortMac' from project 'FortSpec058')
+
+SwiftCompile normal arm64 (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+
+SwiftCompile normal arm64 Compiling\ FortApp.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/Apps/FortApp.swift (in target 'FortMac' from project 'FortSpec058')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/Apps/FortApp.swift (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-SwiftPerFileCompile FortApp.swift
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for FortMac (in target 'FortMac' from project 'FortSpec058')
+
+SwiftDriver\ Compilation\ Requirements FortMac normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMac -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-generated-files.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-own-target-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-project-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/FortMac-Swift.h /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-Swift.h (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-swiftHeaderTool -arch arm64 /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-Swift.h -o /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/FortMac-Swift.h
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.abi.json /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.abi.json (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.abi.json /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.swiftmodule /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.swiftmodule
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.swiftdoc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftdoc (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftdoc /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftsourceinfo (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftsourceinfo /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling FortApp.swift (in target 'FortMac' from project 'FortSpec058')
+
+SwiftDriver\ Compilation FortMac normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMac -Onone @/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-first-wave-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-first-wave-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-first-wave-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-generated-files.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-own-target-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-project-headers.hmap -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib normal (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -L/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F/tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -filelist /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.LinkFileList -install_name @rpath/FortMac.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path -Xlinker -rpath -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/../Frameworks -Xlinker -object_path_lto -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.swiftmodule -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -Xlinker -no_adhoc_codesign -o /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib
+
+ConstructStubExecutorLinkFileList /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-ExecutorLinkFileList-normal-arm64.txt (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    construct-stub-executor-link-file-list /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'FortMac' from project 'FortSpec058')
+
+Ld /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac normal (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -F/tmp/fort058-first-wave-mac-20261017/Build/Products/Debug -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @loader_path -Xlinker -rpath -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/../Frameworks -rdynamic -Xlinker -no_deduplicate -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac-ExecutorLinkFileList-normal-arm64.txt /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib -Xlinker -no_adhoc_codesign -o /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac
+
+ExtractAppIntentsMetadata (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name FortMac --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk --xcode-version 27A9275 --platform-family macOS --deployment-target 14.0 --bundle-identifier io.fort.candidateb.mac --output /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Resources --target-triple arm64-apple-macos14.0 --binary-file /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac --dependency-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac_dependency_info.dat --stringsdata-file /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftFileList --metadata-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyMetadataFileList --static-metadata-file-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/Objects-normal/arm64/FortMac.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-17 16:53:37.782 appintentsmetadataprocessor[29435:1182442] Starting appintentsmetadataprocessor export
+2026-10-17 16:53:37.783 appintentsmetadataprocessor[29435:1182442] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+CopySwiftLibs /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib --scan-folder /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Frameworks --scan-folder /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/PlugIns --scan-folder /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Library/SystemExtensions --scan-folder /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib
+
+CodeSign /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/__preview.dylib (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/__preview.dylib
+
+CodeSign /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --entitlements /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent --timestamp\=none --generate-entitlement-der /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app
+
+RegisterExecutionPolicyException /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-RegisterExecutionPolicyException /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app
+
+Validate /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-validationUtility /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+Touch /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /usr/bin/touch -c /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app
+
+RegisterWithLaunchServices /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-lsregisterurl --record-path /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/XCBuildData/registered-launchservices.txt -- /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /tmp/fort058-first-wave-mac-20261017/Build/Products/Debug/FortMac.app
+
+PruneExplicitPrecompiledModules /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/fort058-first-wave-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/fort058-first-wave-mac-20261017/SDKExplicitPrecompiledModules
+
+** BUILD SUCCEEDED **

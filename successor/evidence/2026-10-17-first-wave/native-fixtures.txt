@@ -1,0 +1,113 @@
+Building for debugging...
+[1 / 10]
+[2 / 5] FortKitTests-product
+[4 / 7] FortKitTests-product
+[10 / 12] FortKitTests-product
+Build complete! (1.77 sec)
+Test Suite 'All tests' started at 2026-10-17 16:52:06.040.
+Test Suite 'All tests' passed at 2026-10-17 16:52:06.042.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test offlinePendingCancellationIsAcknowledgedWithoutSubmittingAfterRelaunch() started.
+◇ Test nativeRefusesInsecureNonLoopbackEndpoint() started.
+◇ Test pendingCancellationSurvivesLostAcceptanceAndLostCancelResponseAcrossRelaunches() started.
+◇ Test nativeLifecycleRejectsUnconfirmedStopAndRetriesOnlyLocalCredentialCleanupAfterRelaunch() started.
+◇ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() started.
+◇ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() started.
+◇ Test uninstallStopsBeforeRemovingAppWhenCredentialRemovalFails() started.
+◇ Test modelPickerKeepsMissingSelectionAndNeverSubstitutesAfterDiscoveryFailure() started.
+◇ Test openAIWorkspaceRequiresExplicitSharedRecipientAndRestoresSelectionOffline() started.
+◇ Test transcriptRetainsApprovalsAndRunsWithoutMessagesExactlyOnce() started.
+◇ Test nativeRoutinePendingReplaysPinnedInputsAfterLostAcknowledgementAndRelaunch() started.
+◇ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() started.
+◇ Test offlinePreviewNeverRestoresEnrollsOrSends() started.
+◇ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() started.
+◇ Test loadedWorkspaceFormsKeepTheirOriginalRevisionAcrossPolling() started.
+◇ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() started.
+◇ Test recoveryEpochPreventsAutomaticResubmission() started.
+◇ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() started.
+◇ Test legacyInstructionSkillsStayReadableButNeedMigrationBeforeNewInvocation() started.
+◇ Test agentSettingsPreserveLegacyIdentityAndPersistBundledAvatarAcrossRelaunch() started.
+◇ Test nativeOpenAIRunRecoveryControlsMatchAvailableActions() started.
+◇ Test transcriptPreservesInterleavedMessagesAndAssociatesStatusesByRequest() started.
+◇ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() started.
+◇ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() started.
+◇ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() started.
+◇ Test nativePinnedSkillReviewLoadsAndRevokesTheHistoricalRevisionWithoutDisablingCurrent() started.
+◇ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() started.
+◇ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() started.
+◇ Test openAIModelReplaysLostAcceptanceOnceWithOriginalRecipientAndSkillsAfterRestart() started.
+◇ Test localImageImportSurvivesRelaunchAndStaysInItsConversation() started.
+◇ Test avatarMotionIsStaticUnderReducedMotion() started.
+◇ Test installationsCannotSharePendingSubmissions() started.
+◇ Test cancellationWhileAcceptanceResponseIsInFlightIsNotLost() started.
+◇ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() started.
+◇ Test mismatchedCancellationAcknowledgementCannotErasePendingIntent() started.
+◇ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() started.
+◇ Test unreviewedOrDisabledBundleCannotBeSelectedForNativeSend() started.
+◇ Test utf8ByteLimitIsExact() started.
+◇ Test transcriptKeepsEachStatusBesideItsLastMessage() started.
+◇ Test unknownRunStateIsInformative() started.
+◇ Test pendingSharedMessageRetainsRecipientAndSelectedSkillRevisions() started.
+◇ Test uninstallRequiresOwnedHostProofAndKeepsHistoryByDefault() started.
+◇ Test nativeMemoryEditorPreservesItsLoadedRevisionAndPendingReplayKeepsTheAcceptedNote() started.
+◇ Test cancellationWaitsForRefreshThenUsesCurrentCompatibility() started.
+◇ Test failedCredentialRemovalKeepsConnectionForRecovery() started.
+◇ Test nativeRoutineGateRecognizesOnlyTheBoundedContinuationAuthority() started.
+◇ Test disconnectRemovesOnlyExactCredentialAndRestoresHistoryWithoutConnecting() started.
+◇ Test localImageDisplayRejectsRemoteLocationsSymlinksDirectoriesAndDisguisedFiles() started.
+◇ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() started.
+◇ Test nativeRuntimeRecoveryIsVisibleAndOnlyAnExplicitAvailableActionRestartsIt() started.
+✔ Test legacyInstructionSkillsStayReadableButNeedMigrationBeforeNewInvocation() passed after 0.003 seconds.
+✔ Test modelPickerKeepsMissingSelectionAndNeverSubstitutesAfterDiscoveryFailure() passed after 0.004 seconds.
+✔ Test nativeOpenAIRunRecoveryControlsMatchAvailableActions() passed after 0.003 seconds.
+✔ Test unsupportedContractAndRuntimeRemainReadableButCannotSubmit() passed after 0.003 seconds.
+✔ Test transcriptPreservesInterleavedMessagesAndAssociatesStatusesByRequest() passed after 0.003 seconds.
+✔ Test transcriptRetainsApprovalsAndRunsWithoutMessagesExactlyOnce() passed after 0.004 seconds.
+✔ Test avatarMotionIsStaticUnderReducedMotion() passed after 0.003 seconds.
+✔ Test snapshotsIgnoreStaleDeliveryAndRejectForeignInstallation() passed after 0.003 seconds.
+✔ Test sharedTypeScriptFixturesDecodeAndReplayInSwift() passed after 0.004 seconds.
+✔ Test unknownRunStateIsInformative() passed after 0.003 seconds.
+✔ Test pendingSharedMessageRetainsRecipientAndSelectedSkillRevisions() passed after 0.003 seconds.
+✔ Test malformedMessageSnapshotsCannotReplaceLastValidProjection() passed after 0.004 seconds.
+✔ Test incompatibleRequiredWireTypesFailDecodingWithoutReplacingCache() passed after 0.004 seconds.
+✔ Test recoveryEpochPreventsAutomaticResubmission() passed after 0.004 seconds.
+✔ Test additiveWireFieldsAndUnknownRunStatePreserveCanonicalText() passed after 0.003 seconds.
+✔ Test installationsCannotSharePendingSubmissions() passed after 0.004 seconds.
+✔ Test failedCredentialRemovalKeepsConnectionForRecovery() passed after 0.004 seconds.
+✔ Test pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() passed after 0.005 seconds.
+✔ Test utf8ByteLimitIsExact() passed after 0.005 seconds.
+✔ Test sharedApprovalSnapshotIsBoundToRunAndUnknownScopesStayDisabled() passed after 0.006 seconds.
+✔ Test nativeRoutineGateRecognizesOnlyTheBoundedContinuationAuthority() passed after 0.006 seconds.
+✔ Test nativeRefusesInsecureNonLoopbackEndpoint() passed after 0.009 seconds.
+✔ Test offlinePreviewNeverRestoresEnrollsOrSends() passed after 0.011 seconds.
+✔ Test localImageDisplayRejectsRemoteLocationsSymlinksDirectoriesAndDisguisedFiles() passed after 0.013 seconds.
+✔ Test localImageImportSurvivesRelaunchAndStaysInItsConversation() passed after 0.014 seconds.
+✔ Test agentSettingsPreserveLegacyIdentityAndPersistBundledAvatarAcrossRelaunch() passed after 0.015 seconds.
+✔ Test transcriptKeepsEachStatusBesideItsLastMessage() passed after 0.016 seconds.
+✔ Test disconnectRemovesOnlyExactCredentialAndRestoresHistoryWithoutConnecting() passed after 0.019 seconds.
+✔ Test uninstallStopsBeforeRemovingAppWhenCredentialRemovalFails() passed after 0.020 seconds.
+✔ Test uninstallRequiresOwnedHostProofAndKeepsHistoryByDefault() passed after 0.022 seconds.
+✔ Test openAIWorkspaceRequiresExplicitSharedRecipientAndRestoresSelectionOffline() passed after 0.026 seconds.
+✔ Test nativeLifecycleRejectsUnconfirmedStopAndRetriesOnlyLocalCredentialCleanupAfterRelaunch() passed after 0.055 seconds.
+✔ Test coldOfflineLaunchRestoresAgentHistoryAndPendingBeforeNetwork() passed after 0.057 seconds.
+✔ Test permanentPendingConflictDoesNotSuppressTranscriptRefresh() passed after 0.064 seconds.
+✔ Test incompatibleContractKeepsHistoryReadableAndSendsNoOwnerMutations() passed after 0.065 seconds.
+✔ Test acceptedSnapshotSurvivesImmediateDisconnectAndColdRestart() passed after 0.080 seconds.
+✔ Test sendPersistsImmediatelyWhileBackgroundRefreshWaits() passed after 0.085 seconds.
+✔ Test loadedWorkspaceFormsKeepTheirOriginalRevisionAcrossPolling() passed after 0.098 seconds.
+✔ Test nativePinnedSkillReviewLoadsAndRevokesTheHistoricalRevisionWithoutDisablingCurrent() passed after 0.112 seconds.
+✔ Test nativeRuntimeRecoveryIsVisibleAndOnlyAnExplicitAvailableActionRestartsIt() passed after 0.122 seconds.
+✔ Test cancellationWhileAcceptanceResponseIsInFlightIsNotLost() passed after 0.130 seconds.
+✔ Test offlinePendingCancellationIsAcknowledgedWithoutSubmittingAfterRelaunch() passed after 0.137 seconds.
+✔ Test confirmedClosureWaitsForRefreshThenUsesCurrentCompatibility() passed after 0.142 seconds.
+✔ Test cancellationWaitsForRefreshThenUsesCurrentCompatibility() passed after 0.142 seconds.
+✔ Test openAIModelReplaysLostAcceptanceOnceWithOriginalRecipientAndSkillsAfterRestart() passed after 0.144 seconds.
+✔ Test nativeRoutinePendingReplaysPinnedInputsAfterLostAcknowledgementAndRelaunch() passed after 0.145 seconds.
+✔ Test unreviewedOrDisabledBundleCannotBeSelectedForNativeSend() passed after 0.147 seconds.
+✔ Test mismatchedCancellationAcknowledgementCannotErasePendingIntent() passed after 0.154 seconds.
+✔ Test pendingCancellationSurvivesLostAcceptanceAndLostCancelResponseAcrossRelaunches() passed after 0.155 seconds.
+✔ Test nativeMemoryEditorPreservesItsLoadedRevisionAndPendingReplayKeepsTheAcceptedNote() passed after 0.161 seconds.
+✔ Test run with 50 tests in 0 suites passed after 0.162 seconds.

@@ -22,8 +22,7 @@ or generate images. The original selected files remain untouched.
 
 The owner superseded the proposed thirty-day pairing default in message
 Sentinel_102d9824b0e48191be308694aeb42dc3: pairing should have no default expiry,
-with optional expiry settings and straightforward removal/uninstall. Prepare and
-fixture-test that lifecycle separately. Actual owner setup must confirm its exact
+with optional expiry settings and straightforward removal/uninstall. The explicit owner-local lifecycle is now implemented and fixture-tested. Actual owner setup must confirm its exact
 access scope once; do not activate persistent credentials while implementing it.
 Stop/Disconnect preserve history. Uninstall must confirm owned-host shutdown and
 revoke pairing before removing the exact app; keep history by default and require
@@ -37,9 +36,21 @@ bundled animation; `LocalChatImages.swift` owns device-local previews. Durable a
 configuration remains in the existing SQLite prototype ledger. A separately owned
 local host launcher and actual persistent setup remain planned, not installed.
 
-Validation to date: 114 affected service/runtime tests and 45 native tests pass,
-including restart, prior-revision preservation, unavailable-model handling, local
-image scope/relaunch and rejection of URLs, symlinks, disguised and oversized files.
-Installed screenshots, accessibility, file-picker entitlement behavior, actual
-model discovery and persistent lifecycle signoff remain unverified. Existing demo
-source/app pins and ledgers are historical evidence and are not resealed here.
+The owner-local pairing mode is opt-in on a fresh ledger and currently appears only
+in fixtures. It allows one paired device and persists either no expiry or a chosen
+1–365-day expiry; it cannot extend/adopt bounded-demo credentials. Authenticated
+stop/disconnect await runtime disposal before successful revocation. Native removal
+uses the exact Keychain account, retains history and records incomplete local cleanup
+for retry. `OwnerLifecycle` orders host-exit/revocation proof, credential removal and
+app removal, with a separate history-deletion choice. Its real owned-host adapter is
+still absent, so uninstall remains disabled in ordinary app construction.
+
+Validation: 119 affected service/runtime tests, 50 native tests, strict TypeScript
+checking, fresh Mac and iPhone Simulator builds, and strict signature checks pass.
+The builds use source `1a3e5bdc4902ba7fdf4c936730174754f6a6b2e6`; the prior
+settings/image source is `60675b5fd8b4cc6c9e86cca188ee684628c84e0a`.
+Read [the evidence and remaining gates](evidence/2026-10-17-first-wave/README.md).
+Installed screenshots/accessibility, file-picker access, real model discovery,
+owned-host exit/recovery and persistent activation remain unverified. The fresh
+Mac build has no user-selected-file entitlement; no security configuration changed.
+Historical demo pins/ledgers remain preserved and are not resealed here.
