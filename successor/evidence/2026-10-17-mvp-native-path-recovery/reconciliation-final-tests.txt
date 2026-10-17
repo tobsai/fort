@@ -1,0 +1,30 @@
+✔ verified reconciliation preserves the consumed state and lock bytes and releases only the unused session gate (8.792167ms)
+✔ reconciliation refuses state without changing the state or retained lock (2.282375ms)
+✔ reconciliation refuses lock without changing the state or retained lock (2.449666ms)
+✔ reconciliation refuses app without changing the state or retained lock (2.316666ms)
+✔ reconciliation refuses runtime without changing the state or retained lock (2.294416ms)
+✔ reconciliation refuses listener without changing the state or retained lock (1.9135ms)
+✔ reconciliation refuses pending without changing the state or retained lock (2.466208ms)
+✔ reconciliation refuses connection without changing the state or retained lock (2.188042ms)
+✔ reconciliation refuses pairing without changing the state or retained lock (2.324416ms)
+✔ reconciliation refuses devices without changing the state or retained lock (2.069583ms)
+✔ reconciliation refuses enrollment without changing the state or retained lock (2.274042ms)
+✔ reconciliation refuses ledger identity without changing the state or retained lock (2.099208ms)
+✔ reconciliation refuses deadline without changing the state or retained lock (1.74275ms)
+✔ reconciliation refuses active run without changing the state or retained lock (2.26125ms)
+✔ reconciliation refuses missing run without changing the state or retained lock (2.028709ms)
+✔ reconciliation refuses before expiry without changing the state or retained lock (2.227792ms)
+✔ reconciliation refuses next session without changing the state or retained lock (2.12775ms)
+✔ a changed original state, record or archived lock invalidates the next-session gate (8.554917ms)
+✔ editing the original cleanup flag cannot bypass an existing reconciliation record (3.404708ms)
+✔ inspection does not release the lock; interrupted recording resumes without replacing evidence (3.998333ms)
+✔ changed scope, reset counts and mutation during inspection cannot release the lock (4.530625ms)
+✔ ledger inspection reads cleanup metadata without creating credentials or changing SQLite files (106.408917ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 291.284625

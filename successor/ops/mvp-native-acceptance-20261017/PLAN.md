@@ -1,28 +1,25 @@
-# Proposed native acceptance batch — October 17
+# Approved native acceptance batch — October 17
 
-Preparation only. The owner has not approved the three temporary enrollments.
-No session root, credential, provider process or installed UI session was created.
-Launcher/service source: `2cbe35323b6aa3b3b5ad35e20ced8c71b7bf5ce8`.
+The owner approved the unchanged three-session scope at 2026-10-17 15:32:58 UTC.
+The separate local `owner-approval.json` records user message
+`Sentinel_c9ad1471c1088191a9141d2ed2797c03`; the original proposal snapshot is retained.
+Current launcher source: `409a11eaa7752d39b26ff33d89305648e6865b7d`.
 Unchanged native artifact source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
-The runtime stop/restart fix is independently reviewable at
-`99ab5bc449c71f39d6e0fb835b8ac15166ff5014`. Source/app/scope pins are in `pins.json`.
-The instruction-skill migration is already committed at
-`a524c4a6fbe4d53e9f8e514a5e89a71f8cda8968` and included in these builds.
+Source/app/scope pins are in `pins.json`; its `activationAuthorized: false` means the
+seal itself does not grant authority. The separate owner record supplies authority.
 
-Run these commands from the worktree root. They inspect files and run only the
-preparation checker's small unit suite:
+Session 1 is consumed and remains recorded as blocked: one launch, one restart,
+three completed receipts. Memory, same-Home history and app-only relaunch passed;
+service/runtime restart failed on incorrect native path/process checks. The operator
+completed scoped cleanup. A separate verified cleanup reconciliation now permits
+session 2, then session 3 after session 2 cleanup. Both remain unstarted. Do not
+replay session 1's unfinished checklist or transfer its unused limits.
 
-```sh
-/opt/homebrew/bin/python3 -B successor/ops/mvp-native-acceptance-20261017/test_check.py
-/opt/homebrew/bin/python3 -B successor/ops/mvp-native-acceptance-20261017/check.py --check
-```
-
-A successful check reports `preparationChecks: passed` and `activation: blocked`.
-It hashes the built apps and pinned runtime without executing them, verifies product
-source and all six historical packets/native cache, and confirms proposed session
-roots remain absent. A changed source/build requires new verification, not renewed
-approval for unchanged scope. A changed scope requires reconciliation. There is
-intentionally no `--start` or approval-writing action.
+Read [recovery evidence](../../evidence/2026-10-17-mvp-native-path-recovery/README.md).
+The former `check.py --check` is a historical pre-activation checker that expects
+absent session roots and the old native cache location. Use the current launcher
+`--check` below for this resumed batch. The old checker and its three passing unit
+tests are retained, not used to assert current live state.
 
 The packet admits only the exact one-file Check marker bundle produced by the
 instruction editor: CHECKED at version 1, then REVIEWED at version 2. The complete
@@ -33,24 +30,16 @@ remain supported by the service and adapter.
 
 ## Activation gate and operator commands
 
-The corrected launcher is implemented and sealed. Its 68 non-enrollment tests,
-strict typecheck and preparation checks pass. The full launcher suite has not been
-rerun for this revision: the reviewer reported automatic approval rejection because
-its synthetic enrollment fixtures conflict with the explicit no-enrollment boundary.
-Any such rerun needs explicit authorization for those fixtures; do not bypass it.
-Activation still requires the pending owner decision and any platform permissions
-encountered on the actual host. Installed inspection/provider results remain
-acceptance work after approved activation. See
-[review-fix evidence](../../evidence/2026-10-17-mvp-launcher-review/README.md).
+The corrected launcher is committed and sealed across 117 product files. All 94
+selected non-enrollment tests, strict TypeScript checking and three checker unit
+tests pass. The enrollment-fixture suite remains unrun under the existing execution
+boundary; do not bypass that boundary. Actual native termination/restart with this
+new helper remains installed acceptance work for the designated operator.
 
-Keep `../mvp-native-test-scope-20261017.json` unchanged as the exact proposal snapshot.
-After a direct, explicit owner answer, the coordinator records `owner-approval.json`
-next to this plan with schemaVersion 1, decision `approved`, actor `owner`, this
-scope ID and its SHA-256 from `pins.json`, the designated operator thread ID,
-source thread `01a0f307-3940-7333-96b0-a3b0b854e0e8`, and the actual approval time
-in `approvedAtUTC`. Do not create that record from development authority, delegation,
-a test fixture, a proposed answer, or elapsed time. No approval file exists now.
-The launcher validates that separate record before creating any session state.
+Keep `../mvp-native-test-scope-20261017.json` and the existing owner record unchanged.
+Routine code and cleanup reconciliation do not expand enrollment, duration, message,
+restart or privilege limits. Reuse this approval; do not request it again. Platform
+permission prompts still require their actual disposition.
 
 The operator first runs this read-only command from the worktree root:
 
@@ -58,18 +47,19 @@ The operator first runs this read-only command from the worktree root:
 /opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --check
 ```
 
-**Only after explicit approval**, start one attended terminal for the chosen session:
+With the existing explicit approval and a successful check, the designated operator
+may start the next unused session:
 
 ```sh
-/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 1
+/opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 2
 ```
 
 Enter `start` once. Wait for READY, then open the exact `appPath` and pair using the
 local `pairingFile`; never print its contents or capture the code/token. Immediately
 report the work cutoff and credential expiry to the parent. The terminal accepts
 `status`, `restart`, `done` and `abort`; no prompt text is accepted there. App messages
-must match the fixed synthetic samples below. Use the same command with session 2
-and then 3 for their separate attended windows, after confirmed previous cleanup.
+must match the fixed synthetic samples below. Use session 3 only after session 2 has confirmed cleanup. These are separate
+attended windows within the original batch.
 No automatic loop, retry, renewal or fourth session is available.
 
 The single restart allowance is shared by terminal `restart` and the native
@@ -87,10 +77,16 @@ One durable consumed state and a batch lock prevent reuse and concurrent session
 Unconfirmed cleanup retains the lock and blocks later sessions. A missing/moved
 ledger is never recreated as proof of cleanup. Unknown turns are never resubmitted.
 
-Before pairing, the launcher refuses a running FortMac instance or symlinked cache,
-then moves the exact current cache into `session-N/native-cache-before`, recording
+Before pairing, the launcher validates `io.fort.candidateb.mac` against the app
+Info.plist and registered container metadata. NSWorkspace checks the canonical bundle
+and executable paths; another copy of that bundle blocks the operation. The storage
+root is `~/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB`.
+After confirming the exact app is stopped, it moves that cache into
+`session-N/native-cache-before`, recording
 and verifying its hashes. It preserves earlier session histories and all six older
-packets. Do not reset roots, delete locks, replace archives or reuse the historical
+packets. Session 1 retains both its original non-container archive and the actual container
+history; session 2 preparation will preserve the latter in its own archive.
+Do not reset roots, delete locks, replace archives or reuse the historical
 `prototype/manual.ts`. No historical activation gate was modified.
 
 Only UI operator `01a1451b-81d7-76cf-8e5c-a85d7164201c`, coordinated through the
@@ -115,7 +111,10 @@ Create Writer with “Reply briefly using supplied context.” and Reviewer with
 “Check the sample claim.”, both using the exact selected model. These are synthetic
 Agent instructions. No repository or account content belongs in any prompt.
 
-## Session 1 — memory, same Home and restart (up to six turns)
+## Session 1 — consumed; historical checklist only
+
+Steps 1–4 passed with three completed receipts. The restart at step 5 failed.
+Steps 5–7 remain incomplete and are not authorized for replay in this packet.
 
 1. Pair the fresh Mac installation. Verify Writer Home, selected model and host.
    Open Memory, save `The sample packing item is a red notebook.` and reload it.

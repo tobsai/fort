@@ -1,19 +1,22 @@
 # Spec 058 successor
 
-Current prepared candidate source is `2cbe35323b6aa3b3b5ad35e20ced8c71b7bf5ce8`.
-The two launcher review findings are fixed: shutdown joins accepted socket closure,
-and sample admission checks the complete canonical instruction-bundle digest.
-Current validation: 68 non-enrollment TypeScript tests, strict typechecking and
-three preparation-checker tests pass. The full enrollment-fixture suite remains
-unrun for this revision; 689 passes are historical evidence for `a8a14c8` only.
-The reviewer reported an automatic approval rejection of that suite because its
-synthetic enrollment fixtures conflict with the review's no-enrollment instruction.
-Native source/artifacts remain exactly `996e19849f5104e71b26b7c14d201aaa56b31c87`.
-Read [review-fix evidence](evidence/2026-10-17-mvp-launcher-review/README.md) and
-[the pinned operator plan](ops/mvp-native-acceptance-20261017/PLAN.md).
-The original proposal is unchanged and the owner-approval record remains absent.
-No live session, enrollment, cache archive, app or provider process was started.
-Do not reuse any historical manual packet.
+Current launcher source is `409a11eaa7752d39b26ff33d89305648e6865b7d`.
+Owner approval for the unchanged three-session Mac batch was recorded at
+2026-10-17 15:32:58 UTC in the local `ops/mvp-native-acceptance-20261017/owner-approval.json`.
+Session 1 is consumed: three completed receipts, one launch and one restart;
+its original blocked state and all history remain unchanged. Its separately verified
+cleanup reconciliation preserves the old lock and permits session 2, then session 3
+only after session 2 cleanup. Neither unused session has started. Never reset or
+replay session 1 or transfer its unused budget to another session.
+
+The launcher discovers the registered macOS container and matches the exact canonical
+bundle/executable through NSWorkspace, including `/tmp` to `/private/tmp` aliases.
+Read [recovery evidence](evidence/2026-10-17-mvp-native-path-recovery/README.md) and
+[the operator plan](ops/mvp-native-acceptance-20261017/PLAN.md). Validation: 94 selected
+non-enrollment tests, strict TypeScript checking and three preparation-checker unit
+tests pass. Enrollment-fixture suites remain unrun. Native source/artifacts remain
+`996e19849f5104e71b26b7c14d201aaa56b31c87`; no native build or live session was run
+by this repair. Only the existing designated operator executes remaining sessions.
 
 
 Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
@@ -48,8 +51,8 @@ Its earlier native build source was `8a877fff2730d7dd99bb45b9f47e31158182383c`; 
 evidence is in evidence/2026-10-17-mvp-pending/README.md.
 Pending request cancellation now survives lost responses and client/service restart.
 Native routines, schedules and complete instruction-bundle authoring have synthetic
-and build evidence. Installed/provider acceptance remains open. Reconnection did
-not approve the pending three-session temporary enrollment proposal.
+and build evidence. Installed/provider acceptance remains open. The earlier reconnection was not approval; the later explicit owner approval above
+now authorizes the unchanged three-session batch.
 
 Expired service enrollment is not renewed by this development authorization.
 Identify the exact temporary credential scope before another live test. Keep

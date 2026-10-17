@@ -1,0 +1,147 @@
+{
+  "mainStatus": " M AGENTS.md\n M \"Agent Ops Backlog/README.md\"\n M \"Agent Ops Backlog/backlog.yaml\"\n M \"Agent Ops Backlog/cross-cutting.md\"\n M \"Agent Ops Backlog/phase-0-foundation.md\"\n M \"Agent Ops Backlog/phase-1-core-exec.md\"\n M \"Agent Ops Backlog/phase-2-task-graph.md\"\n M \"Agent Ops Backlog/phase-3-interface.md\"\n M \"Agent Ops Backlog/phase-4-hardening.md\"\n M CLAUDE.md\n M CONTEXT.md\n M README.md\n M design-qa.md\n M design_handoff_fort_dashboard_redesign/DESIGN-SYSTEM.md\n M design_handoff_fort_dashboard_redesign/README.md\n M design_handoff_fort_dashboard_redesign/SPEC-playbooks.md\n M docs/notes/bot-mode-reference-architecture.md\n M docs/notes/control-plane.md\n M docs/notes/decisions.md\n M docs/notes/distribution.md\n M docs/notes/event-contract.md\n M docs/notes/interface-contracts.md\n M docs/notes/mac-app.md\n M docs/notes/multica-daemon.md\n M docs/notes/runtime-recon.md\n M docs/notes/testflight.md\n M docs/notes/threat-model.md\n M docs/notes/vercel-supabase-runbook.md\n M docs/superpowers/plans/2026-05-20-gated-model-choice.md\n M docs/superpowers/plans/2026-07-04-mesh-enrollment.md\n M docs/superpowers/plans/2026-07-06-interactive-board.md\n M docs/superpowers/plans/2026-07-06-task-breakdown.md\n M docs/superpowers/plans/2026-07-07-run-drill-down.md\n M docs/superpowers/plans/2026-07-08-fort-for-mac.md\n M docs/superpowers/plans/2026-07-08-markdown-content.md\n M docs/superpowers/plans/2026-07-08-remote-gateway-go.md\n M docs/superpowers/plans/2026-07-08-simplified-dashboard.md\n M docs/superpowers/plans/2026-07-08-subagent-events.md\n M docs/superpowers/plans/2026-07-19-dashboard-redesign.md\n M gateway/SETUP.md\n M gateway/shared/README.md\n M gateway/web/design-qa.md\n M integrations/hermes/fort-platform/README.md\n M ui/apple/FortKit/README.md\n M ui/apple/README.md\n M ui/apple/iOS/README.md\n M ui/apple/macOS/README.md\n?? -incomplete-copy-preserved/\n?? .local/\n?? ops/\n?? specs/054-messaging-first-personal-ai-companion.md\n?? specs/055-legacy-teardown-and-clean-baseline.md\n?? specs/056-messaging-first-personal-ai-companion-build.md\n?? specs/057-spec055-teardown-progress.md\n?? specs/README.md\n?? specs/research/\n",
+  "batchFiles": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/active.lock",
+      "bytes": 36,
+      "mtimeNs": 1792251397388327055,
+      "sha256": "a1855f3fad32884fc39e165c251e446177b5d20aab4c78cf5bed0f1cf2c1391a"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-6bdc42e371015f93174f970830d71f0d2006e51be2c0693c47537f5d91435611.json",
+      "bytes": 246,
+      "mtimeNs": 1792189493146432913,
+      "sha256": "2896e8e722ddbdc0c46c1ddb4d370eb5240806cb3abb9e8c67752e0d0324c52a"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-ee0d4aed8a770cf020fc7101cfeb4a6ca845cabb4f368b3fa2f0663b6acdbc20.json",
+      "bytes": 913,
+      "mtimeNs": 1792189493139738018,
+      "sha256": "6b218440cc99a9e32c4b71364a988ae8b2a0e587db28b8b764ea477d8481b860"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before.json",
+      "bytes": 637,
+      "mtimeNs": 1792251397419876313,
+      "sha256": "2d2d4a9a5aa100089f80e84c0f525261b61fb59d34b0a1741e05b73a6821d013"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite",
+      "bytes": 77824,
+      "mtimeNs": 1792251606472332194,
+      "sha256": "29e25d6500fd71bd0d3632c3e18bcee43b4adaa7214b6561f35e69b0433d886b"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-shm",
+      "bytes": 32768,
+      "mtimeNs": 1792251606472853819,
+      "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-wal",
+      "bytes": 0,
+      "mtimeNs": 1792251606472606778,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/session-state.json",
+      "bytes": 1746,
+      "mtimeNs": 1792251606490099949,
+      "sha256": "a4d8a619767ddcb06472bf79404a3e93eca38311cfa07cda773a06ec3cecdc4f"
+    }
+  ],
+  "nativeFiles": [
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/d9cf29eb665b958723f3ba80db650c9184d2b2a83cf31e123ecf1efca8b78dca/pending.json",
+      "bytes": 2,
+      "mtimeNs": 1792251585752321459,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-1636aeee158b0e71e0adf25353dc4bdb296227cd722898cf1b7a95819548ca57.json",
+      "bytes": 1044,
+      "mtimeNs": 1792251605250301656,
+      "sha256": "a2798a3ae86a624c95ff9297ee2febc6f0003817678ceb814d3b34a16abe743b"
+    },
+    {
+      "path": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-bc9b43a1825685f0953ecf735eacb271e0bf15238d56101a95091851803e3d51.json",
+      "bytes": 4827,
+      "mtimeNs": 1792251605253033115,
+      "sha256": "72861397a5b97c5fa6282ccf06f93d664ae9cdb933d387ced5a594cf79e58b01"
+    }
+  ],
+  "sixHistoricalPackets": [
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "mtimeNs": 1792164216676824503,
+      "sha256": "418125696b3f6ebcf34e1e3defb5f2fb3e3e531804d8f8d91062dc03c6ef93d0"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/session-state.json",
+      "bytes": 207,
+      "mtimeNs": 1792164216677158045,
+      "sha256": "19be731c00c39548b57717256780a48532029cc20443e6900e68b8f6917abafe"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "mtimeNs": 1792180102705844510,
+      "sha256": "9a93b931712d1009422bb766861ba78c05f23c1fd4addc72fe6ded2ba2ad2ddd"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/session-state.json",
+      "bytes": 316,
+      "mtimeNs": 1792180102706616100,
+      "sha256": "8a44c67c36b7022de467b961482b076fe441e240e7bf39370fbafa9ef776a9db"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "mtimeNs": 1792182205118923260,
+      "sha256": "e8f1f6fa12a650680e4ce6d1661d0927dba5b377f740583c96cd5921ddb54656"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/session-state.json",
+      "bytes": 311,
+      "mtimeNs": 1792182205119635432,
+      "sha256": "da87887ae673045849fa255469ce0c4a25642f363d883f569e8023c60fd240b1"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/service/openai-candidate-b.sqlite",
+      "bytes": 57344,
+      "mtimeNs": 1792186976736706010,
+      "sha256": "039d0442d89b641b26d35e281a9a6bb1682802f21002fd113451553731c2b193"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/session-state.json",
+      "bytes": 712,
+      "mtimeNs": 1792186976757812243,
+      "sha256": "aa6d1006869da01de79e2233681d3a72a1122f1a4d119cd1ec9f53858d82f543"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "mtimeNs": 1792188409730128746,
+      "sha256": "bb82c5ab57d739352d8c455a0ef5b6b611e621d4fa0963cf5664f5b557146aaa"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/session-state.json",
+      "bytes": 318,
+      "mtimeNs": 1792188409730958791,
+      "sha256": "2323a76fa6d2523da68ef45d5b2f4a7512d9304348831c0943b63607985f12cd"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "mtimeNs": 1792189493376181650,
+      "sha256": "7788d40fbf25974f2e4f39084b623c9488204d7814400b64b550a1fcaf6b382f"
+    },
+    {
+      "path": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/session-state.json",
+      "bytes": 274,
+      "mtimeNs": 1792189493393963329,
+      "sha256": "b1673ced78cbe3367e6154394406e6de847b6cb007d0261e1988f9eb6e5ae2f8"
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "mainStatusUnchanged": true,
+  "files": [
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/active.lock",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/reconciled-active.lock",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-6bdc42e371015f93174f970830d71f0d2006e51be2c0693c47537f5d91435611.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-6bdc42e371015f93174f970830d71f0d2006e51be2c0693c47537f5d91435611.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-ee0d4aed8a770cf020fc7101cfeb4a6ca845cabb4f368b3fa2f0663b6acdbc20.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before/snapshot-ee0d4aed8a770cf020fc7101cfeb4a6ca845cabb4f368b3fa2f0663b6acdbc20.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/native-cache-before.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-shm",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-shm",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-wal",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/service/openai-candidate-b.sqlite-wal",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/mvp-native-tests-20261017/session-1/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/d9cf29eb665b958723f3ba80db650c9184d2b2a83cf31e123ecf1efca8b78dca/pending.json",
+      "currentPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/d9cf29eb665b958723f3ba80db650c9184d2b2a83cf31e123ecf1efca8b78dca/pending.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-1636aeee158b0e71e0adf25353dc4bdb296227cd722898cf1b7a95819548ca57.json",
+      "currentPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-1636aeee158b0e71e0adf25353dc4bdb296227cd722898cf1b7a95819548ca57.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-bc9b43a1825685f0953ecf735eacb271e0bf15238d56101a95091851803e3d51.json",
+      "currentPath": "/Users/tobiasgunn/Library/Containers/io.fort.candidateb.mac/Data/Library/Application Support/FortCandidateB/snapshot-bc9b43a1825685f0953ecf735eacb271e0bf15238d56101a95091851803e3d51.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-session/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-replacement-20261016/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-third-20261016/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-fourth-20261016/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-20261016/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/service/openai-candidate-b.sqlite",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/service/openai-candidate-b.sqlite",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    },
+    {
+      "originalPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/session-state.json",
+      "currentPath": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016/session-state.json",
+      "sameBytes": true,
+      "sameSize": true,
+      "sameMtime": true
+    }
+  ],
+  "sessions2And3Absent": true,
+  "originalActiveLockPreserved": true,
+  "nativeAppOrProviderLaunched": false,
+  "newEnrollments": 0
+}
