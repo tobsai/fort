@@ -1,0 +1,8 @@
+{
+  "verifiedAtUTC": "2026-10-17T01:06:53.907763+00:00",
+  "baseline": "../2026-10-17-mvp-recovery/preservation.json",
+  "allSixAttemptFilesMatchSizeHashAndModificationTime": true,
+  "nativeCacheFileSetAndAllSizeHashModificationTimesMatch": true,
+  "mainStatusMatchesBaseline": true,
+  "readMethod": "Raw file hashes/stat only; no database or credential-store access"
+}

@@ -264,3 +264,16 @@ see the [correction evidence](evidence/2026-10-12-process-backpressure-fix.md).
 The [Linux VM decision proposal](design/2026-10-12-managed-linux-isolation.md) pins
 a candidate environment and future approval scope using read-only host/public
 metadata. Nothing was provisioned; OS confinement and providers remain gated.
+
+## Native routine and schedule milestone — October 17
+
+Source `f6e4615c8ce962d4d90948613b6339381e3c533e` adds native routine forms,
+immutable typed plans, task/gate checkpoints, exact revision disablement, pending
+command replay, and paused-by-default calendar schedules with explicit preview
+consent. It builds on reviewed complete text-bundle execution in `ffeb395`.
+The full synthetic suite passes 647 TypeScript and 28 Swift checks; a compiled Swift
+HTTP client completes ten synthetic executions across four service restarts. Fresh
+Mac and iPhone Simulator build-for-testing artifacts and strict signatures pass.
+See [the evidence and remaining gates](evidence/2026-10-17-mvp-routines/README.md).
+No installed app, live enrollment, provider runtime, startup registration or remote
+resource was activated. The temporary enrollment proposal remains pending.

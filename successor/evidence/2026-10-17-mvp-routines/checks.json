@@ -1,0 +1,96 @@
+{
+  "sourceCommit": "f6e4615c8ce962d4d90948613b6339381e3c533e",
+  "nodeTests": {
+    "passed": 647,
+    "failed": 0,
+    "skipped": 0
+  },
+  "swiftTests": {
+    "passed": 28,
+    "failed": 0
+  },
+  "strictTypeScriptExitCode": 0,
+  "nativeHTTP": {
+    "syntheticRuntimeExecutions": 10,
+    "serviceRestarts": 4,
+    "discardedAcceptanceResponses": 1,
+    "duplicateDispatches": 0,
+    "pendingAfterReconciliation": 0,
+    "scheduleRuntimeExecutions": 0
+  },
+  "logs": [
+    {
+      "path": "/tmp/fort-mvp-routine-first-red.log",
+      "bytes": 1044,
+      "sha256": "c8ea83b3ea2580bc48e527f8ffdab4beee0384b79efb3fd89414c7ceb42b029e"
+    },
+    {
+      "path": "/tmp/fort-mvp-routine-gate-red.log",
+      "bytes": 1050,
+      "sha256": "9f7a5aecb4bf25cb213b5be911c43835c661a721bf26dad5ab4936b9bd0477ce"
+    },
+    {
+      "path": "/tmp/fort-mvp-routine-authority-red.log",
+      "bytes": 1966,
+      "sha256": "4c96e05d8185d21cfba762d80e6b408fd1c9f7329766a343a94c5db357ba6811"
+    },
+    {
+      "path": "/tmp/fort-mvp-routine-recovery-red.log",
+      "bytes": 1776,
+      "sha256": "17f0cd74cc6c00059e8f54365539a3d6a52e75914ef5d9e6ef50b185c080bb88"
+    },
+    {
+      "path": "/tmp/fort-mvp-native-routine-red.log",
+      "bytes": 864,
+      "sha256": "066eb35ae46eb1388a23e542678eed519089768918dcacce98d1ae97449d05f1"
+    },
+    {
+      "path": "/tmp/fort-mvp-schedule-red.log",
+      "bytes": 1066,
+      "sha256": "3d1f40c25e39eab04ddaa781cbf3c7140b769ced376459764b0a4f72b5146c20"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-full.log",
+      "bytes": 59498,
+      "sha256": "ffe167db89282b21e8c66eeff7cc5aad4c60b612af618604e0de6eff013c0b7f"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-swift.log",
+      "bytes": 7458,
+      "sha256": "488be42bba2a3d71f5fcf348b25d29824ad73f61a16991204346a54b6277d8a5"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-http.log",
+      "bytes": 1235,
+      "sha256": "41555206a0c010ecef9eab8ca8ad74dd54e7535bca8436530957bfa7c6b8cf6c"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-mac-build.log",
+      "bytes": 151504,
+      "sha256": "5c873c8cb2b22762209b8f44d380ede57e295ad6db86d423898211525656377e"
+    },
+    {
+      "path": "/tmp/fort-mvp-routines-ios-build.log",
+      "bytes": 274888,
+      "sha256": "92d47f541f0639f6c9bf98cd8557128f7a39d78177ce4aa3703170abbb9ef020"
+    },
+    {
+      "path": "/tmp/fort-mvp-schedule-matrix.log",
+      "bytes": 594,
+      "sha256": "51442ba063f5dc9950ba11119976dbe1531adf74675387ce68cb21da83f52a05"
+    }
+  ],
+  "unrun": [
+    "Installed native accessibility/screenshots",
+    "Current real provider tests",
+    "Physical iPhone",
+    "Production host isolation",
+    "Live schedule execution",
+    "Distribution/deployment"
+  ]
+}
