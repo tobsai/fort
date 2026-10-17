@@ -1,0 +1,168 @@
+{
+  "sourceCommit": "9d4aaef92630698b79a2a7a4885ea2dc8f46172f",
+  "scope": "build and signature verification only; apps not launched",
+  "artifacts": [
+    {
+      "path": "/tmp/fort058-mvp-bundles-mac-20261017/Build/Products/Debug/FortMac.app",
+      "verification": "codesign --verify --deep --strict: exit 0 using host trust service",
+      "signature": "Executable=/private/tmp/fort058-mvp-bundles-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac\nIdentifier=io.fort.candidateb.mac\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=442 flags=0x0(none) hashes=3+7 location=embedded\nSignature size=4794\nAuthority=Apple Development: Tobias Gunn (76KFKR48Y3)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nSigned Time=Oct 16, 2026 at 7:21:31\u202fPM\nInfo.plist entries=20\nTeamIdentifier=T3JB5MYZ93\nSealed Resources version=2 rules=13 files=2\nInternal requirements count=1 size=184\nTotal signatures=1\nChosen signature=1",
+      "entitlements": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.get-task-allow</key><true/><key>com.apple.security.network.client</key><true/><key>com.apple.security.temporary-exception.files.absolute-path.read-only</key><array><string>/</string></array><key>com.apple.security.temporary-exception.mach-lookup.global-name</key><array><string>com.apple.testmanagerd</string><string>com.apple.dt.testmanagerd.runner</string><string>com.apple.coresymbolicationd</string></array></dict></plist>",
+      "files": [
+        {
+          "path": "Contents/Info.plist",
+          "bytes": 1340,
+          "sha256": "07af3939fb2abf6dc642a7bd93a71fcaf671575da3b20351b9d651b02da62235"
+        },
+        {
+          "path": "Contents/MacOS/FortMac",
+          "bytes": 59552,
+          "sha256": "b03f145c7c7329a24129ad2f83ce543c1451fc89f91744a88946f4fd43e57288"
+        },
+        {
+          "path": "Contents/MacOS/FortMac.debug.dylib",
+          "bytes": 3336704,
+          "sha256": "4b8e2b68bbfaa0232cd7b9929250667f0b5989d43d4e48fa716b4dd1f8bf8ea7"
+        },
+        {
+          "path": "Contents/MacOS/__preview.dylib",
+          "bytes": 34928,
+          "sha256": "7040d90a763ee1135670398e2209d487510736f62ca8bc53c0eb03ff2da8057b"
+        },
+        {
+          "path": "Contents/PkgInfo",
+          "bytes": 8,
+          "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+        },
+        {
+          "path": "Contents/_CodeSignature/CodeResources",
+          "bytes": 2948,
+          "sha256": "aaeb88247e6e5603d2bbcf5d759ac26835b0bc0ae7770b7ca7fac2e74a022676"
+        }
+      ]
+    },
+    {
+      "path": "/tmp/fort058-mvp-bundles-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app",
+      "verification": "codesign --verify --deep --strict: exit 0 using host trust service",
+      "signature": "Executable=/private/tmp/fort058-mvp-bundles-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/MacOS/FortMacUITests-Runner\nIdentifier=io.fort.candidateb.mac.uitests.xctrunner\nFormat=app bundle with Mach-O universal (arm64)\nCodeDirectory v=20400 size=492 flags=0x0(none) hashes=4+7 location=embedded\nSignature size=4794\nAuthority=Apple Development: Tobias Gunn (76KFKR48Y3)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nSigned Time=Oct 16, 2026 at 7:21:33\u202fPM\nInfo.plist entries=83\nTeamIdentifier=T3JB5MYZ93\nSealed Resources version=2 rules=13 files=1\nInternal requirements count=1 size=200\nTotal signatures=1\nChosen signature=1",
+      "entitlements": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.application-identifier</key><string>T3JB5MYZ93.io.fort.candidateb.mac.uitests.xctrunner</string><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.get-task-allow</key><true/><key>com.apple.security.network.client</key><true/><key>com.apple.security.temporary-exception.files.absolute-path.read-only</key><array><string>/</string><string>/</string></array><key>com.apple.security.temporary-exception.mach-lookup.global-name</key><array><string>com.apple.testmanagerd</string><string>com.apple.dt.testmanagerd.runner</string><string>com.apple.coresymbolicationd</string><string>com.apple.coredevice.version</string><string>com.apple.coredevice.service</string><string>com.apple.remoted</string><string>com.apple.testmanagerd</string><string>com.apple.dt.testmanagerd.runner</string><string>com.apple.coresymbolicationd</string></array><key>com.apple.security.temporary-exception.mach-lookup.local-name</key><array><string>com.apple.axserver</string></array><key>com.apple.security.temporary-exception.sbpl</key><array><string>(allow hid-control)</string><string>(allow signal)</string></array></dict></plist>",
+      "files": [
+        {
+          "path": "Contents/Info.plist",
+          "bytes": 7924,
+          "sha256": "576b9bda96e9fe7c04fe758696f9b6825d41ff3ab99165f1109cb83ae1fce26e"
+        },
+        {
+          "path": "Contents/MacOS/FortMacUITests-Runner",
+          "bytes": 93456,
+          "sha256": "f1f68799a41a01af18b8dcba828ab4835b1d1269d1ca8578ad9894498a0bd4fb"
+        },
+        {
+          "path": "Contents/PkgInfo",
+          "bytes": 8,
+          "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+        },
+        {
+          "path": "Contents/PlugIns/FortMacUITests.xctest/Contents/Info.plist",
+          "bytes": 1402,
+          "sha256": "40c8e3dd8244417ab2b3a281f86597b36703e1ef891b8d72bbe2cd079c9658c9"
+        },
+        {
+          "path": "Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS/FortMacUITests",
+          "bytes": 219056,
+          "sha256": "64b80b4e35e986fd075c6cd1793b983199f17ad138782c149a9f986db7e5c4d4"
+        },
+        {
+          "path": "Contents/PlugIns/FortMacUITests.xctest/Contents/_CodeSignature/CodeResources",
+          "bytes": 2200,
+          "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+        },
+        {
+          "path": "Contents/_CodeSignature/CodeResources",
+          "bytes": 2603,
+          "sha256": "24acafb960aa34ff025a470aeb874ec1fe8c9f896ef206eae05d40a0234d20c9"
+        }
+      ]
+    },
+    {
+      "path": "/tmp/fort058-mvp-bundles-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOS.app",
+      "verification": "codesign --verify --deep --strict: exit 0 using host trust service",
+      "signature": "Executable=/private/tmp/fort058-mvp-bundles-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOS.app/FortiOS\nIdentifier=io.fort.candidateb.ios\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20400 size=303 flags=0x2(adhoc) hashes=3+3 location=embedded\nSignature=adhoc\nInfo.plist entries=25\nTeamIdentifier=not set\nSealed Resources version=2 rules=10 files=2\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1",
+      "entitlements": "",
+      "files": [
+        {
+          "path": "FortiOS",
+          "bytes": 89296,
+          "sha256": "8de5953960dd8d9995e3bd62bff72f5893a0139841fba7dc14ff64ffc0c0f019"
+        },
+        {
+          "path": "FortiOS.debug.dylib",
+          "bytes": 6651408,
+          "sha256": "614d17552268b9b13015edd2d61d770260399a2a4f90edd56e016fdee829ef05"
+        },
+        {
+          "path": "Info.plist",
+          "bytes": 1091,
+          "sha256": "2751c1bc353c8688c06401adba36a3762474d49156cca2c051194b4d525d6b3a"
+        },
+        {
+          "path": "PkgInfo",
+          "bytes": 8,
+          "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+        },
+        {
+          "path": "_CodeSignature/CodeResources",
+          "bytes": 2317,
+          "sha256": "26f3ab6f4860a27dad2bb63910939bc501ec0c6dc7abbbbbfb6be75a1cce9a99"
+        },
+        {
+          "path": "__preview.dylib",
+          "bytes": 49568,
+          "sha256": "3c7b7b944f496b35841505af6d8ee8e3d0d6a81ef04b5cb7a5dfab7b4b9fee27"
+        }
+      ]
+    },
+    {
+      "path": "/tmp/fort058-mvp-bundles-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOSUITests-Runner.app",
+      "verification": "codesign --verify --deep --strict: exit 0 using host trust service",
+      "signature": "Executable=/private/tmp/fort058-mvp-bundles-ios-20261017/Build/Products/Debug-iphonesimulator/FortiOSUITests-Runner.app/FortiOSUITests-Runner\nIdentifier=io.fort.candidateb.ios.uitests.xctrunner\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20400 size=385 flags=0x2(adhoc) hashes=5+3 location=embedded\nSignature=adhoc\nInfo.plist entries=81\nTeamIdentifier=not set\nSealed Resources version=2 rules=10 files=3\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1",
+      "entitlements": "",
+      "files": [
+        {
+          "path": "FortiOSUITests-Runner",
+          "bytes": 144400,
+          "sha256": "153a006cd5cd6a4507b95b40005f465d651c4f770f701721cd9bdadfbece5d1f"
+        },
+        {
+          "path": "Info.plist",
+          "bytes": 10918,
+          "sha256": "ec7ea9b6056daac434c2f636fd23acf5937b467bae06768144737b1fe232f1f4"
+        },
+        {
+          "path": "PkgInfo",
+          "bytes": 8,
+          "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+        },
+        {
+          "path": "PlugIns/FortiOSUITests.xctest/FortiOSUITests",
+          "bytes": 397600,
+          "sha256": "d1e32877ed8306901faa6d9f842d91713eac013441f7d35bfe54a6e2e4c1c57b"
+        },
+        {
+          "path": "PlugIns/FortiOSUITests.xctest/Info.plist",
+          "bytes": 816,
+          "sha256": "c02c55cffb0b8fed9a364102d8cfe86b92dace75e5a63950bd48c02e5e86cddf"
+        },
+        {
+          "path": "PlugIns/FortiOSUITests.xctest/_CodeSignature/CodeResources",
+          "bytes": 1798,
+          "sha256": "6365e5ee9ba3ee41447e2937d46b29e9d0204be5e6f84ce3f3fca1b08161eef6"
+        },
+        {
+          "path": "_CodeSignature/CodeResources",
+          "bytes": 2719,
+          "sha256": "2754b3e43e5e47c77ba0b9d608a27a177a6cc4f7696c871a550687ecc65fa74b"
+        }
+      ]
+    }
+  ]
+}

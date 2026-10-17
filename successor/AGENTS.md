@@ -26,6 +26,11 @@ See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.js
 for byte hashes and the distinction between observed state and operator timing.
 The original preparation records remain historical evidence.
 
+The current source milestone is `9d4aaef92630698b79a2a7a4885ea2dc8f46172f`;
+read evidence/2026-10-17-mvp-bundles/README.md before installed validation or further
+skill/runtime work. Its builds and synthetic checks pass; installed and provider
+checks remain open. One temporary-enrollment permission question is pending.
+
 Expired service enrollment is not renewed by this development authorization.
 Identify the exact temporary credential scope before another live test. Keep
 provider sign-in, API billing, persistent credentials, startup registration,

@@ -13,6 +13,14 @@ truth. Synthetic evidence now covers service/client restart, lost acceptance,
 idempotent recovery and same-Home continuation. It is recorded separately from
 installed UI and real-provider acceptance.
 
+Bundle source `9d4aaef92630698b79a2a7a4885ea2dc8f46172f` adds complete inert
+bundle import, immutable file/digest revisions, native review/enable/disable/export,
+and fail-closed current-runtime compatibility. The full synthetic suite now passes
+631 TypeScript tests and 26 Swift tests, including the expanded native HTTP journey;
+fresh Mac and iPhone Simulator builds passed. See the
+[bundle milestone](evidence/2026-10-17-mvp-bundles/README.md). Complete runtime
+packaging, historical instruction-editor migration and installed signoff remain open.
+
 Both owner-trial packets are consumed: the first failed before READY; the
 replacement opened, received zero owner messages and finished cleanup. All six
 historical packets are retained. The following October 16 account and proposals
