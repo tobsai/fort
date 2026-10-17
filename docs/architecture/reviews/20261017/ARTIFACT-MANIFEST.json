@@ -1,0 +1,215 @@
+{
+  "files": [
+    {
+      "path": "DECISION-GRID.tsv",
+      "bytes": 1887,
+      "sha256": "da8c32a34aee8864ce80aa747cc6f7a9016bc9a159897dce7de259ee8d17eeda"
+    },
+    {
+      "path": "POLICY-REVIEW.md",
+      "bytes": 8774,
+      "sha256": "4d5d7a88ccb218ded6e572e1650a623e11f181749002104cf40c3f3081579085"
+    },
+    {
+      "path": "PROVENANCE.json",
+      "bytes": 7712,
+      "sha256": "43e973681c016389f9d8d1dfeb2f7f029cfbb197333287c1b6b32bd45309b468"
+    },
+    {
+      "path": "REVIEW.md",
+      "bytes": 36701,
+      "sha256": "ceda23e5b223cad3fd77add1c8fd2c55617ece4f4aa32dd0fe588c5b69ec42ee"
+    },
+    {
+      "path": "dispatch-lifecycle.mmd",
+      "bytes": 1078,
+      "sha256": "0a34853ed68345803aeffa91a6e8bc656c3ff2be58a63ae4afd41cc3968ed88b"
+    },
+    {
+      "path": "gate-results.json",
+      "bytes": 3200,
+      "sha256": "0a07a0b6c4afc857db18f614b12f97d78e5ce64b1a027cd3a1e63cb44ed11ca9"
+    },
+    {
+      "path": "placement-variants.mmd",
+      "bytes": 905,
+      "sha256": "4aef5054ab3bee8aca5745e3bac8c842f6135935276f1420fe0a75c77345bd85"
+    },
+    {
+      "path": "policy-snapshot/AGENTS.md",
+      "bytes": 1671,
+      "sha256": "7852db0601010ab2f16d739f804fb556d5f700846ad86b493d2cc5275321bcd4"
+    },
+    {
+      "path": "policy-snapshot/ARCHITECTURE.md",
+      "bytes": 7373,
+      "sha256": "ef9f349d26da1caf6e30b02b8c245f08530cb7205811493bcb3c3849cbdc4072"
+    },
+    {
+      "path": "policy-snapshot/CLAUDE.md",
+      "bytes": 4165,
+      "sha256": "01e7236f77c9d486422a144b1f28e891957679fe29ec923a10b35c695f082389"
+    },
+    {
+      "path": "policy-snapshot/docs/architecture/reassessment-20261017.md",
+      "bytes": 13875,
+      "sha256": "efc6c9ff4d6c6626e651a204f250b1d8970f3e11c680f99b679e9368a5cb2d90"
+    },
+    {
+      "path": "policy-snapshot/ops/architecture/VALIDATION.md",
+      "bytes": 2764,
+      "sha256": "950e5b2d34c62a2844b138e4093ff42d62a0d6e7d260dcfb212f6089a28ab57f"
+    },
+    {
+      "path": "policy-snapshot/ops/architecture/historical-specs.json",
+      "bytes": 6245,
+      "sha256": "2a0a8c7e11b2dc7901851871dd39d649bd961d4b52f9b6b53a52c708988ee2c9"
+    },
+    {
+      "path": "policy-snapshot/ops/architecture/validate-specs.mjs",
+      "bytes": 7473,
+      "sha256": "6ca41704ef7c8681012bae81850fdb11cccf4ffab6dc47ce8d45810314e72080"
+    },
+    {
+      "path": "policy-snapshot/ops/architecture/validate-specs.test.mjs",
+      "bytes": 6469,
+      "sha256": "6f9a44d6e83d75b83efc8ed2d9efeeaa9df8d350c8610884bc4ec850a56e9a28"
+    },
+    {
+      "path": "policy-snapshot/specs/058-native-first-owned-agent-mvp.md",
+      "bytes": 60478,
+      "sha256": "4807c7a5631b53b9730f7d83fbc9ec93a1f266db971d2f0815c46da6c8d75eb7"
+    },
+    {
+      "path": "policy-snapshot/specs/README.md",
+      "bytes": 4547,
+      "sha256": "e121bcafd80a88a7868fe2f1fdf2d9121f6d570eb4927de9a82af02d4a158127"
+    },
+    {
+      "path": "policy-snapshot/specs/TEMPLATE.md",
+      "bytes": 3459,
+      "sha256": "76b020d74bede42bb1e31dd02f55b48419789d90b081295a7787fb40409d01ec"
+    },
+    {
+      "path": "policy-snapshot/successor/AGENTS.md",
+      "bytes": 17851,
+      "sha256": "983842fd2e638bbdc21ccadf08f70c352545311c06c01b190babfbaa9b88b02a"
+    },
+    {
+      "path": "policy-snapshot/successor/package.json",
+      "bytes": 2157,
+      "sha256": "04e649fd0504ee7eab8ec6d95015f40fe31aa811aff450accd98c6a57c450b99"
+    },
+    {
+      "path": "source/successor/TESTFLIGHT-DELIVERY-20261017.md",
+      "bytes": 6842,
+      "sha256": "6d78d71d05b26b89bc700a97931610ed2fdeeb5add7c47a2a2e594ebf880cac2"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Package.swift",
+      "bytes": 430,
+      "sha256": "a38b68b654d7baf95e072ad4c815fcf90a8e58e4a034a5f4e045426df115bf9d"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Sources/FortKit/Contract.swift",
+      "bytes": 19630,
+      "sha256": "c0fdd384ba1da4d8a8ca2de1ddad1d3f7e7a06398fd51d2fb74c2c0423bd9d91"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Sources/FortKit/FortClient.swift",
+      "bytes": 16693,
+      "sha256": "399d96b69b5f7bce32ba5387dc73643394af762e8fb6aca671e82790a7ec0f36"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Sources/FortKit/MessengerModel.swift",
+      "bytes": 39909,
+      "sha256": "cfa7c0f3a6bfbb50fff9d24d164aae0372473c7cad84c28bd345d47636816763"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Sources/FortKit/MessengerView.swift",
+      "bytes": 17110,
+      "sha256": "39aa86838215989a32ec81a0793ca1d88d39341f3262f211d2e50dad4cd98f84"
+    },
+    {
+      "path": "source/successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift",
+      "bytes": 3031,
+      "sha256": "d902622cab82b90e65edb6814ea7580a273463fafbfca85da4ba794e18f2d4cf"
+    },
+    {
+      "path": "source/successor/contracts/runtime.ts",
+      "bytes": 1104,
+      "sha256": "341577c9342766207f2b62757cbb5e1f2a2230ba227d4392d5c04fd507b12ae0"
+    },
+    {
+      "path": "source/successor/contracts/v1.ts",
+      "bytes": 7762,
+      "sha256": "d3353b8b2a6a403dd651b9821443a043b2a8cd08f33e1a8bb2270892f8b5c00b"
+    },
+    {
+      "path": "source/successor/evidence/2026-10-17-interactive-qa/README.md",
+      "bytes": 8373,
+      "sha256": "4a66a019d9800429b42877027ea64d91707e3062fc3e36323884594555a78031"
+    },
+    {
+      "path": "source/successor/package.json",
+      "bytes": 1933,
+      "sha256": "1ae90519448c96e12d02fef5cf96975693e3a601dd6eb2423e6448359ea8c361"
+    },
+    {
+      "path": "source/successor/prototype/owned-codex.ts",
+      "bytes": 3108,
+      "sha256": "7dc25c0511708ace3829ce84355522c3956e22f30695644310b24b21aa9cc947"
+    },
+    {
+      "path": "source/successor/runner/chat-runtime.ts",
+      "bytes": 691,
+      "sha256": "afd8a36e7ba5dc4b65f9def3caa9bae6c048c08da0dd32584cb4b964d07b4cb1"
+    },
+    {
+      "path": "source/successor/runner/codex-chat.ts",
+      "bytes": 15181,
+      "sha256": "06e17f4060869bd1c8ae3764935962a8cf4d483e6f1fdcd9db033ec46b6e0c00"
+    },
+    {
+      "path": "source/successor/runner/codex.ts",
+      "bytes": 12191,
+      "sha256": "95df54cb90bbda90334c743c290323434e133b8e2fbd746d79b78234187db69a"
+    },
+    {
+      "path": "source/successor/runner/owned-process.ts",
+      "bytes": 4491,
+      "sha256": "4837165948bc08cbda489bb43ba54adbfc9860f05a161592730d2c73810fa9d3"
+    },
+    {
+      "path": "source/successor/service/openai.ts",
+      "bytes": 76594,
+      "sha256": "9775d681e97f2e0fc0746c8b260b722ee752360cb3a602928fbc2207d6ce1b33"
+    },
+    {
+      "path": "source/successor/service/service.ts",
+      "bytes": 35975,
+      "sha256": "c625d0e51d16c7f0f2b3ff7391bb2e1c59de8367ff00c75919baecd9d722fb76"
+    },
+    {
+      "path": "source/successor/tsconfig.json",
+      "bytes": 390,
+      "sha256": "87da770c23d55c0f85fdd85e94229e9f7fc948d542527906ec0d51c6206eb855"
+    },
+    {
+      "path": "target-architecture.mmd",
+      "bytes": 1669,
+      "sha256": "e587f385768804ef662226a811b7d7f4b9c2addfcf8a19c79c723d6564c3f771"
+    },
+    {
+      "path": "visual-brief.md",
+      "bytes": 5304,
+      "sha256": "96c5d6058cfc2fc3dedb835f06051ea4d4e288fbffb61c77a99712af8c7d5a05"
+    }
+  ],
+  "checks": {
+    "localLinks": "all resolve",
+    "pinnedSourceHashes": "all match",
+    "committedPolicyHashes": "all match",
+    "mermaid": "source supplied; not rendered in this review"
+  }
+}

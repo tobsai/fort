@@ -1,5 +1,7 @@
 # 058: Native-first owned Agent MVP
 
+Current successor: [Spec 059](059-modular-node-v1.md), adopted on 2026-10-17, governs the Node modular rebuild. The reassessment and historical proposal below remain evidence; their pause is superseded by that explicit owner decision.
+
 Status: Needs architecture reassessment as of 2026-10-17. Feature and TestFlight expansion are paused under the [architecture constitution](../ARCHITECTURE.md). The prior approval below is historical; it does not establish compliance or authorize further implementation against the new principles.
 
 Historical approval: Approved for staged local implementation by Toby on 2026-10-12 (02:43 UTC). Stage 1 native fixture verification passed on 2026-10-12; see [attended acceptance evidence](../successor/evidence/2026-10-12-mac-attended-stage1.md). Live providers remain disabled and later-stage acceptance remains open. Original proposal wording below is retained as decision history; external-action and acceptance gates still apply.

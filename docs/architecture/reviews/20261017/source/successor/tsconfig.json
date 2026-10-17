@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2025",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": false
+  },
+  "include": [
+    "contracts/**/*.ts",
+    "service/**/*.ts",
+    "runner/**/*.ts",
+    "apple/*.ts",
+    "prototype/**/*.ts"
+  ]
+}

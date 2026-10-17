@@ -1,0 +1,199 @@
+{
+  "reviewedCommit": "e02eb571e66620e407a360584817616074730b55",
+  "branch": "codex/fort-openai-rebuild-20261016",
+  "worktree": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016",
+  "reviewDate": "2026-10-17",
+  "scope": "Read-only architecture review of committed successor source; recommendations only",
+  "verification": "Git/object and static-source inspection; structural gate suite 10/10, full structural scan, expected Spec058 implementation rejection; no product builds/tests, benchmarks, provider sessions or distribution actions",
+  "modelIdentity": "The session does not expose a reliable exact model identifier. Astra was requested; this artifact does not attest that model.",
+  "sourceCopies": [
+    {
+      "path": "successor/contracts/v1.ts",
+      "gitBlob": "dae477f68affe3e0f10c7ff50a6bc4397a780657",
+      "sha256": "d3353b8b2a6a403dd651b9821443a043b2a8cd08f33e1a8bb2270892f8b5c00b",
+      "lines": 55
+    },
+    {
+      "path": "successor/contracts/runtime.ts",
+      "gitBlob": "6198b9d2c92b10e3c10ac10a9b5320dc33007303",
+      "sha256": "341577c9342766207f2b62757cbb5e1f2a2230ba227d4392d5c04fd507b12ae0",
+      "lines": 20
+    },
+    {
+      "path": "successor/runner/chat-runtime.ts",
+      "gitBlob": "311a13af8e10836774cd6bdfa8b8fcfde7a2ec23",
+      "sha256": "afd8a36e7ba5dc4b65f9def3caa9bae6c048c08da0dd32584cb4b964d07b4cb1",
+      "lines": 10
+    },
+    {
+      "path": "successor/runner/codex-chat.ts",
+      "gitBlob": "612a38113a773a7fbd8d3dcaffcd479a954249d4",
+      "sha256": "06e17f4060869bd1c8ae3764935962a8cf4d483e6f1fdcd9db033ec46b6e0c00",
+      "lines": 173
+    },
+    {
+      "path": "successor/runner/codex.ts",
+      "gitBlob": "88140b449cb91959096695f8789d66ef517d565b",
+      "sha256": "95df54cb90bbda90334c743c290323434e133b8e2fbd746d79b78234187db69a",
+      "lines": 190
+    },
+    {
+      "path": "successor/runner/owned-process.ts",
+      "gitBlob": "442250b21407569d58451c74da0cbd9830c502bd",
+      "sha256": "4837165948bc08cbda489bb43ba54adbfc9860f05a161592730d2c73810fa9d3",
+      "lines": 60
+    },
+    {
+      "path": "successor/prototype/owned-codex.ts",
+      "gitBlob": "eeec756cc77d64a876942b87f64b698ba22d40f5",
+      "sha256": "7dc25c0511708ace3829ce84355522c3956e22f30695644310b24b21aa9cc947",
+      "lines": 29
+    },
+    {
+      "path": "successor/service/openai.ts",
+      "gitBlob": "0215e9032e7db08160a7bedecab36e1741016ea9",
+      "sha256": "9775d681e97f2e0fc0746c8b260b722ee752360cb3a602928fbc2207d6ce1b33",
+      "lines": 771
+    },
+    {
+      "path": "successor/service/service.ts",
+      "gitBlob": "dc72fa9bebb466a01d07186717b5d349c5db1551",
+      "sha256": "c625d0e51d16c7f0f2b3ff7391bb2e1c59de8367ff00c75919baecd9d722fb76",
+      "lines": 417
+    },
+    {
+      "path": "successor/package.json",
+      "gitBlob": "edba29539819ec73b16cd06fb762c8c8c9380039",
+      "sha256": "1ae90519448c96e12d02fef5cf96975693e3a601dd6eb2423e6448359ea8c361",
+      "lines": 24
+    },
+    {
+      "path": "successor/tsconfig.json",
+      "gitBlob": "8b10524f80835e7c26d0759f587143705ba48aed",
+      "sha256": "87da770c23d55c0f85fdd85e94229e9f7fc948d542527906ec0d51c6206eb855",
+      "lines": 21
+    },
+    {
+      "path": "successor/apple/FortKit/Package.swift",
+      "gitBlob": "235c8f9394e8a569378019141800da78f483e5ab",
+      "sha256": "a38b68b654d7baf95e072ad4c815fcf90a8e58e4a034a5f4e045426df115bf9d",
+      "lines": 8
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift",
+      "gitBlob": "313797d028f011b6c53ebbbc30d33dfe2c09eaed",
+      "sha256": "cfa7c0f3a6bfbb50fff9d24d164aae0372473c7cad84c28bd345d47636816763",
+      "lines": 529
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MessengerView.swift",
+      "gitBlob": "ccfd7972a91d1b59e482077793841981c160cf04",
+      "sha256": "39aa86838215989a32ec81a0793ca1d88d39341f3262f211d2e50dad4cd98f84",
+      "lines": 237
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift",
+      "gitBlob": "6c0da512555828547f5bb30e38a050be8d525a2a",
+      "sha256": "d902622cab82b90e65edb6814ea7580a273463fafbfca85da4ba794e18f2d4cf",
+      "lines": 65
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/FortClient.swift",
+      "gitBlob": "103ee71c2f7aa9945b3985a686db39b09049eb8a",
+      "sha256": "399d96b69b5f7bce32ba5387dc73643394af762e8fb6aca671e82790a7ec0f36",
+      "lines": 194
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/Contract.swift",
+      "gitBlob": "30a6b1de3dcd18f28dc9a07b903aa7e8528dcd01",
+      "sha256": "c0fdd384ba1da4d8a8ca2de1ddad1d3f7e7a06398fd51d2fb74c2c0423bd9d91",
+      "lines": 320
+    },
+    {
+      "path": "successor/TESTFLIGHT-DELIVERY-20261017.md",
+      "gitBlob": "c7caadd78c41797fe811ef647e9dd4e5b09dcded",
+      "sha256": "6d78d71d05b26b89bc700a97931610ed2fdeeb5add7c47a2a2e594ebf880cac2",
+      "lines": 78
+    },
+    {
+      "path": "successor/evidence/2026-10-17-interactive-qa/README.md",
+      "gitBlob": "6500d20e87f1ca088302c544d715e9e93ba10fd3",
+      "sha256": "4a66a019d9800429b42877027ea64d91707e3062fc3e36323884594555a78031",
+      "lines": 129
+    }
+  ],
+  "policySnapshot": {
+    "state": "Committed locally; all captured files verified byte-for-byte against Git objects",
+    "files": [
+      {
+        "path": "ARCHITECTURE.md",
+        "sha256": "ef9f349d26da1caf6e30b02b8c245f08530cb7205811493bcb3c3849cbdc4072",
+        "bytes": 7373
+      },
+      {
+        "path": "AGENTS.md",
+        "sha256": "7852db0601010ab2f16d739f804fb556d5f700846ad86b493d2cc5275321bcd4",
+        "bytes": 1671
+      },
+      {
+        "path": "CLAUDE.md",
+        "sha256": "01e7236f77c9d486422a144b1f28e891957679fe29ec923a10b35c695f082389",
+        "bytes": 4165
+      },
+      {
+        "path": "successor/AGENTS.md",
+        "sha256": "983842fd2e638bbdc21ccadf08f70c352545311c06c01b190babfbaa9b88b02a",
+        "bytes": 17851
+      },
+      {
+        "path": "successor/package.json",
+        "sha256": "04e649fd0504ee7eab8ec6d95015f40fe31aa811aff450accd98c6a57c450b99",
+        "bytes": 2157
+      },
+      {
+        "path": "specs/TEMPLATE.md",
+        "sha256": "76b020d74bede42bb1e31dd02f55b48419789d90b081295a7787fb40409d01ec",
+        "bytes": 3459
+      },
+      {
+        "path": "specs/README.md",
+        "sha256": "e121bcafd80a88a7868fe2f1fdf2d9121f6d570eb4927de9a82af02d4a158127",
+        "bytes": 4547
+      },
+      {
+        "path": "specs/058-native-first-owned-agent-mvp.md",
+        "sha256": "4807c7a5631b53b9730f7d83fbc9ec93a1f266db971d2f0815c46da6c8d75eb7",
+        "bytes": 60478
+      },
+      {
+        "path": "docs/architecture/reassessment-20261017.md",
+        "sha256": "efc6c9ff4d6c6626e651a204f250b1d8970f3e11c680f99b679e9368a5cb2d90",
+        "bytes": 13875
+      },
+      {
+        "path": "ops/architecture/validate-specs.mjs",
+        "sha256": "6ca41704ef7c8681012bae81850fdb11cccf4ffab6dc47ce8d45810314e72080",
+        "bytes": 7473
+      },
+      {
+        "path": "ops/architecture/validate-specs.test.mjs",
+        "sha256": "6f9a44d6e83d75b83efc8ed2d9efeeaa9df8d350c8610884bc4ec850a56e9a28",
+        "bytes": 6469
+      },
+      {
+        "path": "ops/architecture/historical-specs.json",
+        "sha256": "2a0a8c7e11b2dc7901851871dd39d649bd961d4b52f9b6b53a52c708988ee2c9",
+        "bytes": 6245
+      },
+      {
+        "path": "ops/architecture/VALIDATION.md",
+        "sha256": "950e5b2d34c62a2844b138e4093ff42d62a0d6e7d260dcfb212f6089a28ab57f",
+        "bytes": 2764
+      }
+    ],
+    "historicalManifestVerifiedAgainstGit": true,
+    "historicalFilesVerified": 55,
+    "nodeUsedForGateChecks": "v22.22.3",
+    "commit": "1a864996e4e4f72bca99d22d745f891c3ff8ffe9"
+  }
+}

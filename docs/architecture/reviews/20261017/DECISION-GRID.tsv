@@ -1,0 +1,9 @@
+principle	boundary	verified_gap	proposed_action	acceptance	status	evidence
+Vendor independence	Domain / wire / runtime	OpenAI and Codex literals in core-facing types	Opaque bindings plus versioned capabilities	Independent non-OpenAI fixture and adapter-absent build	implemented-unverified	source/successor/contracts/v1.ts:2-7
+Modularity	Context / client / runtime	Memory gates native send and appears across layers	Optional bounded context provider	Core text journey with memory package absent	planned	source/successor/apple/FortKit/Sources/FortKit/MessengerModel.swift:93-96
+Modularity	Executor protocol	Service and adapter use different attempt IDs	Service-owned attempt and generation	Duplicate/stale/crash/cancel evidence suite	planned	source/successor/service/openai.ts:387-391;source/successor/runner/codex-chat.ts:142
+Fast	Persistence	Full snapshot retained per request; whole-kind reads	Compact receipts and indexed bounded queries	Measured DB growth and large-history latency	planned	source/successor/service/openai.ts:182,222,250-260
+Fast	Scheduler	Enabled schedules persist checkpoint each second	Next-deadline scheduling and meaningful checkpoints	Idle writes/CPU/wakeups; visible scheduler fault	planned	source/successor/service/openai.ts:320-352,755
+Install/remove	Apple host / official runtime	Real removal adapter and TestFlight host unverified	Prove signed host and account/workspace lifecycle	Physical TestFlight install/update/recovery/remove	blocked	source/successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift:31-39
+Authority	Connectors	No current connector authority implementation	Scoped grants and exact-action approvals	Injection/revocation/changed-argument/lost-write tests	planned	REVIEW.md
+Policy	Spec gate	Structure cannot certify architecture	Maintain human and behavioral review	Gate tests plus expected Spec058 rejection	verified	gate-results.json

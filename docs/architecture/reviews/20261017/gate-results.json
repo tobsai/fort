@@ -1,0 +1,41 @@
+[
+  {
+    "check": 0,
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "ab7905",
+        "wall_time_seconds": 1.074744994,
+        "exit_code": 0,
+        "original_token_count": 508,
+        "output": "TAP version 13\n# Subtest: draft passes structural review but cannot authorize implementation\nok 1 - draft passes structural review but cannot authorize implementation\n  ---\n  duration_ms: 112.082334\n  type: 'test'\n  ...\n# Subtest: all four principles and their evidence fields are required\nok 2 - all four principles and their evidence fields are required\n  ---\n  duration_ms: 110.048625\n  type: 'test'\n  ...\n# Subtest: duplicate status fields and invalid progress states fail\nok 3 - duplicate status fields and invalid progress states fail\n  ---\n  duration_ms: 74.089792\n  type: 'test'\n  ...\n# Subtest: accepted design requires a decision record and a matching whole-document digest\nok 4 - accepted design requires a decision record and a matching whole-document digest\n  ---\n  duration_ms: 185.799\n  type: 'test'\n  ...\n# Subtest: blocked progress or unresolved judgment cannot be accepted\nok 5 - blocked progress or unresolved judgment cannot be accepted\n  ---\n  duration_ms: 72.694833\n  type: 'test'\n  ...\n# Subtest: not-affected still needs evidence and removal rationale\nok 6 - not-affected still needs evidence and removal rationale\n  ---\n  duration_ms: 72.168917\n  type: 'test'\n  ...\n# Subtest: unchanged historical specs are preserved, never implementation authority\nok 7 - unchanged historical specs are preserved, never implementation authority\n  ---\n  duration_ms: 177.41775\n  type: 'test'\n  ...\n# Subtest: new nested specs are discovered without registration\nok 8 - new nested specs are discovered without registration\n  ---\n  duration_ms: 74.623583\n  type: 'test'\n  ...\n# Subtest: headings in fenced examples cannot supply the review\nok 9 - headings in fenced examples cannot supply the review\n  ---\n  duration_ms: 72.029916\n  type: 'test'\n  ...\n# Subtest: invalid CLI paths and options cannot skip review\nok 10 - invalid CLI paths and options cannot skip review\n  ---\n  duration_ms: 141.735\n  type: 'test'\n  ...\n1..10\n# tests 10\n# suites 0\n# pass 10\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1150.4525\n"
+      }
+    }
+  },
+  {
+    "check": 1,
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "766c52",
+        "wall_time_seconds": 0.00003459,
+        "exit_code": 0,
+        "original_token_count": 56,
+        "output": "specs/058-native-first-owned-agent-mvp.md: needs-reassessment\nPASS: 1 review record(s), 55 historical file(s) (preservation only). Structure only; human architectural judgment and behavioral verification remain required.\n"
+      }
+    }
+  },
+  {
+    "check": 2,
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "e31d56",
+        "wall_time_seconds": 0.000028915,
+        "exit_code": 1,
+        "original_token_count": 28,
+        "output": "specs/058-native-first-owned-agent-mvp.md: implementation requires accepted review; found needs-reassessment\n"
+      }
+    }
+  }
+]

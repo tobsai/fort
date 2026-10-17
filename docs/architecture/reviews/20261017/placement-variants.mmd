@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph A["OPTION A — all-TestFlight local / feasibility unverified"]
+    AC["TestFlight SwiftUI client"]
+    AH["Signed bundled per-user host/helper\nApple sandbox + consent lifecycle"]
+    AD[("Local Fort ledger")]
+    AR["Bundled official runtime\nScoped workspace + account store"]
+    AC -->|"Native IPC / XPC"| AH
+    AH --> AD
+    AH --> AR
+  end
+  subgraph B["OPTION B — owner decision required"]
+    BC["TestFlight SwiftUI client"]
+    BH["Owner-controlled host\nFort service + ledger"]
+    BR["Isolated executor\nOfficial runtime + scoped credentials"]
+    BC -->|"Authenticated reachable transport"| BH
+    BH -->|"Dispatch / evidence protocol"| BR
+  end
+  V["External AI provider\nData leaves selected host for inference"]
+  AR --> V
+  BR --> V
+  Gate["Do not choose B silently if A is blocked\nNo standalone user app distribution is approved"]
+  A -.-> Gate
+  B -.-> Gate

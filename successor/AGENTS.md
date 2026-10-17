@@ -1,6 +1,29 @@
-# Spec 058 successor
+# Fort Node foundation
 
-## Current handoff — architecture reassessment
+## Current handoff — adopted Node design, implement v1
+
+Tobias adopted [Spec 059](../specs/059-modular-node-v1.md): Node/TypeScript core,
+Swift UI/Apple lifecycle, modular provider-neutral contracts, one indexed ledger
+and outbox, correlated attempts, removable modules and TestFlight delivery.
+Read [decision 059](../docs/architecture/decisions/059-node-foundation.md) and keep
+[V1-ACCEPTANCE.md](V1-ACCEPTANCE.md) current. The earlier pause and no-language
+choice below are historical. Preserve first-wave identity/model/avatar/settings/
+image display, skills/routines and easy pairing/disconnect/history choices.
+
+Continue autonomously through verified v1, one public red → green slice at a time.
+First prove synthetic sandboxed bundle/runtime feasibility without real accounts
+or persistent registration. Then migrate the core/native behavior. Reuse current
+implementation authority for routine fixes, tests and commits. No Go rewrite.
+Mandatory new credential/security/persistent-access/legal gates remain; expired
+live-demo packets below cannot supply authority. Keep independent work moving
+when an exact external gate is blocked. Do not report an engineering build as
+TestFlight availability or physical acceptance.
+
+Use the full spec gate and accepted Spec 059 gate before implementation; before
+committing a product slice also use `--staged` against the declared exact files.
+Structural status/digest do not authenticate the actual owner decision.
+
+## Historical handoff — architecture reassessment
 
 Read the root [directives](../CLAUDE.md), [constitution](../ARCHITECTURE.md) and
 [assessment](../docs/architecture/reassessment-20261017.md). Feature and TestFlight

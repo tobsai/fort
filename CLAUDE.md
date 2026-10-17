@@ -7,14 +7,23 @@ vendor independent, modular, fast, and easy to install/remove. Toby requested th
 reassessment on October 17, 2026. Read it before new requirements, design choices,
 dependency changes or implementation. Its linked spec workflow is mandatory.
 
-The isolated successor checkpoint is
-`e02eb571e66620e407a360584817616074730b55`; product source is
-`09788c132647458cbdc683506c8bd5622f0be1af`. Feature and TestFlight expansion are
-paused while the replacement design is researched and reviewed. This task
-permits documentation, review gates and safe verification, not a wholesale rewrite.
-[Spec 058](specs/058-native-first-owned-agent-mvp.md) needs reassessment. Its older
-approval does not settle the new principles. No backend language is prescribed.
-Scope remains single-owner; shared or multi-user hosting is not authorized.
+The active accepted design is [Spec 059](specs/059-modular-node-v1.md), adopted by
+Tobias at 23:21/23:22 UTC on October 17, 2026. Read the actual
+[decision references](docs/architecture/decisions/059-node-foundation.md).
+Keep Node/TypeScript core, Swift native clients and Apple lifecycle. Implement
+through a fully verified v1; fix recoverable issues and continue independent work
+when one external requirement is blocked. Do not end at a build or ask whether to
+continue. No Go rewrite. The [v1 ledger](successor/V1-ACCEPTANCE.md) tracks each
+implementation/test/build/archive/upload/Apple/physical gate separately.
+
+The preserved pre-redesign source is `09788c132647458cbdc683506c8bd5622f0be1af`;
+`e02eb571e66620e407a360584817616074730b55` remains its evidence checkpoint. Spec 058
+is superseded for current architecture, with history intact. Ordinary coding,
+tests, spec refinements, routine fixes, CI files and requested delivery work are
+authorized; no routine staged confirmations. Mandatory per-action security,
+credential/persistent-access approvals, legal agreements and destructive-action
+authority remain necessary. Do not bypass denial or reuse consumed demo grants.
+Scope is single-owner; no shared hosting, unrelated projects or provider cleanup.
 
 Earlier Go architecture and Specs 021/047/048, the 054/056 messenger direction,
 and the provider-specific 058 prototype are historical inputs when they conflict
@@ -53,7 +62,9 @@ The donor under `foundation/` stays quarantined with its license/provenance inta
 - Treat the agent host and computer-tool sandbox as different security boundaries.
   A tool sandbox does not confine the host process. Do not weaken permission checks.
 - Keep credentials and message bodies out of evidence. Do not replay historical
-  demos, reset consumed authority, create credentials or enable startup services.
+  demos or reset consumed authority. New credentials, persistent grants and startup
+  activation retain their required per-action approval; continue independent work
+  and report the exact blocked action without claiming it completed.
 - Prefer simple behavior and removable dependencies over speculative infrastructure.
   Retain useful tests/contracts by behavior; do not wholesale copy old packages.
 - Source, build, fixture, provider, installed-product and release evidence must be
@@ -64,5 +75,5 @@ The donor under `foundation/` stays quarantined with its license/provenance inta
 - [Current conflicts and keep/adapt/replace assessment](docs/architecture/reassessment-20261017.md).
 - [Successor instructions](successor/AGENTS.md) before reading/changing its prototype.
 - [TestFlight evidence and remaining gates](successor/TESTFLIGHT-DELIVERY-20261017.md)
-  before delivery planning; no release is authorized by that plan.
+  before delivery work; use current decision 059 authority, never expired sessions.
 - [Architecture gate](specs/README.md) before any new or changed specification.

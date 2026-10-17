@@ -1,0 +1,25 @@
+sequenceDiagram
+  participant C as Native client
+  participant S as Fort service
+  participant D as Durable ledger
+  participant E as Isolated executor
+  participant X as External capability
+  C->>S: Command + request ID + immutable revision
+  S->>D: Atomic request/run/configuration/outbox
+  S-->>C: Durable receipt
+  S->>E: Attempt ID + generation + digest + scope + deadline
+  E-->>S: Sequenced started evidence
+  S->>D: Idempotent evidence receipt
+  opt External action requires approval
+    E->>S: Exact action proposal + digest
+    S-->>C: Approval request with destination and effects
+    C->>S: Approve exact unexpired action
+    S->>D: Persist decision and scoped authorization
+    S-->>E: Bounded action grant
+    E->>X: Authorized operation + idempotency key if supported
+  end
+  E-->>S: Bounded output + terminal evidence
+  S->>D: Atomic result + event + evidence receipt
+  S-->>C: Replayable state update
+  Note over S,X: Lost connection after dispatch is unknown until reconciled.
+  Note over S,X: Cancel request or process death does not undo an external effect.

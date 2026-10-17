@@ -1,0 +1,37 @@
+flowchart TB
+  subgraph owner["Owner devices — proposed"]
+    UI["SwiftUI Mac / iPhone\nPreferences · chat · named routines"]
+    Voice["Optional voice\nDraft text / playback"]
+    UI --- Voice
+  end
+  subgraph authority["Fort authority boundary — one service process"]
+    API["Versioned commands / queries / replay"]
+    Domain["Agent identity + configuration\nConversation ledger\nExecution + cancellation\nAuthority + approvals\nRoutines + scheduler"]
+    Ports["Core-owned ports\nRuntime · context · connector · storage"]
+    DB[("SQLite\nState + durable events / outbox\nSingle writer")]
+    Memory["Optional memory\nBounded context + provenance"]
+    API --> Domain
+    Domain --> DB
+    Domain --> Ports
+    Ports -. "context capability" .-> Memory
+  end
+  subgraph executor["Execution containment boundary — enforcement must be proven"]
+    Host["Execution host\nApproved local / VM / remote placement"]
+    Runtime["Official agent runtime adapters\nCapabilities · model / account readiness"]
+    Connector["Optional connector workers\nTyped scoped operations"]
+    Secrets["Credential adapters\nSeparate provider and connector stores"]
+    Host --> Runtime
+    Host -.-> Connector
+    Runtime --> Secrets
+    Connector --> Secrets
+  end
+  subgraph vendors["External trust boundary"]
+    AI["AI vendors\nOfficial supported account paths"]
+    Services["External services\nUntrusted returned content"]
+  end
+  UI -->|"Authenticated commands / cursor"| API
+  API -->|"Receipts + state / evidence"| UI
+  Ports -->|"Service-owned attempt + scoped grants"| Host
+  Host -->|"Bounded correlated evidence"| Domain
+  Runtime --> AI
+  Connector --> Services

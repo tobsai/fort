@@ -2,10 +2,11 @@
 
 This is the single source of truth for Fort's design principles. It records
 Toby's October 17, 2026 direction: reconsider the architecture through vendor
-independence, modularity, speed, and ease of installation/removal. It does not
-select a replacement language or authorize a rewrite. Product expansion and
-TestFlight delivery work are paused at checkpoint
-`e02eb571e66620e407a360584817616074730b55` pending a reviewed design.
+independence, modularity, speed, and ease of installation/removal. Tobias then
+adopted the modular redesign with Node/TypeScript core and Swift UI/lifecycle.
+[Spec 059](specs/059-modular-node-v1.md) and its source-backed decision govern
+implementation through v1. Preserve checkpoint
+`e02eb571e66620e407a360584817616074730b55`; the earlier pause is superseded.
 
 ## 1. Vendor independent
 
@@ -64,8 +65,9 @@ and provider latency; a slow provider is not evidence that Fort is efficient.
 Record hardware/OS, toolchain versions, workload/data size, process topology,
 cache state, repeated samples and reported percentiles. Distinguish proposed
 budgets from measured results. Compare credible candidates at the same public
-seam before choosing a language/framework. No build duration in an incidental
-log is a benchmark. Unassigned budgets are an open design decision, not a pass.
+seam before an undecided language/framework choice. The owner's explicit Node
+selection supersedes a language-selection comparison; measured Node budgets still
+apply. No build duration in an incidental log is a benchmark. Unassigned budgets are an open design decision, not a pass.
 
 ## 4. Easy to install and remove
 
@@ -112,9 +114,11 @@ requires the promised verification. Changes to accepted spec content require
 reassessment and a new matching decision/digest before implementation resumes.
 
 Historical specs and evidence remain preserved, not retroactively compliant.
-Spec 058 needs reassessment. Read [the current assessment](docs/architecture/reassessment-20261017.md)
+Spec 058 remains historical; Spec 059 governs the adopted redesign. Read [the assessment](docs/architecture/reassessment-20261017.md)
 for conflicts and keep/adapt/replace proposals. Earlier Go-only, fixed-provider,
 managed-hosting and broad feature mandates are not current architectural authority.
 Teardown evidence, exact identity, legal attribution, secrets discipline and
 external-action authorization remain applicable; full provider closure is still
-unverified. This constitution grants no installation, cleanup or release authority.
+unverified. The constitution alone grants no installation, cleanup or release
+authority; use the current owner's explicit implementation/delivery decision and
+retain mandatory per-action security, credential and legal gates.
