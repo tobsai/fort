@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+const identity = process.env.FORT_SIGNING_IDENTITY;
+test('sandboxed Swift parent runs bundled Node with private SQLite and denied outside capabilities', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
+  assert.ok(identity);
+  const root = mkdtempSync('/tmp/fort059-sandbox-test-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', identity, '--destination', join(root, 'proof')], { encoding: 'utf8', timeout: 90_000 });
+  assert.equal(result.status, 0, result.stderr);
+  const proof: unknown = JSON.parse(result.stdout);
+  assert.ok(proof && typeof proof === 'object');
+  assert.equal('sqlite' in proof && proof.sqlite, 'ready');
+  assert.equal('outsideReadDenied' in proof && proof.outsideReadDenied, true);
+  assert.equal('outsideWriteDenied' in proof && proof.outsideWriteDenied, true);
+  assert.equal('loopbackListenDenied' in proof && proof.loopbackListenDenied, true);
+  assert.equal('ownedProcessesAbsent' in proof && proof.ownedProcessesAbsent, true);
+  assert.equal('syntheticContainerAbsent' in proof && proof.syntheticContainerAbsent, true);
+});

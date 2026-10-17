@@ -20,7 +20,7 @@
     "test:specs": "node --test ../ops/architecture/validate-specs.test.mjs",
     "pretest": "npm run check:specs",
     "pretypecheck": "npm run check:specs",
-    "test:packaging": "node --test packaging/node-bundle.test.ts"
+    "test:packaging": "node --test packaging/node-bundle.test.ts packaging/sandbox-feasibility.test.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

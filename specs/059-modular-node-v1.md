@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 4f8864031266114df79ef188271ed0f4d7013537567783931a19ce32f8714ca5
+Reviewed content SHA256: ca8bea8ccfefce5d329ba01b64abb2e35a312f2ff474ccc9ddd6d10a2f7912d9
 
 ### Vendor independence
 Status: planned
@@ -134,6 +134,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/packaging/sandbox-feasibility.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/README.md`
 - `successor/evidence/2026-10-17-node-foundation/results.json`
+- `successor/evidence/2026-10-17-node-foundation/sandbox.json`
+- `successor/evidence/2026-10-17-node-foundation/sandbox.md`
 - `docs/architecture/reviews/20261017/ARTIFACT-MANIFEST.json`
 - `docs/architecture/reviews/20261017/DECISION-GRID.tsv`
 - `docs/architecture/reviews/20261017/POLICY-REVIEW.md`

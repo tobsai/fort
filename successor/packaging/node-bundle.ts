@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util';
 
 type Reference = { original: string; source: string };
 type Image = { source: string; name: string; kind: 'executable' | 'library'; references: Reference[]; rpaths: string[] };
-const command = (tool: string, args: string[]) => execFileSync(tool, args, { encoding: 'utf8', timeout: 20_000 });
+const command = (tool: string, args: string[]) => execFileSync(tool, args, { encoding: 'utf8', timeout: 20_000, stdio: 'pipe' });
 const hash = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const systemImage = (path: string) => path.startsWith('/usr/lib/') || path.startsWith('/System/Library/');
 

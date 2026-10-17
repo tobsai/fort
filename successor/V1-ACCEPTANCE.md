@@ -8,7 +8,7 @@ service/runtime and 56 native tests are not a pass for the new foundation.
 
 | Requirement | Implemented | Tests | Build/package | Installed/provider acceptance | Remaining |
 | --- | --- | --- | --- | --- | --- |
-| Self-contained sandboxed Node/Swift bundle | Node dependency-closure packager | 1 real artifact test passed; strict typecheck passed | Relocated development-signed Node/SQLite works | Sandbox/provider/physical unrun | Swift parent/child sandbox, IPC and denial/cleanup proof; [evidence](evidence/2026-10-17-node-foundation/README.md) |
+| Self-contained sandboxed Node/Swift bundle | Dependency closure and Swift sandbox probe | 2 real artifact tests passed separately; strict typecheck passed | Signed Swift parent and inherited Node child execute SQLite | Synthetic outside-file/listener denial and cleanup passed; provider/physical unrun | Full runtime/IPC/lifecycle and distribution proof; [sandbox evidence](evidence/2026-10-17-node-foundation/sandbox.md) |
 | Provider-neutral core/native contracts | Prototype coupled | Planned | Unrun | Unrun | Different sessionful/stateless fixtures, no OpenAI dependency |
 | Indexed compact ledger and durable outbox | Prototype semantics exist | Planned | Unrun | Unrun | Remove history amplification, migration and restart recovery |
 | Service-owned attempts/cancel/evidence | Prototype competing IDs | Planned | Unrun | Unrun | Correlation, stale/duplicate evidence and unknown outcomes |
