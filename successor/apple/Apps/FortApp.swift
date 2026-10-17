@@ -33,7 +33,7 @@ import FortKit
                     #else
                     throw ClientError.invalidResponse
                     #endif
-                    #endif
+                    #else
                     #if DEBUG
                     if ProcessInfo.processInfo.arguments.contains("--offline-preview") {
                         model = try OfflinePreview.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortOfflinePreview-" + UUID().uuidString,isDirectory:true))
@@ -55,6 +55,7 @@ import FortKit
                     }
                     #endif
                     model = created
+                    #endif
                 } catch { startupError = "Local storage is unavailable. Your service history has not changed." }
             }
         }
