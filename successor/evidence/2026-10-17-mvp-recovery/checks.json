@@ -1,0 +1,110 @@
+{
+  "sourceCommit": "7c3287298bb0ee52c2eab8054465b9fdb9119b5f",
+  "checks": [
+    {
+      "check": "full-typescript",
+      "result": "passed: 624 tests",
+      "log": "/tmp/fort-mvp-full-typescript.log",
+      "bytes": 56815,
+      "sha256": "bcc8e6ba9913edbc6cbc1643177a308aef56fd589759cdafd9c2b27226b5ba86"
+    },
+    {
+      "check": "focused-service-runtime",
+      "result": "passed: 48 tests (subset of full suite)",
+      "log": "/tmp/fort-mvp-recovery-focused.log",
+      "bytes": 5113,
+      "sha256": "1540d0b2be7eb4e6336f9dcac091e9e8fca0dfa0836697733e06aed7323d4640"
+    },
+    {
+      "check": "swift-unit",
+      "result": "passed: 25 tests",
+      "log": "/tmp/fort-mvp-swift-recovery-green.log",
+      "bytes": 6895,
+      "sha256": "e451040dae33d7db48f71c99219aae93b29a1c8fe4ac6cfe586809f5ecf41bd2"
+    },
+    {
+      "check": "typescript",
+      "result": "passed: strict typecheck, exit 0",
+      "log": "/tmp/fort-mvp-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "check": "native-http",
+      "result": "passed: 8 synthetic executions across 3 restarts",
+      "log": "/tmp/fort-mvp-native-http.log",
+      "bytes": 683,
+      "sha256": "6aff9b422676b1d7f02dd65db49f1d82baca2275d6e0bbf88dee2ae5ca574756"
+    },
+    {
+      "check": "mac-build",
+      "result": "passed: TEST BUILD SUCCEEDED",
+      "log": "/tmp/fort-mvp-mac-build.log",
+      "bytes": 149289,
+      "sha256": "9f43871771e125a85e044ef3b6766c1ea583b74fc07e4ffe71c82fa54b5c0e00"
+    },
+    {
+      "check": "ios-simulator-build",
+      "result": "passed: TEST BUILD SUCCEEDED",
+      "log": "/tmp/fort-mvp-ios-build.log",
+      "bytes": 270457,
+      "sha256": "45aa39106d2dd8193291f9859782844e5928b25ba523a0990c6a3ad61aa839e8"
+    },
+    {
+      "check": "initial-native-check-compile",
+      "result": "failed: Receipt is not Equatable; test assertion corrected",
+      "log": "/tmp/fort-mvp-native-check-build.log",
+      "bytes": 7291,
+      "sha256": "c3aced9cc7f45342c7dc60f635e7cae5ca97c87a371137bac7d85510f225f3ba"
+    },
+    {
+      "check": "native-check-compile",
+      "result": "passed: Build complete",
+      "log": "/tmp/fort-mvp-native-check-build-green.log",
+      "bytes": 197,
+      "sha256": "49375505bf2bd17adae446fcbd0861da7c87c56c4f52d955613289e7955a3707"
+    },
+    {
+      "check": "queued-cancel-red",
+      "result": "expected regression failure before route implementation",
+      "log": "/tmp/fort-mvp-cancel-red.log",
+      "bytes": 988,
+      "sha256": "aed47f853fce88b96247581d56093b5bf8ac4461086be2f5ffae8f673da3e06b"
+    },
+    {
+      "check": "active-cancel-red",
+      "result": "expected regression failure before active interruption",
+      "log": "/tmp/fort-mvp-active-cancel-red.log",
+      "bytes": 1074,
+      "sha256": "63f792f2ebbbf141fc4120f81b28593736098a7a56e18e27e116edea47662347"
+    },
+    {
+      "check": "unknown-close-red",
+      "result": "expected regression failure before closure route",
+      "log": "/tmp/fort-mvp-unknown-red.log",
+      "bytes": 1034,
+      "sha256": "01e2afd2b50eafcb01761e2ce0456d59ae0d5ee2d7ff7a02c9c0616e2d2224c9"
+    },
+    {
+      "check": "refusal-red",
+      "result": "expected regression failure: notStarted incorrectly reported canceled",
+      "log": "/tmp/fort-mvp-refusal-red.log",
+      "bytes": 1040,
+      "sha256": "16c8db1475e73e5fbe7cdb05a9c0827ccb6ca010b0bd6278a10759eabaaaaaed"
+    },
+    {
+      "check": "protocol-cancel-red",
+      "result": "expected regression failure: correlated interruption incorrectly remained unknown",
+      "log": "/tmp/fort-mvp-protocol-cancel-red.log",
+      "bytes": 1025,
+      "sha256": "7a79c7511c3b9e4f0f9643a1e9a204b7719ceb4a52cbf8ab9fad95c5c74a37b4"
+    },
+    {
+      "check": "native-cancel-red",
+      "result": "expected regression failure: cancellation lost during refresh",
+      "log": "/tmp/fort-mvp-native-cancel-red.log",
+      "bytes": 3461,
+      "sha256": "e5b750e5ac9b0d2cec4a64680bb268a2546039f6f10cf163e4bc9414c9c9afd9"
+    }
+  ]
+}

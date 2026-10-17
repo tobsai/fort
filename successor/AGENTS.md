@@ -4,6 +4,37 @@ Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
 new isolated successor, separate from both historical Fort and quarantined donor.
 Read ../specs/058-native-first-owned-agent-mvp.md and IMPLEMENTATION.md.
 
+## Current work — October 17
+
+The owner asked at 2026-10-16 23:47:34 UTC: “Can you test the app? I want you to
+build this thing until it gets to the Mvp”. The coordinator delegated end-to-end
+Spec 058 implementation here. Continue routine code, synthetic tests, native
+builds and local commits through the MVP milestones; the historical single-sample
+and owner-typing limits below do not restrict that development work.
+
+For the current acceptance gaps and repeatable live-test proposal, read
+[MVP-20261017.md](MVP-20261017.md). Coordinate installed UI execution through the
+existing operator `01a1451b-81d7-76cf-8e5c-a85d7164201c` via the parent; preserve
+one implementation owner. Native iPhone and Mac, complete reviewed skill bundles,
+native routines and durable schedules remain required. Spec 058 defers Groups and
+agent delegation; preserve existing experiments without expanding that scope.
+
+Every historical packet below is consumed, including the owner-trial replacement:
+its observed state is `finished`, one start, zero receipts, credential cleanup
+`deleted`. Preserve all six ledgers/state/evidence packets and the native cache.
+See [the outcome record](evidence/2026-10-17-mvp-recovery/owner-trial-outcome.json)
+for byte hashes and the distinction between observed state and operator timing.
+The original preparation records remain historical evidence.
+
+Expired service enrollment is not renewed by this development authorization.
+Identify the exact temporary credential scope before another live test. Keep
+provider sign-in, API billing, persistent credentials, startup registration,
+security changes, public ingress and deployment outside this local increment.
+The agent host still has the Mac user's access; tool sandbox settings do not prove
+host isolation. Continue independent implementation while those live gates wait.
+
+## Historical bounded-session authority
+
 The bounded Candidate B test was approved on 2026-10-16, including its minimal
 activation revision; see evidence/2026-10-16-candidate-b-activation/approval.json.
 Its first authorized start failed closed with zero receipts. That original packet

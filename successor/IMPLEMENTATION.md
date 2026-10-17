@@ -1,6 +1,24 @@
 # Spec 058 implementation record
 
-## Current native-provider progress — October 16
+## Current implementation — October 17
+
+The owner requested continued app testing and implementation through the MVP on
+October 16 at 23:47:34 UTC. [MVP-20261017.md](MVP-20261017.md) is the active milestone
+and remaining-gate record. Routine local work proceeds under that request.
+
+Recovery source `7c3287298bb0ee52c2eab8054465b9fdb9119b5f` adds authenticated
+queued/active cancellation and explicit unknown closure to the actual OpenAI
+service, exposes the native controls there, and preserves runtime interruption
+truth. Synthetic evidence now covers service/client restart, lost acceptance,
+idempotent recovery and same-Home continuation. It is recorded separately from
+installed UI and real-provider acceptance.
+
+Both owner-trial packets are consumed: the first failed before READY; the
+replacement opened, received zero owner messages and finished cleanup. All six
+historical packets are retained. The following October 16 account and proposals
+are historical; the active plan does not reuse or reset them.
+
+## Historical native-provider progress — October 16
 
 The approved fourth packet completed one actual native Mac send/reply through the
 pinned official Codex runtime and existing ChatGPT sign-in. The UI operator paired

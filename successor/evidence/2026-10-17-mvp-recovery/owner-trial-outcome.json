@@ -1,0 +1,29 @@
+{
+  "state": {
+    "version": 1,
+    "attempt": "owner-trial-replacement-20261016",
+    "starts": 1,
+    "phase": "finished",
+    "credentialDeadline": 1792189553195,
+    "receipts": [],
+    "installationId": "24a9b7a8-2ae6-4536-a6a6-f00f87e135b5",
+    "port": 61834,
+    "credentialCleanup": "deleted"
+  },
+  "files": [
+    {
+      "path": "service/openai-candidate-b.sqlite",
+      "bytes": 49152,
+      "sha256": "7788d40fbf25974f2e4f39084b623c9488204d7814400b64b550a1fcaf6b382f",
+      "mtimeNS": 1792189493376181650
+    },
+    {
+      "path": "session-state.json",
+      "bytes": 274,
+      "sha256": "b1673ced78cbe3367e6154394406e6de847b6cb007d0261e1988f9eb6e5ae2f8",
+      "mtimeNS": 1792189493393963329
+    }
+  ],
+  "root": "/Users/tobiasgunn/dev/fort/.local/prototype-candidate-b-owner-trial-replacement-20261016",
+  "operatorReported": "Opened 2026-10-16 22:16 UTC; zero owner inputs; cleanup finished 22:24:59 UTC. Supplied by coordinator, not independently timed here."
+}
