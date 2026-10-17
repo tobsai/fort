@@ -11,6 +11,8 @@ import Observation
     public var selectedAgentID: String?
     public var conversations: [Conversation] = []
     public var skills: [InstructionSkill] = []
+    public var routines: [RoutineRevision] = []
+    public var schedules: [ScheduleRevision] = []
     public var selectedConversationID: String?
     public var recipientAgentID: String?
     public var selectedSkillIDs: Set<String> = []
@@ -39,6 +41,7 @@ import Observation
         }
         return installation?.mode == "fixture" ? selectedAgent : nil
     }
+    public var supportsRoutines: Bool { installation?.supports("routines") == true }
     public var supportsCommands: Bool { installation?.supportsCommands == true }
     public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
@@ -98,24 +101,23 @@ import Observation
             if !agents.contains(where:{$0.agentId == selectedAgentID}) { selectedAgentID = agents.first?.agentId }
             if current.mode == "openai" {
                 conversations = try await client.conversations(); skills = try await client.skills()
+                routines = current.supports("routines") ? try await client.routines() : []
+                schedules = current.supports("schedules") ? try await client.schedules() : []
                 if !conversations.contains(where:{$0.id == selectedConversationID}) { selectedConversationID = selectedAgent?.homeConversationId }
             } else { conversations = []; skills = []; selectedConversationID = nil }
             try saveNavigation()
             pending = try pendingStore?.pending() ?? []
             pendingErrors = [:]
             if current.supportsCommands {
-                for item in pending where item.canRetry(in:current.recoveryEpoch) {
+                for item in pending where item.canRetry(in:current.recoveryEpoch) && (item.routine == nil || current.supports("routines")) {
                     do {
                         let acceptance = try await client.submit(item)
-                        guard acceptance.receipt.requestId == item.requestID,
-                              acceptance.receipt.conversationId == item.conversationID,
-                              acceptance.receipt.bindingRevisionId == item.bindingRevision,
-                              acceptance.snapshot.messages.contains(where:{$0.messageId == acceptance.receipt.messageId && $0.requestId == item.requestID && $0.role == "user" && $0.text == item.text}) else { throw ClientError.invalidResponse }
+                        guard item.matches(acceptance) else { throw ClientError.invalidResponse }
                         try persist(acceptance.snapshot,conversationID:item.conversationID,epoch:current.recoveryEpoch)
                         try pendingStore?.remove(requestID:item.requestID)
                     } catch {
                         pendingErrors[item.requestID] = error.localizedDescription
-                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","bindingConflict"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
+                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","bindingConflict","bindingDisabled","routineChanged","invalidRoutine"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
                     }
 
                 }
@@ -204,6 +206,41 @@ import Observation
         guard let client else { throw ClientError.service("offline","Connect to Fort to compare this revision.") }
         return try await client.skillRevision(skillID:skill.id,revisionID:revision)
     }
+    public func saveSchedule(_ revision: ScheduleRevision?, definition: ScheduleDefinition) async -> Bool {
+        guard installation?.supports("schedules") == true, let client = await beginWorkspaceSave() else { return false }
+        do { _ = try await client.saveSchedule(revision,definition:definition); isBusy = false; await refresh(); workspaceSaving = false; return true }
+        catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
+    }
+    public func routineRevision(routineID: String, revisionID: String) async throws -> RoutineRevision {
+        guard let client else { throw ClientError.service("offline","Connect to review the pinned routine.") }; return try await client.routineRevision(routineID:routineID,revisionID:revisionID)
+    }
+    public func schedulePreview(_ revision: ScheduleRevision) async throws -> SchedulePreview {
+        guard let client else { throw ClientError.service("offline","Connect to preview the schedule.") }; return try await client.previewSchedule(revision)
+    }
+    public func scheduleOccurrences(_ revision: ScheduleRevision) async throws -> [ScheduleOccurrence] {
+        guard let client else { throw ClientError.service("offline","Connect to inspect occurrences.") }; return try await client.scheduleOccurrences(revision)
+    }
+    public func setSchedule(_ revision: ScheduleRevision, enabled: Bool, preview: SchedulePreview?) async -> Bool {
+        guard installation?.supports("schedules") == true, let client = await beginWorkspaceSave(), let installation else { return false }
+        do { _ = try await client.setSchedule(revision,enabled:enabled,preview:preview,recoveryEpoch:installation.recoveryEpoch); isBusy = false; await refresh(); workspaceSaving = false; return true }
+        catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
+    }
+    public func saveRoutine(_ revision: RoutineRevision?, definition: RoutineDefinition) async -> Bool {
+        guard supportsRoutines, let client = await beginWorkspaceSave() else { return false }
+        do {
+            _ = try await client.saveRoutine(revision,definition:definition)
+            isBusy = false; await refresh(); workspaceSaving = false; return true
+        } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
+    }
+    public func runRoutine(_ revision: RoutineRevision, inputs: [String:RoutineValue]) async -> Bool {
+        if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
+        guard supportsRoutines, !isBusy, let installation, let pendingStore else { return false }
+        do {
+            try pendingStore.enqueueRoutine(revision,inputs:inputs,recoveryEpoch:installation.recoveryEpoch)
+            selectedConversationID = revision.definition.conversationId; selectedAgentID = revision.definition.agentId
+            pending = try pendingStore.pending(); try saveNavigation(); await refresh(); return true
+        } catch { status = "The routine could not be saved on this device. Try again."; return false }
+    }
     public func createConversation(name: String, participantAgentIDs: [String]) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }
         do {
@@ -213,7 +250,7 @@ import Observation
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
     }
     public func decide(_ approval: Approval, approve: Bool) async {
-        guard supportsCommands, !isBusy, approval.canDecide, let client, approval.installationId == installation?.installationId, approval.recoveryEpoch == installation?.recoveryEpoch else { return }
+        guard supportsCommands, (approval.kind != "routineGate" || installation?.supports("routineGates") == true), !isBusy, approval.canDecide, let client, approval.installationId == installation?.installationId, approval.recoveryEpoch == installation?.recoveryEpoch else { return }
         isBusy = true
         do {
             let result = try await client.resolve(approval,approve:approve)

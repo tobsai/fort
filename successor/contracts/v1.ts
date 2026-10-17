@@ -1,8 +1,8 @@
-export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai'; serviceName: 'Fort Fixture' | 'Fort Prototype' };
+export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai'; serviceName: 'Fort Fixture' | 'Fort Prototype'; capabilities?: string[] };
 export type Binding = { bindingRevisionId: string; provider: 'fixture' | 'codex'; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
 export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string };
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string };
-export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; configuration?: TurnConfiguration; statusDetail?: string };
+export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; configuration?: TurnConfiguration; routine?: RoutineExecution; statusDetail?: string };
 export type Snapshot = { installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };
 export type Submission = { requestId: string; bindingRevisionId: string; recoveryEpoch: string; text: string };
 export type Receipt = { requestId: string; conversationId: string; messageId: string; runId: string; bindingRevisionId: string; inputDigest: string; acceptedAt: string };
@@ -10,7 +10,9 @@ export type Acceptance = { receipt: Receipt; snapshot: Snapshot };
 export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryEpoch: string; eventId: string; sequence: number; entityId: string; conversationId: string; kind: string; createdAt: string; data: unknown };
 export const MAX_TEXT_BYTES = 65_536;
 
-export type Approval = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; resourceScope: ['fixture:reply']; actionDescription: 'Produce the fixture reply'; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };
+type ApprovalIdentity = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };
+export type RoutineApproval = ApprovalIdentity & { kind: 'routineGate'; routineRevisionId: string; stepId: string; resourceScope: ['routine:continue']; actionDescription: string };
+export type Approval = (ApprovalIdentity & { resourceScope: ['fixture:reply']; actionDescription: 'Produce the fixture reply'; kind?: never }) | RoutineApproval;
 
 export type SkillReference = { skillId: string; revisionId: string };
 export type SkillBundleFile = { path: string; kind: 'file'; executable: boolean; contentBase64: string; bytes: number; sha256: string };
@@ -19,3 +21,25 @@ export type SkillReview = { state: 'reviewRequired' | 'enabled' | 'disabled'; di
 export type InstructionSkill = SkillReference & { name: string; instructions: string } & ({ bundle?: never; review?: never } | { bundle: SkillBundle; review: SkillReview; previousRevisionId?: string });
 export type Conversation = { conversationId: string; name: string; kind: 'home' | 'shared'; participantAgentIds: string[] };
 export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[] };
+
+export type RoutineValue = string | number | boolean;
+export type RoutineInput = { name: string; type: 'text' | 'number' | 'boolean'; required: boolean };
+export type RoutineTask = { stepId: string; name: string; type: 'task'; instructions: string; inputNames: string[]; outputStepIds: string[] };
+export type RoutineGate = { stepId: string; name: string; type: 'approval'; prompt: string };
+export type RoutineStep = RoutineTask | RoutineGate;
+export type RoutineDefinition = { schemaVersion: 1; name: string; agentId: string; conversationId: string; bindingRevisionId: string; instructions: string; inputs: RoutineInput[]; skills: (SkillReference & { digest: string })[]; steps: RoutineStep[] };
+export type RoutineRevision = { routineId: string; revisionId: string; digest: string; definition: RoutineDefinition; agentSnapshot: Agent; skills: InstructionSkill[] };
+export type RoutineStepProgress = { stepId: string; stepRevisionId: string } & (
+  | { state: 'pending' }
+  | { state: 'running'; attemptId: string }
+  | { state: 'completed'; attemptId: string; output: { messageId: string; text: string; digest: string } }
+  | { state: 'waitingForApproval' | 'approved' | 'rejected'; attemptId: string; approvalId: string }
+  | { state: 'failed' | 'outcomeUnknown' | 'canceled'; attemptId?: string; detail: string }
+);
+export type RoutineExecution = { routineId: string; revisionId: string; definition: RoutineDefinition; inputs: Record<string,RoutineValue>; steps: RoutineStepProgress[] };
+
+export type ScheduleDefinition = { schemaVersion:1; routineId:string; routineRevisionId:string; timezone:string; time:string; inputs:Record<string,RoutineValue>; missed:'skip'|'catchUpOne' } & ({kind:'once';date:string;weekdays?:never}|{kind:'daily';date?:never;weekdays?:never}|{kind:'weekly';weekdays:number[];date?:never});
+export type CalendarOccurrence = { localDate:string; localTime:string; intendedAt:string|null; decisionAt:string };
+export type SchedulePreview = { revisionId:string; digest:string; expiresAt:string; timezone:string; occurrences:CalendarOccurrence[]; overlap:'skip'; missed:'skip'|'catchUpOne' };
+export type ScheduleRevision = { scheduleId:string; revisionId:string; digest:string; definition:ScheduleDefinition; state:'paused'|'enabled'; checkedThrough:number; consent?:{deviceId:string;at:string;previewDigest:string}; preview?:SchedulePreview };
+export type ScheduleOccurrence = { occurrenceId:string; scheduleId:string; scheduleRevisionId:string; routineId:string; routineRevisionId:string; intendedAt:string|null; localDate:string; localTime:string; state:'accepted'|'skippedOverlap'|'skippedMissed'|'skippedGap'|'blocked'|'skippedMissedRange'; runId?:string; detail?:string };

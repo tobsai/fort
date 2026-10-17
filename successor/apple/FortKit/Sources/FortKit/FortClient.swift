@@ -73,7 +73,41 @@ public struct FortClient: Sendable {
     }
     public func snapshot(conversationID: String) async throws -> Snapshot { try await get("v1/conversations/\(try segment(conversationID))/snapshot") }
     public func receipt(requestID: String) async throws -> Acceptance { try await get("v1/requests/\(try segment(requestID))") }
+    public func schedules() async throws -> [ScheduleRevision] {
+        struct Response: Decodable { let schedules: [ScheduleRevision] }
+        let response: Response = try await get("v1/schedules"); return response.schedules
+    }
+    public func saveSchedule(_ revision: ScheduleRevision?, definition: ScheduleDefinition) async throws -> ScheduleRevision {
+        struct Body: Encodable { let expectedRevisionId: String?; let definition: ScheduleDefinition }
+        let path = try revision.map { "v1/schedules/\(try segment($0.id))" } ?? "v1/schedules"
+        return try await send(path,method:"POST",body:Body(expectedRevisionId:revision?.revisionId,definition:definition))
+    }
+    public func previewSchedule(_ revision: ScheduleRevision) async throws -> SchedulePreview { try await get("v1/schedules/\(try segment(revision.id))/preview") }
+    public func scheduleOccurrences(_ revision: ScheduleRevision) async throws -> [ScheduleOccurrence] {
+        struct Response: Decodable { let occurrences: [ScheduleOccurrence] }
+        let response: Response = try await get("v1/schedules/\(try segment(revision.id))/occurrences"); return response.occurrences
+    }
+    public func setSchedule(_ revision: ScheduleRevision, enabled: Bool, preview: SchedulePreview?, recoveryEpoch: String) async throws -> ScheduleRevision {
+        struct Body: Encodable { let recoveryEpoch: String; let revisionId: String; let enable: Bool; let previewDigest: String? }
+        return try await send("v1/schedules/\(try segment(revision.id))/state",method:"POST",body:Body(recoveryEpoch:recoveryEpoch,revisionId:revision.revisionId,enable:enabled,previewDigest:preview?.digest))
+    }
+    public func routines() async throws -> [RoutineRevision] {
+        struct Response: Decodable { let routines: [RoutineRevision] }
+        let response: Response = try await get("v1/routines"); return response.routines
+    }
+    public func saveRoutine(_ revision: RoutineRevision?, definition: RoutineDefinition) async throws -> RoutineRevision {
+        struct Body: Encodable { let expectedRevisionId: String?; let definition: RoutineDefinition }
+        let path = try revision.map { "v1/routines/\(try segment($0.id))" } ?? "v1/routines"
+        return try await send(path,method:"POST",body:Body(expectedRevisionId:revision?.revisionId,definition:definition))
+    }
+    public func routineRevision(routineID: String, revisionID: String) async throws -> RoutineRevision {
+        try await get("v1/routines/\(try segment(routineID))/revisions/\(try segment(revisionID))")
+    }
     public func submit(_ pending: PendingSubmission) async throws -> Acceptance {
+        if let routine = pending.routine {
+            struct RoutineBody: Encodable { let requestId: String; let routineRevisionId: String; let recoveryEpoch: String; let inputs: [String:RoutineValue] }
+            return try await send("v1/routines/\(try segment(routine.routineId))/run",method:"POST",body:RoutineBody(requestId:pending.requestID,routineRevisionId:routine.revisionId,recoveryEpoch:pending.recoveryEpoch,inputs:routine.inputs))
+        }
         struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String; let recipientAgentId: String?; let skills: [SkillReference]? }
         return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text, recipientAgentId:pending.recipientAgentID, skills:pending.skills))
     }

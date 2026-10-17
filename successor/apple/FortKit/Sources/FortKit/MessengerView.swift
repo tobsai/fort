@@ -4,6 +4,7 @@ public struct MessengerView: View {
     @Bindable private var model: MessengerModel
     @State private var uncertainRun: Run?
     @State private var showWorkspace = false
+    @State private var showRoutines = false
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
@@ -25,6 +26,7 @@ public struct MessengerView: View {
             }
             .navigationTitle("Fort")
             .toolbar {
+                if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
                 Button("Connection",systemImage:"network") { model.showConnection = true }
                 if model.installation?.mode == "openai" { Button("Workspace",systemImage:"plus") { showWorkspace = true } }
             }
@@ -44,6 +46,7 @@ public struct MessengerView: View {
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
         .sheet(isPresented:$model.showConnection) { connectionForm }
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
+        .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
         .task {
             await model.restore()
             while !Task.isCancelled {
@@ -101,6 +104,15 @@ public struct MessengerView: View {
                 Text("\(configuration.agentName) · \(configuration.selectedModel)").font(.caption2)
                 if !configuration.skills.isEmpty { Text("Skills: " + configuration.skills.map(\.name).joined(separator:", ")).font(.caption2) }
             }
+            if let routine = run.routine {
+                DisclosureGroup(routine.definition.name) {
+                    ForEach(routine.steps) { step in
+                        Text((routine.definition.steps.first(where:{$0.id == step.id})?.name ?? step.id) + " · " + step.displayState).font(.caption)
+                        if let output = step.output { Text(output.text).font(.caption).textSelection(.enabled) }
+                        if let detail = step.detail { Text(detail).font(.caption2) }
+                    }
+                }
+            }
             if run.canRequestCancellation {
                 Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }
@@ -119,7 +131,7 @@ public struct MessengerView: View {
             Text("Approval: " + approval.state).font(.caption)
             if approval.state == "pending" {
                 HStack {
-                    Button("Approve fixture reply") { Task { await model.decide(approval,approve:true) } }
+                    Button(approval.kind == "routineGate" ? "Continue routine" : "Approve fixture reply") { Task { await model.decide(approval,approve:true) } }
                     Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }
                 }.disabled(!approval.canDecide || model.isBusy || !model.supportsCommands)
             }

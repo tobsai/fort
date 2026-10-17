@@ -6,6 +6,15 @@ import Testing
     #expect(throws: ClientError.self) { try FortClient(baseURL: URL(string: "http://192.0.2.1")!, installationID: "one", fixtureLoopback: true) }
     #expect(throws: ClientError.self) { try FortClient(baseURL: URL(string: "https://user:secret@example.invalid")!, installationID: "one") }
 }
+
+@Test func nativeRoutineGateRecognizesOnlyTheBoundedContinuationAuthority() throws {
+    var value:[String:Any] = ["approvalId":"gate","installationId":"one","recoveryEpoch":"epoch","runId":"run","attemptId":"attempt","bindingRevisionId":"binding","actionDigest":"digest","resourceScope":["routine:continue"],"actionDescription":"Continue with the saved draft?","expiresAt":"2099-01-01T00:00:00.000Z","state":"pending","kind":"routineGate","routineRevisionId":"revision","stepId":"review"]
+    func decode() throws -> Approval { try JSONDecoder().decode(Approval.self,from:JSONSerialization.data(withJSONObject:value)) }
+    #expect(try decode().canDecide)
+    value["resourceScope"] = ["routine:continue","tools:all"]; #expect(try !decode().canDecide)
+    value["resourceScope"] = ["routine:continue"]; value["kind"] = "futureGate"; #expect(try !decode().canDecide)
+    value["kind"] = "routineGate"; value.removeValue(forKey:"routineRevisionId"); #expect(try !decode().canDecide)
+}
 @Test func recoveryEpochPreventsAutomaticResubmission() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }

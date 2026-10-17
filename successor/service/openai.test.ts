@@ -9,7 +9,7 @@ import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition } from '../contracts/v1.ts';
 
 async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
@@ -27,6 +27,209 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+async function scheduleFixture(t:TestContext,clock:()=>number,calendar:Omit<ScheduleDefinition,'schemaVersion'|'routineId'|'routineRevisionId'|'inputs'>,gate=false){
+  const h=await setup(t,{now:clock}),agent=(await h.api<Agent>('/v1/agents',{name:'Calendar',model:'gpt-6-astra',instructions:'Use synthetic inputs.'})).body;
+  const routine=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Calendar routine',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Only declared steps.',inputs:[],skills:[],steps:gate?[{stepId:'gate',name:'Review',type:'approval',prompt:'Continue?'}]:[{stepId:'task',name:'Task',type:'task',instructions:'Return a summary.',inputNames:[],outputStepIds:[]}]}})).body;
+  const definition={schemaVersion:1,routineId:routine.routineId,routineRevisionId:routine.revisionId,inputs:{},...calendar};
+  const saved=await h.api<ScheduleRevision>('/v1/schedules',{definition});assert.equal(saved.status,201);
+  const path=`/v1/schedules/${saved.body.scheduleId}`,preview=await h.api<SchedulePreview>(path+'/preview');assert.equal(preview.status,200);
+  assert.equal((await h.api(path+'/state',{recoveryEpoch:h.service.installation.recoveryEpoch,revisionId:saved.body.revisionId,previewDigest:preview.body.digest,enable:true})).status,200);
+  return {h,agent,routine,schedule:saved.body,path,definition,preview:preview.body,async occurrences(){return (await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences;}};
+}
+
+test('daily DST gaps are recorded without execution and folds use only the first instant',async t=>{
+  let now=Date.parse('2026-03-07T12:00:00Z');
+  const spring=await scheduleFixture(t,()=>now,{kind:'daily',timezone:'America/New_York',time:'02:30',missed:'catchUpOne'});
+  assert.equal(spring.preview.occurrences[0]?.intendedAt,null);assert.equal(spring.preview.occurrences[0]?.localDate,'2026-03-08');
+  now=Date.parse('2026-03-08T07:00:00Z');await spring.h.service.tickSchedules();assert.deepEqual((await spring.occurrences()).map(item=>item.state),['skippedGap']);
+  now=Date.parse('2026-03-09T06:30:00Z');await spring.h.service.tickSchedules();assert.deepEqual((await spring.occurrences()).map(item=>item.state),['skippedGap','accepted']);
+  let fallTime=Date.parse('2026-11-01T05:29:30Z');
+  const fall=await scheduleFixture(t,()=>fallTime,{kind:'weekly',weekdays:[7],timezone:'America/New_York',time:'01:30',missed:'skip'});
+  assert.equal(fall.preview.occurrences[0]?.intendedAt,'2026-11-01T05:30:00.000Z');
+  fallTime+=60_000;await fall.h.service.tickSchedules();fallTime=Date.parse('2026-11-01T06:30:00Z');await fall.h.service.tickSchedules();
+  const rows=await fall.occurrences();assert.equal(rows.length,1);assert.equal(rows[0]?.state,'accepted');assert.equal(rows[0]?.intendedAt,'2026-11-01T05:30:00.000Z');
+});
+
+test('downtime skips missed work by default, allows one catch-up, and an approval keeps overlap protection',async t=>{
+  for(const missed of ['skip','catchUpOne'] as const){
+    let now=Date.parse('2026-10-17T08:00:00Z');const fixture=await scheduleFixture(t,()=>now,{kind:'daily',timezone:'UTC',time:'09:00',missed},true);
+    now=Date.parse('2026-10-19T10:00:00Z');await fixture.h.restart();
+    const rows=await fixture.occurrences();assert.equal(rows.length,3);assert.deepEqual(rows.map(row=>row.state),missed==='skip'?['skippedMissed','skippedMissed','skippedMissed']:['skippedMissed','skippedMissed','accepted']);
+    if(missed==='catchUpOne'){
+      await fixture.h.service.dispatchNext();const snapshot=(await fixture.h.api<Snapshot>(`/v1/conversations/${fixture.agent.homeConversationId}/snapshot`)).body;assert.equal(snapshot.runs[0]?.state,'waitingForApproval');
+      now=Date.parse('2026-10-20T09:00:00Z');await fixture.h.service.tickSchedules();assert.equal((await fixture.occurrences()).at(-1)?.state,'skippedOverlap');
+      const paused=await fixture.h.api<ScheduleRevision>(fixture.path+'/state',{recoveryEpoch:fixture.h.service.installation.recoveryEpoch,revisionId:fixture.schedule.revisionId,enable:false});assert.equal(paused.body.state,'paused');
+      now+=86_400_000;await fixture.h.service.tickSchedules();assert.equal((await fixture.occurrences()).length,4);
+      assert.equal((await fixture.h.api<Snapshot>(`/v1/conversations/${fixture.agent.homeConversationId}/snapshot`)).body.runs[0]?.state,'waitingForApproval');
+    }
+  }
+});
+
+test('one-time schedules claim once across duplicate schedules and restarts and reject unsupported calendar authority',async t=>{
+  let now=Date.parse('2026-10-17T08:59:30Z');const f=await scheduleFixture(t,()=>now,{kind:'once',date:'2026-10-17',timezone:'UTC',time:'09:00',missed:'skip'});
+  const duplicate=(await f.h.api<ScheduleRevision>('/v1/schedules',{definition:f.definition})).body,preview=(await f.h.api<SchedulePreview>(`/v1/schedules/${duplicate.scheduleId}/preview`)).body;
+  await f.h.api(`/v1/schedules/${duplicate.scheduleId}/state`,{recoveryEpoch:f.h.service.installation.recoveryEpoch,revisionId:duplicate.revisionId,previewDigest:preview.digest,enable:true});
+  now+=60_000;await f.h.service.tickSchedules();await f.h.restart();assert.equal((await f.occurrences()).length,1);
+  assert.equal((await f.h.api<Snapshot>(`/v1/conversations/${f.agent.homeConversationId}/snapshot`)).body.runs.length,1);
+  for(const patch of [{timezone:'+01:00'},{timezone:'Invalid/Nowhere'},{time:'25:00'},{date:'2026-02-31'},{kind:'cron',expression:'* * * * *'},{enable:true},{missed:'all'}])assert.equal((await f.h.api('/v1/schedules',{definition:{...f.definition,...patch}})).status,400);
+});
+
+test('schedules require exact owner preview consent and atomically deduplicate occurrences through routine acceptance',async t=>{
+  let now=Date.parse('2026-10-17T09:00:00Z'),calls=0;
+  const h=await setup(t,{now:()=>now,runtime:{async execute(){calls++;return {kind:'completed',text:'Scheduled evidence',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Scheduler',model:'gpt-6-astra',instructions:'Only declared work.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const routine=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Daily review',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Review the supplied topic.',inputs:[],skills:[],steps:[{stepId:'task',name:'Review',type:'task',instructions:'Review.',inputNames:[],outputStepIds:[]}]}})).body;
+  const definition={schemaVersion:1,routineId:routine.routineId,routineRevisionId:routine.revisionId,kind:'daily',timezone:'UTC',time:'09:01',inputs:{},missed:'skip'};
+  const saved=await h.api<ScheduleRevision>('/v1/schedules',{definition});assert.equal(saved.status,201);assert.equal(saved.body.state,'paused');
+  assert.equal(calls,0);assert.equal((await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body.runs.length,0);
+  const path=`/v1/schedules/${saved.body.scheduleId}`,preview=(await h.api<SchedulePreview>(path+'/preview')).body;
+  assert.equal(preview.occurrences[0]?.intendedAt,'2026-10-17T09:01:00.000Z');
+  const command={recoveryEpoch:epoch,revisionId:saved.body.revisionId,previewDigest:preview.digest,enable:true};
+  assert.equal((await h.api(path+'/state',{...command,previewDigest:'wrong'})).status,409);
+  assert.equal((await h.api<ScheduleRevision>(path+'/state',command)).body.state,'enabled');
+  now+=60_000;await Promise.all([h.service.tickSchedules(),h.service.tickSchedules()]);
+  let occurrences=(await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences;
+  assert.equal(occurrences.length,1);assert.equal(occurrences[0]?.state,'accepted');
+  let snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+  assert.equal(snapshot.runs.length,1);assert.equal(snapshot.runs[0]?.routine?.revisionId,routine.revisionId);assert.equal(calls,0);
+  await h.service.dispatchNext();assert.equal(calls,1);
+  await h.restart();await h.service.tickSchedules();assert.deepEqual((await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences,occurrences);
+  const edited=await h.api<ScheduleRevision>(path,{expectedRevisionId:saved.body.revisionId,definition:{...definition,timezone:'America/New_York'}});assert.equal(edited.status,200);assert.equal(edited.body.state,'paused');assert.notEqual(edited.body.revisionId,saved.body.revisionId);
+  assert.equal((await h.api(path+'/state',command)).status,409);
+  now+=86_400_000;await h.service.tickSchedules();snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;assert.equal(snapshot.runs.length,1);
+});
+
+test('routine cancellation and uncertainty preserve completed evidence without admitting successors',async t=>{
+  for(const terminal of ['outcomeUnknown','completed'] as const){
+    let finish!:(value:{kind:'outcomeUnknown';message:string}|{kind:'completed';text:string;effectiveModel:null})=>void;
+    let began!:()=>void;const started=new Promise<void>(resolve=>{began=resolve;});let calls=0;
+    const h=await setup(t,{runtime:{async execute(){calls++;began();return await new Promise(resolve=>{finish=resolve;});},async dispose(){}}});
+    const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Use synthetic inputs.'})).body,epoch=h.service.installation.recoveryEpoch;
+    const definition={schemaVersion:1,name:'Two tasks',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Do the declared steps only.',inputs:[],skills:[],steps:['one','two'].map(stepId=>({stepId,name:stepId,type:'task',instructions:'Return synthetic text.',inputNames:[],outputStepIds:[]}))};
+    const saved=(await h.api<RoutineRevision>('/v1/routines',{definition})).body;
+    const accepted=(await h.api<Acceptance>(`/v1/routines/${saved.routineId}/run`,{requestId:'routine-'+terminal,routineRevisionId:saved.revisionId,recoveryEpoch:epoch,inputs:{}})).body;
+    const runId=accepted.snapshot.runs[0]!.runId,dispatch=h.service.dispatchNext();await started;
+    if(terminal==='completed')await h.api(`/v1/runs/${runId}/cancel`,{recoveryEpoch:epoch});
+    finish(terminal==='completed'?{kind:'completed',text:'Preserved output',effectiveModel:null}:{kind:'outcomeUnknown',message:'Synthetic terminal loss'});await dispatch;
+    let snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+    assert.equal(snapshot.runs[0]?.state,terminal==='completed'?'canceled':'outcomeUnknown');
+    assert.deepEqual(snapshot.runs[0]?.routine?.steps.map(step=>step.state),terminal==='completed'?['completed','canceled']:['outcomeUnknown','pending']);
+    await h.restart();assert.equal(await h.service.dispatchNext(),false);assert.equal(calls,1);
+    if(terminal==='outcomeUnknown'){
+      await h.api(`/v1/runs/${runId}/close-unknown`,{recoveryEpoch:epoch,acknowledgeUncertainty:true});
+      snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+      assert.equal(snapshot.runs[0]?.state,'closedUnknown');assert.deepEqual(snapshot.runs[0]?.routine?.steps.map(step=>step.state),['outcomeUnknown','canceled']);
+    }else assert.equal(snapshot.messages.find(message=>message.role==='assistant')?.text,'Preserved output');
+    assert.equal(await h.service.dispatchNext(),false);assert.equal(calls,1);
+  }
+});
+
+test('routine gates expire without authority and cancellation prevents a late decision from resuming work',async t=>{
+  let now=Date.now(),calls=0;const h=await setup(t,{now:()=>now,runtime:{async execute(){calls++;return {kind:'completed',text:'Synthetic',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const saved=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Gate first',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Wait for the owner.',inputs:[],skills:[],steps:[{stepId:'gate',name:'Review',type:'approval',prompt:'Continue?'},{stepId:'task',name:'Write',type:'task',instructions:'Write.',inputNames:[],outputStepIds:[]}]}})).body;
+  await h.api(`/v1/routines/${saved.routineId}/run`,{requestId:'expiry',routineRevisionId:saved.revisionId,recoveryEpoch:epoch,inputs:{}});await h.service.dispatchNext();
+  const approval=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body.approvals[0]!;
+  const command={recoveryEpoch:epoch,runId:approval.runId,attemptId:approval.attemptId,bindingRevisionId:approval.bindingRevisionId,actionDigest:approval.actionDigest,resourceScope:approval.resourceScope,decision:'approve'};
+  now+=86_400_001;
+  const expired=await h.api<{error:{code:string}}>(`/v1/approvals/${approval.approvalId}/resolve`,command);assert.equal(expired.status,409);assert.equal(expired.body.error.code,'approvalExpired');
+  await h.api(`/v1/runs/${approval.runId}/cancel`,{recoveryEpoch:epoch});
+  const late=await h.api<{approval:Approval;run:Run}>(`/v1/approvals/${approval.approvalId}/resolve`,command);assert.equal(late.body.approval.state,'canceled');assert.equal(late.body.run.state,'canceled');
+  await h.restart();assert.equal(await h.service.dispatchNext(),false);assert.equal(calls,0);
+});
+
+test('installation advertises routine capabilities without changing its durable identity',async t=>{
+  const h=await setup(t),initial=(await h.api<Installation>('/v1/installation')).body;
+  assert.ok(initial.capabilities?.includes('routines'));assert.ok(initial.capabilities?.includes('routineGates'));
+  await h.restart();assert.deepEqual((await h.api<Installation>('/v1/installation')).body,initial);
+});
+
+test('routine edits preserve pinned configuration and disabling its binding blocks queued and future work',async t=>{
+  const calls:ChatInput[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(structuredClone(input));return {kind:'completed',text:'Synthetic revision reply',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Original instructions.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const definition={schemaVersion:1,name:'Draft',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Use the pinned configuration.',inputs:[],skills:[],steps:[{stepId:'one',name:'Draft',type:'task',instructions:'Draft something concise.',inputNames:[],outputStepIds:[]}]};
+  const saved=(await h.api<RoutineRevision>('/v1/routines',{definition})).body;
+  const command={requestId:'before-disable',routineRevisionId:saved.revisionId,recoveryEpoch:epoch,inputs:{}};
+  const path=`/v1/routines/${saved.routineId}`,accepted=(await h.api<Acceptance>(path+'/run',command)).body;
+  const changedAgent=(await h.api<Agent>(`/v1/agents/${agent.agentId}`,{expectedBindingRevisionId:agent.binding.bindingRevisionId,name:'New Writer',model:'gpt-6-sol',instructions:'New instructions.'})).body;
+  const changed=await h.api<RoutineRevision>(path,{expectedRevisionId:saved.revisionId,definition:{...definition,name:'Revised routine'}});assert.equal(changed.status,200);
+  assert.equal(changed.body.agentSnapshot.binding.selectedModel,'gpt-6-astra');
+  assert.equal((await h.api(path,{expectedRevisionId:saved.revisionId,definition})).status,409);
+  assert.deepEqual((await h.api<RoutineRevision>(path+'/revisions/'+saved.revisionId)).body,saved);
+  const disabled=await h.api(`/v1/agents/${agent.agentId}/bindings/${agent.binding.bindingRevisionId}/disable`,{recoveryEpoch:epoch});assert.equal(disabled.status,200);
+  await h.service.dispatchNext();assert.equal(calls.length,0);
+  const snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;assert.equal(snapshot.runs[0]?.state,'failed');assert.match(snapshot.runs[0]?.statusDetail??'',/disabled/);
+  assert.deepEqual((await h.api<Acceptance>(path+'/run',command)).body.receipt,accepted.receipt);
+  assert.equal((await h.api(path+'/run',{...command,requestId:'after-disable',routineRevisionId:changed.body.revisionId})).status,409);
+  const rebound=await h.api<RoutineRevision>(path,{expectedRevisionId:changed.body.revisionId,definition:{...definition,bindingRevisionId:changedAgent.binding.bindingRevisionId}});assert.equal(rebound.status,200);
+  assert.equal((await h.api(path+'/run',{...command,requestId:'explicit-new-binding',routineRevisionId:rebound.body.revisionId})).status,201);
+  await h.service.dispatchNext();assert.equal(calls.length,1);assert.equal(calls[0]?.configuration.selectedModel,'gpt-6-sol');
+});
+
+test('routine validation rejects unsupported authority, missing inputs and forward or cyclic output references before saving',async t=>{
+  const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body;
+  const step={stepId:'one',name:'Task',type:'task',instructions:'Use the declared input.',inputNames:[],outputStepIds:[]};
+  const definition={schemaVersion:1,name:'Invalid plan',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Bounded plan.',inputs:[],skills:[],steps:[step]};
+  const invalid=[{...definition,steps:[]},{...definition,steps:Array.from({length:17},(_,index)=>({...step,stepId:'step-'+index}))},{...definition,steps:[{...step,outputStepIds:['one']}]},{...definition,steps:[{...step,outputStepIds:['later']},{...step,stepId:'later'}]},{...definition,steps:[{...step,inputNames:['undeclared']}]},{...definition,steps:[{...step,model:'unapproved'}]},{...definition,steps:[{...step,type:'script',command:'echo synthetic'}]},{...definition,inputs:[{name:'x',type:'text',required:true,tools:['network']}]}];
+  for(const value of invalid)assert.equal((await h.api('/v1/routines',{definition:value})).status,400);
+  assert.deepEqual((await h.api<{routines:RoutineRevision[]}>('/v1/routines')).body.routines,[]);
+});
+
+test('routine checkpoints survive restart, park at an exact owner gate and keep later Home work behind the barrier',async t=>{
+  const calls:ChatInput[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(structuredClone(input));return {kind:'completed',text:input.text==='Later chat'?'Later reply':calls.length===1?'Draft evidence':'Final evidence',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Use only supplied evidence.'})).body,prefix=`/v1/conversations/${agent.homeConversationId}`,epoch=h.service.installation.recoveryEpoch;
+  const definition={schemaVersion:1,name:'Review a summary',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Stay with supplied material.',inputs:[],skills:[],steps:[{stepId:'draft',name:'Draft',type:'task',instructions:'Draft the summary.',inputNames:[],outputStepIds:[]},{stepId:'review',name:'Review',type:'approval',prompt:'Continue with the saved draft?'},{stepId:'finish',name:'Finish',type:'task',instructions:'Polish the approved draft.',inputNames:[],outputStepIds:['draft']}]};
+  const saved=await h.api<RoutineRevision>('/v1/routines',{definition});assert.equal(saved.status,201);
+  const accepted=await h.api<Acceptance>(`/v1/routines/${saved.body.routineId}/run`,{requestId:'gated-routine',routineRevisionId:saved.body.revisionId,recoveryEpoch:epoch,inputs:{}});assert.equal(accepted.status,201);
+  await h.service.dispatchNext();assert.equal(calls.length,1);
+  await h.restart();await h.service.dispatchNext();assert.equal(calls.length,1);
+  const parked=await h.api<Snapshot>(prefix+'/snapshot');assert.equal(parked.status,200);let snapshot=parked.body;
+  assert.equal(snapshot.runs[0]?.state,'waitingForApproval');assert.deepEqual(snapshot.runs[0]?.routine?.steps.map(step=>step.state),['completed','waitingForApproval','pending']);
+  const approval=snapshot.approvals[0];assert.ok(approval);assert.deepEqual(approval.resourceScope,['routine:continue']);
+  await h.api(prefix+'/messages',{requestId:'later-chat',text:'Later chat',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
+  assert.equal(await h.service.dispatchNext(),false);
+  await h.restart();snapshot=(await h.api<Snapshot>(prefix+'/snapshot')).body;assert.deepEqual(snapshot.approvals[0],approval);assert.equal(await h.service.dispatchNext(),false);
+  const decision={recoveryEpoch:epoch,runId:approval.runId,attemptId:approval.attemptId,bindingRevisionId:approval.bindingRevisionId,actionDigest:approval.actionDigest,resourceScope:approval.resourceScope,decision:'approve'};
+  const route=`/v1/approvals/${approval.approvalId}/resolve`;
+  assert.equal((await h.api(route,{...decision,actionDigest:'wrong'})).status,409);
+  assert.equal((await h.api(route,{...decision,resourceScope:['all-tools']})).status,409);
+  const approved=await h.api<{approval:Approval}>(route,decision);assert.equal(approved.status,200);assert.equal(approved.body.approval.state,'approved');
+  assert.deepEqual((await h.api<{approval:Approval}>(route,{...decision,decision:'reject'})).body.approval,approved.body.approval);
+  await h.restart();await h.service.dispatchNext();assert.equal(calls.length,2);
+  const finalInput=JSON.parse(calls[1]!.text);assert.equal(finalInput.stepId,'finish');assert.equal(finalInput.previousOutputs.length,1);assert.equal(finalInput.previousOutputs[0]?.text,'Draft evidence');
+  snapshot=(await h.api<Snapshot>(prefix+'/snapshot')).body;assert.equal(snapshot.runs[0]?.state,'completed');assert.deepEqual(snapshot.runs[0]?.routine?.steps.map(step=>step.state),['completed','approved','completed']);
+  const heldChat=snapshot.runs[1]!;await h.api(`/v1/runs/${heldChat.runId}/cancel`,{recoveryEpoch:epoch});
+  assert.equal(await h.service.dispatchNext(),false);assert.equal(calls.length,2);
+  assert.deepEqual((await h.api<Acceptance>('/v1/requests/gated-routine')).body.receipt,accepted.body.receipt);
+});
+
+test('Run now pins its reviewed routine and older Agent revision through the same durable Home and receipt path',async t=>{
+  const calls:ChatInput[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(structuredClone(input));return {kind:'completed',text:'Synthetic routine output',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Original Agent instructions.'})).body;
+  const definition={schemaVersion:1,name:'Draft summary',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Keep this routine concise.',inputs:[{name:'topic',type:'text',required:true}],skills:[],steps:[{stepId:'draft',name:'Draft',type:'task',instructions:'Draft a summary of the supplied topic.',inputNames:['topic'],outputStepIds:[]}]};
+  type SavedRoutine={routineId:string;revisionId:string;definition:typeof definition};
+  const saved=await h.api<SavedRoutine>('/v1/routines',{definition});assert.equal(saved.status,201);
+  await h.api(`/v1/agents/${agent.agentId}`,{expectedBindingRevisionId:agent.binding.bindingRevisionId,name:'Writer changed',model:'gpt-6-sol',instructions:'Later instructions.'});
+  const command={requestId:'routine-first',routineRevisionId:saved.body.revisionId,recoveryEpoch:h.service.installation.recoveryEpoch,inputs:{topic:'  Cedar\r\n'}};
+  const path=`/v1/routines/${saved.body.routineId}/run`;
+  assert.equal((await h.api(path,{...command,inputs:{topic:42}})).status,400);
+  const accepted=await h.api<Acceptance>(path,command);assert.equal(accepted.status,201);
+  assert.equal(accepted.body.receipt.conversationId,agent.homeConversationId);assert.equal(accepted.body.receipt.bindingRevisionId,agent.binding.bindingRevisionId);
+  assert.equal(calls.length,0);await h.service.dispatchNext();assert.equal(calls.length,1);
+  assert.equal(calls[0]?.configuration.agentName,'Writer');assert.equal(calls[0]?.configuration.selectedModel,'gpt-6-astra');
+  assert.match(calls[0]?.configuration.instructions??'',/Original Agent instructions/);assert.match(calls[0]?.configuration.instructions??'',/Keep this routine concise/);
+  const task=JSON.parse(calls[0]!.text);assert.deepEqual(task.inputs,{topic:'  Cedar\r\n'});assert.deepEqual(task.previousOutputs,[]);assert.equal(task.instructions,definition.steps[0]?.instructions);
+  const repeated=await h.api<Acceptance>(path,command);assert.deepEqual(repeated.body.receipt,accepted.body.receipt);
+  await h.restart();
+  const snapshot=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
+  assert.equal(snapshot.messages.length,2);assert.equal(snapshot.messages[1]?.text,'Synthetic routine output');assert.equal(snapshot.runs[0]?.state,'completed');
+  assert.equal(await h.service.dispatchNext(),false);assert.equal(calls.length,1);
+  assert.deepEqual((await h.api<Acceptance>('/v1/requests/routine-first')).body.receipt,accepted.body.receipt);
+});
 
 function syntheticBundle() {
   return {schemaVersion:1,name:'Synthetic bundle',version:'1',source:'owner-local:synthetic',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:['codex'],requestedTools:[],scripts:[],files:[{path:'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from('Synthetic reviewed instructions').toString('base64')}]};

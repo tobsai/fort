@@ -14,7 +14,18 @@ public struct PendingSubmission: Codable, Equatable, Sendable, Identifiable {
     public var recipientAgentID: String? = nil
     public var skills: [SkillReference]? = nil
     public var reviewRequired: String? = nil
+    public var routine: RoutineCommand? = nil
     public func canRetry(in epoch: String) -> Bool { recoveryEpoch == epoch && reviewRequired == nil }
+    public func matches(_ acceptance: Acceptance) -> Bool {
+        let receipt = acceptance.receipt
+        guard receipt.requestId == requestID, receipt.conversationId == conversationID, receipt.bindingRevisionId == bindingRevision,
+              acceptance.snapshot.messages.contains(where: { $0.messageId == receipt.messageId && $0.requestId == requestID && $0.role == "user" }) else { return false }
+        if let routine {
+            guard let accepted = acceptance.snapshot.runs.first(where: { $0.runId == receipt.runId && $0.requestId == requestID })?.routine else { return false }
+            return accepted.routineId == routine.routineId && accepted.revisionId == routine.revisionId && accepted.definition == routine.definition && accepted.inputs == routine.inputs
+        }
+        return acceptance.snapshot.messages.contains(where: { $0.messageId == receipt.messageId && $0.text == text })
+    }
 }
 
 /// One device-owned store; callers serialize mutations on their UI actor.
@@ -38,6 +49,13 @@ public final class PendingStore {
         items.append(item)
         try write(items)
         return item
+    }
+    @discardableResult public func enqueueRoutine(_ revision: RoutineRevision, inputs: [String:RoutineValue], recoveryEpoch: String) throws -> PendingSubmission {
+        guard revision.definition.isSupported else { throw PendingStoreError.invalidIdentity }
+        let command = RoutineCommand(routineId:revision.id,revisionId:revision.revisionId,definition:revision.definition,inputs:inputs)
+        var item = PendingSubmission(requestID:UUID().uuidString.lowercased(),conversationID:revision.definition.conversationId,bindingRevision:revision.definition.bindingRevisionId,recoveryEpoch:recoveryEpoch,text:"Run routine: " + revision.definition.name,createdAt:Date())
+        item.routine = command
+        var items = try pending(); items.append(item); try write(items); return item
     }
     public func remove(requestID: String) throws { try write(pending().filter { $0.requestID != requestID }) }
     public func requireReview(requestID: String, reason: String) throws {

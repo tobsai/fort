@@ -84,5 +84,12 @@ try {
   assert.equal(cleanupConfirmations,3);
   await run('workspace-bundles');
   assert.equal(inputs.length,8);
-  process.stdout.write('PASS FortClient/PendingStore HTTP conformance: eight synthetic executions, three service restarts, explicit recovery, one discarded acceptance, no duplicate dispatch and empty pending queue\n');
+  await run('workspace-routine-prepare');assert.equal(inputs.length,9);
+  const firstTask=JSON.parse(inputs[8]!.text);assert.equal(firstTask.stepId,'draft');assert.equal(firstTask.inputs.topic,'  Synthetic Café e\u0301\r\n');
+  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
+  await run('workspace-routine-replay');assert.equal(inputs.length,10);
+  const finalTask=JSON.parse(inputs[9]!.text);assert.equal(finalTask.stepId,'finish');assert.equal(finalTask.previousOutputs.length,1);assert.equal(finalTask.previousOutputs[0]?.text,'cedar');
+  assert.equal(cleanupConfirmations,4);
+  process.stdout.write('PASS routine HTTP conformance: two synthetic task executions separated by a durable gate and restart, schedule consent and pause without execution\n');
+  process.stdout.write('PASS FortClient/PendingStore HTTP conformance: ten synthetic executions, four service restarts, explicit recovery, one discarded acceptance, no duplicate dispatch and empty pending queue\n');
 } finally { await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve())); await service.close(); await rm(directory,{ recursive:true,force:true }); }

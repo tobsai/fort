@@ -6,6 +6,8 @@ public struct Installation: Codable, Equatable, Sendable {
     public let recoveryEpoch: String
     public let mode: String
     public let serviceName: String
+    public var capabilities: [String]? = nil
+    public func supports(_ capability: String) -> Bool { supportsCommands && capabilities?.contains(capability) == true }
     public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai"].contains(mode) }
 }
 public struct Enrollment: Codable, Sendable {
@@ -107,6 +109,7 @@ public struct Run: Codable, Equatable, Sendable, Identifiable {
     public let effectiveModel: String?
     public let modelEvidence: String
     public let attemptId: String?
+    public var routine: RoutineExecution? = nil
     public var configuration: TurnConfiguration? = nil
     public var statusDetail: String? = nil
     public var canRequestCancellation: Bool { ["queued","running","waitingForApproval"].contains(state) }
@@ -141,9 +144,13 @@ public struct Approval: Codable, Equatable, Sendable, Identifiable {
     public let state: String
     public let decidedByDeviceId: String?
     public let decidedAt: String?
+    public var kind: String? = nil
+    public var routineRevisionId: String? = nil
+    public var stepId: String? = nil
     public var canDecide: Bool {
         let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
-        guard state == "pending", resourceScope == ["fixture:reply"], let expiry = formatter.date(from:expiresAt) else { return false }
+        let recognized = (kind == nil && resourceScope == ["fixture:reply"]) || (kind == "routineGate" && resourceScope == ["routine:continue"] && !(routineRevisionId ?? "").isEmpty && !(stepId ?? "").isEmpty)
+        guard state == "pending", recognized, let expiry = formatter.date(from:expiresAt) else { return false }
         return expiry > Date()
     }
 }
@@ -174,7 +181,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
         approvals = try values.decodeIfPresent([Approval].self,forKey:.approvals) ?? []
     }
 }
-public struct Receipt: Codable, Sendable {
+public struct Receipt: Codable, Equatable, Sendable {
     public let requestId: String
     public let conversationId: String
     public let messageId: String
@@ -215,5 +222,76 @@ public struct Transcript: Sendable {
               zip(incoming.messages, incoming.messages.dropFirst()).allSatisfy({ $0.sequence < $1.sequence }) else { throw ContractError.invalidSnapshot }
         if let existing = snapshot, existing.recoveryEpoch == incoming.recoveryEpoch, incoming.cursor < existing.cursor { return }
         snapshot = incoming
+    }
+}
+
+public enum RoutineValue: Codable, Equatable, Sendable {
+    case text(String), number(Double), boolean(Bool)
+    public var displayText: String { switch self { case .text(let value): value; case .number(let value): String(value); case .boolean(let value): value ? "Yes" : "No" } }
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer()
+        if let bool = try? value.decode(Bool.self) { self = .boolean(bool) }
+        else if let number = try? value.decode(Double.self), number.isFinite { self = .number(number) }
+        else { self = .text(try value.decode(String.self)) }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var value = encoder.singleValueContainer()
+        switch self { case .text(let text): try value.encode(text); case .number(let number): try value.encode(number); case .boolean(let bool): try value.encode(bool) }
+    }
+}
+public struct RoutineInput: Codable, Equatable, Sendable { public var name: String; public var type: String; public var required: Bool }
+public struct RoutineSkill: Codable, Equatable, Sendable { public var skillId: String; public var revisionId: String; public var digest: String }
+public struct RoutineStep: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { stepId }
+    public var stepId: String; public var name: String; public var type: String
+    public var instructions: String? = nil; public var inputNames: [String]? = nil; public var outputStepIds: [String]? = nil; public var prompt: String? = nil
+}
+public struct RoutineDefinition: Codable, Equatable, Sendable {
+    public var schemaVersion: Int; public var name: String; public var agentId: String; public var conversationId: String; public var bindingRevisionId: String; public var instructions: String
+    public var inputs: [RoutineInput]; public var skills: [RoutineSkill]; public var steps: [RoutineStep]
+    public var isSupported: Bool { schemaVersion == 1 && !steps.isEmpty && steps.count <= 16 && inputs.allSatisfy { ["text","number","boolean"].contains($0.type) } && steps.allSatisfy { ["task","approval"].contains($0.type) } }
+}
+public struct RoutineRevision: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { routineId }
+    public let routineId: String; public let revisionId: String; public let digest: String
+    public let definition: RoutineDefinition; public let agentSnapshot: Agent; public let skills: [InstructionSkill]
+}
+public struct RoutineStepProgress: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { stepId }
+    public let stepId: String; public let stepRevisionId: String; public let state: String
+    public var attemptId: String? = nil; public var approvalId: String? = nil; public var detail: String? = nil; public var output: Output? = nil
+    public struct Output: Codable, Equatable, Sendable { public let messageId: String; public let text: String; public let digest: String }
+    public var displayState: String {
+        switch state { case "pending": "Waiting"; case "running": "Running"; case "completed": "Completed"; case "waitingForApproval": "Waiting for approval"; case "approved": "Approved"; case "rejected": "Rejected"; case "failed": "Failed"; case "outcomeUnknown": "Outcome unknown"; case "canceled": "Canceled"; default: "Unsupported step state" }
+    }
+}
+public struct RoutineExecution: Codable, Equatable, Sendable {
+    public let routineId: String; public let revisionId: String; public let definition: RoutineDefinition; public let inputs: [String:RoutineValue]; public let steps: [RoutineStepProgress]
+}
+public struct RoutineCommand: Codable, Equatable, Sendable {
+    public let routineId: String; public let revisionId: String; public let definition: RoutineDefinition; public let inputs: [String:RoutineValue]
+}
+
+public struct ScheduleDefinition: Codable, Equatable, Sendable {
+    public var schemaVersion: Int; public var routineId: String; public var routineRevisionId: String; public var timezone: String; public var time: String
+    public var inputs: [String:RoutineValue]; public var missed: String; public var kind: String; public var date: String? = nil; public var weekdays: [Int]? = nil
+    public var isSupported: Bool { schemaVersion == 1 && ["once","daily","weekly"].contains(kind) && ["skip","catchUpOne"].contains(missed) }
+}
+public struct CalendarOccurrence: Codable, Equatable, Sendable { public let localDate: String; public let localTime: String; public let intendedAt: String?; public let decisionAt: String }
+public struct SchedulePreview: Codable, Equatable, Sendable {
+    public let revisionId: String; public let digest: String; public let expiresAt: String; public let timezone: String; public let occurrences: [CalendarOccurrence]; public let overlap: String; public let missed: String
+}
+public struct ScheduleRevision: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { scheduleId }
+    public let scheduleId: String; public let revisionId: String; public let digest: String; public let definition: ScheduleDefinition; public let state: String; public let checkedThrough: Double
+    public var preview: SchedulePreview? = nil
+}
+public struct ScheduleOccurrence: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { occurrenceId }
+    public let occurrenceId: String; public let scheduleId: String; public let scheduleRevisionId: String; public let routineId: String; public let routineRevisionId: String
+    public let intendedAt: String?; public let localDate: String; public let localTime: String; public let state: String
+    public var runId: String? = nil; public var detail: String? = nil
+    public var displayState: String {
+        switch state { case "accepted": "Accepted"; case "skippedOverlap": "Skipped: another run was active"; case "skippedMissed": "Skipped after downtime"; case "skippedGap": "Skipped: local time did not exist"; case "blocked": "Blocked: review required"; case "skippedMissedRange": "Earlier downtime skipped"; default: "Unsupported occurrence state" }
     }
 }

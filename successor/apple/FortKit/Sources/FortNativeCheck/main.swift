@@ -3,6 +3,7 @@ import FortKit
 
 struct Configuration: Codable { let baseURL: URL; let installationId: String; let codeA: String; let codeB: String; let stateDirectory: URL }
 struct CheckState: Codable { let tokenA: String; let tokenB: String; let pending: PendingSubmission; let expectedSnapshot: Snapshot }
+struct RoutineCheckState: Codable { let revision: RoutineRevision; let pending: PendingSubmission; let receipt: Receipt; let approval: Approval }
 struct RecoveryCheckState: Codable { let uncertain: Receipt; let queued: Receipt }
 struct CheckFailure: Error { let reason: String }
 struct WorkspaceCheckState: Codable { let token: String; let writer: Agent; let reviewer: Agent; let room: Conversation; let skill: InstructionSkill; let pending: PendingSubmission; let receipts: [Receipt]; let completedRunIDs: [String]; let pendingRequestCount: Int }
@@ -155,6 +156,55 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
                 try require(try store.pending().isEmpty,"recovery left native submissions pending")
                 print("PASS native lost acceptance reconciliation after restart, no duplicate execution and same-Home continuation")
             default: throw CheckFailure(reason:"unknown workspace recovery phase")
+            }
+            return
+        }
+        if CommandLine.arguments[1].hasPrefix("workspace-routine") {
+            let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:config.stateDirectory.appendingPathComponent("native-check.json")))
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            let installation = try await client.installation(), file = config.stateDirectory.appendingPathComponent("routine-check.json")
+            let store = try PendingStore(directory:config.stateDirectory,installationID:config.installationId)
+            if CommandLine.arguments[1] == "workspace-routine-prepare" {
+                try require(installation.supports("routines"),"routine capability missing")
+                let raw: [String:Any] = ["schemaVersion":1,"name":"Native summary","agentId":state.writer.id,"conversationId":state.writer.homeConversationId,"bindingRevisionId":state.writer.binding.bindingRevisionId,"instructions":"Use only declared inputs and outputs.","inputs":[["name":"topic","type":"text","required":true]],"skills":[],"steps":[["stepId":"draft","name":"Draft","type":"task","instructions":"Draft the topic.","inputNames":["topic"],"outputStepIds":[]],["stepId":"review","name":"Review","type":"approval","prompt":"Continue with this saved draft?"],["stepId":"finish","name":"Finish","type":"task","instructions":"Summarize the approved draft.","inputNames":[],"outputStepIds":["draft"]]]]
+                let definition = try JSONDecoder().decode(RoutineDefinition.self,from:JSONSerialization.data(withJSONObject:raw))
+                let saved = try await client.saveRoutine(nil,definition:definition)
+                try require(saved.definition == definition,"native routine definition changed")
+                let old = try await client.routineRevision(routineID:saved.id,revisionID:saved.revisionId)
+                try require(old == saved,"immutable routine export changed")
+                let pending = try store.enqueueRoutine(saved,inputs:["topic":.text("  Synthetic Café e\u{301}\r\n")],recoveryEpoch:installation.recoveryEpoch)
+                let accepted = try await client.submit(pending); try require(pending.matches(accepted),"native routine receipt did not match")
+                let snapshot = try await awaitState(client,conversationID:pending.conversationID,state:"waitingForApproval",runID:accepted.receipt.runId)
+                guard let approval = snapshot.approvals.first(where:{$0.runId == accepted.receipt.runId}) else { throw CheckFailure(reason:"routine gate missing") }
+                try require(approval.canDecide && approval.resourceScope == ["routine:continue"],"native routine gate is not recognized")
+                try require(snapshot.runs.first(where:{$0.id == accepted.receipt.runId})?.routine?.steps.map(\.state) == ["completed","waitingForApproval","pending"],"routine checkpoint did not persist")
+                try JSONEncoder().encode(RoutineCheckState(revision:saved,pending:pending,receipt:accepted.receipt,approval:approval)).write(to:file,options:.atomic)
+                print("PASS native routine client contract, typed inputs, immutable export, saved task and exact owner gate")
+            } else {
+                let saved = try JSONDecoder().decode(RoutineCheckState.self,from:Data(contentsOf:file))
+                try require(try store.pending() == [saved.pending],"routine pending command changed across restart")
+                let duplicate = try await client.submit(saved.pending); try require(duplicate.receipt == saved.receipt && saved.pending.matches(duplicate),"routine retry changed acceptance")
+                let snapshot = try await client.snapshot(conversationID:saved.pending.conversationID)
+                try require(snapshot.approvals.contains(saved.approval),"restart changed gate identity")
+                let approved = try await client.resolve(saved.approval,approve:true)
+                let repeated = try await client.resolve(saved.approval,approve:false)
+                try require(approved.approval == repeated.approval && approved.approval.state == "approved","routine decision winner changed")
+                let finished = try await awaitState(client,conversationID:saved.pending.conversationID,state:"completed",runID:saved.receipt.runId)
+                try require(finished.runs.first(where:{$0.id == saved.receipt.runId})?.routine?.steps.map(\.state) == ["completed","approved","completed"],"routine continuation lost checkpoints")
+                try store.remove(requestID:saved.pending.requestID)
+                let raw: [String:Any] = ["schemaVersion":1,"routineId":saved.revision.id,"routineRevisionId":saved.revision.revisionId,"kind":"daily","timezone":"Pacific/Auckland","time":"09:00","inputs":["topic":"Synthetic schedule"],"missed":"skip"]
+                let definition = try JSONDecoder().decode(ScheduleDefinition.self,from:JSONSerialization.data(withJSONObject:raw))
+                let schedule = try await client.saveSchedule(nil,definition:definition)
+                try require(schedule.state == "paused" && schedule.definition == definition,"saving enabled or changed schedule")
+                let preview = try await client.previewSchedule(schedule)
+                try require(preview.revisionId == schedule.revisionId && preview.occurrences.count == 5 && preview.overlap == "skip","schedule preview changed authority")
+                let enabled = try await client.setSchedule(schedule,enabled:true,preview:preview,recoveryEpoch:installation.recoveryEpoch)
+                try require(enabled.state == "enabled","explicit schedule consent was not saved")
+                let paused = try await client.setSchedule(enabled,enabled:false,preview:nil,recoveryEpoch:installation.recoveryEpoch)
+                try require(paused.state == "paused","schedule did not pause")
+                try require(try await client.scheduleOccurrences(paused).isEmpty,"schedule unexpectedly dispatched during native review")
+                try require(try store.pending().isEmpty,"native routine pending remained")
+                print("PASS native routine restart, idempotent receipt and gate decision, declared-output continuation, schedule preview/enable/pause with no schedule execution")
             }
             return
         }
