@@ -15,7 +15,11 @@
     "prototype:manual": "node prototype/manual.ts",
     "prototype:mvp:check": "node prototype/mvp-manual.ts --check",
     "test:non-enrollment": "node --test runner/codex-chat.test.ts prototype/mvp-preparation.test.ts prototype/mvp-admission.test.ts service/openai-shutdown.test.ts prototype/mvp-native.test.ts prototype/mvp-reconciliation.test.ts",
-    "test:native-stop": "node --test prototype/mvp-app.test.ts"
+    "test:native-stop": "node --test prototype/mvp-app.test.ts",
+    "check:specs": "node ../ops/architecture/validate-specs.mjs",
+    "test:specs": "node --test ../ops/architecture/validate-specs.test.mjs",
+    "pretest": "npm run check:specs",
+    "pretypecheck": "npm run check:specs"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

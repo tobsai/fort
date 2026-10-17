@@ -1,136 +1,65 @@
-# Fort — Claude Code Directives
+# Fort — directives for every coding agent
 
-## Project Overview
-Fort is a durable chat service for stable named Agents across frameworks and
-computers. Every Agent has one permanent Home Conversation; Groups use explicit
-frozen recipients; additional Agent-to-Agent work is a bounded durable Handoff;
-Agent-owned Routines report to an exact Conversation. Under that surface, Fort
-routes by fixed rules (no model in the routing path), runs exact approved agent
-CLI bindings natively, and sequences DAG work through human gates.
+## Current authority
 
-> This Go build (`fort-native`) is the delivered project, built per the
-> `Agent Ops Backlog/` (rev. 2). The earlier TypeScript prototype was an
-> experiment and has been removed (recover from git history if ever needed).
-> Governing native spec: `specs/021-fort-native.md`. Specs `047` and `048`
-> govern the Vercel/Supabase control plane and stable-Agent product model.
+[ARCHITECTURE.md](ARCHITECTURE.md) is the single authoritative design constitution:
+vendor independent, modular, fast, and easy to install/remove. Toby requested this
+reassessment on October 17, 2026. Read it before new requirements, design choices,
+dependency changes or implementation. Its linked spec workflow is mandatory.
 
-## Architecture
-One Go module (`github.com/tobsai/fort`), hard module seams enforced by
-`core/arch_test.go`:
-- `core/` — deterministic orchestration: `rules`, `router`, `runtime` (the
-  executor interface), `store` (SQLite), `engine`, `graph` (DAG), `inbox`,
-  `flow`, `scheduler`, `server`, `config`.
-- `cloud/` + `api/` — stateless cloud-control contracts and bounded Vercel Go
-  Function entrypoints; never native execution or permanent loops.
-- `supabase/` — private Postgres ledger migrations and database contract tests.
-- `gateway/` — authenticated Next.js application tier and bounded Node SSE.
-- `exec/` — native execution: `native.NativeRuntime` (spawns CLIs), `fake`
-  (tests), `gateway` (budgets/tracing/failover). Implements `core/runtime.Runtime`.
-- `ui/` — control-plane HTTP/SSE API + web board. Talks to the rest of Fort only
-  through ports (`Dispatcher`, `FlowRunner`); imports **none** of the
-  execution/deterministic packages.
-- `control/` — adapters that plug execution into the ui ports (or a queue-only
-  dispatcher for control-only mode).
-- `cmd/fort/` — the CLI (composition root; the only place that imports a concrete
-  runtime).
-- `rules/`, `flows/` — YAML ruleset + flow definitions. `ui/apple/` — FortKit +
-  the Apple clients.
+The isolated successor checkpoint is
+`e02eb571e66620e407a360584817616074730b55`; product source is
+`09788c132647458cbdc683506c8bd5622f0be1af`. Feature and TestFlight expansion are
+paused while the replacement design is researched and reviewed. This task
+permits documentation, review gates and safe verification, not a wholesale rewrite.
+[Spec 058](specs/058-native-first-owned-agent-mvp.md) needs reassessment. Its older
+approval does not settle the new principles. No backend language is prescribed.
+Scope remains single-owner; shared or multi-user hosting is not authorized.
 
-**Two planes:** the **control plane** (board, chat, scheduler, gate inbox, feed,
-clients) runs with no execution components (`fort control`); the **execution
-plane** (router + native runtime + DAG) plugs in for `fort serve`.
+Earlier Go architecture and Specs 021/047/048, the 054/056 messenger direction,
+and the provider-specific 058 prototype are historical inputs when they conflict
+with the constitution. Preserve them and state conflicts; do not silently adopt
+or delete their implementations. Specs 054–057 remain in the primary checkout.
+Keep teardown/recovery evidence: local teardown was reported complete, full
+provider closure is unverified, and this work authorizes no provider cleanup.
+The donor under `foundation/` stays quarantined with its license/provenance intact.
 
-## Core Design Principles
+## When work changes
 
-### Deterministic by default
-Routing reads only deterministic signals on a task — **zero model calls in the
-routing path** (asserted in tests). Inference happens **only** at `task` nodes.
-Every state change is an append-only `event`; the board + feed are derived and
-replayable.
+1. Before a new/materially revised requirement, read [the spec workflow](specs/README.md),
+   write the four-principle review and name the proposed files and acceptance tests.
+   Supporting design documents point to a reviewed spec before implementation.
+2. Run `node ops/architecture/validate-specs.mjs`. Before implementing a product
+   slice, also run it with `--implementation specs/<NNN>-<slug>.md`. Both must
+   pass; a human must assess the evidence and actual owner decision separately.
+   Reuse existing authorization for unchanged scope; do not invent approval.
+3. Use test-first development: one failing behavioral test at a confirmed public
+   interface, then the smallest passing change. Run relevant checks; report
+   passed, failed and unrun checks without conflating fixtures with real operation.
+4. Before UI/release completion, inspect exact installed builds through accessibility,
+   screenshots and authorized real-provider behavior. TestFlight is required for
+   user delivery; a local build or upload receipt does not establish acceptance.
 
-### Fort owns the interface; industry tools are the engine
-Fort never drives an external tool raw. Each agent CLI is reached through a
-`NativeRuntime` **provider** that fixes its argv, normalizes its output into
-`RunEvent`s, and adds constraints (scoped workdir, env allowlist, gateway spend
-caps). New capabilities wrap an industry CLI/library behind a bounded, testable
-Fort-owned contract. **New capability specs require Toby's approval before
-implementation.**
+## Working discipline
 
-### Spec-Driven Development
-Development follows: spec → approve → implement → verify → merge/rollback. Specs
-live in `specs/` as machine-readable markdown (goal, approach, affected files,
-test criteria, rollback).
+- Inspect instructions, branch/worktree, dirty changes and applicable evidence first.
+  Name exact files before edits. Preserve unrelated work and history; keep changes
+  on the isolated branch. Commit only authorized work; do not push/merge by inference.
+- Use small Fort-owned contracts. Keep exact identities and explicit capability
+  differences. Never silently change provider, model, host, account or billing path.
+- Treat the agent host and computer-tool sandbox as different security boundaries.
+  A tool sandbox does not confine the host process. Do not weaken permission checks.
+- Keep credentials and message bodies out of evidence. Do not replay historical
+  demos, reset consumed authority, create credentials or enable startup services.
+- Prefer simple behavior and removable dependencies over speculative infrastructure.
+  Retain useful tests/contracts by behavior; do not wholesale copy old packages.
+- Source, build, fixture, provider, installed-product and release evidence must be
+  labeled separately. Explain uncertainty and unresolved decisions plainly.
 
-## Behavioral Guidelines (Karpathy)
-Guidelines to reduce common LLM coding mistakes. They bias toward caution over
-speed — for trivial tasks, use judgment.
+## Where to continue
 
-### 1. Think Before Coding
-**Don't assume. Don't hide confusion. Surface tradeoffs.** Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them — don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-**Minimum code that solves the problem. Nothing speculative.**
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-- Ask: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-**Touch only what you must. Clean up only your own mess.** When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it — don't delete it.
-- Remove imports/variables/functions that YOUR changes made unused; leave pre-existing dead code unless asked.
-- The test: every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-**Define success criteria. Loop until verified.** Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan (`step → verify: check`). Strong success criteria let you loop independently; weak criteria ("make it work") require constant clarification.
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
-## Development Rules
-1. **Spec-driven**: Before building a module, write a spec in `specs/`. Specs require approval before implementation.
-2. **Test-first (TDD)**: `go test ./...` must stay green. Write the failing test first, watch it fail, then write minimal code to pass. Run the race detector (`go test -race ./...`) on anything concurrent.
-3. **Determinism is asserted**: the routing path takes zero model calls; only `task` nodes invoke the `Runtime`. Add tests that hold these invariants.
-4. **Respect the seams**: `core` must not import `ui` or a concrete `exec` package (only `runtime.Runtime`); `ui` must not import `engine`/`graph`/`router`/`native`. `core/arch_test.go` and `go list -deps` enforce this.
-5. **Git discipline**: feature branches for non-trivial work; every meaningful change committed. Commit/push only when asked.
-6. **Inspectability**: structured logs; the append-only `event` log + `route_decision` make every dispatch and decision traceable and replayable.
-7. **Live UI signoff**: UI or release work is not complete until the exact
-   installed app is inspected through its live accessibility surface and a
-   screenshot. Any visible error or alert, raw error code, selected Agent that
-   is not `ready`, duplicate Fort app bundle, primary action disabled after
-   valid input, or failed real smoke action blocks signoff. Source tests,
-   successful builds, API health, signing, notarization, and upload receipts do
-   not substitute for this installed-product check.
-
-## Key Patterns
-- `runtime.Runtime` interface is the only path from `core` to execution; `cmd/fort` injects the concrete `exec/native` (or `exec/fake`) runtime.
-- Deterministic router: ordered YAML rules, first-match-wins + default; matchers on label/path/repo/@agent/size/time with any/all.
-- DAG executor: `task`/`gate`/`check`/`transform`/`fanout`/`fanin`, conditional edges, retry→escalate, resumable from persisted `node_run` state.
-- Control-plane ports: `ui.Dispatcher` + `ui.FlowRunner`; the `control` package supplies real (engine) or queue-only adapters.
-
-## Tech Stack
-- Language: Go 1.22+ (single toolchain for core/exec/ui).
-- Test: standard `testing` + `go test -race`.
-- DB: SQLite via `modernc.org/sqlite` (pure Go, no cgo).
-- Config/flows/rules: YAML (`gopkg.in/yaml.v3`).
-- CLI: stdlib `flag`. Cron: `robfig/cron/v3`. Globs: `bmatcuk/doublestar`.
-- Clients: Swift / SwiftUI (FortKit) for iOS / macOS / CarPlay / watch; a served HTML board for web.
-
-## File Naming
-- Packages: `core/<module>/`, `exec/<impl>/`, `ui/`, `control/`.
-- Tests: `*_test.go` beside the code (external `<pkg>_test` package when it must import adapters).
-- CLI: `cmd/fort/<command>.go`.
-- Rules/flows: `rules/*.yaml`, `flows/*.yaml`. Specs: `specs/<NNN>-<slug>.md`.
+- [Current conflicts and keep/adapt/replace assessment](docs/architecture/reassessment-20261017.md).
+- [Successor instructions](successor/AGENTS.md) before reading/changing its prototype.
+- [TestFlight evidence and remaining gates](successor/TESTFLIGHT-DELIVERY-20261017.md)
+  before delivery planning; no release is authorized by that plan.
+- [Architecture gate](specs/README.md) before any new or changed specification.

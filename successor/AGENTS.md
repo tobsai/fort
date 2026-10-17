@@ -1,6 +1,27 @@
 # Spec 058 successor
 
-## Current handoff — interactive engineering QA, review fixes and TestFlight
+## Current handoff — architecture reassessment
+
+Read the root [directives](../CLAUDE.md), [constitution](../ARCHITECTURE.md) and
+[assessment](../docs/architecture/reassessment-20261017.md). Feature and TestFlight
+expansion are paused at `e02eb571e66620e407a360584817616074730b55` while a new design
+is researched/reviewed. Product source remains `09788c132647458cbdc683506c8bd5622f0be1af`.
+[Spec 058](../specs/058-native-first-owned-agent-mvp.md) now needs reassessment;
+its four blocked principles are negative controls for the review, not accepted
+architecture. Do not continue a historical handoff as current implementation authority.
+
+Run `npm run check:specs` and `npm run test:specs` here for the structural gate.
+Before any later product implementation, require the full check plus the relevant
+spec's accepted `--implementation` gate and the actual human design decision.
+Passing a form does not establish vendor independence, removability, speed or
+installed-product correctness. No tests/builds were left running at the pause.
+
+Preserve all prototype code, engineering artifacts, old decisions and consumed
+demo ledgers. No new credentials, provider access, persistent service activation,
+cleanup, runner setup, distribution or release is authorized by this reassessment.
+The handoffs below are chronological evidence, subject to this current pause.
+
+## Previous handoff — interactive engineering QA, review fixes and TestFlight
 
 Read [the interactive QA handoff](evidence/2026-10-17-interactive-qa/README.md)
 and [TestFlight delivery plan](TESTFLIGHT-DELIVERY-20261017.md). Current source is
@@ -87,7 +108,7 @@ attended launcher from the operator workspace. A permission refusal before durab
 session creation is repairable under the same approval, not a consumed credential.
 
 
-## Current handoff — completed batch and offline preview
+## Historical handoff — completed batch and offline preview
 
 Current native source: `6fe7120919b660ffc030521839cba8a8ba23706e`.
 
@@ -124,11 +145,14 @@ and export, actual-provider routines/schedules, deliberate user cancellation,
 physical iPhone, effective-model reporting and broader lifecycle/isolation/release
 acceptance remain open. No full MVP completion is claimed.
 
-Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
+Historical context: Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
 new isolated successor, separate from both historical Fort and quarantined donor.
 Read ../specs/058-native-first-owned-agent-mvp.md and IMPLEMENTATION.md.
 
-## Current work — October 17
+## Historical work — October 17 MVP expansion
+
+The authorization described in this section is superseded by the architecture
+reassessment pause above; it remains here only to explain the earlier work.
 
 The owner asked at 2026-10-16 23:47:34 UTC: “Can you test the app? I want you to
 build this thing until it gets to the Mvp”. The coordinator delegated end-to-end

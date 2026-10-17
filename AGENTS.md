@@ -1,42 +1,25 @@
-# Fort — Codex / Agent Directives
+# Fort — agent entrypoint
 
-> The authoritative directives live in [`CLAUDE.md`](./CLAUDE.md) and apply
-> equally to Codex and any other coding agent. Read it. This file restates the
-> load-bearing rules so they're not missed.
+Read [CLAUDE.md](CLAUDE.md) before acting; it applies equally to every coding agent.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) before proposing or changing requirements,
+contracts, dependencies, implementation language, modules, hosting or delivery.
+It is the authoritative four-principle design grid.
 
-## What Fort is
-A durable chat service for stable named Agents across frameworks and computers,
-with canonical Home Conversations, secondary Conversations, multi-Agent Groups,
-bounded durable Handoffs, and Agent-owned Routines. Execution remains
-deterministic Go orchestration: route by fixed rules (no model in the routing
-path), run exact approved agent CLI bindings natively, and pause DAGs at human
-gates. Specs `047` and `048` govern the cloud product model;
-`specs/021-fort-native.md` remains the native execution foundation.
+- **Current work:** architecture reassessment; feature/TestFlight expansion paused.
+  [Spec 058](specs/058-native-first-owned-agent-mvp.md) is not implementation authority.
+- **New/materially changed requirements:** create/update a spec using
+  [the template and review gate](specs/README.md). Check all four principles and
+  record actual owner decisions. Structural validation is not architecture approval.
+- **Before implementation:** run the spec's `--implementation` gate, then use a
+  red → green behavioral slice at the public seam. Fixture, provider and installed
+  product evidence are different claims.
+- **Surgical work:** name exact files, preserve unrelated changes, historical
+  approvals and source pins. Do not revive legacy services or reset consumed demos.
+- **Working in `successor/`:** read [its handoff](successor/AGENTS.md). It contains
+  the current prototype and engineering evidence, not an accepted replacement design.
+- **External actions:** no credentials, sign-in, installation, background startup,
+  provider cleanup, deployment or publication is authorized by architecture work.
 
-## Non-negotiables
-- **Test-first (TDD).** Write the failing `go test` first, watch it fail, then
-  the minimal code to pass. Keep `go test ./...` green; `-race` for concurrency.
-- **Determinism is asserted.** Zero model calls in the routing path; only `task`
-  DAG nodes invoke the `Runtime`. Preserve those invariants with tests.
-- **Respect the seams.** `core` must not import `ui` or a concrete `exec`
-  package (only `runtime.Runtime`); `ui` must not import
-  `engine`/`graph`/`router`/`native`. Enforced by `core/arch_test.go` +
-  `go list -deps`.
-- **Fort owns the interface.** Reach an industry CLI/library only through a
-  bounded, testable Fort contract (e.g. a `NativeRuntime` provider). New
-  capability specs require Toby's approval before implementation.
-- **Spec-driven, surgical, simple.** Spec in `specs/` first; touch only what the
-  task requires; minimum code that solves it. See CLAUDE.md's behavioral
-  guidelines.
-- **Live UI signoff.** For UI or release work, inspect the exact installed app
-  through its accessibility surface and a screenshot before completion. Any
-  visible error/alert, raw error code, non-ready selected Agent, duplicate Fort
-  app bundle, disabled primary action after valid input, or failed real smoke
-  action blocks signoff; source/build/package success is not a substitute.
-
-## Layout
-`core/` (domain, rules, runtime iface, ledger/store, engine, graph, scheduler) ·
-`cloud/` + `api/` (stateless Vercel control) · `supabase/` (private Postgres
-ledger) · `gateway/` (authenticated web + bounded SSE) · `exec/` (native, fake,
-gateway) · `ui/` + `ui/apple/` (local/Apple clients) · `control/` (ports) ·
-`cmd/fort/` (CLI) · `rules/` + `flows/` (YAML).
+Do not infer the current architecture from historical Go-only or provider-specific
+specs. The [assessment](docs/architecture/reassessment-20261017.md) names conflicts,
+open decisions, CI/build gaps and the preserved checkpoint.

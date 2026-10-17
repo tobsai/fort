@@ -1,10 +1,56 @@
 # 058: Native-first owned Agent MVP
 
-Status: Approved for staged local implementation by Toby on 2026-10-12 (02:43 UTC). Stage 1 native fixture verification passed on 2026-10-12; see [attended acceptance evidence](../successor/evidence/2026-10-12-mac-attended-stage1.md). Live providers remain disabled and later-stage acceptance remains open. Original proposal wording below is retained as decision history; external-action and acceptance gates still apply.
+Status: Needs architecture reassessment as of 2026-10-17. Feature and TestFlight expansion are paused under the [architecture constitution](../ARCHITECTURE.md). The prior approval below is historical; it does not establish compliance or authorize further implementation against the new principles.
+
+Historical approval: Approved for staged local implementation by Toby on 2026-10-12 (02:43 UTC). Stage 1 native fixture verification passed on 2026-10-12; see [attended acceptance evidence](../successor/evidence/2026-10-12-mac-attended-stage1.md). Live providers remain disabled and later-stage acceptance remains open. Original proposal wording below is retained as decision history; external-action and acceptance gates still apply.
 
 Decision owner: Toby. Written: 2026-10-12.
 
 Read the [executive decision page](decisions/058-executive.md) for the product choices and [validation record](decisions/058-validation.md) for evidence and limits. The [architecture diagram source](diagrams/058-architecture.mmd) and [delivery diagram source](diagrams/058-delivery.mmd) describe this proposal.
+
+## Architecture review
+Review status: needs-reassessment
+Review owner: Toby
+Decision reference: pending
+Reviewed content SHA256: pending
+
+### Vendor independence
+Status: blocked
+Affected boundaries: Public installation/binding/model contracts, service dispatch, native model selection and runtime adapters; assess AI/runtime, hosting, storage, optional modules and client/distribution separately.
+Dependency/removal impact: Public provider unions and Swift selection still require Codex; removing its adapter has not been shown to leave a usable core/client. Apple/TestFlight remains the owner's explicit delivery dependency; service contracts must remain platform-neutral.
+Acceptance criteria: Remove the OpenAI adapter/dependencies and build core/native clients. Run shared public provider behavior tests against an independently shaped non-OpenAI fixture with unsupported capabilities and different session semantics. Verify real subscription paths separately under actual authority; never substitute billing or identity.
+Evidence: successor/contracts/v1.ts exposes fixture/openai mode and fixture/codex binding; successor/apple/FortKit/Sources/FortKit/AgentSettings.swift selects only codex. Existing fixture tests do not prove vendor independence or another provider's subscription compatibility.
+Tradeoffs: Preserve official runtime integrations and subscription preference behind adapters; capability differences stay visible. Revisit any platform/hosting/storage lock-in with migration cost and alternatives before acceptance.
+Unresolved judgment: Provider-neutral contract shape, supported capability model, storage/hosting choices and independently shaped test fixture remain to be designed and reviewed.
+
+### Modularity
+Status: blocked
+Affected boundaries: Messaging/persistence, memory, voice, execution environments/VMs, service connectors, service composition and native capabilities.
+Dependency/removal impact: Memory/routines/authentication/runtime management coexist in successor/service/openai.ts; no package/artifact removal proof exists. Voice/VM absence does not prove a replaceable boundary. External connectors must own scoped credentials and lifecycle.
+Acceptance criteria: Define stable contracts and data ownership, then remove each optional module from dependencies/artifacts and pass core send/persist/replay and retained-history tests. Include failure/re-addition tests and distinct agent-host versus computer-sandbox authority.
+Evidence: Current public Snapshot/TurnConfiguration embed memory; the live service combines multiple responsibilities. Current fixture coverage tests behavior within this composition, not independence from removed modules.
+Tradeoffs: Preserve proven public behaviors while extracting only needed boundaries; avoid both a generic plugin framework and a rewrite of working persistence solely to rearrange files. Compare alternatives in the new design.
+Unresolved judgment: Module contracts, connector lifecycle, dependency direction and removal suites require review.
+
+### Speed
+Status: blocked
+Affected boundaries: Toolchain, service framework, persistence, native clients, runtime adapter processes and proposed Mac background service.
+Dependency/removal impact: TypeScript/Node and Swift are current prototype choices, not a measured selection; alternate language/framework choices affect packaging and host resource use.
+Acceptance criteria: Set numeric clean/incremental build, cold/warm startup, request/event p95, idle CPU/RSS/wakeups and active-load targets. Compare credible candidates at the same seam with recorded hardware/OS/toolchains/workload/cache state/repetitions; report Fort overhead separately from provider/network latency.
+Evidence: Existing build and behavioral logs pass, but controlled benchmarks and numeric budgets are absent. Incidental test/build elapsed times cannot establish this principle.
+Tradeoffs: Compare development iteration, runtime/idle cost, distribution size and maintenance together; do not select Go, Rust, Swift or TypeScript on reputation alone. Revisit the choice when measured budgets fail.
+Unresolved judgment: Numeric budgets, representative workload, comparison candidates and measurement protocol are unassigned and block acceptance.
+
+### Installation and removal
+Status: blocked
+Affected boundaries: Owner pairing, background-host packaging/lifecycle, credential revocation, native delivery, iPhone reachability, CI/CD and retained history.
+Dependency/removal impact: Real owned-host installation/recovery/removal adapter is absent; the current protocol has fixture implementations. TestFlight app records, profiles and delivery pipeline are unverified. Localhost service addressing does not provide physical iPhone reachability.
+Acceptance criteria: Inventory dependencies/permissions/processes/data, prove explicit install/start/stop/update/rollback and uninstall absence on the exact Mac host; preserve optional expiry/no default expiry and history choice. Test lost replies/expired credentials without treating local forget as revocation. Validate iPhone/Mac through actual TestFlight builds, accessibility/screenshots and authorized real-provider journeys.
+Evidence: successor/TESTFLIGHT-DELIVERY-20261017.md records signing metadata and missing delivery prerequisites; successor/evidence/2026-10-17-interactive-qa/README.md records passing fixture/build checks and missing installed acceptance. No archive/upload/processing/tester or physical acceptance claim is made.
+Tradeoffs: Native/TestFlight is the user's platform choice. Investigate its background-service restrictions before choosing host packaging; do not substitute standalone distribution silently. Keep ordinary CI account-free and separate an approved release stage.
+Unresolved judgment: Removable Mac host design, lifecycle/entitlements, secure iPhone transport, TestFlight identities, release pipeline and real uninstall proof remain open.
+
+Current [keep/adapt/replace assessment](../docs/architecture/reassessment-20261017.md) records the conflicts and review inputs. The remaining numbered sections preserve the earlier proposal; conflicting language, provider, scope and delivery recommendations require a revised accepted spec before implementation.
 
 ## 1. Goal and authority
 
