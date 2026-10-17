@@ -63,6 +63,12 @@ test('a changed original state, record or archived lock invalidates the next-ses
   }
 });
 
+test('editing the original cleanup flag cannot bypass an existing reconciliation record',t=>{
+  const f=fixture(t);reconcileMvpCleanup(f.options);
+  writeFileSync(f.statePath,JSON.stringify({...f.state,nativeCleanup:'confirmed'}));
+  assert.throws(()=>assertMvpSessionAvailable(f.root,2),/cleanup/);
+});
+
 test('inspection does not release the lock; interrupted recording resumes without replacing evidence',t=>{
   const f=fixture(t);reconcileMvpCleanup({...f.options,inspectOnly:true});
   assert.equal(existsSync(join(f.root,'active.lock')),true);assert.equal(existsSync(join(f.session,'cleanup-reconciliation.json')),false);

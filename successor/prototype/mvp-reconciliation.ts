@@ -30,7 +30,9 @@ export function assertMvpSessionAvailable(batchRoot:string,session:1|2|3):void{
   for(let prior=1;prior<session;prior++){
     try{
       const state=JSON.parse(read(join(batchRoot,`session-${prior}`,'session-state.json')).toString()) as State;
-      if(state.session!==prior||!['finished','blocked'].includes(state.phase)||state.credentialCleanup!=='deleted'||state.runtimeCleanup!=='confirmed'||(state.nativeCleanup!=='confirmed'&&!(prior===1&&validRecord(batchRoot))))throw new Error();
+      const hasRecord=existsSync(join(batchRoot,`session-${prior}`,'cleanup-reconciliation.json'));
+      const nativeConfirmed=hasRecord?prior===1&&validRecord(batchRoot):state.nativeCleanup==='confirmed';
+      if(state.session!==prior||!['finished','blocked'].includes(state.phase)||state.credentialCleanup!=='deleted'||state.runtimeCleanup!=='confirmed'||!nativeConfirmed)throw new Error();
     }catch{throw new Error('Previous session cleanup must be confirmed');}
   }
 }
