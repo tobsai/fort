@@ -19,6 +19,37 @@ function fixture(t:{after:(fn:()=>void)=>void}){
   return {root,session,native,pending,statePath,state,options};
 }
 
+function secondFixture(t:{after:(fn:()=>void)=>void}){
+  const first=fixture(t);reconcileMvpCleanup(first.options);
+  const session=join(first.root,'session-2'),native=join(first.root,'native-2'),installationId='synthetic-second-installation';mkdirSync(session);mkdirSync(native);
+  const state={...first.state,session:2,installationId,receipts:[{runId:'second-run'}]};
+  const statePath=join(session,'session-state.json');writeFileSync(statePath,JSON.stringify(state));writeFileSync(join(first.root,'active.lock'),'synthetic-second-owner');
+  const pending=join(native,createHash('sha256').update(installationId).digest('hex'));mkdirSync(pending);writeFileSync(join(pending,'pending.json'),'[]');
+  const options={...first.options,session:2 as const,expectedStateSHA256:digest(readFileSync(statePath)),expectedLockSHA256:digest(readFileSync(join(first.root,'active.lock'))),nativeDirectory:native,readLedger:()=>({installationId,credentialDeadline:601_000,devices:0,enrollments:0,runs:[{runId:'second-run',state:'completed'}]})};
+  return {...first,session,native,pending,statePath,state,options};
+}
+
+test('session 2 reconciliation retains both consumed packets and opens only the third session',t=>{
+  const f=secondFixture(t),before=readFileSync(f.statePath),mtime=statSync(f.statePath).mtimeMs,prior=readFileSync(join(f.root,'session-1/cleanup-reconciliation.json'));
+  reconcileMvpCleanup(f.options);assert.deepEqual(readFileSync(f.statePath),before);assert.equal(statSync(f.statePath).mtimeMs,mtime);
+  assert.deepEqual(readFileSync(join(f.root,'session-1/cleanup-reconciliation.json')),prior);
+  assertMvpSessionAvailable(f.root,3);assert.throws(()=>assertMvpSessionAvailable(f.root,1),/consumed/);assert.throws(()=>assertMvpSessionAvailable(f.root,2),/consumed/);
+  const record=JSON.parse(readFileSync(join(f.session,'cleanup-reconciliation.json'),'utf8'));
+  assert.equal(record.consumed.receipts,1);assert.deepEqual(record.remainingSessions,[3]);assert.equal(record.keychainEvidence.independentlyRechecked,false);assert.equal(record.keychainEvidence.deleteStatus,undefined);
+  assert.equal(existsSync(join(f.root,'session-3')),false);
+});
+
+for(const problem of ['prior evidence','pending work','consumed third session','changed second cleanup flag'] as const)test(`session 2 reconciliation refuses ${problem}`,t=>{
+  const f=secondFixture(t);
+  if(problem==='prior evidence')writeFileSync(join(f.root,'session-1/cleanup-reconciliation.json'),'{}');
+  if(problem==='pending work')writeFileSync(join(f.pending,'pending.json'),'[{}]');
+  if(problem==='consumed third session')mkdirSync(join(f.root,'session-3'));
+  if(problem==='changed second cleanup flag'){
+    reconcileMvpCleanup(f.options);writeFileSync(f.statePath,JSON.stringify({...f.state,nativeCleanup:'confirmed'}));assert.throws(()=>assertMvpSessionAvailable(f.root,3),/cleanup/);return;
+  }
+  assert.throws(()=>reconcileMvpCleanup(f.options));assert.equal(existsSync(join(f.root,'active.lock')),true);
+});
+
 test('verified reconciliation preserves the consumed state and lock bytes and releases only the unused session gate',t=>{
   const f=fixture(t),before=readFileSync(f.statePath),modified=statSync(f.statePath).mtimeMs,lock=readFileSync(join(f.root,'active.lock'));
   assert.throws(()=>assertMvpSessionAvailable(f.root,2),/lock|cleanup/);

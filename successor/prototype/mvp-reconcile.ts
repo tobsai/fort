@@ -24,10 +24,11 @@ function assertListenerClosed(port:number){
   throw new Error('Session listener is still open');
 }
 export function runMvpReconciliation(args=process.argv.slice(2)){
-  if(args.length!==1||!['--check','--record'].includes(args[0]!))throw new Error('Use --check or --record');
+  if(!['--check','--record'].includes(args[0]!)||!(args.length===1||(args.length===3&&args[1]==='--session'&&['1','2'].includes(args[2]!))))throw new Error('Use --check or --record, optionally followed by --session 1 or 2');
+  const session=args[2]==='2'?2:1,pins=session===1?{state:'a4d8a619767ddcb06472bf79404a3e93eca38311cfa07cda773a06ec3cecdc4f',lock:'a1855f3fad32884fc39e165c251e446177b5d20aab4c78cf5bed0f1cf2c1391a'}:{state:'712a53c78a9b16dd643793ae88812e57a7485a015e6cd5db265f540e8fabfc3b',lock:'84eb1d851805b97b154a0024b75935a8c03b6244bba002981655a602df0d95f5'};
   const prepared=verifyMvpPreparation();requireMvpApproval(prepared);
   const native=createMvpNative(prepared.appPath);
-  const result=reconcileMvpCleanup({batchRoot:MVP_ROOT,scopeSHA256:prepared.scopeSHA256,expectedStateSHA256:'a4d8a619767ddcb06472bf79404a3e93eca38311cfa07cda773a06ec3cecdc4f',expectedLockSHA256:'a1855f3fad32884fc39e165c251e446177b5d20aab4c78cf5bed0f1cf2c1391a',nativeDirectory:native.directory,assertNativeExited:native.assertExited,assertRuntimeExited,assertListenerClosed,readLedger:()=>readMvpCleanupLedger(join(MVP_ROOT,'session-1/service/openai-candidate-b.sqlite')),inspectOnly:args[0]==='--check'});
+  const result=reconcileMvpCleanup({batchRoot:MVP_ROOT,session,scopeSHA256:prepared.scopeSHA256,expectedStateSHA256:pins.state,expectedLockSHA256:pins.lock,nativeDirectory:native.directory,assertNativeExited:native.assertExited,assertRuntimeExited,assertListenerClosed,readLedger:()=>readMvpCleanupLedger(join(MVP_ROOT,`session-${session}/service/openai-candidate-b.sqlite`)),inspectOnly:args[0]==='--check'});
   process.stdout.write(JSON.stringify({...result,liveActionsPerformed:false})+'\n');
 }
 if(import.meta.main){try{runMvpReconciliation();}catch{process.stderr.write('Cleanup reconciliation refused; preserve the state and retained lock.\n');process.exitCode=1;}}
