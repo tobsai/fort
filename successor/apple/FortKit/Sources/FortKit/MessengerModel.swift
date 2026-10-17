@@ -23,6 +23,13 @@ import Observation
     public var pending: [PendingSubmission] = []
     public var pendingErrors: [String:String] = [:]
     public var installation: Installation?
+    public var localImages: [LocalChatImage] = []
+    private var loadedImageScope: String?
+    public var imageError: String?
+    public var importingImage = false
+    private var imageStore: LocalChatImageStore { LocalChatImageStore(directory:storage.directory.appendingPathComponent("local-images",isDirectory:true)) }
+    public var modelCatalog: ModelCatalog = .unchecked
+    public var loadingModels = false
     public var runtimeReadiness: RuntimeReadiness?
     public var status = "Connect to your fixture installation."
     public var isBusy = false
@@ -70,7 +77,7 @@ import Observation
             }
             showConnection = false
             client = try FortClient(baseURL:connection.baseURL,installationID:connection.installationID,token:storage.token(for:connection),fixtureLoopback:connection.fixtureLoopback,session:session)
-            await refresh()
+            loadLocalImages();await refresh()
         } catch { status = "Could not restore this device connection. Enroll again to continue." }
     }
     public func enroll() async {
@@ -140,7 +147,7 @@ import Observation
                 let incoming = try await client.snapshot(conversationID:conversationID)
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
-            connected = true
+            loadLocalImages();connected = true
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
         } catch {
             connected = false; status = error.localizedDescription
@@ -199,6 +206,7 @@ import Observation
         selectedConversationID = id; recipientAgentID = nil; selectedSkillIDs = []
         if let room = selectedConversation, room.kind == "home" { selectedAgentID = room.participantAgentIds.first }
         snapshot = id.flatMap { try? storage.snapshot(installationID:expectedInstallation,conversationID:$0) }
+        loadLocalImages()
         do { try saveNavigation() } catch { status = error.localizedDescription }
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
         await refresh()
@@ -210,10 +218,42 @@ import Observation
         guard supportsCommands, installation?.mode == "openai", !isBusy, let client else { workspaceSaving = false; return nil }
         isBusy = true; return client
     }
-    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String) async -> Bool {
+    private func loadLocalImages(force: Bool = false) {
+        guard let installation, let conversationID = activeConversationID else { localImages = []; loadedImageScope = nil; return }
+        let scope = installation.installationId + "\0" + conversationID
+        guard force || loadedImageScope != scope else { return }
+        loadedImageScope = scope; imageError = nil
+        do { localImages = try imageStore.images(installationID:installation.installationId,conversationID:conversationID) }
+        catch { localImages = []; imageError = "A local image preview could not be loaded. Your conversation history is intact." }
+    }
+    public func importLocalImage(_ url: URL) async {
+        guard !importingImage, !isOfflinePreview, let installation, let conversationID = activeConversationID else { return }
+        importingImage = true; defer { importingImage = false }
+        let scoped = url.startAccessingSecurityScopedResource();defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let store = imageStore, sequence = snapshot?.messages.last?.sequence ?? 0, installationID = installation.installationId
+        do {
+            _ = try await Task.detached { try store.importImage(from:url,installationID:installationID,conversationID:conversationID,afterSequence:sequence) }.value
+            loadLocalImages(force:true);status = "Image saved on this device. It was not sent to the agent."
+        } catch { status = (error as? LocalImageError)?.errorDescription ?? "The local image could not be displayed. Choose a still PNG or JPEG within the size limit." }
+    }
+    public func removeLocalImage(_ image: LocalChatImage) {
+        guard image.installationID == installation?.installationId, image.conversationID == activeConversationID else { return }
+        do { try imageStore.remove(image);loadLocalImages(force:true) } catch { status = "The preview could not be removed. The original image file has not changed." }
+    }
+    public func refreshModels() async {
+        guard !loadingModels else { return }
+        guard installation?.supports("modelCatalog") == true, let client else { modelCatalog = .unchecked; return }
+        loadingModels = true; defer { loadingModels = false }
+        do {
+            let catalog = try await client.models()
+            guard catalog.provider == "codex", ["ready","unavailable","error"].contains(catalog.state), catalog.models.count <= 800, Set(catalog.models.map(\.id)).count == catalog.models.count else { throw ClientError.invalidResponse }
+            modelCatalog = catalog
+        } catch { modelCatalog = ModelCatalog(provider:"codex",state:"error",models:[],detail:"Could not check models. Your saved selection has not changed.") }
+    }
+    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }
         do {
-            let saved = try await client.saveAgent(agent,name:name,model:model,instructions:instructions)
+            let saved = try await client.saveAgent(agent,name:name,model:model,instructions:instructions,avatar:avatar)
             selectedAgentID = saved.id; selectedConversationID = saved.homeConversationId; recipientAgentID = nil
             isBusy = false; await refresh(); workspaceSaving = false; return true
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }

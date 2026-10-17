@@ -1,4 +1,4 @@
-import type { RuntimeReadiness } from '../contracts/v1.ts';
+import type { RuntimeReadiness, ModelCatalog, ModelOption } from '../contracts/v1.ts';
 import { randomUUID } from 'node:crypto';
 import { prepareSkillContext } from './skill-context.ts';
 import { isAbsolute, normalize } from 'node:path';
@@ -67,6 +67,29 @@ export class CodexChat implements ChatRuntime {
       if(created){try{await this.options.connection.dispose();}catch{this.recoveryBlocked=true;this.detail='Replacement cleanup is unconfirmed.';throw new Error('Replacement cleanup was not confirmed');}}
       throw error;
     } finally {removeAbort();this.busy=false;}
+  }
+  async models(signal:AbortSignal):Promise<ModelCatalog> {
+    if(this.disposed||this.options.connection.isClosed||this.busy)return {provider:'codex',state:'unavailable',models:[],detail:'Model discovery is unavailable while the runtime is stopped or busy.'};
+    const {connection,workspace}=this.options;
+    try {
+      if(!this.initialized){
+        await connection.request('initialize',{clientInfo:{name:'fort_candidate_b',title:'Fort',version:'0.1.0'},capabilities:{experimentalApi:true,requestAttestation:false}},signal);
+        connection.notify('initialized',{});this.initialized=true;
+      }
+      await verifyRuntimeControls(connection,workspace,signal);
+      const account=object(await connection.request('account/read',{refreshToken:false},signal));
+      if(object(account.account).type!=='chatgpt'||account.requiresOpenaiAuth!==true)throw new Error('Existing account unavailable');
+      const rows=await readRuntimePages(connection,'model/list',{includeHidden:false},signal),seen=new Set<string>(),models:ModelOption[]=[];
+      for(const value of rows){
+        const row=object(value),id=row.model;
+        if(typeof id!=='string'||id.length===0||id.length>128||!/^[a-zA-Z0-9_.:/-]+$/.test(id)||seen.has(id))throw new Error('Invalid model catalog');
+        seen.add(id);
+        const name=typeof row.displayName==='string'&&row.displayName.length>0&&row.displayName.length<=128?row.displayName:id;
+        const unsupported=Array.isArray(row.inputModalities)&&!row.inputModalities.includes('text');
+        models.push({id,name,availability:unsupported?'unavailable':'available',...(unsupported?{detail:'This model does not list text input support.'}:{})});
+      }
+      return {provider:'codex',state:'ready',models,checkedAt:new Date().toISOString()};
+    }catch{return {provider:'codex',state:'error',models:[],detail:'Could not verify models from the connected Codex runtime. Your selection has not changed.'};}
   }
   async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {
     const { connection,workspace,runtimeVersion }=this.options;

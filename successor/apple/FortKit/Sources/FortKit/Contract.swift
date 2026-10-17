@@ -32,6 +32,7 @@ public struct Agent: Codable, Equatable, Sendable, Identifiable {
     public let binding: Binding
     public let readiness: String
     public var instructions: String? = nil
+    public var avatar: AgentAvatar? = nil
 }
 public struct AgentList: Codable, Sendable { public let agents: [Agent] }
 public struct SkillReference: Codable, Equatable, Sendable { public let skillId: String; public let revisionId: String }

@@ -6,7 +6,7 @@ struct WorkspaceEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showBundles = false
     @State private var savedSkill: InstructionSkill?
-    @State private var kind = "Agent"
+    @State private var kind = "Skill"
     @State private var editingID = "new"
     @State private var form = WorkspaceForm(agent:nil)
     @State private var participants: Set<String> = []
@@ -18,7 +18,7 @@ struct WorkspaceEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("Create or edit", selection:$kind) { Text("Agent").tag("Agent"); Text("Skill").tag("Skill"); Text("Conversation").tag("Conversation") }
+                Picker("Create or edit", selection:$kind) { Text("Skill").tag("Skill"); Text("Conversation").tag("Conversation") }
                     .pickerStyle(.segmented)
                 if kind != "Conversation" {
                     Picker("Item", selection:$editingID) {
@@ -75,15 +75,16 @@ struct WorkspaceEditor: View {
     var name: String
     var exactModel: String
     var instructions: String
+    var avatar: AgentAvatar = .orbit
     init(agent: Agent?) {
-        source = .agent(agent); name = agent?.name ?? ""; exactModel = agent?.binding.selectedModel ?? "gpt-6-astra"; instructions = agent?.instructions ?? ""
+        source = .agent(agent); avatar = agent?.avatar ?? .orbit; name = agent?.name ?? ""; exactModel = agent?.binding.selectedModel ?? ""; instructions = agent?.instructions ?? ""
     }
     init(skill: InstructionSkill?) {
         source = .skill(skill); name = skill?.name ?? ""; exactModel = ""; instructions = skill?.instructions ?? ""
     }
     func save(using model: MessengerModel) async -> Bool {
         switch source {
-        case .agent(let loaded): await model.saveAgent(loaded,name:name,model:exactModel,instructions:instructions)
+        case .agent(let loaded): await model.saveAgent(loaded,name:name,model:exactModel,instructions:instructions,avatar:avatar)
         case .skill(let loaded): await model.saveSkill(loaded,name:name,instructions:instructions)
         }
     }

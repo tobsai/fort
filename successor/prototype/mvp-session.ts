@@ -50,6 +50,11 @@ export class MvpPacket {
     const proxy:ChatRuntime={
       execute:(input,signal)=>accepting&&active()&&runtime?runtime.execute(input,AbortSignal.any([signal,abort.signal])):Promise.resolve({kind:'notStarted',message:'Session dispatch is closed.'}),
       dispose:async()=>{await runtime?.dispose();},readiness,
+      models:async signal=>{
+        if(!active()||!runtime?.models)return {provider:'codex',state:'unavailable',models:[],detail:'The approved local session is not available.'};
+        const catalog=await runtime.models(AbortSignal.any([signal,abort.signal]));
+        return catalog.state==='ready'?{...catalog,models:catalog.models.map(model=>model.id==='gpt-6-astra'?model:{...model,availability:'unavailable' as const,detail:'This model is outside the active session scope.'})}:catalog;
+      },
       restart:async signal=>{
         if(!runtime?.restart||!readiness().canRestart)throw new Error('Runtime restart is unavailable');
         claimRestart();try{await runtime.restart(AbortSignal.any([signal,abort.signal]));if(!active())throw new Error('Session expired during restart');accepting=true;}

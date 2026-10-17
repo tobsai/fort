@@ -1,0 +1,102 @@
+import SwiftUI
+
+public struct ModelOption: Codable, Equatable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    public let availability: String
+    public var detail: String? = nil
+}
+public struct ModelCatalog: Codable, Equatable, Sendable {
+    public let provider: String
+    public let state: String
+    public let models: [ModelOption]
+    public var checkedAt: String? = nil
+    public var detail: String? = nil
+    public func canSelect(_ id: String) -> Bool { provider == "codex" && state == "ready" && models.contains { $0.id == id && $0.availability == "available" } }
+    public func options(preserving selected: String) -> [ModelOption] {
+        var result = state == "ready" ? models : []
+        if !selected.isEmpty && !result.contains(where:{$0.id == selected}) {
+            result.append(ModelOption(id:selected,name:selected,availability:"unavailable",detail:state == "ready" ? "Not listed by this runtime." : "Availability has not been verified."))
+        }
+        return result
+    }
+    static let unchecked = ModelCatalog(provider:"codex",state:"unavailable",models:[],detail:"Connect to the local runtime to check models.")
+}
+struct FortSettingsView: View {
+    @Bindable var model: MessengerModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Agents") {
+                    ForEach(model.agents) { agent in
+                        NavigationLink {
+                            AgentSettingsEditor(model:model,agent:agent)
+                        } label: {
+                            HStack(spacing:12) {
+                                AgentAvatarView(avatar:agent.avatar ?? .orbit)
+                                VStack(alignment:.leading) { Text(agent.name); Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary) }
+                            }
+                        }
+                    }
+                    NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: { Label("Add agent",systemImage:"plus") }
+                }
+                Section("This Mac") {
+                    Text("Your pairing and local service settings will appear here after owner setup.")
+                    Text("Pairing will stay until you disconnect. An expiry will be optional. Stopping or disconnecting keeps conversation history.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Settings")
+            .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Done") { dismiss() } } }
+        }.frame(minWidth:380,minHeight:480)
+    }
+}
+struct AgentSettingsEditor: View {
+    @Bindable var model: MessengerModel
+    let agent: Agent?
+    @State private var form: WorkspaceForm
+    @Environment(\.dismiss) private var dismiss
+    init(model: MessengerModel, agent: Agent?) { self.model = model; self.agent = agent; _form = State(initialValue:WorkspaceForm(agent:agent)) }
+    private var valid: Bool {
+        !form.name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && form.name.utf8.count <= 128 &&
+        !form.instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && form.instructions.utf8.count <= 16_384 &&
+        (model.modelCatalog.canSelect(form.exactModel) || agent?.binding.selectedModel == form.exactModel)
+    }
+    var body: some View {
+        Form {
+            Section("Identity") {
+                TextField("Name",text:$form.name)
+                TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
+                Text("Describe this agent’s role, tone and preferences. Used as instructions for future messages; permissions and earlier turns stay unchanged.").font(.caption).foregroundStyle(.secondary)
+                Text("\(form.instructions.utf8.count) / 16,384 bytes").font(.caption).foregroundStyle(form.instructions.utf8.count > 16_384 ? .red : .secondary)
+            }
+            Section("Model") {
+                Text("Provider: Codex · existing ChatGPT account").font(.caption)
+                Picker("Model",selection:$form.exactModel) {
+                    if form.exactModel.isEmpty { Text("Choose a model").tag("") }
+                    ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in
+                        Text(choice.name + (choice.availability == "available" ? "" : " · unavailable")).tag(choice.id).disabled(choice.availability != "available")
+                    }
+                }
+                if let choice = model.modelCatalog.options(preserving:form.exactModel).first(where:{$0.id == form.exactModel}), let detail = choice.detail { Text(detail).font(.caption) }
+                if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                if model.modelCatalog.state == "ready" { Text("Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
+                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(model.loadingModels)
+            }
+            Section("Avatar") {
+                HStack(spacing:18) {
+                    ForEach(AgentAvatar.allCases) { avatar in
+                        Button { form.avatar = avatar } label: {
+                            VStack { AgentAvatarView(avatar:avatar,size:56); Text(avatar.name).font(.caption); Image(systemName:form.avatar == avatar ? "checkmark.circle.fill" : "circle") }
+                        }.buttonStyle(.plain).accessibilityLabel(avatar.name + (form.avatar == avatar ? ", selected" : ""))
+                    }
+                }
+                Text("Bundled avatars animate gently and respect Reduce Motion.").font(.caption).foregroundStyle(.secondary)
+            }
+            Text(model.status).font(.caption).foregroundStyle(.secondary)
+        }.formStyle(.grouped)
+        .navigationTitle(agent?.name ?? "New agent")
+        .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { if await form.save(using:model) { dismiss() } } }.disabled(!valid || model.workspaceSaving) } }
+        .task { await model.refreshModels() }
+    }
+}

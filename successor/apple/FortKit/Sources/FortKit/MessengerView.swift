@@ -1,9 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct MessengerView: View {
     @Bindable private var model: MessengerModel
     @State private var uncertainRun: Run?
     @State private var memoryForm: ConversationMemoryForm?
+    @State private var showImageImporter = false
+    @State private var showSettings = false
     @State private var showWorkspace = false
     @State private var showRoutines = false
     @Environment(\.scenePhase) private var scenePhase
@@ -14,9 +17,12 @@ public struct MessengerView: View {
                 Section("Your Agents") {
                     ForEach(model.agents) { agent in
                         NavigationLink(value:model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId) {
+                            HStack(spacing:10) {
+                            AgentAvatarView(avatar:agent.avatar ?? .orbit)
                             VStack(alignment:.leading,spacing:4) {
                                 Text(agent.name).font(.headline)
                                 Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary)
+                            }
                             }
                         }.tag(model.installation?.mode == "openai" ? agent.homeConversationId : agent.agentId)
                     }
@@ -27,9 +33,10 @@ public struct MessengerView: View {
             }
             .navigationTitle("Fort")
             .toolbar {
+                if model.installation?.mode == "openai" { Button("Settings",systemImage:"gearshape") { showSettings = true } }
                 if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
                 if !model.isOfflinePreview { Button("Connection",systemImage:"network") { model.showConnection = true } }
-                if model.installation?.mode == "openai" { Button("Workspace",systemImage:"plus") { showWorkspace = true } }
+                if model.installation?.mode == "openai" { Button("Library",systemImage:"books.vertical") { showWorkspace = true } }
             }
         } detail: {
             VStack(spacing:0) {
@@ -50,6 +57,10 @@ public struct MessengerView: View {
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
         .sheet(isPresented:$model.showConnection) { connectionForm }
         .sheet(item:$memoryForm) { ConversationMemoryEditor(model:model,form:$0) }
+        .fileImporter(isPresented:$showImageImporter,allowedContentTypes:[.png,.jpeg]) { result in
+            if case .success(let url) = result { Task { await model.importLocalImage(url) } }
+        }
+        .sheet(isPresented:$showSettings) { FortSettingsView(model:model) }
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
         .task {
@@ -84,19 +95,25 @@ public struct MessengerView: View {
         ScrollViewReader { position in
             ScrollView {
                 LazyVStack(alignment:.leading,spacing:16) {
+                    if let error = model.imageError { Text(error).font(.caption).foregroundStyle(.orange) }
+                    ForEach(model.localImages.filter { $0.afterSequence == 0 }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
                     ForEach(model.snapshot?.transcriptRows ?? []) { row in
                         switch row {
-                        case .message(let message): messageRow(message)
+                        case .message(let message):
+                            messageRow(message)
+                            ForEach(model.localImages.filter { $0.afterSequence == message.sequence }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
                         case .run(let run): runRow(run)
                         case .approval(let approval): approvalRow(approval)
                         }
                     }
+                    ForEach(model.localImages.filter { image in image.afterSequence != 0 && model.snapshot?.messages.contains(where:{$0.sequence == image.afterSequence}) != true }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
                     ForEach(model.pending.filter { $0.conversationID == model.activeConversationID }) { pending in pendingRow(pending) }
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
             }
             .accessibilityIdentifier("conversation-history")
             .onChange(of:model.pending.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
+            .onChange(of:model.localImages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
             .onChange(of:model.snapshot?.messages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
         }
     }
@@ -167,6 +184,9 @@ public struct MessengerView: View {
     }
     private var messageComposer: some View {
         VStack(alignment:.leading,spacing:8) {
+            if !model.isOfflinePreview, model.activeConversationID != nil {
+                Button(model.importingImage ? "Opening image…" : "Show local image",systemImage:"photo") { showImageImporter = true }.font(.caption).disabled(model.importingImage)
+            }
             if let conversation = model.selectedConversation, conversation.kind == "shared" {
                 Picker("Recipient",selection:$model.recipientAgentID) {
                     Text("Choose an Agent").tag(Optional<String>.none)

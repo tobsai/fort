@@ -9,7 +9,7 @@ import {parseSkillBundle} from '../contracts/skill-bundle.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
+function transport(options: { catalogModels?:unknown[]; model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -31,7 +31,7 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
           result({ data:pages[page] ?? [],nextCursor:options.cycleCursor ? '0' : page+1<pages.length ? String(page+1) : null }); break;
         }
         case 'account/read': result({ account:{ type:'chatgpt' }, requiresOpenaiAuth:true }); break;
-        case 'model/list': result({ data:[{ id:options.model ?? 'gpt-6-astra',model:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
+        case 'model/list': result({ data:options.catalogModels ?? [{ id:options.model ?? 'gpt-6-astra',model:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
         case 'permissionProfile/list': result({data:[{id:'fort_candidate_b_no_files',description:null,allowed:true}],nextCursor:null});break;
         case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', approvalsReviewer:'user',activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null},runtimeWorkspaceRoots:[],sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
         case 'turn/start':
@@ -323,4 +323,19 @@ for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime dispos
     assert.equal(connections,phase==='old-cleanup'?0:1);assert.equal(replacements.every(connection=>connection.isClosed),true);
     assert.equal(runtime.readiness().state,'stopped');assert.equal(runtime.readiness().canRestart,false);
   }finally{releaseOld();await runtime.dispose();for(const connection of replacements)await connection.dispose();}
+});
+
+test('model catalog uses exact runtime slugs without dispatch, login or silent default substitution',async()=>{
+ const fixture=transport({catalogModels:[{id:'display-id',model:'exact-text-model',displayName:'Text model',inputModalities:['text']},{id:'audio',model:'exact-audio-model',inputModalities:['audio']}]});
+ const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+ const catalog=await runtime.models(new AbortController().signal);assert.equal(catalog.state,'ready');
+ assert.deepEqual(catalog.models.map(model=>[model.id,model.availability]),[['exact-text-model','available'],['exact-audio-model','unavailable']]);
+ assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')||call.method?.includes('login')),false);
+ assert.equal(fixture.calls.find(call=>call.method==='model/list')?.params?.includeHidden,false);
+ await runtime.dispose();
+});
+for(const issue of ['duplicate','invalid','failure'] as const)test(`model discovery fails safely: ${issue}`,async()=>{
+ const fixture=transport(issue==='failure'?{rejectMethod:'model/list'}:{catalogModels:issue==='duplicate'?[{model:'same'},{model:'same'}]:[{id:'display-only'}]});
+ const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+ const catalog=await runtime.models(new AbortController().signal);assert.equal(catalog.state,'error');assert.deepEqual(catalog.models,[]);assert.equal(JSON.stringify(catalog).includes('synthetic-secret'),false);await runtime.dispose();
 });

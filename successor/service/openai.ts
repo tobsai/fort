@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -34,10 +34,15 @@ function id(value: unknown): string {
   if (!/^[A-Za-z0-9_-]+$/.test(result)) fail(400, 'invalidCommand', 'Invalid identifier.');
   return result;
 }
+function avatar(value:unknown):{avatar?:AgentAvatar} {
+  if(value===undefined)return {};
+  if(value!=='orbit'&&value!=='ember'&&value!=='sprout')fail(400,'invalidAvatar','Choose a bundled Fort avatar.');
+  return {avatar:value};
+}
 function decodeAgent(value: unknown): Agent {
   const v = record(value), b = record(v.binding);
   if (b.provider !== 'codex' || typeof b.enabled !== 'boolean' || v.readiness !== 'requiresLiveReview') throw new Error('Invalid stored Agent');
-  return { agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
+  return { ...avatar(v.avatar),agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
     binding: { bindingRevisionId: id(b.bindingRevisionId), provider: b.provider, runtimeVersion: text(b.runtimeVersion, 'runtime'), selectedModel: text(b.selectedModel, 'model'), hostId: id(b.hostId), enabled: b.enabled } };
 }
 function decodeSkill(value: unknown): InstructionSkill {
@@ -151,7 +156,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     installation = { contractVersion: '1.0', mode: 'openai', serviceName: 'Fort Prototype', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,capabilities:[...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,capabilities:[...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
@@ -426,6 +431,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       } else {
         authenticate(request);
         if (request.method === 'GET' && url.pathname === '/v1/installation') result = installation;
+        else if (request.method === 'GET' && url.pathname === '/v1/models') {
+          if(!options.runtime?.models)result={provider:'codex',state:'unavailable',models:[],detail:'Connect a reviewed Codex runtime to check model availability.'};
+          else try{result=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));}
+          catch{result={provider:'codex',state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
+        }
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
         else if(request.method==='POST'&&/^\/v1\/approvals\/[^/]+\/resolve$/.test(url.pathname)){
           const body=await readBody(request),approvalId=id(url.pathname.split('/')[3]);
@@ -598,7 +608,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           result = owner(request, () => {
             const old = load('agents', agentId, decodeAgent);
             if (body.expectedBindingRevisionId !== old.binding.bindingRevisionId) fail(409, 'bindingChanged', 'Reload the Agent before saving.');
-            const agent: Agent = { ...old, name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), binding: { ...old.binding, bindingRevisionId: randomUUID(), selectedModel: text(body.model, 'exact model', 128),enabled:true } };
+            const agent: Agent = { ...old, ...avatar(body.avatar), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), binding: { ...old.binding, bindingRevisionId: randomUUID(), selectedModel: text(body.model, 'exact model', 128),enabled:true } };
             put('agentBindings',old.binding.bindingRevisionId,old);put('agentBindings',agent.binding.bindingRevisionId,agent);put('agents', agentId, agent);
             const home = load('conversations', old.homeConversationId, decodeConversation); put('conversations', home.conversationId, { ...home, name: agent.name }); return agent;
           });
@@ -609,7 +619,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         else if (request.method === 'POST' && url.pathname === '/v1/agents') {
           const body = await readBody(request);
           result = owner(request, () => {
-            const agent: Agent = { agentId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), homeConversationId: randomUUID(), readiness: 'requiresLiveReview',
+            const agent: Agent = { ...avatar(body.avatar),agentId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), homeConversationId: randomUUID(), readiness: 'requiresLiveReview',
               binding: { bindingRevisionId: randomUUID(), provider: 'codex', runtimeVersion: '0.157.1', selectedModel: text(body.model, 'exact model', 128), hostId: 'local-codex', enabled: true } };
             put('agents', agent.agentId, agent);put('agentBindings',agent.binding.bindingRevisionId,agent);
             const home: Conversation = { conversationId: agent.homeConversationId, name: agent.name, kind: 'home', participantAgentIds: [agent.agentId] };

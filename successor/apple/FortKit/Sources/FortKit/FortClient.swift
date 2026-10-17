@@ -43,9 +43,10 @@ public struct FortClient: Sendable {
     public func agents() async throws -> [Agent] { let result: AgentList = try await get("v1/agents"); return result.agents }
     public func conversations() async throws -> [Conversation] { struct Response: Decodable { let conversations: [Conversation] }; let result: Response = try await get("v1/conversations"); return result.conversations }
     public func skills() async throws -> [InstructionSkill] { struct Response: Decodable { let skills: [InstructionSkill] }; let result: Response = try await get("v1/skills"); return result.skills }
-    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String) async throws -> Agent {
-        struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String? }
-        return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:"POST", body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId))
+    public func models() async throws -> ModelCatalog { try await get("v1/models") }
+    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
+        struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }
+        return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:"POST", body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId,avatar:avatar))
     }
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async throws -> InstructionSkill {
         struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
