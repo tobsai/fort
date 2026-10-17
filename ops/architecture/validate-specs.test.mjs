@@ -218,3 +218,16 @@ test('staged mode requires an implementation spec and rejects wildcard scope', t
   assert.equal(f.run('--base', f.base).code, 1);
   assert.match(f.check().output, /exact repository-relative file paths/);
 });
+
+test('Git ignore-submodules settings cannot hide an undeclared staged revision', t => {
+  const f = stagedFixture(t);
+  const path = 'vendor/integration';
+  f.git('update-index', '--add', '--cacheinfo', `160000,${f.base},${path}`);
+  f.git('commit', '--quiet', '-m', 'Fixture gitlink');
+  const revision = f.git('rev-parse', 'HEAD');
+  f.git('update-index', '--cacheinfo', `160000,${revision},${path}`);
+  f.git('config', 'diff.ignoreSubmodules', 'all');
+  const result = f.check();
+  assert.equal(result.code, 1, result.output);
+  assert.match(result.output, /vendor\/integration.*not declared/);
+});

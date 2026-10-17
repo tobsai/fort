@@ -96,7 +96,7 @@ function checkStagedPaths(root, file, text, base) {
     declared.add(path);
   }
   const baseCommit = git(root, 'rev-parse', '--verify', '--end-of-options', `${base}^{commit}`).trim();
-  const changed = git(root, 'diff', '--cached', '--no-ext-diff', '--no-renames', '--name-only', '-z', baseCommit, '--').split('\0').filter(Boolean);
+  const changed = git(root, 'diff', '--cached', '--no-ext-diff', '--no-renames', '--ignore-submodules=none', '--name-only', '-z', baseCommit, '--').split('\0').filter(Boolean);
   const missing = changed.filter(path => !declared.has(path));
   if (missing.length) throw new Error(missing.map(path => `${path}: not declared by ${file}`).join('\n'));
   console.log(`${changed.length} staged path(s) declared by ${file}, relative to ${baseCommit}. Unstaged and untracked files are excluded; approval is not authenticated.`);
