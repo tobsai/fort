@@ -15,6 +15,9 @@ export class CodexChat implements ChatRuntime {
   private initialized = false;
   private busy = false;
   private disposed = false;
+  private readonly stopping = new AbortController();
+  private disposal: Promise<void> | undefined;
+  private replacementOperation: Promise<void> | undefined;
   private recoveryBlocked = false;
   private connectionsUsed = 1;
   private detail = 'Ready for the exact selected model.';
@@ -24,25 +27,45 @@ export class CodexChat implements ChatRuntime {
     if(options.replacement){const r=options.replacement,now=(r.now??Date.now)();if(!Number.isInteger(r.maximumConnections)||r.maximumConnections<1||r.maximumConnections>3||!Number.isSafeInteger(r.deadline)||r.deadline<=now||r.deadline>now+540_000)throw new Error('Use an explicit bounded replacement budget');}
     this.options = options;
   }
-  async dispose(): Promise<void> { this.disposed=true;await this.options.connection.dispose(); }
+  dispose(): Promise<void> {
+    if(this.disposal)return this.disposal;
+    this.disposed=true;this.stopping.abort();
+    this.disposal=(async()=>{
+      const first=this.options.connection.dispose();
+      const outcomes=await Promise.allSettled([first,this.replacementOperation]);
+      const last=await Promise.allSettled([this.options.connection.dispose()]);
+      if(outcomes[0]?.status==='rejected'||last[0]?.status==='rejected')throw new Error('Runtime cleanup was not confirmed');
+    })();return this.disposal;
+  }
   readiness():RuntimeReadiness {
     const replacement=this.options.replacement,closed=this.options.connection.isClosed;
     return {state:this.disposed?'stopped':this.busy?'busy':closed?'restartRequired':'ready',canRestart:!this.disposed&&!this.busy&&!this.recoveryBlocked&&closed&&replacement!==undefined&&this.connectionsUsed<replacement.maximumConnections&&(replacement.now??Date.now)()<replacement.deadline,detail:this.disposed?'Runtime stopped.':this.detail,connectionsUsed:this.connectionsUsed,...(replacement?{maximumConnections:replacement.maximumConnections}:{})};
   }
-  async restart(signal:AbortSignal):Promise<void> {
+  restart(signal:AbortSignal):Promise<void> {
+    if(!this.readiness().canRestart)return Promise.reject(new Error('Runtime replacement is unavailable or its budget is exhausted'));
+    const operation=this.replace(signal);this.replacementOperation=operation;
+    void operation.finally(()=>{if(this.replacementOperation===operation)this.replacementOperation=undefined;}).catch(()=>{});
+    return operation;
+  }
+  private async replace(signal:AbortSignal):Promise<void> {
     const replacement=this.options.replacement;
     if(!replacement||!this.readiness().canRestart)throw new Error('Runtime replacement is unavailable or its budget is exhausted');
-    signal=AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,replacement.deadline-(replacement.now??Date.now)()))]);
+    signal=AbortSignal.any([signal,this.stopping.signal,AbortSignal.timeout(Math.max(1,replacement.deadline-(replacement.now??Date.now)()))]);
     signal.throwIfAborted();this.busy=true;this.detail='Stopping the previous runtime before replacement.';
-    let removeAbort=()=>{};
+    let removeAbort=()=>{},created=false;
     try {
       try {
         await Promise.race([this.options.connection.dispose(),new Promise<never>((_,reject)=>{const abort=()=>reject(new Error('Runtime cleanup was not confirmed before cancellation'));signal.addEventListener('abort',abort,{once:true});removeAbort=()=>signal.removeEventListener('abort',abort);if(signal.aborted)abort();})]);
       } catch(error){this.recoveryBlocked=true;this.detail='Previous runtime cleanup is unconfirmed. Replacement is blocked.';throw error;}
-      signal.throwIfAborted();if((replacement.now??Date.now)()>=replacement.deadline)throw new Error('Runtime replacement deadline expired');
+      signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');if((replacement.now??Date.now)()>=replacement.deadline)throw new Error('Runtime replacement deadline expired');
       this.connectionsUsed++;
-      this.options.connection=replacement.connect();this.initialized=false;
-      await this.preflight(signal);this.detail='Replacement verified. Earlier requests were not retried.';
+      this.options.connection=replacement.connect();created=true;this.initialized=false;
+      signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');
+      await this.preflight(signal);signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');
+      this.detail='Replacement verified. Earlier requests were not retried.';
+    } catch(error){
+      if(created){try{await this.options.connection.dispose();}catch{this.recoveryBlocked=true;this.detail='Replacement cleanup is unconfirmed.';throw new Error('Replacement cleanup was not confirmed');}}
+      throw error;
     } finally {removeAbort();this.busy=false;}
   }
   async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {

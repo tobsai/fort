@@ -302,3 +302,25 @@ for(const change of ['content','review','identity','size'] as const)test(`bundle
   }
   try{const result=await runtime.execute(selected,new AbortController().signal);assert.equal(result.kind,change==='size'?'failed':'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
 });
+
+for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime disposal joins restart during ${phase} and leaves no replacement alive`,async()=>{
+  let releaseOld!:()=>void,startedPreflight!:()=>void,connections=0;
+  const oldCleanup=new Promise<void>(resolve=>{releaseOld=resolve;}),paused=new Promise<void>(resolve=>{startedPreflight=resolve;});
+  const old=new CodexConnection({input:new PassThrough(),output:new PassThrough(),close:()=>oldCleanup});old.close();
+  const replacements:CodexConnection[]=[];
+  const runtime=new CodexChat({connection:old,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:Date.now()+10_000,connect:()=>{
+    connections++;
+    if(phase==='old-cleanup'){const connection=transport().connection;replacements.push(connection);return connection;}
+    const output=new PassThrough();const input=new Writable({write(_bytes,_encoding,done){startedPreflight();done();}});
+    const connection=new CodexConnection({input,output,close:()=>{input.destroy();output.destroy();}});replacements.push(connection);return connection;
+  }}});
+  const restart=runtime.restart(new AbortController().signal);void restart.catch(()=>{});
+  try{
+    if(phase==='new-preflight'){releaseOld();await paused;}
+    const stop=runtime.dispose();releaseOld();
+    const results=await Promise.allSettled([restart,stop]);
+    assert.equal(results[0]?.status,'rejected');assert.equal(results[1]?.status,'fulfilled');
+    assert.equal(connections,phase==='old-cleanup'?0:1);assert.equal(replacements.every(connection=>connection.isClosed),true);
+    assert.equal(runtime.readiness().state,'stopped');assert.equal(runtime.readiness().canRestart,false);
+  }finally{releaseOld();await runtime.dispose();for(const connection of replacements)await connection.dispose();}
+});
