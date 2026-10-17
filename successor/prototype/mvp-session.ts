@@ -9,11 +9,12 @@ import type {NativeSession} from './session.ts';
 
 export {MVP_PROMPTS} from './mvp-admission.ts';
 import {admitMvpSubmission} from './mvp-admission.ts';
+import {admitOwnerDemoSubmission} from './owner-demo-policy.ts';
 import {assertMvpSessionAvailable} from './mvp-reconciliation.ts';
-export type RuntimeBudget={workDeadline:number;signal:AbortSignal;remainingConnections:()=>number;claimLaunch:()=>number};
+export type RuntimeBudget={packet?:'owner-demo-20261017';workDeadline:number;signal:AbortSignal;remainingConnections:()=>number;claimLaunch:()=>number};
 export type PreparedRuntime=ChatRuntime&{preflight(signal:AbortSignal):Promise<{model:string;runtimeVersion:string}>};
 type State={version:1;session:1|2|3;phase:'running'|'finished'|'blocked';began:number;workDeadline:number;credentialDeadline:number;launches:number;restarts:number;installationId?:string;port?:number;receipts:Acceptance['receipt'][];credentialCleanup:'pending'|'deleted'|'unconfirmed';runtimeCleanup:'pending'|'confirmed'|'unconfirmed';nativeCleanup:'pending'|'confirmed'|'unconfirmed'};
-type Options={batchRoot:string;session:1|2|3;native:NativeSession;prepareNative?:(sessionRoot:string)=>Promise<void>;launchRuntime:(budget:RuntimeBudget)=>PreparedRuntime;now?:()=>number;scheduleStop?:(stop:()=>void,delay:number)=>()=>void};
+type Options={profile?:'owner-demo-20261017';batchRoot:string;session:1|2|3;native:NativeSession;prepareNative?:(sessionRoot:string)=>Promise<void>;launchRuntime:(budget:RuntimeBudget)=>PreparedRuntime;now?:()=>number;scheduleStop?:(stop:()=>void,delay:number)=>()=>void};
 function safeDirectory(path:string){
   if(!isAbsolute(path)||normalize(path)!==path||path==='/'||path.includes('\0'))throw new Error('Use an exact session directory');
   let current=path;while(current!=='/'){if(existsSync(current)&&lstatSync(current).isSymbolicLink())throw new Error('Session directories cannot contain symlinks');current=join(current,'..');}
@@ -21,11 +22,12 @@ function safeDirectory(path:string){
 
 export class MvpPacket {
   private readonly options:Options;
-  constructor(options:Options){safeDirectory(options.batchRoot);if(![1,2,3].includes(options.session))throw new Error('Only three sessions are proposed');this.options=options;}
+  constructor(options:Options){safeDirectory(options.batchRoot);if(![1,2,3].includes(options.session))throw new Error('Only three sessions are proposed');if(options.profile&&options.session!==1)throw new Error('Owner demo permits one session');this.options=options;}
   async start(signal?:AbortSignal){
     const {batchRoot,session,native}=this.options,now=this.options.now??Date.now,root=join(batchRoot,`session-${session}`),lock=join(batchRoot,'active.lock');
     safeDirectory(batchRoot);mkdirSync(batchRoot,{recursive:true,mode:0o700});
     assertMvpSessionAvailable(batchRoot,session);
+    const ownerDemo=this.options.profile==='owner-demo-20261017',maximumLaunches=ownerDemo?1:3,maximumRestarts=ownerDemo?0:1;
     const owner=randomUUID();writeFileSync(lock,owner,{flag:'wx',mode:0o600});
     try{mkdirSync(root,{mode:0o700});}catch(error){unlinkSync(lock);throw error;}
     const began=now(),state:State={version:1,session,phase:'running',began,workDeadline:began+540_000,credentialDeadline:began+600_000,launches:0,restarts:0,receipts:[],credentialCleanup:'pending',runtimeCleanup:'pending',nativeCleanup:'pending'};
@@ -35,16 +37,16 @@ export class MvpPacket {
     let accepting=false,restarting=false,runtime:PreparedRuntime|undefined,service:ReturnType<typeof createOpenAIService>|undefined,closing:Promise<State>|undefined,cancelTimer=()=>{},issuedPairing=false;
     let resolveClosed!:(state:State)=>void;const closed=new Promise<State>(resolve=>{resolveClosed=resolve;});
     const active=()=>!abort.signal.aborted&&now()<state.workDeadline;
-    const budget:RuntimeBudget={workDeadline:state.workDeadline,signal:abort.signal,remainingConnections:()=>3-state.launches,claimLaunch:()=>{
-      if(!active()||state.launches>=3)throw new Error('Runtime launch budget is exhausted');
-      const remaining=Math.min(296_000,state.workDeadline-now()-4_000);if(remaining<1)throw new Error('No runtime cleanup reserve remains');
+    const budget:RuntimeBudget={...(ownerDemo?{packet:'owner-demo-20261017' as const}:{}),workDeadline:state.workDeadline,signal:abort.signal,remainingConnections:()=>maximumLaunches-state.launches,claimLaunch:()=>{
+      if(!active()||state.launches>=maximumLaunches)throw new Error('Runtime launch budget is exhausted');
+      const remaining=Math.min(ownerDemo?540_000:296_000,state.workDeadline-now()-4_000);if(remaining<1)throw new Error('No runtime cleanup reserve remains');
       state.launches++;save();return remaining;
     }};
     const readiness=():RuntimeReadiness=>{
       const current=runtime?.readiness?.()??{state:runtime?'ready':'unavailable',canRestart:false,detail:runtime?'Runtime available.':'Runtime unavailable.'};
-      return {...current,canRestart:current.canRestart&&active()&&!restarting&&state.restarts<1&&state.launches<3,connectionsUsed:state.launches,maximumConnections:3};
+      return {...current,canRestart:current.canRestart&&active()&&!restarting&&state.restarts<maximumRestarts&&state.launches<maximumLaunches,connectionsUsed:state.launches,maximumConnections:maximumLaunches};
     };
-    const claimRestart=()=>{if(!active()||closing||restarting||state.restarts>=1||state.launches>=3)throw new Error('Session restart is unavailable or consumed');restarting=true;accepting=false;state.restarts++;save();};
+    const claimRestart=()=>{if(!active()||closing||restarting||state.restarts>=maximumRestarts||state.launches>=maximumLaunches)throw new Error('Session restart is unavailable or consumed');restarting=true;accepting=false;state.restarts++;save();};
     const proxy:ChatRuntime={
       execute:(input,signal)=>accepting&&active()&&runtime?runtime.execute(input,AbortSignal.any([signal,abort.signal])):Promise.resolve({kind:'notStarted',message:'Session dispatch is closed.'}),
       dispose:async()=>{await runtime?.dispose();},readiness,
@@ -54,7 +56,7 @@ export class MvpPacket {
         catch(error){queueMicrotask(()=>{void finish(false);});throw error;}finally{restarting=false;}
       },
     };
-    const openService=()=>createOpenAIService({dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&admitMvpSubmission(submission,runs,session)});
+    const openService=()=>createOpenAIService({dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&(ownerDemo?admitOwnerDemoSubmission(submission,runs):admitMvpSubmission(submission,runs,session))});
     const finish=(success=true):Promise<State>=>{
       if(closing)return closing;
       accepting=false;abort.abort();cancelTimer();signal?.removeEventListener('abort',cancel);

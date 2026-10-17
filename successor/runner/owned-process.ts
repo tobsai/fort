@@ -4,14 +4,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { CodexConnection } from './codex-rpc.ts';
 
 export const OWNER_TRIAL_PROCESS_BUDGET=Object.freeze({packet:'owner-trial-replacement-20261016',workMs:540_000,totalMs:600_000,cleanupReserveMs:60_000} as const);
+export const OWNER_DEMO_PROCESS_BUDGET=Object.freeze({packet:'owner-demo-20261017',workMs:540_000,totalMs:600_000,cleanupReserveMs:60_000} as const);
 export type OwnedProcessOptions = {
   executable: string; args: string[]; cwd: string; env: Record<string,string>;
   deadlineMs: number; terminationGraceMs?: number; killGraceMs?: number;
-  packetBudget?:typeof OWNER_TRIAL_PROCESS_BUDGET;
+  packetBudget?:typeof OWNER_TRIAL_PROCESS_BUDGET|typeof OWNER_DEMO_PROCESS_BUDGET;
 };
 export function validateOwnedProcessOptions(options:OwnedProcessOptions) {
   const budget=options.packetBudget;
-  if(budget!==undefined&&(!budget||Object.keys(budget).length!==4||budget.packet!=='owner-trial-replacement-20261016'||budget.workMs!==540_000||budget.totalMs!==600_000||budget.cleanupReserveMs!==60_000))throw new Error('Invalid packet-scoped process budget');
+  if(budget!==undefined&&(!budget||Object.keys(budget).length!==4||(budget.packet!=='owner-trial-replacement-20261016'&&budget.packet!=='owner-demo-20261017')||budget.workMs!==540_000||budget.totalMs!==600_000||budget.cleanupReserveMs!==60_000))throw new Error('Invalid packet-scoped process budget');
   if (!isAbsolute(options.executable) || !isAbsolute(options.cwd) || !Number.isInteger(options.deadlineMs) || options.deadlineMs < 1 || options.deadlineMs > (budget?.workMs??300_000)) throw new Error('Use explicit process paths and a bounded deadline');
   const terminationGraceMs = options.terminationGraceMs ?? 2_000, killGraceMs = options.killGraceMs ?? 2_000;
   if (![terminationGraceMs,killGraceMs].every(value => Number.isInteger(value) && value > 0 && value <= 2_000)) throw new Error('Invalid cleanup deadline');

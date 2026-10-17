@@ -1,5 +1,25 @@
 # Spec 058 successor
 
+## Current handoff — separate approved interactive owner demo
+
+The owner approved one new ten-minute interactive session at 2026-10-17
+21:00:19 UTC, message `Sentinel_f671f601a3148191bae54d2de3b281c1`. Read
+[the operator manual](ops/owner-demo-20261017/MANUAL.md), scope and approval
+there. The source thread designated fresh UI operator
+`01a14bac-6acb-70be-926a-23ab4584a0f1` after the prior operator lost CUA tool
+exposure; no denial or permission change was involved. Only that operator starts
+the new packet, when ready to pair and hand the normal composer to the owner.
+Preparation does not start the clock, provider runtime or enrollment.
+
+The separate root is `.local/fort-owner-demo-20261017` in the primary checkout.
+One start, one runtime launch, no restart, twelve plain-text requests maximum,
+540 seconds work and 60 seconds cleanup. Existing ChatGPT and exact Astra only;
+unchanged no-tool profile. The launcher opens the current Mac build without the
+read-only preview flag. Longer use needs separate duration/lifecycle authority.
+The nine consumed packets and every historical approval/pin stay preserved.
+Historical activation source pins are intentionally not updated to this revision.
+
+
 ## Current handoff — completed batch and offline preview
 
 Current native source: `6fe7120919b660ffc030521839cba8a8ba23706e`.

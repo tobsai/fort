@@ -14,7 +14,7 @@ export function createMvpRuntime(root:string,budget:RuntimeBudget,launch:(plan:O
     budget.signal.throwIfAborted();verifyRuntime();
     if(readdirSync(workspace).length!==0)throw new Error('Runtime workspace is no longer empty');
     const remainingWorkMs=budget.claimLaunch();
-    return launch(codexLaunchPlan({workspace,temporaryDirectory,remainingWorkMs})).connection;
+    return launch(codexLaunchPlan({workspace,temporaryDirectory,remainingWorkMs,...(budget.packet?{packet:budget.packet}:{})})).connection;
   };
   const connection=connect();
   try{return new CodexChat({connection,workspace,runtimeVersion:'0.157.1',replacement:{maximumConnections,deadline:budget.workDeadline,connect}});}
