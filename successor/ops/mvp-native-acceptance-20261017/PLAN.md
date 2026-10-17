@@ -1,4 +1,4 @@
-# Approved native acceptance batch — October 17
+# Completed native acceptance batch — October 17
 
 The owner approved the unchanged three-session scope at 2026-10-17 15:32:58 UTC.
 The separate local `owner-approval.json` records user message
@@ -8,11 +8,13 @@ Unchanged native artifact source: `996e19849f5104e71b26b7c14d201aaa56b31c87`.
 Source/app/scope pins are in `pins.json`; its `activationAuthorized: false` means the
 seal itself does not grant authority. The separate owner record supplies authority.
 
-Sessions 1 and 2 are consumed and remain blocked in their original records, each
-with one launch and one restart. They have three and one completed receipts
-respectively. Their separate cleanup reconciliations preserve the original states,
-ledgers, history and locks. Only session 3 remains unstarted and available. Do not
-replay either earlier checklist or transfer any unused allowance.
+All three sessions are consumed. Sessions 1 and 2 retain their blocked records,
+three and one completed turns respectively, and separate cleanup reconciliations.
+Session 3 finished with six accepted turns, five completed and one canceled, two
+launches, one restart and confirmed native/runtime/credential cleanup. The batch
+total is ten accepted, nine completed, one canceled. Never replay a checklist or
+transfer unused allowance. The commands below are historical execution records.
+Read [the completed outcome and new offline preview](../../evidence/2026-10-17-mvp-demo-readiness/README.md).
 
 The actual macOS bridge failure was an inconsistent path comparison: Foundation
 returned `/tmp` while Node supplied `/private/tmp`. Both sides now use Foundation
@@ -31,17 +33,17 @@ and absent tool/script authority. Additional assets or metadata are refused. Thi
 restriction applies to the temporary acceptance packet; general reviewed bundles
 remain supported by the service and adapter.
 
-## Activation gate and operator commands
+## Historical activation gate and operator commands — do not execute
 
 The corrected launcher is committed and sealed across 119 product files. All 99
 selected non-enrollment tests, one actual AppKit canary and strict TypeScript
 checking pass. The enrollment-fixture suite remains unrun under the existing execution
-boundary; do not bypass that boundary. Live Fort termination/restart with this
-helper remains installed acceptance work; the real canary does not substitute for it.
+boundary; do not bypass that boundary. The operator subsequently observed supported live Fort termination and restart
+in session 3. The recorded native source remains the completed batch artifact.
 
 Keep `../mvp-native-test-scope-20261017.json` and the existing owner record unchanged.
 Routine code and cleanup reconciliation do not expand enrollment, duration, message,
-restart or privilege limits. Reuse this approval; do not request it again. Platform
+restart or privilege limits. This approval is now exhausted; it cannot authorize another session. Platform
 permission prompts still require their actual disposition.
 
 The operator first runs this read-only command from the worktree root:
@@ -50,8 +52,7 @@ The operator first runs this read-only command from the worktree root:
 /opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --check
 ```
 
-With the existing explicit approval and a successful check, the designated operator
-may start the next unused session:
+Historical command used by the designated operator for the now-consumed session:
 
 ```sh
 /opt/homebrew/opt/node@26/bin/node successor/prototype/mvp-manual.ts --session 3
@@ -61,9 +62,8 @@ Enter `start` once. Wait for READY, then open the exact `appPath` and pair using
 local `pairingFile`; never print its contents or capture the code/token. Immediately
 report the work cutoff and credential expiry to the parent. The terminal accepts
 `status`, `native-status`, `restart`, `done` and `abort`; no prompt text is accepted
-there. App messages must match the fixed synthetic samples below. This is the sole
-remaining attended window. At most 12 further turns and one fresh expiring
-enrollment remain; earlier sessions completed four turns total.
+there. App messages must match the fixed synthetic samples below. This was the final
+attended window; no turns, enrollment or restarts remain available.
 No automatic loop, retry, renewal or fourth session is available.
 
 Before terminal `restart` or `done`, first resolve any active/queued request, quit

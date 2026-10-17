@@ -1,0 +1,37 @@
+Building for debugging...
+[Planning deferred tasks]
+[5 / 36] FortKit
+[9 / 40] FortKit
+[14 / 35] FortKit
+[18 / 39] FortNativeCheck-product
+[20 / 41] FortNativeCheck-product
+[21 / 41] FortKit
+[26 / 41] FortKitTests-product
+[34 / 49] FortKitTests-product
+[39 / 49] FortKitTests-product
+/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift:181:52: warning: '#require(_:_:)' is redundant because 'model.agents.first' never equals 'nil' (from macro 'require')
+179 |     let (model,storage,session,server)=try await setupWorkspace()
+180 |     defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+181 |     let agentForm=WorkspaceForm(agent:try #require(model.agents.first)), skillForm=WorkspaceForm(skill:try #require(model.skills.first))
+    |                                                    `- warning: '#require(_:_:)' is redundant because 'model.agents.first' never equals 'nil' (from macro 'require')
+182 |     agentForm.name="My stale edit"; skillForm.instructions="My stale instructions"
+183 |     await server.advanceRevision(); await model.refresh()
+
+/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift:181:117: warning: '#require(_:_:)' is redundant because 'model.skills.first' never equals 'nil' (from macro 'require')
+179 |     let (model,storage,session,server)=try await setupWorkspace()
+180 |     defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+181 |     let agentForm=WorkspaceForm(agent:try #require(model.agents.first)), skillForm=WorkspaceForm(skill:try #require(model.skills.first))
+    |                                                                                                                     `- warning: '#require(_:_:)' is redundant because 'model.skills.first' never equals 'nil' (from macro 'require')
+182 |     agentForm.name="My stale edit"; skillForm.instructions="My stale instructions"
+183 |     await server.advanceRevision(); await model.refresh()
+[41 / 49] FortKitTests-product
+[44 / 49] FortKitTests-product
+[45 / 49] FortNativeCheck-product
+[47 / 49] FortNativeCheck-product
+Build complete! (9.35 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test offlinePreviewNeverRestoresEnrollsOrSends() started.
+✔ Test offlinePreviewNeverRestoresEnrollsOrSends() passed after 0.008 seconds.
+✔ Test run with 1 test in 0 suites passed after 0.008 seconds.

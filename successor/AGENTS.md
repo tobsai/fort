@@ -1,30 +1,41 @@
 # Spec 058 successor
 
-Current launcher source is `e5a4ef54e67cfd2df506f42b191b8f80378581d8`.
-The owner-approved three-session Mac batch has one unused session: session 3.
-Sessions 1 and 2 remain blocked and consumed in their original files, each with
-one launch and one restart. They have three and one completed receipts respectively.
-Separate verified cleanup records preserve both retained locks and permit only the
-third session. No counts, deadlines, credentials or transcript entries were reset.
+## Current handoff — completed batch and offline preview
 
-The actual macOS bridge bug is fixed: Foundation normalized observed paths to
-`/tmp` while Node supplied `/private/tmp`. Both sides now use Foundation before
-comparison; Node still checks filesystem identity. The production bridge passed an
-actual inert AppKit canary with exact PID matching, wrong-copy refusal and graceful
-exit. The previous mocked bridge tests did not cover that failure.
+Current native source: `6fe7120919b660ffc030521839cba8a8ba23706e`.
 
-Read [shutdown recovery evidence](evidence/2026-10-17-mvp-native-shutdown-recovery/README.md)
-and [the current operator plan](ops/mvp-native-acceptance-20261017/PLAN.md).
-Validation: 99 selected non-enrollment tests, one actual AppKit canary and strict
-TypeScript checking passed. Native Fort source/artifacts remain
-`996e19849f5104e71b26b7c14d201aaa56b31c87`; no live Fort/provider operation or
-new enrollment occurred during this repair. Before terminal restart or done, the
-operator quits Fort through supported UI and uses `native-status` to confirm exit.
-The corrected helper has real canary coverage; live Fort termination is not claimed
-as verified. The existing local owner approval and original scope are unchanged.
-B invocation/export, live routine execution and physical-iPhone acceptance remain
-untested. Never replay a consumed packet or transfer its unused allowance.
+All three owner-approved Mac sessions are consumed. Session 3 finished with six
+accepted turns: five completed and one canceled without a reply or replay. It used
+two runtime launches and one explicit restart. Across the batch: ten accepted,
+nine completed, one canceled. Sessions 1 and 2 retain their original blocked
+records and separate cleanup reconciliations. Session 3 records confirmed native,
+runtime and credential cleanup. No allowance, deadline, ledger or approval was reset.
 
+The UI operator observed supported app quit, confirmed native exit, service/runtime
+restart and retained history without reenrollment, followed by a new completed
+Reviewer turn. Writer and Reviewer used the same shared-memory revision while their
+Homes stayed separate. This does not prove user-initiated cancellation: the final
+checklist completed before the operator could cancel it.
+
+The saved session-3 transcript has eleven nonempty messages. Its old view placed
+all run statuses after all message bodies. A failing presentation regression
+reproduced that ordering; statuses now follow each request's last message without
+reordering interleaved messages or losing approval controls. A Debug-only read-only
+offline preview uses synthetic data, a separate temporary directory and no connection.
+
+Current evidence: 91 fixture service/adapter tests and 40 Swift tests pass; fresh
+Mac and iPhone Simulator builds and strict signature checks pass. Mac UI automation
+failed before test execution while enabling automation mode. Corrected installed
+screenshots/accessibility remain unverified. The completed live batch used native
+source `996e19849f5104e71b26b7c14d201aaa56b31c87`; the new UI fix has no live signoff.
+Read [demo readiness](evidence/2026-10-17-mvp-demo-readiness/README.md).
+
+Do not start another live session, reenroll, reset a consumed packet or reseal the
+historical activation pins to the new native source. Routine local implementation,
+fixture tests and offline preview preparation remain authorized. Skill B invocation
+and export, actual-provider routines/schedules, deliberate user cancellation,
+physical iPhone, effective-model reporting and broader lifecycle/isolation/release
+acceptance remain open. No full MVP completion is claimed.
 
 Spec 058 implementation was approved by Toby on 2026-10-12. This directory is a
 new isolated successor, separate from both historical Fort and quarantined donor.
@@ -58,8 +69,8 @@ Its earlier native build source was `8a877fff2730d7dd99bb45b9f47e31158182383c`; 
 evidence is in evidence/2026-10-17-mvp-pending/README.md.
 Pending request cancellation now survives lost responses and client/service restart.
 Native routines, schedules and complete instruction-bundle authoring have synthetic
-and build evidence. Installed/provider acceptance remains open. The earlier reconnection was not approval; the later explicit owner approval above
-now authorizes the unchanged three-session batch.
+and build evidence. Installed/provider acceptance remains open. The three-session approval was later granted and has now been fully consumed; it
+is retained as historical authority, not permission for another live session.
 
 Expired service enrollment is not renewed by this development authorization.
 Identify the exact temporary credential scope before another live test. Keep

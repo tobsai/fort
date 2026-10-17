@@ -1,0 +1,13 @@
+Building for debugging...
+[2 / 6] FortKit
+[3 / 7] FortKit
+[7 / 9] FortKit
+[10 / 11] FortKitTests-product
+[14 / 15] FortNativeCheck-product
+Build complete! (2.43 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test transcriptKeepsEachStatusBesideItsLastMessage() started.
+✔ Test transcriptKeepsEachStatusBesideItsLastMessage() passed after 0.007 seconds.
+✔ Test run with 1 test in 0 suites passed after 0.007 seconds.

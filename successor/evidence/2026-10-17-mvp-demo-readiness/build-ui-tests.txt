@@ -1,0 +1,340 @@
+2026-10-17 12:07:36.363 xcodebuild[91122:831830]  DVTErrorPresenter: Unable to load simulator devices.
+Domain: DVTCoreSimulatorAdditionsErrorDomain
+Code: 3
+Failure Reason: The version of the CoreSimulator framework installed on this Mac is out-of-date and not supported by this version of Xcode.
+Recovery Suggestion: Please ensure that you have installed all available updates to your Mac's software, and that you are running the most recent version of Xcode supported by macOS.
+--
+CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2).
+Domain: DVTCoreSimulatorAdditionsErrorDomain
+Code: 3
+--
+
+2026-10-17 12:07:36.363 xcodebuild[91122:831830]  iOSSimulator: [SimServiceContext sharedServiceContextForDeveloperDir:error:] returned nil (Error Domain=DVTCoreSimulatorAdditionsErrorDomain Code=3 "CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2)." UserInfo={NSLocalizedDescription=CoreSimulator is out of date. Current version (1171.7.0) is older than build version (1174.9.2).}). Simulator device support disabled.
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build-for-testing -project successor/apple/FortSpec058.xcodeproj -scheme FortMac -destination platform=macOS -derivedDataPath /tmp/fort058-offline-preview-mac-20261017 -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=T3JB5MYZ93 "CODE_SIGN_IDENTITY=Apple Development"
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = Apple Development
+    CODE_SIGNING_ALLOWED = YES
+    DEVELOPMENT_TEAM = T3JB5MYZ93
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  FortKit: /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006001-000429402202801E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006001-000429402202801E, name:My Mac }
+note: Using codesigning identity override: Apple Development
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (4 targets)
+    Target 'FortMacUITests' in project 'FortSpec058'
+        ➜ Explicit dependency on target 'FortMac' in project 'FortSpec058'
+    Target 'FortMac' in project 'FortSpec058'
+        ➜ Explicit dependency on target 'FortKit-product' in project 'FortKit'
+    Target 'FortKit-product' in project 'FortKit'
+        ➜ Explicit dependency on target 'FortKit' in project 'FortKit'
+    Target 'FortKit' in project 'FortKit' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: e883bfec2c068a86ce30988e3f933857
+Build description path: /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/XCBuildData/e883bfec2c068a86ce30988e3f933857.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk /tmp/fort058-offline-preview-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -o /tmp/fort058-offline-preview-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/empty-FortMacUITests.plist (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/empty-FortMacUITests.plist
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/ProductTypeInfoPlistAdditions.plist (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/ProductTypeInfoPlistAdditions.plist
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyStaticMetadataFileList (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftConstValuesFileList (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.LinkFileList (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.LinkFileList
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_const_extract_protocols.json (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-OutputFileMap.json (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyMetadataFileList (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-own-target-headers.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-own-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-project-headers.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-project-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-generated-files.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-generated-files.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-target-headers.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-non-framework-target-headers.hmap (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/Entitlements.plist (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    write-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/Entitlements.plist
+
+MkDir /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents
+
+MkDir /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS
+
+MkDir /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest
+
+ProcessProductPackaging "" /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Entitlements:
+
+    {
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.get-task-allow" = 1;
+    "com.apple.security.network.client" = 1;
+}
+
+    builtin-productPackagingUtility -entitlements -format xml -o /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent
+
+ProcessProductPackagingDER /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent.der (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /usr/bin/derq query -f xml -i /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent -o /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent.der --raw
+
+CopySwiftLibs /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-swiftStdLibTool --copy --verbose --sign 58F40D1AB480565B89109B853235AC3A7B2E7AD1 --scan-executable /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/MacOS/FortMac.debug.dylib --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Frameworks --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/PlugIns --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Library/SystemExtensions --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Info.plist /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-infoPlistUtility /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/empty-FortMac.plist -producttype com.apple.product-type.application -genpkginfo /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/PkgInfo -expandbuildsettings -platform macosx -o /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app/Contents/Info.plist
+
+ProcessProductPackaging "" /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Entitlements:
+
+    {
+    "com.apple.application-identifier" = "T3JB5MYZ93.io.fort.candidateb.mac.uitests.xctrunner";
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.get-task-allow" = 1;
+    "com.apple.security.network.client" = 1;
+    "com.apple.security.temporary-exception.files.absolute-path.read-only" =     (
+        "/"
+    );
+    "com.apple.security.temporary-exception.mach-lookup.global-name" =     (
+        "com.apple.testmanagerd",
+        "com.apple.dt.testmanagerd.runner",
+        "com.apple.coresymbolicationd",
+        "com.apple.coredevice.version",
+        "com.apple.coredevice.service",
+        "com.apple.remoted"
+    );
+    "com.apple.security.temporary-exception.mach-lookup.local-name" =     (
+        "com.apple.axserver"
+    );
+    "com.apple.security.temporary-exception.sbpl" =     (
+        "(allow hid-control)",
+        "(allow signal)"
+    );
+}
+
+    builtin-productPackagingUtility -entitlements -format xml -o /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent
+
+ProcessProductPackagingDER /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent.der (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /usr/bin/derq query -f xml -i /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent -o /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent.der --raw
+
+SwiftDriver FortMacUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMacUITests -Onone @/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-offline-preview-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-offline-preview-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-offline-preview-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-generated-files.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-own-target-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-project-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+CodeSign /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Apple Development: Tobias Gunn (76KFKR48Y3)"
+
+    /usr/bin/codesign --force --sign 58F40D1AB480565B89109B853235AC3A7B2E7AD1 --entitlements /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMac.build/FortMac.app.xcent --timestamp\=none --generate-entitlement-der /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app
+/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app: replacing existing signature
+
+Validate /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-validationUtility /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app (in target 'FortMac' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-lsregisterurl --record-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/XCBuildData/registered-launchservices.txt -- /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMac.app
+
+ProcessInfoPlistFile /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Info.plist /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/empty-FortMacUITests.plist (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-infoPlistUtility /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/empty-FortMacUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -platform macosx -additionalcontentfile /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/ProductTypeInfoPlistAdditions.plist -o /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Info.plist
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCUIAutomation-E8EKMVD628E3ZU5QA30Q1RDJ6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCTest-7GZ0CNU9K77PARA3N8YIFEV5A.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCUIAutomation-3R3E33DB8K9EZ.swiftmodule
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCTest-19TKVPSRI9VNO.swiftmodule
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ FortMacUITests (in target 'FortMacUITests' from project 'FortSpec058')
+
+SwiftCompile normal arm64 (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+
+SwiftCompile normal arm64 Compiling\ NativeJourneyTests.swift /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/UITests/NativeJourneyTests.swift (in target 'FortMacUITests' from project 'FortSpec058')
+
+SwiftCompile normal arm64 /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/UITests/NativeJourneyTests.swift (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-SwiftPerFileCompile NativeJourneyTests.swift
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for FortMacUITests (in target 'FortMacUITests' from project 'FortSpec058')
+
+SwiftDriver\ Compilation\ Requirements FortMacUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMacUITests -Onone @/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-offline-preview-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-offline-preview-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-offline-preview-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-generated-files.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-own-target-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-project-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/FortMacUITests-Swift.h /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-Swift.h (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-swiftHeaderTool -arch arm64 /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-Swift.h -o /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/FortMacUITests-Swift.h
+
+Copy /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.abi.json /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.abi.json (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.abi.json /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.swiftdoc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftdoc (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftdoc /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.swiftmodule /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/arm64-apple-macos.swiftmodule
+
+Copy /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftsourceinfo (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftsourceinfo /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling NativeJourneyTests.swift (in target 'FortMacUITests' from project 'FortSpec058')
+
+SwiftDriver\ Compilation FortMacUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FortMacUITests -Onone @/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos14.0 -g -module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/fort058-offline-preview-mac-20261017/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/fort058-offline-preview-mac-20261017/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex -sdk-module-cache-path /tmp/fort058-offline-preview-mac-20261017/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /tmp/fort058-offline-preview-mac-20261017/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-generated-files.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-own-target-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortSpec058-63010c23792c702ce28b15a04a52aafa-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests-project-headers.hmap -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/include -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources/arm64 -Xcc -I/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests-Swift.h -working-directory /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS/FortMacUITests normal (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -L/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F/tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/../Frameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -object_path_lto -Xlinker /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.swiftmodule -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -Xlinker -no_adhoc_codesign -o /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS/FortMacUITests
+
+CopySwiftLibs /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-swiftStdLibTool --copy --verbose --sign 58F40D1AB480565B89109B853235AC3A7B2E7AD1 --scan-executable /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS/FortMacUITests --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Frameworks --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/PlugIns --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Library/SystemExtensions --scan-folder /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ExtractAppIntentsMetadata (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name FortMacUITests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk --xcode-version 27A9275 --platform-family macOS --deployment-target 14.0 --bundle-identifier io.fort.candidateb.mac.uitests --output /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Resources --target-triple arm64-apple-macos14.0 --binary-file /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/MacOS/FortMacUITests --dependency-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests_dependency_info.dat --stringsdata-file /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftFileList --metadata-file-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyMetadataFileList --static-metadata-file-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/Objects-normal/arm64/FortMacUITests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-17 12:07:40.562 appintentsmetadataprocessor[91162:832225] Starting appintentsmetadataprocessor export
+2026-10-17 12:07:40.563 appintentsmetadataprocessor[91162:832225] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+MkDir /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /bin/mkdir -p /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app
+
+CopyPlistFile /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/Info.plist /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Contents/Info.plist (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copyPlist --validate --convert xml1 --macro-expansion WRAPPEDPRODUCTNAME FortMacUITests-Runner --macro-expansion WRAPPEDPRODUCTBUNDLEIDENTIFIER io.fort.candidateb.mac.uitests.xctrunner --macro-expansion TESTPRODUCTNAME FortMacUITests --macro-expansion TESTPRODUCTBUNDLEIDENTIFIER io.fort.candidateb.mac.uitests --copy-value UIDeviceFamily /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest/Contents/Info.plist --outdir /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents -- /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Contents/Info.plist
+
+Copy /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PkgInfo /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Contents/PkgInfo (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Contents/PkgInfo /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents
+
+CopyAndPreserveArchs /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/MacOS/FortMacUITests-Runner (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Contents/MacOS/XCTRunner -output /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/MacOS/FortMacUITests-Runner -extract arm64
+
+CodeSign /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Apple Development: Tobias Gunn (76KFKR48Y3)"
+
+    /usr/bin/codesign --force --sign 58F40D1AB480565B89109B853235AC3A7B2E7AD1 --entitlements /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent --timestamp\=none --generate-entitlement-der /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest
+
+CodeSign /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+
+    Signing Identity:     "Apple Development: Tobias Gunn (76KFKR48Y3)"
+
+    /usr/bin/codesign --force --sign 58F40D1AB480565B89109B853235AC3A7B2E7AD1 --entitlements /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/FortSpec058.build/Debug/FortMacUITests.build/FortMacUITests.xctest.xcent --timestamp\=none --generate-entitlement-der /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app
+/tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app: replacing existing signature
+
+RegisterExecutionPolicyException /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    builtin-RegisterExecutionPolicyException /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest
+
+Touch /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest (in target 'FortMacUITests' from project 'FortSpec058')
+    cd /Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple
+    /usr/bin/touch -c /tmp/fort058-offline-preview-mac-20261017/Build/Products/Debug/FortMacUITests-Runner.app/Contents/PlugIns/FortMacUITests.xctest
+
+PruneExplicitPrecompiledModules /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/fort058-offline-preview-mac-20261017/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/fort058-offline-preview-mac-20261017/SDKExplicitPrecompiledModules
+
+** TEST BUILD SUCCEEDED **

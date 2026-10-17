@@ -1,0 +1,45 @@
+Building for debugging...
+[Planning deferred tasks]
+[8 / 29] FortKit
+[11 / 32] FortKit
+[20 / 42] FortKit
+[21 / 42] FortKit
+[25 / 38] FortKit
+[29 / 38] FortKitTests-product
+[38 / 47] FortKitTests-product
+[42 / 46] FortKitTests-product
+/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift:181:52: warning: '#require(_:_:)' is redundant because 'model.agents.first' never equals 'nil' (from macro 'require')
+179 |     let (model,storage,session,server)=try await setupWorkspace()
+180 |     defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+181 |     let agentForm=WorkspaceForm(agent:try #require(model.agents.first)), skillForm=WorkspaceForm(skill:try #require(model.skills.first))
+    |                                                    `- warning: '#require(_:_:)' is redundant because 'model.agents.first' never equals 'nil' (from macro 'require')
+182 |     agentForm.name="My stale edit"; skillForm.instructions="My stale instructions"
+183 |     await server.advanceRevision(); await model.refresh()
+
+/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift:181:117: warning: '#require(_:_:)' is redundant because 'model.skills.first' never equals 'nil' (from macro 'require')
+179 |     let (model,storage,session,server)=try await setupWorkspace()
+180 |     defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+181 |     let agentForm=WorkspaceForm(agent:try #require(model.agents.first)), skillForm=WorkspaceForm(skill:try #require(model.skills.first))
+    |                                                                                                                     `- warning: '#require(_:_:)' is redundant because 'model.skills.first' never equals 'nil' (from macro 'require')
+182 |     agentForm.name="My stale edit"; skillForm.instructions="My stale instructions"
+183 |     await server.advanceRevision(); await model.refresh()
+[44 / 46] FortKitTests-product
+[48 / 52] FortNativeCheck-product
+[50 / 54] FortNativeCheck-product
+[51 / 54] FortNativeCheck-product
+[53 / 54] FortNativeCheck-product
+Build complete! (6.06 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test transcriptKeepsEachStatusBesideItsLastMessage() started.
+✘ Test transcriptKeepsEachStatusBesideItsLastMessage() recorded an issue at TranscriptRowsTests.swift:10:5: Expectation failed: rows.suffix(2).map(\.id) == ["message:sample-reply-6", "run:sample-run-6"]
+↳ rows.suffix(2).map(\.id) == ["message:sample-reply-6", "run:sample-run-6"] → false
+↳   rows.suffix(2).map(\.id) → ["run:sample-run-5", "run:sample-run-6"]
+✘ Test transcriptKeepsEachStatusBesideItsLastMessage() recorded an issue at TranscriptRowsTests.swift:11:5: Expectation failed: rows.map(\.id).prefix(6) == ["message:sample-user-1", "message:sample-reply-1", "run:sample-run-1", "message:sample-user-2", "run:sample-run-2", "message:sample-user-3"]
+↳ rows.map(\.id).prefix(6) == ["message:sample-user-1", "message:sample-reply-1", "run:sample-run-1", "message:sample-user-2", "run:sample-run-2", "message:sample-user-3"] → false
+↳   rows.map(\.id).prefix(6) → ["message:sample-user-1", "message:sample-reply-1", "message:sample-user-2", "message:sample-user-3", "message:sample-reply-3", "message:sample-user-4"]
+✘ Test transcriptKeepsEachStatusBesideItsLastMessage() failed after 0.010 seconds with 2 issues.
+✘ Test run with 1 test in 0 suites failed after 0.010 seconds with 2 issues.
+Note: Some test targets reported failures:
+  - FortKitTests (Swift Testing)

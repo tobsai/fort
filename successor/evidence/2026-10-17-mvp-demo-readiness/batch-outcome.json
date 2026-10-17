@@ -1,0 +1,344 @@
+[
+  {
+    "session": 1,
+    "state": {
+      "version": 1,
+      "session": 1,
+      "phase": "blocked",
+      "began": 1792251397388,
+      "workDeadline": 1792251937388,
+      "credentialDeadline": 1792251997388,
+      "launches": 1,
+      "restarts": 1,
+      "receipts": [
+        {
+          "requestId": "7b87ec9f-a859-42bf-8d6b-d2ab046fef0b",
+          "conversationId": "15b5d9c1-784b-4753-862e-22905a211713",
+          "messageId": "6bfdeab1-6d33-4712-808f-bdc7d9215c11",
+          "runId": "dcfefaf9-b46d-4422-a8aa-4b9d77a3589f",
+          "bindingRevisionId": "5dec6923-6d96-41ab-8879-0bbdffc72fef",
+          "inputDigest": "406fadcea025e104b337c42daa40d770653206696d9fe974eaada644bed8715c",
+          "acceptedAt": "2026-10-17T15:38:51.431Z"
+        },
+        {
+          "requestId": "7f9b19ec-36e1-45bd-ac28-e390b9f76a21",
+          "conversationId": "15b5d9c1-784b-4753-862e-22905a211713",
+          "messageId": "d6a36a8a-d99c-4fdb-8ad3-5130df402751",
+          "runId": "65e51fce-cb48-492d-82f4-0e7fa1543a00",
+          "bindingRevisionId": "5dec6923-6d96-41ab-8879-0bbdffc72fef",
+          "inputDigest": "ae2661269a6348fc2da3950eaabc8b1498da83b91acaee79e18d0a9489890ade",
+          "acceptedAt": "2026-10-17T15:39:15.950Z"
+        },
+        {
+          "requestId": "400c83d1-481e-4b95-a09b-206744856098",
+          "conversationId": "15b5d9c1-784b-4753-862e-22905a211713",
+          "messageId": "e052873f-e181-4573-a66b-41fd1d54e813",
+          "runId": "d1550c0c-2965-416b-8fa5-1251c6195427",
+          "bindingRevisionId": "5dec6923-6d96-41ab-8879-0bbdffc72fef",
+          "inputDigest": "26afc1107f6088cd893064d0df10756afab5003f3a8aa91cab33a71c244c85a0",
+          "acceptedAt": "2026-10-17T15:39:45.749Z"
+        }
+      ],
+      "credentialCleanup": "deleted",
+      "runtimeCleanup": "confirmed",
+      "nativeCleanup": "unconfirmed",
+      "installationId": "65823703-26fe-48e5-924e-6f6defdf9ad3",
+      "port": 54275
+    },
+    "messageMetadata": [
+      {
+        "requestId": "7b87ec9f-a859-42bf-8d6b-d2ab046fef0b",
+        "role": "user",
+        "bodyCharacters": 64,
+        "sequence": 2
+      },
+      {
+        "requestId": "7b87ec9f-a859-42bf-8d6b-d2ab046fef0b",
+        "role": "assistant",
+        "bodyCharacters": 48,
+        "sequence": 4
+      },
+      {
+        "requestId": "7f9b19ec-36e1-45bd-ac28-e390b9f76a21",
+        "role": "user",
+        "bodyCharacters": 57,
+        "sequence": 5
+      },
+      {
+        "requestId": "7f9b19ec-36e1-45bd-ac28-e390b9f76a21",
+        "role": "assistant",
+        "bodyCharacters": 5,
+        "sequence": 7
+      },
+      {
+        "requestId": "400c83d1-481e-4b95-a09b-206744856098",
+        "role": "user",
+        "bodyCharacters": 45,
+        "sequence": 8
+      },
+      {
+        "requestId": "400c83d1-481e-4b95-a09b-206744856098",
+        "role": "assistant",
+        "bodyCharacters": 5,
+        "sequence": 10
+      }
+    ],
+    "runs": [
+      {
+        "runId": "65e51fce-cb48-492d-82f4-0e7fa1543a00",
+        "requestId": "7f9b19ec-36e1-45bd-ac28-e390b9f76a21",
+        "state": "completed",
+        "memoryRevisionId": "0004c3bf-3abf-42cd-9aa6-8e9d48c861c8"
+      },
+      {
+        "runId": "d1550c0c-2965-416b-8fa5-1251c6195427",
+        "requestId": "400c83d1-481e-4b95-a09b-206744856098",
+        "state": "completed",
+        "memoryRevisionId": "0004c3bf-3abf-42cd-9aa6-8e9d48c861c8"
+      },
+      {
+        "runId": "dcfefaf9-b46d-4422-a8aa-4b9d77a3589f",
+        "requestId": "7b87ec9f-a859-42bf-8d6b-d2ab046fef0b",
+        "state": "completed",
+        "memoryRevisionId": "0004c3bf-3abf-42cd-9aa6-8e9d48c861c8"
+      }
+    ],
+    "devices": 0,
+    "enrollments": 0
+  },
+  {
+    "session": 2,
+    "state": {
+      "version": 1,
+      "session": 2,
+      "phase": "blocked",
+      "began": 1792253755977,
+      "workDeadline": 1792254295977,
+      "credentialDeadline": 1792254355977,
+      "launches": 1,
+      "restarts": 1,
+      "receipts": [
+        {
+          "requestId": "7188679e-1a82-4594-b0ab-8a51a57e90e6",
+          "conversationId": "5907a136-11e1-4724-842f-93a4c5d53d3d",
+          "messageId": "8b6c2c45-cd11-4c7c-9dd0-2344ce708d58",
+          "runId": "710cb653-25d6-4ca5-9ff5-fe4e13f6558f",
+          "bindingRevisionId": "3ab238b6-476a-40d9-8995-4bb3eb55acae",
+          "inputDigest": "1ec68a9abd743f8cc11cce86966ab3bbb334457676553e714b3335d832d859a1",
+          "acceptedAt": "2026-10-17T16:18:00.460Z"
+        }
+      ],
+      "credentialCleanup": "deleted",
+      "runtimeCleanup": "confirmed",
+      "nativeCleanup": "unconfirmed",
+      "installationId": "5ea42d40-135c-4c04-b32b-aafb011a7e1e",
+      "port": 55280
+    },
+    "messageMetadata": [
+      {
+        "requestId": "7188679e-1a82-4594-b0ab-8a51a57e90e6",
+        "role": "user",
+        "bodyCharacters": 50,
+        "sequence": 1
+      },
+      {
+        "requestId": "7188679e-1a82-4594-b0ab-8a51a57e90e6",
+        "role": "assistant",
+        "bodyCharacters": 27,
+        "sequence": 3
+      }
+    ],
+    "runs": [
+      {
+        "runId": "710cb653-25d6-4ca5-9ff5-fe4e13f6558f",
+        "requestId": "7188679e-1a82-4594-b0ab-8a51a57e90e6",
+        "state": "completed",
+        "memoryRevisionId": null
+      }
+    ],
+    "devices": 0,
+    "enrollments": 0
+  },
+  {
+    "session": 3,
+    "state": {
+      "version": 1,
+      "session": 3,
+      "phase": "finished",
+      "began": 1792255053080,
+      "workDeadline": 1792255593080,
+      "credentialDeadline": 1792255653080,
+      "launches": 2,
+      "restarts": 1,
+      "receipts": [
+        {
+          "requestId": "ddfccaf0-96ec-4353-ae8f-c72953f8e3db",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "26c7cf40-cf32-460b-9889-ca498e72b0e3",
+          "runId": "e9ab9434-6cf3-43d7-9107-e38009668dbd",
+          "bindingRevisionId": "ee0aff9d-e5bb-4ee0-905a-1d5c551539cf",
+          "inputDigest": "6a17c15fce16f0c52380aba7b4ac09edd394fe401cf369fd6856e0085b287719",
+          "acceptedAt": "2026-10-17T16:39:23.990Z"
+        },
+        {
+          "requestId": "33f90e26-8469-439b-a807-7c98fca8a069",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "f9c3f118-331d-4e3e-81a8-e4ce7ca95b52",
+          "runId": "6a897a5b-3405-4cc6-8cc4-db1fee9f2544",
+          "bindingRevisionId": "9919e765-7af2-44a1-a32c-4c552b00b5e3",
+          "inputDigest": "f6e385d696bb1ea7145df46b79797a8b30ec39320967054e052f35a08d08d013",
+          "acceptedAt": "2026-10-17T16:40:00.206Z"
+        },
+        {
+          "requestId": "89712cd8-53b1-457e-a6fa-1b28f2e0647c",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "6f7330f9-6768-44d5-b155-73bbbf37c968",
+          "runId": "699836f8-a3e1-4ed7-add7-d349a58b3984",
+          "bindingRevisionId": "9919e765-7af2-44a1-a32c-4c552b00b5e3",
+          "inputDigest": "99af75e8678d0dfe0a09ce358dc84bef4c2c3c3750d24c595c9a29699484f215",
+          "acceptedAt": "2026-10-17T16:42:17.532Z"
+        },
+        {
+          "requestId": "abc865cc-9f47-43c2-93c2-025d4055ef81",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "c7c78883-f697-4e1c-8127-09286c351fd7",
+          "runId": "4bb044e0-146b-4858-9885-978dc5f529fd",
+          "bindingRevisionId": "9919e765-7af2-44a1-a32c-4c552b00b5e3",
+          "inputDigest": "1aa612f2431fc551470f1772d72e3b46ac16ff80a9efefb8bdb0049352e37aa1",
+          "acceptedAt": "2026-10-17T16:42:53.633Z"
+        },
+        {
+          "requestId": "17aeba6e-f246-4a0f-abcb-6d5b21634bef",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "0cc40a16-e2dd-405e-ac05-88c3088cdb00",
+          "runId": "99669c5f-8756-4a7f-bfcd-a0f0713952de",
+          "bindingRevisionId": "ee0aff9d-e5bb-4ee0-905a-1d5c551539cf",
+          "inputDigest": "1aa612f2431fc551470f1772d72e3b46ac16ff80a9efefb8bdb0049352e37aa1",
+          "acceptedAt": "2026-10-17T16:43:18.237Z"
+        },
+        {
+          "requestId": "9d837830-ef94-4adb-a9d1-3ae0ecfd9627",
+          "conversationId": "54097f7a-a11e-47b9-9c76-40bfc743b3cf",
+          "messageId": "c87bde63-9ea0-4af6-b637-ae5fea305ff9",
+          "runId": "bccdb214-c9fc-4af5-a27b-a67331855cc2",
+          "bindingRevisionId": "ee0aff9d-e5bb-4ee0-905a-1d5c551539cf",
+          "inputDigest": "e2d5dde343bb7c3bf3c3bafa4b0b3c738b315fbd514cb4ef20434a30edfc31e2",
+          "acceptedAt": "2026-10-17T16:44:16.870Z"
+        }
+      ],
+      "credentialCleanup": "deleted",
+      "runtimeCleanup": "confirmed",
+      "nativeCleanup": "confirmed",
+      "installationId": "9b4af725-002a-4da1-8b0c-a902fb0d84b9",
+      "port": 55651
+    },
+    "messageMetadata": [
+      {
+        "requestId": "ddfccaf0-96ec-4353-ae8f-c72953f8e3db",
+        "role": "user",
+        "bodyCharacters": 59,
+        "sequence": 1
+      },
+      {
+        "requestId": "ddfccaf0-96ec-4353-ae8f-c72953f8e3db",
+        "role": "assistant",
+        "bodyCharacters": 15,
+        "sequence": 3
+      },
+      {
+        "requestId": "33f90e26-8469-439b-a807-7c98fca8a069",
+        "role": "user",
+        "bodyCharacters": 49,
+        "sequence": 4
+      },
+      {
+        "requestId": "89712cd8-53b1-457e-a6fa-1b28f2e0647c",
+        "role": "user",
+        "bodyCharacters": 33,
+        "sequence": 7
+      },
+      {
+        "requestId": "89712cd8-53b1-457e-a6fa-1b28f2e0647c",
+        "role": "assistant",
+        "bodyCharacters": 5,
+        "sequence": 9
+      },
+      {
+        "requestId": "abc865cc-9f47-43c2-93c2-025d4055ef81",
+        "role": "user",
+        "bodyCharacters": 52,
+        "sequence": 11
+      },
+      {
+        "requestId": "abc865cc-9f47-43c2-93c2-025d4055ef81",
+        "role": "assistant",
+        "bodyCharacters": 30,
+        "sequence": 13
+      },
+      {
+        "requestId": "17aeba6e-f246-4a0f-abcb-6d5b21634bef",
+        "role": "user",
+        "bodyCharacters": 52,
+        "sequence": 14
+      },
+      {
+        "requestId": "17aeba6e-f246-4a0f-abcb-6d5b21634bef",
+        "role": "assistant",
+        "bodyCharacters": 30,
+        "sequence": 16
+      },
+      {
+        "requestId": "9d837830-ef94-4adb-a9d1-3ae0ecfd9627",
+        "role": "user",
+        "bodyCharacters": 61,
+        "sequence": 17
+      },
+      {
+        "requestId": "9d837830-ef94-4adb-a9d1-3ae0ecfd9627",
+        "role": "assistant",
+        "bodyCharacters": 117,
+        "sequence": 19
+      }
+    ],
+    "runs": [
+      {
+        "runId": "4bb044e0-146b-4858-9885-978dc5f529fd",
+        "requestId": "abc865cc-9f47-43c2-93c2-025d4055ef81",
+        "state": "completed",
+        "memoryRevisionId": "8b71352f-da95-4374-abd3-7bdbe07f2ace"
+      },
+      {
+        "runId": "699836f8-a3e1-4ed7-add7-d349a58b3984",
+        "requestId": "89712cd8-53b1-457e-a6fa-1b28f2e0647c",
+        "state": "completed",
+        "memoryRevisionId": null
+      },
+      {
+        "runId": "6a897a5b-3405-4cc6-8cc4-db1fee9f2544",
+        "requestId": "33f90e26-8469-439b-a807-7c98fca8a069",
+        "state": "canceled",
+        "memoryRevisionId": null
+      },
+      {
+        "runId": "99669c5f-8756-4a7f-bfcd-a0f0713952de",
+        "requestId": "17aeba6e-f246-4a0f-abcb-6d5b21634bef",
+        "state": "completed",
+        "memoryRevisionId": "8b71352f-da95-4374-abd3-7bdbe07f2ace"
+      },
+      {
+        "runId": "bccdb214-c9fc-4af5-a27b-a67331855cc2",
+        "requestId": "9d837830-ef94-4adb-a9d1-3ae0ecfd9627",
+        "state": "completed",
+        "memoryRevisionId": "8b71352f-da95-4374-abd3-7bdbe07f2ace"
+      },
+      {
+        "runId": "e9ab9434-6cf3-43d7-9107-e38009668dbd",
+        "requestId": "ddfccaf0-96ec-4353-ae8f-c72953f8e3db",
+        "state": "completed",
+        "memoryRevisionId": null
+      }
+    ],
+    "devices": 0,
+    "enrollments": 0
+  }
+]
