@@ -40,6 +40,12 @@ export class CodexChat implements ChatRuntime {
   }
   async execute(input: ChatInput, signal: AbortSignal): Promise<ChatResult> {
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
+    for(const skill of input.configuration.skills){
+      const bundle=skill.bundle;
+      if(bundle&&(skill.review.state!=='enabled'||!bundle.supportedRuntimes.includes('codex')||bundle.requestedTools.length!==0||bundle.scripts.length!==0||bundle.files.length!==1||bundle.files[0]?.path!==bundle.entrypoint||bundle.files[0].executable)){
+        return {kind:'notStarted',message:'This no-tool Codex runtime cannot preserve the selected bundle files, scripts, tools or declared runtime. Nothing was dispatched.'};
+      }
+    }
     const developerInstructions = input.configuration.instructions + input.configuration.skills.map(skill => `\n\nSelected instruction skill: ${skill.name}\n${skill.instructions}`).join('');
     const text = JSON.stringify({ conversationId:input.conversationId, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text } });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };

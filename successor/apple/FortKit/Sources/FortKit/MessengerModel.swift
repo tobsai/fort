@@ -40,7 +40,7 @@ import Observation
         return installation?.mode == "fixture" ? selectedAgent : nil
     }
     public var supportsCommands: Bool { installation?.supportsCommands == true }
-    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.map(\.id))) }
+    public var canSend: Bool { !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared }
     init(storage: DeviceStorage, session: URLSession) { self.storage = storage; self.session = session }
     public func restore() async {
@@ -115,7 +115,7 @@ import Observation
                         try pendingStore?.remove(requestID:item.requestID)
                     } catch {
                         pendingErrors[item.requestID] = error.localizedDescription
-                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","recipientMismatch","requestConflict","bindingConflict"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
+                        if case ClientError.service(let code, let reason) = error, ["bindingChanged","skillChanged","skillReviewRequired","recipientMismatch","requestConflict","bindingConflict"].contains(code) { try pendingStore?.requireReview(requestID:item.requestID,reason:reason) }
                     }
 
                 }
@@ -184,6 +184,25 @@ import Observation
             _ = try await client.saveSkill(skill,name:name,instructions:instructions)
             isBusy = false; await refresh(); workspaceSaving = false; return true
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }
+    }
+    public func importSkillBundle(_ data: Data, replacing skill: InstructionSkill? = nil) async -> InstructionSkill? {
+        guard let client = await beginWorkspaceSave() else { return nil }
+        do {
+            let saved = try await client.importSkillBundle(data,replacing:skill)
+            isBusy = false; await refresh(); workspaceSaving = false; return saved
+        } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return nil }
+    }
+    public func reviewSkill(_ skill: InstructionSkill, enable: Bool) async -> InstructionSkill? {
+        guard let client = await beginWorkspaceSave() else { return nil }
+        do {
+            let saved = try await client.reviewSkill(skill,enable:enable)
+            isBusy = false; await refresh(); workspaceSaving = false; return saved
+        } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return nil }
+    }
+    public func previousRevision(for skill: InstructionSkill) async throws -> InstructionSkill? {
+        guard let revision = skill.previousRevisionId else { return nil }
+        guard let client else { throw ClientError.service("offline","Connect to Fort to compare this revision.") }
+        return try await client.skillRevision(skillID:skill.id,revisionID:revision)
     }
     public func createConversation(name: String, participantAgentIDs: [String]) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }

@@ -82,5 +82,7 @@ try {
   assert.equal(inputs[7]?.history.length,10);
   assert.equal(inputs[7]?.history.every(message=>message.conversationId===inputs[0]?.conversationId),true);
   assert.equal(cleanupConfirmations,3);
+  await run('workspace-bundles');
+  assert.equal(inputs.length,8);
   process.stdout.write('PASS FortClient/PendingStore HTTP conformance: eight synthetic executions, three service restarts, explicit recovery, one discarded acceptance, no duplicate dispatch and empty pending queue\n');
 } finally { await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve())); await service.close(); await rm(directory,{ recursive:true,force:true }); }

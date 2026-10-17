@@ -36,7 +36,43 @@ public struct SkillReference: Codable, Equatable, Sendable { public let skillId:
 public struct InstructionSkill: Codable, Equatable, Sendable, Identifiable {
     public var id: String { skillId }
     public let skillId: String; public let revisionId: String; public let name: String; public let instructions: String
+    public var bundle: SkillBundle? = nil
+    public var review: SkillReview? = nil
+    public var previousRevisionId: String? = nil
     public var reference: SkillReference { SkillReference(skillId:skillId, revisionId:revisionId) }
+    public var canInvoke: Bool {
+        guard let bundle else { return review == nil }
+        return bundle.schemaVersion == 1 && review?.state == "enabled" && review?.digest == bundle.digest
+    }
+}
+public struct SkillReview: Codable, Equatable, Sendable { public let state: String; public let digest: String }
+public struct SkillBundleFile: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { path }
+    public let path: String; public let kind: String; public let executable: Bool
+    public let contentBase64: String; public let bytes: Int; public let sha256: String
+    public var text: String? { Data(base64Encoded:contentBase64).flatMap { String(data:$0,encoding:.utf8) } }
+}
+public struct SkillBundleScript: Codable, Equatable, Sendable {
+    public let path: String; public let interpreter: String; public let resourceScope: [String]
+}
+public struct SkillFileChange: Equatable, Sendable, Identifiable {
+    public var id: String { path }
+    public let path: String; public let change: String
+}
+public struct SkillBundle: Codable, Equatable, Sendable {
+    public let schemaVersion: Int; public let name: String; public let version: String
+    public let source: String; public let license: String; public let entrypoint: String
+    public let supportedRuntimes: [String]; public let requestedTools: [String]
+    public let scripts: [SkillBundleScript]; public let files: [SkillBundleFile]; public let digest: String
+    public var supportsCurrentChat: Bool { schemaVersion == 1 && supportedRuntimes.contains("codex") && requestedTools.isEmpty && scripts.isEmpty && files.count == 1 && files.first?.path == entrypoint && files.first?.executable == false }
+    public func changes(from previous: SkillBundle?) -> [SkillFileChange] {
+        let before = Dictionary((previous?.files ?? []).map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })
+        let after = Dictionary(files.map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })
+        return Set(before.keys).union(after.keys).sorted().compactMap { path in
+            guard before[path] != after[path] else { return nil }
+            return SkillFileChange(path:path,change:before[path] == nil ? "Added" : after[path] == nil ? "Removed" : "Changed")
+        }
+    }
 }
 public struct Conversation: Codable, Equatable, Sendable, Identifiable {
     public var id: String { conversationId }

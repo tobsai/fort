@@ -51,6 +51,22 @@ public struct FortClient: Sendable {
         struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
         return try await send(skill.map { "v1/skills/\($0.skillId)" } ?? "v1/skills", method:"POST", body:Body(name:name, instructions:instructions, expectedRevisionId:skill?.revisionId))
     }
+    public func importSkillBundle(_ contents: Data, replacing skill: InstructionSkill? = nil) async throws -> InstructionSkill {
+        guard contents.count <= 1_000_000 else { throw ClientError.service("invalidSkillBundle","Select a Fort bundle JSON file within 1 MB.") }
+        let bundle = try JSONSerialization.jsonObject(with:contents)
+        guard bundle is [String:Any] else { throw ClientError.service("invalidSkillBundle","Select a Fort bundle JSON object.") }
+        var body: [String:Any] = ["bundle":bundle]
+        if let skill { body["skillId"] = skill.id; body["expectedRevisionId"] = skill.revisionId }
+        return try await request(url:baseURL.appendingPathComponent("v1/skill-bundles"),method:"POST",data:JSONSerialization.data(withJSONObject:body))
+    }
+    public func reviewSkill(_ skill: InstructionSkill, enable: Bool) async throws -> InstructionSkill {
+        guard let bundle = skill.bundle else { throw ClientError.service("invalidSkillBundle","Select a complete bundle to review.") }
+        struct Body: Encodable { let revisionId: String; let digest: String; let enable: Bool }
+        return try await send("v1/skills/\(try segment(skill.id))/review",method:"POST",body:Body(revisionId:skill.revisionId,digest:bundle.digest,enable:enable))
+    }
+    public func skillRevision(skillID: String, revisionID: String) async throws -> InstructionSkill {
+        try await get("v1/skills/\(try segment(skillID))/revisions/\(try segment(revisionID))")
+    }
     public func createConversation(name: String, participantAgentIds: [String]) async throws -> Conversation {
         struct Body: Encodable { let name: String; let participantAgentIds: [String] }
         return try await send("v1/conversations", method:"POST", body:Body(name:name, participantAgentIds:participantAgentIds))

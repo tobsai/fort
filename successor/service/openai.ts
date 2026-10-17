@@ -5,8 +5,9 @@ import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
+import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from './skill-bundle.ts';
 
-type Entity = 'agents' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -38,7 +39,11 @@ function decodeAgent(value: unknown): Agent {
 }
 function decodeSkill(value: unknown): InstructionSkill {
   const v = record(value);
-  return { skillId: id(v.skillId), revisionId: id(v.revisionId), name: text(v.name, 'name'), instructions: text(v.instructions, 'instructions') };
+  const identity = { skillId:id(v.skillId),revisionId:id(v.revisionId),name:text(v.name,'name'),instructions:text(v.instructions,'instructions') };
+  if (v.bundle === undefined && v.review === undefined) return identity;
+  const bundle = parseSkillBundle(v.bundle), review = record(v.review);
+  if ((review.state !== 'reviewRequired' && review.state !== 'enabled' && review.state !== 'disabled') || review.digest !== bundle.digest || identity.name !== bundle.name || identity.instructions !== skillInstructions(bundle)) throw new Error('Invalid stored skill review');
+  return { ...identity,bundle,review:{state:review.state,digest:bundle.digest},...(v.previousRevisionId===undefined?{}:{previousRevisionId:id(v.previousRevisionId)}) };
 }
 function decodeConversation(value: unknown): Conversation {
   const v = record(value);
@@ -151,7 +156,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       const conversation = load('conversations', conversationId, decodeConversation), agent = load('agents', recipientAgentId, decodeAgent);
       if (!conversation.participantAgentIds.includes(recipientAgentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
       if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
-      const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); return skill; });
+      const skills = references.map(ref => { const skill = load('skills', ref.skillId, decodeSkill); if (skill.revisionId !== ref.revisionId) fail(409, 'skillChanged', 'Review the changed skill before submitting.'); if(skill.review && skill.review.state!=='enabled')fail(409,'skillReviewRequired','Review and enable the exact skill bundle before submitting.'); return skill; });
       const configuration: TurnConfiguration = { agentId: agent.agentId, agentName: agent.name, bindingRevisionId, selectedModel: agent.binding.selectedModel, instructions: agent.instructions ?? '', skills };
       if (options.admitSubmission && !options.admitSubmission({ text:inputText,conversation,configuration },list('runs',decodeRun))) fail(403,'sampleNotAuthorized','This message is outside the active sample or session.');
       const messageId = randomUUID(), runId = randomUUID(), acceptedAt = new Date().toISOString();
@@ -169,6 +174,10 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     const runs = list('runs', decodeRun);
     const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'cancelRequested' || prior.state === 'outcomeUnknown')));
     if (!queued?.configuration) return false;
+    if(queued.configuration.skills.some(skill=>skill.bundle&&load('skillRevisions',skill.revisionId,decodeSkill).review?.state!=='enabled')){
+      transaction(()=>{put('runs',queued.runId,{...queued,state:'failed',statusDetail:'A selected skill revision was disabled before dispatch. Nothing was sent.'});append(queued.conversationId,'runStopped',queued.runId);});
+      return true;
+    }
     const input = transaction(() => {
       const messages = list('messages', decodeMessage).filter(m => m.conversationId === queued.conversationId);
       const current = messages.find(m => m.requestId === queued.requestId && m.role === 'user');
@@ -243,6 +252,35 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         if (request.method === 'GET' && url.pathname === '/v1/installation') result = installation;
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
         else if (request.method === 'GET' && url.pathname === '/v1/skills') result = { skills: list('skills', decodeSkill) };
+        else if (request.method === 'GET' && /^\/v1\/skills\/[^/]+\/revisions\/[^/]+$/.test(url.pathname)) {
+          const skill=load('skillRevisions',id(url.pathname.split('/')[5]),decodeSkill);
+          if(skill.skillId!==id(url.pathname.split('/')[3]))fail(404,'notFound','Skill revision was not found.');result=skill;
+        }
+        else if (request.method === 'POST' && url.pathname === '/v1/skill-bundles') {
+          const body=await readBody(request),bundle=parseSkillBundle(body.bundle);
+          result=owner(request,()=>{
+            const skillId=body.skillId===undefined?randomUUID():id(body.skillId);
+            const old=body.skillId===undefined?undefined:load('skills',skillId,decodeSkill);
+            if(old){
+              if(body.expectedRevisionId!==old.revisionId)fail(409,'skillChanged','Reload the skill before importing a revision.');
+              put('skillRevisions',old.revisionId,old);
+            }
+            const skill:InstructionSkill={skillId,revisionId:randomUUID(),name:bundle.name,instructions:skillInstructions(bundle),bundle,review:{state:'reviewRequired',digest:bundle.digest},...(old?{previousRevisionId:old.revisionId}:{})};
+            put('skillRevisions',skill.revisionId,skill);put('skills',skillId,skill);return skill;
+          });status=201;
+        }
+        else if (request.method === 'POST' && /^\/v1\/skills\/[^/]+\/review$/.test(url.pathname)) {
+          const body=await readBody(request),skillId=id(url.pathname.split('/')[3]);
+          result=owner(request,()=>{
+            if(typeof body.enable!=='boolean')fail(400,'invalidCommand','Choose explicitly whether to enable this reviewed bundle.');
+            const current=load('skills',skillId,decodeSkill);
+            if(body.enable&&body.revisionId!==current.revisionId)fail(409,'skillChanged','Review the exact current skill revision before enabling it.');
+            const skill=body.revisionId===current.revisionId?current:load('skillRevisions',id(body.revisionId),decodeSkill);
+            if(skill.skillId!==skillId||!skill.bundle||body.digest!==skill.bundle.digest)fail(409,'skillChanged','Review the exact skill revision and digest.');
+            const reviewed:InstructionSkill={...skill,bundle:skill.bundle,review:{state:body.enable?'enabled':'disabled',digest:skill.bundle.digest}};
+            put('skillRevisions',skill.revisionId,reviewed);if(current.revisionId===skill.revisionId)put('skills',skillId,reviewed);return reviewed;
+          });
+        }
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
         else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
         else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = load('requests', id(url.pathname.split('/')[3]), record).acceptance;
@@ -292,6 +330,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const body = await readBody(request), skillId = id(url.pathname.split('/')[3]);
           result = owner(request, () => {
             const old = load('skills', skillId, decodeSkill);
+            if (old.bundle) fail(409,'bundleEditRequired','Import the complete revised bundle so its files and authority can be reviewed.');
             if (body.expectedRevisionId !== old.revisionId) fail(409, 'skillChanged', 'Reload the skill before saving.');
             const skill: InstructionSkill = { skillId, revisionId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions') }; put('skills', skillId, skill); return skill;
           });
@@ -321,8 +360,8 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         } else fail(404, 'notFound', 'Route was not found.');
       }
     } catch (error) {
-      status = error instanceof APIError ? error.status : 500;
-      result = { error: { code: error instanceof APIError ? error.code : 'internalError', message: error instanceof APIError ? error.message : 'Fort could not complete the request.' } };
+      status = error instanceof APIError ? error.status : error instanceof InvalidSkillBundle ? 400 : 500;
+      result = { error: { code: error instanceof APIError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : 'internalError', message: error instanceof APIError || error instanceof InvalidSkillBundle ? error.message : 'Fort could not complete the request.' } };
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });

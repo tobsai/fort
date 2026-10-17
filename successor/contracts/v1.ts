@@ -13,6 +13,9 @@ export const MAX_TEXT_BYTES = 65_536;
 export type Approval = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; resourceScope: ['fixture:reply']; actionDescription: 'Produce the fixture reply'; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };
 
 export type SkillReference = { skillId: string; revisionId: string };
-export type InstructionSkill = SkillReference & { name: string; instructions: string };
+export type SkillBundleFile = { path: string; kind: 'file'; executable: boolean; contentBase64: string; bytes: number; sha256: string };
+export type SkillBundle = { schemaVersion: 1; name: string; version: string; source: string; license: string; entrypoint: string; supportedRuntimes: string[]; requestedTools: string[]; scripts: { path: string; interpreter: string; resourceScope: string[] }[]; files: SkillBundleFile[]; digest: string };
+export type SkillReview = { state: 'reviewRequired' | 'enabled' | 'disabled'; digest: string };
+export type InstructionSkill = SkillReference & { name: string; instructions: string } & ({ bundle?: never; review?: never } | { bundle: SkillBundle; review: SkillReview; previousRevisionId?: string });
 export type Conversation = { conversationId: string; name: string; kind: 'home' | 'shared'; participantAgentIds: string[] };
 export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[] };

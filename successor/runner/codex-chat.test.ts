@@ -223,3 +223,11 @@ for(const interruption of ['confirmed','disconnect'] as const)test(`cancellation
     assert.equal(fixture.calls.filter(call=>call.method==='turn/start').length,1);
   }finally{await runtime.dispose();}
 });
+
+for(const unsupported of ['asset','script','tools','runtime'] as const)test(`no-tool Codex refuses unsupported reviewed bundle content before protocol dispatch: ${unsupported}`,async()=>{
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const bundle={schemaVersion:1 as const,name:'Synthetic bundle',version:'1',source:'owner-local:synthetic',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:unsupported==='runtime'?['claude']:['codex'],requestedTools:unsupported==='tools'?['network']:[],scripts:unsupported==='script'?[{path:'run.sh',interpreter:'bash',resourceScope:[]}]:[],files:[{path:'SKILL.md',kind:'file' as const,executable:false,contentBase64:Buffer.from('Synthetic instructions').toString('base64'),bytes:22,sha256:'synthetic'}],digest:'synthetic'};
+  if(unsupported==='asset')bundle.files.push({...bundle.files[0]!,path:'assets/data.txt'});
+  const selected={...input,configuration:{...input.configuration,skills:[{skillId:'synthetic-bundle',revisionId:'revision',name:bundle.name,instructions:'Synthetic instructions',bundle,review:{state:'enabled' as const,digest:bundle.digest}}]}};
+  try{const result=await runtime.execute(selected,new AbortController().signal);assert.equal(result.kind,'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
+});

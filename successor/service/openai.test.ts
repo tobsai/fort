@@ -28,6 +28,80 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   return { api, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
 
+function syntheticBundle() {
+  return {schemaVersion:1,name:'Synthetic bundle',version:'1',source:'owner-local:synthetic',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:['codex'],requestedTools:[],scripts:[],files:[{path:'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from('Synthetic reviewed instructions').toString('base64')}]};
+}
+
+test('bundle import rejects unsafe paths, links, undeclared executables and malformed or oversized content without staging work',async t=>{
+  const h=await setup(t),base=syntheticBundle(),file=base.files[0]!;
+  const invalid:unknown[]=[
+    ...['../outside','/absolute','nested/../escape','C:\\file','a\u0000b','a//b','a/./b','a/b.'].map(path=>({...base,entrypoint:path,files:[{...file,path}]})),
+    {...base,files:[file,{...file,path:'skill.md'}]},
+    {...base,files:[file,{...file,path:'assets'},{...file,path:'assets/nested.txt'}]},
+    {...base,files:[file,{...file,path:'link',kind:'symlink',target:'outside'}]},
+    {...base,files:[file,{...file,path:'run.sh',executable:true}]},
+    {...base,scripts:[{path:'missing.sh',interpreter:'bash',resourceScope:[]}]},
+    {...base,files:[{...file,contentBase64:'not base64'}]},
+    {...base,files:[{...file,contentBase64:Buffer.from([255]).toString('base64')}]},
+    {...base,files:[{...file,sha256:'forged'}]},
+    {...base,files:[{...file,bytes:999}]},
+    {...base,digest:'forged'},
+    {...base,files:Array.from({length:65},(_,index)=>({...file,path:index?'asset-'+index:'SKILL.md'}))},
+    {...base,files:[file,{...file,path:'large',contentBase64:Buffer.alloc(262_145).toString('base64')}]},
+    {...base,files:[file,...[1,2,3].map(index=>({...file,path:'large-'+index,contentBase64:Buffer.alloc(200_000).toString('base64')}))]},
+    {...base,unexpectedAuthority:'full-access'},
+  ];
+  for(const bundle of invalid){const result=await h.api<{error:{code:string}}>('/v1/skill-bundles',{bundle});assert.equal(result.status,400);assert.equal(result.body.error.code,'invalidSkillBundle');}
+  assert.deepEqual((await h.api<{skills:InstructionSkill[]}>('/v1/skills')).body.skills,[]);
+  assert.equal(await h.service.dispatchNext(),false);
+});
+
+test('explicitly disabling a reviewed skill before dispatch blocks accepted work without a runtime call',async t=>{
+  let calls=0;
+  const h=await setup(t,{runtime:{async execute(){calls++;return {kind:'completed',text:'Must not run',effectiveModel:null};},async dispose(){}}});
+  const imported=(await h.api<InstructionSkill>('/v1/skill-bundles',{bundle:syntheticBundle()})).body;assert.ok(imported.bundle);
+  const review={revisionId:imported.revisionId,digest:imported.bundle.digest,enable:true};
+  await h.api(`/v1/skills/${imported.skillId}/review`,review);
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply.'})).body,prefix=`/v1/conversations/${agent.homeConversationId}`;
+  const acceptance=await h.api<Acceptance>(prefix+'/messages',{requestId:'disabled-skill',text:'Synthetic question',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[{skillId:imported.skillId,revisionId:imported.revisionId}]});
+  assert.equal(acceptance.status,201);
+  await h.api(`/v1/skills/${imported.skillId}/review`,{...review,enable:false});
+  await h.service.dispatchNext();assert.equal(calls,0);
+  const snapshot=(await h.api<Snapshot>(prefix+'/snapshot')).body;
+  assert.equal(snapshot.runs[0]?.state,'failed');assert.match(snapshot.runs[0]?.statusDetail??'',/disabled/);assert.equal(snapshot.messages.length,1);
+});
+
+test('complete skill bundle import is inert, requires exact review and preserves accepted revision after an edit',async t=>{
+  const calls:ChatInput[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(structuredClone(input));return {kind:'completed',text:'Synthetic reviewed reply',effectiveModel:null};},async dispose(){}}});
+  const bundle={schemaVersion:1,name:'Packing helper',version:'1.0',source:'owner-local:synthetic-packing',license:'CC0-1.0',entrypoint:'SKILL.md',supportedRuntimes:['codex'],requestedTools:[],scripts:[],files:[{path:'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from('Use the reviewed packing helper.').toString('base64')},{path:'assets/checklist.txt',kind:'file',executable:false,contentBase64:Buffer.from('Notebook\nPencil\n').toString('base64')}]};
+  type BundleSkill=InstructionSkill&{bundle:typeof bundle&{digest:string};review:{state:string;digest:string}};
+  const imported=await h.api<BundleSkill>('/v1/skill-bundles',{bundle});
+  assert.equal(imported.status,201);assert.equal(imported.body.review.state,'reviewRequired');
+  assert.equal(imported.body.bundle.files.length,2);assert.equal(imported.body.bundle.files[1]?.contentBase64,bundle.files[1]?.contentBase64);
+  assert.match(imported.body.bundle.digest,/^[0-9a-f]{64}$/);assert.equal(calls.length,0);
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply.'})).body;
+  const prefix=`/v1/conversations/${agent.homeConversationId}`;
+  const command={requestId:'reviewed-bundle',text:'Synthetic question',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[{skillId:imported.body.skillId,revisionId:imported.body.revisionId}]};
+  assert.equal((await h.api(prefix+'/messages',command)).status,409);
+  assert.deepEqual((await h.api<Snapshot>(prefix+'/snapshot')).body.messages,[]);
+  const review=`/v1/skills/${imported.body.skillId}/review`;
+  assert.equal((await h.api(review,{revisionId:imported.body.revisionId,digest:'wrong',enable:true})).status,409);
+  const enabled=await h.api<BundleSkill>(review,{revisionId:imported.body.revisionId,digest:imported.body.bundle.digest,enable:true});
+  assert.equal(enabled.status,200);assert.equal(enabled.body.review.state,'enabled');
+  const accepted=await h.api<Acceptance>(prefix+'/messages',command);assert.equal(accepted.status,201);
+  bundle.files[1]!.contentBase64=Buffer.from('Changed asset').toString('base64');bundle.version='2.0';
+  const changed=await h.api<BundleSkill>('/v1/skill-bundles',{bundle,skillId:imported.body.skillId,expectedRevisionId:imported.body.revisionId});
+  assert.equal(changed.status,201);assert.notEqual(changed.body.revisionId,imported.body.revisionId);assert.equal(changed.body.review.state,'reviewRequired');assert.notEqual(changed.body.bundle.digest,imported.body.bundle.digest);
+  assert.equal((await h.api(review,{revisionId:imported.body.revisionId,digest:imported.body.bundle.digest,enable:true})).status,409);
+  await h.service.dispatchNext();assert.equal(calls.length,1);
+  assert.deepEqual(calls[0]?.configuration.skills,[enabled.body]);
+  const replay=await h.api<Acceptance>(prefix+'/messages',command);assert.deepEqual(replay.body.receipt,accepted.body.receipt);
+  await h.restart();
+  const exported=await h.api<BundleSkill>(`/v1/skills/${imported.body.skillId}/revisions/${imported.body.revisionId}`);
+  assert.equal(exported.status,200);assert.deepEqual(exported.body.bundle,imported.body.bundle);
+});
+
 test('owner cancels queued work without executing it and the same Home can continue',async t=>{
   const calls:string[]=[];
   const h=await setup(t,{runtime:{async execute(input){calls.push(input.requestId);return {kind:'completed',text:'Synthetic next reply',effectiveModel:null};},async dispose(){}}});

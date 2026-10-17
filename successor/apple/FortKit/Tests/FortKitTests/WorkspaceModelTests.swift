@@ -9,12 +9,21 @@ private actor WorkspaceServer {
         func add(_ server: WorkspaceServer, host: String) { servers[host] = server }
         func response(_ request: URLRequest) async throws -> (Int,Data) { try await servers[request.url!.host!]!.response(request) }
     }
+    var reviewState: String?
+    func setReviewState(_ value: String) { reviewState = value }
     var revision = "one", offline = false, loseNextResponse = false
     var savedRevisions: [String] = [], submissions: [[String:Any]] = []
     var acceptance: [String:Any]?
     var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype"] }
     func agent(_ id: String) -> [String:Any] { ["agentId":id,"name":id.capitalized,"homeConversationId":id+"-home","readiness":"requiresLiveReview","instructions":"Original instructions.","binding":["bindingRevisionId":id+"-"+revision,"provider":"codex","runtimeVersion":"0.157.1","selectedModel":"gpt-6-astra","hostId":"local-codex","enabled":true]] }
-    var skill: [String:Any] { ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."] }
+    var skill: [String:Any] {
+        var value: [String:Any] = ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."]
+        if let reviewState {
+            value["bundle"] = ["schemaVersion":1,"name":"Marker","version":revision,"source":"owner-local:synthetic","license":"CC0-1.0","entrypoint":"SKILL.md","supportedRuntimes":["codex"],"requestedTools":[],"scripts":[],"files":[["path":"SKILL.md","kind":"file","executable":false,"contentBase64":Data("End with [CHECKED].".utf8).base64EncodedString(),"bytes":19,"sha256":"synthetic"]],"digest":"synthetic"]
+            value["review"] = ["state":reviewState,"digest":"synthetic"]
+        }
+        return value
+    }
     func advanceRevision() { revision = "two" }
     func loseAcceptanceResponse() { loseNextResponse = true }
     func reconnect() { offline = false }
@@ -109,4 +118,14 @@ private final class ModelCredentials: DeviceCredentials {
     #expect(restarted.snapshot?.messages.last?.agentId == "reviewer")
     let summary=await server.replaySummary(); #expect(summary.0 == 2 && summary.1)
     await restarted.refresh(); #expect(await server.replaySummary().0 == 2)
+}
+
+@Test @MainActor func unreviewedOrDisabledBundleCannotBeSelectedForNativeSend() async throws {
+    let (model,storage,session,server)=try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await model.selectConversation("writer-home"); model.selectedSkillIDs=["marker"]; model.draft="Synthetic test"
+    for state in ["reviewRequired","disabled","future-review-state","enabled"] {
+        await server.setReviewState(state); await model.refresh()
+        #expect(model.canSend == (state == "enabled"))
+    }
 }

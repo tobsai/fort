@@ -158,6 +158,34 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             }
             return
         }
+        if CommandLine.arguments[1] == "workspace-bundles" {
+            let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:stateFile))
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            let asset = Data([0,255,10]).base64EncodedString()
+            var files: [[String:Any]] = [["path":"SKILL.md","kind":"file","executable":false,"contentBase64":Data("Use the complete reviewed bundle.".utf8).base64EncodedString()],["path":"assets/sample.bin","kind":"file","executable":false,"contentBase64":asset]]
+            var input: [String:Any] = ["schemaVersion":1,"name":"Native reviewed bundle","version":"1","source":"owner-local:synthetic-native","license":"CC0-1.0","entrypoint":"SKILL.md","supportedRuntimes":["codex"],"requestedTools":[],"scripts":[],"files":files]
+            let imported = try await client.importSkillBundle(JSONSerialization.data(withJSONObject:input))
+            guard let original = imported.bundle else { throw CheckFailure(reason:"native import dropped bundle metadata") }
+            try require(original.files.count == 2 && original.files.last?.contentBase64 == asset && !imported.canInvoke,"inert native import changed files or enabled itself")
+            try require(!original.supportsCurrentChat,"multi-file bundle hid the current runtime limitation")
+            let enabled = try await client.reviewSkill(imported,enable:true)
+            try require(enabled.canInvoke,"explicit native review did not enable the exact revision")
+            input["version"] = "2"; files[0]["contentBase64"] = Data("Changed reviewed instructions.".utf8).base64EncodedString(); input["files"] = files
+            let changed = try await client.importSkillBundle(JSONSerialization.data(withJSONObject:input),replacing:enabled)
+            try require(!changed.canInvoke && changed.previousRevisionId == enabled.revisionId,"bundle edit lost history or bypassed review")
+            let prior = try await client.skillRevision(skillID:enabled.id,revisionID:enabled.revisionId)
+            try require(prior.bundle == original,"old bundle changed after a new revision")
+            try require(changed.bundle?.changes(from:prior.bundle).map { $0.path + ":" + $0.change } == ["SKILL.md:Changed"],"native review did not expose the changed instruction file")
+            do { _ = try await client.reviewSkill(enabled,enable:true); throw CheckFailure(reason:"stale native review succeeded") }
+            catch ClientError.service(let code,_) { try require(code == "skillChanged","stale review returned the wrong conflict") }
+            let exported = try JSONEncoder().encode(original)
+            let roundTrip = try await client.importSkillBundle(exported)
+            try require(roundTrip.bundle == original && !roundTrip.canInvoke,"native export/import changed complete contents or retained enablement")
+            let disabled = try await client.reviewSkill(enabled,enable:false)
+            try require(!disabled.canInvoke,"explicit native disable did not revoke the older revision")
+            print("PASS native complete bundle import/review, binary asset preservation, changed-file review, stale-revision rejection and export/import without enablement")
+            return
+        }
         if CommandLine.arguments[1] == "controls-prepare" {
             let initial = try FortClient(baseURL:config.baseURL,installationID:config.installationId,fixtureLoopback:true)
             let a = try await initial.enroll(code:config.codeA,deviceName:"Native control A")

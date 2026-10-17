@@ -4,6 +4,7 @@ import Observation
 struct WorkspaceEditor: View {
     @Bindable var model: MessengerModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showBundles = false
     @State private var kind = "Agent"
     @State private var editingID = "new"
     @State private var form = WorkspaceForm(agent:nil)
@@ -22,7 +23,7 @@ struct WorkspaceEditor: View {
                     Picker("Item", selection:$editingID) {
                         Text("Create new").tag("new")
                         if kind == "Agent" { ForEach(model.agents) { Text($0.name).tag($0.id) } }
-                        else { ForEach(model.skills) { Text($0.name).tag($0.id) } }
+                        else { ForEach(model.skills.filter { $0.bundle == nil }) { Text($0.name).tag($0.id) } }
                     }
                 }
                 TextField("Name", text:$form.name)
@@ -40,6 +41,7 @@ struct WorkspaceEditor: View {
                     }
                     if kind == "Skill" { Text("Selected instructions apply only to the messages you choose. Skills do not install tools or execute files.").font(.caption) }
                 }
+                if kind == "Skill" { Button("Import and review complete bundles") { showBundles = true } }
                 Text(model.status).font(.caption).foregroundStyle(.secondary)
             }.formStyle(.grouped)
             .navigationTitle("Fort workspace")
@@ -48,6 +50,7 @@ struct WorkspaceEditor: View {
                 ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { await save() } }.disabled(!valid || model.workspaceSaving) }
             }
         }.frame(minWidth:440,minHeight:470)
+        .sheet(isPresented:$showBundles) { SkillBundleLibrary(model:model) }
         .onChange(of:kind) { _,_ in editingID = "new"; load() }
         .onChange(of:editingID) { _,_ in load() }
     }

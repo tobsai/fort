@@ -143,7 +143,11 @@ public struct MessengerView: View {
             }
             if model.installation?.mode == "openai", !model.skills.isEmpty {
                 DisclosureGroup("Skills for this message (\(model.selectedSkillIDs.count))") {
-                    ForEach(model.skills) { skill in Toggle(skill.name,isOn:SwiftUI.Binding(get:{ model.selectedSkillIDs.contains(skill.id) },set:{ if $0 { model.selectedSkillIDs.insert(skill.id) } else { model.selectedSkillIDs.remove(skill.id) } })) }
+                    ForEach(model.skills) { skill in
+                        Toggle(skill.name + (skill.canInvoke ? "" : " · review required"),isOn:SwiftUI.Binding(get:{ model.selectedSkillIDs.contains(skill.id) },set:{ if $0 && skill.canInvoke { model.selectedSkillIDs.insert(skill.id) } else { model.selectedSkillIDs.remove(skill.id) } }))
+                            .disabled(!skill.canInvoke && !model.selectedSkillIDs.contains(skill.id))
+                        if skill.bundle?.supportsCurrentChat == false { Text("This bundle needs a runtime that supports its files and requested tools.").font(.caption) }
+                    }
                 }
             }
                 HStack(alignment:.bottom,spacing:12) {
