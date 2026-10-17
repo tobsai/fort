@@ -74,6 +74,7 @@ export class CodexChat implements ChatRuntime {
           if (event.kind === 'terminal') {
             const reply = event.messages.filter(m => m.phase !== 'commentary').map(m => m.text).join('\n');
             if (event.status === 'completed' && reply.trim()) finish({ kind:'completed', text:reply, effectiveModel:null }, false);
+            else if(event.status==='interrupted')finish({kind:'canceled',message:'Codex confirmed interruption. Earlier effects, if any, remain.'},false);
             else finish({ kind:'outcomeUnknown', message:'Codex ended without a confirmed final text reply.' }, true);
           }
         }

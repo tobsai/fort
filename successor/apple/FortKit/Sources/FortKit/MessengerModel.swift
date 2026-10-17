@@ -204,7 +204,8 @@ import Observation
         await refresh()
     }
     public func cancel(_ run: Run) async {
-        guard supportsCommands, !isBusy, let client, let installation else { return }
+        if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
+        guard supportsCommands, !isBusy, run.canRequestCancellation, let client, let installation else { return }
         isBusy = true
         do { let result = try await client.cancel(runID:run.runId,recoveryEpoch:installation.recoveryEpoch); status = result.displayState }
         catch { status = error.localizedDescription }
@@ -213,7 +214,7 @@ import Observation
     }
     public func closeUnknown(_ run: Run) async {
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
-        guard supportsCommands, !isBusy, run.state == "outcomeUnknown", let client, let installation else { return }
+        guard supportsCommands, !isBusy, run.canCloseUnknown, let client, let installation else { return }
         isBusy = true
         do { let result = try await client.closeUnknown(runID:run.runId,recoveryEpoch:installation.recoveryEpoch); status = result.displayState }
         catch { status = error.localizedDescription }

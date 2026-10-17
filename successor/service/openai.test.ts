@@ -9,7 +9,7 @@ import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { createOpenAIService } from './openai.ts';
-import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot } from '../contracts/v1.ts';
+import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run } from '../contracts/v1.ts';
 
 async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
@@ -27,6 +27,78 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
   }
   return { api, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('owner cancels queued work without executing it and the same Home can continue',async t=>{
+  const calls:string[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(input.requestId);return {kind:'completed',text:'Synthetic next reply',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly.'})).body;
+  const path=`/v1/conversations/${agent.homeConversationId}`,epoch=h.service.installation.recoveryEpoch;
+  const send=(requestId:string)=>h.api<Acceptance>(path+'/messages',{requestId,text:requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
+  const first=(await send('cancel-this')).body;
+  await h.restart();assert.equal(await h.service.dispatchNext(),false);
+  const canceled=await h.api<{run:Run}>(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:epoch});
+  assert.equal(canceled.status,200);assert.equal(canceled.body.run.state,'canceled');
+  assert.equal(await h.service.dispatchNext(),false);assert.deepEqual(calls,[]);
+  const duplicate=await h.api<{run:Run}>(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:epoch});
+  assert.deepEqual(duplicate.body.run,canceled.body.run);
+  await send('continue-here');assert.equal(await h.service.dispatchNext(),true);
+  const snapshot=(await h.api<Snapshot>(path+'/snapshot')).body;
+  assert.deepEqual(snapshot.runs.map(run=>run.state),['canceled','completed']);
+  assert.deepEqual(calls,['continue-here']);
+  await h.restart();assert.deepEqual((await h.api<Snapshot>(path+'/snapshot')).body.runs.map(run=>run.state),['canceled','completed']);
+});
+
+for(const outcome of ['canceled','completed','outcomeUnknown'] as const)test(`active cancellation preserves runtime evidence and the Conversation barrier: ${outcome}`,async t=>{
+  const started=Promise.withResolvers<AbortSignal>(),terminal=Promise.withResolvers<Awaited<ReturnType<ChatRuntime['execute']>>>();
+  const calls:string[]=[];
+  const h=await setup(t,{runtime:{async execute(input,signal){calls.push(input.requestId);if(input.requestId==='active'){started.resolve(signal);return terminal.promise;}return {kind:'completed',text:'Synthetic later reply',effectiveModel:null};},async dispose(){terminal.resolve({kind:'canceled',message:'Synthetic confirmed interruption'});}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly.'})).body,epoch=h.service.installation.recoveryEpoch;
+  const path=`/v1/conversations/${agent.homeConversationId}`;
+  const send=(requestId:string)=>h.api<Acceptance>(path+'/messages',{requestId,text:requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
+  const first=(await send('active')).body;const dispatch=h.service.dispatchNext();const signal=await started.promise;
+  await send('later');
+  assert.equal((await h.api(`/v1/runs/${first.receipt.runId}/close-unknown`,{recoveryEpoch:epoch,acknowledgeUncertainty:true})).status,409);
+  assert.equal((await h.api(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:'wrong'})).status,409);
+  const response=await h.api<{run:Run}>(`/v1/runs/${first.receipt.runId}/cancel`,{recoveryEpoch:epoch});
+  assert.equal(response.status,200);assert.equal(response.body.run.state,'cancelRequested');assert.equal(signal.aborted,true);
+  assert.deepEqual((await h.api<Snapshot>(path+'/snapshot')).body.runs.map(run=>run.state),['cancelRequested','queued']);assert.deepEqual(calls,['active']);
+  terminal.resolve(outcome==='completed'?{kind:'completed',text:'Synthetic completion won the race',effectiveModel:null}:{kind:outcome,message:'Synthetic terminal evidence'});await dispatch;
+  const final=(await h.api<Snapshot>(path+'/snapshot')).body;
+  assert.equal(final.runs[0]?.state,outcome);
+  assert.equal(final.messages.filter(message=>message.role==='assistant').length,outcome==='completed'?1:0);
+  assert.equal(await h.service.dispatchNext(),outcome!=='outcomeUnknown');
+  assert.deepEqual(calls,outcome==='outcomeUnknown'?['active']:['active','later']);
+});
+
+test('owner explicitly closes uncertainty without retrying it, preserving history and releasing later work',async t=>{
+  const calls:string[]=[];
+  const h=await setup(t,{runtime:{async execute(input){calls.push(input.requestId);return input.requestId==='uncertain'?{kind:'outcomeUnknown',message:'Synthetic lost terminal evidence'}:{kind:'completed',text:'Synthetic next reply',effectiveModel:null};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly.'})).body,epoch=h.service.installation.recoveryEpoch,path=`/v1/conversations/${agent.homeConversationId}`;
+  const send=(requestId:string)=>h.api<Acceptance>(path+'/messages',{requestId,text:requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
+  const first=(await send('uncertain')).body;await h.service.dispatchNext();await send('later');
+  assert.equal(await h.service.dispatchNext(),false);assert.deepEqual(calls,['uncertain']);
+  const close=`/v1/runs/${first.receipt.runId}/close-unknown`;
+  assert.equal((await h.api(close,{recoveryEpoch:epoch})).status,400);
+  assert.equal((await h.api(close,{recoveryEpoch:'wrong',acknowledgeUncertainty:true})).status,409);
+  const result=await h.api<{run:Run}>(close,{recoveryEpoch:epoch,acknowledgeUncertainty:true});
+  assert.equal(result.status,200);assert.equal(result.body.run.state,'closedUnknown');
+  assert.match(result.body.run.statusDetail??'',/not retried/);
+  assert.deepEqual((await h.api<{run:Run}>(close,{recoveryEpoch:epoch,acknowledgeUncertainty:true})).body,result.body);
+  await h.service.dispatchNext();assert.deepEqual(calls,['uncertain','later']);
+  await h.restart();const snapshot=(await h.api<Snapshot>(path+'/snapshot')).body;
+  assert.deepEqual(snapshot.runs.map(run=>run.state),['closedUnknown','completed']);assert.equal(snapshot.messages.length,3);
+  assert.deepEqual((await h.api<Acceptance>('/v1/requests/uncertain')).body.receipt,first.receipt);
+});
+
+test('runtime refusal before dispatch is a visible failure, not an owner cancellation',async t=>{
+  const h=await setup(t,{runtime:{async execute(){return {kind:'notStarted',message:'Exact selected model is unavailable. Nothing was dispatched.'};},async dispose(){}}});
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly.'})).body;
+  const path=`/v1/conversations/${agent.homeConversationId}`;
+  await h.api(path+'/messages',{requestId:'unavailable',text:'Synthetic question',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[]});
+  await h.service.dispatchNext();
+  const snapshot=(await h.api<Snapshot>(path+'/snapshot')).body;
+  assert.equal(snapshot.runs[0]?.state,'failed');assert.match(snapshot.runs[0]?.statusDetail??'',/Nothing was dispatched/);assert.equal(snapshot.messages.length,1);
+});
 
 for(const when of ['before','during'] as const)test(`canceled listener startup exposes no address or surviving listener: ${when}`,async t=>{
   const directory=await mkdtemp(join(tmpdir(),'fort-listener-cancel-'));
@@ -107,7 +179,10 @@ test('bounded device authorization expires even if the service remains open',asy
   let now=Date.now();
   const h=await setup(t,{credentialDeadline:now+600_000,now:()=>now});
   assert.equal((await h.api('/v1/installation')).status,200);
+  const agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply.'})).body;
+  const accepted=(await h.api<Acceptance>(`/v1/conversations/${agent.homeConversationId}/messages`,{requestId:'expiry-check',text:'Synthetic sample',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[]})).body;
   now+=600_000;
+  for(const action of ['cancel','close-unknown'])assert.equal((await h.api(`/v1/runs/${accepted.receipt.runId}/${action}`,{recoveryEpoch:h.service.installation.recoveryEpoch,acknowledgeUncertainty:true})).status,401);
   assert.equal((await h.api('/v1/installation')).status,401);
   assert.throws(()=>h.service.issueEnrollment(),/closed/);
 });

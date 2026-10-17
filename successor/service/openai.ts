@@ -59,7 +59,7 @@ function decodeMessage(value: unknown): Message {
 }
 function decodeRun(value: unknown): Run {
   const v = record(value);
-  if (v.state !== 'queued' && v.state !== 'running' && v.state !== 'completed' && v.state !== 'failed' && v.state !== 'outcomeUnknown' && v.state !== 'canceled' && v.state !== 'closedUnknown') throw new Error('Invalid stored Run');
+  if (v.state !== 'queued' && v.state !== 'running' && v.state !== 'cancelRequested' && v.state !== 'completed' && v.state !== 'failed' && v.state !== 'outcomeUnknown' && v.state !== 'canceled' && v.state !== 'closedUnknown') throw new Error('Invalid stored Run');
   return { runId: id(v.runId), requestId: id(v.requestId), conversationId: id(v.conversationId), bindingRevisionId: id(v.bindingRevisionId), state: v.state, selectedModel: text(v.selectedModel, 'model'), effectiveModel: null, modelEvidence: 'unreported', attemptId: v.attemptId === null ? null : id(v.attemptId), configuration: decodeConfiguration(v.configuration), ...(v.statusDetail === undefined ? {} : { statusDetail: text(v.statusDetail, 'status') }) };
 }
 function json(row: Record<string, unknown> | undefined): unknown {
@@ -129,7 +129,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   const held = new Set<string>();
   transaction(() => {
     for (const run of list('runs', decodeRun)) {
-      if (run.state === 'running') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); }
+      if (run.state === 'running' || run.state === 'cancelRequested') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); }
       if (run.state === 'queued') { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
     }
   });
@@ -163,11 +163,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       put('requests', requestId, { fingerprint, acceptance }); return acceptance;
     });
   };
-  let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined;
+  let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
     if (closed || !options.runtime) return false;
     const runs = list('runs', decodeRun);
-    const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'outcomeUnknown')));
+    const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'cancelRequested' || prior.state === 'outcomeUnknown')));
     if (!queued?.configuration) return false;
     const input = transaction(() => {
       const messages = list('messages', decodeMessage).filter(m => m.conversationId === queued.conversationId);
@@ -178,7 +178,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
       const next: ChatInput = { runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: current.text, history };
       put('contexts', queued.runId, next); return next;
     });
-    active = new AbortController();
+    active = new AbortController(); activeRunId=queued.runId;
     try {
       const result = await options.runtime.execute(input, active.signal);
       transaction(() => {
@@ -187,11 +187,11 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
           const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
           put('messages', messageId, reply); put('runs', run.runId, { ...run, state: 'completed' });
-        } else { put('runs', run.runId, { ...run, state: result.kind === 'notStarted' ? 'canceled' : result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
+        } else { put('runs', run.runId, { ...run, state: result.kind === 'notStarted' ? run.state==='cancelRequested'||closed?'canceled':'failed' : result.kind, statusDetail: result.message }); append(run.conversationId, 'runStopped', run.runId); }
       });
     } catch {
       transaction(() => { const run = load('runs', queued.runId, decodeRun); put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.' }); append(run.conversationId, 'runStopped', run.runId); });
-    } finally { active = undefined; }
+    } finally { active = undefined; activeRunId=undefined; }
     return true;
   };
   const dispatchNext = (): Promise<boolean> => {
@@ -246,6 +246,30 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
         else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
         else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) result = load('requests', id(url.pathname.split('/')[3]), record).acceptance;
+        else if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/close-unknown$/.test(url.pathname)) {
+          const body=await readBody(request),runId=id(url.pathname.split('/')[3]);
+          result=owner(request,()=>{
+            if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before changing work.');
+            if(body.acknowledgeUncertainty!==true)fail(400,'uncertaintyAcknowledgmentRequired','Acknowledge that earlier effects remain unknown and this turn will not be retried.');
+            const run=load('runs',runId,decodeRun);
+            if(run.state==='closedUnknown')return {run};
+            if(run.state!=='outcomeUnknown')fail(409,'runNotUnknown','Only an unknown outcome can be closed without retry.');
+            const resolved:Run={...run,state:'closedUnknown',statusDetail:'Closed by owner acknowledgment; earlier effects remain unknown. This turn was not retried.'};
+            put('runs',runId,resolved);append(run.conversationId,'runClosed',runId);return {run:resolved};
+          });queueMicrotask(wake);
+        }
+        else if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/cancel$/.test(url.pathname)) {
+          const body=await readBody(request),runId=id(url.pathname.split('/')[3]);
+          result=owner(request,()=>{
+            if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before changing work.');
+            const run=load('runs',runId,decodeRun);
+            if(run.state!=='queued'&&run.state!=='running')return {run};
+            const canceled:Run={...run,state:run.state==='queued'?'canceled':'cancelRequested',statusDetail:run.state==='queued'?'Canceled before runtime dispatch.':'Stop requested; waiting for runtime confirmation.'};
+            put('runs',runId,canceled);append(run.conversationId,'runStopped',runId);return {run:canceled};
+          });
+          if(activeRunId===runId)active?.abort();
+          queueMicrotask(wake);
+        }
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/messages$/.test(url.pathname)) { result = accept(request, id(url.pathname.split('/')[3]), await readBody(request)); status = 201; queueMicrotask(wake); }
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/read$/.test(url.pathname)) {
           const body = await readBody(request), conversationId = id(url.pathname.split('/')[3]);

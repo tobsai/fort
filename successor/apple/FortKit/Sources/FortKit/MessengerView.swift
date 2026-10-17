@@ -101,10 +101,10 @@ public struct MessengerView: View {
                 Text("\(configuration.agentName) · \(configuration.selectedModel)").font(.caption2)
                 if !configuration.skills.isEmpty { Text("Skills: " + configuration.skills.map(\.name).joined(separator:", ")).font(.caption2) }
             }
-            if model.installation?.mode == "fixture", ["queued","running","waitingForApproval"].contains(run.state) {
+            if run.canRequestCancellation {
                 Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }
-            if model.installation?.mode == "fixture", run.state == "outcomeUnknown" {
+            if run.canCloseUnknown {
                 Button("Close without retry") { uncertainRun = run }.disabled(model.isBusy || !model.supportsCommands)
             }
             if run.state == "completed" {

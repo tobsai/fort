@@ -8,7 +8,7 @@ import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
 const input: ChatInput = { runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string } = {}) {
+function transport(options: { model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -35,11 +35,12 @@ function transport(options: { model?: string; tool?: boolean; wrongModel?: boole
         case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', approvalsReviewer:'user',activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null},runtimeWorkspaceRoots:[],sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
         case 'turn/start':
           result({ turn:{ id:'turn', status:'inProgress' } });
+          if(options.afterTurn){options.afterTurn();break;}
           if (options.tool) { emit({ id:93, method:'item/tool/call', params:{ threadId:'thread', turnId:'turn' } }); break; }
           emit({ method:'item/completed', params:{ threadId:'thread', turnId:'turn', item:{ id:'commentary', type:'agentMessage', phase:'commentary', text:'Do not save this provisional thought.' } } });
           emit({ method:'item/completed', params:{ threadId:'thread', turnId:'turn', item:{ id:'reply', type:'agentMessage', phase:'final_answer', text:'cedar [CHECKED]' } } });
           emit({ method:'turn/completed', params:{ threadId:'thread', turn:{ id:'turn', status:'completed', error:null } } }); break;
-        case 'turn/interrupt': result({}); break;
+        case 'turn/interrupt': result({}); if(options.interruption==='confirmed')emit({method:'turn/completed',params:{threadId:'thread',turn:{id:'turn',status:'interrupted',error:null}}});else if(options.interruption==='disconnect')output.destroy();break;
       }
     }); done();
   } });
@@ -211,3 +212,14 @@ for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image
     }finally{await runtime.dispose();}
   });
 }
+
+for(const interruption of ['confirmed','disconnect'] as const)test(`cancellation requires correlated terminal evidence: ${interruption}`,async()=>{
+  const cancellation=new AbortController();
+  const fixture=transport({afterTurn:()=>cancellation.abort(),interruption}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  try{
+    const result=await runtime.execute(input,cancellation.signal);
+    assert.equal(result.kind,interruption==='confirmed'?'canceled':'outcomeUnknown');
+    assert.equal(fixture.calls.filter(call=>call.method==='turn/interrupt').length,1);
+    assert.equal(fixture.calls.filter(call=>call.method==='turn/start').length,1);
+  }finally{await runtime.dispose();}
+});

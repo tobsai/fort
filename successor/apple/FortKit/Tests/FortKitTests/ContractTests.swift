@@ -25,6 +25,16 @@ import Testing
 @Test func unknownRunStateIsInformative() {
     let run = Run(runId:"run", requestId:"request", conversationId:"home", bindingRevisionId:"binding", state:"future-state", selectedModel:"selected", effectiveModel:nil, modelEvidence:"unreported", attemptId:nil)
     #expect(run.displayState.contains("Unsupported"))
+    #expect(!run.canRequestCancellation && !run.canCloseUnknown)
+}
+
+@Test func nativeOpenAIRunRecoveryControlsMatchAvailableActions() {
+    for state in ["queued","running","cancelRequested","outcomeUnknown","closedUnknown","completed","canceled"] {
+        let run = Run(runId:"run",requestId:"request",conversationId:"home",bindingRevisionId:"binding",state:state,selectedModel:"gpt-6-astra",effectiveModel:nil,modelEvidence:"unreported",attemptId:nil)
+        #expect(run.canRequestCancellation == (state == "queued" || state == "running"))
+        #expect(run.canCloseUnknown == (state == "outcomeUnknown"))
+        if state == "cancelRequested" { #expect(run.displayState.contains("waiting for confirmation")) }
+    }
 }
 
 @Test func sharedTypeScriptFixturesDecodeAndReplayInSwift() throws {

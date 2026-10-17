@@ -186,3 +186,22 @@ private final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
         #expect(await fixture.controlRequests() == (compatible ? ["/v1/runs/uncertain-run/close-unknown"] : []))
     }
 }
+
+@Test @MainActor func cancellationWaitsForRefreshThenUsesCurrentCompatibility() async throws {
+    for compatible in [true,false] {
+        let (model,storage,session,fixture) = try await setup()
+        defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+        await fixture.pauseInstallationReads()
+        if !compatible { await fixture.advertiseIncompatibleVersion() }
+        let refresh = Task { await model.refresh() }
+        while !model.isBusy { await Task.yield() }
+        let run = Run(runId:"queued-run",requestId:"queued-request",conversationId:"home",bindingRevisionId:"binding",state:"queued",selectedModel:"fixture-echo-v1",effectiveModel:nil,modelEvidence:"unreported",attemptId:nil)
+        var cancellationStarted = false
+        let cancellation = Task { cancellationStarted = true; await model.cancel(run) }
+        while !cancellationStarted { await Task.yield() }
+        #expect(await fixture.controlRequests() == [])
+        await fixture.releaseReads()
+        await refresh.value; await cancellation.value
+        #expect(await fixture.controlRequests() == (compatible ? ["/v1/runs/queued-run/cancel"] : []))
+    }
+}

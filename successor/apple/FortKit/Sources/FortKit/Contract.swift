@@ -73,6 +73,8 @@ public struct Run: Codable, Equatable, Sendable, Identifiable {
     public let attemptId: String?
     public var configuration: TurnConfiguration? = nil
     public var statusDetail: String? = nil
+    public var canRequestCancellation: Bool { ["queued","running","waitingForApproval"].contains(state) }
+    public var canCloseUnknown: Bool { state == "outcomeUnknown" }
     public var displayState: String {
         switch state {
         case "queued": "Accepted · waiting for host"

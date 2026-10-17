@@ -3,6 +3,7 @@ import FortKit
 
 struct Configuration: Codable { let baseURL: URL; let installationId: String; let codeA: String; let codeB: String; let stateDirectory: URL }
 struct CheckState: Codable { let tokenA: String; let tokenB: String; let pending: PendingSubmission; let expectedSnapshot: Snapshot }
+struct RecoveryCheckState: Codable { let uncertain: Receipt; let queued: Receipt }
 struct CheckFailure: Error { let reason: String }
 struct WorkspaceCheckState: Codable { let token: String; let writer: Agent; let reviewer: Agent; let room: Conversation; let skill: InstructionSkill; let pending: PendingSubmission; let receipts: [Receipt]; let completedRunIDs: [String]; let pendingRequestCount: Int }
 func require(_ condition: Bool, _ message: String) throws { if !condition { throw CheckFailure(reason:message) } }
@@ -92,6 +93,69 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             try store.remove(requestID:pending.requestID)
             try require(try store.pending().isEmpty,"pending queue remained after restart sample")
             print("PASS native and service restart, exact workspace identity, duplicate receipt and fifth synthetic reply")
+            return
+        }
+        if CommandLine.arguments[1].hasPrefix("workspace-recovery-") {
+            let state = try JSONDecoder().decode(WorkspaceCheckState.self,from:Data(contentsOf:stateFile))
+            let client = try FortClient(baseURL:config.baseURL,installationID:config.installationId,token:state.token,fixtureLoopback:true)
+            let recoveryFile = config.stateDirectory.appendingPathComponent("recovery-check.json")
+            let conversationID = state.writer.homeConversationId
+            let epoch = state.pending.recoveryEpoch
+            func enqueue(_ text: String) throws -> PendingSubmission {
+                try store.enqueue(conversationID:conversationID,bindingRevision:state.writer.binding.bindingRevisionId,recoveryEpoch:epoch,text:text,recipientAgentID:state.writer.id,skills:[])
+            }
+            switch CommandLine.arguments[1] {
+            case "workspace-recovery-prepare":
+                let uncertain = try enqueue("Synthetic uncertain turn")
+                let first = try await client.submit(uncertain)
+                _ = try await awaitState(client,conversationID:conversationID,state:"outcomeUnknown",runID:first.receipt.runId)
+                try store.remove(requestID:uncertain.requestID)
+                let queued = try enqueue("Synthetic queued turn to cancel after restart")
+                let second = try await client.submit(queued)
+                try store.remove(requestID:queued.requestID)
+                let snapshot = try await client.snapshot(conversationID:conversationID)
+                try require(snapshot.runs.last?.state == "queued","uncertainty did not hold later work")
+                try JSONEncoder().encode(RecoveryCheckState(uncertain:first.receipt,queued:second.receipt)).write(to:recoveryFile,options:.atomic)
+                print("PASS native unknown outcome holds later work before restart")
+            case "workspace-recovery-close":
+                let recovery = try JSONDecoder().decode(RecoveryCheckState.self,from:Data(contentsOf:recoveryFile))
+                let snapshot = try await client.snapshot(conversationID:conversationID)
+                try require(snapshot.runs.contains { $0.runId == recovery.uncertain.runId && $0.state == "outcomeUnknown" },"restart lost uncertainty")
+                try require(snapshot.runs.contains { $0.runId == recovery.queued.runId && $0.state == "queued" },"restart lost held work")
+                for _ in 0..<2 {
+                    let canceled = try await client.cancel(runID:recovery.queued.runId,recoveryEpoch:epoch)
+                    try require(canceled.state == "canceled","held work was not canceled")
+                    let closed = try await client.closeUnknown(runID:recovery.uncertain.runId,recoveryEpoch:epoch)
+                    try require(closed.state == "closedUnknown","unknown work was not explicitly closed")
+                }
+                let pending = try enqueue("Synthetic acceptance response lost")
+                do {
+                    _ = try await client.submit(pending)
+                    throw CheckFailure(reason:"expected the synthetic gateway to discard acceptance")
+                } catch ClientError.service(let code, _) {
+                    try require(code == "syntheticLostAcceptance","unexpected service error")
+                }
+                try require(try store.pending() == [pending],"lost acceptance changed the durable pending identity")
+                print("PASS native restarted queued cancellation, idempotent explicit closure and retained pending after lost acceptance")
+            case "workspace-recovery-replay":
+                let pending = try store.pending()
+                try require(pending.count == 1,"expected exactly one saved unacknowledged submission")
+                let saved = try await client.receipt(requestID:pending[0].requestID)
+                let replay = try await client.submit(pending[0])
+                try require(replay.receipt.runId == saved.receipt.runId && replay.receipt.messageId == saved.receipt.messageId && replay.receipt.requestId == saved.receipt.requestId && replay.receipt.inputDigest == saved.receipt.inputDigest,"lost acceptance replay changed the receipt")
+                _ = try await awaitState(client,conversationID:conversationID,state:"completed",runID:saved.receipt.runId)
+                try store.remove(requestID:pending[0].requestID)
+                let next = try enqueue("Continue in this Home after recovery. What sample word was saved?")
+                let accepted = try await client.submit(next)
+                let snapshot = try await awaitState(client,conversationID:conversationID,state:"completed",runID:accepted.receipt.runId)
+                try require(snapshot.messages.last?.text == "cedar","same-Home continuation lost its synthetic context")
+                try require(snapshot.messages.filter { $0.requestId == pending[0].requestID }.count == 2,"lost acceptance duplicated a message or reply")
+                try require(snapshot.runs.contains { $0.state == "closedUnknown" } && snapshot.runs.contains { $0.state == "canceled" },"recovery decisions did not persist")
+                try store.remove(requestID:next.requestID)
+                try require(try store.pending().isEmpty,"recovery left native submissions pending")
+                print("PASS native lost acceptance reconciliation after restart, no duplicate execution and same-Home continuation")
+            default: throw CheckFailure(reason:"unknown workspace recovery phase")
+            }
             return
         }
         if CommandLine.arguments[1] == "controls-prepare" {
