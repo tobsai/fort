@@ -1,0 +1,47 @@
+{
+  "sourceCommit": "36650394c5b38c2990ccf2a3457165ca3e9d9726",
+  "files": [
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/LICENSE",
+      "bytes": 10926,
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "path": "NOTICE",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/NOTICE",
+      "bytes": 242,
+      "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    },
+    {
+      "path": "codex-rs/cli/src/main.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/cli/src/main.rs",
+      "bytes": 177095,
+      "sha256": "88fd769091e831d50b99f8b5b573424c86a2323665a840461b191d62f47bb817"
+    },
+    {
+      "path": "codex-rs/arg0/src/lib.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/arg0/src/lib.rs",
+      "bytes": 28533,
+      "sha256": "476895d5adc6c8c897e53c8ec7a5d49556f9798d1d9a2918168c85f14c1ae5d7"
+    },
+    {
+      "path": "codex-rs/build-info/src/lib.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/build-info/src/lib.rs",
+      "bytes": 5292,
+      "sha256": "0586f2b1308a68c6b972d3a0b8656c0cbbc3735805ca9ab86de6dac3222b9ab1"
+    },
+    {
+      "path": "codex-rs/install-context/src/lib.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/install-context/src/lib.rs",
+      "bytes": 33763,
+      "sha256": "b7305f28586f61f7a3cc7d3c53c95dacabca05529b1ba3aa4b5e42d306db2ae5"
+    },
+    {
+      "path": "codex-rs/utils/home-dir/src/lib.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/utils/home-dir/src/lib.rs",
+      "bytes": 5096,
+      "sha256": "1338259489ade54b01caa1468b6d25fc5a183657fa94cca0add8b91865635ef5"
+    }
+  ]
+}

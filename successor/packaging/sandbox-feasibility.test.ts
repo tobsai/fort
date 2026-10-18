@@ -1,11 +1,51 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const identity = process.env.FORT_SIGNING_IDENTITY;
+const codex = process.env.FORT_TEST_CODEX;
+test('Codex packaging refuses absent, wrong and implicit payloads before creating an artifact', t => {
+  const root = mkdtempSync('/tmp/fort059-codex-preflight-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const legal = fileURLToPath(new URL('./vendor/codex-0.157.1/LICENSE', import.meta.url));
+  for (const [name, args] of [
+    ['absent', ['--scenario', 'codex-version']],
+    ['wrong', ['--scenario', 'codex-version', '--codex-runtime', legal]],
+    ['implicit', ['--scenario', 'normal', '--codex-runtime', legal]]
+  ] as const) {
+    const destination = join(root, name);
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', '-', '--destination', destination, ...args], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /exact Codex executable|not the reviewed 0\.157\.1 payload/);
+    assert.equal(existsSync(destination), false);
+  }
+});
+
+test('the exact Codex executable answers only its version inside the signed private sandbox', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity || !codex ? 'requires explicitly selected existing signing identity and reviewed Codex executable' : false }, t => {
+  assert.ok(identity && codex);
+  const root = mkdtempSync('/tmp/fort059-codex-version-test-');
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', identity, '--codex-runtime', codex, '--destination', join(root, 'proof'), '--scenario', 'codex-version'], { encoding: 'utf8', timeout: 90_000 });
+  assert.equal(result.status, 0, result.stderr + result.stdout + '\nRetained artifact: ' + root);
+  const proof: unknown = JSON.parse(result.stdout);
+  assert.ok(proof && typeof proof === 'object');
+  for (const key of ['codexVersionConfirmed', 'codexProcessAbsent', 'codexSourceUnchanged', 'outsideReadDenied', 'outsideWriteDenied', 'loopbackListenDenied', 'ownedProcessesAbsent', 'syntheticContainerAbsent']) {
+    assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
+  }
+  assert.equal('codexVersion' in proof && proof.codexVersion, 'codex-cli 0.157.1');
+  assert.equal('codexSourceSHA256' in proof && proof.codexSourceSHA256, '27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d');
+  assert.ok('codexVersionMs' in proof && typeof proof.codexVersionMs === 'number' && proof.codexVersionMs > 0 && proof.codexVersionMs < 5000);
+  const codexPid = 'codexPid' in proof ? proof.codexPid : undefined;
+  assert.ok(typeof codexPid === 'number' && Number.isSafeInteger(codexPid) && codexPid > 1);
+  assert.throws(() => process.kill(codexPid, 0), { code: 'ESRCH' });
+  assert.equal('providerUsed' in proof && proof.providerUsed, false);
+  assert.equal('startupRegistered' in proof && proof.startupRegistered, false);
+  assert.equal('codexForcedCleanup' in proof && proof.codexForcedCleanup, false);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+});
+
 test('embedded XPC peers authenticate exact identities and reject mismatches without expanding the sandbox', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
   assert.ok(identity);
   const root = mkdtempSync('/tmp/fort059-sandbox-xpc-test-');

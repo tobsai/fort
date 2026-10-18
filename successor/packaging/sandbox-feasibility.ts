@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -10,6 +10,8 @@ const source = dirname(fileURLToPath(import.meta.url));
 const command = (tool: string, args: string[]) => execFileSync(tool, args, { encoding: 'utf8', timeout: 60_000, stdio: 'pipe' });
 const plist = (values: string) => `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>${values}</dict></plist>`;
 const xml = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+const hash = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const codexSHA256 = '27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d';
 
 async function cleanXPC(executables: string[], knownPids: number[]) {
   const owned = () => command('/bin/ps', ['-axww', '-o', 'pid=,pgid=,comm=']).split('\n').flatMap(line => {
@@ -90,9 +92,17 @@ async function runProbe(executable: string, outside: string, scenario: string, t
 }
 
 try {
-  const { values } = parseArgs({ options: { runtime: { type: 'string' }, identity: { type: 'string' }, destination: { type: 'string' }, scenario: { type: 'string', default: 'normal' }, 'timeout-ms': { type: 'string', default: '15000' } }, strict: true });
+  const { values } = parseArgs({ options: { runtime: { type: 'string' }, 'codex-runtime': { type: 'string' }, identity: { type: 'string' }, destination: { type: 'string' }, scenario: { type: 'string', default: 'normal' }, 'timeout-ms': { type: 'string', default: '15000' } }, strict: true });
   if (!values.runtime || !values.identity || !values.destination) throw new Error('Required: --runtime, --identity, --destination');
-  if (!['normal', 'hang', 'core', 'xpc'].includes(values.scenario)) throw new Error('Unknown synthetic scenario');
+  if (!['normal', 'hang', 'core', 'xpc', 'codex-version'].includes(values.scenario)) throw new Error('Unknown synthetic scenario');
+  const codexRuntime = values['codex-runtime'];
+  if ((values.scenario === 'codex-version') !== Boolean(codexRuntime)) throw new Error('Select an exact Codex executable only for the explicit codex-version scenario');
+  if (codexRuntime) {
+    if (hash(codexRuntime) !== codexSHA256) throw new Error('The selected Codex executable is not the reviewed 0.157.1 payload');
+    for (const [name, expected] of [['LICENSE', 'd17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc'], ['NOTICE', '9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915']]) {
+      if (hash(join(source, 'vendor/codex-0.157.1', name)) !== expected) throw new Error('Codex attribution does not match its reviewed source');
+    }
+  }
   const timeoutMs = Number(values['timeout-ms']);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 15000) throw new Error('Timeout must be 100 to 15000 milliseconds');
   if (process.platform !== 'darwin') throw new Error('macOS proof only');
@@ -106,6 +116,16 @@ try {
   const childEntitlements = join(root, 'child.entitlements');
   writeFileSync(parentEntitlements, plist('<key>com.apple.security.app-sandbox</key><true/>'));
   writeFileSync(childEntitlements, plist('<key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.inherit</key><true/>'));
+  const bundledCodex = join(app, 'Contents/MacOS/codex');
+  let codexBundledSHA256: string | undefined;
+  if (codexRuntime) {
+    copyFileSync(codexRuntime, bundledCodex);
+    if (hash(bundledCodex) !== codexSHA256) throw new Error('Codex executable changed during preparation');
+    cpSync(join(source, 'vendor/codex-0.157.1'), join(app, 'Contents/Resources/CodexLicenses'), { recursive: true });
+    command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', childEntitlements, bundledCodex]);
+    codexBundledSHA256 = hash(bundledCodex);
+    writeFileSync(join(app, 'Contents/Resources/codex-provenance.json'), JSON.stringify({ source: 'https://github.com/openai/codex', sourceCommit: '36650394c5b38c2990ccf2a3457165ca3e9d9726', sourceSHA256: codexSHA256, bundledSHA256: codexBundledSHA256, purpose: 'Offline version-only packaging probe; no provider or release approval' }, null, 2) + '\n');
+  }
   const runtime = join(root, 'runtime-staging');
   command(process.execPath, [join(source, 'node-bundle.ts'), '--runtime', values.runtime, '--identity', values.identity, '--destination', runtime]);
   const node = join(app, 'Contents/MacOS/node');
@@ -170,6 +190,8 @@ try {
   const container = join(homedir(), 'Library/Containers', identifier);
   if ([identifier, ...xpcIdentifiers].some(id => existsSync(join(homedir(), 'Library/Containers', id)))) throw new Error('Synthetic container already exists; refusing reuse');
   const run = await runProbe(executable, outside, values.scenario, timeoutMs);
+  const codexMatch = /^FORT_PROBE_CODEX ([0-9]+)$/m.exec(run.diagnostics);
+  const codexCleanup = codexRuntime ? await cleanXPC([bundledCodex], codexMatch ? [Number(codexMatch[1])] : []) : undefined;
   const xpcMatch = /^FORT_PROBE_XPC (.+)$/m.exec(run.diagnostics);
   const xpc: unknown = xpcMatch ? JSON.parse(xpcMatch[1]) : {};
   if (!xpc || typeof xpc !== 'object') throw new Error('Malformed XPC proof');
@@ -184,22 +206,24 @@ try {
   knownPids.push(...corePids, ...runtimePids);
   const xpcCleanup = values.scenario === 'xpc' ? await cleanXPC(xpcExecutables, knownPids) : undefined;
   const xpcCoreProcessesAbsent = new Set(corePids).size === 4 && new Set(runtimePids).size === 4 && new Set(helpers).size === 2 && corePids.every(pid => absent(pid) && absent(-pid)) && runtimePids.every(absent) && helpers.every(absent);
-  if (run.ownedProcessesAbsent && (!xpcCleanup || xpcCleanup.xpcProcessesAbsent)) {
+  if (run.ownedProcessesAbsent && (!xpcCleanup || xpcCleanup.xpcProcessesAbsent) && (!codexCleanup || codexCleanup.xpcProcessesAbsent)) {
     for (const id of [identifier, ...xpcIdentifiers]) rmSync(join(homedir(), 'Library/Containers', id), { recursive: true, force: true });
   }
   if (readFileSync(outside, 'utf8') !== 'synthetic-only') throw new Error('Outside marker changed');
   let proof: object = {};
-  if (run.outcome === 'completed') {
+  if (run.outcome === 'completed' || (codexRuntime && run.stdout.trim().startsWith('{'))) {
     const parsed: unknown = JSON.parse(run.stdout);
     if (!parsed || typeof parsed !== 'object' || !('sqlite' in parsed) || parsed.sqlite !== 'ready' || !('outsideReadDenied' in parsed) || parsed.outsideReadDenied !== true || !('outsideWriteDenied' in parsed) || parsed.outsideWriteDenied !== true || !('loopbackListenDenied' in parsed) || parsed.loopbackListenDenied !== true || !('privateSocketRoundTrip' in parsed) || typeof parsed.privateSocketRoundTrip !== 'boolean') throw new Error('Invalid sandbox evidence');
     if (['core', 'xpc'].includes(values.scenario) && ['coreAuthentication', 'coreExactMessages', 'coreReplay', 'coreRestart', 'coreNoDuplicate', 'coreSocketAbsent'].some(key => !(key in parsed) || Reflect.get(parsed, key) !== true)) throw new Error('Compiled core evidence was not confirmed');
     proof = parsed;
   }
   const { stdout: _stdout, ...execution } = run;
-  const result = { ...proof, ...execution, ...xpc, ...xpcCleanup, ...(values.scenario === 'xpc' ? { xpcCoreProcessesAbsent } : {}), syntheticContainerAbsent: [identifier, ...xpcIdentifiers].every(id => !existsSync(join(homedir(), 'Library/Containers', id))), identifier, xpcIdentifiers, app, signedIdentityClass: 'existing development identity', providerUsed: false, startupRegistered: false };
+  const codexEvidence = codexRuntime ? { codexProcessAbsent: codexCleanup?.xpcProcessesAbsent === true, codexForcedCleanup: codexCleanup?.xpcForcedCleanup, codexObservedPids: codexCleanup?.xpcObservedPids, codexSourceSHA256: codexSHA256, codexBundledSHA256, codexSourceUnchanged: hash(codexRuntime) === codexSHA256 } : {};
+  const result = { ...proof, ...execution, ...xpc, ...xpcCleanup, ...codexEvidence, ...(values.scenario === 'xpc' ? { xpcCoreProcessesAbsent } : {}), syntheticContainerAbsent: [identifier, ...xpcIdentifiers].every(id => !existsSync(join(homedir(), 'Library/Containers', id))), identifier, xpcIdentifiers, app, signedIdentityClass: 'existing development identity', providerUsed: false, startupRegistered: false };
   writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(JSON.stringify(result) + '\n');
   if (run.outcome !== 'completed') process.exitCode = 1;
+  if (codexRuntime && (codexCleanup?.xpcForcedCleanup || !codexEvidence.codexProcessAbsent || !codexEvidence.codexSourceUnchanged || !('codexVersionConfirmed' in proof) || proof.codexVersionConfirmed !== true)) process.exitCode = 1;
   if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcSetupCancelPending', 'xpcSetupCancellation', 'xpcSetupCancelRetry', 'xpcSetupCancelForeignRejected', 'xpcSetupCancelNoHTTP', 'xpcSetupCancelRetainsReceipt', 'xpcSetupCancelClientRejected', 'xpcSetupCancelServiceRejected', 'xpcSetupCancelDisabled', 'xpcOwnerSetup', 'xpcOwnerSetupRetry', 'xpcOwnerSetupForeignRejected', 'xpcOwnerSetupNoHTTP', 'xpcSetupClientRejected', 'xpcSetupServiceRejected', 'xpcSetupDisabled', 'xpcCoreAbruptRecovery', 'xpcCoreGuarded', 'xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Sandbox proof failed') + '\n');

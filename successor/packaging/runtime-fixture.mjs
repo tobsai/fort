@@ -1,6 +1,8 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { createServer, createConnection } from 'node:net';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const [privateRoot, outside, scenario] = process.argv.slice(2);
@@ -48,5 +50,17 @@ const privateSocket = await new Promise(resolve => {
   });
 });
 const core = ['core', 'xpc'].includes(scenario) ? await (await import('./core-fixture.mjs')).probeCore(privateRoot) : {};
-process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure, ...core }) + '\n');
-if (sqlite !== 'ready' || !outsideReadDenied || !outsideWriteDenied || !loopbackListenDenied) process.exitCode = 1;
+let codex = {};
+if (scenario === 'codex-version') {
+  const home = join(privateRoot, 'codex-version-home'), temporary = join(privateRoot, 'codex-version-tmp');
+  const configuration = join(home, '.codex');
+  mkdirSync(home, { mode: 0o700 }); mkdirSync(configuration, { mode: 0o700 }); mkdirSync(temporary, { mode: 0o700 });
+  const executable = fileURLToPath(new URL('../MacOS/codex', import.meta.url));
+  const started = performance.now();
+  const result = spawnSync(executable, ['--version'], { cwd: home, env: { HOME: home, CODEX_HOME: configuration, TMPDIR: temporary, PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 5000, killSignal: 'SIGKILL', maxBuffer: 4096 });
+  if (result.pid > 1) process.stderr.write(`FORT_PROBE_CODEX ${result.pid}\n`);
+  const version = result.stdout?.trim() ?? '';
+  codex = { codexPid: result.pid ?? null, codexVersion: version, codexVersionMs: performance.now() - started, codexVersionConfirmed: result.status === 0 && !result.error && version === 'codex-cli 0.157.1', codexExitCode: result.status, codexSignal: result.signal, codexDiagnostic: result.stderr ?? '', codexSpawnError: result.error?.code ?? null };
+}
+process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure, ...core, ...codex }) + '\n');
+if (sqlite !== 'ready' || !outsideReadDenied || !outsideWriteDenied || !loopbackListenDenied || (scenario === 'codex-version' && !codex.codexVersionConfirmed)) process.exitCode = 1;

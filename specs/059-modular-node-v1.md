@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: feabeb43ea68c2b9431bafa1b6af27ee00ca316ed28bfe224e77de2d793c1ef0
+Reviewed content SHA256: 1aae20a02fcbe5cd81f0dc8345a4ca12ac3cf100ec01e9e257a5c9d52723ae80
 
 ### Vendor independence
 Status: planned
@@ -856,6 +856,38 @@ preparation, invalid storage refusal, identity-change rejection and a guarded co
 journey from the prepared directory. The system App Group lookup and actual profile
 authorization remain unrun until matching production identities/profiles exist.
 
+Extend the existing signed synthetic bundle with one explicit offline Codex executable
+probe before choosing its production package placement. Require the exact selected
+0.157.1 executable bytes (SHA256
+`27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d`), reviewed at
+upstream commit `36650394c5b38c2990ccf2a3457165ca3e9d9726`. Copy only that binary
+into the standard `Contents/MacOS` code directory, retaining pinned upstream LICENSE
+and NOTICE plus original/bundled hashes. Re-sign the local copy with the existing
+development identity and the same sandbox+inherit child entitlements; do not modify
+the installed runtime. Keep the parent's sandbox-only entitlement and existing Node
+outside-file/network denial checks. No entitlement expansion or startup registration.
+
+Invoke only `--version`, with stdin closed and a five-second child limit inside the
+existing 15-second parent/group bound. The fixture owns a fresh empty HOME, explicit
+existing CODEX_HOME and temporary directory; pass only those paths and a fixed PATH.
+Never read/copy the owner's home, settings, environment credentials or authentication.
+Pinned source shows dotenv/PATH setup before CLI parsing, so this cannot be an ambient
+shell version check. Retain stdout/stderr as bounded synthetic diagnostics, exact
+exit/version result, child PID and absence checks. Confirm both exact process/group
+and synthetic container cleanup before reporting success. Preserve a failed artifact
+and report incompatibility; do not weaken the binary/version pin to make it pass.
+
+Vendor independence: the optional runtime probe does not enter the vendor-free core
+artifact or select a production provider. Modularity: copy no voice, code-mode host,
+shell, rg or other optional payload, and make the scenario opt-in with an explicit
+binary path. Speed: retain existing 15-second synthetic work/cleanup bounds and record
+the isolated version-command duration against a five-second limit, not a provider or
+production startup benchmark. Installation/removal: a local signed engineering copy
+only, with unchanged process/container cleanup and legal provenance. Actual app-server
+package metadata, helper discovery, third-party redistribution closure, signed
+App Group/profile, authentication, provider operations and TestFlight remain separate
+unrun gates. A version response cannot establish those capabilities or complete v1.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -1139,6 +1171,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/packaging/node-bundle.test.ts`
 - `successor/packaging/sandbox-probe.swift`
 - `successor/packaging/runtime-fixture.mjs`
+- `successor/packaging/vendor/codex-0.157.1/LICENSE`
+- `successor/packaging/vendor/codex-0.157.1/NOTICE`
+- `successor/evidence/2026-10-17-node-foundation/codex-bundle-version.md`
+- `successor/evidence/2026-10-17-node-foundation/codex-package-audit.json`
 - `successor/packaging/sandbox-feasibility.ts`
 - `successor/packaging/sandbox-feasibility.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/README.md`
