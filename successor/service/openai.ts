@@ -10,6 +10,7 @@ import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 
+const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
@@ -146,10 +147,23 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));
     CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS dispatch_outbox (position INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL UNIQUE, conversation_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('queued','running','cancelRequested','waitingForApproval','outcomeUnknown')), held INTEGER NOT NULL DEFAULT 0 CHECK(held IN (0,1)), attempt_id TEXT, generation INTEGER NOT NULL CHECK(generation>=0));
+    CREATE INDEX IF NOT EXISTS outbox_ready ON dispatch_outbox(state,held,position);
+    CREATE INDEX IF NOT EXISTS outbox_conversation ON dispatch_outbox(conversation_id,position);
+    CREATE INDEX IF NOT EXISTS message_request ON entities(json_extract(data,'$.requestId'),json_extract(data,'$.role')) WHERE kind='messages';
     CREATE INDEX IF NOT EXISTS message_page ON entities(json_extract(data,'$.conversationId'),json_extract(data,'$.sequence')) WHERE kind='messages';
     CREATE INDEX IF NOT EXISTS run_request ON entities(json_extract(data,'$.requestId')) WHERE kind='runs';
     CREATE INDEX IF NOT EXISTS run_state ON entities(json_extract(data,'$.conversationId'),json_extract(data,'$.state')) WHERE kind='runs';
     CREATE INDEX IF NOT EXISTS approval_run ON entities(json_extract(data,'$.runId')) WHERE kind='routineApprovals';`);
+  const outboxVersion = db.prepare("SELECT data FROM metadata WHERE key='outboxVersion'").get();
+  if (outboxVersion && outboxVersion.data !== '1') { db.close(); throw new Error('Unsupported outbox version'); }
+  if (!outboxVersion) {
+    db.exec(`BEGIN IMMEDIATE;
+      INSERT INTO dispatch_outbox(run_id,conversation_id,state,attempt_id,generation)
+      SELECT id,json_extract(data,'$.conversationId'),json_extract(data,'$.state'),json_extract(data,'$.attemptId'),coalesce(json_extract(data,'$.attemptGeneration'),0)
+      FROM entities WHERE kind='runs' AND json_extract(data,'$.state') IN ('queued','running','cancelRequested','waitingForApproval','outcomeUnknown') ORDER BY rowid;
+      INSERT INTO metadata VALUES ('outboxVersion','1'); COMMIT;`);
+  }
   const runtimeIdentity = JSON.stringify({ provider: provider.provider, runtimeVersion: provider.runtimeVersion, hostId: provider.hostId });
   const savedRuntime = db.prepare("SELECT data FROM metadata WHERE key='runtimeIdentity'").get();
   try {
@@ -204,6 +218,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
+    if (kind === 'runs') {
+      const run = decodeRun(data);
+      if (unresolved.has(run.state)) db.prepare(`INSERT INTO dispatch_outbox(run_id,conversation_id,state,attempt_id,generation) VALUES (?,?,?,?,?)
+        ON CONFLICT(run_id) DO UPDATE SET state=excluded.state,attempt_id=excluded.attempt_id,generation=excluded.generation`).run(run.runId,run.conversationId,run.state,run.attemptId,run.attemptGeneration ?? 0);
+      else db.prepare('DELETE FROM dispatch_outbox WHERE run_id=?').run(run.runId);
+    }
     if (['agents', 'agentBindings', 'disabledBindings', 'conversations', 'skills', 'skillRevisions', 'routines', 'schedules'].includes(kind)) append('_workspace', 'workspaceChanged', entityId);
     return result;
   };
@@ -237,11 +257,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     queueMicrotask(() => { for (const wake of [...eventWaiters]) wake(); });
     return sequence;
   };
-  const held = new Set<string>();
   transaction(() => {
-    for (const run of list('runs', decodeRun)) {
+    for (const run of db.prepare("SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id ORDER BY o.position").all().map(row=>decodeRun(json(row)))) {
       if (run.state === 'running' || run.state === 'cancelRequested') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.',...(run.routine?{routine:stopRoutine(run.routine,'outcomeUnknown','Service restarted before a confirmed result.')}: {}) }); append(run.conversationId, 'runStopped', run.runId); }
-      if (run.state === 'queued'&&!run.routine) { held.add(run.runId); put('runs', run.runId, { ...run, statusDetail: 'Held after restart. This candidate does not automatically resume old queued work.' }); }
+      if (run.state === 'queued'&&!run.routine) { put('runs', run.runId, { ...run, statusDetail: 'Held after restart. Review or cancel this queued work before continuing.' }); db.prepare('UPDATE dispatch_outbox SET held=1 WHERE run_id=?').run(run.runId); }
     }
   });
   const conversationMemory=(conversationId:string):ConversationMemory|undefined=>{
@@ -291,7 +310,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
-    const queued = db.prepare("SELECT count(*) AS count FROM entities WHERE kind='runs' AND json_extract(data,'$.conversationId')=? AND json_extract(data,'$.state') IN ('queued','running','cancelRequested','waitingForApproval','outcomeUnknown')").get(conversationId);
+    if (Number(db.prepare('SELECT count(*) AS count FROM dispatch_outbox').get()?.count) >= 1000) fail(429,'queueFull','This installation has 1000 unresolved turns. Complete, cancel or resolve earlier work before adding another.');
+    const queued = db.prepare('SELECT count(*) AS count FROM dispatch_outbox WHERE conversation_id=?').get(conversationId);
     if (Number(queued?.count) >= 100) fail(429,'queueFull','This conversation has 100 unresolved turns. Complete, cancel or resolve earlier work before adding another.');
     try { decodeConfiguration(configuration); }
     catch(error){if(error instanceof APIError&&error.status===400)fail(400,'invalidConfiguration','Combined Agent and routine instructions must fit within 16384 bytes. Shorten the saved configuration before running it.');throw error;}
@@ -383,7 +403,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           let record:ScheduleOccurrence={occurrenceId,scheduleId:schedule.scheduleId,scheduleRevisionId:schedule.revisionId,routineId:schedule.definition.routineId,routineRevisionId:schedule.definition.routineRevisionId,intendedAt:occurrence.intendedAt,localDate:occurrence.localDate,localTime:occurrence.localTime,state:'accepted'};
           if(occurrence.intendedAt===null)record.state='skippedGap';
           else if(missed&&occurrence!==catchUp)record.state='skippedMissed';
-          else if(list('runs',decodeRun).some(run=>run.routine?.routineId===schedule.definition.routineId&&['queued','running','waitingForApproval','cancelRequested','outcomeUnknown'].includes(run.state)))record.state='skippedOverlap';
+          else if(db.prepare("SELECT 1 FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id WHERE json_extract(e.data,'$.routine.routineId')=? LIMIT 1").get(schedule.definition.routineId))record.state='skippedOverlap';
           else {
             try {
               const acceptance=acceptRoutine(schedule.definition.routineId,{requestId:'occurrence-'+occurrenceId,routineRevisionId:schedule.definition.routineRevisionId,recoveryEpoch:installation.recoveryEpoch,inputs:schedule.definition.inputs});
@@ -432,8 +452,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
     if (closed || dispatchStopped || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
-    const runs = list('runs', decodeRun);
-    const queued = runs.find((r, index) => r.state === 'queued' && !held.has(r.runId) && !runs.slice(0, index).some(prior => prior.conversationId === r.conversationId && (prior.state === 'queued' || prior.state === 'running' || prior.state === 'cancelRequested' || prior.state === 'waitingForApproval' || prior.state === 'outcomeUnknown')));
+    const nextRow = db.prepare(`SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id
+      WHERE o.state='queued' AND o.held=0 AND NOT EXISTS
+        (SELECT 1 FROM dispatch_outbox prior WHERE prior.conversation_id=o.conversation_id AND prior.position<o.position)
+      ORDER BY o.position LIMIT 1`).get();
+    const queued = nextRow ? decodeRun(json(nextRow)) : undefined;
     if (!queued?.configuration) return false;
     if(bindingDisabled(queued.bindingRevisionId)){
       const detail='The pinned binding revision was disabled before dispatch. Nothing was sent.';
@@ -455,14 +478,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     }
     if(!options.runtime)return false;
     const input = transaction(() => {
-      const messages = list('messages', decodeMessage).filter(m => m.conversationId === queued.conversationId);
-      const current = messages.find(m => m.requestId === queued.requestId && m.role === 'user');
+      const inputRow = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(queued.requestId);
+      const current = inputRow ? decodeMessage(json(inputRow)) : undefined;
       if (!current || !queued.configuration) throw new Error('Queued run has no accepted input');
       const attemptId=randomUUID(),routine=queued.routine?{...queued.routine,steps:queued.routine.steps.map((step,index)=>index===stepIndex?{stepId:step.stepId,stepRevisionId:step.stepRevisionId,state:'running' as const,attemptId}:step)}:undefined;
       const attemptGeneration = (queued.attemptGeneration ?? 0) + 1;
       const binding = load('agentBindings', queued.bindingRevisionId, decodeAgent).binding;
       put('runs', queued.runId, { ...queued, state: 'running', attemptId, attemptGeneration,...(routine?{routine}:{}) }); append(queued.conversationId, 'runStarted', queued.runId);
-      const history = messages.filter(m => m.role === 'user' && m.sequence < current.sequence).flatMap(m => [m, ...messages.filter(reply => reply.role === 'assistant' && reply.requestId === m.requestId)]);
+      const users = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.conversationId')=? AND json_extract(data,'$.sequence')<? AND json_extract(data,'$.role')='user' ORDER BY json_extract(data,'$.sequence')").all(queued.conversationId,current.sequence).map(row=>decodeMessage(json(row)));
+      const replies = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId') IN (SELECT value FROM json_each(?)) AND json_extract(data,'$.role')='assistant' ORDER BY json_extract(data,'$.sequence')").all(JSON.stringify(users.map(message=>message.requestId))).map(row=>decodeMessage(json(row)));
+      const repliesByRequest = new Map<string,Message[]>();
+      for (const reply of replies) { const group=repliesByRequest.get(reply.requestId) ?? []; group.push(reply); repliesByRequest.set(reply.requestId,group); }
+      const history = users.flatMap(message=>[message,...(repliesByRequest.get(message.requestId) ?? [])]);
       const next: ChatInput = { attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
       put('contexts', attemptId, {
         runId: queued.runId, attempt: next.attempt, inputMessageId: current.messageId,

@@ -130,6 +130,28 @@ test('reopening an installation with another runtime identity fails before dispa
   } finally { await replacement?.close(); }
 });
 
+test('global admission bounds unresolved work across Homes and cancellation releases one slot', async t => {
+  const h = await setup(t);
+  let first: Acceptance | undefined;
+  let command: Record<string, unknown> = {}, path = '';
+  for (let home = 0; home < 11; home++) {
+    const agent = (await h.api<Agent>('/v1/agents', { name: 'Home ' + home, model: 'exact-model', instructions: 'Synthetic.' })).body;
+    path = `/v1/conversations/${agent.homeConversationId}/messages`;
+    command = { text: 'Synthetic queue item', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] };
+    if (home === 10) break;
+    for (let item = 0; item < 100; item++) {
+      const accepted = await h.api<Acceptance>(path, { ...command, requestId: `global-${home}-${item}` });
+      assert.equal(accepted.status, 201); first ??= accepted.body;
+    }
+  }
+  const rejected = await h.api<{ error: { code: string } }>(path, { ...command, requestId: 'global-overflow' });
+  assert.equal(rejected.status, 429); assert.equal(rejected.body.error.code, 'queueFull');
+  assert.ok(first);
+  assert.deepEqual((await h.api<Acceptance>('/v1/requests/' + first.receipt.requestId)).body.receipt, first.receipt);
+  await h.api(`/v1/runs/${first.receipt.runId}/cancel`, { recoveryEpoch: h.service.installation.recoveryEpoch });
+  assert.equal((await h.api(path, { ...command, requestId: 'global-after-cancel' })).status, 201);
+});
+
 test('two hundred durable turns page exact replay within a four MiB ledger budget', async t => {
   let lastInput: ChatInput | undefined;
   const h = await setup(t, { runtime: {
@@ -997,7 +1019,7 @@ test('queued turns receive completed prior context in their own conversation, in
   assert.equal(inputs[3]?.history.every(m => m.conversationId === writer.homeConversationId), true);
 });
 
-test('restart holds old queued work and unknown outcomes without blocking a different Home', async t => {
+for (const format of ['current','legacy','compacted']) test(`restart holds queued/unknown barriers without blocking another Home: ${format}`, async t => {
   const calls: ChatInput[] = [];
   let started!: () => void;
   const entered = new Promise<void>(resolve => { started = resolve; });
@@ -1012,7 +1034,14 @@ test('restart holds old queued work and unknown outcomes without blocking a diff
   const send = (agent: Agent, requestId: string) => h.api(`/v1/conversations/${agent.homeConversationId}/messages`, { requestId, text: requestId, recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
   await send(a, 'uncertain'); await send(a, 'old-queued');
   const dispatch = h.service.dispatchNext(); await entered;
-  await h.restart(); await dispatch;
+  await h.service.close(); await dispatch;
+  if (format !== 'current') {
+    const fixture = new DatabaseSync(join(h.directory,'openai-candidate-b.sqlite'));
+    if (format === 'legacy') fixture.exec("DROP TABLE dispatch_outbox; DELETE FROM metadata WHERE key='outboxVersion'");
+    else fixture.exec('VACUUM');
+    fixture.close();
+  }
+  await h.restart();
   assert.equal(await h.service.dispatchNext(), false);
   await send(a, 'new-behind-barrier'); await send(b, 'other-home');
   assert.equal(await h.service.dispatchNext(), true);

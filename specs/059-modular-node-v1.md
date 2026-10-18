@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 78e2e49119a5efcba40c216bb967d8c846be6dceac32152d6e29ffb8d86de1da
+Reviewed content SHA256: 78444074355d6bc8e35c8439591e161b5ddbc5a0642e7444a46379713abb5497
 
 ### Vendor independence
 Status: planned
@@ -84,7 +84,7 @@ Snapshots expose at most 100 messages per page with an explicit older-page curso
 Receipt responses carry the exact accepted message/run separately for recovery
 outside that page. Native clients keep the latest page and at most one earlier
 page in memory, with an explicit return to latest history. Admission allows at
-most 100 unresolved turns per conversation; duplicate receipts do not consume
+most 100 unresolved turns per conversation and 1,000 per installation; duplicate receipts do not consume
 capacity, and cancellation or terminal resolution releases it. These are
 unchanged-scope implementation bounds under decision 059. Events explicitly distinguish replayable deltas
 from invalidation wakeups; expired cursors trigger snapshot recovery. The initial
@@ -100,7 +100,11 @@ input/context/policy digests, limits, deadline and scoped grant references. Exec
 cannot invent competing attempts or write the ledger. Evidence is correlated,
 bounded and idempotent. Cancellation targets the exact attempt; ambiguous external
 effects stay unknown and are not blindly replayed. Queues preserve per-conversation
-order with conservative global/provider/connector limits and backpressure.
+order with conservative global/provider/connector limits and backpressure. The
+indexed outbox contains unresolved work only, changes atomically with its Run,
+and retains restart holds and uncertain-outcome barriers. Historical completed
+runs are not scanned to choose the next dispatch. Legacy ledgers backfill this
+index under the exclusive service lock; no second writer is introduced.
 
 Optional modules own context retrieval, voice draft/playback, reviewed connector
 operations and VM placement. Authority checks exact action/scope/digest/expiry
@@ -138,6 +142,8 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/outbox.md`
 
 - `successor/runner/synthetic-process.ts`
 - `successor/runner/synthetic-process.test.ts`
