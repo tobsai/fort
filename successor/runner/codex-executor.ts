@@ -10,6 +10,7 @@ import { ExecutorProcess } from './executor-process.ts';
 import { privateCodexLaunchPlan } from './private-codex-plan.ts';
 export { CODEX_RUNTIME } from './codex-descriptor.ts';
 export { privateCodexLaunchPlan } from './private-codex-plan.ts';
+export { signInCodexAccount } from './codex-account.ts';
 
 type CodexExecutorOptions = {
   input: Readable; output: Writable; hostId: string;

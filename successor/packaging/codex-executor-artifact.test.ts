@@ -15,6 +15,7 @@ test('the optional executor artifact contains complete compiled dependencies and
   assert.ok(files.includes('runner/codex-executor.js') && files.includes('runner/codex-executor.d.ts'));
   assert.ok(files.includes('runner/executor-worker.js') && files.includes('runner/codex-chat.js'));
   assert.ok(files.includes('runner/private-codex-plan.js') && files.includes('runner/private-codex-plan.d.ts'));
+  assert.ok(files.includes('runner/codex-account.js') && files.includes('runner/codex-account.d.ts'));
   assert.ok(!files.some(path => /(^|\/)(service|host|modules|prototype|foundation|node_modules|fixtures)(\/|$)|\.test\.|\.ts$/.test(path) && !path.endsWith('.d.ts')));
   assert.deepEqual(JSON.parse(readFileSync(join(artifact, 'manifest.json'), 'utf8')), manifest);
   assert.deepEqual(manifest.files.map(file => file.path).sort(), files.filter(path => path !== 'manifest.json' && lstatSync(join(artifact, path)).isFile()).sort());
@@ -28,7 +29,7 @@ test('the optional executor artifact contains complete compiled dependencies and
   assert.equal(packageJSON.private, true); assert.equal(packageJSON.scripts, undefined); assert.equal(packageJSON.dependencies, undefined);
   assert.equal(packageJSON.exports['.'].import, './runner/codex-executor.js');
   const imports = spawnSync(process.execPath, ['--no-experimental-strip-types', '--input-type=module', '-e',
-    `const m=await import(${JSON.stringify(join(artifact, 'runner/codex-executor.js'))});if(typeof m.serveCodexExecutor!=='function'||typeof m.createCodexExecutorProcess!=='function'||typeof m.privateCodexLaunchPlan!=='function'||typeof m.createPrivateCodexExecutorProcess!=='function')process.exit(1);`],
+    `const m=await import(${JSON.stringify(join(artifact, 'runner/codex-executor.js'))});if(typeof m.serveCodexExecutor!=='function'||typeof m.createCodexExecutorProcess!=='function'||typeof m.privateCodexLaunchPlan!=='function'||typeof m.createPrivateCodexExecutorProcess!=='function'||typeof m.signInCodexAccount!=='function')process.exit(1);`],
   { cwd: root, env: {}, encoding: 'utf8', timeout: 5000 });
   assert.equal(imports.status, 0, imports.stderr);
   for (const args of [[], ['--unapproved', 'synthetic-private-marker'], ['--executable', '/synthetic/missing']]) {
@@ -37,11 +38,12 @@ test('the optional executor artifact contains complete compiled dependencies and
     assert.equal(rejected.status, 1); assert.equal(rejected.stdout, '');
     assert.equal(rejected.stderr, 'Fort executor could not start or finish safely.\n');
   }
-  writeFileSync(join(root, 'consumer.mts'), `import { createCodexExecutorProcess, serveCodexExecutor, privateCodexLaunchPlan, createPrivateCodexExecutorProcess } from './executor/runner/codex-executor.js';
+  writeFileSync(join(root, 'consumer.mts'), `import { createCodexExecutorProcess, serveCodexExecutor, privateCodexLaunchPlan, createPrivateCodexExecutorProcess, signInCodexAccount } from './executor/runner/codex-executor.js';
 const config: Parameters<typeof createCodexExecutorProcess>[0] = { executable:'/exact/node', args:[], cwd:'/exact/empty', env:{}, guardian:'/exact/guardian', hostId:'explicit-host' };
 const worker: Parameters<typeof serveCodexExecutor>[0] = { input:process.stdin, output:process.stdout, hostId:'explicit-host', runtime:privateCodexLaunchPlan({ executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian' }) };
 const privateProcess: Parameters<typeof createPrivateCodexExecutorProcess>[0] = { executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian', hostId:'explicit-host' };
-void config; void worker; void privateProcess;
+const accountPolicy: Pick<Parameters<typeof signInCodexAccount>[0], 'runtimeVersion' | 'timeoutMs' | 'onChallenge'> = { runtimeVersion:'0.157.1', timeoutMs:60_000, onChallenge: challenge => { const url:string=challenge.verificationURL; void url; } };
+void config; void worker; void privateProcess; void accountPolicy;
 `);
   const compiler = fileURLToPath(new URL('../node_modules/typescript/bin/tsc', import.meta.url));
   const types = fileURLToPath(new URL('../node_modules/@types', import.meta.url));

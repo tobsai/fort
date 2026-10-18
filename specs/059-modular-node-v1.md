@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 709749ea305febf9b1c501892ed19b2b76fc5d3b373d13cdd1b48c491fbb0670
+Reviewed content SHA256: 1de2d96e69738755244df50e4cbfd414089c482e2e692633c98d6d2c971ca71a
 
 ### Vendor independence
 Status: planned
@@ -2308,7 +2308,67 @@ PairingSettings.swift in that same source directory; new
 successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift;
 this spec, v1 ledger, current Ponytail review and evidence native-companion-removal.md.
 
+### Explicit official-runtime device sign-in preparation
+
+Continue decision 059's exact official-runtime authentication boundary, prioritizing
+the Mac test path. The current private runtime cannot adopt an ambient login. Add
+one optional Codex account operation over an explicitly owned protocol connection;
+construction/import does nothing, and no ordinary host or UI invokes it yet. This
+slice prepares the protocol behavior before native lifecycle composition. It grants
+no real provider access, creates no credential and does not launch Codex in tests.
+
+Use the pinned 0.157.1 source's `chatgptDeviceCode` operation, not external token
+injection or an API-key fallback. Verify existing runtime controls before account
+inspection or login. A currently authenticated ChatGPT account is retained without
+replacement. For signed-out state, request exactly one login and expose only its
+validated login identifier, bounded display code and exact official verification
+URL to the caller. No browser is opened automatically, no callback listener is
+created, and no email/token/provider error is returned or logged.
+
+Correlate completion to that exact login, including notification-before-response.
+A success notification alone is insufficient: re-read account state without a
+forced token refresh. On explicit cancellation while awaiting completion, request
+cancel for the exact login and re-read state; an already completed account must be
+reported as signed in, and a missing/failed cancellation receipt stays unconfirmed.
+Never claim account revocation or delete credentials. Reject unsafe/malformed
+challenges, foreign completion and any server request for tools or credentials.
+Bound authentication work to an explicitly supplied duration of at most ten minutes,
+using an event-driven wait. Allow a separate three-second limit for cancellation and
+account confirmation, then require confirmed owned connection disposal before
+returning. Keep the launcher's existing process deadline/cleanup limits; this
+protocol operation does not extend them. No login retry or provider/model substitution
+is allowed.
+
+Vendor independence: this implementation stays inside the removable Codex executor;
+core/native contracts do not gain a Codex dependency. Modularity: reuse the existing
+protocol, control verification and owned-disposal seams; no new dependency, storage
+record or generic authentication framework. Speed: twenty isolated synthetic
+initialize/control/account/challenge/completion/disposal journeys, five warmups,
+p95 under 25 ms excluding human/provider/process-launch time. One bounded timer,
+no idle polling. Installation/removal: a later explicit native action will own the
+selected private runtime and required provider/network approval; this preparation
+does not register startup, modify entitlements, read credentials or create a sign-in.
+
+Acceptance: one public failing synthetic sign-in journey before implementation;
+then existing-account/no-login, foreign account, unsafe controls, challenge/URL/code
+refusals, early/foreign/duplicate completion, lost/disconnected responses, cancel
+race, already-aborted input, whole-attempt deadline, server-request refusal and
+cleanup failure. Package and import the optional operation without launching a
+process; run strict TypeScript and portable regressions. Retain exact pinned source
+links and distinguish protocol fixtures from actual provider sign-in. Ordinary
+native composition and real account acceptance remain open gates. Rollback removes
+the optional operation/export without changing account or Fort history.
+
+Exact files: successor/runner/codex-account.ts and codex-account.test.ts,
+successor/runner/codex-executor.ts,
+successor/packaging/codex-executor-artifact.test.ts, this spec, v1 ledger, current
+Ponytail review and evidence codex-account-sign-in.md. This refines accepted runtime
+setup; actual account/security activation still requires its concrete authority.
+
 ## Implementation paths
+- `successor/runner/codex-account.ts`
+- `successor/runner/codex-account.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/codex-account-sign-in.md`
 
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/native-companion-removal.md`
