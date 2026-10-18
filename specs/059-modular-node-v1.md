@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5d4611b43a0afea5b3fe15769b368ddf0e0ef341e0af91d429ef56aadfaac5ec
+Reviewed content SHA256: 57e8cffeddbce728a4e77f684c3f818448ec35fd43e26b72a625d032d3f26692
 
 ### Vendor independence
 Status: planned
@@ -70,6 +70,11 @@ Native clients own presentation and durable pending intent, not execution truth.
 One SQLite WAL ledger owns indexed relational state plus compact receipts, events
 and dispatch outbox in the same transaction. Store messages once; use immutable
 context references/digests, not snapshots/history copied into each acceptance.
+Offline migration writes a new private directory from a consistent SQLite backup,
+compacts only validated redundant receipts/context, and preserves the original
+for rollback. It refuses an existing destination or unknown/inconsistent records.
+It does not start a service, retry work, refresh expired authority or infer missing
+historical attempt identities. Verification uses synthetic copies only.
 Snapshots expose at most 100 messages per page with an explicit older-page cursor.
 Receipt responses carry the exact accepted message/run separately for recovery
 outside that page. Native clients keep the latest page and at most one earlier
@@ -122,6 +127,10 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/service/migrate-ledger.ts`
+- `successor/service/migrate-ledger.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/migration.md`
 
 - `successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift`
 
