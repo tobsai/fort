@@ -6,7 +6,8 @@ struct PairingSettingsView: View {
     @State private var days = "7"
     @State private var action: Action?
     @State private var showConfirmation = false
-    private enum Action { case stop, disconnect, forget, uninstall, deleteHistory }
+    @State private var historyTarget: DeviceConnection?
+    private enum Action { case stop, disconnect, forget, uninstall, deleteHistory, deleteSavedHistory }
     private var validDays: Int? { guard let value = Int(days), (1...365).contains(value) else { return nil }; return value }
     private var title: String {
         switch action {
@@ -15,6 +16,7 @@ struct PairingSettingsView: View {
         case .forget: "Forget only this device’s credential?"
         case .uninstall: "Prepare to remove Fort?"
         case .deleteHistory: "Also delete local history?"
+        case .deleteSavedHistory: "Delete saved history on this Mac?"
         case nil: "Confirm"
         }
     }
@@ -25,10 +27,17 @@ struct PairingSettingsView: View {
         case .forget: "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
         case .uninstall: "Stops the owned host, unregisters startup and removes pairing. Conversation history is kept. Then remove the Fort app using TestFlight or macOS."
         case .deleteHistory: "Stops the owned host, unregisters startup and removes pairing and local conversation history. History deletion cannot be undone. Then remove the Fort app using TestFlight or macOS."
+        case .deleteSavedHistory: "Deletes saved conversations, pending submissions and local image previews for installation \(historyTarget?.installationID ?? "") on this Mac. The host ledger, settings, provider history, other devices and recovery records are kept. This cannot be undone."
         case nil: ""
         }
     }
-    private func confirm(_ selected: Action) { action = selected; showConfirmation = true }
+    private func confirm(_ selected: Action) {
+        #if os(macOS)
+        historyTarget = selected == .deleteSavedHistory ? model.savedHistoryDeletionTarget : nil
+        if selected == .deleteSavedHistory && historyTarget == nil { return }
+        #endif
+        action = selected; showConfirmation = true
+    }
     var body: some View {
         Form {
             #if os(macOS)
@@ -61,6 +70,12 @@ struct PairingSettingsView: View {
                 Text("Stopping or disconnecting keeps your saved conversations and local image previews.").font(.caption)
             }
             #if os(macOS)
+            Section("Saved history on this Mac") {
+                Button("Delete saved history on this Mac…",role:.destructive) { confirm(.deleteSavedHistory) }
+                    .disabled(!model.canDeleteSavedHistory)
+                    .accessibilityIdentifier("delete-saved-history")
+                Text("Disconnect and finish removing this device’s pairing first. This clears the saved copy on this Mac; the host ledger is kept.").font(.caption)
+            }
             Section("Remove Fort") {
                 Button("Prepare to remove Fort…",role:.destructive) { confirm(.uninstall) }
                     .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
@@ -85,6 +100,10 @@ struct PairingSettingsView: View {
                     case .forget: model.forgetLocalPairing()
                     case .uninstall: await model.prepareForRemoval()
                     case .deleteHistory: await model.prepareForRemoval(history:.deleteConfirmed)
+                    case .deleteSavedHistory:
+                        #if os(macOS)
+                        if let historyTarget { model.deleteSavedHistory(historyTarget) }
+                        #endif
                     case nil: break
                     }
                 }

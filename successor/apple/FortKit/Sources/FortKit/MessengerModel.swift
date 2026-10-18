@@ -94,6 +94,32 @@ import Observation
     private var ownedInstallation: (any OwnedMacInstallation)?
     public var removableAppURL: URL? { ownedInstallation?.appURL }
     public var canDeleteLocalHistory: Bool { ownedInstallation?.supportsHistoryDeletion == true }
+    #if os(macOS)
+    public var canDeleteSavedHistory: Bool {
+        !isOfflinePreview && !isInteractiveFixture && !isBusy && !lifecycleBusy && !ownerSetupBusy &&
+        !connected && client == nil && pairingRemoved && !pairingCleanupPending && !pairingRemovalPending && !expectedInstallation.isEmpty
+    }
+    public var savedHistoryDeletionTarget: DeviceConnection? {
+        guard canDeleteSavedHistory else { return nil }
+        return try? storage.disconnectedConnection()
+    }
+    public func deleteSavedHistory(_ expected: DeviceConnection) {
+        guard canDeleteSavedHistory else { return }
+        lifecycleBusy = true
+        defer { lifecycleBusy = false }
+        do {
+            guard let connection = try storage.disconnectedConnection(), connection == expected, connection.installationID == expectedInstallation else { throw OwnerLifecycleError.wrongPairing }
+            try storage.deleteSavedHistory(for:connection)
+            showLatestMessages(); snapshot = nil; installation = nil
+            pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
+            agents = []; conversations = []; skills = []; routines = []; schedules = []
+            selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
+            lastSavedSkill = nil; draft = ""; eventCursor = nil
+            status = "Saved history deleted on this Mac"
+            pairingMessage = "Saved conversations, pending submissions and image previews for this installation were deleted on this Mac. The host ledger and other devices are unchanged. Recovery records are kept."
+        } catch { pairingMessage = "Saved-history deletion is incomplete. The displayed history is kept; check this installation and retry." }
+    }
+    #endif
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var canResumeLocalWork: Bool { canManagePairing && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }
@@ -346,7 +372,8 @@ import Observation
             endpoint = connection.endpoint.displayName; expectedInstallation = connection.installationID
             pendingStore = try PendingStore(directory:storage.directory,installationID:connection.installationID)
             pending = try pendingStore?.pending() ?? []
-            if let saved = try storage.navigation(installationID:connection.installationID) {
+            let savedNavigation = try storage.navigation(installationID:connection.installationID)
+            if let saved = savedNavigation {
                 installation = saved.installation; agents = saved.agents
                 selectedAgentID = agents.contains(where:{$0.agentId == saved.selectedAgentID}) ? saved.selectedAgentID : agents.first?.agentId
                 conversations = saved.conversations ?? []; skills = saved.skills ?? []; selectedConversationID = saved.selectedConversationID; recipientAgentID = saved.recipientAgentID
@@ -357,8 +384,8 @@ import Observation
             }
             showConnection = false
             if pairingRemoved {
-                loadLocalImages(); status = "Disconnected · saved history"
-                pairingMessage = pairingRemovalPending ? "Disconnect intent saved. Service revocation and shutdown are unconfirmed." : pairingCleanupPending ? "Pairing was revoked; local credential removal still needs to finish." : "Pairing removed. History is kept on this device."
+                loadLocalImages(); status = savedNavigation == nil ? "Disconnected" : "Disconnected · saved history"
+                pairingMessage = pairingRemovalPending ? "Disconnect intent saved. Service revocation and shutdown are unconfirmed." : pairingCleanupPending ? "Pairing was revoked; local credential removal still needs to finish." : savedNavigation == nil ? "Pairing removed. No saved conversation list is available on this device." : "Pairing removed. History is kept on this device."
                 return
             }
             hostStopped = false

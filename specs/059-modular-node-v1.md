@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: cac4c725a4ff85b3fc8be239d5ebb020fce2fffd86269c69bb71fdfc85988c7f
+Reviewed content SHA256: ec244f3edde74ca44052c5d537bdd88aaad992e5159b1cdbf11de1f7639083d9
 
 ### Vendor independence
 Status: planned
@@ -1763,7 +1763,48 @@ Public seams adopted with this design: packaging CLI and produced bundle behavio
 versioned client command/replay API; executor dispatch/evidence protocol; lifecycle
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
+### Explicit deletion of saved client history
+
+Under decision 059 and the coordinator's continued-v1 instruction, implement a
+separate confirmed action for saved history on this Mac after confirmed pairing
+revocation and exact credential absence. Delete only this installation's cached
+navigation/conversation snapshots, pending submissions and local image previews.
+Preserve host ledger, settings, provider sessions, other installations, app files,
+credential/revocation records and host-removal progress. State those limits in the
+confirmation and result. This is a concrete client-data slice, not complete host
+history deletion or installed-product signoff. Keep remains the default.
+
+Vendor independence: this operation uses Fort's existing local formats and no AI
+adapter. Modularity: storage owns the exact file scope; the native model owns
+eligibility and clears in-memory projections only after confirmed completion.
+Speed: at most 4096 inspected entries and 256 MiB decoded in a pass; reject larger
+or malformed stores without deleting any files. Twenty synthetic deletion samples
+with 100 snapshot files target p95 <=500 ms, excluding fixture creation and real
+Keychain latency. No periodic work or new dependency. Installation/removal: use
+an exclusive existing owner-file lease, descriptor-relative no-follow reads and
+unlinks, file identity/content verification, preflight before any unlink, durable
+directory sync, and fresh absence verification. A partial failure is reported
+incomplete and can be retried; no backup/snapshot erasure is claimed.
+
+Acceptance: public storage red-to-green with exact-installation data and unrelated
+sentinels; absent/foreign/pending pairing, remaining credential, malformed metadata,
+links, changed roots, unsafe modes and interrupted deletion refuse or remain
+incomplete. Native action requires explicit confirmation and disconnected idle
+state, cannot reconnect or register services, and removes visible cached contents
+only on success. All tests use new disposable synthetic directories. Actual user
+data deletion requires action-time authorization and is not executed by this work.
+Research package licenses and Apple rules from read-only primary sources, record
+concrete obligations and uncertainties, and do not infer account or startup grants.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/distribution-requirements.md`
+
+- `successor/evidence/2026-10-17-node-foundation/saved-history-deletion.md`
+
+- `successor/apple/FortKit/Tests/FortKitTests/SavedHistoryRemovalTests.swift`
+
+- `successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift`
 
 - `successor/evidence/2026-10-17-node-foundation/owner-reinstall.md`
 - `successor/service/owner-repair.test.ts`
