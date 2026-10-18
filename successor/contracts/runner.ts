@@ -1,5 +1,6 @@
+import type { RuntimeAttempt } from './attempt.ts';
 import type { Binding } from './v1.ts';
-import type { RuntimeAttempt, RuntimeEvidence } from './runtime.ts';
+import type { RuntimeEvidence } from './runtime.ts';
 
 export type RunnerScope = { protocolVersion: 1; installationId: string; recoveryEpoch: string; hostId: string; sessionId: string };
 export type SyntheticDispatch = RunnerScope & {

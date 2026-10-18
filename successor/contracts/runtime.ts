@@ -1,11 +1,4 @@
-export type RuntimeAttempt = Readonly<{
-  runId: string;
-  attemptId: string;
-  generation: number;
-  bindingRevisionId: string;
-  runtimeVersion: string;
-  selectedModel: string;
-}>;
+import type { RuntimeAttempt } from './attempt.ts';
 export type RuntimeFailure = 'invalidProtocol' | 'outputLimit' | 'connectionLost' | 'startRejected' | 'unsupportedAction' | 'modelChanged';
 type Correlation = RuntimeAttempt & { protocolVersion: 1; provider: 'codex'; sequence: number };
 type ProviderTurn = { threadId: string; turnId: string };

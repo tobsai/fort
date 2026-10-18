@@ -1,6 +1,7 @@
+import type { RuntimeAttempt } from '../contracts/attempt.ts';
 import { posix } from 'node:path';
 import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
-import type { RuntimeAttempt, RuntimeEvidence, RuntimeEvidenceBody, RuntimeFailure, RuntimeMessagePhase } from '../contracts/runtime.ts';
+import type { RuntimeEvidence, RuntimeEvidenceBody, RuntimeFailure, RuntimeMessagePhase } from '../contracts/runtime.ts';
 
 export type CodexTurnInput = { attempt: RuntimeAttempt; threadId: string; requestId: string; workspace: string; text: string };
 export type CodexOutput = { writes: string[]; events: RuntimeEvidence[]; closeTransport: boolean };

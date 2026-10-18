@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 78444074355d6bc8e35c8439591e161b5ddbc5a0642e7444a46379713abb5497
+Reviewed content SHA256: c81f43e01d854b24fa115f6e1f0152d5512e5aa8a907729c8b41bc86859667e1
 
 ### Vendor independence
 Status: planned
@@ -142,6 +142,16 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/contracts/attempt.ts`
+- `successor/contracts/runtime.ts`
+- `successor/contracts/runner.ts`
+- `successor/runner/codex.ts`
+- `successor/packaging/core-artifact.ts`
+- `successor/packaging/core-artifact.test.ts`
+- `successor/packaging/fixtures/provider-contract.mjs`
+- `successor/tsconfig.core.json`
+- `successor/evidence/2026-10-17-node-foundation/core-artifact.md`
 
 - `successor/evidence/2026-10-17-node-foundation/outbox.md`
 
