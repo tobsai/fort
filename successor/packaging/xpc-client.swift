@@ -28,6 +28,14 @@ func probeXPC() async throws -> [String: Any] {
         catch { return error as NSError }
     }
     let ownerClientError = await ownerError(clientMismatch), ownerServiceError = await ownerError(serviceMismatch), ownerDisabled = await ownerError(transport)
+    let setupRequest = try OwnerSetupRequest(installationID:"synthetic",setupID:"synthetic",deviceID:"synthetic",deviceToken:String(repeating:"A",count:43))
+    func setupErrors(_ peer: MacXPCTransport) async -> [NSError] {
+        var errors: [NSError] = []
+        do { _ = try await peer.beginOwnerSetup(timeout:3) } catch { errors.append(error as NSError) }
+        do { _ = try await peer.completeOwnerSetup(setupRequest,timeout:3) } catch { errors.append(error as NSError) }
+        return errors
+    }
+    let setupClientErrors = await setupErrors(clientMismatch), setupServiceErrors = await setupErrors(serviceMismatch), setupDisabled = await setupErrors(transport)
     let pending = Task { try await transport.send(request("/v1/hold")) }
     try await Task.sleep(for:.milliseconds(50)); pending.cancel()
     var canceled = false
@@ -49,6 +57,9 @@ func probeXPC() async throws -> [String: Any] {
             "xpcOwnerClientRejected":ownerClientError?.domain == NSCocoaErrorDomain && ownerClientError?.code == NSXPCConnectionInterrupted,
             "xpcOwnerServiceRejected":ownerServiceError?.domain == NSCocoaErrorDomain && ownerServiceError?.code == NSXPCConnectionCodeSigningRequirementFailure,
             "xpcOwnerDisabled":ownerDisabled?.domain == "Fort.OwnerControl" && ownerDisabled?.code == 1,
+            "xpcSetupClientRejected":setupClientErrors.count == 2 && setupClientErrors.allSatisfy { $0.domain == NSCocoaErrorDomain && $0.code == NSXPCConnectionInterrupted },
+            "xpcSetupServiceRejected":setupServiceErrors.count == 2 && setupServiceErrors.allSatisfy { $0.domain == NSCocoaErrorDomain && $0.code == NSXPCConnectionCodeSigningRequirementFailure },
+            "xpcSetupDisabled":setupDisabled.count == 2 && setupDisabled.allSatisfy { $0.domain == "Fort.OwnerSetup" && $0.code == 1 },
             "xpcCancellation":canceled, "xpcTimeout":timedOut,
             "xpcMalformedResponseRejected":await invalid(request("/v1/invalid")),
             "xpcInvalidStatusRejected":await invalid(request("/v1/status")),

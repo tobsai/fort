@@ -11,9 +11,10 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
 @objc(FortHostChannel) public protocol FortHostChannel {
     func exchange(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
     func recoverPairing(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
+    func setupOwner(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
 }
 
-public struct MacXPCTransport: FortTransport, MacOwnerControl {
+public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl {
     private let serviceIdentifier: String
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
@@ -45,9 +46,29 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl {
         try receipt.validate(for:request)
         return receipt
     }
+    public func beginOwnerSetup(timeout: TimeInterval = 30) async throws -> OwnerSetupState {
+        let data = try await setup(.begin(timeout))
+        guard let state = try? JSONDecoder().decode(OwnerSetupState.self,from:data) else { throw ClientError.invalidResponse }
+        return state
+    }
+    public func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval = 30) async throws -> OwnerSetupReceipt {
+        let data = try await setup(.complete(request,timeout))
+        guard let receipt = try? JSONDecoder().decode(OwnerSetupReceipt.self,from:data),
+              receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+        return receipt
+    }
+    private func setup(_ command: OwnerSetupCommand) async throws -> Data {
+        try Task.checkCancellation(); try command.validate()
+        let encoded = try JSONEncoder().encode(command)
+        guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
+        let call = XPCRequest(serviceIdentifier:serviceIdentifier,requirement:requirement,timeout:command.timeout,operation:.setup,responseLimit:1024)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
+        } onCancel: { call.cancel() }
+    }
 }
 
-private enum XPCOperation { case exchange, recovery }
+private enum XPCOperation { case exchange, recovery, setup }
 private final class XPCRequest: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.XPCRequest")
     private let serviceIdentifier: String
@@ -86,6 +107,7 @@ private final class XPCRequest: @unchecked Sendable {
             switch self.operation {
             case .exchange: channel.exchange(bytes,reply:reply)
             case .recovery: channel.recoverPairing(bytes,reply:reply)
+            case .setup: channel.setupOwner(bytes,reply:reply)
             }
         }
     }

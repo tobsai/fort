@@ -91,3 +91,41 @@ public protocol OwnerSetupControl: Sendable {
     func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState
     func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt
 }
+
+func ownerSetupUnavailable() -> NSError {
+    NSError(domain:"Fort.OwnerSetup",code:1,userInfo:[NSLocalizedDescriptionKey:"Owner setup is unavailable on this host."])
+}
+func ownerSetupUnconfirmed() -> NSError {
+    NSError(domain:"Fort.OwnerSetup",code:2,userInfo:[NSLocalizedDescriptionKey:"Owner setup was not confirmed. Retry with the same prepared device."])
+}
+
+enum OwnerSetupCommand: Codable, Sendable {
+    case begin(TimeInterval)
+    case complete(OwnerSetupRequest,TimeInterval)
+    var timeout: TimeInterval {
+        switch self { case .begin(let value): value; case .complete(_,let value): value }
+    }
+    func validate() throws {
+        guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+    }
+    enum CodingKeys: String, CodingKey { case operation, timeout }
+    init(from decoder: any Decoder) throws {
+        let value = try decoder.container(keyedBy:CodingKeys.self)
+        let timeout = try value.decode(TimeInterval.self,forKey:.timeout)
+        switch try value.decode(String.self,forKey:.operation) {
+        case "begin": self = .begin(timeout)
+        case "complete": self = .complete(try OwnerSetupRequest(from:decoder),timeout)
+        default: throw ClientError.invalidResponse
+        }
+        try validate()
+    }
+    func encode(to encoder: any Encoder) throws {
+        try validate()
+        var value = encoder.container(keyedBy:CodingKeys.self)
+        try value.encode(timeout,forKey:.timeout)
+        switch self {
+        case .begin: try value.encode("begin",forKey:.operation)
+        case .complete(let request,_): try value.encode("complete",forKey:.operation); try request.encode(to:encoder)
+        }
+    }
+}

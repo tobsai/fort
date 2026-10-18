@@ -17,12 +17,22 @@ func probeCoreXPC() async throws -> [String:Any] {
         return try (result.status,object(JSONSerialization.jsonObject(with:result.body)))
     }
     let (_,setup) = try await api("/v1/fixture-bootstrap")
-    let identity = try object(setup["installation"]), enrollment = try object(setup["enrollment"])
+    let identity = try object(setup["installation"])
     let installation = try string(identity["installationId"]), epoch = try string(identity["recoveryEpoch"])
     let anonymous = try await api("/v1/installation",installation:installation)
-    let enrolled = try await api("/v1/devices/enroll",installation:installation,body:["installationId":installation,"code":try string(enrollment["code"]),"deviceName":"Synthetic signed XPC"])
-    let token = try string(enrolled.1["deviceToken"])
-    let device = try string(enrolled.1["deviceId"])
+    let anonymousSetup = try await api("/v1/owner/setup",installation:installation,body:[:])
+    guard case .available(let offer) = try await transport.beginOwnerSetup(timeout:3), offer.installationID == installation else { throw ClientError.invalidResponse }
+    let prepared = try OwnerSetupRequest(installationID:installation,setupID:offer.setupID,deviceID:UUID().uuidString,deviceToken:String(repeating:"A",count:43))
+    let setupReceipt = try await transport.completeOwnerSetup(prepared,timeout:3)
+    let repeatedSetup = try await transport.completeOwnerSetup(prepared,timeout:3)
+    let pairedSetup = try await transport.beginOwnerSetup(timeout:3)
+    let token = prepared.deviceToken, device = prepared.deviceID
+    let noHTTPSetup = try await api("/v1/owner/setup",installation:installation,token:token,body:[:])
+    var foreignSetups = 0
+    for identity in [("foreign",device,token),(installation,"foreign",token),(installation,device,String(repeating:"B",count:42) + "A")] {
+        do { _ = try await transport.completeOwnerSetup(OwnerSetupRequest(installationID:identity.0,setupID:offer.setupID,deviceID:identity.1,deviceToken:identity.2),timeout:3) }
+        catch { foreignSetups += 1 }
+    }
     let foreign = try await api("/v1/installation",installation:"foreign",token:token)
     let agent = try await api("/v1/agents",installation:installation,token:token,body:["name":"Signed XPC Home","model":"exact-synthetic","instructions":"Echo."])
     let home = try string(agent.1["homeConversationId"]), agentID = try string(agent.1["agentId"])
@@ -49,6 +59,7 @@ func probeCoreXPC() async throws -> [String:Any] {
         try await Task.sleep(for:.milliseconds(10)); beforeRestart = try await api("/v1/fixture-bootstrap")
     }
     let restarted = try await api("/v1/fixture-restart",body:[:])
+    let restartedSetup = try await transport.completeOwnerSetup(prepared,timeout:3)
     let duplicate = try await api("/v1/conversations/" + home + "/messages",installation:installation,token:token,body:command)
     let afterRestart = try await api("/v1/fixture-bootstrap")
     guard let crashedHelper = afterRestart.1["helperPID"] as? Int32,
@@ -69,6 +80,7 @@ func probeCoreXPC() async throws -> [String:Any] {
     let afterCrash = try await api("/v1/fixture-bootstrap",timeout:12)
     let restart = restartStarted.duration(to:.now).components
     let restartMs = Double(restart.seconds) * 1000 + Double(restart.attoseconds) / 1e15
+    let recoveredSetup = try await transport.completeOwnerSetup(prepared,timeout:3)
     let crashDuplicate = try await api("/v1/conversations/" + home + "/messages",installation:installation,token:token,body:command)
     let noHTTPRecovery = try await api("/v1/pairing/recover",installation:installation,token:token,body:[:])
     var foreignRecoveries = 0
@@ -89,7 +101,11 @@ func probeCoreXPC() async throws -> [String:Any] {
     let crashReceipt = try object(crashDuplicate.1["receipt"])
     let crashMessages = try object(crashDuplicate.1["snapshot"])["messages"] as? [[String:Any]]
     let crashInstallation = try string(object(afterCrash.1["installation"])["installationId"])
-    return ["xpcCoreAuthentication":anonymous.0 == 401 && enrolled.0 == 201 && foreign.0 == 401,
+    return ["xpcCoreAuthentication":anonymous.0 == 401 && setupReceipt.installationID == installation && foreign.0 == 401,
+            "xpcOwnerSetup":setupReceipt.deviceID == device && setupReceipt.expiresAt == nil && pairedSetup == .paired(setupReceipt),
+            "xpcOwnerSetupRetry":setupReceipt == repeatedSetup && setupReceipt == restartedSetup && setupReceipt == recoveredSetup,
+            "xpcOwnerSetupForeignRejected":foreignSetups == 3,
+            "xpcOwnerSetupNoHTTP":anonymousSetup.0 == 401 && noHTTPSetup.0 == 404,
             "xpcCoreExactMessages":accepted.0 == 201 && messages?.compactMap { $0["text"] as? String } == [text,text],
             "xpcCoreReplay":events.0 == 200 && events.1["semantics"] as? String == "invalidation" && cursor > 0,
             "xpcCoreCancellation":canceled && beforeRestart.1["canceledRequests"] as? Int == 1,

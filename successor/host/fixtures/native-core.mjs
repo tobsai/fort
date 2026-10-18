@@ -31,7 +31,9 @@ try {
   await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' } });
   const enrollment = mode !== 'owner' || service.inspectSession().deviceIDs.length === 0 ? service.issueEnrollment() : undefined;
   writeFileSync('setup.json', JSON.stringify({ installation: service.installation, enrollment, controls, runtimePID: process.pid }), { mode: 0o600 });
-  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerRecovery: mode === 'owner' ? service.recoverOwnerPairing : undefined });
+  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout,
+    ownerRecovery: mode === 'owner' ? service.recoverOwnerPairing : undefined,
+    ownerSetup: mode === 'owner' ? { begin: service.beginOwnerSetup, complete: service.completeOwnerSetup } : undefined });
 } catch { process.exitCode = 1; }
 finally { clearTimeout(lifetime); await service.close(); }
 if (process.exitCode === 1) process.exit(1);

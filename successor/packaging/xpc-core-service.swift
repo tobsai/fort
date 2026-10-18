@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-private actor FixtureCore: FortTransport, MacOwnerControl {
+private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl {
     private let directory: URL
     private let bundle: URL
     private var core: MacCoreProcessTransport?
@@ -45,6 +45,14 @@ private actor FixtureCore: FortTransport, MacOwnerControl {
         DispatchQueue.global().asyncAfter(deadline:.now() + 0.2) { exit(0) }
         return receipt
     }
+    func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState {
+        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await core.beginOwnerSetup(timeout:timeout)
+    }
+    func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt {
+        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await core.completeOwnerSetup(request,timeout:timeout)
+    }
     private func bootstrap() throws -> FortResponse {
         guard let core,
               var setup = try JSONSerialization.jsonObject(with:Data(contentsOf:directory.appendingPathComponent("setup.json"))) as? [String:Any] else { throw ClientError.invalidResponse }
@@ -59,10 +67,12 @@ private actor FixtureCore: FortTransport, MacOwnerControl {
     func close() async { if let core { _ = try? await core.close() }; core = nil }
 }
 
-private struct StartingFixture: FortTransport, MacOwnerControl {
+private struct StartingFixture: FortTransport, MacOwnerControl, OwnerSetupControl {
     let ready: Task<FixtureCore,any Error>
     func send(_ request: FortRequest) async throws -> FortResponse { try await ready.value.send(request) }
     func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt { try await ready.value.recoverPairing(request) }
+    func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState { try await ready.value.beginOwnerSetup(timeout:timeout) }
+    func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt { try await ready.value.completeOwnerSetup(request,timeout:timeout) }
 }
 
 @main private enum ServiceMain {
@@ -86,7 +96,7 @@ private struct StartingFixture: FortTransport, MacOwnerControl {
                 try await core.start(); return core
             }
             let starting = StartingFixture(ready:ready)
-            let delegate = try MacHostListener(clientIdentifier:client,signingTeam:team,transport:starting,ownerControl:starting)
+            let delegate = try MacHostListener(clientIdentifier:client,signingTeam:team,transport:starting,ownerControl:starting,ownerSetup:starting)
             Task {
                 try? await Task.sleep(for:.seconds(12))
                 if let core = try? await ready.value { await core.close() }; exit(2)

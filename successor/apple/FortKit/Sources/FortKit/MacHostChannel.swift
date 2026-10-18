@@ -6,15 +6,17 @@ public final class MacHostListener: NSObject, NSXPCListenerDelegate {
     private let requirement: String
     private let transport: any FortTransport
     private let ownerControl: (any MacOwnerControl)?
-    public init(clientIdentifier: String, signingTeam: String, transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil) throws {
+    private let ownerSetup: (any OwnerSetupControl)?
+    public init(clientIdentifier: String, signingTeam: String, transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil) throws {
         requirement = try macPeerRequirement(identifier:clientIdentifier,signingTeam:signingTeam)
         self.transport = transport
         self.ownerControl = ownerControl
+        self.ownerSetup = ownerSetup
     }
     public func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         guard connection.effectiveUserIdentifier == geteuid() else { return false }
         connection.setCodeSigningRequirement(requirement)
-        let channel = MacHostChannel(transport:transport,ownerControl:ownerControl)
+        let channel = MacHostChannel(transport:transport,ownerControl:ownerControl,ownerSetup:ownerSetup)
         connection.exportedInterface = NSXPCInterface(with:FortHostChannel.self)
         connection.exportedObject = channel
         connection.interruptionHandler = { channel.cancel() }
@@ -27,12 +29,13 @@ public final class MacHostListener: NSObject, NSXPCListenerDelegate {
 final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
     private let transport: any FortTransport
     private let ownerControl: (any MacOwnerControl)?
+    private let ownerSetup: (any OwnerSetupControl)?
     private let lock = NSLock()
     private var started = false
     private var canceled = false
     private var task: Task<Void,Never>?
     private var reply: ((Data?, NSError?) -> Void)?
-    init(transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil) { self.transport = transport; self.ownerControl = ownerControl }
+    init(transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil) { self.transport = transport; self.ownerControl = ownerControl; self.ownerSetup = ownerSetup }
     func exchange(_ bytes: Data, reply: @escaping (Data?, NSError?) -> Void) {
         do {
             guard bytes.count <= 2 * 1024 * 1024 else { throw ClientError.invalidResponse }
@@ -61,6 +64,27 @@ final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
                 return encoded
             }
         } catch { reply(nil,error as NSError) }
+    }
+    func setupOwner(_ bytes: Data, reply: @escaping (Data?, NSError?) -> Void) {
+        do {
+            guard bytes.count <= 1024 else { throw ClientError.invalidResponse }
+            let command = try JSONDecoder().decode(OwnerSetupCommand.self,from:bytes)
+            guard let ownerSetup else { reply(nil,ownerSetupUnavailable()); return }
+            try begin(reply:reply) {
+                do {
+                    let encoded: Data
+                    switch command {
+                    case .begin(let timeout): encoded = try JSONEncoder().encode(await ownerSetup.beginOwnerSetup(timeout:timeout))
+                    case .complete(let request,let timeout):
+                        let receipt = try await ownerSetup.completeOwnerSetup(request,timeout:timeout)
+                        guard receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+                        encoded = try JSONEncoder().encode(receipt)
+                    }
+                    guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
+                    return encoded
+                } catch { throw ownerSetupUnconfirmed() }
+            }
+        } catch { reply(nil,ClientError.invalidResponse as NSError) }
     }
     private func begin(reply: @escaping (Data?,NSError?) -> Void, operation: @escaping @Sendable () async throws -> Data) throws {
         let accepted = lock.withLock {

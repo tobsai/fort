@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: e597f23311e281efda4826a28891c28fb410e3238ad931e7299a70db445d7792
+Reviewed content SHA256: 14edeb11827b4482899e2005e8b7f8393f0d7e381ec0335b1329ec27e516f777
 
 ### Vendor independence
 Status: planned
@@ -499,6 +499,24 @@ Include the new value types in standalone guardian and signed-probe compiler
 source lists. Rerun their existing process/sandbox regression checks without
 changing entitlements or claiming signed setup/XPC integration.
 
+Extend the existing exact-peer XPC interface with a separate owner-setup selector.
+The listener must explicitly supply `OwnerSetupControl`; omission stays disabled.
+Reuse the same effective-user/signing-identity checks, one-operation connection,
+invalidation/cancellation and at-most-30-second deadline. Limit setup request and
+response payloads to 1 KiB, validate offer/receipt fields and completion identity,
+and sanitize callback failures without returning tokens or internal errors. Share
+the setup command codec with the parent pipe to keep native transports consistent.
+Unit tests cover disabled/malformed/oversized inputs, mismatched receipts, errors
+and cancellation. The signed synthetic journey prepares one token, confirms setup
+across core restart and helper crash, retains history and verifies both directions
+of peer mismatch, disabled setup, no HTTP exception and complete process/container
+absence. Keep signed probes serial under their existing deadlines/cleanup budgets.
+Update their exact compiler sources; no entitlement or signing identity change.
+This adds no provider/storage dependency, polling or startup activation and keeps
+the same local single-owner topology. No ordinary setup, Keychain preparation or
+persistent host registration is authorized by the fixture composition; installed
+setup performance and the real client lifecycle remain separate gates.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -560,6 +578,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/OwnerSetup.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CoreSetupTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-native.md`
+- `successor/apple/FortKit/Tests/FortKitTests/MacOwnerSetupTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-xpc.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-xpc.json`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

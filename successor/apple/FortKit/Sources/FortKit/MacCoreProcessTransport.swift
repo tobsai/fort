@@ -100,7 +100,7 @@ private struct CoreRequestFrame: Encodable {
     let id: Int
     let request: FortRequest?
     let recovery: MacOwnerRecoveryRequest?
-    let setup: CoreSetupCommand?
+    let setup: OwnerSetupCommand?
     init(id: Int, command: CoreCommand) {
         self.id = id
         switch command {
@@ -113,25 +113,9 @@ private struct CoreRequestFrame: Encodable {
 private enum CoreCommand: Sendable {
     case request(FortRequest)
     case recovery(MacOwnerRecoveryRequest)
-    case setup(CoreSetupCommand)
+    case setup(OwnerSetupCommand)
     var timeout: TimeInterval {
         switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout }
-    }
-}
-private enum CoreSetupCommand: Encodable, Sendable {
-    case begin(TimeInterval)
-    case complete(OwnerSetupRequest,TimeInterval)
-    var timeout: TimeInterval {
-        switch self { case .begin(let value): value; case .complete(_,let value): value }
-    }
-    enum CodingKeys: String, CodingKey { case operation, timeout }
-    func encode(to encoder: any Encoder) throws {
-        var value = encoder.container(keyedBy:CodingKeys.self)
-        try value.encode(timeout,forKey:.timeout)
-        switch self {
-        case .begin: try value.encode("begin",forKey:.operation)
-        case .complete(let request,_): try value.encode("complete",forKey:.operation); try request.encode(to:encoder)
-        }
     }
 }
 private struct CoreCancelFrame: Encodable {

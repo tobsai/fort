@@ -3,6 +3,9 @@ import Darwin
 
 private final class Channel: NSObject, FortHostChannel {
     private var pending: [(Data?, NSError?) -> Void] = []
+    func setupOwner(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
+        reply(nil,ownerSetupUnavailable())
+    }
     func recoverPairing(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
         reply(nil,ownerControlUnavailable())
     }
