@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 3b64ea6adfffe6e8004f2eb66dd48f85828c17b40d962df937b035262c028e18
+Reviewed content SHA256: 652d2ac1a3c9cfb0fd88f81ff9dc898d414978105a02f88e13e26ea396da9ab2
 
 ### Vendor independence
 Status: planned
@@ -1862,7 +1862,31 @@ and associated native program/journey tests, Mac assembly/test, this spec, ledge
 current review and `node-openssl-configuration.md` evidence. Roll back this local
 slice without touching the retained earlier packages or any owner data.
 
+### Read-only Codex third-party attribution inventory
+
+Continue the existing distribution audit with a checksum-bound source inventory
+for the already selected binary/source commit. Preserve registry and exact upstream
+notice provenance, source-header evidence and later-source comparisons separately.
+The full lock graph includes build/test/other-platform packages and must not be
+called a binary SBOM. Candidate collection is not final redistribution clearance.
+No source/dependency execution, runtime replacement, feature activation or license
+change is authorized or needed for this read-only audit.
+
+Vendor independence and modularity: only optional-runtime attribution evidence changes;
+core/client contracts and dependencies remain untouched. Speed: no runtime cost; bound
+research downloads to 1 GiB, each archive to 50 MiB, and each selected text to 2 MiB.
+Installation/removal: keep downloaded material in a task-owned review archive, never
+install it or copy unknown code into an application. Verify hashes and archive membership;
+record missing texts, source-availability obligations and limits honestly. Existing
+owner direction covers this evidence refinement; no new agreement or generic legal
+approval is inferred. Rollback removes only these evidence changes, preserving the
+original notices and exact selected runtime. Relevant paths: the two audit evidence
+files below, this spec, v1 ledger and current semantic-review record.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/codex-third-party-audit.md`
+- `successor/evidence/2026-10-17-node-foundation/codex-third-party-audit.json`
 
 - `successor/evidence/2026-10-17-node-foundation/node-openssl-configuration.md`
 
