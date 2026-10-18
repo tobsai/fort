@@ -27,13 +27,20 @@ test('the optional executor artifact contains complete compiled dependencies and
   assert.equal(packageJSON.private, true); assert.equal(packageJSON.scripts, undefined); assert.equal(packageJSON.dependencies, undefined);
   assert.equal(packageJSON.exports['.'].import, './runner/codex-executor.js');
   const imports = spawnSync(process.execPath, ['--no-experimental-strip-types', '--input-type=module', '-e',
-    `const m=await import(${JSON.stringify(join(artifact, 'runner/codex-executor.js'))});if(typeof m.serveCodexExecutor!=='function'||typeof m.createCodexExecutorProcess!=='function'||typeof m.privateCodexLaunchPlan!=='function')process.exit(1);`],
+    `const m=await import(${JSON.stringify(join(artifact, 'runner/codex-executor.js'))});if(typeof m.serveCodexExecutor!=='function'||typeof m.createCodexExecutorProcess!=='function'||typeof m.privateCodexLaunchPlan!=='function'||typeof m.createPrivateCodexExecutorProcess!=='function')process.exit(1);`],
   { cwd: root, env: {}, encoding: 'utf8', timeout: 5000 });
   assert.equal(imports.status, 0, imports.stderr);
-  writeFileSync(join(root, 'consumer.mts'), `import { createCodexExecutorProcess, serveCodexExecutor, privateCodexLaunchPlan } from './executor/runner/codex-executor.js';
+  for (const args of [[], ['--unapproved', 'synthetic-private-marker'], ['--executable', '/synthetic/missing']]) {
+    const rejected = spawnSync(process.execPath, ['--no-experimental-strip-types', join(artifact, 'runner/codex-executor.js'), ...args],
+      { cwd: root, env: {}, encoding: 'utf8', timeout: 3000 });
+    assert.equal(rejected.status, 1); assert.equal(rejected.stdout, '');
+    assert.equal(rejected.stderr, 'Fort executor could not start or finish safely.\n');
+  }
+  writeFileSync(join(root, 'consumer.mts'), `import { createCodexExecutorProcess, serveCodexExecutor, privateCodexLaunchPlan, createPrivateCodexExecutorProcess } from './executor/runner/codex-executor.js';
 const config: Parameters<typeof createCodexExecutorProcess>[0] = { executable:'/exact/node', args:[], cwd:'/exact/empty', env:{}, guardian:'/exact/guardian', hostId:'explicit-host' };
 const worker: Parameters<typeof serveCodexExecutor>[0] = { input:process.stdin, output:process.stdout, hostId:'explicit-host', runtime:privateCodexLaunchPlan({ executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian' }) };
-void config; void worker;
+const privateProcess: Parameters<typeof createPrivateCodexExecutorProcess>[0] = { executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian', hostId:'explicit-host' };
+void config; void worker; void privateProcess;
 `);
   const compiler = fileURLToPath(new URL('../node_modules/typescript/bin/tsc', import.meta.url));
   const types = fileURLToPath(new URL('../node_modules/@types', import.meta.url));

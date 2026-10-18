@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: a567edaed4f01480d035128d558724dec25f896e75267df92cee9edb9c742160
+Reviewed content SHA256: f4b9e18f053aa2048d5f91f37bb01e31f774043cf492a1dd685a18cb9b134ddb
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,40 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Compiled private executor composition revision
+
+Expose a production constructor in the optional Codex artifact with only exact
+runtime executable, guardian, private directory and host identifier inputs. Require
+the pinned Node version, macOS and the compiled `.js` module. Select that module
+itself as the worker, with fixed jitless/no-TypeScript/no-warning flags, empty worker
+environment and the private root as cwd. Accept no caller-supplied worker, argv or
+environment. Construction performs read-only plan checks but starts no process.
+
+When invoked directly as the compiled worker, accept only the four explicit string
+options, reconstruct the private plan inside that process and serve the existing
+guarded worker protocol. Use the same host/provider/version binding in both layers.
+Reject missing/unknown options with a generic diagnostic and nonzero exit. A
+directory/startup-file change after construction must fail before runtime launch.
+Reuse the two native guardians, deadlines, cancellation and clean-exit checks; do
+not create another owner of process cleanup or select a provider/model fallback.
+
+Vendor independence: only the removable Codex artifact changes; the vendor-free core
+artifact stays independent. Modularity: combine existing launch-plan/process/worker
+seams through one compiled entry, without a framework or dependency. Speed: measure
+20 serial compiled synthetic catalog-and-exact-text journeys, including both owned
+process groups and their absence, p95 <=2 s excluding provider/network. Installation/
+removal: construction remains inert and private locations must already exist; bundle
+bootstrap, signatures, licenses, directory preparation, account and Apple grants remain
+separate gates. No real runtime, credential, service activation or installation.
+
+Acceptance: compiled-only catalog and exact text through the new constructor, no
+thread/turn during catalog, foreign dispatch refusal, no inherited environment,
+post-construction ambient-config refusal before a child runtime, unknown/missing CLI
+options and independent group absence. Retain lower-level guardian regression tests,
+portable independence tests and strict external declarations. Run affected Mac tests
+and measure the isolated journey separately. Reuse decision 059 for this unchanged
+local runtime-composition scope. This is not provider or installed-product evidence.
+
 ### Private Codex launch-plan revision
 
 Add an inert, read-only launch-plan export to the optional executor artifact. The
@@ -1440,6 +1474,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/private-codex-plan.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/private-codex-plan.md`
 - `successor/evidence/2026-10-17-node-foundation/codex-auth-source-audit.json`
+- `successor/evidence/2026-10-17-node-foundation/private-codex-executor.md`
 - `successor/host/owned-core.ts`
 - `successor/host/owned-core.test.ts`
 - `successor/host/fixtures/owned-core.mjs`

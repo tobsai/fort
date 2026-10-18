@@ -1,10 +1,13 @@
 import { readdirSync } from 'node:fs';
 import { isAbsolute, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import type { Readable, Writable } from 'node:stream';
 import { CodexChat } from './codex-chat.ts';
 import { launchGuardedCodexProcess } from './guarded-codex-process.ts';
 import { serveExecutorWorker } from './executor-worker.ts';
 import { ExecutorProcess } from './executor-process.ts';
+import { privateCodexLaunchPlan } from './private-codex-plan.ts';
 export { privateCodexLaunchPlan } from './private-codex-plan.ts';
 
 type CodexExecutorOptions = {
@@ -12,6 +15,21 @@ type CodexExecutorOptions = {
   runtime: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs'>;
 };
 type CodexProcessOptions = Omit<ConstructorParameters<typeof ExecutorProcess>[0], 'lifecycle' | 'cooperativeCancellationMs' | 'discovery'> & { guardian: string; hostId: string };
+type PrivateCodexOptions = Parameters<typeof privateCodexLaunchPlan>[0] & { hostId: string };
+
+function compiledWorker(): string {
+  const worker = fileURLToPath(import.meta.url);
+  if (process.platform !== 'darwin' || process.version !== 'v26.5.0' || !worker.endsWith('.js')) throw new Error('Use the compiled executor artifact with Node 26.5.0 on macOS');
+  return worker;
+}
+
+export function createPrivateCodexExecutorProcess(options: PrivateCodexOptions): ExecutorProcess {
+  const worker = compiledWorker(), plan = privateCodexLaunchPlan(options);
+  return createCodexExecutorProcess({ executable: process.execPath,
+    args: ['--jitless', '--no-experimental-strip-types', '--no-warnings', worker,
+      '--executable', plan.executable, '--guardian', plan.guardian, '--directory', options.directory, '--host', options.hostId],
+    cwd: options.directory, env: {}, guardian: plan.guardian, hostId: options.hostId });
+}
 
 export function createCodexExecutorProcess({ guardian, hostId, ...process }: CodexProcessOptions): ExecutorProcess {
   return new ExecutorProcess({ ...process, lifecycle: { kind: 'macParentExit', guardian }, cooperativeCancellationMs: 3500,
@@ -31,4 +49,17 @@ export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void>
     createRuntime: ({ dispatch }) => create(dispatch.deadline),
     createDiscovery: ({ deadline }) => create(deadline),
   });
+}
+
+if (import.meta.main) {
+  try {
+    compiledWorker();
+    const { values } = parseArgs({ options: { executable: { type: 'string' }, guardian: { type: 'string' }, directory: { type: 'string' }, host: { type: 'string' } }, strict: true, allowPositionals: false });
+    if (!values.executable || !values.guardian || !values.directory || !values.host) throw new Error('Missing private runtime configuration');
+    await serveCodexExecutor({ input: process.stdin, output: process.stdout, hostId: values.host,
+      runtime: privateCodexLaunchPlan({ executable: values.executable, guardian: values.guardian, directory: values.directory }) });
+  } catch {
+    process.stderr.write('Fort executor could not start or finish safely.\n');
+    process.exitCode = 1;
+  }
 }
