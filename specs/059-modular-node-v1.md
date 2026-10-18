@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0295a8a355c594f145c6764c9a30a0b9069e81ba38f2573e3365569cfc42f2c9
+Reviewed content SHA256: 6d7e90ca3b518ec246772050114785fa0390f931e05bebba63dbe3619cbfe515
 
 ### Vendor independence
 Status: planned
@@ -1021,6 +1021,41 @@ and signed/installed acceptance remain later gates under the same v1 direction.
 
 ## Performance verification
 
+### Owned executor worker revision
+
+Implement the receiving half of the existing executor protocol as a provider-neutral
+worker library over explicitly owned private streams. Pin provider/runtime/host from
+local composition, validate one bounded UTF-8 dispatch and its complete input shape,
+digests, identity, plain-text/no-grant policy and deadline before constructing a
+runtime. The hash binds bytes and identity; it is not authentication. Trust comes
+from the inherited private pipe and selected executable, never a public listener.
+Accept one exactly correlated cancellation. Reject additional dispatches, malformed,
+oversized, foreign or expired input without constructing a runtime. Preserve exact
+text and optional prepared context rather than selecting defaults or recompiling it.
+
+Own the selected runtime through execution and disposal. Flush one correlated
+terminal only after disposal resolves; cleanup failure, EOF, malformed input,
+expired deadline or uncertain execution emits no successful terminal. Parent-side
+exit/group proof remains required. No method can extend a dispatch deadline or
+create a provider/executable/account selection from incoming data. The factory is
+explicit and synchronous; actual runtime creation must retain cleanup ownership.
+
+Vendor independence: the worker imports Fort contracts and validation, never a
+provider implementation. Modularity: parsing and worker lifecycle remain small
+internal modules; local composition alone chooses a runtime. Keep the real Codex
+composition/provider authorization as a separate step. Speed: bound the initial
+dispatch wait to five seconds, work to its <=120-second dispatch deadline, cleanup
+to 1500 ms, each wire dispatch to input limit plus 16384 bytes, and cancellation
+to 2048 bytes. No idle work beyond these active deadlines. Measure 20 isolated
+fresh Node worker echo/disposal journeys, p95 <=2 seconds excluding provider/network
+and compiler work. Installation/removal: exercise malformed and fragmented input,
+foreign identity, digest tampering, exact cancellation, EOF, runtime/cleanup failure
+and delayed disposal before a terminal at the public worker streams and through
+the real ExecutorProcess. Preserve optional context and prove no process/group
+survives completion. Use synthetic runtime implementations only; no accounts,
+credentials, real Codex invocation or startup activation. Reuse decision 059 for
+this existing local executor implementation scope.
+
 The local verification CLI creates a new private output directory and refuses
 overwrite. A smoke mode verifies its report/control flow but cannot satisfy
 performance budgets. The core measurement mode uses five fresh compile/package
@@ -1222,6 +1257,11 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/fixtures/guarded-codex-host.mjs`
 - `successor/runner/fixtures/guarded-codex-runtime.mjs`
 - `successor/evidence/2026-10-17-node-foundation/guarded-codex-process.md`
+- `successor/runner/executor-wire.ts`
+- `successor/runner/executor-worker.ts`
+- `successor/runner/executor-worker.test.ts`
+- `successor/runner/fixtures/owned-executor.mjs`
+- `successor/evidence/2026-10-17-node-foundation/executor-worker.md`
 - `successor/runner/executor-process.ts`
 - `successor/runner/executor-process.test.ts`
 - `successor/runner/fixtures/executor-worker.mjs`
