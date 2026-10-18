@@ -81,6 +81,13 @@ public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Ow
               receipt.identity == identity else { throw ClientError.invalidResponse }
         return receipt
     }
+    public func deleteHistory(_ request: MacHistoryDeletionRequest) async throws -> MacHistoryDeletionReceipt {
+        let response = try await exchange(.history(request))
+        guard response.status == 200, response.body.count <= 4096 else { throw ClientError.invalidResponse }
+        let receipt = try JSONDecoder().decode(MacHistoryDeletionReceipt.self,from:response.body)
+        try receipt.validate(for:request)
+        return receipt
+    }
     private func exchange(_ command: CoreCommand) async throws -> FortResponse {
         try Task.checkCancellation()
         let call = CoreCall()
@@ -113,12 +120,14 @@ private struct CoreRequestFrame: Encodable {
     let request: FortRequest?
     let recovery: MacOwnerRecoveryRequest?
     let setup: OwnerSetupCommand?
+    let history: MacHistoryDeletionRequest?
     init(id: Int, command: CoreCommand) {
         self.id = id
         switch command {
-        case .request(let value): kind = "request"; request = value; recovery = nil; setup = nil
-        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil; setup = nil
-        case .setup(let value): kind = "ownerSetup"; setup = value; recovery = nil; request = nil
+        case .request(let value): kind = "request"; request = value; recovery = nil; setup = nil; history = nil
+        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil; setup = nil; history = nil
+        case .setup(let value): kind = "ownerSetup"; setup = value; recovery = nil; request = nil; history = nil
+        case .history(let value): kind = "historyDeletion"; history = value; setup = nil; recovery = nil; request = nil
         }
     }
 }
@@ -126,8 +135,9 @@ private enum CoreCommand: Sendable {
     case request(FortRequest)
     case recovery(MacOwnerRecoveryRequest)
     case setup(OwnerSetupCommand)
+    case history(MacHistoryDeletionRequest)
     var timeout: TimeInterval {
-        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout }
+        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout; case .history(let value): value.timeout }
     }
 }
 private struct CoreCancelFrame: Encodable {

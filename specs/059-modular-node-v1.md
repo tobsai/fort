@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: ca8a04adfff2c5bf58e137b3c23d10ff64267f1ff8a615110387fae2a6c59440
+Reviewed content SHA256: b90e73b50174dfc01c9d844ec7d1f06b63e9617f9623805a92b69b633f19fe77
 
 ### Vendor independence
 Status: planned
@@ -1950,7 +1950,46 @@ fixture in MacHostProcessTests.swift using owned POSIX spawn/EOF and bounded wai
 cleanup; production process observation remains unchanged. Record the interrupted run
 and prove child absence and the existing observation behavior before claiming a pass.
 
+### Guarded offline maintenance composition
+
+Continue native deletion wiring through a separate fixed maintenance entry point,
+compiled with the core and copied into the host resources. It imports only the offline
+ledger operation; it never constructs a service, runtime, socket, enrollment or provider.
+Its private pipe protocol shares existing native process ownership/framing: ready, one
+historyDeletion command, exact receipt, then parent EOF and confirmed clean group exit.
+Only four exact identifiers and a bounded timeout cross the pipe; the ledger directory
+is the verified working directory, never a path supplied by a command. Malformed,
+oversized, duplicate, foreign-version or extra-field frames fail closed. A failed/lost
+reply never proves deletion absent; retry uses the same persisted deletion identity.
+
+Vendor independence: the maintenance dependency graph contains only Node/SQLite and
+Fort's ledger adapter, with no runtime SDK/provider/configuration lookup. Modularity:
+reuse native guardian/process transport, while keeping deletion absent from HTTP/XPC
+request routes and ordinary core channel. Speed: 4 KiB command bound, one command per
+process, 30-second total worker lifetime and existing native timeout/cleanup bounds;
+synthetic compiled deletion plus verified process exit must finish within 5 seconds.
+Installation/removal: fixed bundled code/configuration and empty launch environment;
+no capability is enabled until the native removal coordinator supplies exact persisted
+confirmation and completed lifecycle checks. Test compiled-only deletion with malformed
+controls and native correlated receipt/group cleanup. Retain current source-only tests.
+Rollback removes this maintenance path without modifying stored owner data.
+
+Immediate iPhone acceptance tests use same-local-network scope as the smallest current
+test boundary, per the continuation after c28720d. Keep transport modular for a later
+owner-managed VPN. This authorizes no networking/security changes, listener activation
+or persistent access; independent implementation continues without another product
+choice prompt. Exact slice paths are the maintenance source/entry/test, core artifact
+configuration/packager, host-resource packager/test, Mac core process transport and
+history request/test, this spec, v1 ledger, review and maintenance evidence note.
+
 ## Implementation paths
+
+- `successor/host/history-maintenance.ts`
+- `successor/host/history-maintenance.test.ts`
+- `successor/host/history-maintenance.mjs`
+- `successor/apple/FortKit/Sources/FortKit/MacHistoryDeletion.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHistoryDeletionTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/history-maintenance.md`
 
 - `successor/evidence/2026-10-17-node-foundation/native-storage-inspection.md`
 

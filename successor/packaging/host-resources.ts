@@ -21,7 +21,7 @@ export function buildHostResources(destination: string) {
     const compiler = spawnSync(process.execPath, [join(source, 'node_modules/typescript/bin/tsc'), '-p', join(source, 'tsconfig.context.json'), '--outDir', context], { env: {}, encoding: 'utf8', timeout: 20_000 });
     if (compiler.status !== 0) throw new Error('Context compilation failed: ' + compiler.stdout + compiler.stderr);
     copyFileSync(join(destination, 'core/LICENSE'), join(context, 'LICENSE'));
-    copyFileSync(join(source, 'host/main.mjs'), join(destination, 'main.mjs'));
+    for (const entry of ['main.mjs', 'history-maintenance.mjs']) copyFileSync(join(source, 'host', entry), join(destination, entry));
     writeFileSync(join(destination, 'package.json'), JSON.stringify({ name: 'fort-host-resources', version: '0.1.0', private: true, type: 'module', license: 'MIT' }, null, 2) + '\n', { flag: 'wx' });
     const files = readdirSync(destination, { recursive: true, encoding: 'utf8' }).flatMap(path => {
       const info = lstatSync(join(destination, path));
