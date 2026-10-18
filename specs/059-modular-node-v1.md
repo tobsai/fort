@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: ef14b2c1eabd09a4a411795b841da813a3411608c73a21fe330203a05a6ef6e1
+Reviewed content SHA256: 7c66000750e5ab85d64e85157eb242b6ff3abab40a198f06f88080a14d3bc415
 
 ### Vendor independence
 Status: planned
@@ -116,6 +116,8 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/timeout-cleanup.md`
 
 - `successor/apple/FortKit/Sources/FortKit/InteractiveFixture.swift`
 

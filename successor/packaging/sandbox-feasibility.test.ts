@@ -6,6 +6,27 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const identity = process.env.FORT_SIGNING_IDENTITY;
+test('a sandboxed child retaining open pipes is killed with its parent within the cleanup bound', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
+  assert.ok(identity);
+  const root = mkdtempSync('/tmp/fort059-sandbox-hang-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', identity, '--destination', join(root, 'proof'), '--scenario', 'hang', '--timeout-ms', '1000'], { encoding: 'utf8', timeout: 90_000 });
+  assert.equal(result.status, 1, result.stderr);
+  const proof: unknown = JSON.parse(result.stdout);
+  assert.ok(proof && typeof proof === 'object');
+  assert.equal('outcome' in proof && proof.outcome, 'timedOut');
+  assert.equal('ownedProcessesAbsent' in proof && proof.ownedProcessesAbsent, true, JSON.stringify(proof));
+  assert.equal('syntheticContainerAbsent' in proof && proof.syntheticContainerAbsent, true);
+  assert.equal('hungChildObserved' in proof && proof.hungChildObserved, true);
+  assert.ok('elapsedMs' in proof && typeof proof.elapsedMs === 'number' && proof.elapsedMs < 20000);
+  assert.ok('executionMs' in proof && typeof proof.executionMs === 'number' && proof.executionMs < 4000);
+  assert.ok('parentPid' in proof && 'childPid' in proof);
+  for (const pid of [proof.parentPid, proof.childPid]) {
+    assert.ok(typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1);
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  }
+});
+
 test('sandboxed Swift parent runs bundled Node with private SQLite and denied outside capabilities', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
   assert.ok(identity);
   const root = mkdtempSync('/tmp/fort059-sandbox-test-');

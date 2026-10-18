@@ -3,8 +3,13 @@ import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const [privateRoot, outside] = process.argv.slice(2);
+const [privateRoot, outside, scenario] = process.argv.slice(2);
 if (!privateRoot || !outside) throw new Error('Missing synthetic fixture paths');
+if (scenario === 'hang') {
+  process.stdout.write('synthetic child is holding its output pipe open\n');
+  setInterval(() => {}, 1000);
+  await new Promise(() => {});
+}
 const database = new DatabaseSync(join(privateRoot, 'fixture.sqlite'));
 database.exec('create table messages(text text not null)');
 database.prepare('insert into messages values (?)').run('ready');
