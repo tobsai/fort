@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 83046630398f7bc96748bc6bf171a7f108dd2bd127b3c96406d53fc7dd8fcb3b
+Reviewed content SHA256: 13902df8764234bc097d5dbe64743008335ffb18ae1be9862b4d4a22c34eec58
 
 ### Vendor independence
 Status: planned
@@ -898,6 +898,38 @@ for review. This clarifies the existing Apple dependency/removal gate; it adds n
 runtime dependency, performance work, account grant, provisioning change or activation.
 Continue independent implementation while those external gates remain open.
 
+Observe the helper lifetime separately from its owner-recovery receipt. Add an
+explicit XPC recovery operation that returns the validated receipt plus an in-memory
+process observation obtained from NSXPCConnection's authenticated peer PID/effective
+user and the OS process start time. Never trust process identifiers in reply JSON.
+Require the current effective user and a nonself PID greater than one. Capture the
+peer metadata before invalidating the connection; a vanished/uninspectable peer
+cannot produce a new observation. Preserve the existing receipt-only operation.
+
+The observation can confirm exit or await it for an explicit finite deadline no
+greater than 30 seconds. An absent PID or different OS start time means that original
+process is gone; a still-matching process remains live even if its effective user
+changes. Only ESRCH is absence. Permission/short-read/other inspection failures stay
+unconfirmed. Cancellation or timeout ends only that caller's wait. Never send a
+signal, enumerate unrelated processes, relaunch the helper or register/unregister
+startup from this observer. Poll only during an explicit wait, at most 40 times per
+second, with no timer or work while idle. This in-memory value is not a durable
+removal journal and does not itself authorize credential deletion.
+
+Vendor independence: process observation is confined to the Apple lifecycle adapter;
+no runtime/provider/storage dependency changes. Modularity: keep OS inspection and
+XPC peer metadata out of the portable recovery receipt and Node core. Speed: bounded
+metadata calls and at most a 25 ms polling interval while waiting; measure 20 isolated
+live inspections, target p95 <=5 ms, excluding helper shutdown/provider latency.
+Installation/removal: prove actual helper absence separately from revocation and
+startup state. Test live/exit/repeated wait, timeout/cancellation, invalid identities,
+changed start time, inspection errors and same-process user change. In the existing
+signed synthetic XPC journey verify exact peer correlation, forged reply PID refusal,
+signed-peer rejection, and helper exit under the existing cleanup bounds and unchanged
+entitlements. A restarted client, durable partial-removal proof, SMAppService
+unregistration and production App Group/profile/installed acceptance remain separate
+work. Reuse decision 059 for this unchanged lifecycle scope; no external activation.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -1043,6 +1075,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/private-channel.md`
 
 - `successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacHostProcess.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostProcessTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-process.md`
 - `successor/evidence/2026-10-17-node-foundation/native-xpc.md`
 - `successor/evidence/2026-10-17-node-foundation/native-xpc.json`
 

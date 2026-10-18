@@ -31,24 +31,32 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         let encoded = try JSONEncoder().encode(request)
         guard encoded.count <= 2 * 1024 * 1024 else { throw ClientError.invalidResponse }
         let call = XPCRequest(destination:destination,requirement:requirement,timeout:request.timeout)
-        let data = try await withTaskCancellationHandler {
+        let reply = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
-        guard let response = try? JSONDecoder().decode(FortResponse.self,from:data),
+        guard let response = try? JSONDecoder().decode(FortResponse.self,from:reply.data),
               (100..<600).contains(response.status), response.body.count <= 8 * 1024 * 1024 else { throw ClientError.invalidResponse }
         return response
     }
     public func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt {
+        try await recovery(request).receipt
+    }
+    public func recoverPairingAndObserveHost(_ request: MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation {
+        let (receipt,reply) = try await recovery(request)
+        let host = try MacHostProcess.observe(processID:reply.processID,effectiveUserID:reply.effectiveUserID)
+        return MacHostRecoveryObservation(receipt:receipt,host:host)
+    }
+    private func recovery(_ request: MacOwnerRecoveryRequest) async throws -> (receipt: MacOwnerRecoveryReceipt, reply: XPCReply) {
         try Task.checkCancellation(); try request.validate()
         let encoded = try JSONEncoder().encode(request)
         guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
         let call = XPCRequest(destination:destination,requirement:requirement,timeout:request.timeout,operation:.recovery,responseLimit:1024)
-        let data = try await withTaskCancellationHandler {
+        let reply = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
-        let receipt = try JSONDecoder().decode(MacOwnerRecoveryReceipt.self,from:data)
+        let receipt = try JSONDecoder().decode(MacOwnerRecoveryReceipt.self,from:reply.data)
         try receipt.validate(for:request)
-        return receipt
+        return (receipt,reply)
     }
     public func beginOwnerSetup(timeout: TimeInterval = 30) async throws -> OwnerSetupState {
         let data = try await setup(.begin(timeout))
@@ -71,9 +79,10 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         let encoded = try JSONEncoder().encode(command)
         guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
         let call = XPCRequest(destination:destination,requirement:requirement,timeout:command.timeout,operation:.setup,responseLimit:1024)
-        return try await withTaskCancellationHandler {
+        let reply = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
+        return reply.data
     }
 }
 
@@ -87,6 +96,12 @@ private enum MacXPCDestination: Sendable {
     }
 }
 
+private struct XPCReply: Sendable {
+    let data: Data
+    let processID: Int32
+    let effectiveUserID: UInt32
+}
+
 private enum XPCOperation { case exchange, recovery, setup }
 private final class XPCRequest: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.XPCRequest")
@@ -95,16 +110,16 @@ private final class XPCRequest: @unchecked Sendable {
     private let timeout: TimeInterval
     private let operation: XPCOperation
     private let responseLimit: Int
-    private var continuation: CheckedContinuation<Data, any Error>?
+    private var continuation: CheckedContinuation<XPCReply, any Error>?
     private var connection: NSXPCConnection?
     private var deadline: DispatchWorkItem?
-    private var outcome: Result<Data, any Error>?
+    private var outcome: Result<XPCReply, any Error>?
 
     init(destination: MacXPCDestination, requirement: String, timeout: TimeInterval, operation: XPCOperation = .exchange, responseLimit: Int = 12 * 1024 * 1024) {
         self.destination = destination; self.requirement = requirement; self.timeout = timeout
         self.operation = operation; self.responseLimit = responseLimit
     }
-    func start(_ bytes: Data, continuation: CheckedContinuation<Data, any Error>) {
+    func start(_ bytes: Data, continuation: CheckedContinuation<XPCReply, any Error>) {
         queue.async { [self] in
             if let outcome = self.outcome { continuation.resume(with:outcome); return }
             self.continuation = continuation
@@ -120,7 +135,7 @@ private final class XPCRequest: @unchecked Sendable {
             let reply: (Data?,NSError?) -> Void = { [weak self] data,error in
                 guard let self else { return }
                 if let error { self.complete(.failure(error)) }
-                else if let data, data.count <= self.responseLimit { self.complete(.success(data)) }
+                else if let data, data.count <= self.responseLimit { self.received(data) }
                 else { self.complete(.failure(ClientError.invalidResponse)) }
             }
             switch self.operation {
@@ -131,8 +146,16 @@ private final class XPCRequest: @unchecked Sendable {
         }
     }
     func cancel() { complete(.failure(CancellationError())) }
-    private func complete(_ result: Result<Data, any Error>) { queue.async { self.finish(result) } }
-    private func finish(_ result: Result<Data, any Error>) {
+    private func received(_ data: Data) {
+        queue.async {
+            guard self.outcome == nil, let connection = self.connection else { return }
+            let pid = connection.processIdentifier, uid = connection.effectiveUserIdentifier
+            guard pid > 1, pid != getpid(), uid == geteuid() else { self.finish(.failure(ClientError.invalidResponse)); return }
+            self.finish(.success(XPCReply(data:data,processID:pid,effectiveUserID:uid)))
+        }
+    }
+    private func complete(_ result: Result<XPCReply, any Error>) { queue.async { self.finish(result) } }
+    private func finish(_ result: Result<XPCReply, any Error>) {
         guard outcome == nil else { return }
         outcome = result; deadline?.cancel(); deadline = nil
         connection?.invalidate(); connection = nil

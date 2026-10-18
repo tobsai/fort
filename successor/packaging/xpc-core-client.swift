@@ -111,7 +111,13 @@ func probeCoreXPC() async throws -> [String:Any] {
     let cancellationRetry = try await transport.cancelOwnerSetup(cancelIdentity,timeout:3)
     var remainsStopped = false
     do { _ = try await transport.beginOwnerSetup(timeout:3) } catch { remainsStopped = true }
-    let recovered = try await transport.recoverPairing(MacOwnerRecoveryRequest(installationID:installation,deviceID:device,timeout:3))
+    let observed = try await transport.recoverPairingAndObserveHost(MacOwnerRecoveryRequest(installationID:installation,deviceID:device,timeout:3))
+    let recovered = observed.receipt
+    let exitStarted = ContinuousClock.now
+    try await observed.host.waitForExit(timeout:3)
+    let exitDuration = exitStarted.duration(to:.now).components
+    let observedExitMs = Double(exitDuration.seconds) * 1000 + Double(exitDuration.attoseconds) / 1e15
+    let observedExited = try observed.host.hasExited()
     let oldReceipt = try object(accepted.1["receipt"]), newReceipt = try object(duplicate.1["receipt"])
     let duplicateMessages = try object(duplicate.1["snapshot"])["messages"] as? [[String:Any]]
     let restartedInstallation = try string(object(restarted.1["installation"])["installationId"])
@@ -124,7 +130,9 @@ func probeCoreXPC() async throws -> [String:Any] {
     let crashReceipt = try object(crashDuplicate.1["receipt"])
     let crashMessages = try object(crashDuplicate.1["snapshot"])["messages"] as? [[String:Any]]
     let crashInstallation = try string(object(afterCrash.1["installation"])["installationId"])
-    return ["xpcCoreAuthentication":anonymous.0 == 401 && setupReceipt.installationID == installation && foreign.0 == 401,
+    return ["xpcObservedCorePeer":observed.host.processID == recoveredHelper,
+            "xpcObservedCoreExit":observedExited,"xpcObservedCoreExitMs":observedExitMs,
+            "xpcCoreAuthentication":anonymous.0 == 401 && setupReceipt.installationID == installation && foreign.0 == 401,
             "xpcOwnerSetup":setupReceipt.deviceID == device && setupReceipt.expiresAt == nil && pairedSetup == .paired(setupReceipt),
             "xpcOwnerSetupRetry":setupReceipt == repeatedSetup && setupReceipt == restartedSetup && setupReceipt == recoveredSetup,
             "xpcOwnerSetupForeignRejected":foreignSetups == 3,

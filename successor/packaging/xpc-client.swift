@@ -24,10 +24,22 @@ func probeXPC() async throws -> [String: Any] {
     let clientError = await errorCode(clientMismatch), serviceError = await errorCode(serviceMismatch)
     let ownerRequest = try MacOwnerRecoveryRequest(installationID:"synthetic",deviceID:"synthetic",timeout:3)
     func ownerError(_ peer: MacXPCTransport) async -> NSError? {
-        do { _ = try await peer.recoverPairing(ownerRequest); return nil }
+        do { _ = try await peer.recoverPairingAndObserveHost(ownerRequest); return nil }
         catch { return error as NSError }
     }
     let ownerClientError = await ownerError(clientMismatch), ownerServiceError = await ownerError(serviceMismatch), ownerDisabled = await ownerError(transport)
+    let observedRequest = try MacOwnerRecoveryRequest(installationID:"observed",deviceID:"observed",timeout:3)
+    let receiptOnly = try await transport.recoverPairing(observedRequest)
+    let observed = try await transport.recoverPairingAndObserveHost(observedRequest)
+    var observedTimeout = false
+    do { try await observed.host.waitForExit(timeout:0.03) }
+    catch let error as URLError { observedTimeout = error.code == .timedOut }
+    let observedLive = try !observed.host.hasExited()
+    var rejectedProofs = 0
+    for device in ["foreign","partial","malformed"] {
+        do { _ = try await transport.recoverPairingAndObserveHost(MacOwnerRecoveryRequest(installationID:"observed",deviceID:device,timeout:3)) }
+        catch { rejectedProofs += 1 }
+    }
     let setupRequest = try OwnerSetupRequest(installationID:"synthetic",setupID:"synthetic",deviceID:"synthetic",deviceToken:String(repeating:"A",count:43))
     func setupErrors(_ peer: MacXPCTransport) async -> [NSError] {
         var errors: [NSError] = []
@@ -56,7 +68,9 @@ func probeXPC() async throws -> [String: Any] {
     }
     let oversizedBody = await invalid(request("/v1/large-body"))
     let oversizedFrame = await invalid(request("/v1/large-frame"))
-    var proof: [String:Any] = ["xpcRoundTrip":accepted.status == 200 && echo.text == text && echo.installation == "synthetic" && echo.pid > 1 && echo.pid != getpid(),
+    var proof: [String:Any] = ["xpcObservedPeer":observed.host.processID == echo.pid && observed.host.processID != 1 && observedLive && receiptOnly.coreStopped,
+            "xpcObservedTimeout":observedTimeout,"xpcObservedInvalidProofRejected":rejectedProofs == 3,
+            "xpcRoundTrip":accepted.status == 200 && echo.text == text && echo.installation == "synthetic" && echo.pid > 1 && echo.pid != getpid(),
             "xpcClientRejected":clientError == NSXPCConnectionInterrupted,
             "xpcServiceRejected":serviceError == NSXPCConnectionCodeSigningRequirementFailure,
             "xpcClientError":clientError, "xpcServiceError":serviceError, "xpcServicePid":echo.pid,

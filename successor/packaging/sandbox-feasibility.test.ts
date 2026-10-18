@@ -63,7 +63,7 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
   assert.equal('xpcClientError' in proof && proof.xpcClientError, 4097);
   assert.equal('xpcServiceError' in proof && proof.xpcServiceError, 4102);
   assert.equal('xpcForcedCleanup' in proof && proof.xpcForcedCleanup, false);
-  for (const key of ['xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled']) {
+  for (const key of ['xpcObservedPeer', 'xpcObservedTimeout', 'xpcObservedInvalidProofRejected', 'xpcObservedCorePeer', 'xpcObservedCoreExit', 'xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled']) {
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }
   for (const key of ['xpcOwnerSetup', 'xpcOwnerSetupRetry', 'xpcOwnerSetupForeignRejected', 'xpcOwnerSetupNoHTTP', 'xpcSetupClientRejected', 'xpcSetupServiceRejected', 'xpcSetupDisabled']) {
@@ -79,6 +79,7 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
   assert.ok('xpcCoreAbruptRecovery' in proof && proof.xpcCoreAbruptRecovery === true, 'signed helper crash recovery was not confirmed');
   assert.ok('xpcCoreCrashCleanupMs' in proof && typeof proof.xpcCoreCrashCleanupMs === 'number' && proof.xpcCoreCrashCleanupMs < 3000, 'signed crash cleanup exceeded its bound');
   assert.ok('xpcCoreCrashRestartMs' in proof && typeof proof.xpcCoreCrashRestartMs === 'number' && proof.xpcCoreCrashRestartMs < 12000, 'signed crash restart exceeded its separate bound');
+  assert.ok('xpcObservedCoreExitMs' in proof && typeof proof.xpcObservedCoreExitMs === 'number' && proof.xpcObservedCoreExitMs < 3000);
   const servicePid = proof.xpcServicePid;
   assert.throws(() => process.kill(servicePid, 0), { code: 'ESRCH' });
 });

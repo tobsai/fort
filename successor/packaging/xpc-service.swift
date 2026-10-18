@@ -7,7 +7,13 @@ private final class Channel: NSObject, FortHostChannel {
         reply(nil,ownerSetupUnavailable())
     }
     func recoverPairing(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
-        reply(nil,ownerControlUnavailable())
+        guard let request = try? JSONDecoder().decode(MacOwnerRecoveryRequest.self,from:data),
+              request.installationID == "observed" else { reply(nil,ownerControlUnavailable()); return }
+        if request.deviceID == "malformed" { reply(Data("invalid".utf8),nil); return }
+        let fields: [String:Any] = ["installationID":request.deviceID == "foreign" ? "other" : request.installationID,
+            "deviceID":request.deviceID,"runtimeStopped":request.deviceID != "partial","pairingRevoked":true,"coreStopped":true,
+            "processID":1,"effectiveUserID":0,"host":["processID":1]]
+        reply(try? JSONSerialization.data(withJSONObject:fields),nil)
     }
     func exchange(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
         do {
