@@ -13,6 +13,7 @@
   },
   "include": [
     "contracts/**/*.ts",
+    "host/**/*.ts",
     "modules/**/*.ts",
     "service/**/*.ts",
     "runner/**/*.ts",

@@ -20,7 +20,7 @@ export function buildCore(destination: string) {
       license = execFileSync('git', ['show', 'HEAD:LICENSE'], { cwd: repository });
     }
     writeFileSync(join(destination, 'LICENSE'), license, { flag: 'wx' });
-    writeFileSync(join(destination, 'package.json'), JSON.stringify({ name: 'fort-core', version: '0.1.0', private: true, type: 'module', license: 'MIT', engines: { node: '26.5.0' }, exports: { '.': { types: './service/openai.d.ts', import: './service/openai.js' } } }, null, 2) + '\n', { flag: 'wx' });
+    writeFileSync(join(destination, 'package.json'), JSON.stringify({ name: 'fort-core', version: '0.1.0', private: true, type: 'module', license: 'MIT', engines: { node: '26.5.0' }, exports: { '.': { types: './service/openai.d.ts', import: './service/openai.js' }, './host-channel': { types: './host/private-channel.d.ts', import: './host/private-channel.js' } } }, null, 2) + '\n', { flag: 'wx' });
     const files = readdirSync(destination, { recursive: true, encoding: 'utf8' }).filter(path => statSync(join(destination, path)).isFile()).sort().map(path => {
       const bytes = readFileSync(join(destination, path));
       return { path, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };

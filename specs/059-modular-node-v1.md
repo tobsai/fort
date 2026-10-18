@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 91c43450274b0281d280f669fbb165e7a2ddc0b7464f640eb046cf6ab8bf0f28
+Reviewed content SHA256: c1c4bdf2d70cd84595340839fa3417646d8b79d81dfe32b70d0423a97ab8f4bd
 
 ### Vendor independence
 Status: planned
@@ -228,6 +228,24 @@ process-absence checks. The echo service remains a fixture; core forwarding,
 owner setup and persistent host activation are separate. This is an Apple-only
 adapter to the shared contract, with no AI SDK or new dependency and no polling.
 
+Add a portable private-pipe relay for an already started core socket. It forwards
+the shared native relative request to that exact private socket, preserving
+installation identity, device token, body bytes, HTTP status and response body.
+The caller owns application/runtime lifecycle and enrollment; the relay grants
+no authority and creates no credential. JSON-line protocol version 1 uses strictly
+increasing request IDs, correlated replies and explicit cancellation. Bound input
+to 2 MiB, responses to 8 MiB decoded body, deadlines to 30 seconds and concurrent
+requests to eight. Invalid framing, stale IDs or overload fail the channel closed;
+EOF/abort cancels pending HTTP requests without retry or fallback. Writable
+backpressure retains a bounded set of active calls, with a five-second output
+drain bound that fails the channel rather than retaining buffers indefinitely.
+Test a real owned fixture
+process against the actual core: unauthorized/foreign requests, exact durable
+text, replay/restart/idempotency, canceled waits, malformed/oversized frames and
+EOF cleanup. Build and exercise the relay from the compiled vendor-free artifact.
+This is a small hosting adapter with no production dependency, polling, TCP
+listener or provider activation; Swift supervision/XPC forwarding remains next.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -280,6 +298,11 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/host/private-channel.ts`
+- `successor/host/private-channel.test.ts`
+- `successor/host/fixtures/private-core.mjs`
+- `successor/evidence/2026-10-17-node-foundation/private-channel.md`
 
 - `successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift`
 - `successor/evidence/2026-10-17-node-foundation/native-xpc.md`
