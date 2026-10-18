@@ -24,7 +24,7 @@ async function setup(t: TestContext, options: Partial<Omit<Parameters<typeof cre
     const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
     assert.equal(response.status,201);const device=await response.json() as {deviceToken:string};headers.Authorization=`Bearer ${device.deviceToken}`;
   }
-  return { api, reenroll, directory, headers, get service() { return service; }, async restart() { await service.close(); service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options }); await service.start(); } };
+  return { api, reenroll, directory, headers, get service() { return service; }, async restart(start: Parameters<typeof service.start>[0] = {}) { await service.close(); service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options }); await service.start(start); } };
 }
 
 
@@ -48,7 +48,7 @@ test('disconnect confirms runtime stop then revokes pairing while retaining agen
  const before=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
  const response=await h.api<{revoked:boolean;runtimeStopped:boolean}>('/v1/pairing/disconnect',{});
  assert.equal(response.status,200);assert.equal(stopped,true);assert.equal(response.body.revoked,true);assert.equal(response.body.runtimeStopped,true);
- await h.service.close({preserveSessionCredential:true});await h.restart();assert.equal((await h.api('/v1/agents')).status,401);
+  await h.service.close({preserveSessionCredential:true});await h.restart({resumeOwnerHost:true});assert.equal((await h.api('/v1/agents')).status,401);
  await h.reenroll();assert.deepEqual((await h.api<{agents:Agent[]}>('/v1/agents')).body.agents,[agent]);
  assert.deepEqual((await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body,before);
 });

@@ -15,6 +15,7 @@ import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../cont
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
 export type ServiceEndpoint = Readonly<{ kind: 'loopback'; url: string } | { kind: 'privateSocket'; directory: string; name: string }>;
+type OwnerControl = { deviceId: string; intent: 'running' | 'stop' | 'disconnect' };
 type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
@@ -206,6 +207,21 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       db.prepare('INSERT INTO metadata VALUES (?,?)').run('ownerPairingPolicy',JSON.stringify(ownerPairingPolicy));
     }
   }catch(error){db.close();throw error;}
+  let ownerControl: OwnerControl | undefined;
+  try {
+    const savedControl = db.prepare("SELECT data FROM metadata WHERE key='ownerControl'").get();
+    if (savedControl) {
+      const value = record(json(savedControl));
+      if (!ownerPairingPolicy) throw new Error('Invalid owner control state');
+      const intent = value.intent;
+      if (intent !== 'running' && intent !== 'stop' && intent !== 'disconnect') throw new Error('Invalid owner control intent');
+      ownerControl = { deviceId: id(value.deviceId), intent };
+    }
+  } catch (error) { db.close(); throw error; }
+  const saveOwnerControl = (control: OwnerControl) => {
+    db.prepare("INSERT OR REPLACE INTO metadata VALUES ('ownerControl',?)").run(JSON.stringify(control));
+    ownerControl = control;
+  };
   const transaction = <T>(operation: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -473,7 +489,9 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     armScheduleClock();
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
-  const runtimeReadiness=():RuntimeReadiness=>options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
+  const runtimeReadiness=():RuntimeReadiness=>dispatchStopped
+    ? {state:'unavailable',canRestart:false,detail:'The owner stopped this host. Use local host controls to resume or finish disconnect.'}
+    : options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
     if (closed || dispatchStopped || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
@@ -626,6 +644,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           db.prepare('DELETE FROM enrollment WHERE hash=?').run(digest(body.code));
           const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = ownerPairingPolicy ? (ownerPairingPolicy.expiresAfterDays===null?0:now()+ownerPairingPolicy.expiresAfterDays*86_400_000) : Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
           db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(deviceToken), expires);
+          if (ownerPairingPolicy) saveOwnerControl({ deviceId, intent: 'running' });
           return { installation, deviceId, deviceToken, expiresAt: expires===0?null:new Date(expires).toISOString() };
         }); status = 201;
       } else {
@@ -675,10 +694,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             if(Object.keys(body).length)fail(400,'invalidStop','This command accepts no additional fields.');
             return deviceId;
           });
-          stopCommandActive=true;dispatchStopped=true;clearTimeout(scheduleTimer);scheduleStatus={state:'stopped'};active?.abort();
-          try{await stopRuntime();}catch{stopCommandActive=false;fail(503,'stopUnconfirmed','Runtime shutdown was not confirmed. Pairing is retained for recovery.');}
           const revoked=url.pathname==='/v1/pairing/disconnect';
-          if(revoked)transaction(()=>{db.prepare('DELETE FROM devices WHERE id=?').run(deviceId);db.prepare('DELETE FROM enrollment').run();});
+          await stopOwner(deviceId, revoked);
           result={runtimeStopped:true,revoked};
           response.once('finish',()=>{void api.close({preserveSessionCredential:true}).catch(()=>{ /* close() retains its rejected promise for the host supervisor. */ });});
         }
@@ -918,7 +935,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
-  let baseURL = ''; let endpoint: ServiceEndpoint | undefined; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
+  let baseURL = ''; let endpoint: ServiceEndpoint | undefined; let closed = false; let starting = false; let dispatchStopped = ownerControl !== undefined && ownerControl.intent !== 'running'; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
   server.on('connection',socket=>{
     let resolveClosed!:()=>void;
     acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));
@@ -945,12 +962,44 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     })().catch(error=>{runtimeStopped=undefined;throw error;});
     return runtimeStopped;
   };
+  const stopOwner = async (deviceId: string, disconnect: boolean) => {
+    if (closed) fail(503, 'closed', 'This session has stopped.');
+    if (!ownerPairingPolicy) fail(403, 'temporaryPairing', 'Use the temporary session cleanup procedure.');
+    if (starting) fail(409, 'startInProgress', 'The local host is starting. Retry recovery after startup completes.');
+    if (stopCommandActive) fail(409, 'stopInProgress', 'A stop request is still waiting for runtime confirmation.');
+    const storedDevice = db.prepare('SELECT id FROM devices WHERE id=?').get(deviceId);
+    if (ownerControl ? ownerControl.deviceId !== deviceId : !storedDevice) fail(409, 'pairingMismatch', 'Recovery requires the latest exact owner pairing.');
+    if (!disconnect && ownerControl?.intent === 'disconnect') fail(409, 'disconnectPending', 'Complete the pending disconnect before starting this host.');
+    transaction(() => saveOwnerControl({ deviceId, intent: disconnect ? 'disconnect' : 'stop' }));
+    stopCommandActive = true; dispatchStopped = true; clearTimeout(scheduleTimer); scheduleStatus = { state: 'stopped' }; active?.abort();
+    try {
+      await stopRuntime();
+      if (closed) fail(503, 'closed', 'This session has stopped. Retry recovery with the local host.');
+      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices WHERE id=?').run(deviceId); db.prepare('DELETE FROM enrollment').run(); });
+    } catch {
+      fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
+    } finally { stopCommandActive = false; }
+  };
   const api = { installation, issueEnrollment, dispatchNext, tickSchedules,
+    async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
+      if (identity.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Recovery requires this exact installation.');
+      const deviceId = id(identity.deviceId);
+      await stopOwner(deviceId, true);
+      return { installationId: installation.installationId, deviceId, runtimeStopped: true, revoked: true };
+    },
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',storedReceipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
     get baseURL() { if (endpoint?.kind === 'privateSocket') throw new Error('Private socket transport has no TCP URL'); return baseURL; },
     get endpoint() { return endpoint; },
-    async start({ listener = { kind: 'loopback' }, signal }: { listener?: ServiceListener; signal?: AbortSignal } = {}) {
+    async start({ listener = { kind: 'loopback' }, signal, resumeOwnerHost = false }: { listener?: ServiceListener; signal?: AbortSignal; resumeOwnerHost?: boolean } = {}) {
     if(closed)throw new Error('Service is closed');
+    if (server.listening || starting) throw new Error('Service is already listening or starting');
+    if (resumeOwnerHost) {
+      if (!ownerPairingPolicy) throw new Error('Explicit resume requires an owner-local installation');
+      if (runtimeStopped || stopCommandActive) throw new Error('Open a fresh core before resuming the owner host');
+      if (ownerControl?.intent === 'disconnect' && db.prepare('SELECT id FROM devices WHERE id=?').get(ownerControl.deviceId)) throw new Error('Complete the pending disconnect before starting this host');
+    }
+    starting = true;
+    try {
     listener = { ...listener };
     if (listener.kind === 'privateSocket') {
       const directory = lstatSync(options.dataDirectory);
@@ -984,7 +1033,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       if (!address || typeof address === 'string') throw new Error('Missing listener');
       baseURL = `http://127.0.0.1:${address.port}`; endpoint = Object.freeze({ kind: 'loopback', url: baseURL });
     }
+    const ownerDeviceId = ownerControl?.deviceId;
+    if (resumeOwnerHost && ownerDeviceId !== undefined) {
+      transaction(() => saveOwnerControl({ deviceId: ownerDeviceId, intent: 'running' }));
+      dispatchStopped = false;
+    }
     runScheduleClock(true);queueMicrotask(wake);
+    } finally { starting = false; }
   }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;
     closed = true; clearTimeout(scheduleTimer); active?.abort();

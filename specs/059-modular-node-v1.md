@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 7888a9d88689951512643eb7b20a0f002cbc6b7d617b336db34ce486930a7798
+Reviewed content SHA256: 3da08d8ca7f44308cf3d02fe5baf26213afc84299645a0d6f7db01ddcf65ad37
 
 ### Vendor independence
 Status: planned
@@ -301,6 +301,23 @@ local history and unchanged network behavior using temporary storage and fake
 credential providers. This removes URL coupling without adding a vendor or
 dependency; work is constant per small record and preserves removal identity.
 
+Owner stop/disconnect intent must survive core restart. Record it before waiting
+for runtime shutdown; startup leaves dispatch/scheduling paused unless the native
+owner explicitly requests a start. A pending disconnect cannot be resumed while
+its device remains authorized. Record the latest exact owner device at enrollment
+so trusted local recovery can verify an expired or already-revoked pairing without
+inventing proof for an unknown device. Expose this recovery only as a composition
+API for the pinned local host, never as an unauthenticated HTTP route. It checks
+installation/device identity before stopping anything, waits for runtime disposal,
+then revokes that device and enrollment codes while retaining history. Failed
+disposal retains pairing and permits an explicit retry; another device/installation,
+temporary demo or superseded pairing cannot be adopted. Explicit start may clear
+a completed stop/revocation but cannot renew a credential. Test pause after restart,
+expired/lost-reply recovery, identity mismatches, failure/retry and preserved history
+through public core APIs using synthetic runtimes. This adds bounded local metadata,
+no provider dependency, no new external authority and no polling. Host process
+absence/startup unregistration remain the Swift owner's separate proof obligations.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -353,6 +370,9 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/service/owner-recovery.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/owner-recovery.md`
 
 - `successor/apple/FortKit/Sources/FortKit/DeviceConnection.swift`
 - `successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift`
