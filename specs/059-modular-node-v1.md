@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8778118953a95c338113e67d6a0c8b49f44b10583e8fdba18aa7bc67b8fd3816
+Reviewed content SHA256: ec7b6ce82594f067dbe482eee3271392c460652714c326e1c55fd6c1acbc44ab
 
 ### Vendor independence
 Status: planned
@@ -567,6 +567,21 @@ methods only; pipe/XPC/native discard remain separate. It reuses the existing le
 and stop boundary with a few indexed operations, no package/provider dependency,
 idle work or activation, and preserves existing disposal/transport deadline gates.
 
+Carry owner setup cancellation through the existing private pipe as the explicit
+`ownerSetup` cancel operation. Its optional composition callback stays disabled
+when absent. Accept only the installation/setup/device identity and a deadline;
+reject credential fields, malformed operations and out-of-bound deadlines before
+calling core. Validate exact identity and `notPaired` versus confirmed `revoked`
+receipts, serializing known fields only. A timeout or transport cancellation does
+not prove rollback: retain uncertainty until an exact cancellation retry confirms
+the durable result. Use the existing eight-operation admission limit, monotonic
+IDs, bounded frames, five-second output deadline and at-most-thirty-second request
+deadline. Test source and compiled journeys, both cancellation orders, restart,
+foreign/unconfirmed callback output, disabled composition, secret-free failures,
+lost replies and concurrent requests. This adds no dependency, provider, process,
+timer while idle, authority or HTTP route; the local core and computer-tool sandbox
+boundaries remain unchanged. Native XPC/discard integration remains a later slice.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -636,6 +651,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupPreparationTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-preparation.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-pipe.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

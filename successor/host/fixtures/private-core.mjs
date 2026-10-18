@@ -1,5 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
-const [directory, coreModule, channelModule, mode, recoveryBehavior] = process.argv.slice(2);
+const [directory, coreModule, channelModule, mode, recoveryBehavior, enrollmentMode] = process.argv.slice(2);
 if (!directory || !coreModule || !channelModule) throw new Error('Select exact synthetic inputs');
 const { createApplication } = await import(coreModule);
 const { servePrivateChannel } = await import(channelModule);
@@ -11,7 +11,7 @@ const service = createApplication({ dataDirectory: directory, autoRun: true,
 const lifetime = setTimeout(() => { process.stdin.destroy(new Error('Synthetic deadline')); }, 15_000);
 try {
   await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' } });
-  const enrollment = mode === 'owner' && service.inspectSession().deviceIDs.length ? undefined : service.issueEnrollment();
+  const enrollment = enrollmentMode === 'no-enrollment' || (mode === 'owner' && service.inspectSession().deviceIDs.length) ? undefined : service.issueEnrollment();
   process.send?.({ kind: 'setup', installation: service.installation, enrollment });
   await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerSetup: mode === 'owner' ? {
     begin: () => recoveryBehavior === 'setup-bad-offer' ? { kind: 'available', installationId: service.installation.installationId, setupId: 'synthetic', expiresAt: 'invalid' } : service.beginOwnerSetup(),
@@ -21,6 +21,18 @@ try {
       if (recoveryBehavior === 'setup-slow') await delay(100);
       if (recoveryBehavior === 'setup-wrong') return { ...receipt, deviceId: 'wrong-device' };
       return { ...receipt, unexpectedSecret: 'synthetic-secret' };
+    },
+    cancel: recoveryBehavior === 'cancel-disabled' ? undefined : async request => {
+      process.send?.({ kind: 'cancelInvoked' });
+      if (recoveryBehavior === 'cancel-throws') throw new Error('synthetic-secret');
+      const proof = await service.cancelOwnerSetup(request);
+      if (recoveryBehavior === 'cancel-slow') await delay(100);
+      if (recoveryBehavior === 'cancel-wrong-installation') return { ...proof, installationId: 'wrong-installation' };
+      if (recoveryBehavior === 'cancel-wrong-setup') return { ...proof, setupId: 'wrong-setup' };
+      if (recoveryBehavior === 'cancel-wrong-device') return { ...proof, deviceId: 'wrong-device' };
+      if (recoveryBehavior === 'cancel-unconfirmed') return { ...proof, outcome: 'revoked', runtimeStopped: false };
+      if (recoveryBehavior === 'cancel-bad-outcome') return { ...proof, outcome: 'unknown' };
+      return { ...proof, unexpectedSecret: 'synthetic-secret' };
     },
   } : undefined, ownerRecovery: mode === 'owner' ? async identity => {
     const proof = await service.recoverOwnerPairing(identity);

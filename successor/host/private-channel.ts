@@ -2,13 +2,15 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { request } from 'node:http';
 import type { Readable, Writable } from 'node:stream';
 import type { ServiceEndpoint } from '../service/openai.ts';
-import type { OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
+import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 
 type PrivateEndpoint = Extract<ServiceEndpoint, { kind: 'privateSocket' }>;
 type NativeRequest = { path: string; method: 'GET' | 'POST'; installationID: string; token?: string; body?: Buffer; timeout: number };
 type RecoveryRequest = { installationID: string; deviceID: string; timeout: number };
 type RecoveryProof = { installationId: string; deviceId: string; runtimeStopped: boolean; revoked: boolean };
-type SetupRequest = { operation: 'begin'; timeout: number } | ({ operation: 'complete'; timeout: number } & OwnerSetupRequest);
+type SetupRequest = { operation: 'begin'; timeout: number }
+  | ({ operation: 'complete'; timeout: number } & OwnerSetupRequest)
+  | ({ operation: 'cancel'; timeout: number } & OwnerSetupIdentity);
 type ChannelWork = { kind: 'http'; request: NativeRequest } | { kind: 'recovery'; request: RecoveryRequest } | { kind: 'setup'; request: SetupRequest };
 const inputLimit = 2 * 1024 * 1024, bodyLimit = 8 * 1024 * 1024;
 const protocolError = () => new Error('Private channel protocol or lifecycle was not confirmed');
@@ -30,13 +32,22 @@ function decodeRecovery(value: unknown): RecoveryRequest {
 function decodeSetup(value: unknown): SetupRequest {
   const input = object(value);
   if (!deadline(input.timeout)) throw protocolError();
-  const keys = input.operation === 'begin' ? ['operation', 'timeout'] : ['operation', 'timeout', 'installationId', 'setupId', 'deviceId', 'deviceToken'];
+  const keys = input.operation === 'begin' ? ['operation', 'timeout'] : ['operation', 'timeout', 'installationId', 'setupId', 'deviceId', ...(input.operation === 'complete' ? ['deviceToken'] : [])];
   if (Object.keys(input).some(key => !keys.includes(key))) throw protocolError();
   if (input.operation === 'begin') return { operation: 'begin', timeout: input.timeout };
-  if (input.operation !== 'complete' || !identifier(input.installationId) || !identifier(input.setupId) || !identifier(input.deviceId)
-    || typeof input.deviceToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(input.deviceToken)
+  if (!identifier(input.installationId) || !identifier(input.setupId) || !identifier(input.deviceId)) throw protocolError();
+  const identity = { installationId: input.installationId, setupId: input.setupId, deviceId: input.deviceId };
+  if (input.operation === 'cancel') return { operation: 'cancel', timeout: input.timeout, ...identity };
+  if (input.operation !== 'complete' || typeof input.deviceToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(input.deviceToken)
     || Buffer.from(input.deviceToken, 'base64url').toString('base64url') !== input.deviceToken) throw protocolError();
-  return { operation: 'complete', timeout: input.timeout, installationId: input.installationId, setupId: input.setupId, deviceId: input.deviceId, deviceToken: input.deviceToken };
+  return { operation: 'complete', timeout: input.timeout, ...identity, deviceToken: input.deviceToken };
+}
+function setupCancellation(value: unknown, identity: OwnerSetupIdentity): OwnerSetupCancellation {
+  const input = object(value);
+  if (input.installationId !== identity.installationId || input.setupId !== identity.setupId || input.deviceId !== identity.deviceId) throw protocolError();
+  if (input.outcome === 'notPaired') return { ...identity, outcome: 'notPaired' };
+  if (input.outcome !== 'revoked' || input.runtimeStopped !== true) throw protocolError();
+  return { ...identity, outcome: 'revoked', runtimeStopped: true };
 }
 function setupReceipt(value: unknown): OwnerSetupReceipt {
   const input = object(value);
@@ -95,6 +106,7 @@ export async function servePrivateChannel(options: {
   ownerSetup?: {
     begin: () => OwnerSetupState | Promise<OwnerSetupState>;
     complete: (request: OwnerSetupRequest) => OwnerSetupReceipt | Promise<OwnerSetupReceipt>;
+    cancel?: (identity: OwnerSetupIdentity) => OwnerSetupCancellation | Promise<OwnerSetupCancellation>;
   };
 }): Promise<void> {
   const endpoint = { ...options.endpoint }, { input, output, signal, ownerRecovery } = options;
@@ -135,8 +147,14 @@ export async function servePrivateChannel(options: {
         response = { status: 200, body: Buffer.from(JSON.stringify({ installationId: installationID, deviceId: deviceID, runtimeStopped: true, revoked: true })).toString('base64') };
       } else {
         if (!ownerSetup) throw protocolError();
-        let proof: OwnerSetupState | OwnerSetupReceipt;
+        let proof: OwnerSetupState | OwnerSetupReceipt | OwnerSetupCancellation;
         if (work.request.operation === 'begin') proof = setupState(await ownerSetup.begin());
+        else if (work.request.operation === 'cancel') {
+          if (!ownerSetup.cancel) throw protocolError();
+          const { installationId, setupId, deviceId } = work.request;
+          const identity = { installationId, setupId, deviceId };
+          proof = setupCancellation(await ownerSetup.cancel(identity), identity);
+        }
         else {
           const { installationId, setupId, deviceId, deviceToken } = work.request;
           proof = setupReceipt(await ownerSetup.complete({ installationId, setupId, deviceId, deviceToken }));

@@ -17,20 +17,20 @@ async function fixture(t: TestContext, artifact?: string, owner = false, recover
   const directory = await mkdtemp('/tmp/fort-private-channel-');
   const closers: (() => Promise<void>)[] = [];
   t.after(async () => { for (const close of closers) await close(); await rm(directory, { recursive: true, force: true }); });
-  return { directory, start: async () => {
+  return { directory, start: async (issueEnrollment = true) => {
     const coreModule = artifact ? pathToFileURL(join(artifact, 'service/openai.js')).href : new URL('../service/openai.ts', import.meta.url).href;
     const channelModule = artifact ? pathToFileURL(join(artifact, 'host/private-channel.js')).href : new URL('./private-channel.ts', import.meta.url).href;
-    const child = fork(fileURLToPath(new URL('./fixtures/private-core.mjs', import.meta.url)), [directory, coreModule, channelModule, owner ? 'owner' : 'ordinary', recoveryBehavior], {
+    const child = fork(fileURLToPath(new URL('./fixtures/private-core.mjs', import.meta.url)), [directory, coreModule, channelModule, owner ? 'owner' : 'ordinary', recoveryBehavior, issueEnrollment ? 'enroll' : 'no-enrollment'], {
       execPath: process.execPath, execArgv: artifact ? ['--jitless', '--no-experimental-strip-types'] : [], cwd: directory, detached: true,
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'], env: { PATH: '/usr/bin:/bin', LANG: 'C' }
     });
     const setup = Promise.withResolvers<Record<string, unknown>>(), ready = Promise.withResolvers<void>();
     const exited = Promise.withResolvers<{ code: number | null; signal: NodeJS.Signals | null }>();
     const responses = new Map<number, ReturnType<typeof Promise.withResolvers<Record<string, unknown>>>>();
-    let pending = '', diagnostics = '', nextID = 0, executions = 0, expectedExit = 0;
+    let pending = '', diagnostics = '', nextID = 0, executions = 0, cancellations = 0, expectedExit = 0;
     child.stdin?.on('error', () => {});
     child.stderr?.on('data', chunk => { diagnostics = (diagnostics + chunk.toString()).slice(-2000); });
-    child.on('message', value => { const message = object(value); if (message.kind === 'setup') setup.resolve(message); if (message.kind === 'executed') executions++; });
+    child.on('message', value => { const message = object(value); if (message.kind === 'setup') setup.resolve(message); if (message.kind === 'executed') executions++; if (message.kind === 'cancelInvoked') cancellations++; });
     child.once('error', error => { setup.reject(error); ready.reject(error); });
     child.once('exit', (code, signal) => exited.resolve({ code, signal }));
     child.stdout?.setEncoding('utf8');
@@ -76,7 +76,7 @@ async function fixture(t: TestContext, artifact?: string, owner = false, recover
     };
     return { installed, setup: await setup.promise, api, send, recovery, ownerSetup,
       recover: (installationID: string, deviceID: string, timeout = 3) => recovery(installationID, deviceID, timeout).result,
-      executions: () => executions, close,
+      executions: () => executions, cancellations: () => cancellations, close,
       cancel(id: number) { child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'cancel', id }) + '\n'); },
       raw(bytes: string) { expectedExit = 1; child.stdin?.write(bytes); },
       async failed() { const result = await Promise.race([exited.promise, delay(10_000, undefined, { ref: false }).then(() => { throw new Error('Failed fixture did not exit within its bound'); })]); assert.equal(result.code, 1); },
@@ -143,6 +143,110 @@ async function ownerSetupJourney(t: TestContext, artifact?: string) {
 }
 
 test('explicit owner setup on the private pipe confirms the prepared credential across restart', t => ownerSetupJourney(t));
+
+async function ownerCancellationJourney(t: TestContext, artifact?: string) {
+  const local = await fixture(t, artifact, true), host = await local.start();
+  const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+  const first = { installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID() };
+  const cancel = { operation: 'cancel', timeout: 3, ...first };
+  assert.deepEqual(responseBody(await host.ownerSetup(cancel).result), { ...first, outcome: 'notPaired' });
+  assert.equal((await host.ownerSetup({ ...first, operation: 'complete', timeout: 3, deviceToken: randomBytes(32).toString('base64url') }).result).error, 'unavailable');
+  await host.close();
+  const reopened = await local.start(false);
+  assert.deepEqual(responseBody(await reopened.ownerSetup(cancel).result), { ...first, outcome: 'notPaired' });
+  const next = responseBody(await reopened.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+  const identity = { installationId: next.installationId, setupId: next.setupId, deviceId: randomUUID() };
+  const token = randomBytes(32).toString('base64url');
+  responseBody(await reopened.ownerSetup({ ...identity, operation: 'complete', timeout: 3, deviceToken: token }).result);
+  assert.deepEqual(responseBody(await reopened.ownerSetup(cancel).result), { ...first, outcome: 'notPaired' });
+  assert.equal((await reopened.api('/v1/pairing', undefined, token)).status, 200);
+  assert.equal((await reopened.api('/v1/owner/setup/cancel', identity, token)).status, 404);
+  const completedCancel = { operation: 'cancel', timeout: 3, ...identity };
+  const proof = { ...identity, outcome: 'revoked', runtimeStopped: true };
+  assert.deepEqual(responseBody(await reopened.ownerSetup(completedCancel).result), proof);
+  assert.equal((await reopened.api('/v1/pairing', undefined, token)).status, 401);
+  await reopened.close();
+  const final = await local.start(false);
+  assert.deepEqual(responseBody(await final.ownerSetup(completedCancel).result), proof);
+  assert.equal((await final.ownerSetup({ operation: 'begin', timeout: 3 }).result).error, 'unavailable');
+  assert.equal(final.executions(), 0);
+}
+
+test('private pipe cancellation fences pending setup and revokes exact completed setup across restart', t => ownerCancellationJourney(t));
+
+test('pipe cancellation rejects malformed identity, credential fields and deadlines before invoking core', async t => {
+  const cancel = { operation: 'cancel', timeout: 1, installationId: 'synthetic', setupId: 'synthetic', deviceId: 'synthetic' };
+  for (const changed of [{ setupId: '' }, { deviceId: '../other' }, { installationId: 'x'.repeat(129) }, { timeout: 31 }, { timeout: 0 }, { timeout: null }, { deviceToken: 'forbidden' }, { token: 'forbidden' }, { unexpected: true }, { operation: 'discard' }]) {
+    const local = await fixture(t, undefined, true), host = await local.start();
+    host.raw(JSON.stringify({ protocolVersion: 1, kind: 'ownerSetup', id: 1, setup: { ...cancel, ...changed } }) + '\n');
+    await host.failed(); await host.close();
+    assert.equal(host.cancellations(), 0);
+  }
+});
+
+test('pipe cancellation stays unavailable when its composition callback is absent', async t => {
+  const local = await fixture(t, undefined, true, 'cancel-disabled'), host = await local.start();
+  const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+  const identity = { installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID() };
+  assert.equal((await host.ownerSetup({ ...identity, operation: 'cancel', timeout: 3 }).result).error, 'unavailable');
+  const token = randomBytes(32).toString('base64url');
+  responseBody(await host.ownerSetup({ ...identity, operation: 'complete', timeout: 3, deviceToken: token }).result);
+  assert.equal((await host.api('/v1/pairing', undefined, token)).status, 200);
+  await host.close();
+  assert.equal(host.cancellations(), 0);
+});
+
+test('pipe cancellation validates all receipt identities and confirmed shutdown without leaking callback details', async t => {
+  for (const behavior of ['cancel-wrong-installation', 'cancel-wrong-setup', 'cancel-wrong-device', 'cancel-unconfirmed', 'cancel-bad-outcome', 'cancel-throws']) {
+    const local = await fixture(t, undefined, true, behavior), host = await local.start();
+    const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+    const result = await host.ownerSetup({ operation: 'cancel', timeout: 3, installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID() }).result;
+    assert.equal(result.error, 'unavailable');
+    assert.equal(JSON.stringify(result).includes('synthetic-secret'), false);
+    await host.close();
+    assert.equal(host.cancellations(), 1);
+  }
+});
+
+test('timed out or canceled pipe cancellation remains uncertain until its exact durable result is retried', async t => {
+  for (const completed of [false, true]) for (const canceledReply of [false, true]) {
+    const local = await fixture(t, undefined, true, 'cancel-slow'), host = await local.start();
+    const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+    const identity = { installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID() }, token = randomBytes(32).toString('base64url');
+    const complete = { ...identity, operation: 'complete', timeout: 3, deviceToken: token };
+    if (completed) responseBody(await host.ownerSetup(complete).result);
+    const pending = host.ownerSetup({ ...identity, operation: 'cancel', timeout: canceledReply ? 3 : 0.01 });
+    if (canceledReply) host.cancel(pending.id);
+    assert.equal((await pending.result).error, canceledReply ? 'canceled' : 'timeout');
+    const proof = completed ? { ...identity, outcome: 'revoked', runtimeStopped: true } : { ...identity, outcome: 'notPaired' };
+    assert.deepEqual(responseBody(await host.ownerSetup({ ...identity, operation: 'cancel', timeout: 3 }).result), proof);
+    assert.equal((await host.ownerSetup(complete).result).error, 'unavailable');
+    assert.equal((await host.api('/v1/pairing', undefined, token)).status, 401);
+    await host.close();
+    const reopened = await local.start(false);
+    assert.deepEqual(responseBody(await reopened.ownerSetup({ ...identity, operation: 'cancel', timeout: 3 }).result), proof);
+    await reopened.close();
+  }
+});
+
+test('pipe cancellation shares the eight-operation concurrency limit and never repeats completion', async t => {
+  for (const overflow of [false, true]) {
+    const local = await fixture(t, undefined, true, 'cancel-slow'), host = await local.start();
+    const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+    const identity = { installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID() };
+    const cancel = { ...identity, operation: 'cancel', timeout: 3 };
+    if (overflow) {
+      host.raw(Array.from({ length: 9 }, (_, index) => JSON.stringify({ protocolVersion: 1, kind: 'ownerSetup', id: index + 2, setup: cancel }) + '\n').join(''));
+      await host.failed();
+    } else {
+      const proofs = await Promise.all(Array.from({ length: 8 }, () => host.ownerSetup(cancel).result.then(responseBody)));
+      for (const proof of proofs) assert.deepEqual(proof, { ...identity, outcome: 'notPaired' });
+    }
+    await host.close();
+    assert.equal(host.cancellations(), 8);
+    assert.equal(host.executions(), 0);
+  }
+});
 
 test('setup stays disabled without composition and rejects malformed operations before calling core', async t => {
   const begin = { operation: 'begin', timeout: 1 };
@@ -257,6 +361,7 @@ test('the compiled vendor-free artifact supports the same private pipe journey',
   assert.equal(build.status, 0, build.stderr);
   await journey(t, artifact);
   await ownerSetupJourney(t, artifact);
+  await ownerCancellationJourney(t, artifact);
 });
 
 test('private pipe rejects malformed, oversized, foreign-route, invalid-body and stale request frames', async t => {
