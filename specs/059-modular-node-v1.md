@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: a0c989f198a74033a489832146be028fef619e314306d5ed1b2319f732615e8b
+Reviewed content SHA256: 8778118953a95c338113e67d6a0c8b49f44b10583e8fdba18aa7bc67b8fd3816
 
 ### Vendor independence
 Status: planned
@@ -548,6 +548,25 @@ no idle work is added. Installed setup timing and hardware power-loss durability
 remain separate unverified gates. Ordinary persistent activation still needs its
 explicit owner action and applicable credential/access authority.
 
+Add trusted local cancellation for an uncertain owner setup before exposing native
+discard/recovery. Bind installation/setup/device IDs without requiring the possibly
+missing token. A pending offer is durably canceled before confirming that it has
+no pairing, so a delayed completion cannot create access after local cleanup. For
+an exact completed setup, persist canceling intent and the existing owner disconnect
+intent atomically before disposal, then revoke only after runtime shutdown is
+confirmed. Failure/restart retains stop intent and pairing for retry. Cancellation
+is idempotent; it never renews, resumes or substitutes a device, touches a different
+owner, converts bounded sessions, or deletes history. An obsolete setup may be
+confirmed not paired only when its requested device is absent and that offer cannot
+complete. Distinguish `notPaired` from `revoked` with confirmed runtime stop; neither
+receipt proves helper absence or startup unregistration. Preserve canceled state
+until an explicit new offer supersedes it. Test both completion/cancellation orders,
+lost replies, restart, failed disposal, expiry, conflicting/superseded identities,
+legacy enrollment and bounded-session refusal. This slice adds core types/local
+methods only; pipe/XPC/native discard remain separate. It reuses the existing ledger
+and stop boundary with a few indexed operations, no package/provider dependency,
+idle work or activation, and preserves existing disposal/transport deadline gates.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -616,6 +635,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupPreparationTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-preparation.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

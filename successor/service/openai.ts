@@ -12,13 +12,17 @@ import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 import { PrivateSocketLease } from './private-socket.ts';
-import type { OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
+import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
 export type ServiceEndpoint = Readonly<{ kind: 'loopback'; url: string } | { kind: 'privateSocket'; directory: string; name: string }>;
 type OwnerControl = { deviceId: string; intent: 'running' | 'stop' | 'disconnect' };
-type OwnerSetup = { version: 1; setupId: string; expires: number } & ({ state: 'pending' } | { state: 'completed'; deviceId: string });
+type OwnerSetup = { version: 1; setupId: string; expires: number } & (
+  | { state: 'pending' }
+  | { state: 'completed' | 'canceling'; deviceId: string }
+  | { state: 'canceled'; deviceId: string; outcome: 'notPaired' | 'revoked' }
+);
 type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
@@ -642,7 +646,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       if (value.version !== 1 || typeof value.expires !== 'number' || !Number.isSafeInteger(value.expires) || value.expires <= 0) throw new Error();
       const base = { version: 1 as const, setupId: id(value.setupId), expires: value.expires };
       if (value.state === 'pending') return { ...base, state: 'pending' };
-      if (value.state === 'completed') return { ...base, state: 'completed', deviceId: id(value.deviceId) };
+      if (value.state === 'completed' || value.state === 'canceling') return { ...base, state: value.state, deviceId: id(value.deviceId) };
+      if (value.state === 'canceled' && (value.outcome === 'notPaired' || value.outcome === 'revoked')) return { ...base, state: 'canceled', deviceId: id(value.deviceId), outcome: value.outcome };
       throw new Error();
     } catch { fail(409, 'invalidSetupState', 'Stored owner setup cannot be recovered.'); }
   };
@@ -654,7 +659,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const paired = db.prepare('SELECT id FROM devices WHERE expires=0 OR expires>?').get(now());
       if (paired) return { kind: 'paired', ...setupReceipt(id(paired.id)) };
       let setup = readOwnerSetup();
-      if (!setup || setup.state === 'completed' || setup.expires <= now()) {
+      if (setup?.state === 'canceling') fail(409, 'setupCanceling', 'Complete the pending setup cancellation before starting a new setup.');
+      if (!setup || setup.state !== 'pending' || setup.expires <= now()) {
         setup = { version: 1, state: 'pending', setupId: randomUUID(), expires: now() + 300_000 };
         saveOwnerSetup(setup);
       }
@@ -674,6 +680,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         if (setup.deviceId !== deviceId || ownerControl?.deviceId !== deviceId || !device) fail(409, 'pairingMismatch', 'The completed setup no longer matches an active pairing.');
         return setupReceipt(deviceId);
       }
+      if (setup.state !== 'pending') fail(409, 'setupCanceled', 'This owner setup has been canceled.');
       if (setup.expires <= now()) fail(409, 'setupExpired', 'Owner setup has expired. Begin a new setup.');
       if (db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now())) fail(409, 'alreadyPaired', 'Disconnect the paired device before enrolling another.');
       if (ownerControl?.deviceId === deviceId) fail(409, 'deviceReused', 'Use a new device identity after a prior pairing.');
@@ -1045,7 +1052,35 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
     } finally { stopCommandActive = false; }
   };
-  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, dispatchNext, tickSchedules,
+  const cancelOwnerSetup = async (request: OwnerSetupIdentity): Promise<OwnerSetupCancellation> => {
+    if (closed || starting || stopCommandActive) fail(409, 'hostUnavailable', 'Owner setup cancellation requires an available local host.');
+    if (!ownerPairingPolicy) fail(403, 'temporaryPairing', 'Owner setup requires an explicitly configured owner-local installation.');
+    const value = record(request);
+    if (value.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Setup requires this exact installation.');
+    const identity = { installationId: installation.installationId, setupId: id(value.setupId), deviceId: id(value.deviceId) };
+    const canceledSetup = transaction(() => {
+      const setup = readOwnerSetup();
+      const paired = db.prepare('SELECT 1 FROM devices WHERE id=?').get(identity.deviceId);
+      if (!setup || setup.setupId !== identity.setupId) {
+        if (paired) fail(409, 'pairingMismatch', 'Cancellation requires the exact owner setup and device.');
+        return;
+      }
+      if (setup.state === 'pending' || (setup.state === 'canceled' && setup.outcome === 'notPaired')) {
+        if (paired || (setup.state === 'canceled' && setup.deviceId !== identity.deviceId)) fail(409, 'pairingMismatch', 'Cancellation requires the exact owner setup and device.');
+        if (setup.state === 'pending') saveOwnerSetup({ ...setup, state: 'canceled', deviceId: identity.deviceId, outcome: 'notPaired' });
+        return;
+      }
+      if (setup.deviceId !== identity.deviceId || ownerControl?.deviceId !== identity.deviceId || (setup.state === 'canceled' && paired)) fail(409, 'pairingMismatch', 'Cancellation requires the exact owner setup and device.');
+      saveOwnerSetup({ version: 1, setupId: setup.setupId, expires: setup.expires, state: 'canceling', deviceId: identity.deviceId });
+      saveOwnerControl({ deviceId: identity.deviceId, intent: 'disconnect' });
+      return setup;
+    });
+    if (!canceledSetup) return { ...identity, outcome: 'notPaired' };
+    await stopOwner(identity.deviceId, true);
+    transaction(() => saveOwnerSetup({ version: 1, setupId: canceledSetup.setupId, expires: canceledSetup.expires, state: 'canceled', deviceId: identity.deviceId, outcome: 'revoked' }));
+    return { ...identity, outcome: 'revoked', runtimeStopped: true };
+  };
+  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules,
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
       if (identity.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Recovery requires this exact installation.');
       const deviceId = id(identity.deviceId);
@@ -1061,6 +1096,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (resumeOwnerHost) {
       if (!ownerPairingPolicy) throw new Error('Explicit resume requires an owner-local installation');
       if (runtimeStopped || stopCommandActive) throw new Error('Open a fresh core before resuming the owner host');
+      if (readOwnerSetup()?.state === 'canceling') throw new Error('Complete the pending setup cancellation before starting this host');
       if (ownerControl?.intent === 'disconnect' && db.prepare('SELECT id FROM devices WHERE id=?').get(ownerControl.deviceId)) throw new Error('Complete the pending disconnect before starting this host');
     }
     starting = true;
