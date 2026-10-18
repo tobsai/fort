@@ -37,7 +37,7 @@ export type RoutineTask = { stepId: string; name: string; type: 'task'; instruct
 export type RoutineGate = { stepId: string; name: string; type: 'approval'; prompt: string };
 export type RoutineStep = RoutineTask | RoutineGate;
 export type RoutineDefinition = { schemaVersion: 1; name: string; agentId: string; conversationId: string; bindingRevisionId: string; instructions: string; inputs: RoutineInput[]; skills: (SkillReference & { digest: string })[]; steps: RoutineStep[] };
-export type RoutineRevision = { routineId: string; revisionId: string; digest: string; definition: RoutineDefinition; agentSnapshot: Agent; skills: InstructionSkill[] };
+export type RoutineRevision = { routineId: string; revisionId: string; digest: string; definition: RoutineDefinition; agentSnapshot: Agent; skills: InstructionSkill[]; contextModule?: import('./context.ts').ContextModuleRef };
 export type RoutineStepProgress = { stepId: string; stepRevisionId: string } & (
   | { state: 'pending' }
   | { state: 'running'; attemptId: string }

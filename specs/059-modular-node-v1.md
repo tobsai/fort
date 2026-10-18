@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: f2e085932048b0ad3fdd80864c5cddd6a67fb47e062446e5a32886c4708848ef
+Reviewed content SHA256: 35fa797677c27c87e139a017899a789e7943373c26db19adad0fb55fb36ac0cf
 
 ### Vendor independence
 Status: planned
@@ -140,6 +140,11 @@ omit the local compiler implementation and still pass the send/persist/replay
 contract. Test removal/re-addition, version change and compile failure through
 the public API. Historical context-bearing queued work without a compiler pin
 requires a new reviewed submission; history and receipts remain readable.
+Saved context-bearing routine revisions also pin that compiler in their digest.
+Manual and scheduled invocations require the saved pin, so a future occurrence
+cannot adopt a changed compiler silently. A historical unpinned routine remains
+readable but requires a newly saved revision before invocation. Updating a routine
+does not update an existing schedule's pinned revision or renew its consent.
 
 Swift owns native UI and Apple lifecycle/Keychain/XPC boundaries. The first
 feasibility test uses no persistent registration or provider accounts. Actual
@@ -183,6 +188,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/skill-context.ts`
 - `successor/prototype/mvp-admission.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/context-modules.md`
+- `successor/evidence/2026-10-17-node-foundation/routine-context-pins.md`
 
 - `successor/contracts/executor.ts`
 - `successor/runner/executor-process.ts`

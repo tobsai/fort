@@ -77,3 +77,6 @@ TestFlight/physical acceptance. Existing real-provider grants remain consumed.
 Accepted runs pin their compiler. Saved routines currently select that compiler
 at each new acceptance; pinning the routine revision for future scheduled runs
 is the next versioning correction.
+
+Follow-up: [routine revision pins](routine-context-pins.md) now cover that future
+invocation case, with separate red/green and full-suite evidence.

@@ -98,9 +98,9 @@ function decodeRoutineApproval(value:unknown):RoutineApproval {
 function decodeRoutine(value:unknown):RoutineRevision {
   const v=record(value),definition=parseRoutineDefinition(v.definition),agentSnapshot=decodeAgent(v.agentSnapshot);
   if(!Array.isArray(v.skills))throw new Error('Invalid routine skill snapshot');
-  const skills=v.skills.map(decodeSkill),digest=routineDigest({definition,agentSnapshot,skills});
+  const skills=v.skills.map(decodeSkill),contextModule=v.contextModule===undefined?{}:{contextModule:parseContextModuleRef(v.contextModule)},digest=routineDigest({definition,agentSnapshot,skills,...contextModule});
   if(v.digest!==digest)throw new Error('Routine revision digest changed');
-  return {routineId:id(v.routineId),revisionId:id(v.revisionId),digest,definition,agentSnapshot,skills};
+  return {routineId:id(v.routineId),revisionId:id(v.revisionId),digest,definition,agentSnapshot,skills,...contextModule};
 }
 function decodeSchedule(value:unknown):ScheduleRevision {
   const v=record(value),definition=parseSchedule(v.definition),hash=routineDigest(definition);
@@ -307,7 +307,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       if(agentSnapshot.agentId!==definition.agentId||definition.conversationId!==agentSnapshot.homeConversationId||!agentSnapshot.binding.enabled||bindingDisabled(definition.bindingRevisionId))fail(409,'bindingChanged','Select an enabled binding of this Agent and its exact Home.');
       put('agentBindings',agentSnapshot.binding.bindingRevisionId,agentSnapshot);
       const skills=definition.skills.map(ref=>{const skill=load('skillRevisions',ref.revisionId,decodeSkill);if(skill.skillId!==ref.skillId||skill.bundle?.digest!==ref.digest||skill.review?.state!=='enabled')fail(409,'skillReviewRequired','Select exact enabled skill bundles.');return skill;});
-      const routine:RoutineRevision={routineId:routineId??randomUUID(),revisionId:randomUUID(),digest:routineDigest({definition,agentSnapshot,skills}),definition,agentSnapshot,skills};
+      const contextModule = skills.length && contextRef ? { contextModule: contextRef } : {};
+      const routine:RoutineRevision={routineId:routineId??randomUUID(),revisionId:randomUUID(),digest:routineDigest({definition,agentSnapshot,skills,...contextModule}),definition,agentSnapshot,skills,...contextModule};
       put('routines',routine.routineId,routine);put('routineRevisions',routine.revisionId,routine);return routine;
     });
   };
@@ -327,7 +328,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration:requestedConfiguration,routine}=command;
-    const configuration = requiresContext(requestedConfiguration) && contextRef ? { ...requestedConfiguration, contextModule: contextRef } : requestedConfiguration;
+    const configuration = requiresContext(requestedConfiguration) && contextRef && !requestedConfiguration.contextModule ? { ...requestedConfiguration, contextModule: contextRef } : requestedConfiguration;
     const unavailable = unsupportedContext(configuration);
     if (unavailable) fail(409, 'capabilityUnavailable', unavailable);
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
@@ -381,9 +382,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     const saved=load('routineRevisions',revisionId,decodeRoutine);if(saved.routineId!==routineId)fail(409,'routineChanged','Select the exact saved routine revision.');
     const inputs=parseRoutineInputs(saved.definition,body.inputs),fingerprint=digest(JSON.stringify({command:'routine',routineId,revisionId,recoveryEpoch:body.recoveryEpoch,inputs}));
     const prior=priorAcceptance(requestId,fingerprint);if(prior)return prior;
+    if (saved.skills.length && !saved.contextModule) fail(409, 'contextChanged', 'This routine has no context compiler pin. Review and save a new revision before running it.');
     if(bindingDisabled(saved.definition.bindingRevisionId))fail(409,'bindingDisabled','The routine’s pinned binding revision is disabled.');
     for(const ref of saved.definition.skills){const skill=load('skillRevisions',ref.revisionId,decodeSkill);if(skill.review?.state!=='enabled'||skill.bundle?.digest!==ref.digest)fail(409,'skillReviewRequired','A pinned skill revision is no longer enabled.');}
-    const agent=saved.agentSnapshot,definition=saved.definition,configuration:TurnConfiguration={agentId:agent.agentId,agentName:agent.name,bindingRevisionId:definition.bindingRevisionId,selectedModel:agent.binding.selectedModel,instructions:agent.instructions+'\n\nRoutine instructions:\n'+definition.instructions,skills:saved.skills};
+    const agent=saved.agentSnapshot,definition=saved.definition,configuration:TurnConfiguration={agentId:agent.agentId,agentName:agent.name,bindingRevisionId:definition.bindingRevisionId,selectedModel:agent.binding.selectedModel,instructions:agent.instructions+'\n\nRoutine instructions:\n'+definition.instructions,skills:saved.skills,...(saved.contextModule?{contextModule:saved.contextModule}:{})};
     const inputText=messageText('Run routine: '+definition.name+'\nInputs: '+JSON.stringify(inputs)),conversation=load('conversations',definition.conversationId,decodeConversation);
     if(options.admitSubmission&&!options.admitSubmission({text:inputText,conversation,configuration},list('runs',decodeRun)))fail(403,'sampleNotAuthorized','This routine is outside the active session.');
     return recordSubmission({conversationId:definition.conversationId,requestId,bindingRevisionId:definition.bindingRevisionId,inputText,fingerprint,configuration,routine:startRoutine(routineId,revisionId,definition,inputs)});
