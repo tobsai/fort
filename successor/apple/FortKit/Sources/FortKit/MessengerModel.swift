@@ -4,7 +4,9 @@ import Observation
 @Observable @MainActor public final class MessengerModel {
     public let isOfflinePreview: Bool
     public private(set) var isInteractiveFixture = false
-    public var hasWorkspace: Bool { isInteractiveFixture || installation?.mode == "openai" }
+    public var hasWorkspace: Bool { isInteractiveFixture || ["openai", "local"].contains(installation?.mode ?? "") }
+    public var runtimeProvider: String? { installation?.runtime?.provider ?? recipient?.binding.provider ?? selectedAgent?.binding.provider ?? agents.first?.binding.provider }
+    public var runtimeName: String { installation?.runtime?.name ?? runtimeProvider ?? "No runtime selected" }
     #if DEBUG
     private var interactiveFixture: InteractiveFixtureStore?
     public var fixtureCatalogScenario: FixtureCatalogScenario = .ready
@@ -390,9 +392,9 @@ import Observation
         loadingModels = true; defer { loadingModels = false }
         do {
             let catalog = try await client.models()
-            guard catalog.provider == "codex", ["ready","unavailable","error"].contains(catalog.state), catalog.models.count <= 800, Set(catalog.models.map(\.id)).count == catalog.models.count else { throw ClientError.invalidResponse }
+            guard catalog.provider == runtimeProvider, ["ready","unavailable","error"].contains(catalog.state), catalog.models.count <= 800, Set(catalog.models.map(\.id)).count == catalog.models.count else { throw ClientError.invalidResponse }
             modelCatalog = catalog
-        } catch { modelCatalog = ModelCatalog(provider:"codex",state:"error",models:[],detail:"Could not check models. Your saved selection has not changed.") }
+        } catch { modelCatalog = ModelCatalog(provider:runtimeProvider ?? "",state:"error",models:[],detail:"Could not check models. Your saved selection has not changed.") }
     }
     public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }

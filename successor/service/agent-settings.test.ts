@@ -1,14 +1,15 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createOpenAIService} from './openai.ts';
+import {createApplication} from './openai.ts';
 import type {Agent,Snapshot,ModelCatalog} from '../contracts/v1.ts';
 import type {ChatInput} from '../runner/chat-runtime.ts';
-async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
+async function setup(t: TestContext, options: Partial<Omit<Parameters<typeof createApplication>[0],'dataDirectory'>> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
-  let service = createOpenAIService({ dataDirectory: directory, ...options });
+  let service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options });
   await service.start();
   t.after(async () => { await service.close(); await rm(directory, { recursive: true, force: true }); });
   const enrollment = service.issueEnrollment();
@@ -24,7 +25,7 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
     const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
     assert.equal(response.status,201);const device=await response.json() as {deviceToken:string};headers.Authorization=`Bearer ${device.deviceToken}`;
   }
-  return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
+  return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options }); await service.start(); } };
 }
 
 

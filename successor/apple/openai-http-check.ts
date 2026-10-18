@@ -1,3 +1,4 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import { promisify } from 'node:util';
-import { createOpenAIService } from '../service/openai.ts';
+import { createApplication } from '../service/openai.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 
 const executable = process.argv[2];
@@ -19,7 +20,7 @@ const runtime: ChatRuntime = { async dispose() { cleanupConfirmations++; }, asyn
   if(input.text==='Synthetic uncertain turn')return {kind:'outcomeUnknown',message:'Synthetic missing terminal evidence'};
   return { kind:'completed', text:input.configuration.skills.length ? 'Packing list [CHECKED]' : input.conversationId === inputs[0]?.conversationId ? 'cedar' : 'Synthetic sample reply', effectiveModel:null };
 } };
-let service = createOpenAIService({ dataDirectory:join(directory,'ledger'), runtime, autoRun:true });
+let service = createApplication({ provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'), runtime, autoRun:true });
 let discardedAcceptances = 0, discardedPendingAcceptances = 0, discardedCancellations = 0;
 const gateway = createServer((request,response)=>{void(async()=>{
   let body='';for await(const chunk of request)body+=String(chunk);
@@ -62,7 +63,7 @@ try {
   assert.deepEqual(inputs[3]?.history,[]);
   await service.close();
   assert.equal(cleanupConfirmations,1);
-  service = createOpenAIService({ dataDirectory:join(directory,'ledger'),runtime,autoRun:true });
+  service = createApplication({ provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:true });
   await service.start();
   await writeFile(configPath,JSON.stringify(config),{ mode:0o600 });
   await run('workspace-replay');
@@ -74,12 +75,12 @@ try {
   await run('workspace-recovery-prepare');
   assert.equal(inputs.length,6);
   await service.close();
-  service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
+  service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
   await run('workspace-recovery-close');
   assert.equal(discardedAcceptances,1);
   assert.equal(inputs.length,7);
   await service.close();
-  service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
+  service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
   await run('workspace-recovery-replay');
   assert.equal(inputs.length,8);
   assert.equal(inputs.filter(input=>input.text==='Synthetic uncertain turn').length,1);
@@ -92,14 +93,14 @@ try {
   assert.equal(inputs.length,8);
   await run('workspace-routine-prepare');assert.equal(inputs.length,9);
   const firstTask=JSON.parse(inputs[8]!.text);assert.equal(firstTask.stepId,'draft');assert.equal(firstTask.inputs.topic,'  Synthetic Café e\u0301\r\n');
-  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
+  await service.close();service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:true});await service.start();
   await run('workspace-routine-replay');assert.equal(inputs.length,10);
   const finalTask=JSON.parse(inputs[9]!.text);assert.equal(finalTask.stepId,'finish');assert.equal(finalTask.previousOutputs.length,1);assert.equal(finalTask.previousOutputs[0]?.text,'cedar');
   assert.equal(cleanupConfirmations,4);
   process.stdout.write('PASS routine HTTP conformance: two synthetic task executions separated by a durable gate and restart, schedule consent and pause without execution\n');
-  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
+  await service.close();service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
   await run('workspace-pending-prepare');assert.equal(inputs.length,10);assert.equal(discardedPendingAcceptances,1);assert.equal(discardedCancellations,1);
-  await service.close();service=createOpenAIService({dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
+  await service.close();service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(directory,'ledger'),runtime,autoRun:false});await service.start();
   await run('workspace-pending-replay');assert.equal(await service.dispatchNext(),false);assert.equal(inputs.length,10);assert.equal(cleanupConfirmations,6);
   process.stdout.write('PASS FortClient/PendingStore HTTP conformance: ten synthetic executions, six service restarts, two discarded acceptances, one discarded cancellation, no duplicate or canceled dispatch and empty pending queue\n');
 } finally { await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve())); await service.close(); await rm(directory,{ recursive:true,force:true }); }

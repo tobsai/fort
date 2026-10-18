@@ -1,3 +1,4 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import { DatabaseSync } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,12 +10,12 @@ import {createServer} from 'node:net';
 import { launchOwnedProcess } from '../runner/owned-process.ts';
 import { CodexChat } from '../runner/codex-chat.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
-import { createOpenAIService } from './openai.ts';
+import { createApplication } from './openai.ts';
 import type { Acceptance, Agent, Conversation, InstructionSkill, Installation, Snapshot, Run, RoutineRevision, Approval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, ScheduleDefinition, RequestCancellation, ConversationMemory, RuntimeReadiness } from '../contracts/v1.ts';
 
-async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
+async function setup(t: TestContext, options: Partial<Omit<Parameters<typeof createApplication>[0],'dataDirectory'>> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
-  let service = createOpenAIService({ dataDirectory: directory, ...options });
+  let service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options });
   await service.start();
   t.after(async () => { await service.close(); await rm(directory, { recursive: true, force: true }); });
   const enrollment = service.issueEnrollment();
@@ -30,8 +31,51 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
     const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
     assert.equal(response.status,201);const device=await response.json() as {deviceToken:string};headers.Authorization=`Bearer ${device.deviceToken}`;
   }
-  return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
+  return { api, reenroll, directory, get service() { return service; }, async restart() { await service.close(); service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options }); await service.start(); } };
 }
+
+test('an explicitly selected stateless runtime owns its binding and exposes unsupported discovery without fallback', async t => {
+  const h = await setup(t, { provider: {
+    provider: 'local-stateless', name: 'Local stateless fixture', runtimeVersion: 'fixture-1',
+    hostId: 'synthetic-host', session: 'stateless', capabilities: ['plainText']
+  }, runtime: { async execute(input) { return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() {} } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Local', model: 'exact-local-model', instructions: 'Echo.' })).body;
+  assert.equal(agent.binding.provider, 'local-stateless');
+  assert.equal(agent.binding.runtimeVersion, 'fixture-1');
+  assert.equal(agent.binding.hostId, 'synthetic-host');
+  const catalog = (await h.api<{ provider: string; state: string }>('/v1/models')).body;
+  assert.equal(catalog.provider, 'local-stateless');
+  assert.equal(catalog.state, 'unavailable');
+  const path = `/v1/conversations/${agent.homeConversationId}`;
+  const accepted = (await h.api<Acceptance>(path + '/messages', { requestId: 'neutral-runtime', text: '  Exact Unicode: cedar 🌲\n', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] })).body;
+  await h.service.dispatchNext();
+  await h.restart();
+  const recovered = (await h.api<Acceptance>('/v1/requests/neutral-runtime')).body;
+  assert.deepEqual(recovered.receipt, accepted.receipt);
+  assert.equal(recovered.snapshot.runs[0]?.state, 'completed');
+  assert.equal(recovered.snapshot.messages[1]?.text, '  Exact Unicode: cedar 🌲\n');
+});
+
+test('model discovery rejects evidence from a different provider', async t => {
+  const h = await setup(t, { runtime: {
+    async execute() { throw new Error('No turn should be started'); }, async dispose() {},
+    async models() { return { provider: 'foreign-provider', state: 'ready', checkedAt: '2026-10-17T00:00:00Z', models: [{ id: 'foreign-model', name: 'Foreign model', availability: 'available' }] }; }
+  } });
+  const result = (await h.api<{ provider: string; state: string; models: unknown[] }>('/v1/models')).body;
+  assert.equal(result.provider, 'codex');
+  assert.equal(result.state, 'error');
+  assert.deepEqual(result.models, []);
+});
+
+test('reopening an installation with another runtime identity fails before dispatch', async t => {
+  const h = await setup(t);
+  await h.api('/v1/agents', { name: 'Writer', model: 'exact-model', instructions: 'Reply.' });
+  await h.service.close();
+  let replacement: ReturnType<typeof createApplication> | undefined;
+  try {
+    assert.throws(() => { replacement = createApplication({ dataDirectory: h.directory, provider: { ...CODEX_RUNTIME, provider: 'different-provider' } }); }, /runtime identity/i);
+  } finally { await replacement?.close(); }
+});
 
 test('two hundred durable turns retain exact replay within a four MiB ledger budget', async t => {
   let lastInput: ChatInput | undefined;
@@ -644,7 +688,7 @@ test('runtime refusal before dispatch is a visible failure, not an owner cancell
 
 for(const when of ['before','during'] as const)test(`canceled listener startup exposes no address or surviving listener: ${when}`,async t=>{
   const directory=await mkdtemp(join(tmpdir(),'fort-listener-cancel-'));
-  const service=createOpenAIService({dataDirectory:directory});
+  const service=createApplication({provider: CODEX_RUNTIME, dataDirectory:directory});
   t.after(async()=>{await service.close();await rm(directory,{recursive:true,force:true});});
   const reservation=createServer();t.after(()=>{reservation.close();});
   await new Promise<void>(resolve=>reservation.listen(0,'127.0.0.1',resolve));
@@ -686,7 +730,7 @@ test('owner creates two exact Agent Homes, an instruction skill and a shared con
 test('bounded enrollment expires within ten minutes and final close invalidates its device without a new enrollment', async t => {
   const directory=await mkdtemp(join(tmpdir(),'fort-bounded-enrollment-'));
   let now=Date.now(); const deadline=now+600_000;
-  let service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  let service=createApplication({ provider: CODEX_RUNTIME, dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
   t.after(async()=>{ await service.close(); await rm(directory,{ recursive:true,force:true }); });
   await service.start();
   const enrollment=service.issueEnrollment();
@@ -696,11 +740,11 @@ test('bounded enrollment expires within ten minutes and final close invalidates 
   const headers={ Authorization:`Bearer ${device.deviceToken}`,'X-Fort-Installation-Id':service.installation.installationId };
   assert.throws(()=>service.issueEnrollment(),/already issued/);
   await service.close({ preserveSessionCredential:true });
-  service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  service=createApplication({ provider: CODEX_RUNTIME, dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
   await service.start();
   assert.equal((await fetch(service.baseURL+'/v1/installation',{ headers })).status,200);
   await service.close();
-  service=createOpenAIService({ dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
+  service=createApplication({ provider: CODEX_RUNTIME, dataDirectory:directory,credentialDeadline:deadline,now:()=>now });
   await service.start();
   assert.equal((await fetch(service.baseURL+'/v1/installation',{ headers })).status,401);
   assert.throws(()=>service.issueEnrollment(),/closed/);

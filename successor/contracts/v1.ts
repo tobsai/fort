@@ -1,9 +1,11 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
-export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai'; serviceName: 'Fort Fixture' | 'Fort Prototype'; capabilities?: string[] };
-export type Binding = { bindingRevisionId: string; provider: 'fixture' | 'codex'; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
+export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
+export type RuntimeDescriptor = { provider: string; name: string; runtimeVersion: string; hostId: string; session: 'stateless' | 'sessionful'; capabilities: RuntimeCapability[] };
+export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor };
+export type Binding = { bindingRevisionId: string; provider: string; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
 export type AgentAvatar = 'orbit' | 'ember' | 'sprout';
 export type ModelOption = { id:string; name:string; availability:'available'|'unavailable'; detail?:string };
-export type ModelCatalog = {provider:'codex';state:'ready';models:ModelOption[];checkedAt:string}|{provider:'codex';state:'unavailable'|'error';models:[];detail:string};
+export type ModelCatalog = {provider:string;state:'ready';models:ModelOption[];checkedAt:string}|{provider:string;state:'unavailable'|'error';models:[];detail:string};
 export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string; avatar?: AgentAvatar };
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string };
 export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; attemptGeneration?: number; configuration?: TurnConfiguration; routine?: RoutineExecution; statusDetail?: string };

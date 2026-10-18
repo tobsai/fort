@@ -1,13 +1,14 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createOpenAIService} from './openai.ts';
+import {createApplication} from './openai.ts';
 import type {PairingStatus,Agent,Snapshot} from '../contracts/v1.ts';
-async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenAIService>[0],'dataDirectory'> = {}) {
+async function setup(t: TestContext, options: Partial<Omit<Parameters<typeof createApplication>[0],'dataDirectory'>> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'fort-rebuilt-unit-'));
-  let service = createOpenAIService({ dataDirectory: directory, ...options });
+  let service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options });
   await service.start();
   t.after(async () => { await service.close(); await rm(directory, { recursive: true, force: true }); });
   const enrollment = service.issueEnrollment();
@@ -23,7 +24,7 @@ async function setup(t: TestContext, options: Omit<Parameters<typeof createOpenA
     const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
     assert.equal(response.status,201);const device=await response.json() as {deviceToken:string};headers.Authorization=`Bearer ${device.deviceToken}`;
   }
-  return { api, reenroll, directory, headers, get service() { return service; }, async restart() { await service.close(); service = createOpenAIService({ dataDirectory: directory, ...options }); await service.start(); } };
+  return { api, reenroll, directory, headers, get service() { return service; }, async restart() { await service.close(); service = createApplication({ provider: CODEX_RUNTIME, dataDirectory: directory, ...options }); await service.start(); } };
 }
 
 
@@ -60,10 +61,10 @@ test('stop preserves pairing and does not claim success when runtime shutdown is
 
 test('owner pairing cannot adopt existing or bounded ledgers and admits only one paired device',async t=>{
  const h=await setup(t);await h.service.close();
- assert.throws(()=>createOpenAIService({dataDirectory:h.directory,ownerPairingPolicy:{expiresAfterDays:null}}),/fresh explicitly/);
+ assert.throws(()=>createApplication({provider: CODEX_RUNTIME, dataDirectory:h.directory,ownerPairingPolicy:{expiresAfterDays:null}}),/fresh explicitly/);
  await h.restart();assert.equal((await h.api('/v1/agents')).status,200);
  const demo=await setup(t,{credentialDeadline:Date.now()+600000});await demo.service.close();
- assert.throws(()=>createOpenAIService({dataDirectory:demo.directory,ownerPairingPolicy:{expiresAfterDays:null}}),/fresh explicitly/);
+ assert.throws(()=>createApplication({provider: CODEX_RUNTIME, dataDirectory:demo.directory,ownerPairingPolicy:{expiresAfterDays:null}}),/fresh explicitly/);
  const owner=await setup(t,{ownerPairingPolicy:{expiresAfterDays:null}});
  assert.throws(()=>owner.service.issueEnrollment(),/Disconnect/);
  for(const path of ['/v1/pairing/expiry','/v1/pairing/disconnect','/v1/host/stop']){

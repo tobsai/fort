@@ -1,3 +1,4 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -5,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {connect,type Socket} from 'node:net';
 import {DatabaseSync} from 'node:sqlite';
-import {createOpenAIService} from './openai.ts';
+import {createApplication} from './openai.ts';
 
 async function connected(port:number){
   const socket=connect(port,'127.0.0.1');
@@ -24,7 +25,7 @@ function assertNoEnrollment(directory:string){
 }
 for(const abortFirst of [true,false])test(`service closes every accepted peer after ${abortFirst?'listener abort':'normal shutdown'} without enrollment`,async()=>{
   const directory=await mkdtemp(join(tmpdir(),'fort-shutdown-no-enrollment-')),abort=new AbortController();
-  const service=createOpenAIService({dataDirectory:directory});const sockets:Socket[]=[];
+  const service=createApplication({provider: CODEX_RUNTIME, dataDirectory:directory});const sockets:Socket[]=[];
   try{
     await service.start({signal:abort.signal});const port=Number(new URL(service.baseURL).port);
     const idle=await connected(port),headers=await connected(port),body=await connected(port);sockets.push(idle,headers,body);
@@ -39,7 +40,7 @@ for(const abortFirst of [true,false])test(`service closes every accepted peer af
   }finally{for(const socket of sockets)socket.destroy();await service.close();await rm(directory,{recursive:true,force:true});}
 });
 for(const mode of ['never-started','already-aborted','abort-while-starting','close-while-starting'] as const)test(`service shutdown is idempotent without listener readiness or enrollment: ${mode}`,async()=>{
-  const directory=await mkdtemp(join(tmpdir(),'fort-startup-no-enrollment-')),abort=new AbortController();const service=createOpenAIService({dataDirectory:directory});
+  const directory=await mkdtemp(join(tmpdir(),'fort-startup-no-enrollment-')),abort=new AbortController();const service=createApplication({provider: CODEX_RUNTIME, dataDirectory:directory});
   try{
     if(mode==='already-aborted'){abort.abort();await assert.rejects(()=>service.start({signal:abort.signal}));}
     if(mode==='abort-while-starting'||mode==='close-while-starting'){

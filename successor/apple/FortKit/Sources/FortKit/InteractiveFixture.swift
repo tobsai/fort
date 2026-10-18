@@ -74,10 +74,10 @@ actor InteractiveFixtureStore: FortHTTPTransport {
     func setScenario(_ scenario: FixtureCatalogScenario) throws { state.scenario = scenario; try Self.write(state,to:file) }
     func reload() throws { state = try JSONDecoder().decode(State.self,from:Data(contentsOf:file)) }
     private func catalog() -> ModelCatalog {
-        if state.scenario == .failure { return ModelCatalog(provider:"codex",state:"error",models:[],detail:"Simulated discovery failure. Saved model choices stay unchanged.") }
+        if state.scenario == .failure { return ModelCatalog(provider:"simulated",state:"error",models:[],detail:"Simulated discovery failure. Saved model choices stay unchanged.") }
         var options = [ModelOption(id:"fixture-alpha",name:"QA Alpha",availability:"available"),ModelOption(id:"fixture-beta",name:"QA Beta",availability:"available"),ModelOption(id:"fixture-retired",name:"QA Retired",availability:"unavailable",detail:"This simulated model is unavailable.")]
         if state.scenario == .missingSelection { let saved = Set(state.agents.map { $0.binding.selectedModel }); options.removeAll { saved.contains($0.id) } }
-        return ModelCatalog(provider:"codex",state:"ready",models:options,checkedAt:Self.time,detail:"Simulated catalog · no provider discovery")
+        return ModelCatalog(provider:"simulated",state:"ready",models:options,checkedAt:Self.time,detail:"Simulated catalog · no provider discovery")
     }
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         guard let url = request.url, url.host == "interactive-fixture.invalid", request.value(forHTTPHeaderField:"Authorization") == nil,

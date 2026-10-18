@@ -30,3 +30,11 @@ private let legacyAgent = #"{"agentId":"writer","name":"Writer","homeConversatio
     #expect(AvatarMotion.phase(time:10,reducedMotion:true) == 0)
     #expect(AvatarMotion.phase(time:10,reducedMotion:false) != AvatarMotion.phase(time:11,reducedMotion:false))
 }
+
+@Test func providerNeutralCatalogAllowsOnlyTheExactAvailableModel() {
+    let catalog = ModelCatalog(provider:"local-stateless",state:"ready",models:[ModelOption(id:"local-exact",name:"Local model",availability:"available")])
+    #expect(catalog.canSelect("local-exact"))
+    #expect(!catalog.canSelect("codex-default"))
+    let installation = Installation(contractVersion:"1.0",installationId:"local",recoveryEpoch:"one",mode:"local",serviceName:"Fort")
+    #expect(installation.supportsCommands)
+}

@@ -1,8 +1,9 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import {mkdirSync,existsSync,lstatSync,readFileSync,writeFileSync,renameSync,unlinkSync} from 'node:fs';
 import {isAbsolute,join,normalize} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
-import {createOpenAIService} from '../service/openai.ts';
+import {createApplication} from '../service/openai.ts';
 import type {Acceptance,RuntimeReadiness} from '../contracts/v1.ts';
 import type {ChatRuntime} from '../runner/chat-runtime.ts';
 import type {NativeSession} from './session.ts';
@@ -34,7 +35,7 @@ export class MvpPacket {
     const save=()=>{const temporary=join(root,`state-${randomUUID()}.tmp`);writeFileSync(temporary,JSON.stringify(state,null,2)+'\n',{flag:'wx',mode:0o600});renameSync(temporary,join(root,'session-state.json'));};
     save();
     const abort=new AbortController(),pairingFile=join(root,'local-enrollment.json');
-    let accepting=false,restarting=false,runtime:PreparedRuntime|undefined,service:ReturnType<typeof createOpenAIService>|undefined,closing:Promise<State>|undefined,cancelTimer=()=>{},issuedPairing=false;
+    let accepting=false,restarting=false,runtime:PreparedRuntime|undefined,service:ReturnType<typeof createApplication>|undefined,closing:Promise<State>|undefined,cancelTimer=()=>{},issuedPairing=false;
     let resolveClosed!:(state:State)=>void;const closed=new Promise<State>(resolve=>{resolveClosed=resolve;});
     const active=()=>!abort.signal.aborted&&now()<state.workDeadline;
     const budget:RuntimeBudget={...(ownerDemo?{packet:'owner-demo-20261017' as const}:{}),workDeadline:state.workDeadline,signal:abort.signal,remainingConnections:()=>maximumLaunches-state.launches,claimLaunch:()=>{
@@ -61,7 +62,7 @@ export class MvpPacket {
         catch(error){queueMicrotask(()=>{void finish(false);});throw error;}finally{restarting=false;}
       },
     };
-    const openService=()=>createOpenAIService({dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&(ownerDemo?admitOwnerDemoSubmission(submission,runs):admitMvpSubmission(submission,runs,session))});
+    const openService=()=>createApplication({provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&(ownerDemo?admitOwnerDemoSubmission(submission,runs):admitMvpSubmission(submission,runs,session))});
     const finish=(success=true):Promise<State>=>{
       if(closing)return closing;
       accepting=false;abort.abort();cancelTimer();signal?.removeEventListener('abort',cancel);
@@ -86,7 +87,7 @@ export class MvpPacket {
             }finally{db.close();}
           };
           try{
-            inspectLedger();const cleanup=createOpenAIService({dataDirectory:join(root,'service'),credentialDeadline:state.credentialDeadline,now});const report=cleanup.inspectSession();devices=[...new Set([...devices,...report.deviceIDs])];await cleanup.close();
+            inspectLedger();const cleanup=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),credentialDeadline:state.credentialDeadline,now});const report=cleanup.inspectSession();devices=[...new Set([...devices,...report.deviceIDs])];await cleanup.close();
             const remaining=inspectLedger();revoked=remaining.devices===0&&remaining.enrollments===0;
           }catch{passed=false;}
           try{const erased=await native.cleanup(state.installationId,devices);if(revoked&&erased)state.credentialCleanup='deleted';else passed=false;}catch{passed=false;}

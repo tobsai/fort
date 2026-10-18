@@ -1,5 +1,14 @@
 import Foundation
 
+public struct RuntimeDescriptor: Codable, Equatable, Sendable {
+    public let provider: String
+    public let name: String
+    public let runtimeVersion: String
+    public let hostId: String
+    public let session: String
+    public let capabilities: [String]
+}
+
 public struct Installation: Codable, Equatable, Sendable {
     public let contractVersion: String
     public let installationId: String
@@ -7,8 +16,9 @@ public struct Installation: Codable, Equatable, Sendable {
     public let mode: String
     public let serviceName: String
     public var capabilities: [String]? = nil
+    public var runtime: RuntimeDescriptor? = nil
     public func supports(_ capability: String) -> Bool { supportsCommands && capabilities?.contains(capability) == true }
-    public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai"].contains(mode) }
+    public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai", "local"].contains(mode) }
 }
 public struct Enrollment: Codable, Sendable {
     public let installation: Installation
@@ -45,7 +55,7 @@ public struct InstructionSkill: Codable, Equatable, Sendable, Identifiable {
     public var reference: SkillReference { SkillReference(skillId:skillId, revisionId:revisionId) }
     public var canEditInstructions: Bool {
         guard let bundle else { return true }
-        return bundle.source == "owner-local:Fort-instructions" && bundle.files.count == 1 && bundle.files[0].path == bundle.entrypoint && !bundle.files[0].executable && bundle.requestedTools.isEmpty && bundle.scripts.isEmpty && bundle.supportedRuntimes == ["codex"]
+        return bundle.source == "owner-local:Fort-instructions" && bundle.files.count == 1 && bundle.files[0].path == bundle.entrypoint && !bundle.files[0].executable && bundle.requestedTools.isEmpty && bundle.scripts.isEmpty && bundle.supportedRuntimes.count == 1
     }
     public var canInvoke: Bool {
         guard let bundle else { return false }
@@ -71,7 +81,10 @@ public struct SkillBundle: Codable, Equatable, Sendable {
     public let source: String; public let license: String; public let entrypoint: String
     public let supportedRuntimes: [String]; public let requestedTools: [String]
     public let scripts: [SkillBundleScript]; public let files: [SkillBundleFile]; public let digest: String
-    public var supportsCurrentChat: Bool { schemaVersion == 1 && supportedRuntimes.contains("codex") && requestedTools.isEmpty && scripts.isEmpty && files.contains { $0.path == entrypoint } && files.allSatisfy { $0.kind == "file" && !$0.executable && $0.text != nil } }
+    public func supportsTextChat(provider: String?) -> Bool {
+        guard let provider else { return false }
+        return schemaVersion == 1 && supportedRuntimes.contains(provider) && requestedTools.isEmpty && scripts.isEmpty && files.contains { $0.path == entrypoint } && files.allSatisfy { $0.kind == "file" && !$0.executable && $0.text != nil }
+    }
     public func changes(from previous: SkillBundle?) -> [SkillFileChange] {
         let before = Dictionary((previous?.files ?? []).map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })
         let after = Dictionary(files.map { ($0.path,$0) },uniquingKeysWith:{ first,_ in first })

@@ -258,7 +258,7 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             let imported = try await client.importSkillBundle(JSONSerialization.data(withJSONObject:input))
             guard let original = imported.bundle else { throw CheckFailure(reason:"native import dropped bundle metadata") }
             try require(original.files.count == 2 && original.files.last?.contentBase64 == asset && !imported.canInvoke,"inert native import changed files or enabled itself")
-            try require(!original.supportsCurrentChat,"multi-file bundle hid the current runtime limitation")
+            try require(!original.supportsTextChat(provider:"codex"),"multi-file bundle hid the current runtime limitation")
             let enabled = try await client.reviewSkill(imported,enable:true)
             try require(enabled.canInvoke,"explicit native review did not enable the exact revision")
             input["version"] = "2"; files[0]["contentBase64"] = Data("Changed reviewed instructions.".utf8).base64EncodedString(); input["files"] = files

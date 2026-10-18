@@ -208,7 +208,7 @@ public struct MessengerView: View {
                     ForEach(model.skills) { skill in
                         Toggle(skill.name + (skill.canInvoke ? "" : " · review required"),isOn:SwiftUI.Binding(get:{ model.selectedSkillIDs.contains(skill.id) },set:{ if $0 && skill.canInvoke { model.selectedSkillIDs.insert(skill.id) } else { model.selectedSkillIDs.remove(skill.id) } }))
                             .disabled(!skill.canInvoke && !model.selectedSkillIDs.contains(skill.id))
-                        if skill.bundle?.supportsCurrentChat == false { Text("This bundle needs a runtime that supports its files and requested tools.").font(.caption) }
+                        if skill.bundle?.supportsTextChat(provider:model.runtimeProvider) == false { Text("This bundle needs a runtime that supports its files and requested tools.").font(.caption) }
                     }
                 }
             }

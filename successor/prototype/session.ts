@@ -1,7 +1,8 @@
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import { mkdirSync,readFileSync,writeFileSync,renameSync,lstatSync,existsSync,unlinkSync } from 'node:fs';
 import { join,isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createOpenAIService,type SubmissionAdmission } from '../service/openai.ts';
+import { createApplication,type SubmissionAdmission } from '../service/openai.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { Acceptance,Run } from '../contracts/v1.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from '../runner/startup-diagnostic.ts';
@@ -71,7 +72,7 @@ export class CandidatePacket {
   private async discardHandoff(state:State) {
     state.phase='blocked';state.credentialCleanup='unconfirmed';this.save(state);
     try {
-      const service=createOpenAIService({dataDirectory:join(this.options.root,'service'),now:this.options.now});
+      const service=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(this.options.root,'service'),now:this.options.now});
       const report=service.inspectSession();await service.close();
       if(await this.options.native.cleanup(report.installation.installationId,report.deviceIDs))state.credentialCleanup='deleted';
     } finally {this.save(state);}
@@ -123,7 +124,7 @@ export class CandidatePacket {
       execute:async(input,signal)=> !accepting || now()>=workDeadline || !runtime ? {kind:'notStarted',message:'Session dispatch is closed.'} : runtime.execute(input,AbortSignal.any([signal,abort.signal])),
       dispose:async()=>{ await runtime?.dispose(); },
     };
-    const service=createOpenAIService({ dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,
+    const service=createApplication({ provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,
       admitSubmission:(submission,runs)=>accepting && now()<workDeadline && allowed(submission,runs,state.starts,replacement,singleSample,ownerTrial),
     });
     const finish=(requestCompletion=true):Promise<State>=>{
@@ -147,7 +148,7 @@ export class CandidatePacket {
         state.phase=passed ? !replacement&&state.starts===1?'between':'finished' : 'blocked';
         state.credentialCleanup=state.phase==='between'?'retained-for-restart':'unconfirmed';
         if (state.phase!=='between') {
-          try { const cleanup=createOpenAIService({ dataDirectory:join(root,'service'),now });await cleanup.close(); } catch { state.phase='blocked'; }
+          try { const cleanup=createApplication({ provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),now });await cleanup.close(); } catch { state.phase='blocked'; }
           try { if (!await native.cleanup(service.installation.installationId,report.deviceIDs)) state.phase='blocked';else state.credentialCleanup='deleted'; } catch { state.phase='blocked'; }
         }
         if(replacement&&now()>cleanupDeadline)state.phase='blocked';

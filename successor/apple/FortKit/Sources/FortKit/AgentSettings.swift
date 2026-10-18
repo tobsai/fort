@@ -12,7 +12,7 @@ public struct ModelCatalog: Codable, Equatable, Sendable {
     public let models: [ModelOption]
     public var checkedAt: String? = nil
     public var detail: String? = nil
-    public func canSelect(_ id: String) -> Bool { provider == "codex" && state == "ready" && models.contains { $0.id == id && $0.availability == "available" } }
+    public func canSelect(_ id: String) -> Bool { !provider.isEmpty && state == "ready" && models.contains { $0.id == id && $0.availability == "available" } }
     public func options(preserving selected: String) -> [ModelOption] {
         var result = state == "ready" ? models : []
         if !selected.isEmpty && !result.contains(where:{$0.id == selected}) {
@@ -20,7 +20,7 @@ public struct ModelCatalog: Codable, Equatable, Sendable {
         }
         return result
     }
-    static let unchecked = ModelCatalog(provider:"codex",state:"unavailable",models:[],detail:"Connect to the local runtime to check models.")
+    static let unchecked = ModelCatalog(provider:"",state:"unavailable",models:[],detail:"Connect to the local runtime to check models.")
 }
 struct FortSettingsView: View {
     @Bindable var model: MessengerModel
@@ -74,7 +74,7 @@ struct AgentSettingsEditor: View {
                 Text("\(form.instructions.utf8.count) / 16,384 bytes").font(.caption).foregroundStyle(form.instructions.utf8.count > 16_384 ? .red : .secondary)
             }
             Section("Model") {
-                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Provider: Codex · existing ChatGPT account").font(.caption)
+                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.runtimeName).font(.caption)
                 Picker("Model",selection:$form.exactModel) {
                     if form.exactModel.isEmpty { Text("Choose a model").tag("") }
                     ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in

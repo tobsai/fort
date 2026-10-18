@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Receipt, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -41,7 +41,7 @@ function avatar(value:unknown):{avatar?:AgentAvatar} {
 }
 function decodeAgent(value: unknown): Agent {
   const v = record(value), b = record(v.binding);
-  if (b.provider !== 'codex' || typeof b.enabled !== 'boolean' || v.readiness !== 'requiresLiveReview') throw new Error('Invalid stored Agent');
+  if (typeof b.provider !== 'string' || typeof b.enabled !== 'boolean' || v.readiness !== 'requiresLiveReview') throw new Error('Invalid stored Agent');
   return { ...avatar(v.avatar),agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
     binding: { bindingRevisionId: id(b.bindingRevisionId), provider: b.provider, runtimeVersion: text(b.runtimeVersion, 'runtime'), selectedModel: text(b.selectedModel, 'model'), hostId: id(b.hostId), enabled: b.enabled } };
 }
@@ -116,7 +116,9 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createOpenAIService(options: { dataDirectory: string; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+  const provider = structuredClone(options.provider);
+  if (!provider || !/^[A-Za-z0-9_-]{1,128}$/.test(provider.provider) || !provider.name || !provider.runtimeVersion || !provider.hostId || !provider.capabilities.includes('plainText')) throw new Error('Use an explicit plain-text runtime descriptor');
   const now=options.now ?? Date.now;
   const expiryDays = (value:unknown):number|null => {
     if(value===null)return null;
@@ -144,6 +146,18 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));
     CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);`);
+  const runtimeIdentity = JSON.stringify({ provider: provider.provider, runtimeVersion: provider.runtimeVersion, hostId: provider.hostId });
+  const savedRuntime = db.prepare("SELECT data FROM metadata WHERE key='runtimeIdentity'").get();
+  try {
+    if (savedRuntime && savedRuntime.data !== runtimeIdentity) throw new Error('Installation runtime identity changed; explicit binding migration is required');
+    if (!savedRuntime) {
+      for (const row of db.prepare("SELECT data FROM entities WHERE kind IN ('agents','agentBindings')").all()) {
+        const binding = decodeAgent(json(row)).binding;
+        if (binding.provider !== provider.provider || binding.runtimeVersion !== provider.runtimeVersion || binding.hostId !== provider.hostId) throw new Error('Stored binding runtime identity differs from the selected runtime');
+      }
+      db.prepare("INSERT INTO metadata VALUES ('runtimeIdentity',?)").run(runtimeIdentity);
+    }
+  } catch (error) { db.close(); throw error; }
   const savedDeadline=db.prepare("SELECT data FROM metadata WHERE key='credentialDeadline'").get();
   const credentialDeadline=savedDeadline ? Number(json(savedDeadline)) : options.credentialDeadline;
   if (savedDeadline && options.credentialDeadline!==undefined && credentialDeadline!==options.credentialDeadline) { db.close(); throw new Error('Credential deadline cannot be changed'); }
@@ -177,13 +191,13 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
   const saved = db.prepare("SELECT data FROM metadata WHERE key='installation'").get();
   if (saved) {
     const v = record(json(saved));
-    if (v.contractVersion !== '1.0' || v.mode !== 'openai' || v.serviceName !== 'Fort Prototype') { db.close(); throw new Error('Wrong ledger identity'); }
+    if (v.contractVersion !== '1.0' || (v.mode !== 'openai' && v.mode !== 'local') || (v.serviceName !== 'Fort Prototype' && v.serviceName !== 'Fort')) { db.close(); throw new Error('Wrong ledger identity'); }
     installation = { contractVersion: v.contractVersion, mode: v.mode, serviceName: v.serviceName, installationId: id(v.installationId), recoveryEpoch: id(v.recoveryEpoch) };
   } else {
-    installation = { contractVersion: '1.0', mode: 'openai', serviceName: 'Fort Prototype', installationId: randomUUID(), recoveryEpoch: randomUUID() };
+    installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
@@ -269,9 +283,9 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
     if(Object.keys(body).some(key=>!['name','instructions','expectedRevisionId'].includes(key)))fail(400,'invalidCommand','Use only the instruction authoring fields. Review authority separately.');
     const old=skillId?load('skills',skillId,decodeSkill):undefined;
     if(old&&body.expectedRevisionId!==old.revisionId)fail(409,'skillChanged','Reload the skill before saving.');
-    if(old?.bundle&&(old.bundle.source!=='owner-local:Fort-instructions'||old.bundle.files.length!==1||old.bundle.requestedTools.length!==0||old.bundle.scripts.length!==0||old.bundle.files[0]?.executable||JSON.stringify(old.bundle.supportedRuntimes)!==JSON.stringify(['codex'])))fail(409,'bundleEditRequired','Import the complete revised bundle so its files and authority can be reviewed.');
+    if(old?.bundle&&(old.bundle.source!=='owner-local:Fort-instructions'||old.bundle.files.length!==1||old.bundle.requestedTools.length!==0||old.bundle.scripts.length!==0||old.bundle.files[0]?.executable||JSON.stringify(old.bundle.supportedRuntimes)!==JSON.stringify([provider.provider])))fail(409,'bundleEditRequired','Import the complete revised bundle so its files and authority can be reviewed.');
     const name=text(body.name,'name',128),instructions=text(body.instructions,'instructions'),version=Number(old?.bundle?.version??'0');
-    const bundle=parseSkillBundle({schemaVersion:1,name,version:Number.isSafeInteger(version)&&version>=0&&version<Number.MAX_SAFE_INTEGER?String(version+1):randomUUID(),source:old?.bundle?.source??'owner-local:Fort-instructions',license:old?.bundle?.license??'LicenseRef-Owner-Private',entrypoint:old?.bundle?.entrypoint??'SKILL.md',supportedRuntimes:['codex'],requestedTools:[],scripts:[],files:[{path:old?.bundle?.entrypoint??'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from(instructions).toString('base64')}]});
+    const bundle=parseSkillBundle({schemaVersion:1,name,version:Number.isSafeInteger(version)&&version>=0&&version<Number.MAX_SAFE_INTEGER?String(version+1):randomUUID(),source:old?.bundle?.source??'owner-local:Fort-instructions',license:old?.bundle?.license??'LicenseRef-Owner-Private',entrypoint:old?.bundle?.entrypoint??'SKILL.md',supportedRuntimes:[provider.provider],requestedTools:[],scripts:[],files:[{path:old?.bundle?.entrypoint??'SKILL.md',kind:'file',executable:false,contentBase64:Buffer.from(instructions).toString('base64')}]});
     const skill:InstructionSkill={skillId:skillId??randomUUID(),revisionId:randomUUID(),name,instructions,bundle,review:{state:'reviewRequired',digest:bundle.digest},...(old?{previousRevisionId:old.revisionId}:{})};
     if(old)put('skillRevisions',old.revisionId,old);
     put('skillRevisions',skill.revisionId,skill);put('skills',skill.skillId,skill);return skill;
@@ -509,10 +523,14 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           response.once('finish',()=>{void api.close({preserveSessionCredential:true}).catch(()=>{ /* close() retains its rejected promise for the host supervisor. */ });});
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if(dispatchStopped)result={provider:'codex',state:'unavailable',models:[],detail:'The runtime is stopped; model discovery is unavailable.'};
-          else if(!options.runtime?.models)result={provider:'codex',state:'unavailable',models:[],detail:'Connect a reviewed Codex runtime to check model availability.'};
-          else try{result=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));}
-          catch{result={provider:'codex',state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
+          if(dispatchStopped)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped; model discovery is unavailable.'};
+          else if(!provider.capabilities.includes('modelCatalog') || !options.runtime?.models)result={provider:provider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
+          else try{
+            const catalog=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));
+            if(catalog.provider!==provider.provider)throw new Error('Model catalog identity mismatch');
+            result=catalog;
+          }
+          catch{result={provider:provider.provider,state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
         }
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
         else if(request.method==='POST'&&/^\/v1\/approvals\/[^/]+\/resolve$/.test(url.pathname)){
@@ -698,7 +716,7 @@ export function createOpenAIService(options: { dataDirectory: string; runtime?: 
           const body = await readBody(request);
           result = owner(request, () => {
             const agent: Agent = { ...avatar(body.avatar),agentId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), homeConversationId: randomUUID(), readiness: 'requiresLiveReview',
-              binding: { bindingRevisionId: randomUUID(), provider: 'codex', runtimeVersion: '0.157.1', selectedModel: text(body.model, 'exact model', 128), hostId: 'local-codex', enabled: true } };
+              binding: { bindingRevisionId: randomUUID(), provider: provider.provider, runtimeVersion: provider.runtimeVersion, selectedModel: text(body.model, 'exact model', 128), hostId: provider.hostId, enabled: true } };
             put('agents', agent.agentId, agent);put('agentBindings',agent.binding.bindingRevisionId,agent);
             const home: Conversation = { conversationId: agent.homeConversationId, name: agent.name, kind: 'home', participantAgentIds: [agent.agentId] };
             put('conversations', home.conversationId, home); return agent;
