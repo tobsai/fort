@@ -31,7 +31,7 @@ function fixture(fullNode=false) {
   put('configuration.json',JSON.stringify(configuration));
   const destination=join(root,'output');
   const args=['--client',join(root,'client'),'--helper',join(root,'helper'),'--host-resources',join(root,'host'),'--node-runtime',join(root,'node'),'--codex',codex ?? join(root,'absent-codex'),'--guardian',join(root,'guardian'),'--configuration',join(root,'configuration.json'),'--destination',destination];
-  return {root,put,destination,args,run:()=>spawnSync(process.execPath,[script,...args],{env:{},encoding:'utf8',timeout:30_000})};
+  return {root,put,destination,args,run:(entry=script)=>spawnSync(process.execPath,[entry,...args],{env:{},encoding:'utf8',timeout:30_000})};
 }
 
 test('Mac assembly produces only an inert review bundle and exact local host layout', {skip:process.platform!=='darwin'||!codex||!nodeRuntime?'requires macOS and explicit reviewed Codex source path':false}, t=>{
@@ -46,6 +46,10 @@ test('Mac assembly produces only an inert review bundle and exact local host lay
   const sourceManifest=JSON.parse(readFileSync(join(f.root,'node/manifest.json'),'utf8'));
   for(const notice of sourceManifest.notices) assert.equal(hash(readFileSync(join(helper,'Contents/Resources/NodeLicenses',notice.file.slice('licenses/'.length)))),notice.sha256);
   assert.ok(existsSync(join(helper,'Contents/Resources/host/main.mjs')));
+  for (const name of ['THIRD-PARTY-NOTICES.zip','THIRD-PARTY-SOURCES.zip','THIRD-PARTY.json','SOURCE-AVAILABILITY.txt']) {
+    const original=readFileSync(fileURLToPath(new URL('./vendor/codex-0.157.1/'+name,import.meta.url)));
+    assert.deepEqual(readFileSync(join(helper,'Contents/Resources/CodexLicenses',name)),original);
+  }
   assert.equal(existsSync(join(app,'Contents/embedded.provisionprofile')),false);
   const report=JSON.parse(readFileSync(join(f.destination,'package-report.json'),'utf8'));
   assert.equal(report.status,'review-only');assert.equal(report.signed,false);assert.equal(report.started,false);
@@ -94,3 +98,18 @@ test('Mac assembly removes only its new output after native metadata validation 
   assert.equal(existsSync(f.destination),false);
   assert.ok(existsSync(join(f.root,'client/Contents/MacOS/FortMac')));
 });
+
+for (const scenario of ['missing-source','changed-notices','unexpected-legal-file']) {
+  test('Mac assembly rejects Codex attribution '+scenario+' before creating output', {skip:process.platform!=='darwin'||!codex||!nodeRuntime?'requires explicit reviewed runtime inputs':false},t=>{
+    const f=fixture(true);t.after(()=>rmSync(f.root,{recursive:true,force:true}));
+    const isolated=join(f.root,'assembler'),entry=join(isolated,'mac-application.ts');
+    mkdirSync(isolated,{mode:0o700});writeFileSync(entry,readFileSync(script),{mode:0o600});
+    const legal=join(isolated,'vendor/codex-0.157.1');
+    cpSync(fileURLToPath(new URL('./vendor/codex-0.157.1',import.meta.url)),legal,{recursive:true});
+    if(scenario==='missing-source')rmSync(join(legal,'THIRD-PARTY-SOURCES.zip'));
+    else if(scenario==='changed-notices')writeFileSync(join(legal,'THIRD-PARTY-NOTICES.zip'),'changed');
+    else writeFileSync(join(legal,'unexpected.txt'),'unreviewed');
+    const result=f.run(entry);assert.notEqual(result.status,0);assert.match(result.stderr,/Codex attribution/);
+    assert.equal(existsSync(f.destination),false);
+  });
+}

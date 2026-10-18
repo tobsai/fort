@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: af4e727b13ecefb2f48bffd9fcb35f85565c8e4e24829f72e6f0831b9eaabf79
+Reviewed content SHA256: 896112783841a852f83aaa447ba26a975904dec5c2e6a171dae399b743b5d715
 
 ### Vendor independence
 Status: planned
@@ -2012,7 +2012,55 @@ SavedHistoryRemovalTests.swift under FortKit; this spec, v1 ledger, current revi
 and iphone-saved-history.md evidence. No actual user history may be deleted during
 implementation. This is an unchanged-scope refinement under decision 059.
 
+### Pinned Codex attribution and covered-source payload
+
+Complete the current read-only attribution inventory as inert package resources for
+Codex 0.157.1/source 36650394c5b38c2990ccf2a3457165ca3e9d9726. Preserve original
+root LICENSE/NOTICE and every collected package notice/header plus published Cargo
+metadata with package/version/source links. Keep the conservative CLI graph explicit:
+it includes development and other-platform packages and is not a binary SBOM. For
+packages declaring alternatives, use an available permissive option; retain original
+multi-license text. Preserve original source/header copyright wording verbatim. The
+three old MIT crates with no copyright notice in their published archives retain
+exact original archives, MIT declarations, author metadata labelled as authors, and
+standard MIT terms; do not invent a year/holder or substitute a later fax notice.
+The package's declaration is the license basis, not a claim that Cargo validates rights.
+
+Ship exact checksum-verified MPL registry archives and the pinned nucleo source
+archive alongside a recipient-readable source-availability notice. Include existing
+license texts and identify the MPL terms and retrieval paths. These are unmodified
+source copies, not new runtime code or an offer requiring an unapproved public host.
+Nothing downloaded is executed. Package the attribution/source archives, machine
+manifest and readable notice using pinned hashes; missing, changed or unlisted legal
+input must fail before a new application output is created. Preserve the inert,
+unsigned review-only assembly status and separate installed/Apple/provider gates.
+
+Vendor independence: notices describe only the optional Codex boundary; core does
+not depend on them or Codex. Modularity: isolated data resources, no SDK/runtime
+imports or new package dependency. Speed: archives add under 16 MiB to review bundle
+size, no startup work; verify sizes/hashes during the existing assembly pass, whose
+30-second synthetic test deadline remains. Installation/removal: source travels with
+the runtime and is removed with its app; no remote hosting/account/network activation.
+Acceptance: verify archive membership and every original hash, source correspondence,
+missing/tampered legal input refusal, exact copied payload and final inert bundle.
+License notice completion is not confirmation of Apple redistribution eligibility,
+provider terms acceptance, signed delivery or the binary's exact target membership.
+Rollback reverts assembly/resources without changing accounts or owned data.
+
+Exact slice: mac-application.ts and mac-application.test.ts; Codex vendor
+THIRD-PARTY-NOTICES.zip, THIRD-PARTY-SOURCES.zip, THIRD-PARTY.json and
+SOURCE-AVAILABILITY.txt; codex-attribution-package.md evidence; this spec, v1 ledger
+and current Ponytail review. Existing LICENSE and NOTICE bytes stay unchanged.
+This refines the accepted packaging task under decision 059; no legal agreement or
+external communication is made on the owner's behalf.
+
 ## Implementation paths
+
+- `successor/packaging/vendor/codex-0.157.1/THIRD-PARTY-NOTICES.zip`
+- `successor/packaging/vendor/codex-0.157.1/THIRD-PARTY-SOURCES.zip`
+- `successor/packaging/vendor/codex-0.157.1/THIRD-PARTY.json`
+- `successor/packaging/vendor/codex-0.157.1/SOURCE-AVAILABILITY.txt`
+- `successor/evidence/2026-10-17-node-foundation/codex-attribution-package.md`
 
 - `successor/evidence/2026-10-17-node-foundation/iphone-saved-history.md`
 
