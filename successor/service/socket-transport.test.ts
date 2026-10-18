@@ -3,7 +3,7 @@ import { test, type TestContext } from 'node:test';
 import { fork, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { request } from 'node:http';
-import { mkdtemp, rm, stat, writeFile, readFile, chmod, symlink, lstat } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, stat, writeFile, readFile, chmod, symlink, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,10 +15,12 @@ function object(value: unknown): Record<string, unknown> {
   assert.ok(value && typeof value === 'object' && !Array.isArray(value));
   return value as Record<string, unknown>;
 }
-async function root(t: TestContext) {
-  const directory = await mkdtemp(join(tmpdir(), 'fort-socket-'));
+async function root(t: TestContext, longDirectory = false) {
+  const base = await mkdtemp(join(tmpdir(), 'fort-socket-'));
+  const directory = longDirectory ? join(base, 'long-private-directory-'.repeat(5)) : base;
+  if (longDirectory) await mkdir(directory, { mode: 0o700 });
   const closers: (() => Promise<void>)[] = [];
-  t.after(async () => { for (const close of closers) await close(); await rm(directory, { recursive: true, force: true }); });
+  t.after(async () => { for (const close of closers) await close(); await rm(base, { recursive: true, force: true }); });
   return { directory, start: (name = 'core.sock', cwd = directory, mode = '') => host(directory, name, cwd, close => closers.push(close), mode) };
 }
 async function host(directory: string, name: string, cwd: string, registerClose: (close: () => Promise<void>) => void, mode: string) {
@@ -118,32 +120,38 @@ test('private socket startup refuses occupied paths, traversal, wrong working di
 });
 
 test('a killed private core recovers its exact socket and durable receipt without reenrollment', async t => {
-  const fixture = await root(t), { directory } = fixture, first = await fixture.start();
-  assert.equal(first.ready.kind, 'ready', first.diagnostic());
-  const socket = join(directory, 'core.sock'), installation = object(first.ready.installation);
-  assert.ok(typeof installation.installationId === 'string');
-  const enrolled = await api<{ deviceToken: string }>(socket, '/v1/devices/enroll', {}, { ...object(first.ready.enrollment), deviceName: 'Crash fixture' });
-  assert.equal(enrolled.status, 201);
-  const headers = { Authorization: 'Bearer ' + enrolled.body.deviceToken, 'X-Fort-Installation-Id': installation.installationId };
-  const agent = (await api<Agent>(socket, '/v1/agents', headers, { name: 'Crash Home', model: 'exact-synthetic', instructions: 'Echo.' })).body;
-  const path = '/v1/conversations/' + agent.homeConversationId;
-  const command = { requestId: 'socket-crash', text: 'Exact retained cedar 🌲', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: installation.recoveryEpoch, skills: [] };
-  const accepted = await api<Acceptance>(socket, path + '/messages', headers, command);
-  assert.equal(accepted.status, 201);
-  let snapshot = (await api<Snapshot>(socket, path + '/snapshot', headers)).body;
-  for (let index = 0; index < 30 && snapshot.runs[0]?.state !== 'completed'; index++) { await delay(10); snapshot = (await api<Snapshot>(socket, path + '/snapshot', headers)).body; }
-  assert.deepEqual(snapshot.messages.map(message => message.text), [command.text, command.text]);
-  await first.crash();
-  assert.ok((await stat(socket)).isSocket());
-  const second = await fixture.start();
-  assert.equal(second.ready.kind, 'ready', second.diagnostic());
-  assert.equal(object(second.ready.installation).installationId, installation.installationId);
-  const duplicate = await api<Acceptance>(socket, path + '/messages', headers, command);
-  assert.equal(duplicate.status, 201);
-  assert.deepEqual(duplicate.body.receipt, accepted.body.receipt);
-  assert.deepEqual(duplicate.body.snapshot.messages.map(message => message.text), [command.text, command.text]);
-  await second.close();
-  await assert.rejects(stat(socket), { code: 'ENOENT' });
+  for (const longDirectory of [false, true]) await t.test(longDirectory ? 'long private directory' : 'ordinary directory', async t => {
+    const fixture = await root(t, longDirectory), { directory } = fixture, first = await fixture.start();
+    assert.equal(first.ready.kind, 'ready', first.diagnostic());
+    const socket = join(directory, 'core.sock'), installation = object(first.ready.installation);
+    const alias = await mkdtemp('/tmp/fort-socket-client-');
+    t.after(() => rm(alias, { recursive: true, force: true }));
+    await symlink(directory, join(alias, 'data'));
+    const address = join(alias, 'data/core.sock');
+    assert.ok(typeof installation.installationId === 'string');
+    const enrolled = await api<{ deviceToken: string }>(address, '/v1/devices/enroll', {}, { ...object(first.ready.enrollment), deviceName: 'Crash fixture' });
+    assert.equal(enrolled.status, 201);
+    const headers = { Authorization: 'Bearer ' + enrolled.body.deviceToken, 'X-Fort-Installation-Id': installation.installationId };
+    const agent = (await api<Agent>(address, '/v1/agents', headers, { name: 'Crash Home', model: 'exact-synthetic', instructions: 'Echo.' })).body;
+    const path = '/v1/conversations/' + agent.homeConversationId;
+    const command = { requestId: 'socket-crash', text: 'Exact retained cedar 🌲', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: installation.recoveryEpoch, skills: [] };
+    const accepted = await api<Acceptance>(address, path + '/messages', headers, command);
+    assert.equal(accepted.status, 201);
+    let snapshot = (await api<Snapshot>(address, path + '/snapshot', headers)).body;
+    for (let index = 0; index < 30 && snapshot.runs[0]?.state !== 'completed'; index++) { await delay(10); snapshot = (await api<Snapshot>(address, path + '/snapshot', headers)).body; }
+    assert.deepEqual(snapshot.messages.map(message => message.text), [command.text, command.text]);
+    await first.crash();
+    assert.ok((await stat(socket)).isSocket());
+    const second = await fixture.start();
+    assert.equal(second.ready.kind, 'ready', second.diagnostic());
+    assert.equal(object(second.ready.installation).installationId, installation.installationId);
+    const duplicate = await api<Acceptance>(address, path + '/messages', headers, command);
+    assert.equal(duplicate.status, 201);
+    assert.deepEqual(duplicate.body.receipt, accepted.body.receipt);
+    assert.deepEqual(duplicate.body.snapshot.messages.map(message => message.text), [command.text, command.text]);
+    await second.close();
+    await assert.rejects(stat(socket), { code: 'ENOENT' });
+  });
 });
 
 test('a live owner keeps its socket and ledger when another core attempts startup', async t => {

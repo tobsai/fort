@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2fdbb1b0392fa77e17f083412f211f77b42558a5d4d12e1b7ce7d7cef79617f5
+Reviewed content SHA256: 0cdeeb5c287a8ba97c06587dbf7e13f435b17a57ebc8b30d31a1a7b5b05a57d0
 
 ### Vendor independence
 Status: planned
@@ -422,6 +422,32 @@ active-owner refusal, replacement/symlink/regular-file preservation and canceled
 recovery. This enables recovery of recorded resources, not unrestricted directory
 cleanup or proof of installed-host recovery at every startup instruction.
 
+Verify the combined lifecycle in the signed packaging fixture: keep its ledger in
+one private directory inside the fixture's unique service container, kill the XPC
+helper with SIGKILL after a completed turn, require exact helper/guardian/Node
+group absence within three seconds, then relaunch through the pinned XPC client.
+The new helper must recover the recorded socket and same installation, accept
+the existing synthetic pairing, and return the original receipt/history without
+executing the turn again. Include all three core generations and both helper PIDs
+in independent cleanup checks before removing generated containers.
+
+This is fixture-only composition under unchanged entitlements and the existing
+development identity. A reproduced launchd throttle deferred a crashed helper's
+next spawn by ten seconds. Give only the recovery bootstrap a twelve-second
+request deadline within the existing fifteen-second parent-work bound, and record
+its wait separately from the unchanged three-second process-absence deadline.
+Recovery must use the same short relative socket address as binding and forwarding
+inside the validated owner working directory. Test an actual long data-directory
+path through a short test-only client alias; filesystem identity checks remain
+absolute and exact. Do not make the signed container's pathname an AF_UNIX address.
+Do not disable the OS throttle or present its wait as core processing overhead.
+This adds no product dependency, vendor coupling, network
+capability, idle work, startup registration or new external authority. The prior
+bounded startup/execution phases and guardian budgets remain in force. Preserve
+identity mismatch, outside-file/TCP/outer-executable denials and owner-recovery
+controls. This signed synthetic result is separate from ordinary installed-app,
+official provider and TestFlight acceptance.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -476,6 +502,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 ## Implementation paths
 
 - `successor/host/mac-process-guardian.swift`
+- `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
+- `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`
 - `successor/evidence/2026-10-17-node-foundation/private-socket-recovery.md`
 - `successor/host/fixtures/executor-supervisor.mjs`

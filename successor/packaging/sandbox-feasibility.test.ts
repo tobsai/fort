@@ -30,6 +30,9 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }
   assert.ok('xpcServicePid' in proof && typeof proof.xpcServicePid === 'number');
+  assert.ok('xpcCoreAbruptRecovery' in proof && proof.xpcCoreAbruptRecovery === true, 'signed helper crash recovery was not confirmed');
+  assert.ok('xpcCoreCrashCleanupMs' in proof && typeof proof.xpcCoreCrashCleanupMs === 'number' && proof.xpcCoreCrashCleanupMs < 3000, 'signed crash cleanup exceeded its bound');
+  assert.ok('xpcCoreCrashRestartMs' in proof && typeof proof.xpcCoreCrashRestartMs === 'number' && proof.xpcCoreCrashRestartMs < 12000, 'signed crash restart exceeded its separate bound');
   const servicePid = proof.xpcServicePid;
   assert.throws(() => process.kill(servicePid, 0), { code: 'ESRCH' });
 });

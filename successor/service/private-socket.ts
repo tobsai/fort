@@ -52,7 +52,7 @@ export class PrivateSocketLease {
     const expected = JSON.stringify(this.capture(file));
     if (!prior || JSON.stringify(prior) !== expected) throw unavailable();
     await new Promise<void>((resolve, reject) => {
-      const connection = createConnection({ path: this.path, signal });
+      const connection = createConnection({ path: this.name, signal });
       let finished = false;
       const finish = (refused: boolean) => {
         if (finished) return;

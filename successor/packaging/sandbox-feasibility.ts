@@ -179,9 +179,11 @@ try {
   const runtimePids: number[] = 'xpcCoreRuntimePids' in xpc && Array.isArray(xpc.xpcCoreRuntimePids) && xpc.xpcCoreRuntimePids.every(pid => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1) ? xpc.xpcCoreRuntimePids : [];
   const coreServicePid = 'xpcCoreServicePid' in xpc ? xpc.xpcCoreServicePid : undefined;
   if (typeof coreServicePid === 'number' && Number.isSafeInteger(coreServicePid) && coreServicePid > 1) knownPids.push(coreServicePid);
+  const helpers: number[] = 'xpcCoreServicePids' in xpc && Array.isArray(xpc.xpcCoreServicePids) && xpc.xpcCoreServicePids.every(pid => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1) ? xpc.xpcCoreServicePids : [];
+  knownPids.push(...helpers);
   knownPids.push(...corePids, ...runtimePids);
   const xpcCleanup = values.scenario === 'xpc' ? await cleanXPC(xpcExecutables, knownPids) : undefined;
-  const xpcCoreProcessesAbsent = corePids.length === 2 && runtimePids.length === 2 && corePids.every(pid => absent(pid) && absent(-pid)) && runtimePids.every(absent);
+  const xpcCoreProcessesAbsent = new Set(corePids).size === 3 && new Set(runtimePids).size === 3 && new Set(helpers).size === 2 && corePids.every(pid => absent(pid) && absent(-pid)) && runtimePids.every(absent) && helpers.every(absent);
   if (run.ownedProcessesAbsent && (!xpcCleanup || xpcCleanup.xpcProcessesAbsent)) {
     for (const id of [identifier, ...xpcIdentifiers]) rmSync(join(homedir(), 'Library/Containers', id), { recursive: true, force: true });
   }
@@ -198,7 +200,7 @@ try {
   writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(JSON.stringify(result) + '\n');
   if (run.outcome !== 'completed') process.exitCode = 1;
-  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcCoreGuarded', 'xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
+  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcCoreAbruptRecovery', 'xpcCoreGuarded', 'xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Sandbox proof failed') + '\n');
   process.exitCode = 1;

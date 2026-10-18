@@ -17,6 +17,10 @@ private actor FixtureCore: FortTransport, MacOwnerControl {
     func send(_ request: FortRequest) async throws -> FortResponse {
         guard let core, !restarting else { throw URLError(.resourceUnavailable) }
         if request.path == "/v1/fixture-bootstrap" { return try bootstrap() }
+        if request.path == "/v1/fixture-crash" {
+            _ = kill(getpid(),SIGKILL)
+            throw ClientError.invalidResponse
+        }
         if request.path == "/v1/fixture-restart" {
             restarting = true
             let stopped = try await core.close()
@@ -63,11 +67,13 @@ private struct StartingFixture: FortTransport, MacOwnerControl {
 
 @main private enum ServiceMain {
     static func main() {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fort-xpc-core-" + UUID().uuidString)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fort-xpc-core")
         do {
             guard let client = Bundle.main.object(forInfoDictionaryKey:"FortClientIdentifier") as? String,
                   let team = Bundle.main.object(forInfoDictionaryKey:"FortSigningTeam") as? String else { throw ClientError.invalidResponse }
-            try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+            if !FileManager.default.fileExists(atPath:directory.path) {
+                try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+            }
             let bundle = Bundle.main.bundleURL
             let outer = bundle.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             let ready = Task<FixtureCore,any Error> {
