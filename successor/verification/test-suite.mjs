@@ -9,6 +9,7 @@ const special = new Map([
   ['host/guardian.test.ts', 'macos'],
   ['prototype/mvp-app.test.ts', 'macos'],
   ['runner/confinement-canary.test.ts', 'macos'],
+  ['runner/guarded-codex-process.test.ts', 'macos'],
   ['packaging/node-bundle.test.ts', 'signed'],
   ['packaging/sandbox-feasibility.test.ts', 'signed']
 ]);

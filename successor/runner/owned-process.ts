@@ -25,14 +25,17 @@ export function launchOwnedProcess(options: OwnedProcessOptions) {
   let exit: { code:number|null; signal:NodeJS.Signals|null } | undefined;
   let cleanupConfirmed = false, stopping: Promise<void> | undefined, stderrBytes = 0;
   const groupPresent = () => {
-    if (!child.pid) return false;
-    try { process.kill(-child.pid,0); return true; }
-    catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return false; throw new Error('Owned process group status unavailable'); }
+    const pid = child.pid;
+    if (pid === undefined) return false;
+    if (!Number.isSafeInteger(pid) || pid <= 1) return true;
+    try { process.kill(-pid,0); return true; }
+    catch (error) { return !(error instanceof Error && 'code' in error && error.code === 'ESRCH'); }
   };
   const signal = (value: NodeJS.Signals) => {
-    if (!child.pid) return;
-    try { process.kill(-child.pid,value); }
-    catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw new Error('Owned process signal failed'); }
+    const pid = child.pid;
+    if (pid === undefined || !Number.isSafeInteger(pid) || pid <= 1) return;
+    try { process.kill(-pid,value); }
+    catch { /* A signal error cannot establish exit; bounded absence proof below decides cleanup. */ }
   };
   const waitForExit = async (milliseconds: number) => {
     const deadline = performance.now()+milliseconds;

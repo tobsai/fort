@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0fdb739fa797b348be7159ad20a5041128f65f65096feb50679f8fc0881f1c3c
+Reviewed content SHA256: 0295a8a355c594f145c6764c9a30a0b9069e81ba38f2573e3365569cfc42f2c9
 
 ### Vendor independence
 Status: planned
@@ -975,6 +975,50 @@ process observation from the real authenticated fixture peer without changing it
 entitlements. Do not invoke real SMAppService, Keychain, App Group or provider actions.
 Reuse decision 059 for this unchanged local lifecycle implementation scope.
 
+Prepare an explicit guarded process launcher for the optional Codex RPC adapter.
+The existing legacy launcher owns a detached runtime group but has no parent-death
+watch; preserve its historical callers/consumed packets. The new Mac-only entry
+requires the reviewed native guardian, exact runtime executable/argv, working
+directory and explicit environment. Compose the guardian as the owned group leader,
+passing the current launcher PID so it independently watches its direct parent.
+The actual runtime and its ordinary descendants inherit that group. Do not silently
+fall back to an unguarded launch or select an ambient executable/environment.
+
+Validate absolute normalized nonroot paths, well-formed/NUL-free bounded arguments
+and environment before spawning; cap each path at 4096 bytes, arguments at 256
+entries/65536 bytes and environment at 128 entries/65536 bytes.
+Use an explicit positive work deadline <=120 seconds and fixed 250 ms TERM / 750 ms
+KILL cleanup bounds. Reuse the CodexConnection wire/disposal implementation without
+provider initialization, permission-profile changes, login or account reads. Normal
+close must confirm the entire owned group absent. Correct the shared launcher's
+exit race without changing its historical deadline/packet authority: only signal
+a positive child PID greater than one, and treat failed signals or indeterminate
+group status as unconfirmed until bounded child-close/group-absence proof. A
+transient macOS EPERM during reaping must not permanently fail an already exiting
+child, while a surviving or uninspectable group must still fail cleanup. Cover
+missing executables and immediately exiting children at the owned-process interface.
+Abrupt direct-parent death must
+trigger the guardian even when that runtime group is separate from the outer
+executor. A worker must still await this child's disposal before emitting success;
+separate-group absence is not proven by observing only its outer executor group.
+
+Vendor independence: this launcher is an optional Codex/Apple lifecycle adapter and
+must stay outside the portable core artifact. Modularity: retain the RPC interface,
+explicit process ownership and provider composition as distinct boundaries. No
+provider/model/account defaults or paid-service path are introduced. Speed: no new
+idle poller; retain the guardian's event-driven parent watch and existing bounded
+cleanup polling. Measure 20 isolated synthetic launch/ping/dispose journeys, target
+p95 <=2 seconds including both processes and local IPC, excluding compilation,
+signing, network and provider work. Installation/removal: prove normal disposal,
+ignored TERM, deadline, missing/invalid exact inputs and abrupt worker death with
+runtime/guardian/descendant/group absence within three seconds. Classify compiler/
+process supervision tests in the explicit macOS suite. No startup registration,
+real Codex invocation, credentials or account configuration is authorized by these
+synthetic tests. A child group can still escape if trusted runtime code deliberately
+creates another session; process supervision is not a computer-tool sandbox or
+proof of App Sandbox/provider packaging. Full executor-worker/provider composition
+and signed/installed acceptance remain later gates under the same v1 direction.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -1171,6 +1215,13 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/routine-context-pins.md`
 
 - `successor/contracts/executor.ts`
+- `successor/runner/guarded-codex-process.ts`
+- `successor/runner/owned-process.ts`
+- `successor/runner/owned-process.test.ts`
+- `successor/runner/guarded-codex-process.test.ts`
+- `successor/runner/fixtures/guarded-codex-host.mjs`
+- `successor/runner/fixtures/guarded-codex-runtime.mjs`
+- `successor/evidence/2026-10-17-node-foundation/guarded-codex-process.md`
 - `successor/runner/executor-process.ts`
 - `successor/runner/executor-process.test.ts`
 - `successor/runner/fixtures/executor-worker.mjs`

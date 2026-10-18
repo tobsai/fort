@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { launchOwnedProcess,validateOwnedProcessOptions,OWNER_TRIAL_PROCESS_BUDGET,type OwnedProcessOptions } from './owned-process.ts';
 
 test('the default process ceiling stays five minutes and arbitrary packet budget extensions fail before spawn',()=>{
@@ -36,4 +39,39 @@ test('owned session deadline stops an idle child and disposal confirms its exit'
   await owned.dispose();
   assert.equal(owned.exit?.signal,'SIGTERM');
   await assert.rejects(owned.connection.request('ping',{},new AbortController().signal));
+});
+
+test('failed launches and immediate child exits finish disposal after the OS reaps the child', async t => {
+  const cwd = mkdtempSync(join(tmpdir(), 'fort059-owned-exit-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  for (let index = 0; index < 10; index++) {
+    for (const launch of [
+      { executable: join(cwd, 'missing-runtime'), args: [], expectedCode: -2 },
+      { executable: process.execPath, args: ['-e', 'process.exit(23)'], expectedCode: 23 },
+    ]) {
+      const owned = launchOwnedProcess({ ...launch, cwd, env: {}, deadlineMs: 2000, terminationGraceMs: 250, killGraceMs: 750 });
+      await assert.rejects(owned.connection.request('ping', {}, new AbortController().signal));
+      await owned.dispose(); await owned.dispose();
+      assert.equal(owned.cleanupConfirmed, true);
+      assert.equal(owned.exit?.code, launch.expectedCode);
+    }
+  }
+});
+
+test('unavailable group status blocks cleanup confirmation even after the owned child exits', async t => {
+  const owned = launchOwnedProcess({ executable: process.execPath, args: ['-e', 'process.stdin.once("data",data=>{const request=JSON.parse(data);process.stdout.write(JSON.stringify({id:request.id,result:{pid:process.pid}})+"\\n")});setInterval(()=>{},1000)'], cwd: process.cwd(), env: {}, deadlineMs: 2000, terminationGraceMs: 25, killGraceMs: 50 });
+  const result = await owned.connection.request('ping', {}, new AbortController().signal);
+  assert.ok(result && typeof result === 'object' && 'pid' in result && typeof result.pid === 'number' && Number.isSafeInteger(result.pid) && result.pid > 1);
+  const pid = result.pid, kill = process.kill.bind(process);
+  const probe = t.mock.method(process, 'kill', (target: number, signal?: number | NodeJS.Signals) => {
+    if (target === -pid && signal === 0) throw Object.assign(new Error('Synthetic unavailable group status'), { code: 'EPERM' });
+    return kill(target, signal);
+  });
+  try {
+    await assert.rejects(owned.dispose(), /exit was not confirmed/);
+    assert.equal(owned.cleanupConfirmed, false);
+    assert.ok(owned.exit);
+    await assert.rejects(owned.dispose(), /exit was not confirmed/);
+  } finally { probe.mock.restore(); }
+  for (const target of [pid, -pid]) assert.throws(() => kill(target, 0), { code: 'ESRCH' });
 });
