@@ -117,6 +117,7 @@ try {
   const executable = join(app, 'Contents/MacOS/FortSandboxProbe');
   const xpcExecutables: string[] = [], xpcIdentifiers: string[] = [];
   if (values.scenario === 'xpc') {
+    const nativeTransport = ['FortTransport.swift', 'MacXPCTransport.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
     const details = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', join(runtime, 'bin/node')], { encoding: 'utf8', timeout: 10_000 });
     const team = /^TeamIdentifier=([A-Z0-9]+)$/m.exec(details.stderr)?.[1];
     if (details.status !== 0 || !team) throw new Error('Could not identify existing signing team');
@@ -129,13 +130,13 @@ try {
       const serviceExecutable = join(service, 'Contents/MacOS/FortChannel');
       mkdirSync(dirname(serviceExecutable), { recursive: true });
       writeFileSync(join(service, 'Contents/Info.plist'), plist(`<key>CFBundleIdentifier</key><string>${serviceId}</string><key>CFBundleExecutable</key><string>FortChannel</string><key>CFBundlePackageType</key><string>XPC!</string><key>CFBundleVersion</key><string>1</string><key>FortClientRequirement</key><string>${xml(pin(client))}</string><key>XPCService</key><dict><key>ServiceType</key><string>Application</string></dict>`));
-      command('/usr/bin/xcrun', ['swiftc', join(source, 'xpc-protocol.swift'), join(source, 'xpc-service.swift'), '-o', serviceExecutable]);
+      command('/usr/bin/xcrun', ['swiftc', ...nativeTransport, join(source, 'xpc-service.swift'), '-o', serviceExecutable]);
       command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', parentEntitlements, service]);
       xpcExecutables.push(serviceExecutable); xpcIdentifiers.push(serviceId);
     }
     const mainDirectory = join(root, 'parent-source'); mkdirSync(mainDirectory);
     copyFileSync(join(source, 'sandbox-probe.swift'), join(mainDirectory, 'main.swift'));
-    command('/usr/bin/xcrun', ['swiftc', '-D', 'FORT_XPC_PROBE', join(source, 'xpc-protocol.swift'), join(source, 'xpc-client.swift'), join(mainDirectory, 'main.swift'), '-o', executable]);
+    command('/usr/bin/xcrun', ['swiftc', '-D', 'FORT_XPC_PROBE', ...nativeTransport, join(source, 'xpc-client.swift'), join(mainDirectory, 'main.swift'), '-o', executable]);
   } else command('/usr/bin/xcrun', ['swiftc', join(source, 'sandbox-probe.swift'), '-o', executable]);
   command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', childEntitlements, node]);
   command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', parentEntitlements, app]);
@@ -167,7 +168,7 @@ try {
   writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(JSON.stringify(result) + '\n');
   if (run.outcome !== 'completed') process.exitCode = 1;
-  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || ['xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
+  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || ['xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Sandbox proof failed') + '\n');
   process.exitCode = 1;

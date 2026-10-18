@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: e798eee5aeb798e960415d4df901e61e52f306fc2b3fe91900301cc9dd9e13b3
+Reviewed content SHA256: 91c43450274b0281d280f669fbb165e7a2ddc0b7464f640eb046cf6ab8bf0f28
 
 ### Vendor independence
 Status: planned
@@ -216,6 +216,18 @@ No local XPC implementation or device-storage migration is implied by this seam.
 This adds no runtime dependency, provider authority or persistent registration;
 it keeps native contracts reusable with constant transport-selection overhead.
 
+Implement the Mac transport using an embedded NSXPC service with exact validated
+service identifier and signing team. Each relative request has one connection,
+the existing deadline and cancellation; accept at most 2 MiB encoded request,
+12 MiB encoded response and 8 MiB decoded response body. Reject malformed peer
+responses and invalid status codes. Cancellation/timeout invalidates the owned
+connection and settles once; it does not retry or select another carrier. Compile
+the actual transport into the signed fixture and verify exact request/response,
+both signature failures, timeout and cancellation with the same entitlements and
+process-absence checks. The echo service remains a fixture; core forwarding,
+owner setup and persistent host activation are separate. This is an Apple-only
+adapter to the shared contract, with no AI SDK or new dependency and no polling.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -268,6 +280,10 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-xpc.md`
+- `successor/evidence/2026-10-17-node-foundation/native-xpc.json`
 
 - `successor/apple/FortKit/Sources/FortKit/FortTransport.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/TransportTests.swift`

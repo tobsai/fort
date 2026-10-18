@@ -1,10 +1,22 @@
 import Foundation
 import Darwin
 
-private final class Channel: NSObject, FortSandboxChannel {
-    func echo(_ text: String, reply: @escaping (String, Int32) -> Void) {
-        guard text.utf8.count <= 4096 else { reply("", getpid()); return }
-        reply(text, getpid())
+private final class Channel: NSObject, FortHostChannel {
+    private var pending: [(Data?, NSError?) -> Void] = []
+    func exchange(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
+        do {
+            guard data.count <= 8192 else { throw ClientError.invalidResponse }
+            let request = try JSONDecoder().decode(FortRequest.self,from:data)
+            if request.path == "/v1/hold" { pending.append(reply); return }
+            if request.path == "/v1/invalid" { reply(Data("invalid-json".utf8),nil); return }
+            if request.path == "/v1/status" { reply(try JSONEncoder().encode(FortResponse(status:999,body:Data())),nil); return }
+            if request.path == "/v1/large-body" { reply(try JSONEncoder().encode(FortResponse(status:200,body:Data(repeating:65,count:8 * 1024 * 1024 + 1))),nil); return }
+            if request.path == "/v1/large-frame" { reply(Data(repeating:65,count:12 * 1024 * 1024 + 1),nil); return }
+            guard request.path == "/v1/probe?fixture=exact", request.method == .post, request.token == nil,
+                  let body = request.body, body.count <= 4096, let text = String(data:body,encoding:.utf8) else { throw ClientError.invalidResponse }
+            let response = try JSONSerialization.data(withJSONObject:["text":text,"installation":request.installationID,"pid":getpid()])
+            reply(try JSONEncoder().encode(FortResponse(status:200,body:response)),nil)
+        } catch { reply(nil,error as NSError) }
     }
 }
 
@@ -14,7 +26,7 @@ private final class Listener: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         guard connection.effectiveUserIdentifier == geteuid() else { return false }
         connection.setCodeSigningRequirement(requirement)
-        connection.exportedInterface = NSXPCInterface(with: FortSandboxChannel.self)
+        connection.exportedInterface = NSXPCInterface(with: FortHostChannel.self)
         connection.exportedObject = Channel()
         connection.resume()
         return true

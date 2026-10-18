@@ -81,3 +81,19 @@ private final class PrefixHTTP: URLProtocol, @unchecked Sendable {
     let client = try FortClient(baseURL:URL(string:"https://fixture.invalid/fort")!,installationID:"one",token:"synthetic-token",session:session)
     #expect(try await client.installation().installationId == "one")
 }
+
+#if os(macOS)
+@Test func nativeXPCRefusesMalformedPeerIdentityAndNonrelativeRoutes() async throws {
+    #expect(throws:ClientError.self) { try MacXPCTransport(serviceIdentifier:"invalid\" or true",signingTeam:"AAAAAAAAAA") }
+    #expect(throws:ClientError.self) { try MacXPCTransport(serviceIdentifier:"synthetic.unavailable",signingTeam:"invalid\"") }
+    let transport = try MacXPCTransport(serviceIdentifier:"synthetic.unavailable",signingTeam:"AAAAAAAAAA")
+    for path in ["https://elsewhere.invalid/v1/installation","//elsewhere.invalid/v1/installation","/v1/../outside","/outside","/v1/installation#fragment"] {
+        let request = FortRequest(path:path,method:.get,installationID:"fixture",token:nil,body:nil,timeout:0.1)
+        await #expect(throws:ClientError.self) { try await transport.send(request) }
+    }
+    for timeout in [0.0,31.0,Double.infinity] {
+        let request = FortRequest(path:"/v1/installation",method:.get,installationID:"fixture",token:nil,body:nil,timeout:timeout)
+        await #expect(throws:ClientError.self) { try await transport.send(request) }
+    }
+}
+#endif

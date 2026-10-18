@@ -8,7 +8,7 @@ do {
     defer { try? files.removeItem(at: privateRoot) }
     guard CommandLine.arguments.count == 3 else { throw CocoaError(.fileReadInvalidFileName) }
     #if FORT_XPC_PROBE
-    let channelProof = try JSONSerialization.data(withJSONObject:probeXPC(),options:[.sortedKeys])
+    let channelProof = try JSONSerialization.data(withJSONObject:await probeXPC(),options:[.sortedKeys])
     FileHandle.standardError.write(Data("FORT_PROBE_XPC ".utf8) + channelProof + Data("\n".utf8))
     #endif
     let bundle = Bundle.main.bundleURL

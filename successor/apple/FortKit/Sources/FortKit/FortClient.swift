@@ -1,16 +1,5 @@
 import Foundation
 
-public enum ClientError: Error, LocalizedError {
-    case insecureEndpoint, invalidResponse, wrongInstallation, service(String, String)
-    public var errorDescription: String? {
-        switch self {
-        case .insecureEndpoint: "Use an HTTPS Fort address. Fixture HTTP is limited to this computer's loopback address."
-        case .invalidResponse: "Fort returned an unreadable response."
-        case .wrongInstallation: "This address belongs to a different Fort installation."
-        case .service(_, let message): message
-        }
-    }
-}
 private struct ErrorEnvelope: Decodable { struct Detail: Decodable { let code: String; let message: String }; let error: Detail }
 
 public struct FortClient: Sendable {

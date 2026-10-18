@@ -1,5 +1,17 @@
 import Foundation
 
+public enum ClientError: Error, LocalizedError {
+    case insecureEndpoint, invalidResponse, wrongInstallation, service(String, String)
+    public var errorDescription: String? {
+        switch self {
+        case .insecureEndpoint: "Use an HTTPS Fort address. Fixture HTTP is limited to this computer's loopback address."
+        case .invalidResponse: "Fort returned an unreadable response."
+        case .wrongInstallation: "This address belongs to a different Fort installation."
+        case .service(_, let message): message
+        }
+    }
+}
+
 public struct FortRequest: Codable, Sendable {
     public enum Method: String, Codable, Sendable { case get = "GET", post = "POST" }
     public let path: String
@@ -8,6 +20,12 @@ public struct FortRequest: Codable, Sendable {
     public let token: String?
     public let body: Data?
     public let timeout: TimeInterval
+    func route() throws -> URLComponents {
+        guard let route = URLComponents(string:path), route.scheme == nil, route.host == nil, route.fragment == nil,
+              route.path.hasPrefix("/v1/"), !route.path.split(separator:"/").contains(where:{ $0 == "." || $0 == ".." }),
+              timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+        return route
+    }
 }
 public struct FortResponse: Codable, Sendable {
     public let status: Int
@@ -35,10 +53,8 @@ struct HTTPFortTransport: FortTransport {
         self.baseURL = baseURL; self.session = session
     }
     func send(_ input: FortRequest) async throws -> FortResponse {
-        guard let path = URLComponents(string:input.path), path.scheme == nil, path.host == nil, path.fragment == nil,
-              path.path.hasPrefix("/v1/"), !path.path.split(separator:"/").contains(where:{ $0 == "." || $0 == ".." }),
-              input.timeout.isFinite, input.timeout > 0, input.timeout <= 30,
-              var target = URLComponents(url:baseURL.appendingPathComponent(path.path),resolvingAgainstBaseURL:false) else { throw ClientError.invalidResponse }
+        let path = try input.route()
+        guard var target = URLComponents(url:baseURL.appendingPathComponent(path.path),resolvingAgainstBaseURL:false) else { throw ClientError.invalidResponse }
         target.queryItems = path.queryItems
         guard let url = target.url else { throw ClientError.invalidResponse }
         var request = URLRequest(url:url)

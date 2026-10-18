@@ -1,54 +1,48 @@
 import Foundation
 import Darwin
 
-private enum ChannelReply {
-    case value(String, Int32)
-    case rejected(Int)
-}
-private final class ReplyBox: @unchecked Sendable {
-    let signal = DispatchSemaphore(value:0)
-    private let lock = NSLock()
-    private var value: ChannelReply?
-    func finish(_ result: ChannelReply) {
-        lock.lock(); defer { lock.unlock() }
-        guard value == nil else { return }
-        value = result; signal.signal()
-    }
-    func result() -> ChannelReply? { lock.lock(); defer { lock.unlock() }; return value }
-}
+private struct Echo: Decodable { let text: String; let installation: String; let pid: Int32 }
 
-private func exchange(service: String, requirement: String, text: String) -> ChannelReply? {
-    let box = ReplyBox()
-    let connection = NSXPCConnection(serviceName:service)
-    connection.remoteObjectInterface = NSXPCInterface(with:FortSandboxChannel.self)
-    connection.setCodeSigningRequirement(requirement)
-    connection.resume()
-    defer { connection.invalidate() }
-    let proxy = connection.remoteObjectProxyWithErrorHandler { error in
-        let error = error as NSError
-        box.finish(.rejected(error.domain == NSCocoaErrorDomain ? error.code : -1))
-    }
-    guard let channel = proxy as? FortSandboxChannel else { return nil }
-    channel.echo(text) { value, pid in box.finish(.value(value,pid)) }
-    guard box.signal.wait(timeout:.now() + 3) == .success else { return nil }
-    return box.result()
-}
-
-func probeXPC() throws -> [String: Any] {
+func probeXPC() async throws -> [String: Any] {
     let bundle = Bundle.main
     guard let identifier = bundle.bundleIdentifier,
           let team = bundle.object(forInfoDictionaryKey:"FortSigningTeam") as? String else { throw CocoaError(.coderValueNotFound) }
-    let allowedService = identifier + ".channel"
-    let deniedService = identifier + ".rejected"
-    let pin: (String) -> String = { "anchor apple generic and identifier \"\($0)\" and certificate leaf[subject.OU] = \"\(team)\"" }
+    let service = identifier + ".channel"
+    let transport = try MacXPCTransport(serviceIdentifier:service,signingTeam:team)
     let text = "  Local cedar 🌲\r\n"
-    let accepted = exchange(service:allowedService,requirement:pin(allowedService),text:text)
-    let deniedClient = exchange(service:deniedService,requirement:pin(deniedService),text:text)
-    let deniedServiceReply = exchange(service:allowedService,requirement:pin(identifier + ".wrong-service"),text:text)
-    let errorCode: (ChannelReply?) -> Int? = { if case .rejected(let code) = $0 { return code }; return nil }
-    var exact = false, pid: Int32 = 0
-    if case .value(let response,let process) = accepted { exact = response == text && process > 1 && process != getpid(); pid = process }
-    return ["xpcRoundTrip":exact, "xpcClientRejected":errorCode(deniedClient) == NSXPCConnectionInterrupted,
-            "xpcServiceRejected":errorCode(deniedServiceReply) == NSXPCConnectionCodeSigningRequirementFailure,
-            "xpcClientError":errorCode(deniedClient) ?? -1, "xpcServiceError":errorCode(deniedServiceReply) ?? -1, "xpcServicePid":pid]
+    func request(_ path: String = "/v1/probe?fixture=exact", timeout: TimeInterval = 3, body: Data? = nil) -> FortRequest {
+        FortRequest(path:path,method:.post,installationID:"synthetic",token:nil,body:body ?? Data(text.utf8),timeout:timeout)
+    }
+    let accepted = try await transport.send(request())
+    let echo = try JSONDecoder().decode(Echo.self,from:accepted.body)
+    let clientMismatch = try MacXPCTransport(serviceIdentifier:identifier + ".rejected",signingTeam:team)
+    let serviceMismatch = try MacXPCTransport(serviceIdentifier:service,signingTeam:team == "AAAAAAAAAA" ? "BBBBBBBBBB" : "AAAAAAAAAA")
+    func errorCode(_ peer: MacXPCTransport) async -> Int {
+        do { _ = try await peer.send(request()); return -1 }
+        catch { let error = error as NSError; return error.domain == NSCocoaErrorDomain ? error.code : -1 }
+    }
+    let clientError = await errorCode(clientMismatch), serviceError = await errorCode(serviceMismatch)
+    let pending = Task { try await transport.send(request("/v1/hold")) }
+    try await Task.sleep(for:.milliseconds(50)); pending.cancel()
+    var canceled = false
+    do { _ = try await pending.value } catch is CancellationError { canceled = true }
+    var timedOut = false
+    do { _ = try await transport.send(request("/v1/hold",timeout:0.1)) }
+    catch let error as URLError { timedOut = error.code == .timedOut }
+    func invalid(_ input: FortRequest) async -> Bool {
+        do { _ = try await transport.send(input); return false }
+        catch ClientError.invalidResponse { return true }
+        catch { return false }
+    }
+    let oversizedBody = await invalid(request("/v1/large-body"))
+    let oversizedFrame = await invalid(request("/v1/large-frame"))
+    return ["xpcRoundTrip":accepted.status == 200 && echo.text == text && echo.installation == "synthetic" && echo.pid > 1 && echo.pid != getpid(),
+            "xpcClientRejected":clientError == NSXPCConnectionInterrupted,
+            "xpcServiceRejected":serviceError == NSXPCConnectionCodeSigningRequirementFailure,
+            "xpcClientError":clientError, "xpcServiceError":serviceError, "xpcServicePid":echo.pid,
+            "xpcCancellation":canceled, "xpcTimeout":timedOut,
+            "xpcMalformedResponseRejected":await invalid(request("/v1/invalid")),
+            "xpcInvalidStatusRejected":await invalid(request("/v1/status")),
+            "xpcOversizedResponseRejected":oversizedBody && oversizedFrame,
+            "xpcOversizedRequestRejected":await invalid(request(body:Data(repeating:65,count:2 * 1024 * 1024)))]
 }
