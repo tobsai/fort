@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl {
+private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
     private let directory: URL
     private let bundle: URL
     private var core: MacCoreProcessTransport?
@@ -53,6 +53,10 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl {
         guard let core, !restarting else { throw URLError(.resourceUnavailable) }
         return try await core.completeOwnerSetup(request,timeout:timeout)
     }
+    func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval) async throws -> OwnerSetupCancellation {
+        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await core.cancelOwnerSetup(identity,timeout:timeout)
+    }
     private func bootstrap() throws -> FortResponse {
         guard let core,
               var setup = try JSONSerialization.jsonObject(with:Data(contentsOf:directory.appendingPathComponent("setup.json"))) as? [String:Any] else { throw ClientError.invalidResponse }
@@ -67,12 +71,13 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl {
     func close() async { if let core { _ = try? await core.close() }; core = nil }
 }
 
-private struct StartingFixture: FortTransport, MacOwnerControl, OwnerSetupControl {
+private struct StartingFixture: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
     let ready: Task<FixtureCore,any Error>
     func send(_ request: FortRequest) async throws -> FortResponse { try await ready.value.send(request) }
     func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt { try await ready.value.recoverPairing(request) }
     func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState { try await ready.value.beginOwnerSetup(timeout:timeout) }
     func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt { try await ready.value.completeOwnerSetup(request,timeout:timeout) }
+    func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval) async throws -> OwnerSetupCancellation { try await ready.value.cancelOwnerSetup(identity,timeout:timeout) }
 }
 
 @main private enum ServiceMain {

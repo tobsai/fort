@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5c059a32fa8b202100e414496868e711272ce0d36dc6f6e5add99198b548d22a
+Reviewed content SHA256: 2c0270a54fd09f50810a3c64ef93f2ae40d69785128e72dfcbb24b712fe40755
 
 ### Vendor independence
 Status: planned
@@ -600,6 +600,20 @@ usable by alternate clients. Existing thirty-second request, five-second drain a
 six-second core-stop limits apply; installed latency and signed cancellation proof
 remain separately reported acceptance gates.
 
+Opt the synthetic signed XPC wrapper into setup cancellation and verify the complete
+Swift client → pinned XPC → owned core pipe → ledger operation. Prove pending
+cancellation blocks completion, exact completed cancellation revokes access, a fresh
+core confirms that outcome without resuming, and the existing receipt survives.
+Check all foreign identity fields, HTTP exclusion, absent composition and wrong
+client/service pins. Preserve existing message/replay/crash recovery checks, add
+the extra exact core process generation to cleanup evidence, and independently
+verify every recorded PID/group, temporary container, signature, entitlement set
+and compiled-core hash. The fixture adds no provider/account, startup registration,
+ordinary credential or new entitlement. It retains the same Node/Swift modular
+boundary and existing separate cleanup/relaunch timing budgets. Report this as
+synthetic signed evidence, separate from ordinary client recovery and installed
+product acceptance.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -671,6 +685,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-pipe.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-native.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-xpc.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-xpc.json`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

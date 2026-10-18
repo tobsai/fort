@@ -1,0 +1,283 @@
+{
+  "scope": "Synthetic signed XPC owner setup cancellation; no Keychain/provider/startup activation",
+  "proof": {
+    "sqlite": "ready",
+    "outsideReadDenied": true,
+    "outsideWriteDenied": true,
+    "loopbackListenDenied": true,
+    "privateSocketRoundTrip": true,
+    "privateSocketFailure": null,
+    "coreAuthentication": true,
+    "coreExactMessages": true,
+    "coreReplay": true,
+    "coreRestart": true,
+    "coreNoDuplicate": true,
+    "coreSocketAbsent": true,
+    "outcome": "completed",
+    "parentPid": 44998,
+    "childPid": 45049,
+    "childGroup": 44998,
+    "ownedProcessesAbsent": true,
+    "elapsedMs": 20993.343791,
+    "parentStartupMs": 9024.906165999999,
+    "parentWorkMs": 11763.485166999999,
+    "executionMs": 204.96287500000471,
+    "hungChildObserved": false,
+    "xpcCancellation": true,
+    "xpcClientError": 4097,
+    "xpcClientRejected": true,
+    "xpcCoreAbruptRecovery": true,
+    "xpcCoreAuthentication": true,
+    "xpcCoreCancellation": true,
+    "xpcCoreCrashCleanupMs": 14.463709,
+    "xpcCoreCrashRestartMs": 10153.892833,
+    "xpcCoreExactMessages": true,
+    "xpcCoreGuarded": true,
+    "xpcCoreNoDuplicate": true,
+    "xpcCoreOuterExecutableDenied": true,
+    "xpcCoreOutsideReadDenied": true,
+    "xpcCoreOutsideWriteDenied": true,
+    "xpcCorePids": [
+      45022,
+      45024,
+      45045,
+      45047
+    ],
+    "xpcCoreReplay": true,
+    "xpcCoreRestart": true,
+    "xpcCoreRuntimePids": [
+      45023,
+      45025,
+      45046,
+      45048
+    ],
+    "xpcCoreServicePid": 45020,
+    "xpcCoreServicePids": [
+      45020,
+      45043
+    ],
+    "xpcCoreStopped": true,
+    "xpcCoreTCPDenied": true,
+    "xpcInvalidStatusRejected": true,
+    "xpcMalformedResponseRejected": true,
+    "xpcOversizedRequestRejected": true,
+    "xpcOversizedResponseRejected": true,
+    "xpcOwnerClientRejected": true,
+    "xpcOwnerDisabled": true,
+    "xpcOwnerForeignRejected": true,
+    "xpcOwnerNoHTTPRecovery": true,
+    "xpcOwnerRecovery": true,
+    "xpcOwnerServiceRejected": true,
+    "xpcOwnerSetup": true,
+    "xpcOwnerSetupForeignRejected": true,
+    "xpcOwnerSetupNoHTTP": true,
+    "xpcOwnerSetupRetry": true,
+    "xpcRoundTrip": true,
+    "xpcServiceError": 4102,
+    "xpcServicePid": 45018,
+    "xpcServiceRejected": true,
+    "xpcSetupCancelClientRejected": true,
+    "xpcSetupCancelDisabled": true,
+    "xpcSetupCancelForeignRejected": true,
+    "xpcSetupCancellation": true,
+    "xpcSetupCancelNoHTTP": true,
+    "xpcSetupCancelPending": true,
+    "xpcSetupCancelRetainsReceipt": true,
+    "xpcSetupCancelRetry": true,
+    "xpcSetupCancelServiceRejected": true,
+    "xpcSetupClientRejected": true,
+    "xpcSetupDisabled": true,
+    "xpcSetupServiceRejected": true,
+    "xpcTimeout": true,
+    "xpcProcessesAbsent": true,
+    "xpcForcedCleanup": false,
+    "xpcObservedPids": [
+      45018,
+      45020,
+      45043,
+      45022,
+      45024,
+      45045,
+      45047,
+      45023,
+      45025,
+      45046,
+      45048
+    ],
+    "xpcCoreProcessesAbsent": true,
+    "syntheticContainerAbsent": true,
+    "identifier": "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2",
+    "xpcIdentifiers": [
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.channel",
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.rejected",
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core"
+    ],
+    "app": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/owner-setup-cancellation-xpc-059-20261018/FortSandboxProbe.app",
+    "signedIdentityClass": "existing development identity",
+    "providerUsed": false,
+    "startupRegistered": false
+  },
+  "independent": {
+    "deepStrictSignature": true,
+    "entitlements": [
+      {
+        "target": ".",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "target": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.channel.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "target": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "target": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.rejected.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "target": "Contents/MacOS/node",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      },
+      {
+        "target": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core.xpc/Contents/MacOS/node",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      },
+      {
+        "target": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core.xpc/Contents/MacOS/FortProcessGuardian",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      }
+    ],
+    "absentPIDs": [
+      44998,
+      45018,
+      45020,
+      45022,
+      45023,
+      45024,
+      45025,
+      45043,
+      45045,
+      45046,
+      45047,
+      45048,
+      45049
+    ],
+    "absentProcessGroups": [
+      44998,
+      45022,
+      45024,
+      45045,
+      45047
+    ],
+    "absentContainers": [
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2",
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.channel",
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.rejected",
+      "io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core"
+    ],
+    "ownedExecutablesAbsent": true,
+    "compiledCore": [
+      {
+        "path": "Contents/Resources/Core",
+        "files": 26,
+        "bytes": 186928,
+        "manifestSHA256": "5c7dbb937a80b48ce44e5e922909e08cc9a5f9b2ff120be1986dd031d46c00d5"
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.a3724bbd-b8c1-4d45-be4d-c50fbced4ae2.core.xpc/Contents/Resources/Core",
+        "files": 26,
+        "bytes": 186928,
+        "manifestSHA256": "5c7dbb937a80b48ce44e5e922909e08cc9a5f9b2ff120be1986dd031d46c00d5"
+      }
+    ]
+  },
+  "sourceHashes": [
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/OwnerSetup.swift",
+      "sha256": "2a94559fd7b75607ff1b6431f2d0594bd08f837fcb72412dd302f165048ee41a"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/FortTransport.swift",
+      "sha256": "7951b0a2244e87b4ea1dd52cb324242e4176b008c392cdc7200d8fdfc14cb0d1"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacOwnerControl.swift",
+      "sha256": "37fa6640290cbc2aa4c279e5aaa013abcb573d7a22571c31ff6da6a7804fe313"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift",
+      "sha256": "c84c1ba6f629fc7ce70da88ad09b9e942ca62c022e3ea15fa3e6a3a9d2284c29"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift",
+      "sha256": "1643269992f55a3d55ffeb9396f29a62d286675dbde0f74ebc38081e168439b9"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacHostChannel.swift",
+      "sha256": "c952a3a07a27ff9a135380e317a83dca2fa52da09857d2e5ab21ca2c9b059004"
+    },
+    {
+      "path": "successor/host/mac-process-guardian.swift",
+      "sha256": "6c087006dc03199a74da29fe38b53cf328929eaa72fafd364e0ff1dcfa6c6d76"
+    },
+    {
+      "path": "successor/host/private-channel.ts",
+      "sha256": "b85dc97bb704c4bec45c6d59e2d61a43543d0e70e9877cebf780ea211a8854c5"
+    },
+    {
+      "path": "successor/host/fixtures/native-core.mjs",
+      "sha256": "f4e858acb944061dc4241249ac4f4851e75b17dd4933b9589026f3a053aac91a"
+    },
+    {
+      "path": "successor/service/openai.ts",
+      "sha256": "f60d684501271d4ad3f862097699264d633ed012269c82571ef609074186b052"
+    },
+    {
+      "path": "successor/contracts/owner-setup.ts",
+      "sha256": "d77a6470d0d28eb3c1959961860030241f320cf7934659cfafeb747b0bf43427"
+    },
+    {
+      "path": "successor/packaging/xpc-core-service.swift",
+      "sha256": "4a43e30e66f9f964ca1570fc75483d0cc9e2ee50d935713bfde12c2b34ff2542"
+    },
+    {
+      "path": "successor/packaging/xpc-core-client.swift",
+      "sha256": "f6ab67e84289a0bd493dcb14e2673fceff5fb534fd944cdc88a94ffc758c20b4"
+    },
+    {
+      "path": "successor/packaging/xpc-service.swift",
+      "sha256": "1e5bea8d9d219df9ca555481141e1d7c66e61a236d6e9083bd586173411824f3"
+    },
+    {
+      "path": "successor/packaging/xpc-client.swift",
+      "sha256": "3e25663f69dc681ddc31b1256e2068a4b57450c768856992c40fa71503eb6752"
+    },
+    {
+      "path": "successor/packaging/sandbox-feasibility.ts",
+      "sha256": "d26728ad1144b0756cce66e72447fdb57c0e805af8421183ebfed998ba92b950"
+    },
+    {
+      "path": "successor/packaging/sandbox-feasibility.test.ts",
+      "sha256": "8d414c905338554f1b3b84e961fb23dd297cb7768298e73a4dcbe082f5ba6a99"
+    }
+  ]
+}

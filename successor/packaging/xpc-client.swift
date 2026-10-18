@@ -36,6 +36,12 @@ func probeXPC() async throws -> [String: Any] {
         return errors
     }
     let setupClientErrors = await setupErrors(clientMismatch), setupServiceErrors = await setupErrors(serviceMismatch), setupDisabled = await setupErrors(transport)
+    let cancelIdentity = try OwnerSetupIdentity(installationID:"synthetic",setupID:"synthetic",deviceID:"synthetic")
+    func cancelError(_ peer: MacXPCTransport) async -> NSError? {
+        do { _ = try await peer.cancelOwnerSetup(cancelIdentity,timeout:3); return nil }
+        catch { return error as NSError }
+    }
+    let cancelClientError = await cancelError(clientMismatch), cancelServiceError = await cancelError(serviceMismatch), cancelDisabled = await cancelError(transport)
     let pending = Task { try await transport.send(request("/v1/hold")) }
     try await Task.sleep(for:.milliseconds(50)); pending.cancel()
     var canceled = false
@@ -60,6 +66,9 @@ func probeXPC() async throws -> [String: Any] {
             "xpcSetupClientRejected":setupClientErrors.count == 2 && setupClientErrors.allSatisfy { $0.domain == NSCocoaErrorDomain && $0.code == NSXPCConnectionInterrupted },
             "xpcSetupServiceRejected":setupServiceErrors.count == 2 && setupServiceErrors.allSatisfy { $0.domain == NSCocoaErrorDomain && $0.code == NSXPCConnectionCodeSigningRequirementFailure },
             "xpcSetupDisabled":setupDisabled.count == 2 && setupDisabled.allSatisfy { $0.domain == "Fort.OwnerSetup" && $0.code == 1 },
+            "xpcSetupCancelClientRejected":cancelClientError?.domain == NSCocoaErrorDomain && cancelClientError?.code == NSXPCConnectionInterrupted,
+            "xpcSetupCancelServiceRejected":cancelServiceError?.domain == NSCocoaErrorDomain && cancelServiceError?.code == NSXPCConnectionCodeSigningRequirementFailure,
+            "xpcSetupCancelDisabled":cancelDisabled?.domain == "Fort.OwnerSetup" && cancelDisabled?.code == 1,
             "xpcCancellation":canceled, "xpcTimeout":timedOut,
             "xpcMalformedResponseRejected":await invalid(request("/v1/invalid")),
             "xpcInvalidStatusRejected":await invalid(request("/v1/status")),

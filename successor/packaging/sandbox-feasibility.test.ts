@@ -29,6 +29,9 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
   for (const key of ['xpcOwnerSetup', 'xpcOwnerSetupRetry', 'xpcOwnerSetupForeignRejected', 'xpcOwnerSetupNoHTTP', 'xpcSetupClientRejected', 'xpcSetupServiceRejected', 'xpcSetupDisabled']) {
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }
+  for (const key of ['xpcSetupCancelPending', 'xpcSetupCancellation', 'xpcSetupCancelRetry', 'xpcSetupCancelForeignRejected', 'xpcSetupCancelNoHTTP', 'xpcSetupCancelRetainsReceipt', 'xpcSetupCancelClientRejected', 'xpcSetupCancelServiceRejected', 'xpcSetupCancelDisabled']) {
+    assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
+  }
   for (const key of ['xpcCoreGuarded', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreProcessesAbsent', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied']) {
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }
