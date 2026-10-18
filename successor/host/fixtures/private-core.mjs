@@ -17,7 +17,7 @@ try {
     begin: () => recoveryBehavior === 'setup-bad-offer' ? { kind: 'available', installationId: service.installation.installationId, setupId: 'synthetic', expiresAt: 'invalid' } : service.beginOwnerSetup(),
     complete: async request => {
       if (recoveryBehavior === 'setup-throws') throw new Error('synthetic-secret');
-      const receipt = service.completeOwnerSetup(request);
+      const receipt = await service.completeOwnerSetup(request);
       if (recoveryBehavior === 'setup-slow') await delay(100);
       if (recoveryBehavior === 'setup-wrong') return { ...receipt, deviceId: 'wrong-device' };
       return { ...receipt, unexpectedSecret: 'synthetic-secret' };

@@ -25,7 +25,7 @@ try {
     return service.recoverOwnerPairing(identity);
   },
     ownerSetup: { begin: service.beginOwnerSetup, complete: async request => {
-      const receipt = service.completeOwnerSetup(request);
+      const receipt = await service.completeOwnerSetup(request);
       if (setupBehavior === 'slow') { writeFileSync('setup-committed.json', 'true', { mode: 0o600 }); await delay(100); }
       if (setupBehavior === 'deadline-held') {
         writeFileSync('setup-committed.json', 'true', { mode: 0o600 });

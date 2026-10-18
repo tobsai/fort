@@ -141,10 +141,32 @@ import Testing
         }
         #expect(snapshot.messages.count == 4 && snapshot.runs.count == 2)
         #expect(snapshot.messages.allSatisfy { $0.text == exact } && snapshot.runs.allSatisfy { $0.state == "completed" })
-        let recovery = try MacOwnerRecoveryRequest(installationID:setup.installationID,deviceID:setup.deviceID,timeout:3)
-        phase = "revocation and final cleanup"
-        try await reopened.core.recoverPairing(recovery).validate(for:recovery)
+        phase = "revocation and explicit new pairing"
+        #expect(try await restored.stopHost(disconnect:true).revoked)
         await #expect(throws:(any Error).self) { try await restored.installation() }
+        let beforePairing = try Data(contentsOf:authored.appendingPathComponent("processes.jsonl"))
+        guard case .available(let replacementOffer) = try await reopened.core.beginOwnerSetup(timeout:3) else { throw ClientError.invalidResponse }
+        let replacement = try OwnerSetupRequest(installationID:replacementOffer.installationID,setupID:replacementOffer.setupID,deviceID:"synthetic-native-repaired-owner",deviceToken:String(repeating:"B",count:42) + "A")
+        let newReceipt = try await reopened.core.completeOwnerSetup(replacement,timeout:3)
+        #expect(try await reopened.core.completeOwnerSetup(replacement,timeout:3) == newReceipt)
+        #expect(try Data(contentsOf:authored.appendingPathComponent("processes.jsonl")) == beforePairing)
+        let repaired = FortClient(installationID:replacement.installationID,token:replacement.deviceToken,transport:reopened.core)
+        #expect(try await repaired.snapshot(conversationID:agent.homeConversationId).messages == snapshot.messages)
+        await #expect(throws:(any Error).self) { try await restored.installation() }
+        phase = "send after new pairing"
+        let afterPairing = PendingSubmission(requestID:"synthetic-native-repaired-turn",conversationID:agent.homeConversationId,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:exact,createdAt:Date(),recipientAgentID:agent.agentId,skills:[],memoryRevisionId:memory.revisionId)
+        _ = try await repaired.submit(afterPairing)
+        for _ in 0..<400 {
+            snapshot = try await repaired.snapshot(conversationID:agent.homeConversationId)
+            if snapshot.runs.count == 3 && snapshot.runs.allSatisfy({ $0.state == "completed" }) { break }
+            try await Task.sleep(for:.milliseconds(10))
+        }
+        #expect(snapshot.messages.count == 6 && snapshot.runs.count == 3)
+        #expect(snapshot.messages.allSatisfy { $0.text == exact } && snapshot.runs.allSatisfy { $0.state == "completed" })
+        phase = "new pairing revocation and final cleanup"
+        let finalRecovery = try MacOwnerRecoveryRequest(installationID:replacement.installationID,deviceID:replacement.deviceID,timeout:3)
+        try await reopened.core.recoverPairing(finalRecovery).validate(for:finalRecovery)
+        await #expect(throws:(any Error).self) { try await repaired.installation() }
         #expect(try await service.shutdown().exitedCleanly && !reopened.active)
         try absent()
         #expect(!FileManager.default.fileExists(atPath:container.appendingPathComponent("FortHost/core.sock").path))

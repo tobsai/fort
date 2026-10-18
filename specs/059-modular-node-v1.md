@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: f8c57b88d3c2a1178a54cd21448ee8cc2d540dbc4a874816f5e921a827a233e0
+Reviewed content SHA256: 28c489859eb035c7eb9b39f9cab5b8262cc6a02a8f2a46261dd9a5907c511840
 
 ### Vendor independence
 Status: planned
@@ -1661,6 +1661,47 @@ and verify exact retry. This changes only test synchronization, not production
 timeouts, cancellation behavior or cleanup guarantees. No shipping dependency or
 idle cost changes; the fixture response is released on every exit path.
 
+### Explicit local pairing after disconnect
+
+Resolve the resume review's remaining local lifecycle gap under unchanged decision
+059. After confirmed disconnect, an explicit local begin-setup call may create a
+new offer while work stays paused. Completing that exact offer may prepare the
+selected runtime, revalidate the unexpired offer and new device identity, then
+atomically commit the new pairing and running intent. Only that successful commit
+clears dispatch pause. Beginning, inspecting, canceling or reopening never resumes
+work. The old token and device identity remain unusable; history is preserved.
+
+Keep this operation on the existing trusted local setup contract. There is no new
+HTTP route, XPC command or bootstrap argument. Allow it only after the latest
+device has been revoked, no active pairing remains, setup cancellation is complete,
+and runtime cleanup is confirmed. Ordinary Stop without disconnect still requires
+the existing authenticated resume. Failed, unsupported or overlapping runtime
+preparation and close during completion leave pairing absent and work paused.
+Offer expiry or identity changes during preparation must be rejected before commit.
+The existing exact completion retry handles a lost successful reply.
+
+Make core setup completion asynchronous and migrate every caller; the private
+channel already awaits it. Share the existing bounded runtime preparation and close
+coordination with authenticated resume. Keep identity/offer validation on both sides
+of the await. No new dependency, timer, startup registration or credential access
+is introduced; synthetic credentials remain test data only.
+
+Vendor independence: use ChatRuntime's existing optional restart capability, with
+unsupported preparation visible. Modularity: setup/auth state stays in core and
+runtime cleanup stays behind its adapter; native contracts are unchanged. Speed:
+extend the isolated compiled native journey with re-pair and one new send, retaining
+its <=5 second bound; setup inspection remains inert. Installation/removal: explicit
+pairing makes retained history usable after disconnect, while removal progress and
+pending revocation still block new setup. This does not clear completed uninstall
+records or authorize actual new credentials, startup activation or history deletion.
+
+Acceptance: same-core and reopened re-pair/send/history; rejected old token/device,
+wrong/expired offer, stopped-but-paired host, failed or unsupported cleanup/restart,
+overlapping completion/cancellation and close during preparation. Run migrated
+setup, resume, private-channel, native and strict checks, rebuild exact resources,
+then require the final semantic review and staged gates. Installed re-pairing,
+Keychain and provider acceptance remain separate external gates.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -1690,6 +1731,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `successor/service/owner-repair.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/owner-repair.md`
 - `successor/service/owner-resume.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-resume.md`
 

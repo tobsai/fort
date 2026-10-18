@@ -497,9 +497,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     armScheduleClock();
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
-  const canResumeOwner = () => Boolean(ownerPairingPolicy && ownerControl?.intent === 'stop' && !closed && !starting && !stopCommandActive && options.runtime
+  const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && options.runtime
     && (runtimeStop === undefined ? (!options.runtime.readiness || options.runtime.readiness().state === 'ready')
       : runtimeStop.state === 'confirmed' && options.runtime.restart && options.runtime.readiness?.().canRestart));
+  const canResumeOwner = () => Boolean(ownerPairingPolicy && ownerControl?.intent === 'stop' && canPrepareRuntime());
   const runtimeReadiness=():RuntimeReadiness=>dispatchStopped
     ? {state:'stopped',canRestart:canResumeOwner(),detail:'Local work is stopped. History and owner controls remain available. Resume explicitly or finish disconnect.'}
     : options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
@@ -637,8 +638,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     });
     return { installationId: installation.installationId, code };
   };
+  const canPairAfterDisconnect = () => ownerControl?.intent === 'disconnect' && canPrepareRuntime()
+    && !db.prepare('SELECT id FROM devices WHERE id=? OR expires=0 OR expires>?').get(ownerControl.deviceId,now())
+    && readOwnerSetup()?.state !== 'canceling';
   const setupPolicy = () => {
-    if (closed || dispatchStopped || starting || stopCommandActive) fail(409, 'hostUnavailable', 'Owner setup requires a running local host.');
+    if (closed || starting || stopCommandActive || dispatchStopped && !canPairAfterDisconnect()) fail(409, 'hostUnavailable', 'Owner setup requires a running local host or a confirmed disconnect.');
     if (!ownerPairingPolicy) fail(403, 'temporaryPairing', 'Owner setup requires an explicitly configured owner-local installation.');
     return ownerPairingPolicy;
   };
@@ -671,23 +675,28 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       return { kind: 'available', installationId: installation.installationId, setupId: setup.setupId, expiresAt: new Date(setup.expires).toISOString() };
     });
   };
-  const completeOwnerSetup = (request: OwnerSetupRequest): OwnerSetupReceipt => {
+  const completeOwnerSetup = async (request: OwnerSetupRequest): Promise<OwnerSetupReceipt> => {
     const policy = setupPolicy(), value = record(request);
     if (value.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Setup requires this exact installation.');
     const setupId = id(value.setupId), deviceId = id(value.deviceId), token = value.deviceToken;
     if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token) || Buffer.from(token, 'base64url').toString('base64url') !== token) fail(400, 'invalidSetupToken', 'Use a newly generated 32-byte device token.');
-    return transaction(() => {
+    const validate = () => {
       const setup = readOwnerSetup();
       if (!setup || setup.setupId !== setupId) fail(409, 'setupMismatch', 'Setup requires the current exact offer.');
       if (setup.state === 'completed') {
         const device = db.prepare('SELECT id FROM devices WHERE id=? AND hash=? AND (expires=0 OR expires>?)').get(deviceId, digest(token), now());
         if (setup.deviceId !== deviceId || ownerControl?.deviceId !== deviceId || !device) fail(409, 'pairingMismatch', 'The completed setup no longer matches an active pairing.');
-        return setupReceipt(deviceId);
+        return setup;
       }
       if (setup.state !== 'pending') fail(409, 'setupCanceled', 'This owner setup has been canceled.');
       if (setup.expires <= now()) fail(409, 'setupExpired', 'Owner setup has expired. Begin a new setup.');
       if (db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now())) fail(409, 'alreadyPaired', 'Disconnect the paired device before enrolling another.');
       if (ownerControl?.deviceId === deviceId) fail(409, 'deviceReused', 'Use a new device identity after a prior pairing.');
+      return setup;
+    };
+    const commit = () => {
+      const setup = validate();
+      if (setup.state === 'completed') return setupReceipt(deviceId);
       const expires = policy.expiresAfterDays === null ? 0 : now() + policy.expiresAfterDays * 86_400_000;
       db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
       db.prepare('DELETE FROM enrollment').run();
@@ -695,7 +704,9 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       saveOwnerSetup({ ...setup, state: 'completed', deviceId });
       saveOwnerControl({ deviceId, intent: 'running' });
       return setupReceipt(deviceId);
-    });
+    };
+    validate();
+    return dispatchStopped ? resumeOwnerRuntime(commit) : transaction(commit);
   };
   const listenerAbort = new AbortController();
   const acceptedConnections = new Map<Socket,Promise<void>>();
@@ -1041,7 +1052,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   type RuntimeStop = { state: 'pending' | 'confirmed' | 'unconfirmed'; completion: Promise<void> };
   let runtimeStop:RuntimeStop|undefined;
-  let ownerResuming:Promise<void>|undefined;
+  let ownerResuming:Promise<unknown>|undefined;
   const stopRuntime=()=>{
     if(runtimeStop && runtimeStop.state!=='unconfirmed')return runtimeStop.completion;
     const progress:RuntimeStop={state:'pending',completion:Promise.resolve().then(async()=>{
@@ -1052,8 +1063,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     runtimeStop=progress;
     return progress.completion;
   };
-  const resumeOwner = async (deviceId: string, request: IncomingMessage) => {
-    if(ownerControl?.deviceId!==deviceId || !canResumeOwner() || readOwnerSetup()?.state==='canceling')fail(409,'runtimeRestartUnavailable','This exact owner pairing cannot resume until shutdown and recovery are confirmed.');
+  const resumeOwnerRuntime = async <T>(commit: () => T): Promise<T> => {
     const restart=runtimeStop===undefined?undefined:options.runtime?.restart?.bind(options.runtime);
     stopCommandActive=true;
     const operation=Promise.resolve().then(async()=>{
@@ -1063,19 +1073,24 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         if(restart){runtimeStop=undefined;await restart(signal);}
         signal.throwIfAborted();
         if(closed || options.runtime?.readiness && options.runtime.readiness().state!=='ready')throw new Error('Runtime did not become ready');
-        transaction(()=>{
-          if(authenticate(request)!==deviceId)throw new Error('Owner pairing changed');
-          saveOwnerControl({deviceId,intent:'running'});
-        });
+        const result=transaction(commit);
         dispatchStopped=false;runScheduleClock(true);queueMicrotask(wake);
+        return result;
       } catch {
         await stopRuntime().catch(()=>{});
         fail(503,'resumeUnconfirmed','Local work remains paused. Runtime resume or cleanup was not confirmed.');
       } finally {stopCommandActive=false;}
     });
     ownerResuming=operation;
-    try {await operation;}
+    try {return await operation;}
     finally {if(ownerResuming===operation)ownerResuming=undefined;}
+  };
+  const resumeOwner = async (deviceId: string, request: IncomingMessage) => {
+    if(ownerControl?.deviceId!==deviceId || !canResumeOwner() || readOwnerSetup()?.state==='canceling')fail(409,'runtimeRestartUnavailable','This exact owner pairing cannot resume until shutdown and recovery are confirmed.');
+    await resumeOwnerRuntime(()=>{
+      if(authenticate(request)!==deviceId)throw new Error('Owner pairing changed');
+      saveOwnerControl({deviceId,intent:'running'});
+    });
   };
   const stopOwner = async (deviceId: string, disconnect: boolean) => {
     if (closed) fail(503, 'closed', 'This session has stopped.');
