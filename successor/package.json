@@ -7,7 +7,7 @@
     "node": "26.5.0"
   },
   "scripts": {
-    "test": "node --test service/service.test.ts service/synthetic-runner.test.ts runner/fixture.test.ts runner/codex.test.ts runner/synthetic-transport.test.ts runner/synthetic-process.test.ts runner/confinement-canary.test.ts service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts service/openai-shutdown.test.ts prototype/mvp-admission.test.ts prototype/mvp-native.test.ts prototype/mvp-reconciliation.test.ts",
+    "test": "node verification/test-suite.mjs --suite portable",
     "test:native-http": "node apple/native-http-check.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test:prototype": "node --test service/openai.test.ts runner/codex-chat.test.ts runner/codex-startup-contract.test.ts runner/owned-process.test.ts prototype/owned-codex.test.ts prototype/session.test.ts prototype/native-session.test.ts prototype/manual.test.ts prototype/mvp-session.test.ts prototype/mvp-preparation.test.ts service/openai-shutdown.test.ts prototype/mvp-admission.test.ts prototype/mvp-native.test.ts prototype/mvp-reconciliation.test.ts",
@@ -20,9 +20,11 @@
     "test:specs": "node --test ../ops/architecture/validate-specs.test.mjs",
     "pretest": "npm run check:specs",
     "pretypecheck": "npm run check:specs",
-    "test:packaging": "node --test packaging/node-bundle.test.ts packaging/sandbox-feasibility.test.ts",
+    "test:packaging": "node verification/test-suite.mjs --suite signed",
     "build:core": "node packaging/core-artifact.ts",
-    "test:core-artifact": "node --test packaging/core-artifact.test.ts"
+    "test:core-artifact": "node --test packaging/core-artifact.test.ts",
+    "test:macos": "node verification/test-suite.mjs --suite macos",
+    "test:inventory": "node verification/test-suite.mjs --list"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

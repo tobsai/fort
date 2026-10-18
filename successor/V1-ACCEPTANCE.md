@@ -19,7 +19,7 @@ service/runtime and 56 native tests are not a pass for the new foundation.
 | Pairing/disconnect/removal/history choices | Intent/retry prototype | Prior fixtures only | Real adapter absent | Unrun | Owned process/startup cleanup, expiry/lost-response recovery |
 | Native iPhone/Mac journeys | Prior clients | Prior fixtures only | Prior engineering apps | Physical TestFlight unrun | Reachable authenticated transport and actual provider |
 | Performance budgets | Planned | Controlled measurements unrun | Unrun | Unrun | Record conditions and separate provider latency |
-| Quality CI / signed Apple lane | Planned | Local commands exist | Unrun in CI | Unconfigured | GitHub workflow and authorized Xcode Cloud setup |
+| Quality CI / signed Apple lane | Test discovery and read-only GitHub workflow prepared | 792 portable, 2 macOS and 18 gate tests passed; strict typecheck and YAML parse passed | Unrun in CI | Signed Apple lane unconfigured | Linux/GitHub execution, PR scope enforcement and authorized Xcode Cloud setup; [evidence](evidence/2026-10-17-node-foundation/quality-ci.md) |
 
 ## Delivery matrix
 

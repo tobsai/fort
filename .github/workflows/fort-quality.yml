@@ -1,0 +1,57 @@
+name: Fort quality
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fort-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26.5.0
+          package-manager-cache: false
+      - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix successor run test:specs
+      - run: node ops/architecture/validate-specs.mjs --implementation specs/059-modular-node-v1.md
+      - run: npm --prefix successor run typecheck
+      - run: npm --prefix successor test
+
+  native:
+    runs-on: xcode-27
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26.5.0
+          package-manager-cache: false
+      - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix successor run check:specs
+      - run: npm --prefix successor run test:macos
+      - run: xcrun swift test --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift"
+      - name: Verify compiled native HTTP journeys
+        shell: bash
+        run: |
+          xcrun swift build --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift" --product FortNativeCheck
+          swift_bin="$(xcrun swift build --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift" --show-bin-path)"
+          node successor/apple/native-http-check.ts "$swift_bin/FortNativeCheck"
+          node successor/apple/openai-http-check.ts "$swift_bin/FortNativeCheck"

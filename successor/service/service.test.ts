@@ -156,7 +156,7 @@ test('killed service fences claimed work and preserves the Conversation barrier 
       await h.submit('later turn', 'crash-later');
       await h.service.close();
       const child = fork(fileURLToPath(new URL('./crash-host.ts', import.meta.url)), [h.dataDirectory, point], {
-        execPath: '/opt/homebrew/opt/node@26/bin/node', env: { LANG: 'en_US.UTF-8', TZ: 'UTC' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+        execPath: process.execPath, env: { LANG: 'en_US.UTF-8', TZ: 'UTC' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       });
       t.after(() => { child.kill('SIGKILL'); });
       await new Promise<void>((resolve, reject) => {

@@ -184,7 +184,7 @@ test('valid wrong-turn progress, cumulative deltas and failed terminal output ca
 
 async function crashChild(t:TestContext,mode:string,directory:string,point:string) {
   const {fork}=await import('node:child_process');const {fileURLToPath}=await import('node:url');
-  const child=fork(fileURLToPath(new URL('./synthetic-crash-host.ts',import.meta.url)),[mode,directory,point],{execPath:'/opt/homebrew/opt/node@26/bin/node',env:{LANG:'en_US.UTF-8',TZ:'UTC'},stdio:['ignore','ignore','pipe','ipc']});
+  const child=fork(fileURLToPath(new URL('./synthetic-crash-host.ts',import.meta.url)),[mode,directory,point],{execPath:process.execPath,env:{LANG:'en_US.UTF-8',TZ:'UTC'},stdio:['ignore','ignore','pipe','ipc']});
   child.stderr?.resume();t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');});
   const exited=new Promise<{code:number|null;signal:NodeJS.Signals|null}>(resolve=>child.once('exit',(code,signal)=>resolve({code,signal})));
   const ready=await new Promise<any>((resolve,reject)=>{child.once('error',reject);child.once('message',resolve);child.once('exit',()=>reject(new Error('Synthetic crash fixture exited before ready.')));});

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: c81f43e01d854b24fa115f6e1f0152d5512e5aa8a907729c8b41bc86859667e1
+Reviewed content SHA256: d45f67bdca7e1c603dbc2d285f55834ea1957a32226a50fce04d412afaa7b350
 
 ### Vendor independence
 Status: planned
@@ -133,7 +133,11 @@ Diagnostics are local/redacted; no default telemetry or auto-update service.
    no-expiry pairing/easy disconnect. Implement event-driven bounded refresh/scheduling.
 6. Complete real recoverable owned-host lifecycle, secure reachable iPhone transport,
    existing authorized provider acceptance and full safe fixture/contract/removal suite.
-7. Quality CI and signed delivery lane, performance targets, exact TestFlight artifacts
+7. Quality CI discovers all synthetic tests, with explicit portable, macOS and
+   existing-identity signed suites; ordinary jobs need no provider or release
+   credentials. The workflow has read-only repository access and runs dependency
+   installation with hooks disabled. Local preparation does not prove a remote
+   CI run or authorize pushing. Signed delivery lane, performance targets, exact TestFlight artifacts
    and physical Mac/iPhone acceptance. Continue until the checklist is verified or
    only explicit external authority/access blockers remain; do not stop at a build.
 
@@ -142,6 +146,15 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `.github/workflows/fort-quality.yml`
+- `successor/verification/test-suite.mjs`
+- `successor/verification/test-suite.test.mjs`
+- `successor/verification/README.md`
+- `successor/runner/process.ts`
+- `successor/service/service.test.ts`
+- `successor/service/synthetic-runner.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/quality-ci.md`
 
 - `successor/contracts/attempt.ts`
 - `successor/contracts/runtime.ts`
