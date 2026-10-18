@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 83b7dc5e477b0938f9a5fe3896fcd22c58f2d5d9b53b2a00cadbc4bfa076624f
+Reviewed content SHA256: fdd43607090f65151cdc27edbbe20096b815ed0f300dbb25a89de96e45d19e3a
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,47 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Guarded model discovery revision
+
+Complete the existing model picker boundary through the owned worker. An explicitly
+configured discovery binding pins provider/runtime version/host in both parent and
+worker. A single bounded catalog request carries a fresh request ID, that binding,
+a deadline no more than five seconds ahead and a consistency digest. It contains no
+chat history, model selection, executable path, credential or grant. Hashes are not
+authentication; the inherited private channel and locally configured binding remain
+the trust boundary. Limit the request to 4 KiB and the optional correlated cancel
+frame to 2 KiB. Refuse another operation, unsupported discovery or foreign identity
+before constructing a runtime.
+
+Validate the provider and catalog union, unique exact model IDs, availability,
+bounded labels/details and ready-state timestamp. At most 1000 model rows and 1 MiB
+combined process evidence are accepted. Return a catalog only after runtime disposal
+and a clean zero worker exit with owned groups absent. A canceled, expired, malformed
+or cleanup-unconfirmed query returns no ready catalog and cannot change the selected
+model. Reuse the parent lifecycle implementation and its existing cancellation/
+cleanup bounds; execution and discovery share one active slot and cleanup block.
+Discovery is absent unless explicitly configured. Stopped/busy discovery starts
+no process. Dispose cancels either operation and cannot hide uncertain cleanup.
+
+The Codex composition pins 0.157.1 and requires the explicit host identity. Its
+discovery uses the same empty-workspace/guarded-runtime rules and existing account,
+configuration and model-list checks. It creates no thread or turn and supplies no
+provider sign-in/refresh operation. The user still chooses an exact available model;
+unsupported text models remain visible as unavailable. Preserve all send/cancel/
+crash contracts. Tests use synthetic official-protocol runtimes only; actual Codex,
+accounts, provider requests, signed package changes and activation are unrun.
+
+Vendor independence: this is the existing Fort-owned catalog contract, with provider
+semantics behind composition. Modularity: optional discovery does not enter core
+domain persistence; one shared subprocess lifecycle avoids a second cleanup policy.
+Speed: no background polling or persistent catalog runtime. Measure 20 isolated
+synthetic Mac guardian/worker/runtime catalog journeys, p95 <=2 seconds, including
+startup and disposal but excluding real provider/network/signing costs. Installation/
+removal: prove cancellation, invalid results, nonzero/forced exits and exact process
+absence; no new service, dependency, credential or permission. Run portable tests,
+existing guarded Mac execution regressions and strict TypeScript. Reuse decision
+059 for this existing provider/model capability, without changing its authority.
+
 ### Guarded official protocol composition revision
 
 Compose the owned worker with the existing exact Codex 0.157.1 protocol adapter
@@ -1379,6 +1420,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/executor-wire.ts`
 - `successor/runner/executor-worker.ts`
 - `successor/runner/executor-worker.test.ts`
+- `successor/runner/executor-models.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/executor-models.md`
 - `successor/runner/fixtures/owned-executor.mjs`
 - `successor/evidence/2026-10-17-node-foundation/executor-worker.md`
 - `successor/runner/executor-process.ts`

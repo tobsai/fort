@@ -1,12 +1,17 @@
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, type ExecutionDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef } from '../contracts/context.ts';
 import { parseSkillBundle } from '../contracts/skill-bundle.ts';
-import type { Binding } from '../contracts/v1.ts';
+import type { Binding, ModelCatalog, ModelOption } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult } from './chat-runtime.ts';
 
 export type ExecutorBinding = Pick<Binding, 'provider' | 'runtimeVersion' | 'hostId'>;
 export type ExecutorRequest = { input: ChatInput; dispatch: ExecutionDispatch };
 export const DISPATCH_FRAME_BYTES = EXECUTION_LIMITS.inputBytes + 16_384;
+export const MODEL_FRAME_BYTES = 4096;
+export const MODEL_EVIDENCE_BYTES = 1_048_576;
+export type ExecutorModelRequest = {
+  protocolVersion: 1; kind: 'models'; requestId: string; binding: ExecutorBinding; deadline: number; requestDigest: string;
+};
 
 function reject(): never { throw new Error('Executor input was not confirmed'); }
 function object(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -110,6 +115,58 @@ function inputShape(value: unknown) {
 
 export function validateExecutorBinding(value: ExecutorBinding): void {
   strings(object(value, ['provider', 'runtimeVersion', 'hostId']), ['provider', 'runtimeVersion', 'hostId']);
+}
+
+export function parseExecutorModelRequest(value: unknown, selected: ExecutorBinding): ExecutorModelRequest {
+  const v = object(value, ['protocolVersion', 'kind', 'requestId', 'binding', 'deadline', 'requestDigest']);
+  const binding = object(v.binding, ['provider', 'runtimeVersion', 'hostId']);
+  strings(binding, ['provider', 'runtimeVersion', 'hostId']);
+  const requestId = v.requestId; text(requestId, 128);
+  const requestDigest = v.requestDigest; text(requestDigest, 64);
+  const { requestDigest: _digest, ...body } = v;
+  if (v.protocolVersion !== 1 || v.kind !== 'models' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(requestId)
+    || binding.provider !== selected.provider || binding.runtimeVersion !== selected.runtimeVersion || binding.hostId !== selected.hostId
+    || typeof v.deadline !== 'number' || !Number.isSafeInteger(v.deadline) || v.deadline <= Date.now() || v.deadline > Date.now() + 5000
+    || executionDigest(body) !== requestDigest || Buffer.byteLength(JSON.stringify(value)) > MODEL_FRAME_BYTES) reject();
+  return immutable({ protocolVersion: 1, kind: 'models', requestId, binding: { ...selected }, deadline: v.deadline, requestDigest });
+}
+
+export function validateExecutorModelCancel(value: unknown, request: ExecutorModelRequest): void {
+  const v = object(value, ['protocolVersion', 'kind', 'requestId', 'requestDigest']);
+  if (v.protocolVersion !== 1 || v.kind !== 'cancelModels' || v.requestId !== request.requestId || v.requestDigest !== request.requestDigest) reject();
+}
+
+export function parseExecutorModelCatalog(value: unknown, provider: string): ModelCatalog {
+  const v = object(value, ['provider', 'state', 'models', 'checkedAt', 'detail']);
+  if (v.provider !== provider || Buffer.byteLength(JSON.stringify(value)) > MODEL_EVIDENCE_BYTES) reject();
+  if (v.state === 'ready') {
+    object(value, ['provider', 'state', 'models', 'checkedAt']);
+    const checkedAt = v.checkedAt; text(checkedAt, 24);
+    if (!Number.isFinite(Date.parse(checkedAt)) || new Date(checkedAt).toISOString() !== checkedAt) reject();
+    const seen = new Set<string>();
+    const models: ModelOption[] = list(v.models, 1000).map(value => {
+      const row = object(value, ['id', 'name', 'availability', 'detail']);
+      const id = row.id, name = row.name; text(id, 128); text(name, 512);
+      if (!/^[A-Za-z0-9_.:/-]+$/.test(id) || seen.has(id) || name.length > 128 || name.includes('\0')) reject();
+      if (row.availability !== 'available' && row.availability !== 'unavailable') reject();
+      seen.add(id);
+      const detail = row.detail;
+      if (detail !== undefined) { text(detail, 16_384); if (detail.includes('\0')) reject(); }
+      return { id, name, availability: row.availability, ...(detail === undefined ? {} : { detail }) };
+    });
+    return { provider, state: 'ready', models, checkedAt };
+  }
+  object(value, ['provider', 'state', 'models', 'detail']);
+  const detail = v.detail; text(detail, 16_384);
+  if ((v.state !== 'unavailable' && v.state !== 'error') || list(v.models, 0).length !== 0 || detail.includes('\0')) reject();
+  return { provider, state: v.state, models: [], detail };
+}
+
+export function parseExecutorModelFrame(value: unknown, request: ExecutorModelRequest): ModelCatalog {
+  const v = object(value, ['protocolVersion', 'kind', 'sequence', 'requestId', 'requestDigest', 'result']);
+  if (v.protocolVersion !== 1 || v.kind !== 'catalog' || v.sequence !== 1 || v.requestId !== request.requestId
+    || v.requestDigest !== request.requestDigest || Date.now() >= request.deadline) reject();
+  return parseExecutorModelCatalog(v.result, request.binding.provider);
 }
 
 export function parseExecutorRequest(value: unknown, selected: ExecutorBinding): ExecutorRequest {

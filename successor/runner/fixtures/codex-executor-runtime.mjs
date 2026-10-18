@@ -18,7 +18,7 @@ const reply = (id, result) => send({ id, result });
 const completed = status => send({ method: 'turn/completed', params: { threadId: 'fixture-thread', turn: { id: 'fixture-turn', status, error: null } } });
 for await (const line of createInterface({ input: process.stdin })) {
   const frame = JSON.parse(line), { id, method, params } = frame;
-  appendFileSync(join(directory, 'methods.jsonl'), JSON.stringify({ method, model: params?.model }) + '\n');
+  appendFileSync(join(directory, 'methods.jsonl'), JSON.stringify({ method, model: params?.model, refreshToken: params?.refreshToken }) + '\n');
   if (method === 'initialized') continue;
   if (method === 'initialize') reply(id, {});
   else if (method === 'config/read') {
@@ -27,8 +27,14 @@ for await (const line of createInterface({ input: process.stdin })) {
   } else if (method === 'permissionProfile/list') reply(id, { data: [{ id: 'fort_candidate_b_no_files', allowed: true }], nextCursor: null });
   else if (method === 'experimentalFeature/list') reply(id, { data: syntheticFeatures(), nextCursor: null });
   else if (method === 'mcpServerStatus/list') reply(id, { data: [], nextCursor: null });
-  else if (method === 'account/read') reply(id, { account: { type: 'chatgpt' }, requiresOpenaiAuth: true });
-  else if (method === 'model/list') reply(id, { data: [{ model: scenario === 'missing-model' ? 'foreign-model' : 'fixture-exact-model' }], nextCursor: null });
+  else if (method === 'account/read') reply(id, { account: { type: scenario === 'foreign-account' ? 'apiKey' : 'chatgpt' }, requiresOpenaiAuth: true });
+  else if (method === 'model/list') {
+    writeFileSync(join(directory, 'model-list-started'), 'synthetic');
+    if (scenario !== 'catalog-cancel') reply(id, { data: scenario === 'catalog' ? [
+      { model: 'fixture-exact-model', displayName: 'Text fixture', inputModalities: ['text'] },
+      { model: 'fixture-audio-model', displayName: 'Audio fixture', inputModalities: ['audio'] },
+    ] : [{ model: scenario === 'missing-model' ? 'foreign-model' : 'fixture-exact-model' }], nextCursor: null });
+  }
   else if (method === 'thread/start') reply(id, { thread: { id: 'fixture-thread', ephemeral: true }, model: params.model, modelProvider: 'openai', cwd: params.cwd,
     approvalPolicy: 'untrusted', approvalsReviewer: 'user', activePermissionProfile: { id: 'fort_candidate_b_no_files', extends: null },
     runtimeWorkspaceRoots: [], sandbox: { type: 'readOnly', networkAccess: false }, instructionSources: [] });

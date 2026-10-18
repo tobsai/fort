@@ -31,7 +31,7 @@ function command() {
 function setup(t: TestContext, scenario: string, legacy = false) {
   const directory = mkdtempSync(join(root, 'journey-')); mkdirSync(join(directory, 'workspace'), { mode: 0o700 });
   const options = { executable: process.execPath, args: [worker, directory, guardian, scenario], cwd: directory, env: {} };
-  const runtime = legacy ? new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian } }) : createCodexExecutorProcess({ ...options, guardian });
+  const runtime = legacy ? new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian } }) : createCodexExecutorProcess({ ...options, guardian, hostId: 'fixture-host' });
   t.after(() => runtime.dispose());
   return { directory, runtime };
 }
@@ -66,6 +66,57 @@ test('the guarded Codex adapter completes through the real worker protocol and l
   await h.runtime.dispose();
   assert.equal(h.runtime.lastExit?.forced, false); assert.equal(h.runtime.lastExit?.groupAbsent, true);
   t.diagnostic(JSON.stringify(allAbsent(h.directory)));
+});
+
+test('guarded Codex model discovery returns exact models without a thread or turn and leaves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
+  const h = setup(t, 'catalog');
+  assert.ok(h.runtime.models);
+  const catalog = await h.runtime.models(new AbortController().signal);
+  assert.equal(catalog.provider, 'codex'); assert.equal(catalog.state, 'ready');
+  assert.deepEqual(catalog.models, [
+    { id: 'fixture-exact-model', name: 'Text fixture', availability: 'available' },
+    { id: 'fixture-audio-model', name: 'Audio fixture', availability: 'unavailable', detail: 'This model does not list text input support.' },
+  ]);
+  const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.ok(methods.some(value => value.method === 'model/list'));
+  assert.ok(methods.every(value => value.method !== 'thread/start' && value.method !== 'turn/start'));
+  assert.deepEqual(methods.filter(value => value.method === 'account/read'), [{ method: 'account/read', refreshToken: false }]);
+  assert.equal(h.runtime.lastExit?.forced, false); assert.equal(h.runtime.lastExit?.groupAbsent, true);
+  t.diagnostic(JSON.stringify(allAbsent(h.directory)));
+});
+
+test('guarded model discovery refuses unsafe configuration and a foreign account before listing models', { skip: process.platform !== 'darwin' }, async t => {
+  for (const scenario of ['unsafe-config', 'foreign-account']) await t.test(scenario, async t => {
+    const h = setup(t, scenario); assert.ok(h.runtime.models);
+    const catalog = await h.runtime.models(new AbortController().signal);
+    assert.equal(catalog.state, 'error'); assert.deepEqual(catalog.models, []);
+    const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    assert.ok(methods.every(value => !['model/list', 'thread/start', 'turn/start', 'account/login/start'].includes(value.method)));
+    if (scenario === 'unsafe-config') assert.ok(methods.every(value => value.method !== 'account/read'));
+    else assert.deepEqual(methods.filter(value => value.method === 'account/read'), [{ method: 'account/read', refreshToken: false }]);
+    assert.equal(h.runtime.lastExit?.forced, false); allAbsent(h.directory);
+  });
+});
+
+test('canceling guarded model discovery disposes its runtime and leaves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
+  const h = setup(t, 'catalog-cancel'), controller = new AbortController(); assert.ok(h.runtime.models);
+  const pending = h.runtime.models(controller.signal);
+  assert.ok(await until(() => existsSync(join(h.directory, 'model-list-started')), 4000));
+  controller.abort(); const result = await pending;
+  assert.notEqual(result.state, 'ready'); assert.deepEqual(result.models, []);
+  assert.equal(h.runtime.lastExit?.groupAbsent, true); allAbsent(h.directory);
+  const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.ok(methods.every(value => value.method !== 'thread/start' && value.method !== 'turn/start'));
+});
+
+test('guarded execution and model discovery share one active worker', { skip: process.platform !== 'darwin' }, async t => {
+  const h = setup(t, 'delayed-cancel'), { input, dispatch } = command(), controller = new AbortController();
+  const executing = h.runtime.execute(input, controller.signal, dispatch);
+  assert.ok(await until(() => existsSync(join(h.directory, 'turn-started')), 4000));
+  const before = readFileSync(join(h.directory, 'worker.json'), 'utf8'); assert.ok(h.runtime.models);
+  assert.equal((await h.runtime.models(new AbortController().signal)).state, 'unavailable');
+  assert.equal(readFileSync(join(h.directory, 'worker.json'), 'utf8'), before);
+  controller.abort(); assert.equal((await executing).kind, 'canceled'); allAbsent(h.directory);
 });
 
 test('the exact Codex interruption can finish before the parent forces cleanup', { skip: process.platform !== 'darwin' }, async t => {
@@ -152,6 +203,20 @@ test('the full synthetic Codex executor journey meets its isolated budget', { sk
     const h = setup(t, 'echo'), { input, dispatch } = command(), started = performance.now();
     const result = await h.runtime.execute(input, new AbortController().signal, dispatch);
     await h.runtime.dispose(); assert.deepEqual(result, { kind: 'completed', text: input.text, effectiveModel: null });
+    assert.equal(h.runtime.lastExit?.forced, false); allAbsent(h.directory);
+    samples.push(performance.now() - started);
+  }
+  writeFileSync(destination, JSON.stringify(samples));
+  const sorted = [...samples].sort((a, b) => a - b), p95 = sorted[18]; assert.ok(p95 !== undefined && p95 <= 2000);
+});
+
+test('the full synthetic Codex catalog journey meets its isolated budget', { skip: process.platform !== 'darwin' || !process.env.FORT_CODEX_CATALOG_BENCHMARK }, async t => {
+  const destination = process.env.FORT_CODEX_CATALOG_BENCHMARK; assert.ok(destination);
+  const samples: number[] = [];
+  for (let index = 0; index < 20; index++) {
+    const h = setup(t, 'catalog'), started = performance.now(); assert.ok(h.runtime.models);
+    const result = await h.runtime.models(new AbortController().signal);
+    await h.runtime.dispose(); assert.equal(result.state, 'ready'); assert.equal(result.models.length, 2);
     assert.equal(h.runtime.lastExit?.forced, false); allAbsent(h.directory);
     samples.push(performance.now() - started);
   }

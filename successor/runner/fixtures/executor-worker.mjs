@@ -18,6 +18,42 @@ const lines = createInterface({ input: process.stdin });
 let active;
 for await (const line of lines) {
   const command = JSON.parse(line);
+  if (command.kind === 'cancelModels' && active?.kind === 'catalog') {
+    if (command.requestId !== active.requestId || command.requestDigest !== active.requestDigest) process.exit(4);
+    if (scenario === 'models-result-then-cancel') process.exit(0);
+    process.stdout.write(JSON.stringify({ ...active, result: { provider: active.result.provider, state: 'unavailable', models: [], detail: 'Synthetic cancellation' } }) + '\n', () => process.exit(0));
+    break;
+  }
+  if (command.kind === 'models') {
+    const { requestDigest, ...body } = command;
+    if (digest(body) !== requestDigest || command.deadline <= Date.now()) process.exit(3);
+    const frame = { protocolVersion: 1, kind: 'catalog', sequence: 1, requestId: command.requestId, requestDigest,
+      result: { provider: command.binding.provider, state: 'ready', checkedAt: '2026-10-18T00:00:00.000Z',
+        models: [{ id: 'exact-text', name: 'Text model', availability: 'available' }] } };
+    if (scenario === 'models-await-cancel' || scenario === 'models-result-then-cancel') {
+      active = frame;
+      if (scenario === 'models-result-then-cancel') process.stdout.write(JSON.stringify(frame) + '\n', () => writeFileSync('catalog-output', 'synthetic'));
+      else writeFileSync('catalog-output', 'synthetic');
+      continue;
+    }
+    if (scenario === 'models-hang') await hang();
+    if (scenario === 'models-foreign-provider') frame.result.provider = 'foreign';
+    if (scenario === 'models-foreign-request') frame.requestId = 'foreign';
+    if (scenario === 'models-foreign-digest') frame.requestDigest = '0'.repeat(64);
+    if (scenario === 'models-duplicates') frame.result.models.push({ ...frame.result.models[0] });
+    if (scenario === 'models-empty-id') frame.result.models[0].id = '';
+    if (scenario === 'models-invalid-state') frame.result.state = 'unverified';
+    if (scenario === 'models-bad-date') frame.result.checkedAt = 'yesterday';
+    if (scenario === 'models-extra-field') frame.result.models[0].secret = 'synthetic';
+    if (scenario === 'models-too-many') frame.result.models = Array.from({ length: 1001 }, (_, i) => ({ id: 'model-' + i, name: 'Model', availability: 'available' }));
+    if (scenario === 'models-big-name') frame.result.models[0].name = 'x'.repeat(129);
+    if (scenario === 'models-invalid-name') frame.result.models[0].name = String.fromCharCode(0xd800);
+    if (scenario === 'models-oversized-frame') frame.result.models[0].detail = 'x'.repeat(1_048_577);
+    if (scenario === 'models-no-terminal') process.exit(0);
+    if (scenario === 'models-invalid-utf8') { process.stdout.write(Buffer.from([255, 10]), () => process.exit(0)); break; }
+    process.stdout.write(JSON.stringify(frame) + '\n' + (scenario === 'models-trailing' ? '{' : ''), () => process.exit(scenario === 'models-nonzero' ? 1 : 0));
+    break;
+  }
   if (command.kind === 'cancel' && active) {
     if (command.dispatchDigest !== active.dispatchDigest || command.attemptId !== active.attemptId || command.generation !== active.generation) process.exit(4);
     process.stdout.write(JSON.stringify({ ...active, result: { kind: 'canceled', message: 'The exact fixture attempt was canceled.' } }) + '\n', () => process.exit(0));
