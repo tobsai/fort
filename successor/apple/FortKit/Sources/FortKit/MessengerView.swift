@@ -137,6 +137,7 @@ public struct MessengerView: View {
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
             }
+            .defaultScrollAnchor(model.isViewingEarlierMessages ? .top : .bottom)
             .accessibilityIdentifier("conversation-history")
             .onChange(of:model.pending.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
             .onChange(of:model.localImages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }

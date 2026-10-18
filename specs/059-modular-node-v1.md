@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: b79d991c1ea5bf1209eb1a01e34cf229cdf7f0f773ba6c254c12caf11052a2bc
+Reviewed content SHA256: e3e7ab98ae44309683eb05c4f4ee8d40bd37ed1d8f1d4dc7ba25b5fd153c4312
 
 ### Vendor independence
 Status: planned
@@ -2121,8 +2121,99 @@ input prepared by the native job, removing its duplicate history-only fixture
 variable. Verify the journey with only the existing job inputs. This changes test
 selection only, with no new dependency, data scope, runtime cost or CI permission.
 
+### Explicit secure same-network transport
+
+Continue from 09a7d6c under the owner's same-network preparation instruction. Add a
+small optional HTTPS boundary forwarding only ordinary Fort HTTP requests to the
+exact existing private core socket. Preserve private owner setup/recovery/maintenance
+channels; no remote privileged callback or loopback trust exemption. The core remains
+authoritative for device authentication, exact installation, replay and revocation.
+No listener is constructed or started by import, ordinary host startup or defaults.
+
+Require explicit IPv4 private/loopback bind address and subnet, port, certificate,
+private key, matching server name and exact private socket. Never bind a wildcard,
+resolve a bind hostname, discover credentials, generate production keys or change
+trust/security settings. Validate TLS identity before bind, require TLS 1.3 and an
+unexpired matching certificate/key, and reject peers outside the selected subnet.
+The initial scope is IPv4 on one local network; IPv6 and owner-managed VPN adapters
+can use the same Fort HTTP contract in later reviewed work. A subnet check supplements
+TLS and device authentication; it is not proof of an authenticated peer by itself.
+
+Bound headers to 16 KiB, requests to 1 MiB, responses to 8 MiB, connections/active
+requests to eight and request lifetime to 30 seconds. Refuse duplicate critical
+headers, wrong Host, Origin/browser requests, forwarded authority, upgrade/CONNECT,
+unsupported methods and path escapes. Preserve only exact authentication and
+installation headers; never forward cookies or grant local owner authority. Recheck
+private socket identity before forwarding. Abort pending requests and destroy owned
+sockets on stop; stop is idempotent, with a five-second cleanup deadline. No retry of
+mutations, background reconnect, telemetry, cloud tunnel or paid dependency is added.
+
+Vendor independence: standard HTTPS/JSON and Node built-ins, no provider or hosted
+control plane. Modularity: optional transport entry, explicit composition/lifecycle,
+unchanged native FortTransport and private authority seams; no domain rule moves into
+the proxy. Speed: twenty isolated warm TLS request/response journeys must have p95
+under 100 ms for a 1 KiB synthetic response, separate from provider latency, and
+close under five seconds with active requests. Installation/removal: disabled by
+default, explicit identity/subnet and later per-action activation approval; no root
+certificate, production credential, network permission or startup change in this slice.
+
+Test one red-to-green authenticated TLS request at the public transport seam, then
+wrong/expired/mismatched identity, untrusted TLS, outside-subnet peer, wrong Host,
+forged/duplicate headers, oversized/slow request/response, cancellation, changed socket,
+revoked device, stop and concurrent limits. Fixtures generate disposable local test
+identities only, never install trust or access a provider. Existing HTTPS clients keep
+platform trust evaluation; actual certificate provisioning and device trust remain
+explicit prerequisites, with no insecure bypass. Compile the optional entry and retain
+core/provider-independent suites. Do not present a fixture bridge as enabled LAN access.
+
+Also inspect the exact unique fixture-only Mac UI with existing accessibility/capture
+authority. Record app hash, synthetic identity/session, visible send/reply/restart,
+settings and screenshots; no real-provider or TestFlight signoff is inferred. Read-only
+Apple verification uses only an existing authenticated session; stop at login and
+continue independent work. No credential extraction, automatic login, agreement
+acceptance or profile/account mutation is authorized by that check.
+
+Exact files for this slice: new host/secure-network.ts, host/secure-network.test.ts and
+host/network-test-identity.ts; packaging/core-artifact.ts and its test; tsconfig.core.json;
+this spec, v1 ledger, current Ponytail review, and evidence notes secure-network.md and
+apple-access-ui.md. Source paths are under successor/. Rollback leaves this optional
+entry uncomposed and preserves all native/local messaging and owner records.
+
+### Initial native transcript viewport correction
+
+The same exact synthetic UI inspection found that a cold reopen restores messages
+but leaves the latest reply below the visible viewport. Initialize the transcript
+at its newest end while preserving the explicit earlier-history view. Change only
+MessengerView.swift and add apple/check-fixture-viewport.swift for a bounded read-only
+accessibility assertion against the exact selected running fixture app and known
+synthetic reply. Require a failing visible-bounds assertion before the source fix,
+then the same cold-restart assertion and a scoped screenshot after the fix. Retain
+settings and send/replay inspection evidence in apple-access-ui.md. Preserve the
+scoped synthetic screenshots as qa-transcript-before.png, qa-transcript-after.png
+and qa-settings.png beside that note; no unrelated screen or actual messages.
+
+Vendor independence and modularity are unaffected: this is native presentation only,
+with no provider, transport or persistence change. Speed: one initial native scroll
+anchor, no timer/polling or added dependency; the exact accessibility inspection must
+finish within five seconds. Installation/removal: no new grant or background service;
+use existing accessibility/capture permission and a unique disposable QA identity.
+Actual TestFlight/provider acceptance remains separate. The shared SwiftUI view must
+compile for Mac and iPhone. This is an in-scope correction found while inspecting the
+requested usable prototype, not authority to activate live access.
+
 ## Implementation paths
 
+- `successor/evidence/2026-10-17-node-foundation/qa-transcript-before.png`
+- `successor/evidence/2026-10-17-node-foundation/qa-transcript-after.png`
+- `successor/evidence/2026-10-17-node-foundation/qa-settings.png`
+
+- `successor/apple/check-fixture-viewport.swift`
+
+- `successor/evidence/2026-10-17-node-foundation/apple-access-ui.md`
+- `successor/evidence/2026-10-17-node-foundation/secure-network.md`
+- `successor/host/network-test-identity.ts`
+- `successor/host/secure-network.test.ts`
+- `successor/host/secure-network.ts`
 - `successor/apple/FortKit/Sources/FortKit/MacHistoryMaintenance.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacHistoryMaintenanceTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/native-history-removal.md`

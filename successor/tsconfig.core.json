@@ -9,6 +9,7 @@
   "include": [
     "service/openai.ts",
     "host/private-channel.ts",
+    "host/secure-network.ts",
     "host/owned-core.ts",
     "host/history-maintenance.ts"
   ]

@@ -1,124 +1,151 @@
-What this repo does: Fort is a single-owner native messenger with an indexed local
-ledger and replaceable runtime. This slice composes separately confirmed retained
-host-history deletion. Review assumes one owner and bounded private maintenance,
-not shared hosting.
+What this repo does: Fort is a single-owner native messenger with a durable local
+ledger and replaceable runtime. This slice adds an optional secure local-network
+boundary and corrects an observed native transcript viewport defect. Review assumes
+one owner, eight bounded network connections and no shared hosting.
 
 ## Semantic review
 
-Codex self-review, October 18, 2026, base cb53e4c. Read the pinned Ponytail method
-and preserved baseline. Traced confirmation capture, model gating, production
-composition, metadata lease/journal, credential absence, bundle/startup/helper
-checks, fixed worker launch/close and cache cleanup through their callers/tests.
-Reviewed the shared saved-copy traversal and underlying ledger identity/epoch/
-paused-schedule guards. Read both final new files and all changed source/test paths,
-compared the final diff, checked legacy call sites and CI fixture inputs, and verified
-all files in the fresh inert application. No dependencies were added. No remote CI,
-installed product or actual credential/provider behavior was substituted by fixtures.
+Codex self-review, October 18, 2026, base 09a7d6c. Read the pinned Ponytail method
+and preserved baseline. Read the final transport, test identity helper, public TLS
+regressions, compiled artifact changes, native view/assertion and evidence. Traced
+ordinary HTTP authentication/enrollment/revocation, private setup/recovery callbacks,
+owned-core startup, native URLSession trust and lifecycle callers. Searched tracked
+and new source references: the transport has no ordinary startup caller. Checked
+request/response bounds, certificate/name/key validation, CIDR limits, socket identity,
+shutdown races, production/test dependency separation and observed UI bounds.
+Compared the final diff and independently verified all emitted core files. The
+owner's implementation decision covers this preparation; fixtures do not authorize
+network activation or establish provider/installed-product acceptance.
 
 ## Must fix
 
-1. **Credential inspection could hide changed deletion state — fixed.**
-   - What this is: The coordinator checks private removal records before maintenance.
-   - Problem: A changed journal during credential inspection originally reached deletion.
-   - Fix: Recheck cleanup metadata and both journals after credential inspection;
-     the observed failing regression now refuses before maintenance.
-   - If skipped: An operation could proceed after its locally confirmed state changed.
+1. **Trickling input defeated the request deadline — fixed.**
+   - What this is: A pending body must stop within the request's total lifetime.
+   - Problem: The controller aborted but the body iterator kept accepting bytes.
+   - Fix: Destroy incomplete input on abort; the observed 33-second failure now
+     terminates near 30 seconds in the same public TLS test.
+   - If skipped: Eight slow clients could retain every request slot.
 
-2. **Maintenance entry could be missing or unsafe — fixed.**
-   - What this is: Native inspection and assembly select a fixed offline entry.
-   - Problem: Seven unsafe native cases passed, and a manifest-consistent omission assembled.
-   - Fix: Apply the bounded native file checks and require the entry in assembly before output.
-   - If skipped: A seemingly complete bundle could fail or select an unsafe removal entry.
+2. **Canceling bind could leave startup pending forever — fixed.**
+   - What this is: Closing during asynchronous socket bind must also finish opening.
+   - Problem: The opening promise never settled after an early abort.
+   - Fix: Share a lifecycle signal across bind/close and reject pending readiness.
+   - If skipped: Native setup or shutdown could hang after cancellation.
 
-3. **Compiled maintenance was skipped by existing CI inputs — fixed locally.**
-   - What this is: The native job already produces the complete host-resource fixture.
-   - Problem: A duplicate environment variable silently disabled the deletion journey.
-   - Fix: Reuse FORT_TEST_HOST_RESOURCES; the observed skip is replaced by execution in
-     the final full local suite using existing job inputs.
-   - If skipped: Native CI could pass without running the compiled deletion journey.
+3. **A private address could select a partly public subnet — fixed.**
+   - What this is: Address and selected prefix together define allowed peers.
+   - Problem: 192.168.1.2/15 and 172.16.1.2/11 reached bind.
+   - Fix: Require the complete CIDR to remain within the corresponding private block;
+     the observed pre-bind regression now refuses both, with a valid positive control.
+   - If skipped: A misconfigured private listener could admit a wider peer range.
 
-4. **Installed and reachable-iPhone acceptance is still absent — open.**
-   - What this is: Local tests and unsigned artifacts now compose deletion.
-   - Problem: Secure reachable iPhone host transport remains engineering work; Apple
-     account/provisioning, real startup/Keychain/provider and TestFlight are unverified.
-   - Fix: Continue the transport work within local preparation and verify exact external
-     prerequisites before separately authorized activation/installed tests.
-   - If skipped: Source/build completion could be mistaken for working delivered v1.
+4. **Saved replies reopened outside the viewport — fixed.**
+   - What this is: The native transcript restores a saved conversation on launch.
+   - Problem: The reply existed but had zero visible height after cold restart.
+   - Fix: Use one initial native anchor, preserving earlier-history mode. Exact AX
+     bounds now show the entire same reply; screenshots and another send agree.
+   - If skipped: The application appears to have lost a saved reply.
 
-Verdict: Native deletion composition and its local verification pass; installed
-acceptance and reachable transport remain open. Normal removal preserves history.
-Presentation reset is shared with device-cache deletion, and the unused duplicate
-fixture variable was removed. The legacy generic deletion API remains deliberately
-unsupported in production; its tests still protect that refusal.
-Not checked: actual App Group ACL/profile compatibility, Keychain/OS latency, real
-registration, installed accessibility/screenshots, provider accounts, physical iPhone,
-TestFlight, remote CI or branch protection. Initial deletion needs a known epoch;
-a separately cleared cache without a prior journal requires a fresh connection.
-A saved journal still supports exact retry after cache erasure. No epoch is guessed.
+5. **The compiled transport was absent — fixed.**
+   - What this is: Consumers need a removable explicit compiled module entry.
+   - Problem: The first packaging regression found neither its JS nor declaration.
+   - Fix: Add the named export/build entry; verify inert import without network
+     permission and both independent fixture runtime contracts.
+   - If skipped: Source tests would pass while the distributed entry was unavailable.
+
+6. **Phone integration and external acceptance remain open.**
+   - What this is: The secure boundary is prepared but ordinary startup does not compose it.
+   - Problem: Current owner pairing permits one device, and Apple access is at sign-in.
+   - Fix: Continue explicit companion pairing/lifecycle and verify exact existing
+     Apple records after owner sign-in; obtain required per-action authority for
+     actual TLS trust/network/startup and provider activation.
+   - If skipped: Synthetic source/build/UI results could be mistaken for delivered v1.
+
+Verdict: The bounded source slice and its observed regressions pass. The module
+remains disabled by default; a usable two-device and TestFlight product is unfinished.
+No new dependency or runtime fallback was added. No existing approval was replayed.
+Not checked: physical LAN/subnet enforcement, production TLS trust/provisioning,
+real helper/App Group/Keychain/startup, Apple records, real provider, physical iPhone,
+TestFlight, remote CI or branch protection. The outside-subnet source-address test
+is explicitly skipped on this Mac. See the linked acceptance ledger for all v1 gates.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "cb53e4c2cc19ed9d0afafa213f85d781ee8d5932",
+  "reviewedCommit": "09a7d6c51be50d4a9a51afe0871ecb581aba393b",
   "reviewer": "Codex",
-  "scope": "Native exact retained host-history confirmation, durable lifecycle/credential/journal/worker/cache composition, required packaged entry and compiled-fixture selection; source, synthetic tests and inert unsigned artifacts.",
+  "scope": "Optional private-subnet HTTPS boundary, compiled export, exact synthetic native transcript correction and Apple read-only access evidence; one owner, no enabled LAN or provider.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
-  "findings": [
-    {
-      "id": "CHANGED-DELETION-JOURNAL",
-      "disposition": "fixed",
-      "detail": "Observed mutation during credential inspection now refuses before maintenance through renewed cleanup and journal comparisons."
-    },
-    {
-      "id": "MAINTENANCE-ENTRY",
-      "disposition": "fixed",
-      "detail": "Seven unsafe native entry cases and manifest-consistent assembler omission now refuse before use/output."
-    },
-    {
-      "id": "MAINTENANCE-CI-SELECTION",
-      "disposition": "fixed",
-      "detail": "Compiled journey reuses existing host-resource environment; prior skip reproduced, final full local run executes it. Remote CI remains unrun."
-    },
-    {
-      "id": "INSTALLED-AND-IPHONE-ACCEPTANCE",
-      "disposition": "open",
-      "detail": "Reachable secure iPhone host transport remains implementation work; Apple account/profiles, installed lifecycle/UI/provider and TestFlight availability remain unverified."
-    }
-  ],
   "tests": [
-    "Coordinator/model behavioral failures and journal mutation failure preserved; fixed controls cover fifteen barriers, five interrupted/concurrent cases and three worker cases.",
-    "Final full native: 271 discovered, 261 passed, ten optional skips, zero failures, 52.038 seconds; compiled maintenance executes with existing CI inputs.",
-    "Twenty isolated synthetic coordinator retries: p50 21.054 ms, p95 23.066 ms, maximum 23.189 ms against 500 ms target.",
-    "Strict TypeScript and 21 assembly tests passed with zero assembly skips.",
-    "Full portable: 1158 passed, six optional skips, zero failures; initial restricted fixture failures/stall preserved and owned run stopped before permitted rerun.",
-    "Fresh unsigned Mac/helper/iPhone Simulator builds passed; all 186 review-app file hashes and sizes verified, 414957609 bytes."
+    "Final portable suite: 1170 passed, 8 explicit skips, zero failures/cancellations, 35.607 seconds.",
+    "Strict TypeScript passed; 36-file core manifest independently verified.",
+    "Observed red-to-green public TLS enrollment, deadline, bind cancellation, subnet and packaging regressions.",
+    "Twenty isolated warm 1 KiB TLS journeys: p95 2.739 ms; idle close 0.388 ms; active close below one second.",
+    "Exact ad-hoc sandboxed QA app: AX visible fraction 0 before and 1 after cold restart; scoped screenshots and new synthetic send/reply/settings inspected; final process count zero.",
+    "Fresh QA and unsigned ordinary Mac/iPhone Simulator Debug builds passed."
   ],
   "exceptions": [
-    "Only disposable synthetic data deleted; no provider/account/credential/startup/network activation, signing, installation or distribution.",
-    "Initial exact confirmation requires a known saved epoch; after independent cache erasure without a journal, reconnect to establish scope. Pending journal retry does not require retained cache.",
-    "Whole package identity currently includes pinned optional Codex metadata even though offline deletion never invokes it. Core/ledger and maintenance operation remain provider-free.",
-    "CoreSimulator version mismatch prevents iOS execution; compile/test-bundle evidence does not establish physical acceptance."
+    "Outside-subnet peer test skipped: macOS has no 127.0.0.2 source address; interface settings were not changed.",
+    "Six pre-existing isolated budgets were not rerun; TLS budget excluded from the full suite and passed separately.",
+    "Full native unit suite and physical iOS execution were not rerun for this presentation-only change; exact running QA and both platform builds were checked.",
+    "No production TLS identity, trust installation, network/startup activation, credential, Apple agreement, provider, TestFlight or remote CI action."
+  ],
+  "findings": [
+    {
+      "id": "tls-deadline",
+      "detail": "Trickling input exceeded the total request deadline; abort now destroys incomplete input and the public timed regression passes.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "tls-bind-cancel",
+      "detail": "Abort during bind left opening unresolved; one lifecycle signal now settles bind and leaves its exact port reusable.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "tls-private-subnet",
+      "detail": "Overly broad private CIDRs reached bind and could include public peers; validation now confines the selected subnet to RFC 1918 before bind.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "tls-artifact",
+      "detail": "Compiled output omitted the optional transport; explicit export/build entry now passes inert import and independent runtime contracts.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "native-initial-viewport",
+      "detail": "Cold restart restored the reply outside the visible transcript; one native initial scroll anchor passes exact AX bounds and scoped screenshots.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "phone-lifecycle",
+      "detail": "Transport remains uncomposed and the owner policy permits one device; explicit phone pairing, production identity/trust and native lifecycle are required before a usable two-device prototype.",
+      "disposition": "open"
+    },
+    {
+      "id": "apple-installed-acceptance",
+      "detail": "Existing Apple access stopped at sign-in; actual team/client/helper/group records, physical provider/UI and TestFlight acceptance remain unverified.",
+      "disposition": "open"
+    }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "565a7370096390c209c341901799d7891d36a483595ee5890a162ac12ac2f0ab",
-    "successor/V1-ACCEPTANCE.md": "528abb323b612449aecbeb8152609af1c2cd585ace7a2cb59e78058355720389",
-    "successor/apple/FortKit/Sources/FortKit/MacHistoryMaintenance.swift": "886bc1c80b5c94a96c6e08a72b2385aa3141b54624788ce4efd4ed5094d3e735",
-    "successor/apple/FortKit/Sources/FortKit/MacHostControl.swift": "f47650c042840aacfe4075976ba7538d7cbcad58d9607c0a4ff9c638eeab2e14",
-    "successor/apple/FortKit/Sources/FortKit/MacHostProgram.swift": "0eb6fd1fe1334f75204c5999745894a3cd52cfedb01199da54f0c0aaef7d5a4f",
-    "successor/apple/FortKit/Sources/FortKit/MacHostRemoval.swift": "1cd74dfb4a68e8a4ea212bc203033145b673dd0c2d38ab75bf6c2aee5e1e5926",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "ed8d09a740fd92a1216e0b30332cf1ed33cceddf914081812a95abf50f41daa7",
-    "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift": "35e7ececfcd6a53568346808f43834f83abc94164b8b9ce6c20894f243dc2605",
-    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "e0d91930fe06af766a6fc0117bcee24c9982e0f00073bbd341d41497973bf7b0",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHistoryDeletionTests.swift": "cb968dfcf3e066f5e5a3bdfbc44b707abbe64a2bab5a2e81a0dfadd39b71511a",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHistoryMaintenanceTests.swift": "9aa2997ed6f476391f2c6d92295b306d87834488afd7e87346531ae3a846737e",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHostProgramTests.swift": "51352385150d223df6c872288e004eda1ed3af406aa69f92cd11ddc3cdc1ec63",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHostRemovalTests.swift": "aa1f981e58779d65e1ad5e8944192029df20527ecd0af82fc828a6a2e72bfd41",
-    "successor/evidence/2026-10-17-node-foundation/native-history-removal.md": "5cc18922f1c3e1aea4dab8f4572b5f6499f2888a3641a80331ccec0eb3c2a8ac",
-    "successor/packaging/mac-application.test.ts": "f44437208081fe0bfa388c36ef945a27109094dd2aaf64f37eb0faf106ff06a7",
-    "successor/packaging/mac-application.ts": "6cf9dc375e148968f9c2fe661f89286b59fc9273af27c6681dc2e861448e4e40"
+    "specs/059-modular-node-v1.md": "e7abd06400fa809b04bd4e2885191c645f6e6db08ce9d796fe444dff6b9c3145",
+    "successor/V1-ACCEPTANCE.md": "f94c92d48385a9bdb8d4e29a9d1376f750246990b64d9af89c9c6471d8d26e10",
+    "successor/apple/FortKit/Sources/FortKit/MessengerView.swift": "d1ce56dfcaae342a2bb9f66f2841cc97d14fc6de05ff60f4c81f2fed2f5c5947",
+    "successor/apple/check-fixture-viewport.swift": "c38dc1c8dc31ee18a010d8882a9b313e98b6afa301aa9a6147ec7d0a2c4696f7",
+    "successor/evidence/2026-10-17-node-foundation/apple-access-ui.md": "9119d8ab574f51fd6d520f6eb410f89a15fbedd9996c75ea5d3577df0ac41de8",
+    "successor/evidence/2026-10-17-node-foundation/qa-settings.png": "bd6bca8150a501e6d2889185f19667d6802d019ca2a6c2c79ec2ae9dc6b05319",
+    "successor/evidence/2026-10-17-node-foundation/qa-transcript-after.png": "27c3a4c3260e1087d2123ecd23b674b8b2fbff490204cf9c6c9c13881e623ed5",
+    "successor/evidence/2026-10-17-node-foundation/qa-transcript-before.png": "b2deb6e5d599a3a279e1b7da51fba64629858c4045403e9fcd73ff969547c8be",
+    "successor/evidence/2026-10-17-node-foundation/secure-network.md": "649773fca6cece9982a2093b259e43a950acd84c1b851d963d7342b278d7ffa9",
+    "successor/host/network-test-identity.ts": "5d1082a44320c841c5849ad2272bcc61cff366ba8e9b953e172c86899007db6c",
+    "successor/host/secure-network.test.ts": "317033958a0461d6a6d3c29d00512df3f6000650bc2393ea0c461f17f6dbb75c",
+    "successor/host/secure-network.ts": "898f2713d5d1dc06eda3b14c3e5fc0c4c9a82ad971d3ff59a67b3bb4b5aec59e",
+    "successor/packaging/core-artifact.test.ts": "d2b1a4f077af296bf4ee23a706880f6f5ef105d62d108ab01b957262b63bc19c",
+    "successor/packaging/core-artifact.ts": "30679ad3c7200cd7a6440d838f5ff17cac8de622957a4e7a7b0c488a5b36978b",
+    "successor/tsconfig.core.json": "00a33f1f68446fe1f8b1d252ca6f67372c8d1a3754f9675be89fbe179f46dc91"
   }
 }
 ```
