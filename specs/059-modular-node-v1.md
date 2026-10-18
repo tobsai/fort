@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 57e8cffeddbce728a4e77f684c3f818448ec35fd43e26b72a625d032d3f26692
+Reviewed content SHA256: 9e5332133ba7f6bd902451fd2e982faab31a3c1db8503fd018449f6a43cbeae2
 
 ### Vendor independence
 Status: planned
@@ -66,6 +66,11 @@ One Fort application owns agent/binding revisions, conversations, commands, runs
 approvals, routines and calendar decisions. A versioned client contract contains
 bounded pages, replay cursors and capability descriptors without provider SDK types.
 Native clients own presentation and durable pending intent, not execution truth.
+The scheduler arms the nearest due occurrence with at most one clock-reconciliation
+wakeup per minute, and no timer when no work remains. No due decision means no
+ledger write. Missed-work policy uses occurrence lateness and startup recovery,
+not the time since an idle write. Scheduler faults remain visible through an
+authenticated status response and retry at a bounded one-minute interval.
 
 One SQLite WAL ledger owns indexed relational state plus compact receipts, events
 and dispatch outbox in the same transaction. Store messages once; use immutable
@@ -127,6 +132,8 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/scheduler.md`
 
 - `successor/service/migrate-ledger.ts`
 - `successor/service/migrate-ledger.test.ts`

@@ -50,6 +50,7 @@ export type ScheduleDefinition = { schemaVersion:1; routineId:string; routineRev
 export type CalendarOccurrence = { localDate:string; localTime:string; intendedAt:string|null; decisionAt:string };
 export type SchedulePreview = { revisionId:string; digest:string; expiresAt:string; timezone:string; occurrences:CalendarOccurrence[]; overlap:'skip'; missed:'skip'|'catchUpOne' };
 export type ScheduleRevision = { scheduleId:string; revisionId:string; digest:string; definition:ScheduleDefinition; state:'paused'|'enabled'; checkedThrough:number; consent?:{deviceId:string;at:string;previewDigest:string}; preview?:SchedulePreview };
+export type SchedulerStatus = { state:'idle'|'manual'|'stopped' } | { state:'waiting'; nextWakeAt:string } | { state:'fault'; retryAt:string; detail:string };
 export type ScheduleOccurrence = { occurrenceId:string; scheduleId:string; scheduleRevisionId:string; routineId:string; routineRevisionId:string; intendedAt:string|null; localDate:string; localTime:string; state:'accepted'|'skippedOverlap'|'skippedMissed'|'skippedGap'|'blocked'|'skippedMissedRange'; runId?:string; detail?:string };
 
 export type OwnerPairingPolicy = { expiresAfterDays: number | null };

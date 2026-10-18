@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import { DatabaseSync } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -330,8 +331,8 @@ test('native instruction authoring creates a complete inert revision and every e
   assert.equal((await h.api(path,command)).status,201);
 });
 
-async function scheduleFixture(t:TestContext,clock:()=>number,calendar:Omit<ScheduleDefinition,'schemaVersion'|'routineId'|'routineRevisionId'|'inputs'>,gate=false){
-  const h=await setup(t,{now:clock}),agent=(await h.api<Agent>('/v1/agents',{name:'Calendar',model:'gpt-6-astra',instructions:'Use synthetic inputs.'})).body;
+async function scheduleFixture(t:TestContext,clock:()=>number,calendar:Omit<ScheduleDefinition,'schemaVersion'|'routineId'|'routineRevisionId'|'inputs'>,gate=false,autoRun=false){
+  const h=await setup(t,{now:clock,autoRun}),agent=(await h.api<Agent>('/v1/agents',{name:'Calendar',model:'gpt-6-astra',instructions:'Use synthetic inputs.'})).body;
   const routine=(await h.api<RoutineRevision>('/v1/routines',{definition:{schemaVersion:1,name:'Calendar routine',agentId:agent.agentId,conversationId:agent.homeConversationId,bindingRevisionId:agent.binding.bindingRevisionId,instructions:'Only declared steps.',inputs:[],skills:[],steps:gate?[{stepId:'gate',name:'Review',type:'approval',prompt:'Continue?'}]:[{stepId:'task',name:'Task',type:'task',instructions:'Return a summary.',inputNames:[],outputStepIds:[]}]}})).body;
   const definition={schemaVersion:1,routineId:routine.routineId,routineRevisionId:routine.revisionId,inputs:{},...calendar};
   const saved=await h.api<ScheduleRevision>('/v1/schedules',{definition});assert.equal(saved.status,201);
@@ -339,6 +340,60 @@ async function scheduleFixture(t:TestContext,clock:()=>number,calendar:Omit<Sche
   assert.equal((await h.api(path+'/state',{recoveryEpoch:h.service.installation.recoveryEpoch,revisionId:saved.body.revisionId,previewDigest:preview.body.digest,enable:true})).status,200);
   return {h,agent,routine,schedule:saved.body,path,definition,preview:preview.body,async occurrences(){return (await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences;}};
 }
+
+test('idle scheduling makes no writes and an on-time occurrence is not missed after idle time', async t => {
+  let now = Date.parse('2026-10-17T08:00:00Z');
+  const f = await scheduleFixture(t, () => now, { kind: 'daily', timezone: 'UTC', time: '09:00', missed: 'skip' });
+  const wal = join(f.h.directory, 'openai-candidate-b.sqlite-wal');
+  const walDigest = async () => createHash('sha256').update(await readFile(wal)).digest('hex');
+  const before = await walDigest();
+  for (let second = 0; second < 60; second++) { now += 1000; assert.equal(f.h.service.tickSchedules(), 0); }
+  assert.equal(await walDigest(), before);
+  assert.deepEqual(await f.occurrences(), []);
+  now = Date.parse('2026-10-17T09:00:00Z');
+  assert.equal(f.h.service.tickSchedules(), 1);
+  assert.equal((await f.occurrences())[0]?.state, 'accepted');
+  assert.equal(f.h.service.tickSchedules(), 0);
+});
+
+test('automatic scheduling exposes an idle state without a recurring wakeup', async t => {
+  const h = await setup(t, { autoRun: true });
+  const status = await h.api('/v1/scheduler');
+  assert.equal(status.status, 200);
+  assert.deepEqual(status.body, { state: 'idle' });
+});
+
+test('enabling a schedule arms its due time, claims once automatically, and removes the completed timer', async t => {
+  const start = performance.now();
+  const clock = () => Date.parse('2026-10-17T08:59:58Z') + Math.floor(performance.now() - start);
+  const f = await scheduleFixture(t, clock, { kind: 'once', date: '2026-10-17', timezone: 'UTC', time: '09:00', missed: 'skip' }, false, true);
+  const status = (await f.h.api<{ state: string; nextWakeAt: string }>('/v1/scheduler')).body;
+  assert.equal(status.state, 'waiting');
+  assert.ok(Math.abs(Date.parse(status.nextWakeAt) - Date.parse('2026-10-17T09:00:00Z')) < 20);
+  let occurrences = await f.occurrences();
+  while (!occurrences.length && performance.now() - start < 5000) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    occurrences = await f.occurrences();
+  }
+  assert.deepEqual(occurrences.map(row => row.state), ['accepted']);
+  assert.deepEqual((await f.h.api('/v1/scheduler')).body, { state: 'idle' });
+  assert.equal(f.h.service.tickSchedules(), 0);
+});
+
+test('a persisted schedule fault remains visible with a bounded retry instead of stopping silently', async t => {
+  const now = Date.parse('2026-10-17T08:00:00Z');
+  const f = await scheduleFixture(t, () => now, { kind: 'daily', timezone: 'UTC', time: '09:00', missed: 'skip' }, false, true);
+  await f.h.service.close();
+  const fixture = new DatabaseSync(join(f.h.directory, 'openai-candidate-b.sqlite'));
+  fixture.prepare("UPDATE entities SET data=json_set(data,'$.digest','invalid') WHERE kind='schedules' AND id=?").run(f.schedule.scheduleId);
+  fixture.close();
+  await f.h.restart();
+  const status = (await f.h.api<{ state: string; retryAt: string; detail: string }>('/v1/scheduler')).body;
+  assert.equal(status.state, 'fault');
+  assert.equal(Date.parse(status.retryAt) - now, 60_000);
+  assert.match(status.detail, /evaluation failed/);
+  assert.equal(f.h.service.inspectSession().receipts.length, 0);
+});
 
 test('daily DST gaps are recorded without execution and folds use only the first instant',async t=>{
   let now=Date.parse('2026-03-07T12:00:00Z');

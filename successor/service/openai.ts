@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -356,7 +356,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if(closed||dispatchStopped||(credentialDeadline!==undefined&&now()>=credentialDeadline))return 0;
     let admitted=0;
     for(const saved of list('schedules',decodeSchedule)){
-      if(saved.state!=='enabled')continue;
+      if(saved.state!=='enabled'||!previewCalendar(saved.definition,saved.checkedThrough).some(occurrence=>Date.parse(occurrence.decisionAt)<=now()))continue;
       transaction(()=>{
         const schedule=load('schedules',saved.scheduleId,decodeSchedule),through=now();
         if(schedule.state!=='enabled'||through<=schedule.checkedThrough)return;
@@ -367,7 +367,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           put('scheduleOccurrences',occurrenceId,summary);after=cutoff;
         }
         const due=schedule.definition.kind==='once'?previewCalendar(schedule.definition,after).filter(occurrence=>Date.parse(occurrence.decisionAt)<=through):calendarBetween(schedule.definition,after,through);
-        const missed=downtime||through-schedule.checkedThrough>60_000;
+        const missed=downtime||due.some(occurrence=>through-Date.parse(occurrence.decisionAt)>60_000);
         const catchUp=missed&&schedule.definition.missed==='catchUpOne'?due.findLast(occurrence=>occurrence.intendedAt!==null):undefined;
         for(const occurrence of due){
           const occurrenceId=routineDigest(occurrence.intendedAt===null?{routineRevisionId:schedule.definition.routineRevisionId,gap:occurrence.localDate+'T'+occurrence.localTime,timezone:schedule.definition.timezone}:{routineRevisionId:schedule.definition.routineRevisionId,intendedAt:occurrence.intendedAt});
@@ -388,6 +388,35 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       });
     }
     if(admitted)queueMicrotask(wake);return admitted;
+  };
+  let scheduleStatus: SchedulerStatus = { state: options.autoRun ? 'idle' : 'manual' };
+  let schedulerFault = false;
+  const armScheduleClock = () => {
+    clearTimeout(scheduleTimer);
+    if (closed || dispatchStopped || (credentialDeadline !== undefined && now() >= credentialDeadline)) { scheduleStatus = { state: 'stopped' }; return; }
+    if (!options.autoRun) { scheduleStatus = { state: 'manual' }; return; }
+    let delay = 60_000;
+    try {
+      if (!schedulerFault) {
+        let due = Infinity;
+        for (const schedule of list('schedules', decodeSchedule)) {
+          if (schedule.state !== 'enabled') continue;
+          const occurrence = previewCalendar(schedule.definition, schedule.checkedThrough)[0];
+          if (occurrence) due = Math.min(due, Date.parse(occurrence.decisionAt));
+        }
+        if (due === Infinity) { scheduleStatus = { state: 'idle' }; return; }
+        delay = Math.max(1, Math.min(delay, due - now()));
+        scheduleStatus = { state: 'waiting', nextWakeAt: new Date(now() + delay).toISOString() };
+      }
+    } catch { schedulerFault = true; }
+    if (schedulerFault) scheduleStatus = { state: 'fault', retryAt: new Date(now() + delay).toISOString(), detail: 'Schedule evaluation failed. No uncertain work is retried; the next calendar check is in one minute.' };
+    scheduleTimer = setTimeout(() => runScheduleClock(), delay);
+    scheduleTimer.unref();
+  };
+  const runScheduleClock = (downtime = false) => {
+    try { tickSchedules(downtime); schedulerFault = false; }
+    catch { schedulerFault = true; }
+    armScheduleClock();
   };
   const runtimeReadiness=():RuntimeReadiness=>options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
@@ -530,7 +559,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             if(Object.keys(body).length)fail(400,'invalidStop','This command accepts no additional fields.');
             return deviceId;
           });
-          stopCommandActive=true;dispatchStopped=true;clearInterval(scheduleTimer);active?.abort();
+          stopCommandActive=true;dispatchStopped=true;clearTimeout(scheduleTimer);scheduleStatus={state:'stopped'};active?.abort();
           try{await stopRuntime();}catch{stopCommandActive=false;fail(503,'stopUnconfirmed','Runtime shutdown was not confirmed. Pairing is retained for recovery.');}
           const revoked=url.pathname==='/v1/pairing/disconnect';
           if(revoked)transaction(()=>{db.prepare('DELETE FROM devices WHERE id=?').run(deviceId);db.prepare('DELETE FROM enrollment').run();});
@@ -656,6 +685,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             put('runs',runId,resolved);append(run.conversationId,'runClosed',runId);return {run:resolved};
           });queueMicrotask(wake);
         }
+        else if(request.method==='GET'&&url.pathname==='/v1/scheduler')result=scheduleStatus;
         else if(request.method==='GET'&&url.pathname==='/v1/runtime')result=owner(request,()=>runtimeReadiness());
         else if(request.method==='POST'&&url.pathname==='/v1/runtime/restart'){
           const body=await readBody(request);
@@ -758,13 +788,14 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           }); status = 201;
         } else fail(404, 'notFound', 'Route was not found.');
       }
+      if (request.method === 'POST' && url.pathname.startsWith('/v1/schedules')) armScheduleClock();
     } catch (error) {
       status = error instanceof APIError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
       result = { error: { code: error instanceof APIError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
-  let baseURL = ''; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setInterval>|undefined;
+  let baseURL = ''; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
   server.on('connection',socket=>{
     let resolveClosed!:()=>void;
     acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));
@@ -805,11 +836,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       try {server.listen({port,host:'127.0.0.1',signal},()=>{cleanup();resolve();});}catch(error){failed(error);}
     });
     signal?.throwIfAborted();
-    const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;tickSchedules(true);queueMicrotask(wake);
-    if(options.autoRun){scheduleTimer=setInterval(()=>{try{tickSchedules();}catch{clearInterval(scheduleTimer);}},1000);scheduleTimer.unref();}
+    const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;runScheduleClock(true);queueMicrotask(wake);
   }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;
-    closed = true; clearInterval(scheduleTimer); active?.abort();
+    closed = true; clearTimeout(scheduleTimer); active?.abort();
     if (credentialDeadline!==undefined && !preserveSessionCredential) transaction(()=>{
       db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run();
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
