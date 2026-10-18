@@ -2,6 +2,16 @@ export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | '
 export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string };
 export type AccountSignInResult = { kind: 'signedIn' | 'canceled' | 'failed' | 'unconfirmed' };
 export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void };
+export type AccountSignInRequest = { operationId: string; expectedRevision: number; recoveryEpoch: string; expiresAt: number };
+export type AccountSignInCancellation = { operationId: string; revision: number; recoveryEpoch: string };
+export type AccountSignInStatus = { revision: number } & (
+  | { state: 'idle' | 'unavailable' }
+  | ({ operationId: string; expiresAt: number } & (
+    | { state: 'starting' | 'canceling' }
+    | { state: 'challenge'; challenge: AccountChallenge }
+    | { state: 'finished'; result: AccountSignInResult }
+  ))
+);
 export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
 export type RuntimeDescriptor = { provider: string; name: string; runtimeVersion: string; hostId: string; session: 'stateless' | 'sessionful'; capabilities: RuntimeCapability[] };
 export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor; eventCursor?: number };

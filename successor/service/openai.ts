@@ -15,6 +15,7 @@ import { PrivateSocketLease } from './private-socket.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 import { companionPairing, CompanionPairingError } from './companion-pairing.ts';
+import { accountSignIn, AccountSignInError } from './account-sign-in.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -251,7 +252,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&options.runtime?.signIn?['accountSignIn']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -499,16 +500,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     armScheduleClock();
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
-  const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && options.runtime
+  let runtimeOperations = 0;
+  const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && !accounts.busy && runtimeOperations === 0 && options.runtime
     && (runtimeStop === undefined ? (!options.runtime.readiness || options.runtime.readiness().state === 'ready')
       : runtimeStop.state === 'confirmed' && options.runtime.restart && options.runtime.readiness?.().canRestart));
   const canResumeOwner = () => Boolean(ownerPairingPolicy && ownerControl?.intent === 'stop' && canPrepareRuntime());
   const runtimeReadiness=():RuntimeReadiness=>dispatchStopped
     ? {state:'stopped',canRestart:canResumeOwner(),detail:'Local work is stopped. History and owner controls remain available. Resume explicitly or finish disconnect.'}
+    : accounts.busy || runtimeOperations > 0 ? {state:'busy',canRestart:false,detail:'An explicit runtime operation is in progress.'}
     : options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
-    if (closed || dispatchStopped || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
+    if (closed || dispatchStopped || accounts.busy || runtimeOperations > 0 || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
     const nextRow = db.prepare(`SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id
       WHERE o.state='queued' AND o.held=0 AND NOT EXISTS
         (SELECT 1 FROM dispatch_outbox prior WHERE prior.conversation_id=o.conversation_id AND prior.position<o.position)
@@ -718,6 +721,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const companions=companionPairing(db,installation.installationId,now,()=>ownerPairingPolicy && ownerControl
     ? {deviceId:ownerControl.deviceId,expiresAfterDays:ownerPairingPolicy.expiresAfterDays,running:!closed&&!dispatchStopped&&!stopCommandActive&&!starting}:undefined,
     ()=>append('_workspace','pairingChanged',installation.installationId));
+  let accounts: ReturnType<typeof accountSignIn>;
+  try { accounts = accountSignIn(db, { runtime: options.runtime, now,
+    scope: () => ownerPairingPolicy && ownerControl ? { deviceId: ownerControl.deviceId, recoveryEpoch: installation.recoveryEpoch,
+      running: !closed && !dispatchStopped && !stopCommandActive && !starting && !dispatching && runtimeReadiness().state === 'ready' } : undefined,
+    commit: transaction, changed: () => append('_workspace', 'accountChanged', installation.installationId), settled: () => queueMicrotask(wake) }); } catch (error) { db.close(); throw error; }
   const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {
     let status = 200; let result: unknown;
@@ -750,7 +758,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }); status = 201;
       } else {
         authenticate(request);
-        if(request.method==='POST' && url.pathname==='/v1/pairing/invitation'){
+        if(request.method==='GET' && url.pathname==='/v1/account/sign-in'){
+          result=accounts.status(authenticate(request));
+        } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/start'){
+          const body=await readBody(request); result=accounts.start(authenticate(request),body);
+        } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/cancel'){
+          const body=await readBody(request),deviceId=authenticate(request);
+          result=await accounts.cancel(deviceId,body);
+          if(authenticate(request)!==deviceId)fail(401,'unauthorized','The owning Mac pairing changed.');
+        } else if(request.method==='POST' && url.pathname==='/v1/pairing/invitation'){
           const body=await readBody(request);result=owner(request,deviceId=>companions.invite(deviceId,body));status=201;
         } else if(request.method==='GET' && url.pathname==='/v1/pairing/companion'){
           result=transaction(()=>companions.overview(authenticate(request)));
@@ -813,14 +829,16 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result={runtimeStopped:true,revoked};
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if(dispatchStopped)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped; model discovery is unavailable.'};
+          if(dispatchStopped || accounts.busy)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
           else if(!provider.capabilities.includes('modelCatalog') || !options.runtime?.models)result={provider:provider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
           else try{
+            runtimeOperations++;
             const catalog=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));
             if(catalog.provider!==provider.provider)throw new Error('Model catalog identity mismatch');
             result=catalog;
           }
           catch{result={provider:provider.provider,state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
+          finally { runtimeOperations--; queueMicrotask(wake); }
         }
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
         else if(request.method==='POST'&&/^\/v1\/approvals\/[^/]+\/resolve$/.test(url.pathname)){
@@ -951,9 +969,9 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before restarting the runtime.');
             const operation=options.runtime?.restart?.bind(options.runtime);
             if(!operation||!runtimeReadiness().canRestart||dispatching)fail(409,'runtimeRestartUnavailable','Runtime replacement is unavailable, busy or outside its existing budget.');
-            return operation;
+            runtimeOperations++; return operation;
           });
-          await restart(AbortSignal.timeout(Math.max(1,Math.min(10_000,(credentialDeadline??now()+10_000)-now()))));
+          try { await restart(AbortSignal.timeout(Math.max(1,Math.min(10_000,(credentialDeadline??now()+10_000)-now())))); } finally { runtimeOperations--; }
           result=runtimeReadiness();queueMicrotask(wake);
           }
         }
@@ -1055,8 +1073,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       }
       if (request.method === 'POST' && url.pathname.startsWith('/v1/schedules')) armScheduleClock();
     } catch (error) {
-      status = error instanceof APIError || error instanceof CompanionPairingError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
-      result = { error: { code: error instanceof APIError || error instanceof CompanionPairingError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof CompanionPairingError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
+      status = error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
+      result = { error: { code: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
@@ -1087,7 +1105,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const stopRuntime=()=>{
     if(runtimeStop && runtimeStop.state!=='unconfirmed')return runtimeStop.completion;
     const progress:RuntimeStop={state:'pending',completion:Promise.resolve().then(async()=>{
-      const outcomes=await Promise.allSettled([Promise.resolve().then(()=>options.runtime?.dispose()),dispatching]);
+      const outcomes=await Promise.allSettled([Promise.resolve().then(()=>options.runtime?.dispose()),dispatching,accounts.stop()]);
       if(outcomes.some(outcome=>outcome.status==='rejected'))throw new Error('Runtime shutdown unconfirmed');
       progress.state='confirmed';
     }).catch(error=>{progress.state='unconfirmed';throw error;})};

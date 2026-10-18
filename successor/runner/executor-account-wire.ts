@@ -1,3 +1,5 @@
+import { parseAccountChallenge, parseAccountSignInResult } from '../contracts/account.ts';
+export { parseAccountChallenge, parseAccountSignInResult } from '../contracts/account.ts';
 import { executionDigest, immutable } from '../contracts/executor.ts';
 import type { AccountChallenge, AccountSignInResult } from '../contracts/v1.ts';
 import { validateExecutorBinding, type ExecutorBinding } from './executor-wire.ts';
@@ -30,23 +32,6 @@ export function parseExecutorAccountRequest(value: unknown, selected: ExecutorBi
   if (executionDigest(body) !== requestDigest) reject();
   return immutable({ protocolVersion: 1, kind: 'accountSignIn', requestId: row.requestId, binding: { ...selected },
     workDeadline: row.workDeadline, deadline: row.deadline, requestDigest: row.requestDigest });
-}
-
-export function parseAccountChallenge(value: unknown): AccountChallenge {
-  const row = object(value, ['kind', 'verificationURL', 'userCode']);
-  if (row.kind !== 'deviceCode' || typeof row.verificationURL !== 'string' || row.verificationURL.length > 2048
-      || !row.verificationURL.isWellFormed() || /[\x00-\x20\x7f]/.test(row.verificationURL)
-      || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
-      || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(row.userCode)) reject();
-  const url = new URL(row.verificationURL);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || url.port || url.href !== row.verificationURL) reject();
-  return { kind: 'deviceCode', verificationURL: row.verificationURL, userCode: row.userCode };
-}
-
-export function parseAccountSignInResult(value: unknown): AccountSignInResult {
-  const row = object(value, ['kind']);
-  if (row.kind === 'signedIn' || row.kind === 'canceled' || row.kind === 'failed' || row.kind === 'unconfirmed') return { kind: row.kind };
-  return reject();
 }
 
 export function parseExecutorAccountFrame(value: unknown, request: ExecutorAccountRequest):

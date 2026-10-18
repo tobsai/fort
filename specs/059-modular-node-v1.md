@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2ea4ca1a03f7f8ef182b90ab4907ee52bbac441a5f1d1b9fc47e2d8899012af8
+Reviewed content SHA256: 68297057c54647f493d9b84374e285baef12f74245667ec7a60aa8c01c96cec9
 
 ### Vendor independence
 Status: planned
@@ -2425,7 +2425,57 @@ current Ponytail review and evidence owned-provider-sign-in.md. Decision 059 cov
 this implementation; no real provider, credential or persistent-access action is
 authorized by the source changes.
 
+### Primary-owner account operation
+
+Continue the owned executor preparation under decision 059. Add authenticated
+GET /v1/account/sign-in and POST /v1/account/sign-in/start and /cancel for the exact
+primary device in an owner-local installation with optional runtime signIn capability.
+Companions and temporary sessions cannot read a challenge or start/cancel an attempt.
+No route runs automatically on startup, pairing, status lookup or restart.
+
+A start carries operationId, expectedRevision, recoveryEpoch and absolute expiresAt
+(milliseconds, at most 115 seconds ahead). Persist one bounded current record before
+runtime invocation. Exact retries return the same status and never extend time or
+start again; stale revisions, reused IDs and competing requests fail. Store revision,
+device/epoch/operation identity, deadline and terminal result only. Keep challenge
+URL/code in memory; events contain an invalidation ID only. Restart converts an
+unfinished record to unconfirmed without resuming login. A fresh explicit start
+needs the current revision and a new operation ID. Cancel is correlated and repeatable;
+a signed-in race stays signed-in and cancellation does not mean logout.
+
+Pause chat dispatch and model discovery while account work owns the service slot,
+even for runtimes without readiness. Stop/disconnect/close abort and await the account
+operation along with runtime disposal before reporting cleanup or closing the database.
+Check authorization again after awaited cancellation. Changed device/epoch prevents
+late challenge publication. Validate runtime result/challenge at the neutral boundary.
+
+Vendor independence: HTTP records contain only Fort-owned capability/result values;
+no provider-specific login identity or credential is exposed. Modularity: optional
+runtime capability, one metadata record and existing lifecycle/HTTP composition; no
+new database, launcher or dependency. Speed: 20 serial synthetic HTTP start/cancel
+journeys after five warmups, p95 under 100 ms excluding provider/user/network latency.
+Installation/removal: account attempt cannot outlive confirmed host cleanup; no
+startup activation or credentials are created by tests. Existing grants remain separate.
+
+Acceptance begins with a failing public HTTP primary-owner journey, then covers
+exact retry/lost response/restart, stale scope, companion denial, pending exclusivity,
+cancellation races, shutdown/disconnect, malformed/secret runtime output, code absence
+from SQLite/events and final resources/core independence. Run targeted, portable and
+strict type checks; native flow and actual provider/TestFlight remain separate gates.
+Rollback removes only routes/module/capability; retain prior metadata as historical
+state without interpreting it as account status. No historical demo grant is reused.
+
+Exact files: this spec, successor/contracts/v1.ts, successor/contracts/account.ts,
+successor/runner/executor-account-wire.ts, successor/service/openai.ts,
+successor/service/account-sign-in.ts, successor/service/account-sign-in.test.ts,
+successor/evidence/2026-10-17-node-foundation/owner-account-sign-in.md,
+successor/V1-ACCEPTANCE.md and docs/architecture/reviews/ponytail/current.md.
+
 ## Implementation paths
+- `successor/contracts/account.ts`
+- `successor/service/account-sign-in.ts`
+- `successor/service/account-sign-in.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/owner-account-sign-in.md`
 - `successor/runner/executor-account-wire.ts`
 - `successor/runner/executor-account.test.ts`
 - `successor/runner/fixtures/executor-account-worker.mjs`
