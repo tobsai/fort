@@ -15,18 +15,22 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
 }
 
 public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
-    private let serviceIdentifier: String
+    private let destination: MacXPCDestination
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
-        self.serviceIdentifier = serviceIdentifier
+        destination = .embedded(serviceIdentifier)
         requirement = try macPeerRequirement(identifier:serviceIdentifier,signingTeam:signingTeam)
+    }
+    public init(agent: MacAgentEndpoint) throws {
+        destination = .agent(agent)
+        requirement = try macPeerRequirement(identifier:agent.serviceIdentifier,signingTeam:agent.signingTeam)
     }
     public func send(_ request: FortRequest) async throws -> FortResponse {
         try Task.checkCancellation()
         _ = try request.route()
         let encoded = try JSONEncoder().encode(request)
         guard encoded.count <= 2 * 1024 * 1024 else { throw ClientError.invalidResponse }
-        let call = XPCRequest(serviceIdentifier:serviceIdentifier,requirement:requirement,timeout:request.timeout)
+        let call = XPCRequest(destination:destination,requirement:requirement,timeout:request.timeout)
         let data = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
@@ -38,7 +42,7 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         try Task.checkCancellation(); try request.validate()
         let encoded = try JSONEncoder().encode(request)
         guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
-        let call = XPCRequest(serviceIdentifier:serviceIdentifier,requirement:requirement,timeout:request.timeout,operation:.recovery,responseLimit:1024)
+        let call = XPCRequest(destination:destination,requirement:requirement,timeout:request.timeout,operation:.recovery,responseLimit:1024)
         let data = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
@@ -66,17 +70,27 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         try Task.checkCancellation(); try command.validate()
         let encoded = try JSONEncoder().encode(command)
         guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
-        let call = XPCRequest(serviceIdentifier:serviceIdentifier,requirement:requirement,timeout:command.timeout,operation:.setup,responseLimit:1024)
+        let call = XPCRequest(destination:destination,requirement:requirement,timeout:command.timeout,operation:.setup,responseLimit:1024)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
         } onCancel: { call.cancel() }
     }
 }
 
+private enum MacXPCDestination: Sendable {
+    case embedded(String), agent(MacAgentEndpoint)
+    func connection() -> NSXPCConnection {
+        switch self {
+        case .embedded(let identifier): NSXPCConnection(serviceName:identifier)
+        case .agent(let agent): NSXPCConnection(machServiceName:agent.machServiceName,options:[])
+        }
+    }
+}
+
 private enum XPCOperation { case exchange, recovery, setup }
 private final class XPCRequest: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.XPCRequest")
-    private let serviceIdentifier: String
+    private let destination: MacXPCDestination
     private let requirement: String
     private let timeout: TimeInterval
     private let operation: XPCOperation
@@ -86,15 +100,15 @@ private final class XPCRequest: @unchecked Sendable {
     private var deadline: DispatchWorkItem?
     private var outcome: Result<Data, any Error>?
 
-    init(serviceIdentifier: String, requirement: String, timeout: TimeInterval, operation: XPCOperation = .exchange, responseLimit: Int = 12 * 1024 * 1024) {
-        self.serviceIdentifier = serviceIdentifier; self.requirement = requirement; self.timeout = timeout
+    init(destination: MacXPCDestination, requirement: String, timeout: TimeInterval, operation: XPCOperation = .exchange, responseLimit: Int = 12 * 1024 * 1024) {
+        self.destination = destination; self.requirement = requirement; self.timeout = timeout
         self.operation = operation; self.responseLimit = responseLimit
     }
     func start(_ bytes: Data, continuation: CheckedContinuation<Data, any Error>) {
         queue.async { [self] in
             if let outcome = self.outcome { continuation.resume(with:outcome); return }
             self.continuation = continuation
-            let connection = NSXPCConnection(serviceName:self.serviceIdentifier)
+            let connection = self.destination.connection()
             connection.remoteObjectInterface = NSXPCInterface(with:FortHostChannel.self)
             connection.setCodeSigningRequirement(self.requirement)
             self.connection = connection

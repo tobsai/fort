@@ -123,6 +123,11 @@ import Observation
         ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,serviceIdentifier:ownerServiceIdentifier,signingTeam:signingTeam)
         ownerSetupEndpoint = .macHost(serviceIdentifier:ownerServiceIdentifier,signingTeam:signingTeam)
     }
+    public convenience init(directory: URL, ownerAgent: MacAgentEndpoint) throws {
+        try self.init(directory:directory)
+        ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,agent:ownerAgent)
+        ownerSetupEndpoint = .macAgent(ownerAgent)
+    }
     convenience init(storage: DeviceStorage, session: URLSession, ownerEndpoint: DeviceEndpoint, ownerSetupControl: any OwnerSetupControl, connectionTransport: @escaping (DeviceEndpoint) throws -> any FortTransport) throws {
         self.init(storage:storage,session:session)
         self.connectionTransport = connectionTransport

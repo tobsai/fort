@@ -67,22 +67,24 @@ private actor SetupModelTransport: FortTransport {
     }
 }
 private let setupModelEndpoint = DeviceEndpoint.macHost(serviceIdentifier:"io.fort.synthetic.host",signingTeam:"AAAAAAAAAA")
+private let setupModelAgentEndpoint = DeviceEndpoint.macAgent(try! MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic"))
 @MainActor private struct SetupModelWithoutCancellation: OwnerSetupControl {
     let base: SetupModelControl
     func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState { try await base.beginOwnerSetup(timeout:timeout) }
     func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt { try await base.completeOwnerSetup(request,timeout:timeout) }
 }
 private func setupModelDirectory() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("fort-setup-model-" + UUID().uuidString) }
-@MainActor private func setupModel(_ storage: DeviceStorage, _ control: any OwnerSetupControl, _ transport: SetupModelTransport) throws -> MessengerModel {
-    try MessengerModel(storage:storage,session:.shared,ownerEndpoint:setupModelEndpoint,ownerSetupControl:control,connectionTransport:{ _ in transport })
+@MainActor private func setupModel(_ storage: DeviceStorage, _ control: any OwnerSetupControl, _ transport: SetupModelTransport, endpoint: DeviceEndpoint = setupModelEndpoint) throws -> MessengerModel {
+    try MessengerModel(storage:storage,session:.shared,ownerEndpoint:endpoint,ownerSetupControl:control,connectionTransport:{ _ in transport })
 }
 
-@Test @MainActor func ownerSetupModelInspectsWithoutActivationAndConnectsOnlyOnExplicitAction() async throws {
+@Test(arguments:[setupModelEndpoint,setupModelAgentEndpoint]) @MainActor
+func ownerSetupModelInspectsWithoutActivationAndConnectsOnlyOnExplicitAction(endpoint: DeviceEndpoint) async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("fort-setup-model-" + UUID().uuidString)
     defer { try? FileManager.default.removeItem(at:root) }
     let credentials = SetupModelCredentials(), control = SetupModelControl(), transport = SetupModelTransport()
     let storage = try DeviceStorage(directory:root,credentials:credentials)
-    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:setupModelEndpoint,ownerSetupControl:control,connectionTransport:{ _ in transport })
+    let model = try setupModel(storage,control,transport,endpoint:endpoint)
     #expect(model.hasOwnerSetup && !model.canCompleteOwnerSetup)
     await model.restore()
     #expect(model.canCompleteOwnerSetup && model.pendingOwnerSetup == nil)
@@ -91,11 +93,32 @@ private func setupModelDirectory() -> URL { FileManager.default.temporaryDirecto
     await model.completeOwnerSetup()
     #expect(model.connected && !model.showConnection && model.pendingOwnerSetup == nil)
     #expect(control.begins == 1 && control.requests.count == 1 && credentials.saves == 1)
-    #expect(try storage.connection()?.endpoint == setupModelEndpoint)
+    #expect(try storage.connection()?.endpoint == endpoint)
     #expect(await transport.paths.contains("/v1/installation"))
     #expect(!model.canCompleteOwnerSetup)
     await model.completeOwnerSetup()
     #expect(control.begins == 1 && control.requests.count == 1)
+}
+
+@Test @MainActor func ownerSetupModelAgentCancellationRetainsExactEndpointAcrossReopen() async throws {
+    let root = setupModelDirectory()
+    defer { try? FileManager.default.removeItem(at:root) }
+    let credentials = SetupModelCredentials(), control = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let model = try setupModel(storage,control,transport,endpoint:setupModelAgentEndpoint)
+    await model.restore(); control.loseReply = true; await model.completeOwnerSetup()
+    let pending = try #require(model.pendingOwnerSetup)
+    #expect(pending.endpoint == setupModelAgentEndpoint)
+    control.cancelFailure = true; await model.cancelOwnerSetup(pending.identity)
+    #expect(model.pendingOwnerSetup?.phase == .canceling)
+    let reopened = try setupModel(DeviceStorage(directory:root,credentials:credentials),control,transport,endpoint:setupModelAgentEndpoint)
+    let reads = credentials.reads
+    await reopened.restore()
+    #expect(reopened.pendingOwnerSetup?.endpoint == setupModelAgentEndpoint && credentials.reads == reads)
+    control.cancelFailure = false; await reopened.cancelOwnerSetup(pending.identity)
+    #expect(reopened.pendingOwnerSetup == nil && credentials.values.isEmpty)
+    #expect(control.cancellations == [pending.identity,pending.identity])
+    #expect(await transport.paths.isEmpty)
 }
 
 @Test @MainActor func ownerSetupModelRetainsUncertainSetupAcrossReopenWithoutReadingItsCredential() async throws {
@@ -317,17 +340,18 @@ func ownerSetupModelKeepsUnsafePreparationBlockedWithoutReadingCredentials(kind:
     #expect(try storage.connection() == connection)
 }
 
-@Test @MainActor func ownerSetupModelInspectionMeetsLocalBudgetWithoutActivation() async throws {
+@Test(arguments:[setupModelEndpoint,setupModelAgentEndpoint]) @MainActor
+func ownerSetupModelInspectionMeetsLocalBudgetWithoutActivation(endpoint: DeviceEndpoint) async throws {
     let root = setupModelDirectory()
     defer { try? FileManager.default.removeItem(at:root) }
     let credentials = SetupModelCredentials(), control = SetupModelControl(), transport = SetupModelTransport()
     let storage = try DeviceStorage(directory:root,credentials:credentials)
-    let model = try setupModel(storage,control,transport)
+    let model = try setupModel(storage,control,transport,endpoint:endpoint)
     await model.restore(); control.loseReply = true; await model.completeOwnerSetup()
     let reads = credentials.reads
     var samples: [Double] = []
     for _ in 0..<20 {
-        let reopened = try setupModel(DeviceStorage(directory:root,credentials:credentials),control,transport)
+        let reopened = try setupModel(DeviceStorage(directory:root,credentials:credentials),control,transport,endpoint:endpoint)
         let started = ContinuousClock.now
         reopened.inspectOwnerSetup()
         let elapsed = started.duration(to:.now).components
@@ -335,7 +359,7 @@ func ownerSetupModelKeepsUnsafePreparationBlockedWithoutReadingCredentials(kind:
         #expect(reopened.pendingOwnerSetup?.phase == .ready && reopened.canCompleteOwnerSetup)
     }
     let p95 = samples.sorted()[18]
-    print("FORT_OWNER_SETUP_INSPECTION_BUDGET " + String(decoding:try JSONSerialization.data(withJSONObject:["samplesMs":samples,"p95Ms":p95,"budgetMs":50]),as:UTF8.self))
+    print("FORT_OWNER_SETUP_INSPECTION_BUDGET " + String(decoding:try JSONSerialization.data(withJSONObject:["samplesMs":samples,"p95Ms":p95,"budgetMs":50,"connectionSchemaVersion":endpoint.connectionSchemaVersion]),as:UTF8.self))
     #expect(p95 <= 50)
     #expect(credentials.reads == reads && control.begins == 1 && control.requests.count == 1)
     #expect(await transport.paths.isEmpty)

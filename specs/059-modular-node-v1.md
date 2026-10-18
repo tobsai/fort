@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: fd2c795ffbd5336831d6bc147117cea6f8119734f650357749ccbb2b75f68cea
+Reviewed content SHA256: f626f806ee4a1bb9f545b6b9683441e5cc8a056a23ef6a7a1ffed280da1afc4c
 
 ### Vendor independence
 Status: planned
@@ -678,6 +678,43 @@ restart; build both platforms. Existing app construction remains unconfigured
 until its actual host bundle/lifecycle is supplied. UI screenshots/accessibility,
 actual Keychain/XPC and installed setup acceptance remain separate gates.
 
+Prepare a distinct persistent-agent address before composing the production host.
+The existing `macHost` endpoint denotes an embedded XPC service; do not reinterpret
+it as a launch agent. Add a validated Mac agent endpoint containing the exact
+service code identifier, signing team and explicit iOS-style App Group identifier.
+Derive its Mach name as `<appGroup>.fort.host`, bounded to fewer than 128 ASCII bytes
+including room for the bootstrap name's terminator. The group name is a required
+configuration value, never a discovered or invented grant. Peer authentication pins
+the code identifier/team independently of the Mach lookup name. Use the unprivileged
+named-Mach-service NSXPC connection API, preserving existing deadlines, frame limits,
+cancellation and exact receipts. No embedded-service, network or provider fallback.
+
+Persist only this new endpoint using connection schema 3. Preserve legacy and schema
+2 behavior without automatic rewrite, and reject schema 3 for other endpoint kinds,
+schema 2 carrying an agent address, mixed/unknown formats and invalid group/name/pin
+values. On iPhone, decode the record for retained history but refuse local transport
+before any credential or host action. The native setup coordinator and explicit model
+construction accept either validated local endpoint; normal app construction stays
+unconfigured. Test round-trip storage, invalid boundaries, legacy preservation,
+local recovery/model behavior and signed embedded-XPC regressions. Actual Mach-agent
+communication remains unverified until exact App Group/profile and registration
+authority exist. Neither a value constructor nor transport construction registers,
+starts, signs or grants access to a service.
+
+Vendor independence: this is an explicit Apple IPC dependency outside the portable
+core and provider contracts. Modularity: keep Mach lookup, peer code identity and
+persisted endpoint kind distinct; optional runtime implementations remain omitted.
+Speed: validation and lookup selection add no timers, processes or idle work; retain
+existing XPC request/cleanup and native inspection budgets. Installation/removal:
+the eventual per-user SMAppService LaunchAgent needs an app-like signed wrapper and
+authorized shared App Group, with explicit startup consent and asynchronous removal
+confirmation. Current local Fort-specific profiles cover historical iOS/watch IDs
+only; they do not establish Mac/agent/App Group authority. Keep the provisioning
+inventory and Apple references with the boundary evidence. This slice does not create
+profiles, expand signed entitlements, register/start a job or change the accepted
+single-owner per-user host into a root daemon. Production identity selection, owned
+host composition, update/rollback and installed acceptance remain separate work.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -756,6 +793,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/OwnerSetupView.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupModelTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-model.md`
+- `successor/apple/FortKit/Sources/FortKit/MacAgentEndpoint.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacAgentEndpointTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-agent-boundary.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

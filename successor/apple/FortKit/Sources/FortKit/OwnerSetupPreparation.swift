@@ -47,7 +47,7 @@ private struct OwnerSetupPlan: Codable, Equatable {
     }
     enum Keys: String, CodingKey { case version, connection, offer, phase, credentialSHA256, cancellation }
     init(connection: DeviceConnection, offer: OwnerSetupOffer, phase: Phase) throws {
-        guard connection.installationID == offer.installationID, case .macHost = connection.endpoint else { throw OwnerSetupPreparationError.changedPreparation }
+        guard connection.installationID == offer.installationID, connection.endpoint.isLocalHost else { throw OwnerSetupPreparationError.changedPreparation }
         _ = try OwnerSetupReceipt(installationID:connection.installationID,deviceID:connection.deviceID,expiresAt:nil)
         if let digest = phase.digest {
             guard digest.utf8.count == 64, digest.rangeOfCharacter(from:CharacterSet(charactersIn:"0123456789abcdef").inverted) == nil else { throw OwnerSetupPreparationError.changedPreparation }
@@ -99,8 +99,11 @@ private struct OwnerSetupPlan: Codable, Equatable {
     public convenience init(storage: DeviceStorage, serviceIdentifier: String, signingTeam: String) throws {
         try self.init(storage:storage,endpoint:.macHost(serviceIdentifier:serviceIdentifier,signingTeam:signingTeam),control:MacXPCTransport(serviceIdentifier:serviceIdentifier,signingTeam:signingTeam),tokenGenerator:DeviceStorage.makeOwnerDeviceToken)
     }
+    public convenience init(storage: DeviceStorage, agent: MacAgentEndpoint) throws {
+        try self.init(storage:storage,endpoint:.macAgent(agent),control:MacXPCTransport(agent:agent),tokenGenerator:DeviceStorage.makeOwnerDeviceToken)
+    }
     init(storage: DeviceStorage, endpoint: DeviceEndpoint, control: any OwnerSetupControl, tokenGenerator: @escaping () throws -> String) throws {
-        guard case .macHost = endpoint else { throw OwnerSetupPreparationError.wrongHost }
+        guard endpoint.isLocalHost else { throw OwnerSetupPreparationError.wrongHost }
         try endpoint.validate()
         self.storage = storage; self.endpoint = endpoint; self.control = control; self.tokenGenerator = tokenGenerator
     }
