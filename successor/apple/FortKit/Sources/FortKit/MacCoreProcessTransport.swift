@@ -7,6 +7,16 @@ public struct MacCoreStop: Sendable {
     public let forced: Bool
 }
 
+public struct MacCorePairingRecovery: Decodable, Sendable {
+    public let installationID: String
+    public let deviceID: String
+    public let runtimeStopped: Bool
+    public let pairingRevoked: Bool
+    enum CodingKeys: String, CodingKey {
+        case installationID = "installationId", deviceID = "deviceId", runtimeStopped, pairingRevoked = "revoked"
+    }
+}
+
 public final class MacCoreProcessTransport: FortTransport, Sendable {
     private let state: CoreProcessState
     public let processID: Int32
@@ -21,11 +31,24 @@ public final class MacCoreProcessTransport: FortTransport, Sendable {
         } catch { _ = try await state.close(); throw error }
     }
     public func send(_ request: FortRequest) async throws -> FortResponse {
-        try Task.checkCancellation()
         _ = try request.route()
+        return try await exchange(.request(request))
+    }
+    public func recoverOwnerPairing(installationID: String, deviceID: String, timeout: TimeInterval = 30) async throws -> MacCorePairingRecovery {
+        guard [installationID,deviceID].allSatisfy({ !$0.isEmpty && $0.utf8.count <= 128 && $0.rangeOfCharacter(from:CharacterSet(charactersIn:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-").inverted) == nil }),
+              timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+        let response = try await exchange(.recovery(CoreRecoveryRequest(installationID:installationID,deviceID:deviceID,timeout:timeout)))
+        guard response.status == 200,
+              let proof = try? JSONDecoder().decode(MacCorePairingRecovery.self,from:response.body),
+              proof.installationID == installationID, proof.deviceID == deviceID,
+              proof.runtimeStopped, proof.pairingRevoked else { throw ClientError.invalidResponse }
+        return proof
+    }
+    private func exchange(_ command: CoreCommand) async throws -> FortResponse {
+        try Task.checkCancellation()
         let call = CoreCall()
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { state.send(request,call:call,continuation:$0) }
+            try await withCheckedThrowingContinuation { state.send(command,call:call,continuation:$0) }
         } onCancel: { call.cancel(); state.cancel(call) }
     }
     public func close() async throws -> MacCoreStop { try await state.close() }
@@ -48,9 +71,29 @@ private struct CoreFrame: Decodable {
 }
 private struct CoreRequestFrame: Encodable {
     let protocolVersion = 1
-    let kind = "request"
+    let kind: String
     let id: Int
-    let request: FortRequest
+    let request: FortRequest?
+    let recovery: CoreRecoveryRequest?
+    init(id: Int, command: CoreCommand) {
+        self.id = id
+        switch command {
+        case .request(let value): kind = "request"; request = value; recovery = nil
+        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil
+        }
+    }
+}
+private struct CoreRecoveryRequest: Encodable, Sendable {
+    let installationID: String
+    let deviceID: String
+    let timeout: TimeInterval
+}
+private enum CoreCommand: Sendable {
+    case request(FortRequest)
+    case recovery(CoreRecoveryRequest)
+    var timeout: TimeInterval {
+        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout }
+    }
 }
 private struct CoreCancelFrame: Encodable {
     let protocolVersion = 1
@@ -155,16 +198,16 @@ private final class CoreProcessState: @unchecked Sendable {
             }
         }
     }
-    func send(_ request: FortRequest, call: CoreCall, continuation: CheckedContinuation<FortResponse, any Error>) {
+    func send(_ command: CoreCommand, call: CoreCall, continuation: CheckedContinuation<FortResponse, any Error>) {
         queue.async {
             if call.isCanceled { continuation.resume(throwing:CancellationError()); return }
             guard self.isReady && !self.closing, self.pending.count < 8, self.nextID < 9_007_199_254_740_991 else { continuation.resume(throwing:URLError(.resourceUnavailable)); return }
             let id = self.nextID + 1
-            guard let encoded = try? JSONEncoder().encode(CoreRequestFrame(id:id,request:request)), encoded.count <= 2 * 1024 * 1024 else { continuation.resume(throwing:ClientError.invalidResponse); return }
+            guard let encoded = try? JSONEncoder().encode(CoreRequestFrame(id:id,command:command)), encoded.count <= 2 * 1024 * 1024 else { continuation.resume(throwing:ClientError.invalidResponse); return }
             self.nextID = id
             let deadline = DispatchWorkItem { self.cancel(id,error:URLError(.timedOut)) }
             self.pending[id] = Pending(call:call,continuation:continuation,deadline:deadline)
-            self.queue.asyncAfter(deadline:.now() + request.timeout,execute:deadline)
+            self.queue.asyncAfter(deadline:.now() + command.timeout,execute:deadline)
             self.enqueue(encoded)
         }
     }

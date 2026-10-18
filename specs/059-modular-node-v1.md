@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 3da08d8ca7f44308cf3d02fe5baf26213afc84299645a0d6f7db01ddcf65ad37
+Reviewed content SHA256: 583a6796f2914fb1986d7f2eda8eb22eaf3a4076e32b325e3fd24e980f420b44
 
 ### Vendor independence
 Status: planned
@@ -318,6 +318,20 @@ through public core APIs using synthetic runtimes. This adds bounded local metad
 no provider dependency, no new external authority and no polling. Host process
 absence/startup unregistration remain the Swift owner's separate proof obligations.
 
+Carry exact pairing recovery over a separate private-pipe frame, never through a
+Fort HTTP request or bearer-token exception. The relay rejects this frame unless
+its local composition explicitly supplies the owner recovery API. Keep the same
+monotonic IDs, eight-call bound, 30-second deadline, cancellation and output limits.
+Validate bounded installation/device identifiers before any callback. Swift checks
+the returned exact identity and both confirmations, then separately closes/reaps
+the core process and verifies its group absent. A timeout or canceled call cannot
+be reported as confirmed recovery even if disposal completes later; retry uses the
+durable intent. Test the real Swift/Node pipe using synthetic expired credentials,
+retained history and foreign identity, plus disabled/malformed controls. This is
+constant-size local lifecycle work with no extra dependency or idle activity. It
+does not expose enrollment, change signed XPC admission, activate startup or add
+network access. Ordinary app setup and the installed owner adapter remain separate.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -370,6 +384,10 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Tests/FortKitTests/CoreRecoveryTests.swift`
+- `successor/host/fixtures/owner-core.mjs`
+- `successor/evidence/2026-10-17-node-foundation/private-owner-recovery.md`
 
 - `successor/service/owner-recovery.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-recovery.md`

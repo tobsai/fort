@@ -21,7 +21,13 @@ if (mode !== 'blocked-input') {
       if (mode === 'gate' && frame.kind === 'cancel') { emit({ protocolVersion: 1, kind: 'error', id: frame.id, error: 'canceled' }); continue; }
       if (frame.kind === 'cancel' || mode === 'ignore-cancel' || mode === 'hang') continue;
       const response = { protocolVersion: 1, kind: 'response', id: frame.id, response: { status: 200, body: Buffer.from('exact').toString('base64') } };
-      if (mode === 'gate' && frame.request.path === '/v1/hold') { writeFileSync('held.json', JSON.stringify(++held), { mode: 0o600 }); }
+      if (mode.startsWith('recovery-proof-')) {
+        const proof = { installationId: mode === 'recovery-proof-installation' ? 'foreign' : frame.recovery.installationID,
+          deviceId: mode === 'recovery-proof-device' ? 'foreign' : frame.recovery.deviceID,
+          runtimeStopped: mode !== 'recovery-proof-runtime', revoked: mode !== 'recovery-proof-revocation' };
+        emit({ ...response, response: { status: mode === 'recovery-proof-status' ? 503 : 200, body: Buffer.from(JSON.stringify(proof)).toString('base64') } });
+      }
+      else if (mode === 'gate' && frame.request.path === '/v1/hold') { writeFileSync('held.json', JSON.stringify(++held), { mode: 0o600 }); }
       else if (mode === 'out-of-order') setTimeout(() => emit({ ...response, response: { status: 200, body: frame.request.body } }), (9 - frame.id) * 10);
       else if (mode === 'malformed') process.stdout.write('not-json\n');
       else if (mode === 'oversized-frame') process.stdout.write(Buffer.alloc(12 * 1024 * 1024 + 1, 65));

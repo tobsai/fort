@@ -12,14 +12,14 @@ function object(value: unknown): Record<string, unknown> {
 function string(value: unknown): string { assert.equal(typeof value, 'string'); return value as string; }
 function array(value: unknown): unknown[] { assert.ok(Array.isArray(value)); return value; }
 
-async function fixture(t: TestContext, artifact?: string) {
+async function fixture(t: TestContext, artifact?: string, owner = false, recoveryBehavior = '') {
   const directory = await mkdtemp('/tmp/fort-private-channel-');
   const closers: (() => Promise<void>)[] = [];
   t.after(async () => { for (const close of closers) await close(); await rm(directory, { recursive: true, force: true }); });
   return { directory, start: async () => {
     const coreModule = artifact ? pathToFileURL(join(artifact, 'service/openai.js')).href : new URL('../service/openai.ts', import.meta.url).href;
     const channelModule = artifact ? pathToFileURL(join(artifact, 'host/private-channel.js')).href : new URL('./private-channel.ts', import.meta.url).href;
-    const child = fork(fileURLToPath(new URL('./fixtures/private-core.mjs', import.meta.url)), [directory, coreModule, channelModule], {
+    const child = fork(fileURLToPath(new URL('./fixtures/private-core.mjs', import.meta.url)), [directory, coreModule, channelModule, owner ? 'owner' : 'ordinary', recoveryBehavior], {
       execPath: process.execPath, execArgv: artifact ? ['--jitless', '--no-experimental-strip-types'] : [], cwd: directory, detached: true,
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'], env: { PATH: '/usr/bin:/bin', LANG: 'C' }
     });
@@ -63,7 +63,14 @@ async function fixture(t: TestContext, artifact?: string) {
       assert.equal(frame.kind, 'response'); const response = object(frame.response);
       return { status: response.status, body: object(JSON.parse(Buffer.from(string(response.body), 'base64').toString())) };
     };
-    return { installed, setup: await setup.promise, api, send, executions: () => executions, close,
+    const recovery = (installationID: string, deviceID: string, timeout = 3) => {
+      const id = ++nextID, response = Promise.withResolvers<Record<string, unknown>>(); responses.set(id, response);
+      child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'ownerRecovery', id, recovery: { installationID, deviceID, timeout } }) + '\n');
+      return { id, result: Promise.race([response.promise, delay(5000, undefined, { ref: false }).then(() => { throw new Error('Missing recovery response'); })]).finally(() => responses.delete(id)) };
+    };
+    return { installed, setup: await setup.promise, api, send, recovery,
+      recover: (installationID: string, deviceID: string, timeout = 3) => recovery(installationID, deviceID, timeout).result,
+      executions: () => executions, close,
       cancel(id: number) { child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'cancel', id }) + '\n'); },
       raw(bytes: string) { expectedExit = 1; child.stdin?.write(bytes); },
       async failed() { const result = await Promise.race([exited.promise, delay(10_000, undefined, { ref: false }).then(() => { throw new Error('Failed fixture did not exit within its bound'); })]); assert.equal(result.code, 1); },
@@ -104,6 +111,52 @@ async function journey(t: TestContext, artifact?: string) {
 }
 
 test('private pipe requests preserve core authorization, exact messages, canceled waits and restart receipts', t => journey(t));
+
+test('explicit owner pipe recovery verifies exact identity and revokes without a bearer-token exception', async t => {
+  const local = await fixture(t, undefined, true), host = await local.start();
+  const enrolled = await host.api('/v1/devices/enroll', { ...object(host.setup.enrollment), deviceName: 'Synthetic owner' });
+  const token = string(enrolled.body.deviceToken), deviceID = string(enrolled.body.deviceId), installationID = string(host.installed.installationId);
+  assert.equal((await host.api('/v1/pairing/recover', { installationID, deviceID }, token)).status, 404);
+  assert.equal((await host.recover('foreign', deviceID)).error, 'unavailable');
+  assert.equal((await host.recover(installationID, 'foreign')).error, 'unavailable');
+  assert.equal((await host.api('/v1/pairing', undefined, token)).status, 200);
+  const result = await host.recover(installationID, deviceID);
+  assert.equal(result.kind, 'response');
+  assert.deepEqual(JSON.parse(Buffer.from(string(object(result.response).body), 'base64').toString()), { installationId: installationID, deviceId: deviceID, runtimeStopped: true, revoked: true });
+  assert.equal((await host.api('/v1/pairing', undefined, token)).status, 401);
+  assert.deepEqual(await host.recover(installationID, deviceID).then(frame => frame.response), result.response);
+  await host.close();
+});
+
+test('owner pipe recovery stays disabled by default and rejects malformed control identity or limits', async t => {
+  const recovery = { installationID: 'synthetic', deviceID: 'synthetic', timeout: 1 };
+  for (const value of [recovery, { ...recovery, deviceID: '' }, { ...recovery, installationID: 'a'.repeat(129) },
+    { ...recovery, deviceID: 'wrong/path' }, { ...recovery, timeout: 31 }, { ...recovery, token: 'unexpected' }]) {
+    const local = await fixture(t, undefined, value !== recovery), host = await local.start();
+    host.raw(JSON.stringify({ protocolVersion: 1, kind: 'ownerRecovery', id: 1, recovery: value }) + '\n');
+    await host.failed(); await host.close();
+  }
+});
+
+test('timeout and cancellation never claim recovery when disposal completes later', async t => {
+  for (const cancel of [false, true]) {
+    const local = await fixture(t, undefined, true, 'slow'), host = await local.start();
+    const enrolled = await host.api('/v1/devices/enroll', { ...object(host.setup.enrollment), deviceName: 'Synthetic owner' });
+    const installationID = string(host.installed.installationId), deviceID = string(enrolled.body.deviceId);
+    const pending = host.recovery(installationID, deviceID, cancel ? 3 : 0.01);
+    if (cancel) host.cancel(pending.id);
+    assert.equal((await pending.result).error, cancel ? 'canceled' : 'timeout');
+    assert.equal((await host.recover(installationID, deviceID)).kind, 'response');
+    await host.close();
+  }
+});
+
+test('a composition callback cannot return a recovery proof for another pairing', async t => {
+  const local = await fixture(t, undefined, true, 'wrong-proof'), host = await local.start();
+  const enrolled = await host.api('/v1/devices/enroll', { ...object(host.setup.enrollment), deviceName: 'Synthetic owner' });
+  assert.equal((await host.recover(string(host.installed.installationId), string(enrolled.body.deviceId))).error, 'unavailable');
+  await host.close();
+});
 
 test('the compiled vendor-free artifact supports the same private pipe journey', async t => {
   const root = await mkdtemp('/tmp/fort-private-channel-artifact-');

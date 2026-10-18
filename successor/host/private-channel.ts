@@ -5,6 +5,9 @@ import type { ServiceEndpoint } from '../service/openai.ts';
 
 type PrivateEndpoint = Extract<ServiceEndpoint, { kind: 'privateSocket' }>;
 type NativeRequest = { path: string; method: 'GET' | 'POST'; installationID: string; token?: string; body?: Buffer; timeout: number };
+type RecoveryRequest = { installationID: string; deviceID: string; timeout: number };
+type RecoveryProof = { installationId: string; deviceId: string; runtimeStopped: boolean; revoked: boolean };
+type ChannelWork = { kind: 'http'; request: NativeRequest } | { kind: 'recovery'; request: RecoveryRequest };
 const inputLimit = 2 * 1024 * 1024, bodyLimit = 8 * 1024 * 1024;
 const protocolError = () => new Error('Private channel protocol or lifecycle was not confirmed');
 function object(value: unknown): Record<string, unknown> {
@@ -12,6 +15,14 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 function header(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && value.length <= 4096 && /^[\x20-\x7e]+$/.test(value); }
+function decodeRecovery(value: unknown): RecoveryRequest {
+  const input = object(value);
+  const identifier = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[^A-Za-z0-9_-]/.test(value);
+  if (Object.keys(input).some(key => !['installationID', 'deviceID', 'timeout'].includes(key))
+    || !identifier(input.installationID) || !identifier(input.deviceID)
+    || typeof input.timeout !== 'number' || !Number.isFinite(input.timeout) || input.timeout <= 0 || input.timeout > 30) throw protocolError();
+  return { installationID: input.installationID, deviceID: input.deviceID, timeout: input.timeout };
+}
 function decodeRequest(value: unknown): NativeRequest {
   const input = object(value);
   if (typeof input.path !== 'string' || !input.path.startsWith('/v1/') || input.path.length > 8192 || /[\x00-\x20\x7f#\\]/.test(input.path)
@@ -52,8 +63,11 @@ function forward(socket: string, input: NativeRequest, signal: AbortSignal): Pro
   });
 }
 
-export async function servePrivateChannel(options: { endpoint: PrivateEndpoint; input: Readable; output: Writable; signal?: AbortSignal }): Promise<void> {
-  const endpoint = { ...options.endpoint }, { input, output, signal } = options;
+export async function servePrivateChannel(options: {
+  endpoint: PrivateEndpoint; input: Readable; output: Writable; signal?: AbortSignal;
+  ownerRecovery?: (identity: { installationId: string; deviceId: string }) => Promise<RecoveryProof>;
+}): Promise<void> {
+  const endpoint = { ...options.endpoint }, { input, output, signal, ownerRecovery } = options;
   if (endpoint.kind !== 'privateSocket' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}\.sock$/.test(endpoint.name)
     || realpathSync(endpoint.directory) !== realpathSync(process.cwd())) throw protocolError();
   const directory = lstatSync(endpoint.directory), socket = lstatSync(endpoint.name);
@@ -75,13 +89,24 @@ export async function servePrivateChannel(options: { endpoint: PrivateEndpoint; 
     const timer = setTimeout(() => { stop(protocolError()); reject(protocolError()); }, 5000);
     output.write(bytes, error => { clearTimeout(timer); if (error) reject(protocolError()); else resolve(); });
   });
-  const execute = async (id: number, request: NativeRequest, controller: AbortController) => {
+  const execute = async (id: number, work: ChannelWork, controller: AbortController) => {
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, Math.max(1, Math.ceil(request.timeout * 1000)));
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, Math.max(1, Math.ceil(work.request.timeout * 1000)));
     let response: { status: number; body: string } | undefined;
-    try { response = await forward(endpoint.name, request, controller.signal); } catch {}
+    try {
+      controller.signal.throwIfAborted();
+      if (work.kind === 'http') response = await forward(endpoint.name, work.request, controller.signal);
+      else {
+        if (!ownerRecovery) throw protocolError();
+        const { installationID, deviceID } = work.request;
+        const proof = await ownerRecovery({ installationId: installationID, deviceId: deviceID });
+        if (proof.installationId !== installationID || proof.deviceId !== deviceID || proof.runtimeStopped !== true || proof.revoked !== true) throw protocolError();
+        response = { status: 200, body: Buffer.from(JSON.stringify({ installationId: installationID, deviceId: deviceID, runtimeStopped: true, revoked: true })).toString('base64') };
+      }
+    } catch {}
     finally { clearTimeout(timer); }
     if (closing) return;
+    if (controller.signal.aborted) response = undefined;
     await write(response ? { protocolVersion: 1, kind: 'response', id, response }
       : { protocolVersion: 1, kind: 'error', id, error: timedOut ? 'timeout' : controller.signal.aborted ? 'canceled' : 'unavailable' });
   };
@@ -101,11 +126,15 @@ export async function servePrivateChannel(options: { endpoint: PrivateEndpoint; 
           if (frame.id > lastID) throw protocolError();
           active.get(frame.id)?.abort(); continue;
         }
-        if (frame.kind !== 'request' || frame.id <= lastID || active.size >= 8) throw protocolError();
-        const request = decodeRequest(frame.request), id = frame.id;
+        if (frame.id <= lastID || active.size >= 8) throw protocolError();
+        let work: ChannelWork;
+        if (frame.kind === 'request') work = { kind: 'http', request: decodeRequest(frame.request) };
+        else if (frame.kind === 'ownerRecovery' && ownerRecovery) work = { kind: 'recovery', request: decodeRecovery(frame.recovery) };
+        else throw protocolError();
+        const id = frame.id;
         lastID = id;
         const controller = new AbortController(); active.set(id, controller);
-        const worker = execute(id, request, controller).catch(() => stop(protocolError())).finally(() => { active.delete(id); workers.delete(worker); });
+        const worker = execute(id, work, controller).catch(() => stop(protocolError())).finally(() => { active.delete(id); workers.delete(worker); });
         workers.add(worker);
       }
       if (pending.length > inputLimit) throw protocolError();
