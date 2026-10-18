@@ -146,8 +146,11 @@ try {
         for (const file of ['Core', 'NodeLicenses', 'native-core.mjs', 'node-openssl.cnf']) cpSync(join(app, 'Contents/Resources', file), join(resources, file), { recursive: true });
         cpSync(join(app, 'Contents/Frameworks'), join(service, 'Contents/Frameworks'), { recursive: true });
         const coreNode = join(service, 'Contents/MacOS/node'); copyFileSync(node, coreNode);
+        const guardian = join(service, 'Contents/MacOS/FortProcessGuardian');
+        command('/usr/bin/xcrun', ['swiftc', join(source, '../host/mac-process-guardian.swift'), '-o', guardian]);
+        command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', childEntitlements, guardian]);
         command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', childEntitlements, coreNode]);
-        xpcExecutables.push(coreNode);
+        xpcExecutables.push(coreNode, guardian);
       }
       writeFileSync(join(service, 'Contents/Info.plist'), plist(`<key>CFBundleIdentifier</key><string>${serviceId}</string><key>CFBundleExecutable</key><string>FortChannel</string><key>CFBundlePackageType</key><string>XPC!</string><key>CFBundleVersion</key><string>1</string><key>FortClientRequirement</key><string>${xml(pin(client))}</string><key>FortOutsideMarker</key><string>${xml(join(root, 'outside-marker'))}</string><key>FortClientIdentifier</key><string>${client}</string><key>FortSigningTeam</key><string>${team}</string><key>XPCService</key><dict><key>ServiceType</key><string>Application</string></dict>`));
       command('/usr/bin/xcrun', ['swiftc', ...nativeTransport, ...nativeHost, join(source, suffix === 'core' ? 'xpc-core-service.swift' : 'xpc-service.swift'), '-o', serviceExecutable]);
@@ -173,11 +176,12 @@ try {
   const servicePid = 'xpcServicePid' in xpc ? xpc.xpcServicePid : undefined;
   const knownPids = typeof servicePid === 'number' && Number.isSafeInteger(servicePid) && servicePid > 1 ? [servicePid] : [];
   const corePids: number[] = 'xpcCorePids' in xpc && Array.isArray(xpc.xpcCorePids) && xpc.xpcCorePids.every(pid => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1) ? xpc.xpcCorePids : [];
+  const runtimePids: number[] = 'xpcCoreRuntimePids' in xpc && Array.isArray(xpc.xpcCoreRuntimePids) && xpc.xpcCoreRuntimePids.every(pid => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1) ? xpc.xpcCoreRuntimePids : [];
   const coreServicePid = 'xpcCoreServicePid' in xpc ? xpc.xpcCoreServicePid : undefined;
   if (typeof coreServicePid === 'number' && Number.isSafeInteger(coreServicePid) && coreServicePid > 1) knownPids.push(coreServicePid);
-  knownPids.push(...corePids);
+  knownPids.push(...corePids, ...runtimePids);
   const xpcCleanup = values.scenario === 'xpc' ? await cleanXPC(xpcExecutables, knownPids) : undefined;
-  const xpcCoreProcessesAbsent = corePids.length === 2 && corePids.every(pid => absent(pid) && absent(-pid));
+  const xpcCoreProcessesAbsent = corePids.length === 2 && runtimePids.length === 2 && corePids.every(pid => absent(pid) && absent(-pid)) && runtimePids.every(absent);
   if (run.ownedProcessesAbsent && (!xpcCleanup || xpcCleanup.xpcProcessesAbsent)) {
     for (const id of [identifier, ...xpcIdentifiers]) rmSync(join(homedir(), 'Library/Containers', id), { recursive: true, force: true });
   }
@@ -194,7 +198,7 @@ try {
   writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(JSON.stringify(result) + '\n');
   if (run.outcome !== 'completed') process.exitCode = 1;
-  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
+  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcCoreGuarded', 'xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Sandbox proof failed') + '\n');
   process.exitCode = 1;

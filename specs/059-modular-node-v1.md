@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: c24146992c7fbb8065057e536fcc29bc7d6efee9e81abf3c7e6c38871ffd6e43
+Reviewed content SHA256: 4848f9091685e1d6643cc2e26faa96587719b23ac756bb35b1f43e70b027ca76
 
 ### Vendor independence
 Status: planned
@@ -360,6 +360,31 @@ adds no dependency/network capability or idle polling, and grants no real pairin
 startup activation or provider authority. A real owner installation adapter and
 app setup still must compose these proofs before removal can be offered.
 
+Protect the owned core group when its Swift supervisor dies abruptly. Require an
+explicit lifecycle selection at launch: test-only cooperative supervision or an
+exact bundled native guardian. The guardian verifies its expected parent and
+own process-group leadership, synchronously registers an OS parent-exit event
+before launching the exact child, and fails closed if monitoring cannot start.
+Node inherits the guardian's group and only the selected environment and standard
+pipes. Parent exit kills that owned group even when Node ignores EOF and TERM;
+normal close retains the existing bounded reaping and group-absence checks.
+Do not infer cleanup of detached groups from launchd or XPC restart behavior.
+
+This unchanged-scope lifecycle refinement keeps AI/runtime independence and
+adds only an Apple process adapter, with no package, provider or domain imports.
+One bundled Swift executable can be removed with the app; no registration,
+credential, network listener or entitlement expansion is added. The speed cost
+is one blocking OS-event thread and a small process, with no idle polling.
+Targets are at most 25 MiB added idle RSS, 0.1% added idle CPU and 100 ms p95
+added warm launch overhead on the recorded Mac over ten equivalent launches;
+these must be measured separately from core-only budgets. For installation and
+removal, test killing the actual Swift supervisor while a child/descendant ignores
+EOF/TERM, require exact PID/group absence within three seconds, and retain normal
+close, invalid-parent admission and signed XPC/sandbox controls. Package and sign
+the guardian inside the core service's own bundle. This is lifecycle ownership,
+not containment of hostile descendants escaping their group, and does not yet
+prove executor cleanup when Node itself dies or ordinary installed-host behavior.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -412,6 +437,12 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/host/mac-process-guardian.swift`
+- `successor/host/fixtures/core-supervisor.swift`
+- `successor/host/guardian.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/parent-exit-guard.md`
+- `successor/evidence/2026-10-17-node-foundation/parent-exit-guard.json`
 
 - `successor/apple/FortKit/Sources/FortKit/MacOwnerControl.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacOwnerControlTests.swift`

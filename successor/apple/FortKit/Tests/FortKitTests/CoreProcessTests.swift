@@ -24,7 +24,7 @@ private func startCore(_ directory: URL) async throws -> MacCoreProcessTransport
     let core = artifact?.appendingPathComponent("service/openai.js") ?? successor.appendingPathComponent("service/openai.ts")
     let channel = artifact?.appendingPathComponent("host/private-channel.js") ?? successor.appendingPathComponent("host/private-channel.ts")
     let flags = artifact == nil ? ["--no-warnings"] : ["--jitless","--no-experimental-strip-types","--no-warnings"]
-    return try await MacCoreProcessTransport.launch(executable:nodeExecutable(),arguments:flags + [successor.appendingPathComponent("host/fixtures/native-core.mjs").path,directory.path,core.path,channel.path],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path])
+    return try await MacCoreProcessTransport.launch(executable:nodeExecutable(),arguments:flags + [successor.appendingPathComponent("host/fixtures/native-core.mjs").path,directory.path,core.path,channel.path],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.processGroup)
 }
 private struct Setup: Decodable {
     struct Identity: Decodable { let installationId: String; let recoveryEpoch: String }
@@ -89,7 +89,7 @@ private func assertAbsent(_ pid: Int32) {
 }
 
 private func startChannel(_ directory: URL, mode: String) async throws -> MacCoreProcessTransport {
-    try await MacCoreProcessTransport.launch(executable:nodeExecutable(),arguments:["--jitless","--no-warnings",successor.appendingPathComponent("host/fixtures/native-channel.mjs").path,mode],directory:directory,environment:["PATH":"/usr/bin:/bin"])
+    try await MacCoreProcessTransport.launch(executable:nodeExecutable(),arguments:["--jitless","--no-warnings",successor.appendingPathComponent("host/fixtures/native-channel.mjs").path,mode],directory:directory,environment:["PATH":"/usr/bin:/bin"],lifecycle:.processGroup)
 }
 private func channelRequest(timeout: TimeInterval = 1, body: Data? = nil) -> FortRequest {
     FortRequest(path:"/v1/probe",method:.post,installationID:"synthetic",token:nil,body:body,timeout:timeout)

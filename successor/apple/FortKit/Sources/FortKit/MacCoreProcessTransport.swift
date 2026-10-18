@@ -7,6 +7,11 @@ public struct MacCoreStop: Sendable {
     public let forced: Bool
 }
 
+public enum MacCoreLifecycle: Sendable {
+    case processGroup
+    case parentExit(guardian: URL)
+}
+
 public struct MacCorePairingRecovery: Decodable, Sendable {
     public let installationID: String
     public let deviceID: String
@@ -21,9 +26,17 @@ public final class MacCoreProcessTransport: FortTransport, Sendable {
     private let state: CoreProcessState
     public let processID: Int32
     private init(_ state: CoreProcessState) { self.state = state; processID = state.pid }
-    public static func launch(executable: URL, arguments: [String], directory: URL, environment: [String:String]) async throws -> MacCoreProcessTransport {
+    public static func launch(executable: URL, arguments: [String], directory: URL, environment: [String:String], lifecycle: MacCoreLifecycle) async throws -> MacCoreProcessTransport {
         try Task.checkCancellation()
-        let state = try CoreProcessState(executable:executable,arguments:arguments,directory:directory,environment:environment)
+        let program: URL
+        let command: [String]
+        switch lifecycle {
+        case .processGroup: program = executable; command = arguments
+        case .parentExit(let guardian):
+            guard executable.isFileURL, executable.path.hasPrefix("/"), !executable.path.utf8.contains(0) else { throw ClientError.invalidResponse }
+            program = guardian; command = [String(getpid()),executable.path] + arguments
+        }
+        let state = try CoreProcessState(executable:program,arguments:command,directory:directory,environment:environment)
         do {
             try await withTaskCancellationHandler { try await state.ready() } onCancel: { state.stop() }
             try Task.checkCancellation()

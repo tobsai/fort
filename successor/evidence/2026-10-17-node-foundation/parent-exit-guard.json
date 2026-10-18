@@ -1,0 +1,290 @@
+{
+  "sourceBase": "90d901a",
+  "sourceInputs": [
+    {
+      "path": "successor/packaging/sandbox-feasibility.ts",
+      "sha256": "c45dc002e546ccb664e9c386c77b0444d073a9ac3d1414632727d937672f051c"
+    },
+    {
+      "path": "successor/packaging/sandbox-probe.swift",
+      "sha256": "fa83eed12be849e124dfeb5889af6a29210da47a504e5c3458737867ad9d27fa"
+    },
+    {
+      "path": "successor/packaging/xpc-core-client.swift",
+      "sha256": "a705083d23d3ef245e15b20273900a023a8b8f09b4bf9b3d3f2ad29dd01d4e1c"
+    },
+    {
+      "path": "successor/packaging/xpc-core-service.swift",
+      "sha256": "342db87b64a6f9af1184c7b639561306b9ad8bb437127c2e125f744f64a93f04"
+    },
+    {
+      "path": "successor/packaging/xpc-client.swift",
+      "sha256": "45cef312f9a74e9995a7f9044e639fe7279555e0fc03dcc5ee0b19901a82e642"
+    },
+    {
+      "path": "successor/packaging/xpc-service.swift",
+      "sha256": "88be095442419dbd448238a0eeecc4b07223c4addaf8de677b13f37812392a21"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacOwnerControl.swift",
+      "sha256": "37fa6640290cbc2aa4c279e5aaa013abcb573d7a22571c31ff6da6a7804fe313"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift",
+      "sha256": "29df2da62399b2c8c49a1d52b233be84351f65e650ebc1e1aa89a6432176079e"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift",
+      "sha256": "8765cc3e68d3f9c0212de06f4961a6c4a17de1c885723df84d119e98dfc6cdc9"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacHostChannel.swift",
+      "sha256": "958a95c337c937f359c89333ed51af6666f296be910572aa758ff49e3b49784b"
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/FortTransport.swift",
+      "sha256": "7951b0a2244e87b4ea1dd52cb324242e4176b008c392cdc7200d8fdfc14cb0d1"
+    },
+    {
+      "path": "successor/host/private-channel.ts",
+      "sha256": "4447417c2c6ae6fab5f2f9c9494e7e49d20c28b7b06ca73b1c231b8b40aea006"
+    },
+    {
+      "path": "successor/service/openai.ts",
+      "sha256": "bf85285d900ec3d65ec30c46d31fab065eb07ae623314e2e5368777f4ab48aa9"
+    },
+    {
+      "path": "successor/host/fixtures/native-core.mjs",
+      "sha256": "f42da08b022de831d374be7b1be60155767fe5e551e1c9eac590dd104e14293c"
+    },
+    {
+      "path": "successor/host/mac-process-guardian.swift",
+      "sha256": "6c087006dc03199a74da29fe38b53cf328929eaa72fafd364e0ff1dcfa6c6d76"
+    },
+    {
+      "path": "successor/host/fixtures/core-supervisor.swift",
+      "sha256": "a8bd54ac2deb070b3e4ab629a3479580313ceadc7fe220411a5f906a2dee14b4"
+    },
+    {
+      "path": "successor/host/guardian.test.ts",
+      "sha256": "c588a055178c9ae22ffd49944456d488e9152009109474bfd9444e0c38517f0f"
+    }
+  ],
+  "result": {
+    "sqlite": "ready",
+    "outsideReadDenied": true,
+    "outsideWriteDenied": true,
+    "loopbackListenDenied": true,
+    "privateSocketRoundTrip": true,
+    "privateSocketFailure": null,
+    "coreAuthentication": true,
+    "coreExactMessages": true,
+    "coreReplay": true,
+    "coreRestart": true,
+    "coreNoDuplicate": true,
+    "coreSocketAbsent": true,
+    "outcome": "completed",
+    "diagnostics": "FORT_PROBE_XPC {\"xpcCancellation\":true,\"xpcClientError\":4097,\"xpcClientRejected\":true,\"xpcCoreAuthentication\":true,\"xpcCoreCancellation\":true,\"xpcCoreExactMessages\":true,\"xpcCoreGuarded\":true,\"xpcCoreNoDuplicate\":true,\"xpcCoreOuterExecutableDenied\":true,\"xpcCoreOutsideReadDenied\":true,\"xpcCoreOutsideWriteDenied\":true,\"xpcCorePids\":[18645,18647],\"xpcCoreReplay\":true,\"xpcCoreRestart\":true,\"xpcCoreRuntimePids\":[18646,18648],\"xpcCoreServicePid\":18643,\"xpcCoreStopped\":true,\"xpcCoreTCPDenied\":true,\"xpcInvalidStatusRejected\":true,\"xpcMalformedResponseRejected\":true,\"xpcOversizedRequestRejected\":true,\"xpcOversizedResponseRejected\":true,\"xpcOwnerClientRejected\":true,\"xpcOwnerDisabled\":true,\"xpcOwnerForeignRejected\":true,\"xpcOwnerNoHTTPRecovery\":true,\"xpcOwnerRecovery\":true,\"xpcOwnerServiceRejected\":true,\"xpcRoundTrip\":true,\"xpcServiceError\":4102,\"xpcServicePid\":18640,\"xpcServiceRejected\":true,\"xpcTimeout\":true}\n",
+    "parentPid": 18622,
+    "childPid": 18649,
+    "childGroup": 18622,
+    "ownedProcessesAbsent": true,
+    "elapsedMs": 10303.058,
+    "parentStartupMs": 8813.464457999999,
+    "parentWorkMs": 1285.5106670000023,
+    "executionMs": 204.09170799999993,
+    "hungChildObserved": false,
+    "xpcCancellation": true,
+    "xpcClientError": 4097,
+    "xpcClientRejected": true,
+    "xpcCoreAuthentication": true,
+    "xpcCoreCancellation": true,
+    "xpcCoreExactMessages": true,
+    "xpcCoreGuarded": true,
+    "xpcCoreNoDuplicate": true,
+    "xpcCoreOuterExecutableDenied": true,
+    "xpcCoreOutsideReadDenied": true,
+    "xpcCoreOutsideWriteDenied": true,
+    "xpcCorePids": [
+      18645,
+      18647
+    ],
+    "xpcCoreReplay": true,
+    "xpcCoreRestart": true,
+    "xpcCoreRuntimePids": [
+      18646,
+      18648
+    ],
+    "xpcCoreServicePid": 18643,
+    "xpcCoreStopped": true,
+    "xpcCoreTCPDenied": true,
+    "xpcInvalidStatusRejected": true,
+    "xpcMalformedResponseRejected": true,
+    "xpcOversizedRequestRejected": true,
+    "xpcOversizedResponseRejected": true,
+    "xpcOwnerClientRejected": true,
+    "xpcOwnerDisabled": true,
+    "xpcOwnerForeignRejected": true,
+    "xpcOwnerNoHTTPRecovery": true,
+    "xpcOwnerRecovery": true,
+    "xpcOwnerServiceRejected": true,
+    "xpcRoundTrip": true,
+    "xpcServiceError": 4102,
+    "xpcServicePid": 18640,
+    "xpcServiceRejected": true,
+    "xpcTimeout": true,
+    "xpcProcessesAbsent": true,
+    "xpcForcedCleanup": false,
+    "xpcObservedPids": [
+      18640,
+      18643,
+      18645,
+      18647,
+      18646,
+      18648
+    ],
+    "xpcCoreProcessesAbsent": true,
+    "syntheticContainerAbsent": true,
+    "identifier": "io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78",
+    "xpcIdentifiers": [
+      "io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.channel",
+      "io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.rejected",
+      "io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.core"
+    ],
+    "app": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/guardian-059-20261018/FortSandboxProbe.app",
+    "signedIdentityClass": "existing development identity",
+    "providerUsed": false,
+    "startupRegistered": false
+  },
+  "guardianMeasurements": [
+    {
+      "supervisor": 17987,
+      "group": 17988,
+      "runtime": 17989,
+      "descendant": 17990,
+      "cleanupMs": 12.103458000000046
+    },
+    {
+      "samples": [
+        {
+          "baselineMs": 57.256583,
+          "guardedMs": 61.434625
+        },
+        {
+          "baselineMs": 56.4915,
+          "guardedMs": 63.987958
+        },
+        {
+          "baselineMs": 62.009625,
+          "guardedMs": 61.451625
+        },
+        {
+          "baselineMs": 57.942167,
+          "guardedMs": 61.33875
+        },
+        {
+          "baselineMs": 58.1935,
+          "guardedMs": 58.518375
+        },
+        {
+          "baselineMs": 55.673375,
+          "guardedMs": 61.121375
+        },
+        {
+          "baselineMs": 58.310541,
+          "guardedMs": 59.167417
+        },
+        {
+          "baselineMs": 60.218416,
+          "guardedMs": 60.498917
+        },
+        {
+          "baselineMs": 58.060625,
+          "guardedMs": 61.254583
+        },
+        {
+          "baselineMs": 55.983084,
+          "guardedMs": 62.443417
+        }
+      ],
+      "addedP95Ms": 7.496457999999997
+    },
+    {
+      "first": {
+        "rssMiB": 5.703125,
+        "cpuSeconds": 0
+      },
+      "last": {
+        "rssMiB": 5.703125,
+        "cpuSeconds": 0
+      },
+      "elapsedSeconds": 12.007177500000001,
+      "cpuPercentUpperBound": 0.08328351937830518,
+      "scope": "guardian only; ps CPU resolution 10 ms"
+    }
+  ],
+  "conditions": {
+    "hardware": "MacBookPro18,2; M1 Max; 64 GiB; 10 CPU",
+    "os": "27.2",
+    "osBuild": "26B5112a",
+    "node": "26.5.0",
+    "scope": "unsigned synthetic guardian only; ten alternating baseline/guarded warm launches; 12-second idle observation; not installed product or total host budget"
+  },
+  "independentChecks": {
+    "deepStrictSignature": true,
+    "exactEntitlements": [
+      {
+        "path": ".",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "path": "Contents/MacOS/node",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.channel.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.core.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.rejected.xpc",
+        "values": {
+          "com.apple.security.app-sandbox": true
+        }
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.core.xpc/Contents/MacOS/node",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      },
+      {
+        "path": "Contents/XPCServices/io.fort.foundation.probe.535204f1-195f-4144-a077-0f8e0fed1c78.core.xpc/Contents/MacOS/FortProcessGuardian",
+        "values": {
+          "com.apple.security.app-sandbox": true,
+          "com.apple.security.inherit": true
+        }
+      }
+    ],
+    "ownedPidsAndGroupsAbsent": true,
+    "exactBundleExecutablePathsAbsent": true,
+    "generatedContainersAbsent": true,
+    "coreFileHashesVerified": true,
+    "coreFiles": 22,
+    "coreBytes": 168124,
+    "coreManifestSHA256": "4bdc218107386e8592dbaf0e3b2fb59e66ff9d01d73f24a485a83098e9cc249b"
+  }
+}

@@ -12,7 +12,7 @@ private actor FixtureCore: FortTransport, MacOwnerControl {
     func start() async throws {
         let resources = bundle.appendingPathComponent("Contents/Resources")
         guard let outside = Bundle.main.object(forInfoDictionaryKey:"FortOutsideMarker") as? String else { throw ClientError.invalidResponse }
-        core = try await MacCoreProcessTransport.launch(executable:bundle.appendingPathComponent("Contents/MacOS/node"),arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + resources.appendingPathComponent("node-openssl.cnf").path,resources.appendingPathComponent("native-core.mjs").path,directory.path,resources.appendingPathComponent("Core/service/openai.js").path,resources.appendingPathComponent("Core/host/private-channel.js").path,outside,"owner"],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path])
+        core = try await MacCoreProcessTransport.launch(executable:bundle.appendingPathComponent("Contents/MacOS/node"),arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + resources.appendingPathComponent("node-openssl.cnf").path,resources.appendingPathComponent("native-core.mjs").path,directory.path,resources.appendingPathComponent("Core/service/openai.js").path,resources.appendingPathComponent("Core/host/private-channel.js").path,outside,"owner"],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.parentExit(guardian:bundle.appendingPathComponent("Contents/MacOS/FortProcessGuardian")))
     }
     func send(_ request: FortRequest) async throws -> FortResponse {
         guard let core, !restarting else { throw URLError(.resourceUnavailable) }
@@ -45,6 +45,8 @@ private actor FixtureCore: FortTransport, MacOwnerControl {
         guard let core,
               var setup = try JSONSerialization.jsonObject(with:Data(contentsOf:directory.appendingPathComponent("setup.json"))) as? [String:Any] else { throw ClientError.invalidResponse }
         setup["pid"] = core.processID; setup["helperPID"] = getpid()
+        guard let runtimePID = setup["runtimePID"] as? Int32 else { throw ClientError.invalidResponse }
+        setup["guardedGroup"] = runtimePID != core.processID && getpgid(runtimePID) == core.processID
         setup["canceledRequests"] = canceledRequests
         setup["outerExecutableDenied"] = outerExecutableDenied
         setup["executions"] = try JSONDecoder().decode(Int.self,from:Data(contentsOf:directory.appendingPathComponent("executions.json")))
@@ -71,7 +73,7 @@ private struct StartingFixture: FortTransport, MacOwnerControl {
             let ready = Task<FixtureCore,any Error> {
                 var denied = false
                 do {
-                    let forbidden = try await MacCoreProcessTransport.launch(executable:outer.appendingPathComponent("Contents/MacOS/node"),arguments:["--version"],directory:directory,environment:["PATH":"/usr/bin:/bin"])
+                    let forbidden = try await MacCoreProcessTransport.launch(executable:outer.appendingPathComponent("Contents/MacOS/node"),arguments:["--version"],directory:directory,environment:["PATH":"/usr/bin:/bin"],lifecycle:.processGroup)
                     _ = try await forbidden.close()
                 } catch { let error = error as NSError; denied = error.domain == NSPOSIXErrorDomain && error.code == Int(EPERM) }
                 let core = FixtureCore(directory:directory,bundle:bundle,outerExecutableDenied:denied)

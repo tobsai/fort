@@ -63,6 +63,7 @@ func probeCoreXPC() async throws -> [String:Any] {
     let restartedInstallation = try string(object(restarted.1["installation"])["installationId"])
     let controls = try object(setup["controls"]), restartedControls = try object(restarted.1["controls"])
     guard let firstPID = setup["pid"] as? Int, let secondPID = restarted.1["pid"] as? Int,
+          let firstRuntime = setup["runtimePID"] as? Int, let secondRuntime = restarted.1["runtimePID"] as? Int,
           let helperPID = setup["helperPID"] as? Int else { throw ClientError.invalidResponse }
     return ["xpcCoreAuthentication":anonymous.0 == 401 && enrolled.0 == 201 && foreign.0 == 401,
             "xpcCoreExactMessages":accepted.0 == 201 && messages?.compactMap { $0["text"] as? String } == [text,text],
@@ -77,5 +78,6 @@ func probeCoreXPC() async throws -> [String:Any] {
             "xpcCoreOutsideReadDenied":controls["outsideReadDenied"] as? Bool == true && restartedControls["outsideReadDenied"] as? Bool == true,
             "xpcCoreOutsideWriteDenied":controls["outsideWriteDenied"] as? Bool == true && restartedControls["outsideWriteDenied"] as? Bool == true,
             "xpcCoreTCPDenied":controls["tcpDenied"] as? Bool == true && restartedControls["tcpDenied"] as? Bool == true,
-            "xpcCorePids":[firstPID,secondPID],"xpcCoreServicePid":helperPID]
+            "xpcCoreGuarded":setup["guardedGroup"] as? Bool == true && restarted.1["guardedGroup"] as? Bool == true,
+            "xpcCorePids":[firstPID,secondPID],"xpcCoreRuntimePids":[firstRuntime,secondRuntime],"xpcCoreServicePid":helperPID]
 }

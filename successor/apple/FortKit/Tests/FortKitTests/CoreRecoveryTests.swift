@@ -23,7 +23,7 @@ private func ownerCore(_ directory: URL, mode: String) async throws -> MacCorePr
     let core = artifact?.appendingPathComponent("service/openai.js") ?? recoverySource.appendingPathComponent("service/openai.ts")
     let channel = artifact?.appendingPathComponent("host/private-channel.js") ?? recoverySource.appendingPathComponent("host/private-channel.ts")
     let flags = artifact == nil ? ["--no-warnings"] : ["--jitless","--no-experimental-strip-types","--no-warnings"]
-    return try await MacCoreProcessTransport.launch(executable:executable,arguments:flags + [recoverySource.appendingPathComponent("host/fixtures/owner-core.mjs").path,directory.path,core.path,channel.path,mode],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path])
+    return try await MacCoreProcessTransport.launch(executable:executable,arguments:flags + [recoverySource.appendingPathComponent("host/fixtures/owner-core.mjs").path,directory.path,core.path,channel.path,mode],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.processGroup)
 }
 private func recoverySetup(_ directory: URL) throws -> RecoverySetup {
     try JSONDecoder().decode(RecoverySetup.self,from:Data(contentsOf:directory.appendingPathComponent("setup.json")))
@@ -34,7 +34,7 @@ func nativeOwnerRecoveryRejectsIncompleteOrForeignProof(failure: String) async t
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fort-native-proof-" + UUID().uuidString)
     try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
     defer { try? FileManager.default.removeItem(at:directory) }
-    let process = try await MacCoreProcessTransport.launch(executable:try recoveryNodeExecutable(),arguments:["--jitless","--no-warnings",recoverySource.appendingPathComponent("host/fixtures/native-channel.mjs").path,"recovery-proof-" + failure],directory:directory,environment:["PATH":"/usr/bin:/bin"])
+    let process = try await MacCoreProcessTransport.launch(executable:try recoveryNodeExecutable(),arguments:["--jitless","--no-warnings",recoverySource.appendingPathComponent("host/fixtures/native-channel.mjs").path,"recovery-proof-" + failure],directory:directory,environment:["PATH":"/usr/bin:/bin"],lifecycle:.processGroup)
     do {
         await #expect(throws:ClientError.self) { try await process.recoverOwnerPairing(installationID:"expected",deviceID:"expected") }
         try await stoppedOwner(process,directory:directory)
