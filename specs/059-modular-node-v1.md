@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 14edeb11827b4482899e2005e8b7f8393f0d7e381ec0335b1329ec27e516f777
+Reviewed content SHA256: a0c989f198a74033a489832146be028fef619e314306d5ed1b2319f732615e8b
 
 ### Vendor independence
 Status: planned
@@ -517,6 +517,37 @@ the same local single-owner topology. No ordinary setup, Keychain preparation or
 persistent host registration is authorized by the fixture composition; installed
 setup performance and the real client lifecycle remain separate gates.
 
+Prepare the Mac client's pending owner setup durably before submitting completion.
+Bind its exact signed host endpoint, installation/setup/device IDs and offer expiry
+in an owner-only record. A `preparing` phase precedes credential creation; save the
+token through the existing device Keychain namespace, then persist `ready` with
+its SHA256 digest before any completion request. Compare that digest before every
+retry so an altered credential is rejected without submission. A lost reply,
+restart, cancellation or final connection-file
+failure retries the same prepared identity/token. Never replace a missing token in
+the ready phase, replace an existing foreign connection, switch host or silently
+discard a failed setup. If a credential write succeeded before reporting an error,
+the preparing retry reads and reuses it. Store no token in metadata or evidence.
+Confirm the exact receipt and retained token before durably saving the connection;
+only then remove the pending record. Keep prior history/removal records untouched.
+
+Use a nonblocking exclusive file lease across the local setup operation so overlapping
+windows/processes cannot overwrite preparation. Anchor bounded record access to an
+owner-only directory descriptor, reject links/nonregular files and preserve unknown
+or malformed records. Atomically replace private records, flush file data with the
+platform full-sync primitive and sync directory updates before proceeding. This is
+the native client's setup store, separate from the core ledger; it adds no runtime,
+AI, hosting or storage package dependency. The Apple Keychain dependency remains
+explicit and separately requires installed acceptance. Expose an explicit coordinator
+without invoking it from restore or the ordinary app in this slice. Tests inject
+synthetic credential storage, never the real Keychain, and exercise lost replies,
+credential/write failures, restart, host/receipt mismatch, concurrent setup, unsafe
+files and interrupted finalization. Measure 20 local synthetic preparation/finalize
+runs with p95 at most 500 ms, excluding XPC, actual Keychain prompts and providers;
+no idle work is added. Installed setup timing and hardware power-loss durability
+remain separate unverified gates. Ordinary persistent activation still needs its
+explicit owner action and applicable credential/access authority.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -581,6 +612,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Tests/FortKitTests/MacOwnerSetupTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-xpc.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-xpc.json`
+- `successor/apple/FortKit/Sources/FortKit/OwnerSetupPreparation.swift`
+- `successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupPreparationTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-preparation.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

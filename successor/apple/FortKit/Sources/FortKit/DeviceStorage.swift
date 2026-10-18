@@ -66,6 +66,25 @@ public final class DeviceStorage {
         try protectedWrite(record,to:directory.appendingPathComponent("connection.json"))
     }
     public func token(for connection: DeviceConnection) throws -> String { try connection.validate(); return try credentials.token(for:connection) }
+    #if os(macOS)
+    static func makeOwnerDeviceToken() throws -> String {
+        var bytes = [UInt8](repeating:0,count:32)
+        guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw OwnerSetupPreparationError.randomUnavailable }
+        return Data(bytes).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
+    }
+    func prepareOwnerSetupCredential(connection: DeviceConnection, setupID: String, mayCreate: Bool, tokenGenerator: () throws -> String) throws -> OwnerSetupRequest {
+        var created = false
+        let token: String
+        do { token = try credentials.token(for:connection) }
+        catch DeviceStorageError.keychain(errSecItemNotFound) {
+            guard mayCreate else { throw OwnerSetupPreparationError.missingCredential }
+            token = try tokenGenerator(); created = true
+        }
+        let request = try OwnerSetupRequest(installationID:connection.installationID,setupID:setupID,deviceID:connection.deviceID,deviceToken:token)
+        if created { try credentials.save(connection,token:token) }
+        return request
+    }
+    #endif
     public func disconnectedConnection() throws -> DeviceConnection? {
         let file = directory.appendingPathComponent("disconnected.json")
         guard FileManager.default.fileExists(atPath:file.path) else { return nil }

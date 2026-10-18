@@ -15,14 +15,14 @@ private func setupDirectory() throws -> URL {
     try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
     return directory
 }
-private func setupCore(_ directory: URL, behavior: String = "") async throws -> MacCoreProcessTransport {
+func setupCore(_ directory: URL, behavior: String = "") async throws -> MacCoreProcessTransport {
     let artifact = ProcessInfo.processInfo.environment["FORT_TEST_CORE_ARTIFACT"].map { URL(fileURLWithPath:$0) }
     let core = artifact?.appendingPathComponent("service/openai.js") ?? setupSource.appendingPathComponent("service/openai.ts")
     let channel = artifact?.appendingPathComponent("host/private-channel.js") ?? setupSource.appendingPathComponent("host/private-channel.ts")
     let flags = artifact == nil ? ["--no-warnings"] : ["--jitless","--no-experimental-strip-types","--no-warnings"]
     return try await MacCoreProcessTransport.launch(executable:try setupNode(),arguments:flags + [setupSource.appendingPathComponent("host/fixtures/owner-core.mjs").path,directory.path,core.path,channel.path,"initial",behavior],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.processGroup)
 }
-private func stopSetupCore(_ process: MacCoreProcessTransport, directory: URL) async throws {
+func stopSetupCore(_ process: MacCoreProcessTransport, directory: URL) async throws {
     let stopped = try await process.close()
     #expect(stopped.exitedCleanly && !stopped.forced)
     #expect(kill(process.processID,0) == -1 && errno == ESRCH)
