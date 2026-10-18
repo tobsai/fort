@@ -92,6 +92,55 @@ public protocol OwnerSetupControl: Sendable {
     func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt
 }
 
+public struct OwnerSetupIdentity: Codable, Equatable, Sendable {
+    public let installationID: String
+    public let setupID: String
+    public let deviceID: String
+    enum CodingKeys: String, CodingKey { case installationID = "installationId", setupID = "setupId", deviceID = "deviceId" }
+    public init(installationID: String, setupID: String, deviceID: String) throws {
+        guard [installationID,setupID,deviceID].allSatisfy(setupIdentifier) else { throw ClientError.invalidResponse }
+        self.installationID = installationID; self.setupID = setupID; self.deviceID = deviceID
+    }
+    public init(from decoder: any Decoder) throws {
+        let value = try decoder.container(keyedBy:CodingKeys.self)
+        try self.init(installationID:value.decode(String.self,forKey:.installationID),setupID:value.decode(String.self,forKey:.setupID),deviceID:value.decode(String.self,forKey:.deviceID))
+    }
+}
+
+public enum OwnerSetupCancellation: Codable, Equatable, Sendable {
+    case notPaired(OwnerSetupIdentity)
+    case revoked(OwnerSetupIdentity)
+    public var identity: OwnerSetupIdentity {
+        switch self { case .notPaired(let value), .revoked(let value): value }
+    }
+    enum CodingKeys: String, CodingKey { case outcome, runtimeStopped }
+    public init(from decoder: any Decoder) throws {
+        let value = try decoder.container(keyedBy:CodingKeys.self)
+        let identity = try OwnerSetupIdentity(from:decoder)
+        switch try value.decode(String.self,forKey:.outcome) {
+        case "notPaired":
+            guard !value.contains(.runtimeStopped) else { throw ClientError.invalidResponse }
+            self = .notPaired(identity)
+        case "revoked":
+            guard try value.decode(Bool.self,forKey:.runtimeStopped) else { throw ClientError.invalidResponse }
+            self = .revoked(identity)
+        default: throw ClientError.invalidResponse
+        }
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var value = encoder.container(keyedBy:CodingKeys.self)
+        try identity.encode(to:encoder)
+        switch self {
+        case .notPaired: try value.encode("notPaired",forKey:.outcome)
+        case .revoked: try value.encode("revoked",forKey:.outcome); try value.encode(true,forKey:.runtimeStopped)
+        }
+    }
+}
+
+public protocol OwnerSetupCancellationControl: Sendable {
+    func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval) async throws -> OwnerSetupCancellation
+}
+
 func ownerSetupUnavailable() -> NSError {
     NSError(domain:"Fort.OwnerSetup",code:1,userInfo:[NSLocalizedDescriptionKey:"Owner setup is unavailable on this host."])
 }
@@ -102,19 +151,31 @@ func ownerSetupUnconfirmed() -> NSError {
 enum OwnerSetupCommand: Codable, Sendable {
     case begin(TimeInterval)
     case complete(OwnerSetupRequest,TimeInterval)
+    case cancel(OwnerSetupIdentity,TimeInterval)
     var timeout: TimeInterval {
-        switch self { case .begin(let value): value; case .complete(_,let value): value }
+        switch self { case .begin(let value): value; case .complete(_,let value), .cancel(_,let value): value }
     }
     func validate() throws {
         guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
     }
     enum CodingKeys: String, CodingKey { case operation, timeout }
+    private struct Field: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
+    }
     init(from decoder: any Decoder) throws {
         let value = try decoder.container(keyedBy:CodingKeys.self)
         let timeout = try value.decode(TimeInterval.self,forKey:.timeout)
-        switch try value.decode(String.self,forKey:.operation) {
+        let operation = try value.decode(String.self,forKey:.operation)
+        let fields = try decoder.container(keyedBy:Field.self).allKeys.map(\.stringValue)
+        let allowed = operation == "begin" ? ["operation","timeout"] : ["operation","timeout","installationId","setupId","deviceId"] + (operation == "complete" ? ["deviceToken"] : [])
+        guard fields.allSatisfy(allowed.contains) else { throw ClientError.invalidResponse }
+        switch operation {
         case "begin": self = .begin(timeout)
         case "complete": self = .complete(try OwnerSetupRequest(from:decoder),timeout)
+        case "cancel": self = .cancel(try OwnerSetupIdentity(from:decoder),timeout)
         default: throw ClientError.invalidResponse
         }
         try validate()
@@ -126,6 +187,7 @@ enum OwnerSetupCommand: Codable, Sendable {
         switch self {
         case .begin: try value.encode("begin",forKey:.operation)
         case .complete(let request,_): try value.encode("complete",forKey:.operation); try request.encode(to:encoder)
+        case .cancel(let identity,_): try value.encode("cancel",forKey:.operation); try identity.encode(to:encoder)
         }
     }
 }

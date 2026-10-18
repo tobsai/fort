@@ -70,6 +70,7 @@ final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
             guard bytes.count <= 1024 else { throw ClientError.invalidResponse }
             let command = try JSONDecoder().decode(OwnerSetupCommand.self,from:bytes)
             guard let ownerSetup else { reply(nil,ownerSetupUnavailable()); return }
+            if case .cancel = command, !(ownerSetup is any OwnerSetupCancellationControl) { reply(nil,ownerSetupUnavailable()); return }
             try begin(reply:reply) {
                 do {
                     let encoded: Data
@@ -78,6 +79,11 @@ final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
                     case .complete(let request,let timeout):
                         let receipt = try await ownerSetup.completeOwnerSetup(request,timeout:timeout)
                         guard receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+                        encoded = try JSONEncoder().encode(receipt)
+                    case .cancel(let identity,let timeout):
+                        guard let control = ownerSetup as? any OwnerSetupCancellationControl else { throw ownerSetupUnavailable() }
+                        let receipt = try await control.cancelOwnerSetup(identity,timeout:timeout)
+                        guard receipt.identity == identity else { throw ClientError.invalidResponse }
                         encoded = try JSONEncoder().encode(receipt)
                     }
                     guard encoded.count <= 1024 else { throw ClientError.invalidResponse }

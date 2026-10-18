@@ -22,7 +22,7 @@ public struct MacCorePairingRecovery: Decodable, Sendable {
     }
 }
 
-public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Sendable {
+public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, OwnerSetupCancellationControl, Sendable {
     private let state: CoreProcessState
     public let processID: Int32
     private init(_ state: CoreProcessState) { self.state = state; processID = state.pid }
@@ -67,6 +67,13 @@ public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Se
         let response = try await exchange(.setup(.complete(request,timeout)))
         guard response.status == 200, let receipt = try? JSONDecoder().decode(OwnerSetupReceipt.self,from:response.body),
               receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+        return receipt
+    }
+    public func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval = 30) async throws -> OwnerSetupCancellation {
+        guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+        let response = try await exchange(.setup(.cancel(identity,timeout)))
+        guard response.status == 200, let receipt = try? JSONDecoder().decode(OwnerSetupCancellation.self,from:response.body),
+              receipt.identity == identity else { throw ClientError.invalidResponse }
         return receipt
     }
     private func exchange(_ command: CoreCommand) async throws -> FortResponse {

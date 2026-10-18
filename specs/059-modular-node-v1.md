@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: ec7b6ce82594f067dbe482eee3271392c460652714c326e1c55fd6c1acbc44ab
+Reviewed content SHA256: 5c059a32fa8b202100e414496868e711272ce0d36dc6f6e5add99198b548d22a
 
 ### Vendor independence
 Status: planned
@@ -582,6 +582,24 @@ lost replies and concurrent requests. This adds no dependency, provider, process
 timer while idle, authority or HTTP route; the local core and computer-tool sandbox
 boundaries remain unchanged. Native XPC/discard integration remains a later slice.
 
+Expose setup cancellation as a separate optional Swift control capability, with
+validated installation/setup/device identity and a discriminated receipt. A revoked
+receipt decodes only with confirmed runtime stop; not-paired does not imply shutdown.
+The owned core transport and pinned XPC transport implement this operation with
+exact identity correlation and unchanged deadlines/frame limits. The host channel
+accepts it only when the supplied setup control provides the cancellation capability,
+rejects unknown/token fields before invocation, and sanitizes errors. Keep begin/
+complete-only compositions usable without enabling cancellation. Exercise compiled
+core restart, pending and completed cancellation, lost replies, invalid/foreign
+proofs, malformed identities/deadlines, disabled host composition, single-operation
+admission and cancellation on connection invalidation. Existing parent-exit and
+signature gates remain required. This slice changes native contracts/bridges and
+synthetic fixtures, not ordinary app setup or client-record deletion. It adds no
+runtime/provider/storage dependency or startup activation; its data contract remains
+usable by alternate clients. Existing thirty-second request, five-second drain and
+six-second core-stop limits apply; installed latency and signed cancellation proof
+remain separately reported acceptance gates.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -652,6 +670,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-preparation.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-pipe.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-native.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

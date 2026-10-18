@@ -14,7 +14,7 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
     func setupOwner(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
 }
 
-public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl {
+public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
     private let serviceIdentifier: String
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
@@ -55,6 +55,11 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         let data = try await setup(.complete(request,timeout))
         guard let receipt = try? JSONDecoder().decode(OwnerSetupReceipt.self,from:data),
               receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+        return receipt
+    }
+    public func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval = 30) async throws -> OwnerSetupCancellation {
+        let data = try await setup(.cancel(identity,timeout))
+        guard let receipt = try? JSONDecoder().decode(OwnerSetupCancellation.self,from:data), receipt.identity == identity else { throw ClientError.invalidResponse }
         return receipt
     }
     private func setup(_ command: OwnerSetupCommand) async throws -> Data {
