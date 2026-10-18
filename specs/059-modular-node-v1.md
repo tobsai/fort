@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2510f795ba90fb32f43390f386b864e79485e5acb64d9bddc15ef747216822a5
+Reviewed content SHA256: 426085dba328c27e902b11bb6268c31edb7659881aec732550dcda6c46dd64f3
 
 ### Vendor independence
 Status: planned
@@ -192,6 +192,17 @@ remain separate gates. This refines the adopted removal scope: no AI dependency
 changes, no new module/runtime dependency, constant work apart from explicitly
 chosen history deletion, and no service activation or app deletion in tests.
 
+Prepare the Swift control channel with a temporary embedded XPC proof in the
+existing sandbox bundle. Pin both peers to exact generated bundle identifiers
+and the selected signing team before resuming connections. Check an exact bounded
+round trip and explicit rejection for mismatched client and service requirements;
+timeouts do not count as rejection. Embedded helpers have bounded lifetimes and
+must be proven absent before synthetic-container cleanup. Keep sandbox-only
+entitlements, compiled-core denial controls and startup-registration prohibition.
+This tests the Apple-specific control boundary without a provider dependency or
+new production package; it does not implement the core bridge, login lifecycle
+or executor confinement. Record the actual SDK/runtime and every cleanup result.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -244,6 +255,12 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/packaging/xpc-protocol.swift`
+- `successor/packaging/xpc-service.swift`
+- `successor/packaging/xpc-client.swift`
+- `successor/evidence/2026-10-17-node-foundation/xpc.md`
+- `successor/evidence/2026-10-17-node-foundation/xpc.json`
 
 - `successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerLifecycleTests.swift`

@@ -7,6 +7,10 @@ do {
     try files.createDirectory(at: privateRoot, withIntermediateDirectories: false)
     defer { try? files.removeItem(at: privateRoot) }
     guard CommandLine.arguments.count == 3 else { throw CocoaError(.fileReadInvalidFileName) }
+    #if FORT_XPC_PROBE
+    let channelProof = try JSONSerialization.data(withJSONObject:probeXPC(),options:[.sortedKeys])
+    FileHandle.standardError.write(Data("FORT_PROBE_XPC ".utf8) + channelProof + Data("\n".utf8))
+    #endif
     let bundle = Bundle.main.bundleURL
     let executable = bundle.appendingPathComponent("Contents/MacOS/node").path
     let arguments = [executable, "--jitless", "--no-experimental-strip-types", "--no-warnings", "--openssl-config=" + bundle.appendingPathComponent("Contents/Resources/node-openssl.cnf").path, bundle.appendingPathComponent("Contents/Resources/runtime-fixture.mjs").path, privateRoot.path, CommandLine.arguments[1], CommandLine.arguments[2]]

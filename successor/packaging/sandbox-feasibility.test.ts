@@ -6,6 +6,25 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const identity = process.env.FORT_SIGNING_IDENTITY;
+test('embedded XPC peers authenticate exact identities and reject mismatches without expanding the sandbox', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
+  assert.ok(identity);
+  const root = mkdtempSync('/tmp/fort059-sandbox-xpc-test-');
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', identity, '--destination', join(root, 'proof'), '--scenario', 'xpc'], { encoding: 'utf8', timeout: 90_000 });
+  if (result.status === 0) t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.equal(result.status, 0, result.stderr + result.stdout + '\nRetained fixture: ' + root);
+  const proof: unknown = JSON.parse(result.stdout);
+  assert.ok(proof && typeof proof === 'object');
+  for (const key of ['xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcProcessesAbsent', 'coreExactMessages', 'coreRestart', 'outsideReadDenied', 'outsideWriteDenied', 'loopbackListenDenied', 'ownedProcessesAbsent', 'syntheticContainerAbsent']) {
+    assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
+  }
+  assert.equal('xpcClientError' in proof && proof.xpcClientError, 4097);
+  assert.equal('xpcServiceError' in proof && proof.xpcServiceError, 4102);
+  assert.equal('xpcForcedCleanup' in proof && proof.xpcForcedCleanup, false);
+  assert.ok('xpcServicePid' in proof && typeof proof.xpcServicePid === 'number');
+  const servicePid = proof.xpcServicePid;
+  assert.throws(() => process.kill(servicePid, 0), { code: 'ESRCH' });
+});
+
 test('the compiled core accepts and replays exact synthetic messages inside the signed sandbox bundle', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
   assert.ok(identity);
   const root = mkdtempSync('/tmp/fort059-sandbox-core-test-');

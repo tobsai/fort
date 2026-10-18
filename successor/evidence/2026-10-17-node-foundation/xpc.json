@@ -1,0 +1,72 @@
+{
+  "sqlite": "ready",
+  "outsideReadDenied": true,
+  "outsideWriteDenied": true,
+  "loopbackListenDenied": true,
+  "privateSocketRoundTrip": true,
+  "privateSocketFailure": null,
+  "coreAuthentication": true,
+  "coreExactMessages": true,
+  "coreReplay": true,
+  "coreRestart": true,
+  "coreNoDuplicate": true,
+  "coreSocketAbsent": true,
+  "outcome": "completed",
+  "diagnostics": "FORT_PROBE_XPC {\"xpcClientError\":4097,\"xpcClientRejected\":true,\"xpcRoundTrip\":true,\"xpcServiceError\":4102,\"xpcServicePid\":87774,\"xpcServiceRejected\":true}\n",
+  "parentPid": 87768,
+  "childPid": 87777,
+  "childGroup": 87768,
+  "ownedProcessesAbsent": true,
+  "elapsedMs": 5367.293875,
+  "executionMs": 200.07608400000026,
+  "hungChildObserved": false,
+  "xpcClientError": 4097,
+  "xpcClientRejected": true,
+  "xpcRoundTrip": true,
+  "xpcServiceError": 4102,
+  "xpcServicePid": 87774,
+  "xpcServiceRejected": true,
+  "xpcProcessesAbsent": true,
+  "xpcForcedCleanup": false,
+  "xpcObservedPids": [
+    87774
+  ],
+  "syntheticContainerAbsent": true,
+  "identifier": "io.fort.foundation.probe.f52423e5-e77e-463e-8b3c-ea0359fc6493",
+  "xpcIdentifiers": [
+    "io.fort.foundation.probe.f52423e5-e77e-463e-8b3c-ea0359fc6493.channel",
+    "io.fort.foundation.probe.f52423e5-e77e-463e-8b3c-ea0359fc6493.rejected"
+  ],
+  "app": "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/.build/xpc-059-20261018-a/FortSandboxProbe.app",
+  "signedIdentityClass": "existing development identity",
+  "providerUsed": false,
+  "startupRegistered": false,
+  "signedEntitlements": {
+    "parent": {
+      "com.apple.security.app-sandbox": true
+    },
+    "child": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.inherit": true
+    },
+    "channel": {
+      "com.apple.security.app-sandbox": true
+    },
+    "rejected": {
+      "com.apple.security.app-sandbox": true
+    }
+  },
+  "strictDeepSignatureVerified": true,
+  "sourceBase": "11739c8406642783133d08cdcaa909598af1f423",
+  "inputs": {
+    "successor/packaging/sandbox-feasibility.ts": "f58756f23e96672ebc33dafa5b7cc2a14ca52518a924c26624ca199ee17602d3",
+    "successor/packaging/sandbox-probe.swift": "fa388e759e2c4af6c09a00f78e74210b941600528397abf4fbf76f2019625194",
+    "successor/packaging/runtime-fixture.mjs": "d47dc633c00996a63a9499e01d15493c7e406ec0eeabeda77c1624855aeae086",
+    "successor/packaging/core-fixture.mjs": "65886e71b0aebbc3262a136f0cc4ab4914e5ba28972ec28134016e8093acb484",
+    "successor/packaging/xpc-protocol.swift": "ab74c1d495e4544595815242fd58e5d7bcec5fb57219d74e8ad100e96cf39fdc",
+    "successor/packaging/xpc-client.swift": "282e96e1d3d9bbf09fccd1451332848adf7bc1d37f0ba5e3d91bc6e5d1da34f3",
+    "successor/packaging/xpc-service.swift": "11ebf116cc558cb968ba54bd393a54c4787d4aa66e754972f737a5ab0c13bbaf",
+    "successor/packaging/core-artifact.ts": "2ff38fdf4c21dc35a81ff77fdd0b2297a8f88dd8bda3a97b53d26879ae9415e6",
+    "successor/packaging/node-bundle.ts": "dff8926ad7a992388dd19e232270542cf88cbb9bfb261357724e97123100ef23"
+  }
+}
