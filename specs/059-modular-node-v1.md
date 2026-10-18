@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 652d2ac1a3c9cfb0fd88f81ff9dc898d414978105a02f88e13e26ea396da9ab2
+Reviewed content SHA256: 5308615e66fcc7927d5fbb1f925e1b25f8feafee77773c93286f8fdbf88754e2
 
 ### Vendor independence
 Status: planned
@@ -1883,7 +1883,55 @@ approval is inferred. Rollback removes only these evidence changes, preserving t
 original notices and exact selected runtime. Relevant paths: the two audit evidence
 files below, this spec, v1 ledger and current semantic-review record.
 
+### Offline deletion of exact stopped-owner history
+
+Continue the adopted explicit-history-removal scope with a provider-neutral offline
+ledger operation, tested only on disposable synthetic installations. The caller must
+supply the exact installation, current recovery epoch, disconnected device and a
+fresh deletion ID from the explicit confirmation. This is a maintenance interface,
+not an HTTP route, CLI, installation capability or substitute for native confirmation,
+startup-unregistration, process-absence and credential-removal checks. Production
+native history deletion remains unavailable until those lifecycle boundaries are wired.
+
+Vendor independence: no provider runtime, account, SDK or tool is constructed. Preserve
+runtime identity, bindings and settings. Modularity: keep the operation with the SQLite
+adapter; erase messages, runs, receipts, execution contexts, read positions, approvals,
+cancellation records, occurrence history, events and outbox in one transaction. Retain
+agents/bindings, conversation definitions and owner notes, skills, routine/schedule
+revisions and schedule checked-through watermarks. Require every saved schedule to be
+paused before deletion: removing shared occurrence deduplication while another schedule
+lags could otherwise replay old work. Re-enabling already requires a fresh preview and
+advances the schedule watermark through the existing public contract. Unknown schema/entities/metadata,
+active credentials/setup, stale socket ownership, wrong identity or an occupied ledger
+refuse before deletion. Rotate the recovery epoch in the transaction so old pending
+commands cannot replay; retain an exact body-free receipt for idempotent cleanup retry.
+A different request cannot reuse the old epoch. No deletion starts pending work.
+
+Speed: one bounded 256 MiB ledger/sidecar set, owner-private canonical directory and
+regular single-link files, exclusive SQLite lease, bulk deletes and no runtime process.
+Measure 20 warm deletion/compaction samples at 10,000 synthetic 1-KiB message records
+with p95 <=2 seconds on the recorded Mac/Node toolchain; fixture creation is excluded.
+Preserve schedule progress to prevent erased occurrences from repeating. Test public
+service setup/send/disconnect, offline deletion, reopen/re-pair, old-epoch rejection and
+fresh sends; corruption and filesystem negative controls use synthetic fixture mutation.
+
+Installation/removal: keep is unchanged by default. Secure-delete, checkpoint and vacuum
+remove records from the live SQLite files, without promising forensic erasure of SSDs,
+backups or filesystem snapshots. Failures after the atomic logical commit are reported
+as incomplete cleanup; retry the exact deletion receipt. Never traverse Runtime/provider
+files, delete app files, unregister startup or remove credentials here. Pin filesystem
+identity before mutation; the local cooperative workflow does not claim protection
+against a hostile same-UID writer. Rollback removes this new unused interface/tests;
+no real data is touched. Existing implementation authority covers this bounded slice.
+Exact paths: the new service operation/test and evidence below, this spec, v1 ledger
+and current Ponytail review. Installed/native lifecycle and physical acceptance remain
+separate gates; no new persistent or destructive action against owner data is authorized.
+
 ## Implementation paths
+
+- `successor/service/delete-history.ts`
+- `successor/service/delete-history.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/host-history-deletion.md`
 
 - `successor/evidence/2026-10-17-node-foundation/codex-third-party-audit.md`
 - `successor/evidence/2026-10-17-node-foundation/codex-third-party-audit.json`
