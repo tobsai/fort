@@ -105,7 +105,7 @@ try {
   let proof: object = {};
   if (run.outcome === 'completed') {
     const parsed: unknown = JSON.parse(run.stdout);
-    if (!parsed || typeof parsed !== 'object' || !('sqlite' in parsed) || parsed.sqlite !== 'ready' || !('outsideReadDenied' in parsed) || parsed.outsideReadDenied !== true || !('outsideWriteDenied' in parsed) || parsed.outsideWriteDenied !== true || !('loopbackListenDenied' in parsed) || parsed.loopbackListenDenied !== true) throw new Error('Invalid sandbox evidence');
+    if (!parsed || typeof parsed !== 'object' || !('sqlite' in parsed) || parsed.sqlite !== 'ready' || !('outsideReadDenied' in parsed) || parsed.outsideReadDenied !== true || !('outsideWriteDenied' in parsed) || parsed.outsideWriteDenied !== true || !('loopbackListenDenied' in parsed) || parsed.loopbackListenDenied !== true || !('privateSocketRoundTrip' in parsed) || typeof parsed.privateSocketRoundTrip !== 'boolean') throw new Error('Invalid sandbox evidence');
     proof = parsed;
   }
   const { stdout: _stdout, ...execution } = run;

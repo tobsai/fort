@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0b9143bbbff6c75545b11adca926aa21fc23ba478127affaa9b9e5d3c37ce611
+Reviewed content SHA256: 09c37b75a1e340cae6686266b60ada3ad07ced8f0558969375968588324a353b
 
 ### Vendor independence
 Status: planned
@@ -155,6 +155,12 @@ feasibility test uses no persistent registration or provider accounts. Actual
 startup/background behavior requires explicit consent. Node/official-runtime
 packaging must be self-contained and retain all license/provenance material.
 Diagnostics are local/redacted; no default telemetry or auto-update service.
+Before selecting the Mac core transport, extend the synthetic sandbox proof
+with a bounded Unix-socket round trip inside its private container. Keep the
+same parent sandbox and child inheritance entitlements, outside-file denials,
+TCP-listener denial and owned-process cleanup checks. Record observed support
+or refusal without adding a network entitlement or treating same-process local
+IPC as completed XPC/helper lifecycle or reachable iPhone transport.
 
 ## Performance verification
 
@@ -217,6 +223,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/performance.md`
 - `successor/evidence/2026-10-17-node-foundation/performance.json`
 - `successor/evidence/2026-10-17-node-foundation/native-measurement.py`
+- `successor/evidence/2026-10-17-node-foundation/local-ipc.md`
+- `successor/evidence/2026-10-17-node-foundation/local-ipc.json`
 
 - `successor/contracts/context.ts`
 - `successor/modules/local-context.ts`

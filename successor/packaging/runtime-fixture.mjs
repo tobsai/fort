@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { createServer, createConnection } from 'node:net';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -27,5 +27,25 @@ const loopbackListenDenied = await new Promise((resolve, reject) => {
   server.listen(0, '127.0.0.1', () => server.close(() => resolve(false)));
   setTimeout(() => { server.close(); reject(new Error('Network probe timeout')); }, 2_000).unref();
 });
-process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied }) + '\n');
+process.chdir(privateRoot);
+const privateSocket = await new Promise(resolve => {
+  let client, settled = false;
+  const server = createServer(socket => socket.end('private-ipc-ready'));
+  const finish = (ready, failure = null) => {
+    if (settled) return;
+    settled = true; clearTimeout(timer); client?.destroy();
+    server.close(() => resolve({ ready, failure }));
+  };
+  const timer = setTimeout(() => finish(false, 'timeout'), 2_000);
+  server.once('error', error => finish(false, error.code ?? 'listen-failed'));
+  server.listen('s', () => {
+    let received = '';
+    client = createConnection('s');
+    client.setEncoding('utf8');
+    client.on('data', bytes => { received += bytes; if (received.length > 64) finish(false, 'output-limit'); });
+    client.once('error', error => finish(false, error.code ?? 'connect-failed'));
+    client.once('end', () => finish(received === 'private-ipc-ready', received === 'private-ipc-ready' ? null : 'wrong-reply'));
+  });
+});
+process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure }) + '\n');
 if (sqlite !== 'ready' || !outsideReadDenied || !outsideWriteDenied || !loopbackListenDenied) process.exitCode = 1;

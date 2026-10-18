@@ -39,6 +39,7 @@ test('sandboxed Swift parent runs bundled Node with private SQLite and denied ou
   assert.equal('outsideReadDenied' in proof && proof.outsideReadDenied, true);
   assert.equal('outsideWriteDenied' in proof && proof.outsideWriteDenied, true);
   assert.equal('loopbackListenDenied' in proof && proof.loopbackListenDenied, true);
+  assert.equal('privateSocketRoundTrip' in proof && proof.privateSocketRoundTrip, true);
   assert.equal('ownedProcessesAbsent' in proof && proof.ownedProcessesAbsent, true);
   assert.equal('syntheticContainerAbsent' in proof && proof.syntheticContainerAbsent, true);
 });
