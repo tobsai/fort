@@ -158,7 +158,7 @@ func coreHostLaunchRequiresItsExactGuardianAndOwnsTheChildGroup() async throws {
     let source = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let directory = try hostDirectory()
     defer { try? FileManager.default.removeItem(at:directory) }
-    let arguments = ["--jitless","--no-experimental-strip-types","--no-warnings",source.appendingPathComponent("host/fixtures/owner-core.mjs").path,directory.path,artifact.appendingPathComponent("service/openai.js").path,artifact.appendingPathComponent("host/private-channel.js").path,"initial","","no-enrollment"]
+    let arguments = ["--jitless","--no-experimental-strip-types","--no-warnings",source.appendingPathComponent("host/fixtures/owned-core.mjs").path,artifact.appendingPathComponent("host/owned-core.js").path,directory.path,"restore","ordinary"]
     let processEnvironment = ["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path]
     await #expect(throws:(any Error).self) {
         try await MacCoreHost.launch(executable:node,arguments:arguments,directory:directory,environment:processEnvironment,guardian:directory.appendingPathComponent("missing-guardian"))

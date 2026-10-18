@@ -6,5 +6,5 @@
     "rewriteRelativeImportExtensions": true,
     "rootDir": "."
   },
-  "include": ["service/openai.ts", "host/private-channel.ts"]
+  "include": ["service/openai.ts", "host/private-channel.ts", "host/owned-core.ts"]
 }

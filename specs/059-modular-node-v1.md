@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 38d33dff954f60dec93ca7e99bf7ae6ae245846dff10eb4145836c52bdb99135
+Reviewed content SHA256: 873499581a14bb1ece63abbc8806ad17564d356a8796f94f1122f871597e6b6c
 
 ### Vendor independence
 Status: planned
@@ -795,6 +795,35 @@ with a target <=2 seconds for the normal no-active-turn fixture, excluding cold 
 Installation/removal: no registration, credentials or real provider access occurs;
 ordinary app composition remains gated by the exact bundle/profile and startup scope.
 
+Add a production owner-local core composition function behind the private pipe.
+Require the caller's exact runtime implementation and descriptor, an existing absolute
+owner-only nonsymlink data directory matching the process working directory, and
+explicit input/output streams. Use only `core.sock`; do not open a TCP listener,
+issue enrollment, create device tokens or select a runtime/module by default. Pairing
+has no expiry by default, with an explicit optional policy. Restore is the default
+start mode; explicit resume remains a distinct caller decision and cannot bypass
+pending revocation/cancellation. Expose existing owner setup/cancel/recovery controls
+through the bounded private channel, without fixture bootstrap or debug routes.
+
+The composition owns the supplied runtime for the call. On preflight/start/channel
+failure, EOF or abort, await core cleanup, or dispose the supplied runtime when core
+construction never completed. The supervising native guardian retains the process
+cleanup deadline; this function cannot turn a hung/failed runtime disposal into a
+successful shutdown. Reject invalid storage before any ledger creation or permission
+change. Preserve history and stopped intent across reopen. Do not copy environment
+credentials, register startup, import optional modules or add provider fallbacks.
+
+Vendor independence: composition accepts Fort runtime/context contracts and contains
+no vendor SDK. Modularity: package this production entry with the core; runtime
+selection and Apple bundle/profile configuration remain outside it. Speed: no new
+polling or idle work; retain the existing core cold/warm, request, replay and cleanup
+budgets. Installation/removal: one explicit private directory and pipe lifetime,
+with the caller responsible for canonical App Group resolution and signed runtime
+placement. Prove private pairing/send/replay, retained history, restore versus explicit
+resume, failed startup/EOF/abort cleanup and wrong/private/symlink directory refusal
+through the actual child protocol. Run the compiled artifact and guarded native host
+journey. This prepares composition; it does not install or register a production host.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -848,6 +877,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `successor/host/owned-core.ts`
+- `successor/host/owned-core.test.ts`
+- `successor/host/fixtures/owned-core.mjs`
+- `successor/evidence/2026-10-17-node-foundation/owned-core.md`
 - `successor/host/mac-process-guardian.swift`
 - `successor/contracts/owner-recovery.ts`
 - `successor/contracts/owner-setup.ts`
