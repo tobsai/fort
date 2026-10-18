@@ -14,6 +14,7 @@ import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../cont
 import { PrivateSocketLease } from './private-socket.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
+import { companionPairing, CompanionPairingError } from './companion-pairing.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -250,7 +251,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -271,12 +272,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(request.headers.authorization ?? '')?.[1];
     const device = token && db.prepare('SELECT id,expires FROM devices WHERE hash=?').get(digest(token));
     if (!device || (!(ownerPairingPolicy && device.expires===0) && Number(device.expires) <= now())) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
+    if(ownerPairingPolicy && ownerControl?.deviceId!==device.id && !companions.isCompanion(id(device.id)))fail(401,'unauthorized','This device has no current membership.');
     return id(device.id);
   };
   const pairingStatus=(deviceId:string):PairingStatus=>{
     const device=db.prepare('SELECT expires FROM devices WHERE id=?').get(deviceId);
     if(!device)fail(401,'unauthorized','This pairing has been removed.');
-    return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString()};
+    return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString(),...(ownerPairingPolicy && ownerControl?.deviceId!==deviceId && companions.isCompanion(deviceId)?{role:'companion' as const}:{})};
   };
   const owner = <T>(request: IncomingMessage, operation: (deviceId:string) => T): T => transaction(() => {
     const deviceId=authenticate(request);
@@ -664,8 +666,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const beginOwnerSetup = (): OwnerSetupState => {
     setupPolicy();
     return transaction(() => {
-      const paired = db.prepare('SELECT id FROM devices WHERE expires=0 OR expires>?').get(now());
+      const paired = ownerControl
+        ? db.prepare('SELECT id FROM devices WHERE id=? AND (expires=0 OR expires>?)').get(ownerControl.deviceId,now())
+        : db.prepare('SELECT id FROM devices WHERE expires=0 OR expires>?').get(now());
       if (paired) return { kind: 'paired', ...setupReceipt(id(paired.id)) };
+      if(db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now()))fail(409,'ownerRecoveryRequired','Complete exact local host recovery before replacing the Mac pairing.');
       let setup = readOwnerSetup();
       if (setup?.state === 'canceling') fail(409, 'setupCanceling', 'Complete the pending setup cancellation before starting a new setup.');
       if (!setup || setup.state !== 'pending' || setup.expires <= now()) {
@@ -700,6 +705,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const expires = policy.expiresAfterDays === null ? 0 : now() + policy.expiresAfterDays * 86_400_000;
       db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
       db.prepare('DELETE FROM enrollment').run();
+      companions.clear();
       db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(token), expires);
       saveOwnerSetup({ ...setup, state: 'completed', deviceId });
       saveOwnerControl({ deviceId, intent: 'running' });
@@ -709,12 +715,22 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return dispatchStopped ? resumeOwnerRuntime(commit) : transaction(commit);
   };
   const listenerAbort = new AbortController();
+  const companions=companionPairing(db,installation.installationId,now,()=>ownerPairingPolicy && ownerControl
+    ? {deviceId:ownerControl.deviceId,expiresAfterDays:ownerPairingPolicy.expiresAfterDays,running:!closed&&!dispatchStopped&&!stopCommandActive&&!starting}:undefined,
+    ()=>append('_workspace','pairingChanged',installation.installationId));
   const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {
     let status = 200; let result: unknown;
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-      if (request.method === 'POST' && url.pathname === '/v1/devices/enroll') {
+      if(request.method==='POST' && url.pathname==='/v1/pairing/leave'){
+        const credential=/^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization??'')?.[1];
+        if(request.headers.origin!==undefined || request.headers['x-fort-installation-id']!==installation.installationId || !credential)fail(401,'unauthorized','Use the exact companion credential.');
+        const body=await readBody(request);result=transaction(()=>companions.leave(body,credential));
+      } else if(request.method==='POST' && url.pathname==='/v1/devices/join'){
+        if(request.headers.origin!==undefined || request.headers['x-fort-installation-id']!==installation.installationId)fail(401,'unauthorized','Use this installation.');
+        const body=await readBody(request);result=transaction(()=>companions.join(body));status=201;
+      } else if (request.method === 'POST' && url.pathname === '/v1/devices/enroll') {
         const body = await readBody(request);
         result = transaction(() => {
           if (request.headers.origin !== undefined || body.installationId !== installation.installationId || typeof body.code !== 'string') fail(401, 'unauthorized', 'Enrollment is not authorized.');
@@ -727,14 +743,20 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = ownerPairingPolicy ? (ownerPairingPolicy.expiresAfterDays===null?0:now()+ownerPairingPolicy.expiresAfterDays*86_400_000) : Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
           db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(deviceToken), expires);
           if (ownerPairingPolicy) {
-            db.prepare("DELETE FROM metadata WHERE key='ownerSetup'").run();
+            db.prepare("DELETE FROM metadata WHERE key='ownerSetup'").run();companions.clear();
             saveOwnerControl({ deviceId, intent: 'running' });
           }
           return { installation, deviceId, deviceToken, expiresAt: expires===0?null:new Date(expires).toISOString() };
         }); status = 201;
       } else {
         authenticate(request);
-        if (request.method === 'GET' && url.pathname === '/v1/installation') result = { ...installation, eventCursor: cursor() };
+        if(request.method==='POST' && url.pathname==='/v1/pairing/invitation'){
+          const body=await readBody(request);result=owner(request,deviceId=>companions.invite(deviceId,body));status=201;
+        } else if(request.method==='GET' && url.pathname==='/v1/pairing/companion'){
+          result=transaction(()=>companions.overview(authenticate(request)));
+        } else if(request.method==='POST' && url.pathname==='/v1/pairing/revoke-companion'){
+          const body=await readBody(request);result=transaction(()=>companions.revokeCompanion(authenticate(request),body));
+        } else if (request.method === 'GET' && url.pathname === '/v1/installation') result = { ...installation, eventCursor: cursor() };
         else if (request.method === 'GET' && url.pathname === '/v1/events') {
           const after = Number(url.searchParams.get('after')), wait = Number(url.searchParams.get('wait') ?? 0);
           if (!url.searchParams.has('after') || !Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(wait) || wait < 0 || wait > 25_000) fail(400, 'invalidCursor', 'Use a nonnegative cursor and a wait of at most 25000 milliseconds.');
@@ -766,14 +788,21 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             if(Object.keys(body).some(key=>key!=='expiresAfterDays'))fail(400,'invalidExpiry','Use only the pairing expiry field.');
             const days=expiryDays(body.expiresAfterDays);
             const policy:OwnerPairingPolicy={expiresAfterDays:days};
-            db.prepare('UPDATE devices SET expires=? WHERE id=?').run(days===null?0:now()+days*86_400_000,deviceId);
-            db.prepare("UPDATE metadata SET data=? WHERE key='ownerPairingPolicy'").run(JSON.stringify(policy));
-            ownerPairingPolicy=policy;return pairingStatus(deviceId);
+            const expires=days===null?0:now()+days*86_400_000;
+            const expiryChanged=db.prepare('SELECT expires FROM devices WHERE id=?').get(deviceId)?.expires!==expires;
+            const policyChanged=ownerControl?.deviceId===deviceId && ownerPairingPolicy.expiresAfterDays!==days;
+            if(expiryChanged)db.prepare('UPDATE devices SET expires=? WHERE id=?').run(expires,deviceId);
+            if(policyChanged){
+              db.prepare("UPDATE metadata SET data=? WHERE key='ownerPairingPolicy'").run(JSON.stringify(policy));ownerPairingPolicy=policy;
+            }
+            if(expiryChanged || policyChanged)append('_workspace','pairingChanged',installation.installationId);
+            return pairingStatus(deviceId);
           });
         }
         else if(request.method==='POST'&&(url.pathname==='/v1/host/stop'||url.pathname==='/v1/pairing/disconnect')){
           const body=await readBody(request);
           const deviceId=owner(request,deviceId=>{
+            if(ownerPairingPolicy && ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to stop or disconnect the host.');
             if(!ownerPairingPolicy)fail(403,'temporaryPairing','Use the temporary session cleanup procedure.');
             if(stopCommandActive)fail(409,'stopInProgress','A stop request is still waiting for runtime confirmation.');
             if(Object.keys(body).length)fail(400,'invalidStop','This command accepts no additional fields.');
@@ -910,13 +939,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           if(Object.keys(body).some(key=>key!=='recoveryEpoch'))fail(400,'invalidRestart','Use only the current recovery epoch.');
           if(dispatchStopped){
             const deviceId=owner(request,deviceId=>{
+              if(ownerPairingPolicy && ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to restart its runtime.');
               if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before resuming local work.');
               return deviceId;
             });
             await resumeOwner(deviceId,request);
             result=runtimeReadiness();
           } else {
-          const restart=owner(request,()=>{
+          const restart=owner(request,deviceId=>{
+            if(ownerPairingPolicy && ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to restart its runtime.');
             if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before restarting the runtime.');
             const operation=options.runtime?.restart?.bind(options.runtime);
             if(!operation||!runtimeReadiness().canRestart||dispatching)fail(409,'runtimeRestartUnavailable','Runtime replacement is unavailable, busy or outside its existing budget.');
@@ -1024,8 +1055,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       }
       if (request.method === 'POST' && url.pathname.startsWith('/v1/schedules')) armScheduleClock();
     } catch (error) {
-      status = error instanceof APIError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
-      result = { error: { code: error instanceof APIError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
+      status = error instanceof APIError || error instanceof CompanionPairingError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
+      result = { error: { code: error instanceof APIError || error instanceof CompanionPairingError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof CompanionPairingError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
@@ -1105,7 +1136,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     try {
       await stopRuntime();
       if (closed) fail(503, 'closed', 'This session has stopped. Retry recovery with the local host.');
-      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices WHERE id=?').run(deviceId); db.prepare('DELETE FROM enrollment').run(); });
+      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices').run(); db.prepare('DELETE FROM enrollment').run(); companions.clear(); });
     } catch {
       fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
     } finally { stopCommandActive = false; }

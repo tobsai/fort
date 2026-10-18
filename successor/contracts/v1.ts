@@ -55,5 +55,13 @@ export type SchedulerStatus = { state:'idle'|'manual'|'stopped' } | { state:'wai
 export type ScheduleOccurrence = { occurrenceId:string; scheduleId:string; scheduleRevisionId:string; routineId:string; routineRevisionId:string; intendedAt:string|null; localDate:string; localTime:string; state:'accepted'|'skippedOverlap'|'skippedMissed'|'skippedGap'|'blocked'|'skippedMissedRange'; runId?:string; detail?:string };
 
 export type OwnerPairingPolicy = { expiresAfterDays: number | null };
-export type PairingStatus = { deviceId: string; mode: 'temporary' | 'owner-local'; expiresAt: string | null };
+export type PairingStatus = { deviceId: string; mode: 'temporary' | 'owner-local'; expiresAt: string | null; role?: 'companion' };
+export type CompanionInvitation = { installationId: string; invitationId: string; expiresAt: string };
+export type CompanionReceipt = { installationId: string; deviceId: string; expiresAt: string | null; role: 'companion' };
+export type CompanionRevocation = { installationId: string; deviceId: string; revoked: true; scope: 'companion-only' };
+export type CompanionOverview = { installationId: string; hostDeviceId: string; pairing:
+  | { state: 'available' }
+  | { state: 'invited'; invitationId: string; expiresAt: string }
+  | { state: 'paired'; deviceId: string; deviceName: string; expiresAt: string | null; active: boolean }
+};
 export type HostStopReceipt = { runtimeStopped: true; revoked: boolean };

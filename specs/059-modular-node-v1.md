@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: e3e7ab98ae44309683eb05c4f4ee8d40bd37ed1d8f1d4dc7ba25b5fd153c4312
+Reviewed content SHA256: a9606d6f6713343928945bf5b051c50848284e310265ce236efc20a9188c9a7b
 
 ### Vendor independence
 Status: planned
@@ -2201,7 +2201,76 @@ Actual TestFlight/provider acceptance remains separate. The shared SwiftUI view 
 compile for Mac and iPhone. This is an in-scope correction found while inspecting the
 requested usable prototype, not authority to activate live access.
 
+### Explicit companion-device pairing
+
+Continue from 3739ac9 toward the accepted Mac/iPhone product. The existing single
+host control identity must remain the Mac's identity when a phone joins. Add one
+explicit companion slot for this initial single-owner, two-device path. This is a
+bounded implementation limit, not shared hosting or a new account/role system.
+Pairing does not itself start TLS, change trust, enable startup or contact a provider.
+
+The authenticated primary host device can prepare one five-minute invitation using
+an explicit new invitation ID and 32-byte code selected by its client. Store only
+its digest. Exact retries preserve the original expiry; changed payloads and expired
+invitations fail. A fresh invitation invalidates an unconsumed earlier one. A paired
+companion must be explicitly revoked before replacing it. A phone prepares and
+retains its exact device ID/token before the join request; the service stores only
+the token digest and commits membership atomically. Exact same join retries return
+the same receipt across restart, even after invitation expiry; different identities,
+tokens or invitations cannot consume or recover that result. No silent credential
+replacement or host-control rewrite is permitted.
+
+The phone can use the owner's ordinary messaging/settings/approval contracts and
+its own expiry. It cannot create invitations, replace the runtime, stop/uninstall
+the host or claim its private recovery identity. Separate phone disconnect revokes
+only its own credential and preserves accepted work, the host and history. Its
+exact revoked token may retrieve only the same disconnect receipt; every ordinary
+route rejects it. This narrow retry proof is bound to installation/device/token,
+never loopback/source address. The host can explicitly revoke that exact companion.
+Host disconnect/removal retains all credentials until runtime stop is confirmed,
+then revokes both devices and the invitation atomically. No receipt claims all
+access revoked while a companion remains. Expired-host setup must require exact
+local recovery instead of selecting the companion as the owning Mac.
+
+Keep one bounded pairing record in the existing SQLite metadata and existing device
+rows; no schema, database or independent truth is added. Actual pairing changes
+emit existing workspace invalidations in the same transaction; exact retries add
+no writes or extra wakeups. Existing host disconnect
+clears the pairing record before guarded offline history deletion. Preserve all
+legacy bounded-demo restrictions and the existing primary setup/recovery contract.
+Publish optional typed invitation/join/revocation values and companion role through
+the Fort contract; native composition follows separately and must retain HTTPS
+platform trust plus durable prepared credentials and honest lost-reply recovery.
+
+Vendor independence: plain Fort values and current crypto/SQLite built-ins, with no
+provider SDK or hosted identity. Modularity: put companion grant/membership rules in
+one private service module; HTTP/auth composition retains installation and lifecycle
+checks. Speed: one indexed record and at most two devices; twenty isolated synthetic
+invite/join/revoke cycles must have p95 under 25 ms excluding provider/Keychain/TLS.
+Installation/removal: no grant created by import/defaults, no real credentials in
+this preparation, explicit phone versus host removal, and retained history by default.
+
+Test first at ordinary HTTP: one host plus one phone read the same saved agent while
+the host retains setup/recovery identity. Then expired/wrong/replaced invitations,
+prepared-token mismatch, lost-reply exact retry/restart, stopped/expired host, primary
+and companion authority, one-slot bound, independent expiry, self/host revocation,
+revoked-token receipt-only retry, failed-stop retention and successful whole-host
+revocation. Include migration/history-deletion regressions and independent compiled
+core contracts. Only disposable synthetic device tokens are used during verification.
+
+Exact files: successor/contracts/v1.ts, successor/service/companion-pairing.ts,
+successor/service/companion-pairing.test.ts, successor/service/openai.ts,
+successor/service/owner-pairing.test.ts, successor/service/owner-setup.test.ts,
+successor/service/delete-history.test.ts, successor/service/migrate-ledger.test.ts,
+this spec, v1 ledger, current Ponytail review and evidence companion-pairing.md.
+Rollback removes the new entry points only after any real companion is explicitly
+revoked; no rollback is executed in this preparation and no existing state is reset.
+
 ## Implementation paths
+
+- `successor/service/companion-pairing.ts`
+- `successor/service/companion-pairing.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/companion-pairing.md`
 
 - `successor/evidence/2026-10-17-node-foundation/qa-transcript-before.png`
 - `successor/evidence/2026-10-17-node-foundation/qa-transcript-after.png`
