@@ -92,7 +92,8 @@ import Observation
     public var pairingRemovalPending = false
     public var localPairingForgotten = false
     private var ownedInstallation: (any OwnedMacInstallation)?
-    public var uninstallAppURL: URL? { ownedInstallation?.appURL }
+    public var removableAppURL: URL? { ownedInstallation?.appURL }
+    public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var runtimeReadiness: RuntimeReadiness?
     public var schedulerStatus: SchedulerStatus?
@@ -169,6 +170,7 @@ import Observation
             let connection = DeviceConnection(baseURL:url,installationID:expectedInstallation,deviceID:enrolled.deviceId,fixtureLoopback:true)
             try storage.save(connection,token:enrolled.deviceToken)
             pairingRemoved = false; hostStopped = false; pairingCleanupPending = false; pairingRemovalPending = false; localPairingForgotten = false; pairingStatus = nil
+            preparedAppRemoval = nil
             client = try FortClient(baseURL:url,installationID:expectedInstallation,token:enrolled.deviceToken,fixtureLoopback:true,session:session)
             pendingStore = try PendingStore(directory:storage.directory,installationID:expectedInstallation)
             pending = try pendingStore?.pending() ?? []; installation = enrolled.installation
@@ -255,16 +257,18 @@ import Observation
             pairingMessage = "Pairing removed. History is kept on this device."
         } catch { pairingMessage = "Local credential removal is incomplete. Try again after Keychain access is available." }
     }
-    public func uninstall(history: HistoryRemoval = .keep) async {
+    public func prepareForRemoval(history: HistoryRemoval = .keep) async {
         guard !isOfflinePreview, !isBusy, !lifecycleBusy, let ownedInstallation else { return }
         lifecycleBusy = true; isBusy = true
+        preparedAppRemoval = nil
         defer { lifecycleBusy = false; isBusy = false }
         do {
             guard let connection = try storage.connection() ?? storage.disconnectedConnection() else { throw OwnerLifecycleError.wrongPairing }
             let removal = OwnerLifecycle(installation:ownedInstallation,removeCredential:{ self.client = nil; self.connected = false; self.pairingRemoved = true; self.pairingCleanupPending = true; try self.storage.removePairing(connection); self.pairingCleanupPending = false })
-            try await removal.uninstall(history:history)
+            preparedAppRemoval = try await removal.prepareForRemoval(history:history)
             client = nil; connected = false; pairingRemoved = true
-            pairingMessage = history == .keep ? "Fort was removed. History is kept." : "Fort and the confirmed local history were removed."
+            let historyMessage = history == .keep ? "History is kept." : "The confirmed local history was deleted."
+            pairingMessage = "Host shutdown, revocation and startup unregistration are confirmed. Local pairing is removed. \(historyMessage) Remove the Fort app using TestFlight or macOS."
         } catch { pairingMessage = error.localizedDescription }
     }
     public func refresh() async {

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: e7b0835a2e2e1b4eb41920ce7704e289c2f5e5ff642c5b0444ddf5374b8c09ba
+Reviewed content SHA256: 2510f795ba90fb32f43390f386b864e79485e5acb64d9bddc15ef747216822a5
 
 ### Vendor independence
 Status: planned
@@ -179,6 +179,19 @@ HTTP client remain fixtures. This validates the actual core in the bundle but
 does not establish Swift/XPC peer identity, official executor confinement or
 persistent lifecycle.
 
+Native removal prepares an explicit handoff to supported macOS/TestFlight app
+removal. The lifecycle contract must confirm host exit, pairing revocation and
+startup unregistration before credential cleanup. Keep history unless the user
+separately chooses deletion; a failed cleanup must not produce a ready result.
+Return the exact app URL and retained/deleted history choice, without deleting
+the bundle or claiming it was removed. Migrate every active caller from the old
+self-deletion interface. Test each missing confirmation, failed credential or
+history cleanup, retry and honest native presentation through public lifecycle
+and model actions. The real host/registration adapter and installed acceptance
+remain separate gates. This refines the adopted removal scope: no AI dependency
+changes, no new module/runtime dependency, constant work apart from explicitly
+chosen history deletion, and no service activation or app deletion in tests.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -231,6 +244,11 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/OwnerLifecycleTests.swift`
+- `successor/apple/FortKit/Sources/FortKit/PairingSettings.swift`
+- `successor/evidence/2026-10-17-node-foundation/removal-handoff.md`
 
 - `successor/verification/performance.mjs`
 - `successor/verification/performance-worker.mjs`

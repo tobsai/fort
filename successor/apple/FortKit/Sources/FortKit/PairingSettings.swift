@@ -13,7 +13,7 @@ struct PairingSettingsView: View {
         case .stop: "Stop local host?"
         case .disconnect: "Disconnect this device?"
         case .forget: "Forget only this device’s credential?"
-        case .uninstall: "Remove Fort and keep history?"
+        case .uninstall: "Prepare to remove Fort?"
         case .deleteHistory: "Also delete local history?"
         case nil: "Confirm"
         }
@@ -23,8 +23,8 @@ struct PairingSettingsView: View {
         case .stop: "Stops the connected runtime. Pairing and saved conversations are kept."
         case .disconnect: "Stops the connected runtime, revokes this pairing and removes its Keychain token. Saved conversations are kept."
         case .forget: "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
-        case .uninstall: "Stops the owned host, removes pairing and removes this app: \(model.uninstallAppURL?.path ?? "unavailable"). Conversation history is kept."
-        case .deleteHistory: "Stops the owned host and removes Fort, its pairing and its local conversation history. This separate deletion cannot be undone."
+        case .uninstall: "Stops the owned host, unregisters startup and removes pairing. Conversation history is kept. Then remove the Fort app using TestFlight or macOS."
+        case .deleteHistory: "Stops the owned host, unregisters startup and removes pairing and local conversation history. History deletion cannot be undone. Then remove the Fort app using TestFlight or macOS."
         case nil: ""
         }
     }
@@ -54,12 +54,13 @@ struct PairingSettingsView: View {
                 Text("Stopping or disconnecting keeps your saved conversations and local image previews.").font(.caption)
             }
             #if os(macOS)
-            Section("Uninstall") {
-                Button("Uninstall Fort…",role:.destructive) { confirm(.uninstall) }
-                    .disabled(model.uninstallAppURL == nil || model.isBusy || model.lifecycleBusy)
-                Button("Uninstall and delete local history…",role:.destructive) { confirm(.deleteHistory) }
-                    .disabled(model.uninstallAppURL == nil || model.isBusy || model.lifecycleBusy)
-                if model.uninstallAppURL == nil { Text("Uninstall is available after this Mac’s owned local host is installed. This development build cannot yet verify and remove an installed host.").font(.caption).foregroundStyle(.secondary) }
+            Section("Remove Fort") {
+                Button("Prepare to remove Fort…",role:.destructive) { confirm(.uninstall) }
+                    .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
+                Button("Prepare removal and delete local history…",role:.destructive) { confirm(.deleteHistory) }
+                    .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
+                if model.removableAppURL == nil { Text("Removal preparation is available after this Mac’s owned host is installed. This development build cannot yet verify its shutdown and startup unregistration.").font(.caption).foregroundStyle(.secondary) }
+                if let ready = model.preparedAppRemoval { Text("Ready for system removal: \(ready.appURL.path)").font(.caption) }
                 Text("History is kept by default. Deleting it requires a separate confirmation.").font(.caption)
             }
             #endif
@@ -74,8 +75,8 @@ struct PairingSettingsView: View {
                     case .stop: await model.stopLocalHost(disconnect:false)
                     case .disconnect: await model.stopLocalHost(disconnect:true)
                     case .forget: model.forgetLocalPairing()
-                    case .uninstall: await model.uninstall()
-                    case .deleteHistory: await model.uninstall(history:.deleteConfirmed)
+                    case .uninstall: await model.prepareForRemoval()
+                    case .deleteHistory: await model.prepareForRemoval(history:.deleteConfirmed)
                     case nil: break
                     }
                 }

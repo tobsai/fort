@@ -13,7 +13,10 @@ public struct HostStopReceipt: Codable, Sendable {
 public struct OwnedHostStop: Sendable {
     public let hostStopped: Bool
     public let pairingRevoked: Bool
-    public init(hostStopped: Bool, pairingRevoked: Bool) { self.hostStopped = hostStopped; self.pairingRevoked = pairingRevoked }
+    public let startupUnregistered: Bool
+    public init(hostStopped: Bool, pairingRevoked: Bool, startupUnregistered: Bool) {
+        self.hostStopped = hostStopped; self.pairingRevoked = pairingRevoked; self.startupUnregistered = startupUnregistered
+    }
 }
 public struct PairingRemovalIntent: Codable, Equatable, Sendable {
     public enum State: String, Codable, Sendable { case requested, confirmed, locallyForgotten }
@@ -32,18 +35,22 @@ public struct PairingRecoveryProof: Sendable {
     var appURL: URL { get }
     func stopAndRevoke() async throws -> OwnedHostStop
     func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof
-    func removeApp() throws
     func removeHistory() throws
 }
 extension OwnedMacInstallation {
     public func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof { throw OwnerLifecycleError.unavailable }
 }
-public enum HistoryRemoval: Sendable { case keep; case deleteConfirmed }
+public enum HistoryRemoval: Sendable, Equatable { case keep; case deleteConfirmed }
+public struct PreparedAppRemoval: Sendable, Equatable {
+    public let appURL: URL
+    public let history: HistoryRemoval
+}
 public enum OwnerLifecycleError: Error, LocalizedError {
-    case stopUnconfirmed, wrongPairing, unavailable
+    case stopUnconfirmed, startupUnconfirmed, wrongPairing, unavailable
     public var errorDescription: String? {
         switch self {
         case .stopUnconfirmed: "Shutdown or revocation was not confirmed. The app and local pairing have been kept for recovery."
+        case .startupUnconfirmed: "Startup unregistration was not confirmed. The app and local pairing have been kept for recovery."
         case .wrongPairing: "The saved pairing changed. Reload settings before continuing."
         case .unavailable: "The installed host has not registered a verified removal path."
         }
@@ -55,11 +62,12 @@ public enum OwnerLifecycleError: Error, LocalizedError {
     public init(installation: any OwnedMacInstallation, removeCredential: @escaping () throws -> Void) {
         self.installation = installation; self.removeCredential = removeCredential
     }
-    public func uninstall(history: HistoryRemoval = .keep) async throws {
+    public func prepareForRemoval(history: HistoryRemoval = .keep) async throws -> PreparedAppRemoval {
         let receipt = try await installation.stopAndRevoke()
         guard receipt.hostStopped, receipt.pairingRevoked else { throw OwnerLifecycleError.stopUnconfirmed }
+        guard receipt.startupUnregistered else { throw OwnerLifecycleError.startupUnconfirmed }
         try removeCredential()
-        try installation.removeApp()
         if history == .deleteConfirmed { try installation.removeHistory() }
+        return PreparedAppRemoval(appURL:installation.appURL,history:history)
     }
 }
