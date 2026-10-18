@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5a2cc43eb64701480f8609672063b106249753f734e4f7a46be26fc01e1e67c4
+Reviewed content SHA256: 34e6f961849b308e55bbf9f2180cce31113ed593b399514c12ec38f081720548
 
 ### Vendor independence
 Status: planned
@@ -1021,6 +1021,43 @@ and signed/installed acceptance remain later gates under the same v1 direction.
 
 ## Performance verification
 
+### Native host bundle inspection revision
+
+Add a read-only Mac bundle inspection before wiring startup controls. The signed
+client and helper each carry identical bounded `Contents/Resources/fort-host.json`
+configuration with exactly format `1`, client identifier, helper service identifier,
+signing team and App Group. Names remain explicit build inputs; this does not adopt
+the proposed production identifiers or register them. The fixed helper layout is
+`Contents/Helpers/FortHost.app/Contents/MacOS/FortHost`; the LaunchAgent plist is
+`Contents/Library/LaunchAgents/<serviceIdentifier>.plist`. Require exactly its Label,
+BundleProgram and one true MachServices entry, with no environment, alternate
+program, arguments, automatic RunAtLoad or KeepAlive keys.
+
+Validate both code signatures with the exact Apple-anchored identifier/team
+requirement and strict resource/all-architecture checks before using signing
+metadata. Both independent apps require App Sandbox, the exact App Group and no
+sandbox-inherit entitlement. Require each embedded provisioning-profile file to
+exist as a bounded regular file, but explicitly report only profile presence;
+profile eligibility and actual OS startup remain unverified. Do not call App Group
+lookup, SMAppService, Keychain, XPC or any provider during inspection. Refuse missing,
+symlinked, foreign, malformed or inconsistent metadata without rewriting it.
+Do not treat inspection as protection against concurrent same-user bundle updates;
+repeat it before activation, and keep actual installed/runtime checks separate.
+
+Vendor independence: this is the existing explicit Apple distribution boundary,
+with no provider knowledge. Modularity: package identity/layout inspection stays
+separate from startup registration, storage and runtime readiness. Speed: perform
+signature/file work off the UI actor with no idle work; measure 20 isolated metadata
+inspections with a synthetic signature reader, p95 <=50 ms, and separate real
+signature checks from those samples. A fresh complete packaged-host inspection has
+a proposed p95 <=2-second budget, still unverified until its signed artifact exists.
+Installation/removal: use temporary synthetic bundles to prove exact manifest,
+layout, profile-presence and signature/entitlement refusal; exercise real Security
+framework verification on an existing authorized signed artifact when available,
+without launching or modifying it. No new entitlement, profile, credential,
+registration or provider action is authorized by these tests. Reuse decision 059
+for this local native integration scope.
+
 ### Guarded official protocol composition revision
 
 Compose the owned worker with the existing exact Codex 0.157.1 protocol adapter
@@ -1297,6 +1334,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/executor-worker.md`
 - `successor/runner/executor-process.ts`
 - `successor/runner/codex-executor.ts`
+- `successor/apple/FortKit/Sources/FortKit/MacHostBundle.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostBundleTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-bundle.md`
 - `successor/runner/codex-executor.test.ts`
 - `successor/runner/fixtures/codex-executor-worker.mjs`
 - `successor/runner/fixtures/codex-executor-runtime.mjs`
