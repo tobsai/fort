@@ -49,7 +49,7 @@ export class MvpPacket {
     };
     const claimRestart=()=>{if(!active()||closing||restarting||state.restarts>=maximumRestarts||state.launches>=maximumLaunches)throw new Error('Session restart is unavailable or consumed');restarting=true;accepting=false;state.restarts++;save();};
     const proxy:ChatRuntime={
-      execute:(input,signal)=>accepting&&active()&&runtime?runtime.execute(input,AbortSignal.any([signal,abort.signal])):Promise.resolve({kind:'notStarted',message:'Session dispatch is closed.'}),
+      execute:(input,signal,dispatch)=>accepting&&active()&&runtime?runtime.execute(input,AbortSignal.any([signal,abort.signal]),dispatch):Promise.resolve({kind:'notStarted',message:'Session dispatch is closed.'}),
       dispose:async()=>{await runtime?.dispose();},readiness,
       models:async signal=>{
         if(!active()||!runtime?.models)return {provider:'codex',state:'unavailable',models:[],detail:'The approved local session is not available.'};

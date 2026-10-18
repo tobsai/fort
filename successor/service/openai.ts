@@ -6,6 +6,7 @@ import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
+import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
@@ -117,7 +118,9 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; autoRun?: boolean; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+  const attemptTimeoutMs = options.attemptTimeoutMs ?? 120_000;
+  if (!Number.isSafeInteger(attemptTimeoutMs) || attemptTimeoutMs < 50 || attemptTimeoutMs > 120_000) throw new Error('Use a bounded execution deadline');
   const provider = structuredClone(options.provider);
   if (!provider || !/^[A-Za-z0-9_-]{1,128}$/.test(provider.provider) || !provider.name || !provider.runtimeVersion || !provider.hostId || !provider.capabilities.includes('plainText')) throw new Error('Use an explicit plain-text runtime descriptor');
   const now=options.now ?? Date.now;
@@ -477,7 +480,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       });return true;
     }
     if(!options.runtime)return false;
-    const input = transaction(() => {
+    const { input, dispatch } = transaction(() => {
       const inputRow = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(queued.requestId);
       const current = inputRow ? decodeMessage(json(inputRow)) : undefined;
       if (!current || !queued.configuration) throw new Error('Queued run has no accepted input');
@@ -491,19 +494,26 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       for (const reply of replies) { const group=repliesByRequest.get(reply.requestId) ?? []; group.push(reply); repliesByRequest.set(reply.requestId,group); }
       const history = users.flatMap(message=>[message,...(repliesByRequest.get(message.requestId) ?? [])]);
       const next: ChatInput = { attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
+      const dispatch = sealDispatch({ protocolVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch,
+        binding, attempt: next.attempt, inputDigest: executionDigest(next), configurationDigest: executionDigest(next.configuration),
+        historyDigest: executionDigest(history), policy: TEXT_POLICY, policyDigest: executionDigest(TEXT_POLICY),
+        deadline: now() + attemptTimeoutMs, limits: EXECUTION_LIMITS });
       put('contexts', attemptId, {
         runId: queued.runId, attempt: next.attempt, inputMessageId: current.messageId,
         inputDigest: digest(next.text), configurationDigest: digest(JSON.stringify(next.configuration)),
         historyDigest: digest(JSON.stringify(history)),
-        historyWindow: { beforeUserSequence: current.sequence, throughEventSequence: cursor() }
+        historyWindow: { beforeUserSequence: current.sequence, throughEventSequence: cursor() }, dispatch
       });
-      return next;
+      return { input: immutable(next), dispatch };
     });
     active = new AbortController(); activeRunId=queued.runId;
     try {
-      const result = await options.runtime.execute(input, active.signal);
+      const result = Buffer.byteLength(JSON.stringify(input)) > EXECUTION_LIMITS.inputBytes
+        ? { kind: 'notStarted' as const, message: 'Conversation context exceeds the execution limit. Nothing was sent.' }
+        : await options.runtime.execute(input, active.signal, dispatch);
       transaction(() => {
         const run = load('runs', queued.runId, decodeRun);
+        if (run.attemptId !== dispatch.attempt.attemptId || run.attemptGeneration !== dispatch.attempt.generation || (run.state !== 'running' && run.state !== 'cancelRequested')) return;
         if (result.kind === 'completed') {
           const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
           const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
@@ -517,7 +527,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }
       });
     } catch {
-      transaction(() => { const run = load('runs', queued.runId, decodeRun); put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.',...(run.routine?{routine:stopRoutine(run.routine,'outcomeUnknown','The runtime ended without a confirmed result.')}: {}) }); append(run.conversationId, 'runStopped', run.runId); });
+      transaction(() => { const run = load('runs', queued.runId, decodeRun); if (run.attemptId !== dispatch.attempt.attemptId || run.attemptGeneration !== dispatch.attempt.generation || (run.state !== 'running' && run.state !== 'cancelRequested')) return; put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.',...(run.routine?{routine:stopRoutine(run.routine,'outcomeUnknown','The runtime ended without a confirmed result.')}: {}) }); append(run.conversationId, 'runStopped', run.runId); });
     } finally { active = undefined; activeRunId=undefined; }
     return true;
   };

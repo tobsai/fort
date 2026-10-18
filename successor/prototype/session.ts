@@ -121,7 +121,7 @@ export class CandidatePacket {
     let resolveClosed!:(state:State)=>void;
     const closed=new Promise<State>(resolve=>{resolveClosed=resolve;});
     const runtimeProxy:ChatRuntime={
-      execute:async(input,signal)=> !accepting || now()>=workDeadline || !runtime ? {kind:'notStarted',message:'Session dispatch is closed.'} : runtime.execute(input,AbortSignal.any([signal,abort.signal])),
+      execute:async(input,signal,dispatch)=> !accepting || now()>=workDeadline || !runtime ? {kind:'notStarted',message:'Session dispatch is closed.'} : runtime.execute(input,AbortSignal.any([signal,abort.signal]),dispatch),
       dispose:async()=>{ await runtime?.dispose(); },
     };
     const service=createApplication({ provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),runtime:runtimeProxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,

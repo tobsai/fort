@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: d45f67bdca7e1c603dbc2d285f55834ea1957a32226a50fce04d412afaa7b350
+Reviewed content SHA256: 9caccafe548a86793f334a04f487d24af1b0e10fbd1c403285f5299f5c78f1e2
 
 ### Vendor independence
 Status: planned
@@ -100,8 +100,18 @@ input/context/policy digests, limits, deadline and scoped grant references. Exec
 cannot invent competing attempts or write the ledger. Evidence is correlated,
 bounded and idempotent. Cancellation targets the exact attempt; ambiguous external
 effects stay unknown and are not blindly replayed. Queues preserve per-conversation
-order with conservative global/provider/connector limits and backpressure. The
-indexed outbox contains unresolved work only, changes atomically with its Run,
+order with conservative global/provider/connector limits and backpressure.
+The initial executor protocol carries one terminal result over an owned process's
+pipes. Its dispatch digest binds installation/epoch, exact binding/attempt,
+input/configuration/history digests, a deadline and plain-text policy with no
+external grants. Limits are 1 MiB input, 64 KiB reply and 256 KiB total evidence;
+the default turn deadline is 120 seconds, with a bounded shutdown reserve.
+Identical terminal repeats are idempotent; foreign, stale, conflicting, malformed
+or oversized evidence cannot commit a reply. Success requires correlated evidence
+and observed clean process/group exit. Pipe ownership and Node fixture permissions
+are not OS containment or official-provider acceptance. This slice preserves the
+existing in-process official adapter for migration without activating it.
+The indexed outbox contains unresolved work only, changes atomically with its Run,
 and retains restart holds and uncertain-outcome barriers. Historical completed
 runs are not scanned to choose the next dispatch. Legacy ledgers backfill this
 index under the exclusive service lock; no second writer is introduced.
@@ -146,6 +156,12 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/contracts/executor.ts`
+- `successor/runner/executor-process.ts`
+- `successor/runner/executor-process.test.ts`
+- `successor/runner/fixtures/executor-worker.mjs`
+- `successor/evidence/2026-10-17-node-foundation/executor-process.md`
 
 - `.github/workflows/fort-quality.yml`
 - `successor/verification/test-suite.mjs`
