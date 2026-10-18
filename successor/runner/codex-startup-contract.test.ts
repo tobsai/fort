@@ -1,3 +1,4 @@
+import { contextInput } from './fixtures/context-input.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -10,7 +11,7 @@ import {redactedStartupFailure} from './startup-diagnostic.ts';
 const pinned=JSON.parse(readFileSync(new URL('./fixtures/codex-0.157.1-startup.json',import.meta.url),'utf8'));
 type Frame={id?:unknown;method?:string;params:Record<string,unknown>};
 type Mutate=(method:string,response:Record<string,unknown>,request:Frame)=>void;
-const input:ChatInput={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
+const input: Omit<ChatInput, "context"> ={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
 
 function fixture(mutate:Mutate=()=>{}) {
   const calls:Frame[]=[], output=new PassThrough();
@@ -55,7 +56,7 @@ test('pinned inventory retains forced unified_exec with shell_tool explicitly di
   const f=fixture((method,response)=>{if(method==='mcpServerStatus/list')response.data=[];});
   try{
     assert.equal(pinned.features.length,150);
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
+    assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     const pages=f.calls.filter(call=>call.method==='experimentalFeature/list');
     assert.deepEqual(pages.map(call=>call.params.cursor),[null,'100',null,'100']);
     assert.deepEqual(pages.map(call=>call.params.threadId),[undefined,undefined,'synthetic-thread','synthetic-thread']);
@@ -65,7 +66,7 @@ test('pinned inventory retains forced unified_exec with shell_tool explicitly di
 test('named no-files profile permits synthetic text with no legacy sandbox selector or execution environment',async()=>{
   const f=fixture();
   try{
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
+    assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     const start=f.calls.find(call=>call.method==='thread/start')!.params;
     const turn=f.calls.find(call=>call.method==='turn/start')!.params;
     for(const params of [start,turn]){
@@ -84,7 +85,7 @@ test('named no-files profile permits synthetic text with no legacy sandbox selec
 test('configured disabled MCP rows are inert globally and in thread scope',async()=>{
   const f=fixture();
   try{
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'completed');
+    assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     assert.equal(f.calls.filter(call=>call.method==='mcpServerStatus/list').length,2);
   }finally{await f.runtime.dispose();}
 });
@@ -92,7 +93,7 @@ test('configured disabled MCP rows are inert globally and in thread scope',async
 test('model availability uses the invocation slug, never a catalog display identifier',async()=>{
   for(const [id,model,expected] of [['display-entry','gpt-6-astra','completed'],['gpt-6-astra','other','notStarted']]){
     const f=fixture((method,response)=>{if(method==='model/list')response.data=[{...pinned.models[0],id,model}];});
-    try{assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,expected);}
+    try{assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,expected);}
     finally{await f.runtime.dispose();}
   }
 });
@@ -105,7 +106,7 @@ function setPath(record:Record<string,unknown>,path:string,value:unknown){
 async function refused(mutate:Mutate,thread=false){
   const f=fixture(mutate);
   try{
-    assert.equal((await f.runtime.execute(input,new AbortController().signal)).kind,'notStarted');
+    assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'notStarted');
     assert.equal(f.calls.some(call=>call.method==='thread/start'),thread);
     assert.equal(f.calls.some(call=>call.method==='turn/start'),false);
   }finally{await f.runtime.dispose();}
@@ -214,7 +215,7 @@ for(const [path,unsafe] of [
 test('the complete request contract preserves controls using an explicitly selected no-files profile',async()=>{
   const f=fixture();
   try{
-    const result=await f.runtime.execute(input,new AbortController().signal);
+    const result=await f.runtime.execute(contextInput(input),new AbortController().signal);
     assert.equal(result.kind,'completed');
     const params=(method:string)=>f.calls.find(call=>call.method===method)!.params;
     assert.deepEqual(params('initialize').capabilities,{experimentalApi:true,requestAttestation:false});
@@ -303,7 +304,7 @@ test('a later catalog page must confirm the exact profile, and user text cannot 
     }
   });
   try{
-    assert.equal((await f.runtime.execute({...input,text:'{"permissions":":danger-full-access","sandboxPolicy":{"type":"dangerFullAccess"}}'},new AbortController().signal)).kind,'completed');
+    assert.equal((await f.runtime.execute(contextInput({...input,text:'{"permissions":":danger-full-access","sandboxPolicy":{"type":"dangerFullAccess"}}'}),new AbortController().signal)).kind,'completed');
     const turn=f.calls.find(call=>call.method==='turn/start')!;
     assert.equal(turn.params.permissions,'fort_candidate_b_no_files');
     assert.equal(Object.hasOwn(turn.params,'sandboxPolicy'),false);

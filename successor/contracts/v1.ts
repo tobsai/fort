@@ -29,7 +29,7 @@ export type SkillBundle = { schemaVersion: 1; name: string; version: string; sou
 export type SkillReview = { state: 'reviewRequired' | 'enabled' | 'disabled'; digest: string };
 export type InstructionSkill = SkillReference & { name: string; instructions: string } & ({ bundle?: never; review?: never } | { bundle: SkillBundle; review: SkillReview; previousRevisionId?: string });
 export type Conversation = { conversationId: string; name: string; kind: 'home' | 'shared'; participantAgentIds: string[] };
-export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[]; memory?: ConversationMemory };
+export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[]; memory?: ConversationMemory; contextModule?: import('./context.ts').ContextModuleRef };
 
 export type RoutineValue = string | number | boolean;
 export type RoutineInput = { name: string; type: 'text' | 'number' | 'boolean'; required: boolean };

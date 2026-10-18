@@ -1,8 +1,10 @@
 import type { RuntimeAttempt } from '../contracts/attempt.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
+import type { PreparedContext } from '../contracts/context.ts';
 import type { Message, TurnConfiguration, RuntimeReadiness, ModelCatalog } from '../contracts/v1.ts';
 
 export type ChatInput = {
+  context: PreparedContext;
   attempt: RuntimeAttempt;
   runId: string; requestId: string; conversationId: string;
   configuration: TurnConfiguration; history: Message[]; text: string;

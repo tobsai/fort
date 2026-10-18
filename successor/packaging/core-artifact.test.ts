@@ -14,7 +14,7 @@ test('the compiled core runs independent runtime contracts with provider impleme
   const files = await readdir(artifact, { recursive: true });
   assert.ok(files.includes('service/openai.js') && files.includes('service/openai.d.ts'));
   assert.ok(files.includes('contracts/attempt.d.ts'));
-  assert.ok(!files.some(file => /codex|prototype|node_modules|foundation|contracts\/runtime/.test(file)));
+  assert.ok(!files.some(file => /codex|prototype|node_modules|foundation|contracts\/runtime|modules\/|skill-context/.test(file)));
   assert.match(await readFile(join(artifact, 'LICENSE'), 'utf8'), /Copyright \(c\) 2026 Tobias Gunn/);
   const fixture = join(root, 'provider-contract.mjs');
   await copyFile(new URL('./fixtures/provider-contract.mjs', import.meta.url), fixture);

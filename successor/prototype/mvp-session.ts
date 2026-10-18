@@ -1,3 +1,4 @@
+import { LOCAL_CONTEXT } from '../modules/local-context.ts';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import {mkdirSync,existsSync,lstatSync,readFileSync,writeFileSync,renameSync,unlinkSync} from 'node:fs';
 import {isAbsolute,join,normalize} from 'node:path';
@@ -62,7 +63,7 @@ export class MvpPacket {
         catch(error){queueMicrotask(()=>{void finish(false);});throw error;}finally{restarting=false;}
       },
     };
-    const openService=()=>createApplication({provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&(ownerDemo?admitOwnerDemoSubmission(submission,runs):admitMvpSubmission(submission,runs,session))});
+    const openService=()=>createApplication({ context: LOCAL_CONTEXT,provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),runtime:proxy,autoRun:true,credentialDeadline:state.credentialDeadline,now,admitSubmission:(submission,runs)=>accepting&&active()&&(ownerDemo?admitOwnerDemoSubmission(submission,runs):admitMvpSubmission(submission,runs,session))});
     const finish=(success=true):Promise<State>=>{
       if(closing)return closing;
       accepting=false;abort.abort();cancelTimer();signal?.removeEventListener('abort',cancel);
@@ -87,7 +88,7 @@ export class MvpPacket {
             }finally{db.close();}
           };
           try{
-            inspectLedger();const cleanup=createApplication({provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),credentialDeadline:state.credentialDeadline,now});const report=cleanup.inspectSession();devices=[...new Set([...devices,...report.deviceIDs])];await cleanup.close();
+            inspectLedger();const cleanup=createApplication({ context: LOCAL_CONTEXT,provider: CODEX_RUNTIME, dataDirectory:join(root,'service'),credentialDeadline:state.credentialDeadline,now});const report=cleanup.inspectSession();devices=[...new Set([...devices,...report.deviceIDs])];await cleanup.close();
             const remaining=inspectLedger();revoked=remaining.devices===0&&remaining.enrollments===0;
           }catch{passed=false;}
           try{const erased=await native.cleanup(state.installationId,devices);if(revoked&&erased)state.credentialCleanup='deleted';else passed=false;}catch{passed=false;}

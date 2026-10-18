@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {admitMvpSubmission,MVP_PROMPTS} from './mvp-admission.ts';
 import {parseSkillBundle} from '../contracts/skill-bundle.ts';
-import {prepareSkillContext} from '../runner/skill-context.ts';
+import {prepareSkillContext} from '../modules/local-context.ts';
 import type {SubmissionAdmission} from '../service/openai.ts';
 import type {InstructionSkill} from '../contracts/v1.ts';
 
@@ -15,7 +15,7 @@ function skillFrom(value:unknown,instructions='End with [CHECKED].'):Instruction
 for(const revised of [false,true])test(`complete synthetic instruction-editor bundle is admitted: ${revised?'REVIEWED version 2':'CHECKED version 1'}`,()=>{
   const skill=skillFrom(manifest(revised),revised?'End with [REVIEWED].':'End with [CHECKED].');
   assert.equal(admitMvpSubmission(submission(skill),[],2),true);
-  const context=prepareSkillContext([skill]);assert.equal(context.kind,'ready');
+  const context=prepareSkillContext({provider:'codex',skills:[skill]});assert.equal(context.kind,'ready');
   if(context.kind==='ready'){assert.equal(context.bundles.length,1);assert.deepEqual(context.bundles[0]?.textFiles,[{path:'SKILL.md',text:skill.instructions}]);assert.deepEqual(context.bundles[0]?.bundle,skill.bundle);}
 });
 for(const change of ['extra-file','entrypoint','source','license','runtime','version','arbitrary-version','entry-bytes','unreviewed','review-digest','skill-id','revision-id','extra-metadata','missing-review'] as const)test(`synthetic packet rejects altered complete outbound bundle before admission: ${change}`,()=>{
@@ -35,7 +35,7 @@ for(const change of ['extra-file','entrypoint','source','license','runtime','ver
   if(change==='revision-id')skill.revisionId='SYNTHETIC_ARBITRARY_REVISION';
   if(change==='extra-metadata')Object.assign(skill.bundle!,{note:'SYNTHETIC_UNAPPROVED_METADATA'});
   if(change==='extra-file'){
-    const context=prepareSkillContext([skill]);assert.equal(context.kind,'ready');
+    const context=prepareSkillContext({provider:'codex',skills:[skill]});assert.equal(context.kind,'ready');
     if(context.kind==='ready')assert.ok(context.bundles[0]?.textFiles.some(file=>file.text==='SYNTHETIC_UNAPPROVED_ASSET'));
   }
   const selected=change==='missing-review'?{skillId:skill.skillId,revisionId:skill.revisionId,name:skill.name,instructions:skill.instructions}:skill;

@@ -7,6 +7,7 @@ import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
+import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, type PreparedContext } from '../contracts/context.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
@@ -69,7 +70,7 @@ function decodeMemory(value:unknown):ConversationMemory {
 function decodeConfiguration(value: unknown): TurnConfiguration {
   const v = record(value);
   if (!Array.isArray(v.skills)) throw new Error('Invalid stored skills');
-  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill),...(v.memory===undefined?{}:{memory:decodeMemory(v.memory)}) };
+  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill),...(v.memory===undefined?{}:{memory:decodeMemory(v.memory)}),...(v.contextModule===undefined?{}:{contextModule:parseContextModuleRef(v.contextModule)}) };
 }
 function decodeMessage(value: unknown): Message {
   const v = record(value);
@@ -118,11 +119,16 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
   const attemptTimeoutMs = options.attemptTimeoutMs ?? 120_000;
   if (!Number.isSafeInteger(attemptTimeoutMs) || attemptTimeoutMs < 50 || attemptTimeoutMs > 120_000) throw new Error('Use a bounded execution deadline');
   const provider = structuredClone(options.provider);
   if (!provider || !/^[A-Za-z0-9_-]{1,128}$/.test(provider.provider) || !provider.name || !provider.runtimeVersion || !provider.hostId || !provider.capabilities.includes('plainText')) throw new Error('Use an explicit plain-text runtime descriptor');
+  const context = options.context;
+  if (context && (context.protocolVersion !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(context.id) || !context.version || context.version.length > 128 || typeof context.compile !== 'function')) throw new Error('Select a versioned context compiler');
+  const contextRef = context ? immutable(parseContextModuleRef(context)) : undefined;
+  let contextFailed = false;
+  const contextStatus = (): ContextModuleStatus => contextRef ? { state: contextFailed ? 'failed' : 'ready', module: contextRef } : { state: context === null ? 'disabled' : 'missing' };
   const now=options.now ?? Date.now;
   const expiryDays = (value:unknown):number|null => {
     if(value===null)return null;
@@ -310,13 +316,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if(!prior)return undefined;
     const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return acceptance(receipt);
   };
+  const requiresContext = (configuration: TurnConfiguration) => Boolean(configuration.skills.length || configuration.memory?.text);
   const unsupportedContext = (configuration: TurnConfiguration): string | undefined => {
     if (configuration.skills.length && !provider.capabilities.includes('skills')) return 'The selected runtime does not support skills. Restore support or send without selected skills.';
     if (configuration.memory?.text && !provider.capabilities.includes('memory')) return 'The selected runtime does not support saved memory. Restore support or explicitly clear the note before sending.';
+    if ((configuration.skills.length || configuration.memory?.text) && !context) return 'Context preparation is unavailable. Restore the selected module or explicitly remove the context requirement before sending.';
+    if (requiresContext(configuration) && contextFailed) return 'Context preparation failed. Restore the module before sending work that requires it.';
+    if (configuration.contextModule && (configuration.contextModule.id !== contextRef?.id || configuration.contextModule.version !== contextRef.version)) return 'The pinned context compiler changed. Review a new submission before running this work.';
     return undefined;
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
-    const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
+    const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration:requestedConfiguration,routine}=command;
+    const configuration = requiresContext(requestedConfiguration) && contextRef ? { ...requestedConfiguration, contextModule: contextRef } : requestedConfiguration;
     const unavailable = unsupportedContext(configuration);
     if (unavailable) fail(409, 'capabilityUnavailable', unavailable);
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
@@ -493,6 +504,24 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       });return true;
     }
     if(!options.runtime)return false;
+    let preparedContext: PreparedContext = { kind: 'empty' };
+    if (requiresContext(queued.configuration)) {
+      let failure: string | undefined;
+      if (!queued.configuration.contextModule || !context || !contextRef) failure = 'This work has no confirmed context compiler pin. Review a new submission before running it.';
+      else {
+        try {
+          const compiled = context.compile({ provider: provider.provider, conversationId: queued.conversationId, configuration: immutable(queued.configuration) });
+          if (compiled.kind === 'unsupported') failure = compiled.message;
+          else preparedContext = { kind: 'prepared', module: contextRef, configurationDigest: executionDigest(queued.configuration), content: compiled };
+        } catch { contextFailed = true; failure = 'Context preparation failed. Nothing was sent to the runtime.'; }
+      }
+      if (failure) {
+        const detail = failure;
+        transaction(() => { put('runs', queued.runId, { ...queued, state: 'failed', statusDetail: detail,
+          ...(queued.routine ? { routine: stopRoutine(queued.routine, 'failed', detail) } : {}) }); append(queued.conversationId, 'runStopped', queued.runId); if (contextFailed) append('_workspace', 'moduleStatusChanged', 'context'); });
+        return true;
+      }
+    }
     const { input, dispatch } = transaction(() => {
       const inputRow = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(queued.requestId);
       const current = inputRow ? decodeMessage(json(inputRow)) : undefined;
@@ -506,7 +535,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const repliesByRequest = new Map<string,Message[]>();
       for (const reply of replies) { const group=repliesByRequest.get(reply.requestId) ?? []; group.push(reply); repliesByRequest.set(reply.requestId,group); }
       const history = users.flatMap(message=>[message,...(repliesByRequest.get(message.requestId) ?? [])]);
-      const next: ChatInput = { attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
+      const next: ChatInput = { context: preparedContext, attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
       const dispatch = sealDispatch({ protocolVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch,
         binding, attempt: next.attempt, inputDigest: executionDigest(next), configurationDigest: executionDigest(next.configuration),
         historyDigest: executionDigest(history), policy: TEXT_POLICY, policyDigest: executionDigest(TEXT_POLICY),
@@ -770,6 +799,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }
         else if(request.method==='GET'&&url.pathname==='/v1/scheduler')result=scheduleStatus;
         else if(request.method==='GET'&&url.pathname==='/v1/runtime')result=owner(request,()=>runtimeReadiness());
+        else if(request.method==='GET'&&url.pathname==='/v1/modules/context')result=contextStatus();
         else if(request.method==='POST'&&url.pathname==='/v1/runtime/restart'){
           const body=await readBody(request);
           const restart=owner(request,()=>{

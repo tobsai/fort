@@ -1,6 +1,6 @@
 import type { RuntimeReadiness, ModelCatalog, ModelOption } from '../contracts/v1.ts';
 import { randomUUID } from 'node:crypto';
-import { prepareSkillContext } from './skill-context.ts';
+import { executionDigest } from '../contracts/executor.ts';
 import { isAbsolute, normalize } from 'node:path';
 import { CodexTurn, type CodexOutput } from './codex.ts';
 import { CodexConnection, object } from './codex-rpc.ts';
@@ -118,10 +118,13 @@ export class CodexChat implements ChatRuntime {
     if (!attempt || attempt.runId !== input.runId || attempt.bindingRevisionId !== input.configuration.bindingRevisionId || attempt.selectedModel !== input.configuration.selectedModel || attempt.runtimeVersion !== this.options.runtimeVersion || !Number.isSafeInteger(attempt.generation) || attempt.generation < 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(attempt.attemptId)) return { kind: 'notStarted', message: 'Service attempt identity was not confirmed. Nothing was sent.' };
     if(this.disposed||this.options.connection.isClosed)return {kind:'notStarted',message:'Runtime restart is required before a new request. This request was not dispatched.'};
     if (this.busy) return { kind:'failed', message:'This runtime already has an active turn.' };
-    const memory=input.configuration.memory;
+    const prepared = input.context;
+    if (!prepared || prepared.kind === 'unavailable') return { kind: 'notStarted', message: prepared?.kind === 'unavailable' ? prepared.message : 'Prepared context is missing. Nothing was sent.' };
+    if (prepared.kind === 'empty' && (input.configuration.skills.length || input.configuration.memory?.text)) return { kind: 'notStarted', message: 'Required context is missing. Nothing was sent.' };
+    if (prepared.kind === 'prepared' && (prepared.configurationDigest !== executionDigest(input.configuration) || prepared.module.id !== input.configuration.contextModule?.id || prepared.module.version !== input.configuration.contextModule?.version)) return { kind: 'notStarted', message: 'Prepared context does not match the pinned configuration. Nothing was sent.' };
+    const memory=prepared.kind === 'prepared' ? prepared.content.memory : undefined;
     if(memory&&(memory.conversationId!==input.conversationId||!memory.revisionId||typeof memory.text!=='string'||!memory.text.isWellFormed()||Buffer.byteLength(memory.text)>8192))return {kind:'notStarted',message:'Conversation memory identity or size was not confirmed. Nothing was sent.'};
-    const skills = prepareSkillContext(input.configuration.skills);
-    if (skills.kind === 'unsupported') return {kind:'notStarted',message:skills.message};
+    const skills = prepared.kind === 'prepared' ? prepared.content : { instructions: '', bundles: [] };
     const developerInstructions = input.configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '');
     const text = JSON.stringify({ conversationId:input.conversationId,conversationMemory:memory, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 53cc8e6bf6923da47b74d6c21c95117aea861ccc7c4fba8f6668519087904948
+Reviewed content SHA256: f2e085932048b0ad3fdd80864c5cddd6a67fb47e062446e5a32886c4708848ef
 
 ### Vendor independence
 Status: planned
@@ -128,6 +128,19 @@ outside model reasoning. Retrieved content is data, not authority. Agent-host
 privileges and computer-tool sandbox are distinct. Use static registration and
 fixture implementations first; no arbitrary plugin download mechanism.
 
+The first removable implementation is a versioned local context compiler for
+owner notes and reviewed text skill bundles. Composition supplies it explicitly;
+the core and runtime adapters import only its contract. Missing, disabled or
+failed context preparation permits ordinary text and retained-history reads but
+refuses work that requires context. Accepted work pins the compiler identity and
+version; a changed or removed compiler fails that work before dispatch. The
+compiled content and configuration digest travel in the sealed execution input.
+No module grants tools, credentials or connector authority. Core artifacts must
+omit the local compiler implementation and still pass the send/persist/replay
+contract. Test removal/re-addition, version change and compile failure through
+the public API. Historical context-bearing queued work without a compiler pin
+requires a new reviewed submission; history and receipts remain readable.
+
 Swift owns native UI and Apple lifecycle/Keychain/XPC boundaries. The first
 feasibility test uses no persistent registration or provider accounts. Actual
 startup/background behavior requires explicit consent. Node/official-runtime
@@ -162,6 +175,14 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/contracts/context.ts`
+- `successor/modules/local-context.ts`
+- `successor/service/context-modules.test.ts`
+- `successor/runner/fixtures/context-input.ts`
+- `successor/runner/skill-context.ts`
+- `successor/prototype/mvp-admission.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/context-modules.md`
 
 - `successor/contracts/executor.ts`
 - `successor/runner/executor-process.ts`
