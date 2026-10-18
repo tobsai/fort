@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 
 final class OwnerSetupFiles {
-    enum Record: String { case hostRemoval = "host-removal.json", pending = "owner-setup.json", connection = "connection.json", removal = "pairing-removal.json", disconnected = "disconnected.json" }
+    enum Record: String { case historyRemoval = "history-removal.json", hostRemoval = "host-removal.json", pending = "owner-setup.json", connection = "connection.json", removal = "pairing-removal.json", disconnected = "disconnected.json" }
     private let path: String
     private let identity: stat
     private var directory: Int32
@@ -98,6 +98,7 @@ final class OwnerSetupFiles {
     func removePending() throws { try remove(.pending) }
     func removeConnection() throws { try remove(.connection) }
     func removeHostRemoval() throws { try remove(.hostRemoval) }
+    func removeHistoryRemoval() throws { try remove(.historyRemoval) }
     func close() {
         if lock >= 0 {
             while flock(lock,LOCK_UN) != 0 && errno == EINTR {}

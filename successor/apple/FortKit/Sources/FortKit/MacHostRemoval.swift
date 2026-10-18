@@ -67,6 +67,25 @@ private struct HostRemovalRecord: Codable {
     }
 }
 
+private struct HostHistoryRemovalRecord: Codable {
+    let version: Int
+    let connection: DeviceConnection
+    let request: MacHistoryDeletionRequest
+    var receipt: MacHistoryDeletionReceipt?
+    var complete: Bool
+    func validate(for expected: DeviceConnection) throws {
+        guard version == 1, connection == expected, request.installationID == expected.installationID,
+              request.deviceID == expected.deviceID, !complete || receipt != nil else { throw MacHostRemovalError.changedProgress }
+        if let receipt { try receipt.validate(for:request) }
+    }
+}
+
+@MainActor struct MacHistoryRemovalActions {
+    let verifyCredentialAbsent: () throws -> Void
+    let maintain: (MacHistoryDeletionRequest) async throws -> MacHistoryDeletionReceipt
+    let removeSavedHistory: () throws -> Void
+}
+
 @MainActor public final class MacHostRemoval: OwnedMacInstallation {
     public let appURL: URL
     private let verifyBundle: @MainActor () async throws -> Void
@@ -76,15 +95,16 @@ private struct HostRemovalRecord: Codable {
     private let recover: @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation
     private let exitTimeout: TimeInterval
     private var active = false
+    private let historyActions: MacHistoryRemovalActions?
 
-    init(connection: DeviceConnection, directory: URL, applicationURL: URL, verifyBundle: @escaping @MainActor () async throws -> Void, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval) throws {
+    init(connection: DeviceConnection, directory: URL, applicationURL: URL, verifyBundle: @escaping @MainActor () async throws -> Void, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval, historyActions: MacHistoryRemovalActions? = nil) throws {
         guard case .macAgent(let endpoint) = connection.endpoint, endpoint == startup.endpoint,
               exitTimeout.isFinite, exitTimeout > 0, exitTimeout <= 30 else { throw OwnerLifecycleError.wrongPairing }
         _ = try MacOwnerRecoveryRequest(installationID:connection.installationID,deviceID:connection.deviceID)
         guard applicationURL.isFileURL, applicationURL.path.hasPrefix("/"), applicationURL.host == nil || applicationURL.host == "" else { throw MacHostBundleError.configuration }
         appURL = applicationURL; self.verifyBundle = verifyBundle
         self.connection = connection; self.directory = directory; self.startup = startup
-        self.recover = recover; self.exitTimeout = exitTimeout
+        self.recover = recover; self.exitTimeout = exitTimeout; self.historyActions = historyActions
     }
     private func verifyConnection(_ files: OwnerSetupFiles) throws {
         guard try files.read(.pending) == nil else { throw MacHostRemovalError.setupBlocked }
@@ -115,6 +135,75 @@ private struct HostRemovalRecord: Codable {
         return PairingRecoveryProof(connection:connection,hostStopped:observation.receipt.coreStopped,pairingRevoked:observation.receipt.pairingRevoked)
     }
     public func removeHistory() throws { throw OwnerLifecycleError.historyDeletionUnavailable }
+    public var supportsRetainedHistoryDeletion: Bool { historyActions != nil }
+    public func historyDeletionRequest(recoveryEpoch: String?) throws -> MacHistoryDeletionRequest {
+        guard !active else { throw MacHostRemovalError.busy }
+        guard supportsRetainedHistoryDeletion else { throw OwnerLifecycleError.historyDeletionUnavailable }
+        let files = try OwnerSetupFiles(directory:directory); defer { files.close() }
+        try Self.verifyLocalCleanup(files,connection:connection)
+        guard let host = try files.read(.hostRemoval) else { throw OwnerLifecycleError.stopUnconfirmed }
+        let removal = try JSONDecoder().decode(HostRemovalRecord.self,from:host)
+        guard removal.connection == connection, removal.isConfirmed else { throw OwnerLifecycleError.stopUnconfirmed }
+        if let data = try files.read(.historyRemoval) {
+            let saved = try JSONDecoder().decode(HostHistoryRemovalRecord.self,from:data)
+            try saved.validate(for:connection)
+            guard !saved.complete else { throw OwnerLifecycleError.historyDeletionUnavailable }
+            guard recoveryEpoch == nil || recoveryEpoch == saved.request.recoveryEpoch || recoveryEpoch == saved.receipt?.recoveryEpoch else { throw MacHostRemovalError.changedProgress }
+            return saved.request
+        }
+        guard let recoveryEpoch else { throw OwnerLifecycleError.historyDeletionUnavailable }
+        return try MacHistoryDeletionRequest(installationID:connection.installationID,deviceID:connection.deviceID,recoveryEpoch:recoveryEpoch,deletionID:UUID().uuidString)
+    }
+    public func deleteRetainedHistory(_ request: MacHistoryDeletionRequest) async throws -> MacHistoryDeletionReceipt {
+        guard !active else { throw MacHostRemovalError.busy }
+        guard let historyActions else { throw OwnerLifecycleError.historyDeletionUnavailable }
+        guard request.installationID == connection.installationID, request.deviceID == connection.deviceID else { throw OwnerLifecycleError.wrongPairing }
+        try Task.checkCancellation()
+        active = true; defer { active = false }
+        let files = try OwnerSetupFiles(directory:directory); defer { files.close() }
+        try Self.verifyLocalCleanup(files,connection:connection)
+        guard let hostBytes = try files.read(.hostRemoval) else { throw OwnerLifecycleError.stopUnconfirmed }
+        let host = try JSONDecoder().decode(HostRemovalRecord.self,from:hostBytes)
+        guard host.connection == connection, host.isConfirmed, let observation = try host.observation else { throw OwnerLifecycleError.stopUnconfirmed }
+        var saved = try files.read(.historyRemoval)
+        var record = try saved.map { try JSONDecoder().decode(HostHistoryRemovalRecord.self,from:$0) }
+            ?? HostHistoryRemovalRecord(version:1,connection:connection,request:request,receipt:nil,complete:false)
+        try record.validate(for:connection)
+        guard record.request == request else { throw MacHostRemovalError.changedProgress }
+        func unchanged(_ files: OwnerSetupFiles) throws {
+            try Self.verifyLocalCleanup(files,connection:connection)
+            guard try files.read(.hostRemoval) == hostBytes, try files.read(.historyRemoval) == saved else { throw MacHostRemovalError.changedProgress }
+            try historyActions.verifyCredentialAbsent()
+            try Self.verifyLocalCleanup(files,connection:connection)
+            guard try files.read(.hostRemoval) == hostBytes, try files.read(.historyRemoval) == saved else { throw MacHostRemovalError.changedProgress }
+            try Task.checkCancellation()
+        }
+        func verify(_ files: OwnerSetupFiles) async throws {
+            try unchanged(files)
+            try await verifyBundle(); try unchanged(files)
+            guard try await startup.inspect() == .notRegistered else { throw OwnerLifecycleError.startupUnconfirmed }
+            try unchanged(files)
+            try await observation.host.waitForExit(timeout:exitTimeout); try unchanged(files)
+            guard try await startup.inspect() == .notRegistered else { throw OwnerLifecycleError.startupUnconfirmed }
+            try unchanged(files)
+        }
+        try await verify(files)
+        if saved == nil { let data = try JSONEncoder().encode(record); try files.write(data,to:.historyRemoval); saved = data }
+        try unchanged(files)
+        let receipt = try await historyActions.maintain(request)
+        try receipt.validate(for:request)
+        try await verify(files)
+        if let previous = record.receipt, previous != receipt { throw MacHostRemovalError.changedProgress }
+        record.receipt = receipt; record.complete = false
+        let data = try JSONEncoder().encode(record); try files.write(data,to:.historyRemoval); saved = data
+        files.close()
+        try historyActions.removeSavedHistory()
+        let finalFiles = try OwnerSetupFiles(directory:directory); defer { finalFiles.close() }
+        try await verify(finalFiles)
+        record.complete = true
+        try finalFiles.write(JSONEncoder().encode(record),to:.historyRemoval)
+        return receipt
+    }
 
     private static func verifyLocalCleanup(_ files: OwnerSetupFiles, connection: DeviceConnection) throws {
         guard try files.read(.pending) == nil, try files.read(.connection) == nil,
@@ -154,6 +243,10 @@ private struct HostRemovalRecord: Codable {
         try verifyCredentialAbsent()
         try unchanged()
         try Task.checkCancellation()
+        if let history = try files.read(.historyRemoval) {
+            try JSONDecoder().decode(HostHistoryRemovalRecord.self,from:history).validate(for:connection)
+            try files.removeHistoryRemoval()
+        }
         try files.removeHostRemoval()
     }
 

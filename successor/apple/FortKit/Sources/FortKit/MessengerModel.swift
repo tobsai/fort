@@ -112,14 +112,17 @@ import Observation
         do {
             guard let connection = try storage.disconnectedConnection(), connection == expected, connection.installationID == expectedInstallation else { throw OwnerLifecycleError.wrongPairing }
             try storage.deleteSavedHistory(for:connection)
-            showLatestMessages(); snapshot = nil; installation = nil
-            pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
-            agents = []; conversations = []; skills = []; routines = []; schedules = []
-            selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
-            lastSavedSkill = nil; draft = ""; eventCursor = nil
+            clearSavedHistoryPresentation()
             status = "Saved history deleted on this device"
             pairingMessage = "Saved conversations, pending submissions and image previews for this installation were deleted on this device. The host ledger and other devices are unchanged. Recovery records are kept."
         } catch { pairingMessage = "Saved-history deletion is incomplete. The displayed history is kept; check this installation and retry." }
+    }
+    private func clearSavedHistoryPresentation() {
+        showLatestMessages(); snapshot = nil; installation = nil
+        pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
+        agents = []; conversations = []; skills = []; routines = []; schedules = []
+        selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
+        lastSavedSkill = nil; draft = ""; eventCursor = nil
     }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
@@ -135,6 +138,28 @@ import Observation
     private let session: URLSession
     private var connectionTransport: ((DeviceEndpoint) throws -> any FortTransport)?
     #if os(macOS)
+    public var retainedHostHistoryDeletionTarget: MacHistoryDeletionRequest? {
+        guard canDeleteSavedHistory, let removal = ownedInstallation as? MacHostRemoval,
+              removal.connection.installationID == expectedInstallation else { return nil }
+        return try? removal.historyDeletionRequest(recoveryEpoch:installation?.recoveryEpoch)
+    }
+    public var canDeleteRetainedHostHistory: Bool { retainedHostHistoryDeletionTarget != nil }
+    public func deleteRetainedHostHistory(_ expected: MacHistoryDeletionRequest) async {
+        guard let target = retainedHostHistoryDeletionTarget, let removal = ownedInstallation as? MacHostRemoval,
+              expected.installationID == target.installationID, expected.deviceID == target.deviceID,
+              expected.recoveryEpoch == target.recoveryEpoch else { return }
+        lifecycleBusy = true; isBusy = true
+        defer { lifecycleBusy = false; isBusy = false }
+        do {
+            guard try storage.disconnectedConnection() == removal.connection else { throw OwnerLifecycleError.wrongPairing }
+            _ = try await removal.deleteRetainedHistory(expected)
+            clearSavedHistoryPresentation()
+            status = "Host history and this Mac's saved copy deleted"
+            pairingMessage = "Host conversations and this Mac's saved copy were deleted. Owner notes, settings, other devices and provider history are kept."
+        } catch {
+            pairingMessage = "History deletion is unconfirmed. Retry this saved operation to finish. Any deletion that already completed cannot be undone."
+        }
+    }
     private var ownerSetupCoordinator: OwnerSetupCoordinator?
     private var ownerSetupEndpoint: DeviceEndpoint?
     private var ownerSetupInspected = false
@@ -162,15 +187,15 @@ import Observation
         guard canPrepareLocalReinstall, let localHost, let connection = reinstallConnection else { return }
         lifecycleBusy = true; defer { lifecycleBusy = false }
         do {
-            let removal = try localHost.removal(connection:connection,directory:storage.directory)
+            let removal = try localHost.removal(connection:connection,storage:storage)
             try await removal.prepareForSetup {
                 guard try self.storage.ownerSetupCredential(for:connection) == nil else { throw MacHostRemovalError.setupBlocked }
             }
             preparedAppRemoval = nil
             configureLocalHostSetup()
-            if localHostSetupReady { ownerSetupMessage = "Ready to set up again. Saved conversations are kept. Enable the local host and connect this Mac separately." }
+            if localHostSetupReady { ownerSetupMessage = "Ready to set up again with any retained conversations. Completed history deletion cannot be undone. Enable the local host and connect this Mac separately." }
         } catch {
-            ownerSetupMessage = "Setup remains blocked. Confirm that removal and local credential cleanup finished, then check this app's host identity. Saved conversations are kept."
+            ownerSetupMessage = "Setup remains blocked. Confirm that removal and local credential cleanup finished, then check this app's host identity. Completed history deletion cannot be undone."
         }
     }
     public convenience init(directory: URL, localHost: MacHostControl) throws {
@@ -194,7 +219,7 @@ import Observation
             do {
                 let files = try OwnerSetupFiles(directory:storage.directory); defer { files.close() }
                 if let bytes = try files.read(.connection) ?? files.read(.disconnected) {
-                    ownedInstallation = try localHost.removal(connection:JSONDecoder().decode(DeviceConnection.self,from:bytes),directory:storage.directory)
+                    ownedInstallation = try localHost.removal(connection:JSONDecoder().decode(DeviceConnection.self,from:bytes),storage:storage)
                 }
                 reinstallConnection = try MacHostRemoval.completedConnection(files,endpoint:endpoint)
                 try verifyLocalHostRecords(files,endpoint:endpoint)
@@ -208,7 +233,7 @@ import Observation
             inspectOwnerSetup()
         } catch {
             ownerSetupMessage = reinstallConnection != nil
-                ? "Removal was recorded as complete. Check host status and set up Fort again to keep saved conversations."
+                ? "Removal was recorded as complete. Check host status to set up again with any retained conversations."
                 : "Saved host state prevents setup or startup changes. Finish any saved removal and check this installation's identity. Records and credentials have been kept."
         }
     }

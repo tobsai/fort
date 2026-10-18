@@ -20,7 +20,7 @@ function fixture(fullNode=false) {
     put(`${kind}/Contents/Info.plist`,`<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${identifier}</string><key>CFBundleExecutable</key><string>${executable}</string></dict></plist>`);
     put(`${kind}/Contents/MacOS/${executable}`,'inert synthetic code; never execute',0o700);
   }
-  const hostFiles=['main.mjs','core/LICENSE','executor/LICENSE','context/LICENSE','node-openssl.cnf','executor/node-openssl.cnf'];
+  const hostFiles=['main.mjs','history-maintenance.mjs','core/LICENSE','executor/LICENSE','context/LICENSE','node-openssl.cnf','executor/node-openssl.cnf'];
   const files=hostFiles.map(path=>{const bytes=Buffer.from(path.endsWith('.cnf')?'nodejs_conf = fort_node\n[fort_node]\n':'synthetic '+path);put('host/'+path,bytes);return {path,bytes:bytes.length,sha256:hash(bytes)};});
   put('host/manifest.json',JSON.stringify({format:1,artifact:'fort-host-resources',files}));
   const node=Buffer.from('synthetic Node; never execute'),library=Buffer.from('synthetic library'),notice=Buffer.from('synthetic attribution');
@@ -97,6 +97,16 @@ test('Mac assembly removes only its new output after native metadata validation 
   assert.match(result.stderr,/install_name_tool|Mach-O|otool/);
   assert.equal(existsSync(f.destination),false);
   assert.ok(existsSync(join(f.root,'client/Contents/MacOS/FortMac')));
+});
+
+test('Mac assembly requires the offline history maintenance entry even when its manifest agrees', {skip:process.platform!=='darwin'||!codex||!nodeRuntime?'requires explicit reviewed runtime inputs':false},t=>{
+  const f=fixture(true);t.after(()=>rmSync(f.root,{recursive:true,force:true}));
+  const path='history-maintenance.mjs', manifestPath=join(f.root,'host/manifest.json');
+  const metadata=JSON.parse(readFileSync(manifestPath,'utf8'));
+  rmSync(join(f.root,'host',path));metadata.files=metadata.files.filter((entry:{path:string})=>entry.path!==path);
+  writeFileSync(manifestPath,JSON.stringify(metadata));
+  const result=f.run();assert.notEqual(result.status,0);assert.match(result.stderr,/history-maintenance/);
+  assert.equal(existsSync(f.destination),false);
 });
 
 for (const scenario of ['missing-source','changed-notices','unexpected-legal-file']) {

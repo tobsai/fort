@@ -6,7 +6,7 @@ import Testing
 
 private let inheritedKeys = ["com.apple.security.app-sandbox","com.apple.security.inherit"]
 private func programFiles(_ fixture: HostBundleFixture) throws -> [URL] {
-    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs"),fixture.helper.appendingPathComponent("Contents/MacOS/codex"),fixture.helper.appendingPathComponent("Contents/Resources/host/node-openssl.cnf")]
+    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs"),fixture.helper.appendingPathComponent("Contents/MacOS/codex"),fixture.helper.appendingPathComponent("Contents/Resources/host/node-openssl.cnf"),fixture.helper.appendingPathComponent("Contents/Resources/host/history-maintenance.mjs")]
     try FileManager.default.createDirectory(at:files[2].deletingLastPathComponent(),withIntermediateDirectories:true)
     for (index,file) in files.enumerated() {
         try Data((index == 4 ? "nodejs_conf = fort_node\n[fort_node]\n" : "synthetic presence only").utf8).write(to:file)
@@ -29,7 +29,7 @@ private func programSignature(_ fixture: HostBundleFixture, identifier: String) 
         checks.append((url,identifier,team)); return programSignature(fixture,identifier:identifier)
     }
     #expect(result.bundle.helperURL == fixture.helper && result.bundle.applicationURL == fixture.app)
-    #expect(result.executable == files[0] && result.guardian == files[1] && result.bootstrap == files[2])
+    #expect(result.executable == files[0] && result.guardian == files[1] && result.bootstrap == files[2] && result.historyMaintenance == files[5])
     try #require(checks.count == 5)
     #expect(result.codex == files[3] && checks[4].0 == files[3] && checks[4].1 == fixture.endpoint.serviceIdentifier + ".codex")
     #expect(checks[2].0 == files[0] && checks[2].1 == fixture.endpoint.serviceIdentifier + ".node")
@@ -52,7 +52,7 @@ func hostProgramRejectsInvalidInheritedToolAuthority(_ tool: String, _ variant: 
     }
 }
 
-@Test(arguments:[0,1,2,3,4], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
+@Test(arguments:[0,1,2,3,4,5], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
 func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: String) throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     let files = try programFiles(fixture), file = files[index]
@@ -65,7 +65,7 @@ func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: Stri
     case "writable": try FileManager.default.setAttributes([.posixPermissions:0o777],ofItemAtPath:file.path)
     case "oversize":
         let handle = try FileHandle(forWritingTo:file); defer { try? handle.close() }
-        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024,512 * 1024 * 1024,1024]
+        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024,512 * 1024 * 1024,1024,256 * 1024]
         try handle.truncate(atOffset:limits[index] + 1)
     default: break
     }

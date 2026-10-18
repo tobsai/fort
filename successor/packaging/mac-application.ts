@@ -132,7 +132,7 @@ try {
   const hostManifest=manifest(host);
   if (hostManifest.format!==1 || hostManifest.artifact!=='fort-host-resources') throw new Error('Wrong host artifact');
   sameFiles(host,verifiedManifest(host,hostManifest.files,'path','sha256'));
-  for(const name of ['main.mjs','core/LICENSE','executor/LICENSE','context/LICENSE']) recordFile(host,name);
+  for(const name of ['main.mjs','history-maintenance.mjs','core/LICENSE','executor/LICENSE','context/LICENSE']) recordFile(host,name);
   for(const name of ['node-openssl.cnf','executor/node-openssl.cnf']) if(bytes(recordFile(host,name)).toString('utf8')!=='nodejs_conf = fort_node\n[fort_node]\n') throw new Error('Invalid bundled Node configuration');
   const nodeManifest=manifest(node);
   if (nodeManifest.schemaVersion!==1) throw new Error('Wrong Node artifact');

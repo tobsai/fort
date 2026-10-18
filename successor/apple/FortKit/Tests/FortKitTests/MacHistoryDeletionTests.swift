@@ -26,10 +26,10 @@ import Testing
     }
 }
 
-@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_TEST_HISTORY_RESOURCES"] != nil))
+@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_TEST_HOST_RESOURCES"] != nil))
 func nativeHistoryMaintenanceDeletesOnlyAfterCoreExitAndReopensTheSameInstallation() async throws {
     let environment = ProcessInfo.processInfo.environment
-    let resources = URL(fileURLWithPath:try #require(environment["FORT_TEST_HISTORY_RESOURCES"]))
+    let resources = URL(fileURLWithPath:try #require(environment["FORT_TEST_HOST_RESOURCES"]))
     let node = URL(fileURLWithPath:try #require(environment["FORT_TEST_NODE"]))
     let guardian = URL(fileURLWithPath:try #require(environment["FORT_TEST_GUARDIAN"]))
     let source = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

@@ -32,14 +32,24 @@ import Observation
          makeStartup: @escaping @MainActor (MacAgentEndpoint) throws -> MacHostStartup) {
         self.applicationURL = applicationURL; self.inspectBundle = inspectBundle; self.makeStartup = makeStartup
     }
-    func removal(connection: DeviceConnection, directory: URL) throws -> MacHostRemoval {
+    func removal(connection: DeviceConnection, storage: DeviceStorage) throws -> MacHostRemoval {
         guard let identity, endpoint == identity.endpoint, connection.endpoint == .macAgent(identity.endpoint) else { throw OwnerLifecycleError.wrongPairing }
         let startup = try makeStartup(identity.endpoint)
-        return try MacHostRemoval(connection:connection,directory:directory,applicationURL:identity.applicationURL,verifyBundle:{
+        let history = MacHistoryRemovalActions(verifyCredentialAbsent:{
+            guard try storage.ownerSetupCredential(for:connection) == nil else { throw MacHostRemovalError.setupBlocked }
+        },maintain:{ request in
+            let program = try await Task.detached {
+                try MacHostProgram.inspect(helperURL:identity.helperURL,signature:MacHostBundle.codeSignature)
+            }.value
+            guard program.bundle.applicationURL == identity.applicationURL, program.bundle.helperURL == identity.helperURL,
+                  program.bundle.endpoint == identity.endpoint, program.bundle.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
+            return try await program.deleteHistory(request,storage:MacAgentStorage.inspectExisting(for:identity.endpoint))
+        },removeSavedHistory:{ try storage.deleteSavedHistory(for:connection) })
+        return try MacHostRemoval(connection:connection,directory:storage.directory,applicationURL:identity.applicationURL,verifyBundle:{
             let observed = try await self.inspectBundle(identity.applicationURL)
             guard observed.applicationURL == identity.applicationURL, observed.helperURL == identity.helperURL,
                   observed.endpoint == identity.endpoint, observed.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
-        },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3)
+        },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3,historyActions:history)
     }
     public func inspect() async { await perform(enable:false) }
     public func enable() async {

@@ -7,6 +7,9 @@ struct PairingSettingsView: View {
     @State private var action: Action?
     @State private var showConfirmation = false
     @State private var historyTarget: DeviceConnection?
+    #if os(macOS)
+    @State private var hostHistoryTarget: MacHistoryDeletionRequest?
+    #endif
     private enum Action { case stop, disconnect, forget, uninstall, deleteHistory, deleteSavedHistory }
     private var validDays: Int? { guard let value = Int(days), (1...365).contains(value) else { return nil }; return value }
     private var title: String {
@@ -15,7 +18,7 @@ struct PairingSettingsView: View {
         case .disconnect: "Disconnect this device?"
         case .forget: "Forget only this device’s credential?"
         case .uninstall: "Prepare to remove Fort?"
-        case .deleteHistory: "Also delete local history?"
+        case .deleteHistory: "Delete retained host history?"
         case .deleteSavedHistory: "Delete saved history on this device?"
         case nil: "Confirm"
         }
@@ -26,7 +29,12 @@ struct PairingSettingsView: View {
         case .disconnect: "Stops the connected runtime, revokes this pairing and removes its Keychain token. Saved conversations are kept."
         case .forget: "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
         case .uninstall: "Stops the owned host, unregisters startup and removes pairing. Conversation history is kept. Then remove the Fort app using TestFlight or macOS."
-        case .deleteHistory: "Stops the owned host, unregisters startup and removes pairing and local conversation history. History deletion cannot be undone. Then remove the Fort app using TestFlight or macOS."
+        case .deleteHistory:
+            #if os(macOS)
+            "Deletes retained host conversations and this Mac's saved copy for installation \(hostHistoryTarget?.installationID ?? ""). Owner notes, settings, other devices and provider history are kept. This cannot be undone."
+            #else
+            "Host history deletion is available on its owning Mac."
+            #endif
         case .deleteSavedHistory: "Deletes saved conversations, pending submissions and local image previews for installation \(historyTarget?.installationID ?? "") on this device. The host ledger, settings, provider history, other devices and recovery records are kept. This cannot be undone."
         case nil: ""
         }
@@ -34,6 +42,10 @@ struct PairingSettingsView: View {
     private func confirm(_ selected: Action) {
         historyTarget = selected == .deleteSavedHistory ? model.savedHistoryDeletionTarget : nil
         if selected == .deleteSavedHistory && historyTarget == nil { return }
+        #if os(macOS)
+        hostHistoryTarget = selected == .deleteHistory ? model.retainedHostHistoryDeletionTarget : nil
+        if selected == .deleteHistory && hostHistoryTarget == nil { return }
+        #endif
         action = selected; showConfirmation = true
     }
     var body: some View {
@@ -77,12 +89,12 @@ struct PairingSettingsView: View {
             Section("Remove Fort") {
                 Button("Prepare to remove Fort…",role:.destructive) { confirm(.uninstall) }
                     .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
-                Button("Prepare removal and delete local history…",role:.destructive) { confirm(.deleteHistory) }
-                    .disabled(!model.canDeleteLocalHistory || model.isBusy || model.lifecycleBusy)
-                if model.removableAppURL != nil && !model.canDeleteLocalHistory { Text("This installation keeps history during removal.").font(.caption).foregroundStyle(.secondary) }
+                Button("Delete retained host history…",role:.destructive) { confirm(.deleteHistory) }
+                    .disabled(!model.canDeleteRetainedHostHistory)
+                    .accessibilityIdentifier("delete-retained-host-history")
                 if model.removableAppURL == nil { Text("Removal preparation is available after this Mac’s owned host is installed. This development build cannot yet verify its shutdown and startup unregistration.").font(.caption).foregroundStyle(.secondary) }
                 if let ready = model.preparedAppRemoval { Text("Ready for system removal: \(ready.appURL.path)").font(.caption) }
-                Text("History is kept by default. Deleting it requires a separate confirmation.").font(.caption)
+                Text("History is kept by default. To delete it, pause all schedules before preparing removal, finish pairing cleanup, then confirm deletion separately.").font(.caption)
             }
             #endif
         }.formStyle(.grouped).navigationTitle("Pairing and local host")
@@ -91,15 +103,22 @@ struct PairingSettingsView: View {
             Button("Cancel",role:.cancel) {}
             Button("Confirm",role:.destructive) {
                 let selected = action
+                let savedHistoryTarget = historyTarget
+                #if os(macOS)
+                let retainedHistoryTarget = hostHistoryTarget
+                #endif
                 Task {
                     switch selected {
                     case .stop: await model.stopLocalHost(disconnect:false)
                     case .disconnect: await model.stopLocalHost(disconnect:true)
                     case .forget: model.forgetLocalPairing()
                     case .uninstall: await model.prepareForRemoval()
-                    case .deleteHistory: await model.prepareForRemoval(history:.deleteConfirmed)
+                    case .deleteHistory:
+                        #if os(macOS)
+                        if let retainedHistoryTarget { await model.deleteRetainedHostHistory(retainedHistoryTarget) }
+                        #endif
                     case .deleteSavedHistory:
-                        if let historyTarget { model.deleteSavedHistory(historyTarget) }
+                        if let savedHistoryTarget { model.deleteSavedHistory(savedHistoryTarget) }
                     case nil: break
                     }
                 }

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 896112783841a852f83aaa447ba26a975904dec5c2e6a171dae399b743b5d715
+Reviewed content SHA256: b79d991c1ea5bf1209eb1a01e34cf229cdf7f0f773ba6c254c12caf11052a2bc
 
 ### Vendor independence
 Status: planned
@@ -2054,7 +2054,78 @@ and current Ponytail review. Existing LICENSE and NOTICE bytes stay unchanged.
 This refines the accepted packaging task under decision 059; no legal agreement or
 external communication is made on the owner's behalf.
 
+### Native retained host-history confirmation
+
+Compose the existing offline seam as a separate explicit action after completed
+Mac removal. Normal preparation keeps history and verifies stop/revocation/startup
+removal and local credential cleanup. Only then may the owner capture an exact
+installation/device/epoch/deletion identity and confirm deletion of retained host
+history plus this Mac's saved copy. Replace the old disabled combined UI action;
+do not infer a deletion choice from normal removal. All schedules must already be
+paused; the final ledger guard remains authoritative. Other devices, provider history,
+owner notes and settings remain outside the erase scope.
+
+The native coordinator rechecks the exact bundle, confirmed host-removal receipt,
+old observed helper absence, startup-not-registered status, exact disconnected and
+confirmed pairing metadata, absent credential and no pending setup. Hold the existing
+private metadata lease across those checks and maintenance. Persist a versioned
+history-removal journal before launching the fixed maintenance entry. Lost/error replies
+retain the original request for exact retry; reject stale, foreign, malformed or
+future-format progress. Recheck state around awaits, validate the correlated receipt
+and persist it before releasing the lease for guarded saved-copy deletion. Reacquire
+and verify the journal and all absence checks before marking complete. Completion
+requires the owned worker to exit cleanly with its process group absent.
+
+Use only inspected existing App Group storage and the verified bundled Node/guardian/
+maintenance path/OpenSSL configuration with an empty environment. Never create runtime
+storage, invoke Codex, bind a socket or enable startup in this action. Share the native
+process transport and exact storage validator; no alternate executable/host fallback.
+Explicit reinstall retires a saved deletion retry after completed removal/credential
+checks; it cannot undo a deletion that already committed. Update its message to avoid
+claiming an unconfirmed deletion kept all history. Retiring a local request cannot
+replay it: host-removal proof is consumed and a future pairing has a new device scope.
+
+Vendor independence: native lifecycle calls a Fort-owned offline ledger contract,
+no provider. Modularity: private metadata/worker/cache boundaries compose independently
+of transport and runtime. Speed: reuse the 4 KiB/30-second maintenance bounds, bounded
+native cleanup and existing 5-second synthetic maintenance journey target; measure
+20 synthetic coordinator retries against a 500 ms p95 budget separately from code
+signature/OS/provider latency. Installation/removal: explicit exact confirmation,
+no new authority or background process, history preservation remains the default.
+Test durable request-before-launch, lost receipt/cache interruption retry, foreign/
+changed state and startup/helper/credential barriers, cancellation, exact bundled
+entry validation, reinstall retirement and model confirmation. Retain compiled
+maintenance and full native regressions; build both clients. Actual installed Apple/
+provider behavior remains a separate authorized gate. Rollback disables this action
+without deleting journal/data and leaves normal history-preserving removal intact.
+
+Exact files: MacHostRemoval.swift and MacHostRemovalTests.swift; OwnerSetupFiles.swift;
+MacHostControl.swift; MacHostProgram.swift and MacHostProgramTests.swift;
+MessengerModel.swift, PairingSettings.swift and OwnerSetupModelTests.swift; new
+MacHistoryMaintenance.swift and MacHistoryMaintenanceTests.swift under FortKit;
+this spec, v1 ledger, current review and native-history-removal.md evidence. The
+existing legacy generic lifecycle interface remains unsupported for production host
+deletion until its callers are migrated; this slice introduces no enabled fallback.
+This is a refinement of decision 059's separate explicit history choice, not authority
+to erase actual owner data during development.
+
+Packaging consistency: also change `successor/packaging/mac-application.ts` and its
+`mac-application.test.ts` to require the maintenance entry in the verified host
+manifest before any output. A manifest-consistent omission must fail at that seam,
+then the complete payload must assemble. This preserves the same provider-free
+maintenance contract and module boundaries, adds no dependency or startup work,
+and keeps the existing assembly budget. It prevents shipping an incomplete local
+removal path; source, unsigned assembly and installed acceptance stay distinct.
+`MacHistoryDeletionTests.swift` also uses the existing `FORT_TEST_HOST_RESOURCES`
+input prepared by the native job, removing its duplicate history-only fixture
+variable. Verify the journey with only the existing job inputs. This changes test
+selection only, with no new dependency, data scope, runtime cost or CI permission.
+
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MacHistoryMaintenance.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHistoryMaintenanceTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-history-removal.md`
 
 - `successor/packaging/vendor/codex-0.157.1/THIRD-PARTY-NOTICES.zip`
 - `successor/packaging/vendor/codex-0.157.1/THIRD-PARTY-SOURCES.zip`

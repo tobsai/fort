@@ -7,6 +7,7 @@ public struct MacHostProgram: Sendable {
     public let guardian: URL
     public let bootstrap: URL
     public let codex: URL
+    public var historyMaintenance: URL { bootstrap.deletingLastPathComponent().appendingPathComponent("history-maintenance.mjs") }
     public var opensslConfiguration: URL { bootstrap.deletingLastPathComponent().appendingPathComponent("node-openssl.cnf") }
 
     public static func inspect() async throws -> Self {
@@ -33,7 +34,9 @@ public struct MacHostProgram: Sendable {
             guard code.appSandbox, code.inheritsSandbox, code.applicationGroups.isEmpty,
                   Set(code.entitlementKeys) == ["com.apple.security.app-sandbox","com.apple.security.inherit"] else { throw MacHostBundleError.entitlements }
         }
-        try MacHostBundle.withFile(bootstrap,limit:256 * 1024) { _, _ in }
+        for entry in [bootstrap,bootstrap.deletingLastPathComponent().appendingPathComponent("history-maintenance.mjs")] {
+            try MacHostBundle.withFile(entry,limit:256 * 1024) { _, _ in }
+        }
         guard try MacHostBundle.read(bootstrap.deletingLastPathComponent().appendingPathComponent("node-openssl.cnf"),limit:1024) == Data("nodejs_conf = fort_node\n[fort_node]\n".utf8) else { throw MacHostBundleError.configuration }
         return Self(bundle:bundle,executable:node,guardian:guardian,bootstrap:bootstrap,codex:codex)
     }

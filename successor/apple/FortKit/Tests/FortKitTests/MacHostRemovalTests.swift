@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Darwin
+import Security
 import Testing
 @testable import FortKit
 
@@ -112,9 +113,9 @@ private final class RemovalChild {
         let observed = try MacHostProcess.observe(processID:child.process.processIdentifier,effectiveUserID:geteuid())
         recovery = RemovalRecovery(MacHostRecoveryObservation(receipt:MacOwnerRecoveryReceipt(installationID:connection.installationID,deviceID:connection.deviceID,runtimeStopped:true,pairingRevoked:true,coreStopped:true),host:observed))
     }
-    func removal(timeout: TimeInterval = 0.03, verifyBundle: @escaping @MainActor () async throws -> Void = {}, recover: (@Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation)? = nil) throws -> MacHostRemoval {
+    func removal(timeout: TimeInterval = 0.03, verifyBundle: @escaping @MainActor () async throws -> Void = {}, recover: (@Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation)? = nil, historyActions: MacHistoryRemovalActions? = nil) throws -> MacHostRemoval {
         let recovery = self.recovery
-        return try MacHostRemoval(connection:connection,directory:directory,applicationURL:URL(fileURLWithPath:"/synthetic/Fort.app"),verifyBundle:verifyBundle,startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:recover ?? { try await recovery.recover($0) },exitTimeout:timeout)
+        return try MacHostRemoval(connection:connection,directory:directory,applicationURL:URL(fileURLWithPath:"/synthetic/Fort.app"),verifyBundle:verifyBundle,startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:recover ?? { try await recovery.recover($0) },exitTimeout:timeout,historyActions:historyActions)
     }
     func clean() { try? child.finish(); try? FileManager.default.removeItem(at:directory) }
 }
@@ -520,5 +521,212 @@ private func removalPhase(_ directory: URL) throws -> String? {
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination))
     print("Synthetic reinstall reconciliation p95: \(samples.sorted()[18]) ms")
     #expect(samples.sorted()[18] <= 500)
+}
+
+@Test @MainActor func retainedHistoryDeletionPersistsExactIntentBeforeMaintenanceAndRetriesCacheFailure() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    let journal = fixture.directory.appendingPathComponent("history-removal.json")
+    var requests: [MacHistoryDeletionRequest] = [], cacheAttempts = 0, credentialChecks = 0
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{ credentialChecks += 1 },maintain:{ request in
+        let record = try #require(JSONSerialization.jsonObject(with:Data(contentsOf:journal)) as? [String:Any])
+        let stored = try JSONDecoder().decode(MacHistoryDeletionRequest.self,from:JSONSerialization.data(withJSONObject:try #require(record["request"])))
+        #expect(stored == request)
+        requests.append(request)
+        return MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+    },removeSavedHistory:{
+        cacheAttempts += 1
+        if cacheAttempts == 1 { throw URLError(.cannotRemoveFile) }
+    })
+    let first = try fixture.removal(historyActions:actions)
+    let request = try first.historyDeletionRequest(recoveryEpoch:"old-epoch")
+    #expect(request.installationID == fixture.connection.installationID && request.deviceID == fixture.connection.deviceID)
+    await #expect(throws:URLError.self) { try await first.deleteRetainedHistory(request) }
+    let restarted = try fixture.removal(historyActions:actions)
+    #expect(try restarted.historyDeletionRequest(recoveryEpoch:nil) == request)
+    let receipt = try await restarted.deleteRetainedHistory(request)
+    #expect(receipt.recoveryEpoch == "new-epoch" && requests == [request,request])
+    #expect(cacheAttempts == 2 && credentialChecks >= 4)
+    let final = try #require(JSONSerialization.jsonObject(with:Data(contentsOf:journal)) as? [String:Any])
+    #expect(final["complete"] as? Bool == true)
+    #expect(await fixture.backend.registrations == 0)
+    #expect(await fixture.backend.removals == 1)
+    #expect(await fixture.recovery.calls == 1)
+}
+
+@Test @MainActor func retainedHistoryDeletionRechecksJournalAfterCredentialInspectionBeforeMaintenance() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    let journal = fixture.directory.appendingPathComponent("history-removal.json")
+    var calls = 0
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{
+        if FileManager.default.fileExists(atPath:journal.path) { try Data("changed during credential inspection".utf8).write(to:journal) }
+    },maintain:{ request in
+        calls += 1
+        return MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+    },removeSavedHistory:{ Issue.record("Cache deletion must not start") })
+    let removal = try fixture.removal(historyActions:actions), request = try removal.historyDeletionRequest(recoveryEpoch:"old-epoch")
+    await #expect(throws:(any Error).self) { try await removal.deleteRetainedHistory(request) }
+    #expect(calls == 0)
+}
+
+private struct AbsentHistoryCredentials: DeviceCredentials {
+    func save(_ connection: DeviceConnection, token: String) throws { throw DeviceStorageError.removalUnavailable }
+    func token(for connection: DeviceConnection) throws -> String { throw DeviceStorageError.keychain(errSecItemNotFound) }
+}
+
+@Test(arguments:["startup","startup-changed","live-helper","credential","bundle","requested","recovered","future-host","active-connection","pending","unconfirmed-pairing","foreign-pairing","future-history","malformed-history","foreign-request"])
+@MainActor func retainedHistoryDeletionRefusesUnverifiedStateBeforeMaintenance(_ barrier: String) async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    var calls = 0
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{
+        if barrier == "credential" { throw DeviceStorageError.keychain(errSecInteractionNotAllowed) }
+    },maintain:{ request in
+        calls += 1
+        return MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+    },removeSavedHistory:{ Issue.record("Cache deletion must not start") })
+    let removal = try fixture.removal(verifyBundle:{ if barrier == "bundle" { throw MacHostBundleError.signature } },historyActions:actions)
+    let request = try removal.historyDeletionRequest(recoveryEpoch:"old-epoch")
+    let live = barrier == "live-helper" ? try RemovalChild() : nil
+    defer { try? live?.finish() }
+    if barrier == "startup" { await fixture.backend.setStatus(.enabled) }
+    if barrier == "startup-changed" { await fixture.backend.reenableOnNextInspection() }
+    do {
+        let files = try OwnerSetupFiles(directory:fixture.directory); defer { files.close() }
+        if ["requested","recovered","future-host","live-helper"].contains(barrier) {
+            var host = try #require(JSONSerialization.jsonObject(with:Data(contentsOf:fixture.progressURL)) as? [String:Any])
+            if barrier == "requested" { host["phase"] = "requested"; host.removeValue(forKey:"receipt"); host.removeValue(forKey:"host") }
+            if barrier == "recovered" { host["phase"] = "recovered" }
+            if barrier == "future-host" { host["version"] = 2 }
+            if let live {
+                let observed = try MacHostProcess.observe(processID:live.process.processIdentifier,effectiveUserID:geteuid())
+                host["host"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(observed.record))
+            }
+            try files.write(JSONSerialization.data(withJSONObject:host),to:.hostRemoval)
+        }
+        if barrier == "active-connection" { try files.write(JSONEncoder().encode(fixture.connection),to:.connection) }
+        if barrier == "pending" { try files.write(Data("{}".utf8),to:.pending) }
+        if barrier == "unconfirmed-pairing" { try files.write(JSONEncoder().encode(PairingRemovalIntent(connection:fixture.connection,state:.locallyForgotten)),to:.removal) }
+        if barrier == "foreign-pairing" {
+            let other = try DeviceConnection(endpoint:fixture.connection.endpoint,installationID:"foreign",deviceID:"device")
+            try files.write(JSONEncoder().encode(PairingRemovalIntent(connection:other,state:.confirmed)),to:.removal)
+        }
+        if barrier == "future-history" {
+            let record: [String:Any] = ["version":2,"connection":try JSONSerialization.jsonObject(with:JSONEncoder().encode(fixture.connection)),"request":try JSONSerialization.jsonObject(with:JSONEncoder().encode(request)),"complete":false]
+            try files.write(JSONSerialization.data(withJSONObject:record),to:.historyRemoval)
+        }
+        if barrier == "malformed-history" { try files.write(Data("{}".utf8),to:.historyRemoval) }
+    }
+    let supplied = barrier == "foreign-request" ? try MacHistoryDeletionRequest(installationID:"foreign",deviceID:request.deviceID,recoveryEpoch:request.recoveryEpoch,deletionID:request.deletionID) : request
+    await #expect(throws:(any Error).self) { try await removal.deleteRetainedHistory(supplied) }
+    #expect(calls == 0)
+    #expect(await fixture.backend.registrations == 0)
+    #expect(await fixture.backend.removals == 1)
+}
+
+@Test(arguments:["lost-reply","wrong-receipt","cancel","cache-changed","busy"])
+@MainActor func retainedHistoryDeletionKeepsExactRetryAfterUnconfirmedEffects(_ failure: String) async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    var fail = true, calls = 0, cacheCalls = 0
+    var removal: MacHostRemoval?
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{},maintain:{ request in
+        calls += 1
+        if fail && failure == "lost-reply" { throw URLError(.networkConnectionLost) }
+        if fail && failure == "cancel" { withUnsafeCurrentTask { $0?.cancel() } }
+        if failure == "busy", let removal {
+            await #expect(throws:MacHostRemovalError.busy) { try await removal.deleteRetainedHistory(request) }
+            let another = try fixture.removal(historyActions:MacHistoryRemovalActions(verifyCredentialAbsent:{},maintain:{ _ in throw ClientError.invalidResponse },removeSavedHistory:{}))
+            await #expect(throws:(any Error).self) { try await another.deleteRetainedHistory(request) }
+        }
+        return MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:fail && failure == "wrong-receipt" ? "foreign" : request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+    },removeSavedHistory:{
+        cacheCalls += 1
+        if fail && failure == "cache-changed" {
+            let files = try OwnerSetupFiles(directory:fixture.directory); defer { files.close() }
+            try files.write(Data("changed".utf8),to:.historyRemoval)
+        }
+    })
+    let coordinator = try fixture.removal(historyActions:actions); removal = coordinator
+    let request = try coordinator.historyDeletionRequest(recoveryEpoch:"old-epoch")
+    if failure == "busy" { _ = try await coordinator.deleteRetainedHistory(request); return }
+    let work = Task { try await coordinator.deleteRetainedHistory(request) }
+    await #expect(throws:(any Error).self) { try await work.value }
+    #expect(calls == 1 && cacheCalls == (failure == "cache-changed" ? 1 : 0))
+    if failure == "cache-changed" {
+        #expect(throws:(any Error).self) { try coordinator.historyDeletionRequest(recoveryEpoch:nil) }
+        return
+    }
+    #expect(try coordinator.historyDeletionRequest(recoveryEpoch:nil) == request)
+    let changed = try MacHistoryDeletionRequest(installationID:request.installationID,deviceID:request.deviceID,recoveryEpoch:request.recoveryEpoch,deletionID:"different-confirmation")
+    await #expect(throws:MacHostRemovalError.changedProgress) { try await coordinator.deleteRetainedHistory(changed) }
+    #expect(calls == 1)
+    fail = false
+    _ = try await coordinator.deleteRetainedHistory(request)
+    #expect(calls == 2 && cacheCalls == 1)
+}
+
+@Test @MainActor func retainedHistoryDeletionRetryIsRetiredOnlyByExplicitReinstall() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    var calls = 0
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{},maintain:{ _ in calls += 1; throw URLError(.networkConnectionLost) },removeSavedHistory:{})
+    let removal = try fixture.removal(historyActions:actions), request = try removal.historyDeletionRequest(recoveryEpoch:"old-epoch")
+    await #expect(throws:URLError.self) { try await removal.deleteRetainedHistory(request) }
+    #expect(try removal.historyDeletionRequest(recoveryEpoch:nil) == request)
+    try await removal.prepareForSetup {}
+    #expect(!FileManager.default.fileExists(atPath:fixture.directory.appendingPathComponent("history-removal.json").path))
+    await #expect(throws:(any Error).self) { try await removal.deleteRetainedHistory(request) }
+    #expect(calls == 1)
+    #expect(await fixture.backend.registrations == 0)
+}
+
+@Test @MainActor func retainedHistoryDeletionCoordinatorRetryBudget() async throws {
+    guard let destination = ProcessInfo.processInfo.environment["FORT_HISTORY_REMOVAL_BENCHMARK"] else { return }
+    var samples: [Double] = []
+    for _ in 0..<20 {
+        let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+        var interrupted = true
+        let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{},maintain:{ request in
+            MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+        },removeSavedHistory:{ if interrupted { throw URLError(.cannotRemoveFile) } })
+        let first = try fixture.removal(historyActions:actions), request = try first.historyDeletionRequest(recoveryEpoch:"old-epoch")
+        await #expect(throws:URLError.self) { try await first.deleteRetainedHistory(request) }
+        interrupted = false
+        let restarted = try fixture.removal(historyActions:actions), start = ContinuousClock.now
+        _ = try await restarted.deleteRetainedHistory(restarted.historyDeletionRequest(recoveryEpoch:nil))
+        let duration = start.duration(to:.now).components
+        samples.append(Double(duration.seconds) * 1000 + Double(duration.attoseconds) / 1e15)
+    }
+    try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination))
+    print("Synthetic history coordinator retry p95: \(samples.sorted()[18]) ms")
+    #expect(samples.sorted()[18] <= 500)
+}
+@Test @MainActor func retainedHostHistoryModelUsesCapturedIdentityAndClearsOnlyAfterBothScopesComplete() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    let storage = try DeviceStorage(directory:fixture.directory,credentials:AbsentHistoryCredentials())
+    let installation = try JSONDecoder().decode(Installation.self,from:Data("{\"contractVersion\":\"1.0\",\"installationId\":\"installation\",\"recoveryEpoch\":\"old-epoch\",\"mode\":\"local\",\"serviceName\":\"Synthetic\"}".utf8))
+    try storage.saveNavigation(SavedNavigation(installation:installation,agents:[],selectedAgentID:nil))
+    var requests: [MacHistoryDeletionRequest] = []
+    let actions = MacHistoryRemovalActions(verifyCredentialAbsent:{
+        let credential = try storage.ownerSetupCredential(for:fixture.connection)
+        #expect(credential == nil)
+    },maintain:{ request in
+        requests.append(request)
+        return MacHistoryDeletionReceipt(installationId:request.installationID,deviceId:request.deviceID,deletionId:request.deletionID,previousRecoveryEpoch:request.recoveryEpoch,recoveryEpoch:"new-epoch",deletedRecords:4)
+    },removeSavedHistory:{ try storage.deleteSavedHistory(for:fixture.connection) })
+    let removal = try fixture.removal(historyActions:actions)
+    let model = MessengerModel(storage:storage,session:.shared,ownedInstallation:removal)
+    await model.restore()
+    let captured = try #require(model.retainedHostHistoryDeletionTarget)
+    let stale = try MacHistoryDeletionRequest(installationID:"another-installation",deviceID:captured.deviceID,recoveryEpoch:captured.recoveryEpoch,deletionID:captured.deletionID)
+    await model.deleteRetainedHostHistory(stale)
+    #expect(requests.isEmpty && model.installation != nil)
+    #expect(try storage.navigation(installationID:"installation") != nil)
+    await model.deleteRetainedHostHistory(captured)
+    #expect(requests == [captured])
+    #expect(model.installation == nil && model.pending.isEmpty && model.localImages.isEmpty)
+    #expect(!model.canDeleteRetainedHostHistory)
+    #expect(model.status == "Host history and this Mac's saved copy deleted")
+    #expect(try storage.navigation(installationID:"installation") == nil)
+    let reopened = MessengerModel(storage:storage,session:.shared,ownedInstallation:try fixture.removal(historyActions:actions))
+    await reopened.restore()
+    #expect(reopened.retainedHostHistoryDeletionTarget == nil && requests.count == 1)
 }
 #endif
