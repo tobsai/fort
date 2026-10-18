@@ -6,6 +6,7 @@ import FortKit
     @State private var startupError: String?
     private var windowTitle: String {
         #if FORT_INTERACTIVE_QA
+        if ProcessInfo.processInfo.arguments.contains("--qa-phone") { return "Fort QA — Phone controls (synthetic)" }
         return ProcessInfo.processInfo.arguments.contains("--qa-account") ? "Fort QA — Account controls (synthetic)" : "Fort QA — First-wave interactive fixture"
         #else
         return "Fort"
@@ -16,7 +17,8 @@ import FortKit
             Group {
                 if let model {
                     #if FORT_INTERACTIVE_QA && DEBUG && os(macOS)
-                    if ProcessInfo.processInfo.arguments.contains("--qa-account") { AccountSignInFixtureView(model:model) }
+                    if ProcessInfo.processInfo.arguments.contains("--qa-phone") { CompanionSetupFixtureView(model:model) }
+                    else if ProcessInfo.processInfo.arguments.contains("--qa-account") { AccountSignInFixtureView(model:model) }
                     else { MessengerView(model:model) }
                     #else
                     MessengerView(model:model)
@@ -36,6 +38,10 @@ import FortKit
                         session = id.uuidString.lowercased()
                     } else { session = UUID().uuidString.lowercased() }
                     #if os(macOS)
+                    if arguments.contains("--qa-phone") {
+                        model = try await CompanionSetupFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortPhoneQA-" + session,isDirectory:true),expired:arguments.contains("--qa-phone-expired"))
+                        return
+                    }
                     if arguments.contains("--qa-account") {
                         model = try await AccountSignInFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + session,isDirectory:true))
                         return
@@ -62,13 +68,18 @@ import FortKit
                     let created: MessengerModel
                     #if os(macOS)
                     #if DEBUG
-                    if isUITest { created = try MessengerModel(directory:directory) }
+                    if isUITest { created = try MessengerModel(fixtureDirectory:directory) }
                     else { created = try MessengerModel(directory:directory,localHost:MacHostControl()) }
                     #else
                     created = try MessengerModel(directory:directory,localHost:MacHostControl())
                     #endif
                     #else
+                    #if DEBUG
+                    if isUITest { created = try MessengerModel(fixtureDirectory:directory) }
+                    else { created = try MessengerModel(directory:directory) }
+                    #else
                     created = try MessengerModel(directory:directory)
+                    #endif
                     #endif
                     #if DEBUG
                     if isUITest {

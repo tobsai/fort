@@ -19,6 +19,7 @@ public struct CompanionJoinReceipt: Decodable, Sendable {
 public struct PendingCompanionSetup: Equatable, Sendable {
     public let connection: DeviceConnection
     public let invitationID: String
+    public let deviceName: String
     public let credentialPrepared: Bool
     public let removalState: PairingRemovalIntent.State?
 }
@@ -134,7 +135,7 @@ extension CompanionPlan {
         let files = try OwnerSetupFiles(directory:storage.directory); defer { files.close() }
         guard let (plan,_) = try read(files) else { return nil }
         try isolation(files); try matchingConnection(plan,files)
-        return PendingCompanionSetup(connection:plan.connection,invitationID:plan.invitationID,credentialPrepared:plan.credentialSHA256 != nil,removalState:plan.removalState)
+        return PendingCompanionSetup(connection:plan.connection,invitationID:plan.invitationID,deviceName:plan.deviceName,credentialPrepared:plan.credentialSHA256 != nil,removalState:plan.removalState)
     }
     public func disconnectPending() async throws {
         try Task.checkCancellation()

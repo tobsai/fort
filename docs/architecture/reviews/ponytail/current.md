@@ -1,135 +1,155 @@
-What this repo does: Fort is a single-owner native messenger with a durable Node
-core and optional runtimes. This slice prepares one phone companion for an exact
-Mac host, with no shared hosting or automatic identity fallback.
+What this repo does: Fort is a single-owner native messenger backed by a modular
+Node service and optional runtimes. This review assumes one owning Mac and one
+companion phone, with no shared hosting. The donor remains quarantined.
 
-Codex self-review, October 18, 2026, base 83effc5. Read the complete new preparation
-coordinator and tests, versioned connection decoding, credential helpers, join/leave
-client checks and changed model/owner/account/history callers. Traced the protected
-journal before every effect and after awaits, interrupted token preparation, uncertain
-join, exact recovery, cancellation/forgetting and partial cleanup. Reviewed the old
-removal reconciliation and expired-phone authority against the service's companion
-contract. The whole-repository baseline is preserved; no fresh whole-tree or dead-code
-claim is made. The parked source was selectively restored without replacing newer work.
+Reviewer: Codex primary implementation agent, October 18, 2026. Base:
+`b0caff657c328b345c29d18456ef60f6948c6aab`. This is a proportionate semantic review,
+not an independent reviewer claim. The whole-tree baseline is preserved.
 
-## Must fix
+Reviewed all staged source, tests, spec changes and evidence; traced ordinary
+FortApp/MessengerView construction, pending setup through CompanionSetupCoordinator,
+private storage and credential continuity, restore/refresh, removal, history clearing,
+account/host guards and DEBUG-only composition. Checked existing native UI-test
+callers before changing initialization. No code was declared unused. The unchanged
+service, TLS adapter and provider implementation were not re-audited line by line.
+The pinned Ponytail skill was read as text; no upstream script or plugin ran.
 
-1. **Pending setup could overwrite unrelated recovery state — fixed.**
-   - What this is: A new phone setup shares the protected local journal directory.
-   - Problem: The parked code generated a credential and joined despite an older unconfirmed removal. A competing owner setup also contacted its host and published another connection.
-   - Fix: Require exact confirmed historical removal or matching current cleanup; block competing owner setup before host contact and recheck after awaits. Both original regressions now pass.
-   - If skipped: One flow could hide another unresolved grant or change the user's selected host.
+## Must fix before v1 acceptance
 
-2. **Other operations ignored a pending phone or account flow — fixed.**
-   - What this is: Owner setup, account setup and saved-history removal share that directory.
-   - Problem: New public regressions showed overlapping account/phone work and history deletion during phone preparation.
-   - Fix: Reciprocal guards reject these operations before credentials, requests or deletion. Existing account, owner and deletion regressions remain green.
-   - If skipped: Setup/removal truth could diverge between independently valid operations.
+1. **The owning Mac cannot yet issue an invitation through ordinary controls.**
+   - What this is: The phone form consumes the existing exact invitation contract.
+   - Problem: A user still lacks composed Mac invitation and secure-listener controls;
+     native phone source alone cannot connect the two installed products.
+   - Fix: Implement that bounded Mac lifecycle next, with public behavior tests and
+     explicit identity/trust/credential authority before activation.
+   - If we skip it: The form exists but an ordinary owner cannot complete setup.
+   - Disposition: Open, carried in the acceptance ledger; no listener was enabled.
 
-3. **Unknown phone journal fields were silently accepted — fixed.**
-   - What this is: Lost replies restore the prepared journal and credential.
-   - Problem: An added field was ignored and the changed record was adopted; the public test observed extra requests and a published connection.
-   - Fix: Strict key decoding rejects changed schemas before recovery requests and preserves the record. Late-response byte checks protect already-running work.
-   - If skipped: Changed recovery evidence could be treated as the original intent.
+2. **Actual device and distribution acceptance is still missing.**
+   - What this is: Swift compile, synthetic Mac UI and in-process protocol tests.
+   - Problem: They cannot prove actual iPhone Keychain, TLS trust, installed host,
+     provider access or TestFlight availability. CLI cold QA launch needed a normal
+     reopen event to show a window, and alert AX Cancel returned -25205.
+   - Fix: Verify the exact authorized installed Mac/iPhone builds, ordinary launch,
+     confirmation interactions, provider journey and Apple distribution separately.
+   - If we skip it: We could label a tested source slice as a usable delivered app.
+   - Disposition: Open. Mandatory external approvals remain pending; no workaround
+     certificate, trust, account, network or startup grant was introduced.
 
-4. **An expired phone lost its leave authority — fixed.**
-   - What this is: Ordinary status reads may be denied after pairing expiry.
-   - Problem: The model could no longer identify the saved connection as a companion or request exact leave.
-   - Fix: Schema 4 retains companion role only for HTTPS. The model permits only that phone's leave recovery and rejects contradictory role responses; host/account controls remain unavailable.
-   - If skipped: Disconnect recovery would depend on a still-valid ordinary status read.
+## Fixed in this slice
 
-5. **Ordinary phone setup is not composed yet — open.**
-   - What this is: The coordinator and public model recovery are now available.
-   - Problem: The normal connection/settings UI and Mac invitation/secure-listener lifecycle still need composition.
-   - Fix: Add the explicit import/retry/recovery/revoke controls and exact Mac invitation/lifecycle path, then inspect their synthetic UI before real device acceptance.
-   - If skipped: Passing coordinator tests would be mistaken for usable phone setup.
+3. **Expired phone access hid disconnect and offered misleading controls.**
+   - What this is: PairingSettings previously placed disconnect inside ordinary
+     management access; the first new QA build also retained an expiry editor.
+   - Problem: An expired credential could leave the owner without visible phone-only
+     removal, while the status text claimed a pending chat existed.
+   - Fix: Expose exact leave separately, require verified access for expiry edits,
+     and show a phone-specific unconfirmed-access message. Observed model regressions
+     went red then green; final expired screenshot/AX shows the correction.
+   - If we skip it: The owner cannot understand or act on the expired pairing safely.
+   - Disposition: Fixed, including phone-only confirmation and no host/account UI.
 
-6. **Actual device and delivery acceptance remains open.**
-   - What this is: Real use needs exact Apple, Keychain, HTTPS trust and provider authority.
-   - Problem: These builds/tests use disposable memory credentials, protocol fixtures and unsigned clients.
-   - Fix: Continue authorized source composition, then perform only approved credential/trust/startup/provider actions and verify installed physical/TestFlight behavior.
-   - If skipped: Fixture success would overstate privacy, lifecycle and delivery acceptance.
+4. **A lost join response needed explicit native recovery and removal choices.**
+   - What this is: The durable coordinator existed without ordinary phone controls.
+   - Problem: A generic enrollment form could not represent a prepared invitation,
+     exact retry, local forgetting or the retained history of an earlier installation.
+   - Fix: Use the coordinator in the ordinary iPhone model/form. Reopen reads pending
+     state only; explicit recovery reuses its credential, clears stale draft display,
+     and refuses a changed connection or stale forget target. Confirmed cancellation
+     and unconfirmed local forgetting have different new-pairing availability.
+   - If we skip it: Users can misread an uncertain result or carry a prior draft into
+     a different installation.
+   - Disposition: Fixed through public model tests and inspected synthetic controls.
 
-No new dependency, provider path, process launcher or credential store was introduced.
-The existing guarded private-file lease owns atomic writes, mode/owner/ACL/link checks
-and durability. Current preparation adds one bounded journal; no code or token is
-written to it. Confirmed history is kept unless separately removed. No lean finding.
+5. **New ordinary setup would break the existing DEBUG enrollment UI tests.**
+   - What this is: Existing NativeJourneyTests explicitly select a UUID UI-test session.
+   - Problem: Routing every iPhone initialization to invitations hides those tests'
+     existing loopback enrollment controls.
+   - Fix: Retain an explicit DEBUG-only initializer constrained to UITests/UUID, used
+     only by the existing test flag/session combination. Ordinary and Release paths
+     retain companion setup. The path guard was tested red then green.
+   - If we skip it: Future native test runs fail for a composition change unrelated
+     to the behaviors those tests exercise.
+   - Disposition: Fixed in source/build; actual simulator execution remains blocked
+     by the existing CoreSimulator version mismatch.
 
-Verdict: Phone preparation and exact recovery are verified synthetically. Complete
-ordinary UI/lifecycle composition and external acceptance before calling it usable.
-Not checked: Real Keychain, TLS identity/trust, LAN, startup, provider/certificate/account
-actions, current installed phone UI, physical devices, remote CI or TestFlight. The
-prior Mac review package is preserved at 83effc5 and was not relabeled or activated.
+Verdict: Commit the bounded phone-control slice. Continue Mac invitation/listener
+composition; do not claim installed-product or v1 acceptance.
+
+Not checked: actual accounts, provider runtime, Keychain, LAN/TLS/trust, background
+registration, ordinary installed cold launch, actual alert Cancel activation, physical
+Mac/iPhone acceptance, signed archives, upload/processing/TestFlight availability,
+remote CI and provider closure. The final native suite passed 307 functions with 14
+optional skips; this slice's isolated p95 is 25.541 ms under 100 ms. Fresh QA/Mac/iPhone
+builds, Release compilation, QA signature, exact screenshots and QA absence passed.
+Portable service tests were not repeated for this Swift-only slice. Full evidence:
+[phone controls](../../../successor/evidence/2026-10-17-node-foundation/native-companion-controls.md).
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "83effc5435a29abd6c910078f1558989a4960add",
-  "reviewer": "Codex",
-  "scope": "Durable native companion preparation and exact recovery, role-preserving connection schema, reciprocal owner/account/history isolation, expired-phone leave authority, tests, spec and evidence.",
+  "reviewedCommit": "b0caff657c328b345c29d18456ef60f6948c6aab",
+  "reviewer": "Codex primary implementation agent",
+  "scope": "Ordinary native phone setup, exact recovery/removal, expired access controls, DEBUG-only fixture and reviewed evidence; single owner and one phone",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Final native suite: 300 passed, 13 optional skips, zero failed; Swift Testing reports 313 including skips. Explicit --no-parallel and current compiled resource inputs.",
-    "Prepared-phone/schema focus: 15 passed, one benchmark skip; expired-phone/account/companion regressions also passed together.",
-    "Observed public red cases: unconfirmed older removal, competing owner/account/history work, changed journal fields and expired-phone leave. Corrected runs passed.",
-    "20 serial prepare/lost-reply/recover samples after five warmups: p95 30.543625 ms, maximum 31.051708 ms, under 100 ms.",
-    "Fresh unsigned Mac/iPhone Simulator Debug builds and FortKit Release compilation passed; complete file inventories recorded."
+    "Final serial native suite: 307 functions passed, 14 optional skips, zero failures (321 reported).",
+    "Seven phone/legacy focus functions passed, one performance skip; 14 affected lifecycle functions passed after expired UI correction.",
+    "20 isolated samples after five warmups: p50 23.772 ms, p95 25.541 ms, maximum 26.238 ms, under 100 ms.",
+    "Fresh QA/Mac/iPhone builds and Release compilation passed; QA strict signature and sandbox entitlements verified.",
+    "Exact final synthetic AX/screenshots for preparation, reopen, recovery and expired leave; exact QA process count zero.",
+    "Actual provider/Keychain/LAN/trust/device/TestFlight and simulator execution unrun; alert AX Cancel failed with -25205; normal QA termination succeeded."
   ],
   "exceptions": [
-    "Proportionate review with the existing pinned baseline retained; no fresh whole-tree or dead-code assurance.",
-    "No actual credential, trust, LAN, startup, provider, certificate, physical device or TestFlight action. Simulator execution blocked by existing CoreSimulator version mismatch.",
-    "Public coordinator/model foundation only; ordinary pairing UI and Mac invitation/secure-listener composition remain open. Previous source/fixture/package milestones remain distinct."
+    "Synthetic in-process responses and memory credentials establish source/UI behavior only.",
+    "Preserve the prior account-revision inert review package; no new archive, deployment, provider cleanup or certificate action."
   ],
   "findings": [
     {
-      "id": "PHONE-OLDER-REMOVAL",
-      "detail": "Unconfirmed historical removal and competing primary setup initially allowed effects. Exact receipt reconciliation and owner guards now reject before host/credential effects.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-CROSS-OPERATION",
-      "detail": "Pending phone/account/history operations were not reciprocally isolated. New public regressions pass with guarded shared records.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-JOURNAL",
-      "detail": "Unknown saved-plan fields were silently adopted; strict decoding now rejects before recovery requests and retains evidence.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-EXPIRED-LEAVE",
-      "detail": "Expired phone restore lost companion identity. Versioned role now permits only exact leave recovery and excludes host/account authority.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-COMPOSITION",
-      "detail": "Ordinary invitation/preparation/recovery UI and exact secure-listener lifecycle remain to compose; acceptance ledger records this next step.",
+      "id": "PHONE-MAC-COMPOSITION",
+      "detail": "Ordinary Mac invitation and secure-listener lifecycle remain uncomposed.",
       "disposition": "open"
     },
     {
-      "id": "PHONE-EXTERNAL-ACCEPTANCE",
-      "detail": "Actual Keychain/TLS/trust/device/installed-provider/TestFlight verification remains separate and unperformed.",
+      "id": "PHONE-INSTALLED-ACCEPTANCE",
+      "detail": "Actual trust/Keychain/provider/device/TestFlight, ordinary cold-window and alert Cancel acceptance remain unverified.",
       "disposition": "open"
+    },
+    {
+      "id": "PHONE-EXPIRED-CONTROLS",
+      "detail": "Expired leave is visible independently; expiry editing and messages require verified access.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "PHONE-RECOVERY-CONTROLS",
+      "detail": "Explicit pending recovery, captured confirmation, credential continuity and history/draft isolation are composed and tested.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "PHONE-LEGACY-UI-TESTS",
+      "detail": "Preserved explicitly scoped DEBUG-only loopback UI-test initialization.",
+      "disposition": "fixed"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "7556f775e054c2b5afdaeb4a8c4d063c9a3c8ef1637d6ea855dbef1285b4b562",
-    "successor/V1-ACCEPTANCE.md": "513d75661ca72b4392d4e10a5cd53de7e524c3934bfe9876842fc2ffd707db4c",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift": "44fc7cba2ed8a995a9d7567efa59862c0da5429634c31f28ed07b56dcea6c883",
-    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "829c9a1ef7afa30ec81b29d031ce4ec9d7f9144754d4e822b126240fabe4335e",
-    "successor/apple/FortKit/Sources/FortKit/DeviceConnection.swift": "beb283860a0768dab035951ed2ecb4b141bfc9daebf310bb2809a3d0cfbacc79",
-    "successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift": "c3866f0e512b4867504e87252a3eb8ee8696a830ca2ac3502485e43925a72c33",
-    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "ec62260d1e1ee471f83b83240a810f4969fd8c39d4d970775575a65baa47ae2d",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "5cf4e517319e53de94826627d675b480ffe3f382a2b7930b0b75c6d487ce4d93",
-    "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift": "1d8571079e5c21f228426d4b58e552d14c7ba21888f8a2f46fe327499f57d74d",
-    "successor/apple/FortKit/Sources/FortKit/OwnerSetupPreparation.swift": "d648f94478e09d0603db8d56222e4aa5e8a6a4270b88a02556127a089c918465",
-    "successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift": "d03183e71305f1627c817937fd45571d43f0dd31ba3b06bedc12abb8b813f4de",
-    "successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift": "0d2ee2ee249c8365c0f7e02f8f425ced0e2995cd833a3c02d546be6151c8bf4b",
-    "successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift": "d80e10ec2af82efa83f494d9340bd383a5060458663e43b2ffc140b88f7472b9",
-    "successor/apple/FortKit/Tests/FortKitTests/CompanionSetupTests.swift": "028c25045f0b05f6de0553993c5403886ec465944389594fe9f60f9028d3c18b",
-    "successor/evidence/2026-10-17-node-foundation/native-companion-setup.md": "e273cc3d584ae322f3011e1ee5f64a1661cd3e4372e7210f3829ddeda84d2376"
+    "specs/059-modular-node-v1.md": "662d35afbe8e6d35b026b79ac7f56dedda7322f2e6ea5437b1d223903027b166",
+    "successor/V1-ACCEPTANCE.md": "c8de06efe67eebfa6fd3ce7801fed7f05092a45cddfdc72a609b252073e2f733",
+    "successor/apple/Apps/FortApp.swift": "3e7f87ae99f388b56a1cf478c3c969dd24426dfd922855f60337fa9cbdf72722",
+    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "bd4bf30bd9446637a584a74898e31e4755184e3c57dfd8bb12879a7466d5a6ee",
+    "successor/apple/FortKit/Sources/FortKit/CompanionSetupFixture.swift": "c79a57b441114c8b01596ea9c3b25ef89df77462c6df90f5f13019e6be202f03",
+    "successor/apple/FortKit/Sources/FortKit/CompanionSetupView.swift": "bc981739156b68fb25a1867eb2058eb4e2502e0f50478abfd25e30c84faa8cb1",
+    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "caa1eb587ddf12fd2695536d2e6c54199e8b4cd3cde33f33a975be51a1e3c6b4",
+    "successor/apple/FortKit/Sources/FortKit/MessengerView.swift": "9ea305852bd8792187d80b09f5b73efa306f3901d17d04515e9b4667a5de35e6",
+    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "35ae83a2d4a8a41d26ae3e36dc06421d3f2381fd71d232037999799e79f48c17",
+    "successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift": "1f057f441a63f17ad891154eb74c744a06b701564a55db5f10d27aebad61fe08",
+    "successor/evidence/2026-10-17-node-foundation/native-companion-controls.md": "f4eca5c9e03d7e65d07476acd7e5fc4a34277401be82c3b02174d49ae7d628f6",
+    "successor/evidence/2026-10-17-node-foundation/phone-controls-expired.png": "91fddc939e91abd8ef709fda8efaa64fdf0002b5e7076489d563bf5bcb5b1bfc",
+    "successor/evidence/2026-10-17-node-foundation/phone-controls-paired.png": "c675e2aa4607239e843be0a7ff0cdebf98f77187f8e4e98586461fa61c03f8a3",
+    "successor/evidence/2026-10-17-node-foundation/phone-controls-prepared.png": "dca0ecdbffabec6a95c09196df09031558369ff3043746d107d0c9ee4297e170",
+    "successor/evidence/2026-10-17-node-foundation/phone-controls-reopened.png": "ac3c429fc41ed6bc97d649cbb9fbb1eef3a2fbddb0b5720de3724dfadd961458"
   }
 }
 ```

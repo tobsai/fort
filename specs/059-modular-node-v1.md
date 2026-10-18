@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 4b6fa5e10941fd54b30256a16edea8dc217d3535845ca4d78f9a937bfd5751c8
+Reviewed content SHA256: 40e4bc2d99d758da005c5750fe630f3b7445374328bb103982c3b2827706d68e
 
 ### Vendor independence
 Status: planned
@@ -2600,7 +2600,73 @@ CompanionLifecycleTests.swift; this spec, v1 ledger, current Ponytail review and
 evidence native-companion-setup.md. Source and fixtures remain distinct from actual
 Keychain, HTTPS, physical-device, installed-UI and TestFlight acceptance.
 
+### Ordinary native phone setup controls
+
+Continue decision 059 from b0caff6. Compose the prepared companion coordinator into
+ordinary iPhone connection setup. The owner enters an exact HTTPS address,
+installation ID, invitation ID/code and phone name. Keep these fields explicit;
+there is no clipboard read, QR/deep-link handler, automatic discovery or guessed host.
+Connection setup creates authority only on the user's explicit Pair action. Native
+restore/inspection reads the pending journal without joining or probing a grant.
+
+A pending request restores its exact public fields, including device name. Retry
+requires the same invitation code and identity; recovery uses the already prepared
+credential without another join or token. Clear the entered code after an attempt,
+and never persist it. Show preparation, uncertainty and confirmed paired state as
+different outcomes. Pending cancellation explicitly revokes that phone; local
+forgetting has a separate confirmation and states that host revocation remains
+unconfirmed. Disable conflicting actions while work is pending. Keep the journal
+when interrupted or failed. Ordinary phone UI exposes exact leave even when normal
+status reads have expired; host, restart and account controls stay unavailable.
+
+Publish a paired connection only after the coordinator verifies it. Restore that
+connection through the existing transport/client path, clearing stale in-memory
+selection/transcript state when switching installations while retaining durable
+history. Do not replace a different current connection after a late result. Mac
+ordinary setup remains primary-host setup; shared phone controls are composed on
+Mac only through an explicitly injected DEBUG fixture for verification. Preserve the
+existing legacy enrollment UI tests through a DEBUG-only initializer confined to
+an explicitly selected UITests/UUID directory; ordinary initialization never uses it.
+
+Vendor independence: Swift controls consume Fort's neutral preparation/status/leave
+contracts and standard HTTPS trust, with no provider UI or SDK. Modularity: reuse
+the existing coordinator, private files, credential and transport seams; no alternate
+credential store or background worker. Speed: 20 synthetic model prepare/lost-reply/
+recover samples after five warmups, p95 below 100 ms excluding actual network,
+Keychain and user input. Installation/removal: explicit actions, retained history,
+no automatic pairing/retry, and no actual credential/trust/startup changes by the
+agent during this source and fixture slice.
+
+Test first through MessengerModel: inert restore with pending preparation, captured
+exact inputs, code clearing, lost-reply recovery without new join/credential, changed
+connection refusal, pending cancellation/forget confirmation semantics, stale display
+clearing, and expired-phone leave availability without host authority. Run full native
+regressions, focused tests and fresh unsigned Mac/iPhone builds. A new DEBUG-only
+in-process phone fixture has a unique ad-hoc QA identity and named temporary session;
+synthetic constants never grant external access. Inspect actual controls via AX and
+screenshots, including pending reopen, recovered pairing and expired leave. Keep
+simulator compile, synthetic Mac UI, actual iPhone and TestFlight evidence distinct.
+
+Exact files: this spec; successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift,
+MessengerModel.swift, CompanionSetupView.swift (new), MessengerView.swift,
+PairingSettings.swift and CompanionSetupFixture.swift (new);
+successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift (new);
+successor/apple/Apps/FortApp.swift; successor/V1-ACCEPTANCE.md;
+docs/architecture/reviews/ponytail/current.md;
+successor/evidence/2026-10-17-node-foundation/native-companion-controls.md and
+phone-controls-prepared.png, phone-controls-reopened.png, phone-controls-paired.png,
+phone-controls-expired.png in that evidence directory. Reuse unchanged-scope decision
+059; real credential/trust/network/provider/Apple action still needs its own authority.
+
 ## Implementation paths
+- `successor/apple/FortKit/Sources/FortKit/CompanionSetupView.swift`
+- `successor/apple/FortKit/Sources/FortKit/CompanionSetupFixture.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-companion-controls.md`
+- `successor/evidence/2026-10-17-node-foundation/phone-controls-prepared.png`
+- `successor/evidence/2026-10-17-node-foundation/phone-controls-reopened.png`
+- `successor/evidence/2026-10-17-node-foundation/phone-controls-paired.png`
+- `successor/evidence/2026-10-17-node-foundation/phone-controls-expired.png`
 - `successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionSetupTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/native-companion-setup.md`

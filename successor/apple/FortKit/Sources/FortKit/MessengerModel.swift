@@ -210,6 +210,107 @@ import Observation
             accountSignInMessage = "The expired local request was discarded. No login or account revocation was performed."
         } catch { accountSignInStatus = nil; accountSignInMessage = "The request is kept until its deadline and cleanup period pass and the host confirms no active sign-in." }
     }
+    public var companionAddress = ""
+    public var companionInstallationID = ""
+    public var companionInvitationID = ""
+    public var companionInvitationCode = ""
+    public var companionDeviceName = "iPhone"
+    public private(set) var pendingCompanionSetup: PendingCompanionSetup?
+    private var companionSetup: CompanionSetupCoordinator?
+    private var companionSetupReady = false
+    public var canSubmitCompanionInvitation: Bool {
+        guard canPrepareCompanion, companionSetupReady, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil,
+              !companionInstallationID.isEmpty, !companionInvitationID.isEmpty,
+              !companionDeviceName.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,
+              validCompanionToken(companionInvitationCode), let url = URL(string:companionAddress), url.scheme == "https" else { return false }
+        return (try? DeviceEndpoint.network(baseURL:url,fixtureLoopback:false).validate()) != nil
+    }
+    public private(set) var companionSetupBusy = false
+    public private(set) var companionSetupMessage = "Use an invitation from your exact Fort Mac host."
+    public var canPrepareCompanion: Bool { companionSetup != nil && !isOfflinePreview && !isInteractiveFixture }
+    private func loadCompanionSetup() throws {
+        companionSetupReady = false
+        guard let companionSetup else { throw ClientError.invalidResponse }
+        pendingCompanionSetup = try companionSetup.pendingSetup()
+        if let pending = pendingCompanionSetup {
+            guard case .network(let address,_) = pending.connection.endpoint else { throw ClientError.invalidResponse }
+            companionAddress = address.absoluteString; companionInstallationID = pending.connection.installationID
+            companionInvitationID = pending.invitationID; companionDeviceName = pending.deviceName
+            companionInvitationCode = ""
+            companionSetupReady = pending.removalState == nil
+            companionSetupMessage = pending.removalState == nil ? "A prepared phone request is unconfirmed. Recover it or retry the exact invitation." : "Phone removal is pending. Retry its exact removal or explicitly forget only its local credential."
+        } else {
+            let removal = try storage.pairingRemoval()
+            companionSetupReady = try storage.connection() == nil && (removal == nil || removal?.state == .confirmed)
+            if removal != nil && removal?.state != .confirmed {
+                companionSetupMessage = "Phone revocation remains unconfirmed. Resolve that phone on its owning Mac before another pairing."
+            }
+        }
+    }
+    public func inspectCompanionSetup() {
+        guard canPrepareCompanion, !companionSetupBusy else { return }
+        do { try loadCompanionSetup() }
+        catch { companionSetupMessage = "The saved phone setup could not be read safely. Its records have been kept." }
+    }
+    private func adoptPreparedCompanion(_ connection: DeviceConnection) async throws {
+        guard connection.role == .companion, try storage.connection() == connection else { throw OwnerLifecycleError.wrongPairing }
+        try loadCompanionSetup(); guard pendingCompanionSetup == nil else { throw ClientError.invalidResponse }
+        clearConversationPresentation(); pairingStatus = nil; runtimeReadiness = nil; client = nil
+        await restore()
+        guard try storage.connection() == connection else {
+            client = nil; connected = false; clearConversationPresentation(); throw OwnerLifecycleError.wrongPairing
+        }
+        companionSetupMessage = connected ? "Phone pairing is confirmed." : "Phone pairing was confirmed. The host is currently unavailable; its saved connection is kept."
+    }
+    public func connectCompanion() async {
+        guard canPrepareCompanion, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil, let companionSetup else { return }
+        companionSetupBusy = true; defer { companionSetupBusy = false }
+        let address = companionAddress, installation = companionInstallationID, invitation = companionInvitationID,
+            code = companionInvitationCode, name = companionDeviceName
+        companionInvitationCode = ""
+        do {
+            guard let url = URL(string:address) else { throw ClientError.invalidResponse }
+            let connection = try await companionSetup.connect(address:url,installationID:installation,invitationID:invitation,code:code,deviceName:name)
+            try await adoptPreparedCompanion(connection)
+        } catch {
+            try? loadCompanionSetup()
+            companionSetupMessage = "Phone pairing is unconfirmed. Check the exact invitation or recover the saved request; no replacement credential was generated."
+        }
+    }
+    public func disconnectPendingCompanion(_ expected: PendingCompanionSetup) async {
+        guard canPrepareCompanion, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil, let companionSetup else { return }
+        companionSetupBusy = true; defer { companionSetupBusy = false }; companionInvitationCode = ""
+        do {
+            guard try companionSetup.pendingSetup() == expected else { throw OwnerSetupPreparationError.changedPreparation }
+            try await companionSetup.disconnectPending(); try loadCompanionSetup()
+            companionSetupMessage = "Pending phone setup was canceled and its local credential removed. History is kept."
+        } catch {
+            try? loadCompanionSetup()
+            companionSetupMessage = "Phone removal is unconfirmed. The prepared request is kept for exact retry or explicit local forgetting."
+        }
+    }
+    public func forgetPendingCompanion(_ expected: PendingCompanionSetup) {
+        guard canPrepareCompanion, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil, let companionSetup else { return }
+        companionSetupBusy = true; defer { companionSetupBusy = false }; companionInvitationCode = ""
+        do {
+            guard try companionSetup.pendingSetup() == expected else { throw OwnerSetupPreparationError.changedPreparation }
+            try companionSetup.forgetPending(); try loadCompanionSetup()
+            companionSetupMessage = expected.removalState == .confirmed ? "Confirmed phone removal is complete locally. History is kept." : "Only the local phone credential was forgotten. Host revocation remains unconfirmed; resolve that phone on its Mac before another pairing."
+        } catch {
+            try? loadCompanionSetup()
+            companionSetupMessage = "The selected phone preparation changed or cleanup failed. Its remaining records are kept."
+        }
+    }
+    public func recoverCompanionSetup() async {
+        guard canPrepareCompanion, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil, let companionSetup else { return }
+        companionSetupBusy = true; defer { companionSetupBusy = false }
+        companionInvitationCode = ""
+        do { try await adoptPreparedCompanion(companionSetup.recover()) }
+        catch {
+            try? loadCompanionSetup()
+            companionSetupMessage = "Phone pairing is still unconfirmed. The prepared credential and request are kept; no new join was sent."
+        }
+    }
     public var pairingStatus: PairingStatus?
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
@@ -227,7 +328,7 @@ import Observation
         #if os(macOS)
         guard !ownerSetupBusy else { return false }
         #endif
-        return !isOfflinePreview && !isInteractiveFixture && !isBusy && !lifecycleBusy &&
+        return !isOfflinePreview && !isInteractiveFixture && !isBusy && !lifecycleBusy && !companionSetupBusy && pendingCompanionSetup == nil &&
         !connected && client == nil && pairingRemoved && !pairingCleanupPending && !pairingRemovalPending && !expectedInstallation.isEmpty
     }
     public var savedHistoryDeletionTarget: DeviceConnection? {
@@ -241,12 +342,12 @@ import Observation
         do {
             guard let connection = try storage.disconnectedConnection(), connection == expected, connection.installationID == expectedInstallation else { throw OwnerLifecycleError.wrongPairing }
             try storage.deleteSavedHistory(for:connection)
-            clearSavedHistoryPresentation()
+            clearConversationPresentation()
             status = "Saved history deleted on this device"
             pairingMessage = "Saved conversations, pending submissions and image previews for this installation were deleted on this device. The host ledger and other devices are unchanged. Recovery records are kept."
         } catch { pairingMessage = "Saved-history deletion is incomplete. The displayed history is kept; check this installation and retry." }
     }
-    private func clearSavedHistoryPresentation() {
+    private func clearConversationPresentation() {
         showLatestMessages(); snapshot = nil; installation = nil
         pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
         agents = []; conversations = []; skills = []; routines = []; schedules = []
@@ -255,6 +356,7 @@ import Observation
     }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
+    public var canEditPairingExpiry: Bool { canManagePairing && connected && pairingStatus != nil && !lifecycleBusy && !isBusy }
     public var canDisconnectPairing: Bool {
         !isOfflinePreview && !pairingRemoved && client != nil &&
         (isCompanionPairing || canManagePairing && (installation?.supports("companionPairing") != true || pairingStatus != nil))
@@ -287,7 +389,7 @@ import Observation
         do {
             guard try storage.disconnectedConnection() == removal.connection else { throw OwnerLifecycleError.wrongPairing }
             _ = try await removal.deleteRetainedHistory(expected)
-            clearSavedHistoryPresentation()
+            clearConversationPresentation()
             status = "Host history and this Mac's saved copy deleted"
             pairingMessage = "Host conversations and this Mac's saved copy were deleted. Owner notes, settings, other devices and provider history are kept."
         } catch {
@@ -490,14 +592,39 @@ import Observation
     public var conversationMemory: ConversationMemory? { snapshot?.conversationId == activeConversationID ? snapshot?.memory : nil }
     public var canEditMemory: Bool { supportsMemory && snapshot?.conversationId == activeConversationID && snapshot?.recoveryEpoch == installation?.recoveryEpoch }
     public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
-    public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false }
-    init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false, ownedInstallation: (any OwnedMacInstallation)? = nil) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview; self.ownedInstallation = ownedInstallation }
+    #if DEBUG
+    public convenience init(fixtureDirectory: URL) throws {
+        guard fixtureDirectory.deletingLastPathComponent().lastPathComponent == "UITests",
+              UUID(uuidString:fixtureDirectory.lastPathComponent) != nil else { throw ClientError.invalidResponse }
+        self.init(storage:try DeviceStorage(directory:fixtureDirectory),session:.shared)
+    }
+    #endif
+    public init(directory: URL) throws {
+        storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false
+        #if os(iOS)
+        companionSetup = CompanionSetupCoordinator(storage:storage)
+        #endif
+    }
+    init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false, ownedInstallation: (any OwnedMacInstallation)? = nil,
+         companionSetup: CompanionSetupCoordinator? = nil, connectionTransport: ((DeviceEndpoint) throws -> any FortTransport)? = nil) {
+        self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview; self.ownedInstallation = ownedInstallation
+        self.companionSetup = companionSetup; self.connectionTransport = connectionTransport
+    }
     private func restoredClient(_ connection: DeviceConnection) throws -> FortClient {
         let transport = try connectionTransport?(connection.endpoint) ?? connection.endpoint.transport(session:session)
         return FortClient(installationID:connection.installationID,token:try storage.token(for:connection),transport:transport)
     }
     public func restore() async {
         guard !isOfflinePreview, !isInteractiveFixture, client == nil else { return }
+        if canPrepareCompanion {
+            do {
+                try loadCompanionSetup()
+                if pendingCompanionSetup != nil { showConnection = true; return }
+            } catch {
+                companionSetupMessage = "The saved phone setup could not be read safely. Its records have been kept."
+                showConnection = true; return
+            }
+        }
         #if os(macOS)
         if localHost != nil {
             await inspectLocalHost()
@@ -583,10 +710,13 @@ import Observation
                   connection.role == nil || pairing.role == connection.role else { throw OwnerLifecycleError.wrongPairing }
             pairingStatus = pairing; if isCompanionPairing { accountSignInStatus = nil }
             pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
-        } catch { pairingStatus = nil; accountSignInStatus = nil; pairingMessage = error.localizedDescription }
+        } catch {
+            pairingStatus = nil; accountSignInStatus = nil
+            pairingMessage = isCompanionPairing ? "Phone access could not be verified. You can still disconnect this exact phone." : error.localizedDescription
+        }
     }
     public func setPairingExpiry(days: Int?) async {
-        guard canManagePairing, !lifecycleBusy, let client else { return }
+        guard canEditPairingExpiry, let client else { return }
         lifecycleBusy = true; defer { lifecycleBusy = false }
         do {
             let pairing = try await client.setPairingExpiry(days:days)

@@ -59,13 +59,15 @@ struct PairingSettingsView: View {
             Section("Pairing") {
                 if let pairing = model.pairingStatus {
                     Text(pairing.expiresAt.map { "Expires: \($0)" } ?? "No expiry · stays paired until you disconnect")
-                } else { Text("New owner pairings have no default expiry.") }
+                } else { Text(model.isCompanionPairing ? "This phone’s access is currently unconfirmed." : "New owner pairings have no default expiry.") }
                 Text(model.pairingMessage).font(.caption).foregroundStyle(.secondary)
                 if model.canManagePairing {
-                    Toggle("No expiry",isOn:$noExpiry)
-                    if !noExpiry { TextField("Days from now (1–365)",text:$days) }
-                    Button("Save expiry") { Task { await model.setPairingExpiry(days:noExpiry ? nil : validDays) } }
-                        .disabled(!noExpiry && validDays == nil || model.lifecycleBusy)
+                    if model.pairingStatus != nil {
+                        Toggle("No expiry",isOn:$noExpiry).disabled(!model.canEditPairingExpiry)
+                        if !noExpiry { TextField("Days from now (1–365)",text:$days).disabled(!model.canEditPairingExpiry) }
+                        Button("Save expiry") { Task { await model.setPairingExpiry(days:noExpiry ? nil : validDays) } }
+                            .disabled(!noExpiry && validDays == nil || !model.canEditPairingExpiry)
+                    }
                     if model.canControlHost {
                         if model.runtimeReadiness?.state == "stopped" {
                             Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork)
@@ -73,12 +75,14 @@ struct PairingSettingsView: View {
                             Button("Stop local work") { confirm(.stop) }.disabled(model.isBusy || model.lifecycleBusy)
                         }
                     }
-                    Button(model.isCompanionPairing ? "Disconnect this phone" : "Disconnect host and devices",role:.destructive) { confirm(.disconnect) }
-                        .disabled(!model.canDisconnectPairing || model.isBusy || model.lifecycleBusy)
-                    if model.isCompanionPairing { Text("Host stop, resume and removal are managed on the owning Mac.").font(.caption) }
-                } else if !model.pairingCleanupPending {
+                } else if !model.pairingCleanupPending && !model.isCompanionPairing {
                     Text("Temporary demos keep their original deadline. Owner setup is required before these controls become available.").font(.caption).foregroundStyle(.secondary)
                 }
+                if model.canDisconnectPairing {
+                    Button(model.isCompanionPairing ? "Disconnect this phone" : "Disconnect host and devices",role:.destructive) { confirm(.disconnect) }
+                        .disabled(model.isBusy || model.lifecycleBusy).accessibilityIdentifier("pairing-disconnect")
+                }
+                if model.isCompanionPairing { Text("Host stop, resume and removal are managed on the owning Mac.").font(.caption) }
                 if model.pairingRemovalPending {
                     Button("Retry disconnect recovery") { Task { await model.retryPairingRemoval() } }.disabled(model.lifecycleBusy)
                     if !model.localPairingForgotten { Button("Forget local credential only…",role:.destructive) { confirm(.forget) }.disabled(model.lifecycleBusy) }
@@ -93,7 +97,7 @@ struct PairingSettingsView: View {
                 Text("Disconnect and finish removing this device’s pairing first. This clears the saved copy on this device; the host ledger is kept.").font(.caption)
             }
             #if os(macOS)
-            Section("Remove Fort") {
+            if !model.isCompanionPairing { Section("Remove Fort") {
                 Button("Prepare to remove Fort…",role:.destructive) { confirm(.uninstall) }
                     .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
                 Button("Delete retained host history…",role:.destructive) { confirm(.deleteHistory) }
@@ -102,6 +106,7 @@ struct PairingSettingsView: View {
                 if model.removableAppURL == nil { Text("Removal preparation is available after this Mac’s owned host is installed. This development build cannot yet verify its shutdown and startup unregistration.").font(.caption).foregroundStyle(.secondary) }
                 if let ready = model.preparedAppRemoval { Text("Ready for system removal: \(ready.appURL.path)").font(.caption) }
                 Text("History is kept by default. To delete it, pause all schedules before preparing removal, finish pairing cleanup, then confirm deletion separately.").font(.caption)
+            }
             }
             #endif
         }.formStyle(.grouped).navigationTitle(model.isCompanionPairing ? "Phone pairing" : "Pairing and local host")

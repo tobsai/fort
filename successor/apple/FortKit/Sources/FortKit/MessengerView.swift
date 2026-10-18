@@ -246,9 +246,11 @@ public struct MessengerView: View {
                     else { Text(model.ownerSetupMessage).font(.callout) }
                 }
                 else if model.hasOwnerSetup { OwnerSetupView(model:model) }
+                else if model.canPrepareCompanion { CompanionSetupView(model:model) }
                 else { fixtureConnectionFields }
                 #else
-                fixtureConnectionFields
+                if model.canPrepareCompanion { CompanionSetupView(model:model) }
+                else { fixtureConnectionFields }
                 #endif
                 Text(model.status).font(.callout)
                 if model.installation != nil { Button("Return to conversation") { model.showConnection = false } }
