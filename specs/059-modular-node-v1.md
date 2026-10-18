@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: d38a1f8cdb90d4f263a85881430cfdc255065dd2d72807c19efbb7507d7376a7
+Reviewed content SHA256: f8c57b88d3c2a1178a54cd21448ee8cc2d540dbc4a874816f5e921a827a233e0
 
 ### Vendor independence
 Status: planned
@@ -1601,6 +1601,66 @@ selection as available. The missing native resume journey stays an explicit v1
 blocker pending its separate private-host slice. No automatic resume or new grant
 is authorized by this review mechanism.
 
+### Explicit owner resume revision
+
+Resolve baseline Ponytail finding PT1 under unchanged decision 059. Reuse the
+authenticated `/v1/runtime/restart` contract for an explicit owner-local resume;
+do not add another XPC command, startup operation or bootstrap argument. The
+stop receipt promises runtime stop, not removal of the local control process.
+Keep that control channel and ledger available after owner stop/disconnect so
+readable history, retry and recovery remain possible. Dispatch and scheduling
+remain durably paused until an exact authorized resume. Full core/helper exit
+and startup unregistration remain separate removal proof requirements.
+
+Accept resume only for the latest exact, still-authorized owner device, current
+installation/recovery epoch and a stopped owner intent. Reject temporary demos,
+pending disconnect/setup cancellation, active stop/resume, changed identities,
+failed cleanup and unsupported runtime capability before any restart. A fresh
+core restored in paused state may resume its selected ready runtime without
+replacing it. A runtime stopped in this process needs its explicit restart
+capability and confirmed disposal. A failed or concurrent close cannot commit
+running intent; cleanup waits for the owned resume operation. Preserve ambiguous
+turns and idempotency; no accepted request is automatically resent after an
+uncertain outcome. Ordinary reopen never clears paused intent.
+
+The stateless guarded ExecutorProcess can explicitly re-enable dispatch only
+after stopped state, completed disposal and confirmed process-group absence.
+Keep its immutable executable/arguments/environment/binding and normal per-turn
+limits. No child is launched by this restart method. Canceled, active, unconfirmed
+or already-running restart requests fail. Existing bounded demo supervisors retain
+their own restart budgets; owner resume cannot expand temporary session authority.
+
+Native settings show an explicit resume action only when owner-local runtime
+status declares support. The model retains access to control/history while work
+is stopped, derives that state again after relaunch, and disables sending until
+the service confirms resume. Keep exact credentials and stored conversations;
+do not reenroll, change expiry or register startup. Existing generic runtime-recovery
+behavior remains distinct from the owner-paused label.
+
+Vendor independence: the existing optional runtime restart capability is used;
+no vendor SDK, model or account change. Modularity: runtime disposal/restart stays
+behind ChatRuntime, durable intent stays in the core, presentation stays native.
+Speed: no new process or timer on resume; synthetic stop/read/resume/send journey
+<=5 seconds excluding builds, with paused idle scheduling still disabled. No
+new dependency or speculative host supervisor. Installation/removal: preserve
+explicit stop, no-expiry pairing and exact revocation; a control process remaining
+available is visible in wording and does not claim full uninstall/absence.
+
+Acceptance: red-to-green public service stop/read/resume/send and restart/paused
+reopen behavior, wrong epoch/device/auth, disconnect, failed/busy cleanup and
+close-during-resume; guarded executor disposal/resume/cancellation behavior; native
+model and complete compiled host stop/resume journey. Run relevant regressions,
+strict checks, fresh native builds, and final Ponytail/staged gates. Installed UI,
+actual provider and persistent activation remain separate unrun gates.
+
+The full native regression exposed a fixture ordering error: its 10 ms deadline
+could precede the synthetic setup commit under ordinary parallel load. Repair the
+fixture with a held response after a durable commit marker. The test must observe
+that marker before its bounded deadline, verify timeout, release the held response
+and verify exact retry. This changes only test synchronization, not production
+timeouts, cancellation behavior or cleanup guarantees. No shipping dependency or
+idle cost changes; the fixture response is released on every exit path.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -1629,6 +1689,9 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/service/owner-resume.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/owner-resume.md`
 
 - `specs/README.md`
 - `docs/architecture/decisions/060-required-ponytail-review.md`

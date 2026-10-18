@@ -109,7 +109,7 @@ async function journey(t: TestContext, modulePath?: string) {
   assert.deepEqual(await second.api(installationId, deviceToken, '/v1/host/stop', {}), { runtimeStopped: true, revoked: false });
   await second.close(); assert.equal(second.disposals(), 1);
   const paused = await local.start({ modulePath });
-  assert.equal((await paused.api(installationId, deviceToken, '/v1/runtime')).state, 'unavailable');
+  assert.equal((await paused.api(installationId, deviceToken, '/v1/runtime')).state, 'stopped');
   await paused.api(installationId, deviceToken, '/v1/agents', { name: 'Blocked', model: 'exact-synthetic', instructions: 'Do not execute.' }, 503);
   assert.equal(paused.executions(), 0);
   await paused.close();

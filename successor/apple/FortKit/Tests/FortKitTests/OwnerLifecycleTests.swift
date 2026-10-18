@@ -2,6 +2,70 @@ import Foundation
 import Testing
 @testable import FortKit
 
+#if os(macOS)
+private actor ResumeNativeTransport: FortTransport, OwnerSetupControl {
+    var stopped = false
+    var resumes = 0
+    var loseReply = false
+    var failResume = false
+    func configure(loseReply: Bool = false, failResume: Bool = false) { self.loseReply = loseReply; self.failResume = failResume }
+    func beginOwnerSetup(timeout: TimeInterval) throws -> OwnerSetupState { throw ClientError.invalidResponse }
+    func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) throws -> OwnerSetupReceipt { throw ClientError.invalidResponse }
+    private func readiness() -> String { stopped ? #"{"state":"stopped","canRestart":true,"detail":"Paused synthetic work."}"# : #"{"state":"ready","canRestart":false,"detail":"Ready synthetic work."}"# }
+    func send(_ request: FortRequest) throws -> FortResponse {
+        guard request.installationID == "one", request.token == "fixture-only" else { throw ClientError.wrongInstallation }
+        let body: String
+        switch request.path {
+        case "/v1/installation": body = #"{"contractVersion":"1.0","installationId":"one","recoveryEpoch":"epoch","mode":"fixture","serviceName":"Synthetic","capabilities":["ownerPairing","runtimeRecovery"]}"#
+        case "/v1/agents": body = #"{"agents":[]}"#
+        case "/v1/runtime": body = readiness()
+        case "/v1/pairing": body = #"{"deviceId":"device","mode":"owner-local","expiresAt":null}"#
+        case "/v1/host/stop": stopped = true; body = #"{"runtimeStopped":true,"revoked":false}"#
+        case "/v1/runtime/restart":
+            guard try JSONDecoder().decode([String:String].self,from:request.body ?? Data()) == ["recoveryEpoch":"epoch"] else { throw ClientError.invalidResponse }
+            resumes += 1
+            if failResume { return FortResponse(status:503,body:Data(#"{"error":{"code":"resumeUnconfirmed","message":"Synthetic resume failed."}}"#.utf8)) }
+            stopped = false
+            if loseReply { throw URLError(.networkConnectionLost) }
+            body = readiness()
+        default: throw ClientError.invalidResponse
+        }
+        return FortResponse(status:200,body:Data(body.utf8))
+    }
+}
+
+@Test(arguments:[false,true]) @MainActor
+func nativeOwnerResumePreservesPairingAndRestoresPausedStateUntilExplicitAction(loseReply: Bool) async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("fort-owner-resume-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:root) }
+    let credentials = LifecycleCredentials(), storage = try DeviceStorage(directory:root,credentials:credentials), transport = ResumeNativeTransport()
+    let endpoint = DeviceEndpoint.macAgent(try MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic"))
+    let connection = try DeviceConnection(endpoint:endpoint,installationID:"one",deviceID:"device")
+    try storage.save(connection,token:"fixture-only")
+    func model() throws -> MessengerModel { try MessengerModel(storage:storage,session:.shared,ownerEndpoint:endpoint,ownerSetupControl:transport,connectionTransport:{ _ in transport }) }
+    let first = try model(); await first.restore()
+    #expect(first.canManagePairing && first.supportsCommands)
+    await first.stopLocalHost(disconnect:false)
+    #expect(first.connected && first.canManagePairing && !first.supportsCommands)
+    let reopened = try model(); await reopened.restore()
+    #expect(reopened.connected && reopened.canManagePairing && !reopened.supportsCommands)
+    #expect(await transport.resumes == 0)
+    await transport.configure(loseReply:loseReply)
+    await reopened.restartRuntime()
+    #expect(reopened.supportsCommands && reopened.runtimeReadiness?.state == "ready")
+    await reopened.restartRuntime()
+    #expect(await transport.resumes == 1)
+    #expect(credentials.removed.isEmpty)
+    #expect(try storage.connection() == connection)
+    #expect(try storage.navigation(installationID:"one") != nil)
+    await reopened.stopLocalHost(disconnect:false)
+    await transport.configure(failResume:true)
+    await reopened.restartRuntime()
+    #expect(!reopened.supportsCommands && reopened.canManagePairing)
+    #expect(try storage.connection() == connection)
+}
+#endif
+
 private final class LifecycleCredentials: DeviceCredentials {
     var removed: [DeviceConnection] = []
     var reads = 0

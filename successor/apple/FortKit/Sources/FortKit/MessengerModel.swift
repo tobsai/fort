@@ -96,6 +96,7 @@ import Observation
     public var canDeleteLocalHistory: Bool { ownedInstallation?.supportsHistoryDeletion == true }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
+    public var canResumeLocalWork: Bool { canManagePairing && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }
     public var runtimeReadiness: RuntimeReadiness?
     public var schedulerStatus: SchedulerStatus?
     private var eventCursor: Int?
@@ -402,7 +403,12 @@ import Observation
             }
             _ = try await client.stopHost(disconnect:disconnect)
             if disconnect { try completePairingRemoval(connection) }
-            else { self.client = nil; connected = false; hostStopped = true; pairingMessage = "Runtime stopped. Pairing and history are kept. Start the owned local host to reconnect."; status = pairingMessage }
+            else {
+                hostStopped = true
+                pairingMessage = "Local work stopped. Pairing, history and owner controls remain available. Resume explicitly when ready."
+                status = pairingMessage
+                if installation?.supports("runtimeRecovery") == true { runtimeReadiness = try await client.runtimeReadiness() }
+            }
         } catch {
             if disconnect && pairingRemovalPending {
                 self.client = nil; connected = false
@@ -504,6 +510,7 @@ import Observation
             installation = current
             if current.supports("eventReplay"), current.eventCursor == nil || current.eventCursor! < 0 { throw ClientError.invalidResponse }
             runtimeReadiness = current.supports("runtimeRecovery") ? try await client.runtimeReadiness() : nil
+            if current.supports("runtimeRecovery") { hostStopped = runtimeReadiness?.state == "stopped" }
             schedulerStatus = current.supports("schedulerStatus") ? try await client.schedulerStatus() : nil
             agents = try await client.agents()
             if !agents.contains(where:{$0.agentId == selectedAgentID}) { selectedAgentID = agents.first?.agentId }
@@ -516,7 +523,7 @@ import Observation
             try saveNavigation()
             pending = try pendingStore?.pending() ?? []
             pendingErrors = [:]
-            if current.supportsCommands {
+            if supportsCommands {
                 for queued in pending where queued.recoveryEpoch == current.recoveryEpoch {
                     guard let item = try pendingStore?.pending().first(where: { $0.requestID == queued.requestID }) else { continue }
                     do {
@@ -751,11 +758,17 @@ import Observation
     }
     public func restartRuntime() async {
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
-        guard installation?.supports("runtimeRecovery") == true, runtimeReadiness?.state == "restartRequired", runtimeReadiness?.canRestart == true, !isBusy, let client, let installation else { return }
+        let resumingOwner = canResumeLocalWork
+        guard installation?.supports("runtimeRecovery") == true, runtimeReadiness?.state == "restartRequired" || resumingOwner, runtimeReadiness?.canRestart == true, !isBusy, let client, let installation else { return }
         isBusy = true
+        var failure: String?
         do { runtimeReadiness = try await client.restartRuntime(recoveryEpoch:installation.recoveryEpoch) }
-        catch { status = error.localizedDescription }
+        catch { failure = error.localizedDescription; status = error.localizedDescription }
         isBusy = false; await refresh()
+        if resumingOwner {
+            pairingMessage = !hostStopped && runtimeReadiness?.state == "ready" ? "Local work resumed. Pairing and history are kept." : failure ?? "Local work remains stopped. Review runtime status before retrying."
+            status = pairingMessage
+        }
     }
     public func cancel(_ run: Run) async {
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }

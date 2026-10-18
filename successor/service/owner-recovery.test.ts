@@ -72,7 +72,7 @@ test('an owner stop keeps queued routines and new work paused across core restar
   await h.restart();
   assert.equal(await h.service.dispatchNext(), false);
   assert.equal(calls, 0);
-  assert.equal((await h.api<RuntimeReadiness>('/v1/runtime')).body.state, 'unavailable');
+  assert.equal((await h.api<RuntimeReadiness>('/v1/runtime')).body.state, 'stopped');
   assert.equal((await h.api('/v1/agents', { name: 'Blocked', instructions: 'Fixture', model: 'exact' })).status, 503);
   assert.throws(() => h.service.issueEnrollment(), /stopped/);
   await h.restart({ resumeOwnerHost: true });

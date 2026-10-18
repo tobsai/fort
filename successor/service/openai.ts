@@ -280,7 +280,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const owner = <T>(request: IncomingMessage, operation: (deviceId:string) => T): T => transaction(() => {
     const deviceId=authenticate(request);
-    if(dispatchStopped&&request.method!=='GET'&&!['/v1/host/stop','/v1/pairing/disconnect'].includes(request.url??''))fail(503,'dispatchStopped','Work is stopped. Retry disconnect or finish local host recovery.');
+    if(dispatchStopped&&request.method!=='GET'&&!['/v1/host/stop','/v1/pairing/disconnect','/v1/runtime/restart'].includes(request.url??''))fail(503,'dispatchStopped','Work is stopped. Resume explicitly, retry disconnect or finish local host recovery.');
     return operation(deviceId);
   });
   const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
@@ -497,8 +497,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     armScheduleClock();
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
+  const canResumeOwner = () => Boolean(ownerPairingPolicy && ownerControl?.intent === 'stop' && !closed && !starting && !stopCommandActive && options.runtime
+    && (runtimeStop === undefined ? (!options.runtime.readiness || options.runtime.readiness().state === 'ready')
+      : runtimeStop.state === 'confirmed' && options.runtime.restart && options.runtime.readiness?.().canRestart));
   const runtimeReadiness=():RuntimeReadiness=>dispatchStopped
-    ? {state:'unavailable',canRestart:false,detail:'The owner stopped this host. Use local host controls to resume or finish disconnect.'}
+    ? {state:'stopped',canRestart:canResumeOwner(),detail:'Local work is stopped. History and owner controls remain available. Resume explicitly or finish disconnect.'}
     : options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
@@ -768,7 +771,6 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           const revoked=url.pathname==='/v1/pairing/disconnect';
           await stopOwner(deviceId, revoked);
           result={runtimeStopped:true,revoked};
-          response.once('finish',()=>{void api.close({preserveSessionCredential:true}).catch(()=>{ /* close() retains its rejected promise for the host supervisor. */ });});
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
           if(dispatchStopped)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped; model discovery is unavailable.'};
@@ -894,6 +896,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         else if(request.method==='GET'&&url.pathname==='/v1/modules/context')result=contextStatus();
         else if(request.method==='POST'&&url.pathname==='/v1/runtime/restart'){
           const body=await readBody(request);
+          if(Object.keys(body).some(key=>key!=='recoveryEpoch'))fail(400,'invalidRestart','Use only the current recovery epoch.');
+          if(dispatchStopped){
+            const deviceId=owner(request,deviceId=>{
+              if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before resuming local work.');
+              return deviceId;
+            });
+            await resumeOwner(deviceId,request);
+            result=runtimeReadiness();
+          } else {
           const restart=owner(request,()=>{
             if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Reload this installation before restarting the runtime.');
             const operation=options.runtime?.restart?.bind(options.runtime);
@@ -902,6 +913,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           });
           await restart(AbortSignal.timeout(Math.max(1,Math.min(10_000,(credentialDeadline??now()+10_000)-now()))));
           result=runtimeReadiness();queueMicrotask(wake);
+          }
         }
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/memory$/.test(url.pathname)) {
           const body=await readBody(request),conversationId=id(url.pathname.split('/')[3]);
@@ -1027,13 +1039,43 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     }
     privateSocket?.release();
   };
-  let runtimeStopped:Promise<void>|undefined;
+  type RuntimeStop = { state: 'pending' | 'confirmed' | 'unconfirmed'; completion: Promise<void> };
+  let runtimeStop:RuntimeStop|undefined;
+  let ownerResuming:Promise<void>|undefined;
   const stopRuntime=()=>{
-    runtimeStopped??=(async()=>{
+    if(runtimeStop && runtimeStop.state!=='unconfirmed')return runtimeStop.completion;
+    const progress:RuntimeStop={state:'pending',completion:Promise.resolve().then(async()=>{
       const outcomes=await Promise.allSettled([Promise.resolve().then(()=>options.runtime?.dispose()),dispatching]);
       if(outcomes.some(outcome=>outcome.status==='rejected'))throw new Error('Runtime shutdown unconfirmed');
-    })().catch(error=>{runtimeStopped=undefined;throw error;});
-    return runtimeStopped;
+      progress.state='confirmed';
+    }).catch(error=>{progress.state='unconfirmed';throw error;})};
+    runtimeStop=progress;
+    return progress.completion;
+  };
+  const resumeOwner = async (deviceId: string, request: IncomingMessage) => {
+    if(ownerControl?.deviceId!==deviceId || !canResumeOwner() || readOwnerSetup()?.state==='canceling')fail(409,'runtimeRestartUnavailable','This exact owner pairing cannot resume until shutdown and recovery are confirmed.');
+    const restart=runtimeStop===undefined?undefined:options.runtime?.restart?.bind(options.runtime);
+    stopCommandActive=true;
+    const operation=Promise.resolve().then(async()=>{
+      const signal=AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(10_000)]);
+      try {
+        signal.throwIfAborted();
+        if(restart){runtimeStop=undefined;await restart(signal);}
+        signal.throwIfAborted();
+        if(closed || options.runtime?.readiness && options.runtime.readiness().state!=='ready')throw new Error('Runtime did not become ready');
+        transaction(()=>{
+          if(authenticate(request)!==deviceId)throw new Error('Owner pairing changed');
+          saveOwnerControl({deviceId,intent:'running'});
+        });
+        dispatchStopped=false;runScheduleClock(true);queueMicrotask(wake);
+      } catch {
+        await stopRuntime().catch(()=>{});
+        fail(503,'resumeUnconfirmed','Local work remains paused. Runtime resume or cleanup was not confirmed.');
+      } finally {stopCommandActive=false;}
+    });
+    ownerResuming=operation;
+    try {await operation;}
+    finally {if(ownerResuming===operation)ownerResuming=undefined;}
   };
   const stopOwner = async (deviceId: string, disconnect: boolean) => {
     if (closed) fail(503, 'closed', 'This session has stopped.');
@@ -1100,7 +1142,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (server.listening || starting) throw new Error('Service is already listening or starting');
     if (resumeOwnerHost) {
       if (!ownerPairingPolicy) throw new Error('Explicit resume requires an owner-local installation');
-      if (runtimeStopped || stopCommandActive) throw new Error('Open a fresh core before resuming the owner host');
+      if (runtimeStop || stopCommandActive) throw new Error('Open a fresh core before resuming the owner host');
       if (readOwnerSetup()?.state === 'canceling') throw new Error('Complete the pending setup cancellation before starting this host');
       if (ownerControl?.intent === 'disconnect' && db.prepare('SELECT id FROM devices WHERE id=?').get(ownerControl.deviceId)) throw new Error('Complete the pending disconnect before starting this host');
     }
@@ -1161,7 +1203,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
     });
     closing = (async () => {
-      const outcomes = await Promise.allSettled([closeHTTP(),stopRuntime()]);
+      const outcomes = await Promise.allSettled([closeHTTP(),(async()=>{await ownerResuming?.catch(()=>{});await stopRuntime();})()]);
       db.close();
       if (outcomes.some(result => result.status === 'rejected')) throw new Error('Runtime or HTTP cleanup was not confirmed; restart is blocked.');
     })();

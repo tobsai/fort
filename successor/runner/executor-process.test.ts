@@ -63,6 +63,25 @@ test('the active service commits one exact process reply and preserves its recei
   assert.equal(h.runtime.lastExit?.forced, false);
 });
 
+test('an explicitly stopped executor resumes the same selected process only after confirmed cleanup', async t => {
+  const h = await setup(t);
+  await h.send('before-resume', 'Retained before stop'); await h.service.dispatchNext();
+  const previous = h.runtime.lastExit;
+  await h.runtime.dispose();
+  assert.equal(h.runtime.readiness().state, 'stopped');
+  assert.equal(h.runtime.readiness().canRestart, true);
+  await assert.rejects(h.runtime.restart(AbortSignal.abort()), /abort/i);
+  assert.equal(h.runtime.readiness().state, 'stopped');
+  await h.runtime.restart(new AbortController().signal);
+  assert.equal(h.runtime.readiness().state, 'ready');
+  assert.deepEqual(h.runtime.lastExit, previous, 'Resume must not launch a child');
+  await assert.rejects(h.runtime.restart(new AbortController().signal));
+  await h.send('after-resume', 'Exact selection retained'); await h.service.dispatchNext();
+  assert.deepEqual((await h.api<Snapshot>(h.path + '/snapshot')).body.messages.map(message => message.text),
+    ['Retained before stop', 'Retained before stop', 'Exact selection retained', 'Exact selection retained']);
+  assert.equal(h.runtime.lastExit?.groupAbsent, true);
+});
+
 test('a stale process generation cannot commit a reply or release later work in that conversation', async t => {
   const h = await setup(t, 'stale-generation');
   const first = await h.send('stale', 'First');

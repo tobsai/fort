@@ -10,7 +10,7 @@ struct PairingSettingsView: View {
     private var validDays: Int? { guard let value = Int(days), (1...365).contains(value) else { return nil }; return value }
     private var title: String {
         switch action {
-        case .stop: "Stop local host?"
+        case .stop: "Stop local work?"
         case .disconnect: "Disconnect this device?"
         case .forget: "Forget only this device’s credential?"
         case .uninstall: "Prepare to remove Fort?"
@@ -20,7 +20,7 @@ struct PairingSettingsView: View {
     }
     private var explanation: String {
         switch action {
-        case .stop: "Stops the connected runtime. Pairing and saved conversations are kept."
+        case .stop: "Stops the connected runtime and pauses new work. Pairing, saved conversations and owner controls remain available. Resume requires an explicit action."
         case .disconnect: "Stops the connected runtime, revokes this pairing and removes its Keychain token. Saved conversations are kept."
         case .forget: "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
         case .uninstall: "Stops the owned host, unregisters startup and removes pairing. Conversation history is kept. Then remove the Fort app using TestFlight or macOS."
@@ -44,7 +44,11 @@ struct PairingSettingsView: View {
                     if !noExpiry { TextField("Days from now (1–365)",text:$days) }
                     Button("Save expiry") { Task { await model.setPairingExpiry(days:noExpiry ? nil : validDays) } }
                         .disabled(!noExpiry && validDays == nil || model.lifecycleBusy)
-                    Button("Stop local host") { confirm(.stop) }.disabled(model.isBusy || model.lifecycleBusy)
+                    if model.runtimeReadiness?.state == "stopped" {
+                        Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork)
+                    } else {
+                        Button("Stop local work") { confirm(.stop) }.disabled(model.isBusy || model.lifecycleBusy)
+                    }
                     Button("Disconnect this device",role:.destructive) { confirm(.disconnect) }.disabled(model.isBusy || model.lifecycleBusy)
                 } else if !model.pairingCleanupPending {
                     Text("Temporary demos keep their original deadline. Owner setup is required before these controls become available.").font(.caption).foregroundStyle(.secondary)

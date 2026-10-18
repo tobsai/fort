@@ -80,6 +80,7 @@ import Testing
     }
     let started = ContinuousClock.now
     var service = makeService()
+    var phase = "initial setup and send"
     do {
         #expect(listener == nil && !FileManager.default.fileExists(atPath:container.appendingPathComponent("FortHost").path))
         try await service.start()
@@ -104,19 +105,44 @@ import Testing
         }
         #expect(snapshot.runs.first?.state == "completed")
         #expect(snapshot.messages.count == 2 && snapshot.messages.allSatisfy { $0.text == exact })
+        let beforeResume = try Data(contentsOf:authored.appendingPathComponent("processes.jsonl"))
+        phase = "stop and retained control"
+        #expect(try await client.stopHost(disconnect:false).runtimeStopped)
+        #expect(try await client.runtimeReadiness().state == "stopped")
+        #expect(try await client.snapshot(conversationID:agent.homeConversationId).messages == snapshot.messages)
+        phase = "same-core explicit resume"
+        #expect(try await client.restartRuntime(recoveryEpoch:initial.recoveryEpoch).state == "ready")
+        #expect(try Data(contentsOf:authored.appendingPathComponent("processes.jsonl")) == beforeResume)
+        phase = "stop and close before reopen"
+        #expect(try await client.stopHost(disconnect:false).runtimeStopped)
         #expect(try await service.shutdown().exitedCleanly && !first.active)
         try absent()
         let launches = try Data(contentsOf:authored.appendingPathComponent("processes.jsonl"))
+        phase = "paused reopen"
         service = makeService(); try await service.start()
         let reopened = try #require(listener); #expect(reopened.active)
-        #expect(try await reopened.core.beginOwnerSetup(timeout:3) == .paired(paired))
         let restored = FortClient(installationID:setup.installationID,token:setup.deviceToken,transport:reopened.core)
         let installation = try await restored.installation()
         #expect(installation.installationId == initial.installationId && installation.recoveryEpoch == initial.recoveryEpoch && installation.runtime == initial.runtime)
         #expect(try await restored.snapshot(conversationID:agent.homeConversationId).messages == snapshot.messages)
+        #expect(try await restored.runtimeReadiness().state == "stopped")
+        await #expect(throws:ClientError.self) { try await restored.submit(pending) }
+        phase = "fresh-core explicit resume"
+        #expect(try await restored.restartRuntime(recoveryEpoch:installation.recoveryEpoch).state == "ready")
+        #expect(try await reopened.core.beginOwnerSetup(timeout:3) == .paired(paired))
         #expect(try await restored.submit(pending).receipt == accepted.receipt)
         #expect(try Data(contentsOf:authored.appendingPathComponent("processes.jsonl")) == launches)
+        let afterResume = PendingSubmission(requestID:"synthetic-native-resumed-turn",conversationID:agent.homeConversationId,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:exact,createdAt:Date(),recipientAgentID:agent.agentId,skills:[],memoryRevisionId:memory.revisionId)
+        phase = "new send after resume"
+        _ = try await restored.submit(afterResume)
+        snapshot = try await restored.snapshot(conversationID:agent.homeConversationId)
+        for _ in 0..<400 where snapshot.runs.contains(where:{ $0.state != "completed" }) {
+            try await Task.sleep(for:.milliseconds(10)); snapshot = try await restored.snapshot(conversationID:agent.homeConversationId)
+        }
+        #expect(snapshot.messages.count == 4 && snapshot.runs.count == 2)
+        #expect(snapshot.messages.allSatisfy { $0.text == exact } && snapshot.runs.allSatisfy { $0.state == "completed" })
         let recovery = try MacOwnerRecoveryRequest(installationID:setup.installationID,deviceID:setup.deviceID,timeout:3)
+        phase = "revocation and final cleanup"
         try await reopened.core.recoverPairing(recovery).validate(for:recovery)
         await #expect(throws:(any Error).self) { try await restored.installation() }
         #expect(try await service.shutdown().exitedCleanly && !reopened.active)
@@ -128,6 +154,6 @@ import Testing
         let milliseconds = Double(duration.seconds) * 1000 + Double(duration.attoseconds) / 1e15
         print("Synthetic native host journey: \(milliseconds) ms; owned groups absent; no registration or provider.")
         #expect(milliseconds <= 5000)
-    } catch { _ = try? await service.shutdown(); throw error }
+    } catch { Issue.record("Synthetic host journey failed during \(phase)"); _ = try? await service.shutdown(); throw error }
 }
 #endif

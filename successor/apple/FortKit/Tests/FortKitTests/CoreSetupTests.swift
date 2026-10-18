@@ -88,7 +88,7 @@ func stopSetupCore(_ process: MacCoreProcessTransport, directory: URL) async thr
 func nativeOwnerSetupRetriesAfterDeadlineOrCancellationFollowingCommit(cancel: Bool) async throws {
     let directory = try setupDirectory()
     defer { try? FileManager.default.removeItem(at:directory) }
-    let process = try await setupCore(directory,behavior:"slow")
+    let process = try await setupCore(directory,behavior:cancel ? "slow" : "deadline-held")
     do {
         guard case .available(let offer) = try await process.beginOwnerSetup() else { Issue.record("Expected setup offer"); _ = try await process.close(); return }
         let request = try OwnerSetupRequest(installationID:offer.installationID,setupID:offer.setupID,deviceID:UUID().uuidString,deviceToken:String(repeating:"A",count:43))
@@ -100,8 +100,15 @@ func nativeOwnerSetupRetriesAfterDeadlineOrCancellationFollowingCommit(cancel: B
             work.cancel()
             await #expect(throws:CancellationError.self) { try await work.value }
         } else {
-            await #expect(throws:(any Error).self) { try await process.completeOwnerSetup(request,timeout:0.01) }
-            #expect(FileManager.default.fileExists(atPath:directory.appendingPathComponent("setup-committed.json").path))
+            let release = directory.appendingPathComponent("release-setup-response")
+            defer { try? Data().write(to:release) }
+            let earliestDeadline = ContinuousClock.now.advanced(by:.seconds(1))
+            let work = Task { try await process.completeOwnerSetup(request,timeout:1) }
+            let committed = directory.appendingPathComponent("setup-committed.json")
+            for _ in 0..<100 where !FileManager.default.fileExists(atPath:committed.path) { try await Task.sleep(for:.milliseconds(5)) }
+            try #require(FileManager.default.fileExists(atPath:committed.path))
+            try #require(ContinuousClock.now < earliestDeadline)
+            await #expect(throws:(any Error).self) { try await work.value }
         }
         let receipt = try await process.completeOwnerSetup(request,timeout:3)
         #expect(receipt.installationID == request.installationID && receipt.deviceID == request.deviceID)

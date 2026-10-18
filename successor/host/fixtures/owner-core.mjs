@@ -27,6 +27,10 @@ try {
     ownerSetup: { begin: service.beginOwnerSetup, complete: async request => {
       const receipt = service.completeOwnerSetup(request);
       if (setupBehavior === 'slow') { writeFileSync('setup-committed.json', 'true', { mode: 0o600 }); await delay(100); }
+      if (setupBehavior === 'deadline-held') {
+        writeFileSync('setup-committed.json', 'true', { mode: 0o600 });
+        while (!existsSync('release-setup-response')) await delay(5);
+      }
       return receipt;
     }, cancel: async identity => {
       const proof = await service.cancelOwnerSetup(identity);

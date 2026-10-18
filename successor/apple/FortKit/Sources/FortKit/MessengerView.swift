@@ -94,6 +94,7 @@ public struct MessengerView: View {
                     if let runtime = model.runtimeReadiness {
                         Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
                         if runtime.state == "restartRequired" { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
+                        if runtime.state == "stopped" && model.canManagePairing { Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork) }
                     }
                     if let scheduler = model.schedulerStatus, scheduler.state == "fault" {
                         Text(scheduler.detail ?? "Schedules need attention.").font(.callout).foregroundStyle(.orange).accessibilityIdentifier("scheduler-fault")

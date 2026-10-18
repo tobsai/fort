@@ -1,97 +1,99 @@
 What this repo does: Fort is a single-owner native AI messenger with a local Node
-core and optional runtime adapters. This change adds required review evidence and
-connects native removal to the existing verified host controller.
+core and optional runtime adapters. This change adds explicit owner resume while
+keeping stopped work paused across reopen. The reviewed load is one owner.
 
 ## Semantic review
 
-Reviewer: Codex, October 18, 2026. Reviewed base is
-`48954abd3a9b632f2368c734d8ce42c995b547d5`. The exact 25 changed paths and their
-content/mode digests are recorded below. The baseline is
-[baseline-20261018.md](baseline-20261018.md), with its whole-tree inventory and
-explicit depth limits. This is a self-review, not an independent reviewer attestation.
+Reviewer: Codex, October 18, 2026. Reviewed base:
+`3cc5fcfce2532b8328bd1c16bef1266d3db076af`. This is a self-review. The immutable
+[original Ponytail skill](https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md)
+and its recorded SHA256 remain unchanged. The whole-tree baseline is preserved
+in [baseline-20261018.md](baseline-20261018.md).
 
-I reviewed the staged implementation, tests and callers at the package-builder,
-native controller/model/lifecycle, Git snapshot and CI boundaries. The ordinary
-load remains one owner. The gate uses local Git blobs and Node's standard library;
-it invokes no provider, service, hook or upstream script. It rejects stale contents
-and mode changes, missing paths, malformed provenance, unresolved index entries,
-symbolic links and empty comparisons. Its result establishes evidence coverage,
-not the truth or quality of this semantic review.
+I reviewed every changed source/test/spec path, native model and UI callers,
+owner authentication and persisted control state, restart/disposal concurrency,
+executor process absence, private host composition, and the expanded native
+journey. Stop no longer closes the control listener; it still disposes runtime
+work and durably pauses dispatch/scheduling. Full helper exit remains removal's
+responsibility. No credential, model, host, permission or billing selection changes.
+The review found the expiry race below before final validation. No upstream script
+or hook was installed or executed.
 
 ## Must fix
 
-1. **Ordinary native resume remains absent.** The stop path closes its service;
-   the fixed bootstrap restores persisted pause and has no explicit native resume
-   operation. The core test's explicit resume option is not an installed user flow.
-   Add a tested exact-host resume operation with cleanup and identity checks.
-   Until then, v1 acceptance stays blocked. Owner: this implementation task.
+1. **Baseline PT1: ordinary resume was absent — fixed in source.**
+   - What this is: The owner must explicitly resume stopped work from native Fort.
+   - Problem: Stop closed control, while a fresh bootstrap preserved pause without
+     an ordinary action that could clear it.
+   - Fix: Retain authenticated control/history, reuse the exact runtime-restart
+     route, and expose Resume local work. Public and compiled-native tests pass.
+   - If we skip it: Stop strands the owner. Installed UI/provider acceptance still
+     remains open; source and fixture proof do not waive that gate.
 
-## Resolved baseline findings
+2. **Pairing could expire during resume — fixed.**
+   - What this is: Runtime restart may await asynchronous cleanup or initialization.
+   - Problem: A request authenticated before that wait could persist running intent
+     after its credential expired. A public held-runtime regression returned 200.
+   - Fix: Reauthenticate the same request/device inside the transaction immediately
+     before running intent. The regression now refuses resume and disposes runtime.
+   - If we skip it: Expired authority can resume queued work. The final pinned suite
+     includes the regression; no expired real credential was used.
 
-2. **Native CI fixture inputs.** The existing native job now builds its synthetic
-   guardian and resources and passes all four required paths. The complete local
-   native journey passed with these inputs. The fixture copies the selected Node's
-   Homebrew library only when present. Remote CI and standalone-Node execution
-   remain unverified; local preparation is the claimed fix.
-3. **Executor destination exactness.** A public regression reproduced the accepted
-   unpaired-surrogate path. The builder now rejects it before creating an entry.
-   All four executor-artifact behavior tests pass, with the opt-in timing test skipped.
-4. **Unused removal constructor.** Deleted the eight-line convenience constructor
-   after tracked-tree and successor caller searches. Production uses the controller's
-   exact app/helper/endpoint/client identity and rechecks it before effects.
-5. **Stale README.** Current instructions now point to Spec 059, the acceptance
-   ledger, full quality suites, required review and native CI fixture preparation.
-   Old Stage 1 instructions are explicitly historical; their evidence was preserved.
+3. **Re-pairing after completed disconnect is still blocked — open.**
+   - What this is: Disconnect revokes the old device and retains history.
+   - Problem: Durable dispatch pause also blocks the ordinary begin-setup operation,
+     including after a fresh core opens. The old credential cannot authorize resume.
+   - Fix: Add a separately tested explicit local setup transition after confirmed
+     disconnect, preserving pending-recovery and exact-identity checks.
+   - If we skip it: The owner cannot pair again normally. This implementation task
+     owns the next slice; no v1 or release exception is granted.
 
-The additional removal changes passed tests for signature rejection before any
-recovery/progress write, foreign-pairing refusal, disconnect recovery without
-unregistration, saved-progress control availability and credential-cleanup retry.
-Unavailable deletion is rejected before effects. Durable progress, startup proof
-and independent helper-exit checks remain intact. Actual app removal is a system
-handoff after confirmed preparation, not a direct recursive app deletion.
+## Should fix
+
+4. **Setup timeout fixture assumed an unrealistically short ordering — fixed.**
+   - What this is: A test verifies exact retry after setup commits but its reply is lost.
+   - Problem: Under the full native suite, the 10 ms timeout could precede the commit,
+     so the test no longer exercised its intended committed state.
+   - Fix: Hold the fixture response, observe the durable commit before the bounded
+     deadline, then release it before exact retry. Production deadlines stay intact.
+   - If we skip it: Parallel validation gives intermittent failures without proving
+     committed-response recovery. Focused and full native regressions now pass.
 
 ## Tests and limits
 
-- 27 gate functions passed: 18 spec and 9 review functions. Initial missing-CLI
-  and executable-mode failures were observed before their implementations.
-- 1,088 portable tests passed; 5 opt-in budgets skipped. A restricted attempt failed
-  local socket creation; the direct probe returned EPERM. Its exact process group
-  was stopped, then the supported local-socket run passed.
-- 234 native functions passed with isolated timing, signature and complete-host
-  checks excluded from that parallel run. The complete synthetic host journey then
-  passed independently in 1,327.049083 ms, with owned process groups absent.
-- Twenty isolated removal projections had p95 0.268042 ms against 50 ms. This excludes
-  real signatures, Keychain, SMAppService callbacks and provider time.
-- Strict TypeScript, workflow YAML parsing and fresh unsigned Mac/iPhone Simulator
-  builds passed. See [removal evidence](../../../../successor/evidence/2026-10-17-node-foundation/native-removal-composition.md)
-  for logs, all timing samples, corrected fixture compilation failures and limits.
-- The final staged spec gate covered all 26 staged paths. The review gate covered
-  25 content/mode digests, excluding this report itself, in 0.52 seconds against
-  the 5-second budget. Whitespace validation passed.
+- Final Node 26.5.0 portable suite: 1,097 passed, zero failed, five optional budgets skipped.
+- Native suite: 235 functions passed. Affected Mac process checks: 27 passed,
+  three optional budgets skipped. Timing and signed checks were separated.
+- Fresh 87-file resources passed every payload hash/size check. The complete
+  synthetic native stop/read/resume/reopen/send/revoke journey passed in
+  1,496.871292 ms against 5,000 ms, with all owned process groups absent.
+- Strict TypeScript and fresh unsigned Mac/iPhone Simulator builds passed.
+- Full spec and accepted implementation gates passed. Exact staged coverage is
+  checked before commit; a metadata pass does not establish this semantic review.
+- [Evidence](../../../../successor/evidence/2026-10-17-node-foundation/owner-resume.md)
+  records logs, artifact hashes, the expiry red test, stale-state assertions,
+  fixture-ordering and journey-test corrections, and refused Node-version attempts.
 
-Verdict: This local slice has behavior and build evidence. The missing native
-resume action, unresolved deletion scope and external delivery gates still block v1.
+Verdict: The explicit resume source slice passes its behavior/build checks.
+Re-pairing, deletion scope, standalone packaging and external delivery gates still
+block v1. No additional defect was found in the final changed resume paths.
 
-Lean: -8 lines, -0 dependencies from the removed constructor. The required review
-gate adds 79 implementation lines and uses the existing CI workflow.
-
-Not checked: Real startup activation, real Keychain cleanup, provider accounts,
-official runtime invocation, signing profiles, installed screenshots/accessibility,
-physical iPhone and TestFlight. The full separate macOS adapter suite was not rerun
-because those implementation files did not change. Historical/quarantined code was
-not re-audited. No remote CI or branch protection was configured or verified.
+Not checked: Real startup/Keychain, actual Codex/provider/account use, signing or
+provisioning, installed UI accessibility/screenshots, physical iPhone, TestFlight,
+remote CI or branch protection. Historical/quarantined source was not re-audited.
+The full signed sandbox suite was not rerun; this slice does not change its policy.
 
 ## Snapshot evidence
 
-The following metadata binds this report to reviewed Git content and file modes.
-It is not a generated substitute for the semantic review above.
+The JSON binds the reviewed Git contents and modes. It does not replace the
+semantic review or establish permission for any external action.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "48954abd3a9b632f2368c734d8ce42c995b547d5",
+  "reviewedCommit": "3cc5fcfce2532b8328bd1c16bef1266d3db076af",
   "reviewer": "Codex",
-  "scope": "All 25 staged paths: required review workflow/CLI/CI, native removal composition and bounded baseline fixes. Callers and affected boundaries reviewed as described above.",
+  "scope": "Explicit owner resume: all 16 changed content paths, native callers, durable auth/lifecycle and executor boundaries; current report excluded from its own digest.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
@@ -99,67 +101,54 @@ It is not a generated substitute for the semantic review above.
   "findings": [
     {
       "id": "PT1",
+      "disposition": "fixed",
+      "detail": "Ordinary native resume has source, public test, compiled journey and unsigned build proof; installed acceptance remains open."
+    },
+    {
+      "id": "RESUME-EXPIRY",
+      "disposition": "fixed",
+      "detail": "Observed expiry-during-resume red then green; same credential is checked again before committing running intent."
+    },
+    {
+      "id": "REPAIR-AFTER-DISCONNECT",
       "disposition": "open",
-      "detail": "Ordinary native resume remains a v1 blocker owned by this implementation task; no release exception."
+      "detail": "Persisted disconnect blocks ordinary new setup. This task owns a separate explicit local transition; no v1 exception."
     },
     {
-      "id": "PT2",
+      "id": "SETUP-FIXTURE-ORDER",
       "disposition": "fixed",
-      "detail": "Native CI prepares explicit synthetic fixtures; matching local journey passed. Remote runner and standalone Node layout remain unverified."
-    },
-    {
-      "id": "PT3",
-      "disposition": "fixed",
-      "detail": "Public executor builder now rejects ill-formed Unicode before writes; observed red then green."
-    },
-    {
-      "id": "PT4",
-      "disposition": "fixed",
-      "detail": "Removed unused convenience constructor; controller retains exact package identity and action-time verification."
-    },
-    {
-      "id": "PT5",
-      "disposition": "fixed",
-      "detail": "Current README now uses Spec 059 and complete quality commands; historical instructions labeled."
+      "detail": "Held fixture response proves commit-before-timeout and exact retry; production deadlines unchanged."
     }
   ],
   "tests": [
-    "27 gate functions passed; 1088 portable passed and 5 optional budgets skipped; 234 native functions passed.",
-    "Strict TypeScript, YAML parse and fresh unsigned Mac/iPhone Simulator builds passed.",
-    "Isolated synthetic bundled-host journey passed in 1327.049083 ms with groups absent; 20 removal metadata samples p95 0.268042 ms.",
-    "Restricted portable attempt failed socket creation with EPERM and was stopped; supported local-socket rerun passed."
+    "1097 portable tests passed on Node 26.5.0; zero failed; 5 optional budgets skipped.",
+    "235 native functions and 27 affected Mac process checks passed; 3 Mac optional budgets skipped.",
+    "Strict TypeScript and fresh unsigned Mac/iPhone Simulator builds passed.",
+    "87 resource payloads verified; final synthetic compiled-native journey 1496.871292 ms, owned groups absent.",
+    "Full and accepted implementation spec gates passed; final staged gates required before commit."
   ],
   "exceptions": [
-    "History deletion remains disabled pending exact scope; no v1 exception is granted.",
-    "No real provider, startup, Keychain, signing/profile, installed UI, physical device, TestFlight or remote CI acceptance.",
-    "Historical and quarantined source inventory is not a deep audit."
+    "Re-pair after disconnect and exact history deletion scope remain open v1 work, not release exceptions.",
+    "Real provider/account, startup/Keychain, signing, installed UI, physical device and TestFlight remain unverified.",
+    "No remote CI or signed sandbox rerun; historical/quarantined source not re-audited."
   ],
   "files": {
-    ".github/workflows/fort-quality.yml": "21f1f398c568a5cb060f224359bfd28c760d34f3c95a12ab25b8a8fa321c7029",
-    "AGENTS.md": "6bcd34cbf8ecf3cc24c8df866412ef20080b432a422b8b393e963675477bec49",
-    "CLAUDE.md": "fac6e6ee3601912951a8a52ec9955542c040a4e1a360fd97cd009952066d5615",
-    "docs/architecture/decisions/060-required-ponytail-review.md": "4863b3e0cae6f6b971af5505c49cdb18b702905218404998307db6a4288578f5",
-    "docs/architecture/reviews/ponytail/baseline-20261018.md": "4b6ef76852a6775977dbb1f839512d947743eaf5c533adea19f3903e3500dc93",
-    "ops/architecture/validate-reviews.mjs": "b750bf51abe46f47ed8a6cfa0bf386b1e6b290efa9f6fb31eb491ec0bd9d3f5d",
-    "ops/architecture/validate-reviews.test.mjs": "97fa0e0ccf7db6d9c5d007e08447c922fa30e6aa32e992adda4516435683252e",
-    "specs/059-modular-node-v1.md": "8b1e90548a163029289b907c8a76273788bbb12fa9519396495e123c5549dbbb",
-    "specs/README.md": "4d52508a9f6a6c67377bdfc6b77f164c322c427342c6f0c3276b7cbe14e77708",
-    "successor/AGENTS.md": "f3822a1c5455f3b5fe0bce143c4c3623b3fa5b816375fdae903c3662a95e70c3",
-    "successor/README.md": "f2736b6643c2c43440fae64700ece0c07f4f0107fc4acfcf86df19a130b62437",
-    "successor/V1-ACCEPTANCE.md": "7895229dfa691c9f4c550874013ca59f18d629ae1f99bd96240bf562203351b9",
-    "successor/apple/FortKit/Sources/FortKit/MacHostControl.swift": "4486e4875537f6925bebab860511b83e98ee269a864877ff6b897abd31a4fc6d",
-    "successor/apple/FortKit/Sources/FortKit/MacHostRemoval.swift": "6d09a91a6c0e55a73b73cb50f9f46ccda9ba5fb4e5f2446fdd43a9049213bf63",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "e4904cd4a1eb02d29b61348e5f106c6d9d8e008908cf433764b311023d3f5f47",
-    "successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift": "719c8b964a13d291480d2fb3536823c5c7336be5c1604dd012709e35e3f14fc6",
-    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "6a0886a02bf61679d068d2026b6bb135bbfa5362a7b6fb567ad1db634273cef3",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHostJourneyTests.swift": "e3f643c83d5ac8419c899860cec39a985b981411b6f5fac53da6d6a1e99a9ca8",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHostRemovalTests.swift": "fad76e69bb322180eceefb23183497061a14d1d1f80f5459a477c7daf85c3316",
-    "successor/apple/FortKit/Tests/FortKitTests/OwnerLifecycleTests.swift": "24d4b714a500944eb66613e3a5047901469fa83ae158dad0257786e8dea3d55d",
-    "successor/apple/FortKit/Tests/FortKitTests/OwnerSetupModelTests.swift": "ec77fd4c9df70d73e5b5eab1e69ad9baac5aaeeb308cd1d3767898922b130d64",
-    "successor/evidence/2026-10-17-node-foundation/native-removal-composition.md": "30761994d135b93366a0cc82a661b2ad0f2fec45fa3151182bb7e4ba213c3f1b",
-    "successor/package.json": "4dd1b142a20722f79b224e87fcbc52386e8b74f37396fed95dc1bd4255f3101d",
-    "successor/packaging/codex-executor-artifact.test.ts": "838fa34aa19dc6a7078fe27e044e6f0fa0544a765f23e3c4a46bf3230ab97134",
-    "successor/packaging/codex-executor-artifact.ts": "1864582e8bf73fa959418a1bca89af8bfd189345cf9738a400150405d739026d"
+    "specs/059-modular-node-v1.md": "b31be780406639025e05e2610411d4cfeac5d2b950864f02a8f56a1ed7a4285c",
+    "successor/V1-ACCEPTANCE.md": "d5c1a7ec29ffca8cc634461ff7efcbf081470bf4aaa9cfa13df35bc6c6564cdb",
+    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "cdb8d95353409a6b518c37bc71e6eedf858897add9a4c3247e82ee579a778cc1",
+    "successor/apple/FortKit/Sources/FortKit/MessengerView.swift": "dc654da92866bc5d00ae2828fab6c46fe90d66afb8f0eadfb826fa49727b25d1",
+    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "0060f9489f1f213348177a79689d0324b28c3923e9cc079224b791e6b16e5aae",
+    "successor/apple/FortKit/Tests/FortKitTests/CoreSetupTests.swift": "5c65797bedac0d4634144b95beb2a48b04b34c7bb1380b370f49869e8770065d",
+    "successor/apple/FortKit/Tests/FortKitTests/MacHostJourneyTests.swift": "eabf477a4258dee945dd893e0ad06ba352dc812d20711eba14090c19b996e17b",
+    "successor/apple/FortKit/Tests/FortKitTests/OwnerLifecycleTests.swift": "76e8c89508954bdabbf41cd651328804ae0cfabcfe04c92dd887e35e99649e95",
+    "successor/evidence/2026-10-17-node-foundation/owner-resume.md": "4c1fdd7b6adc3a3e8bdf4552fd1454e340d0d060e7c0adeedcf59cf065294b41",
+    "successor/host/fixtures/owner-core.mjs": "cd60cc5a8296c470f4e91b7cd9bb3c4d7bc769a5c91c60771628e22d7eb107fc",
+    "successor/host/owned-core.test.ts": "59c330c4489a46ff83ba1431f9d214a4de8660acc4ae4b41919ed9701e4ca2ed",
+    "successor/runner/executor-process.test.ts": "542bb4897f55e04aaa33fbcc2891f60de48776bce0202794cf052112e927007c",
+    "successor/runner/executor-process.ts": "c04e5a36fc209fb5f17fd1d71764fc52431750e994d649c65ea7fe36d89dcb06",
+    "successor/service/openai.ts": "77ed48758a79bb8d8ac2d5a5bc6d08fb98ab78271d84687297d8c87588d84ad6",
+    "successor/service/owner-recovery.test.ts": "e58c26b866280af8ad0fad5b1ad12c80989d8e410a42dd5f95081187db08e440",
+    "successor/service/owner-resume.test.ts": "629dd6c482a17475a1d8faa1fccab1ee5dceee1a0ce636b3d5b71e2b76684fcb"
   }
 }
 ```

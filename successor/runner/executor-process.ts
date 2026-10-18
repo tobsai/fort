@@ -79,7 +79,7 @@ export class ExecutorProcess implements ChatRuntime {
   get lastExit(): Readonly<ExitReport> | undefined { return this.report; }
 
   readiness(): RuntimeReadiness {
-    return { state: this.stopped ? 'stopped' : this.blocked ? 'unavailable' : this.active ? 'busy' : 'ready', canRestart: false,
+    return { state: this.stopped ? 'stopped' : this.blocked ? 'unavailable' : this.active ? 'busy' : 'ready', canRestart: this.stopped && !this.blocked && !this.active,
       detail: this.blocked ? 'Executor cleanup is unconfirmed. New dispatch is blocked.' : this.stopped ? 'Executor stopped.' : this.active ? 'An executor operation is active.' : 'Executor available.' };
   }
 
@@ -88,6 +88,12 @@ export class ExecutorProcess implements ChatRuntime {
     this.active?.cancel();
     await this.active?.done;
     if (this.blocked) throw new Error('Executor cleanup was not confirmed');
+  }
+
+  async restart(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    if (!this.stopped || this.blocked || this.active) throw new Error('Executor resume requires confirmed shutdown');
+    this.stopped = false;
   }
 
   async execute(input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult> {
