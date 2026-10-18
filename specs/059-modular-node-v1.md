@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: a9606d6f6713343928945bf5b051c50848284e310265ce236efc20a9188c9a7b
+Reviewed content SHA256: 709749ea305febf9b1c501892ed19b2b76fc5d3b373d13cdd1b48c491fbb0670
 
 ### Vendor independence
 Status: planned
@@ -2266,7 +2266,52 @@ this spec, v1 ledger, current Ponytail review and evidence companion-pairing.md.
 Rollback removes the new entry points only after any real companion is explicitly
 revoked; no rollback is executed in this preparation and no existing state is reset.
 
+### Native companion authority and disconnect recovery
+
+Continue decision 059 from 0d75bf1. Native clients must decode the explicit companion
+role before presenting host controls on a companion-capable installation. Missing
+or invalid role status leaves host actions unavailable. A companion disconnect uses
+only its exact leave contract and requires installation/device/revoked/scope proof;
+it never calls host stop/recovery, including after relaunch or lost replies. Preserve
+the removal scope with the existing local intent. Legacy intents without scope keep
+their existing host semantics. After an awaited response, recheck the exact saved
+connection and intent before removing a credential. Unconfirmed leave retains the
+credential and saved history. Local forgetting remains explicitly unconfirmed and
+directs companion recovery to the owning Mac. Partial Keychain cleanup retries
+locally after a saved confirmation, without repeating remote actions.
+
+The shared settings view distinguishes phone leave from whole-host disconnect,
+which revokes both devices. Stop/resume/restart are absent for companions. This slice
+does not create an invitation or credential, compose phone setup, activate TLS, or
+claim physical UI acceptance. The service remains the enforcement boundary; native
+controls accurately expose it. Exact installed screenshots/accessibility follow when
+the synthetic shared flow is composed, with production acceptance still separate.
+
+Vendor independence: Fort-owned plain response values and the existing transport;
+no SDK or account dependency. Modularity: leave receipt is distinct from host-stop
+proof and uses the existing removal journal. Speed: one explicit HTTP request, no
+new timer; 20 synthetic native leave/retry samples must have p95 below 100 ms excluding
+network, provider and actual Keychain. Installation/removal: retained intent and
+history, exact credential removal only after confirmation, no persistent activation.
+The bounded interface keeps later native phone preparation independent of core.
+
+Test first through MessengerModel/FortClient and synthetic transport: companion
+disconnect never stops the host; role failure blocks host actions; exact leave
+receipt validation; lost reply/relaunch retry; wrong receipt retains credentials;
+partial credential cleanup; local forgetting; changed connection during a request.
+Existing host lifecycle and native setup tests must remain green. Compile both
+native platforms. Rollback before any real companion use only; no rollback is run.
+
+Exact files: successor/apple/FortKit/Sources/FortKit/OwnerLifecycle.swift,
+FortClient.swift, DeviceStorage.swift, SavedHistoryRemoval.swift, MessengerModel.swift, MessengerView.swift,
+PairingSettings.swift in that same source directory; new
+successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift;
+this spec, v1 ledger, current Ponytail review and evidence native-companion-removal.md.
+
 ## Implementation paths
+
+- `successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-companion-removal.md`
 
 - `successor/service/companion-pairing.ts`
 - `successor/service/companion-pairing.test.ts`

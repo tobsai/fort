@@ -173,8 +173,9 @@ extension DeviceStorage {
                   let disconnected = try records.read(.disconnected),
                   try JSONDecoder().decode(DeviceConnection.self,from:disconnected) == connection,
                   let removal = try records.read(.removal),
-                  try JSONDecoder().decode(PairingRemovalIntent.self,from:removal) == PairingRemovalIntent(connection:connection,state:.confirmed),
                   try ownerSetupCredential(for:connection) == nil else { throw SavedHistoryRemovalError.changedStore }
+            let intent = try JSONDecoder().decode(PairingRemovalIntent.self,from:removal)
+            guard intent.connection == connection, intent.state == .confirmed else { throw SavedHistoryRemovalError.changedStore }
         }
         try verifyPairing()
         let root = try HistoryDirectory(path:directory.path)

@@ -88,6 +88,8 @@ import Observation
     public var lifecycleBusy = false
     private var pairingRemoved = false
     private var hostStopped = false
+    private var companionRemoval = false
+    public var isCompanionPairing: Bool { pairingStatus?.role == .companion || companionRemoval }
     public var pairingCleanupPending = false
     public var pairingRemovalPending = false
     public var localPairingForgotten = false
@@ -126,7 +128,9 @@ import Observation
     }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
-    public var canResumeLocalWork: Bool { canManagePairing && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }
+    public var canDisconnectPairing: Bool { canManagePairing && (installation?.supports("companionPairing") != true || pairingStatus != nil) }
+    public var canControlHost: Bool { canDisconnectPairing && !isCompanionPairing }
+    public var canResumeLocalWork: Bool { canControlHost && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }
     public var runtimeReadiness: RuntimeReadiness?
     public var schedulerStatus: SchedulerStatus?
     private var eventCursor: Int?
@@ -391,6 +395,7 @@ import Observation
             let disconnected = try storage.disconnectedConnection()
             let intent = try storage.pairingRemoval()
             let removal = intent?.connection == connection ? intent : nil
+            companionRemoval = removal?.scope == .companion
             pairingRemoved = active == nil || active == disconnected || removal != nil
             pairingRemovalPending = removal?.state == .requested || removal?.state == .locallyForgotten
             localPairingForgotten = removal?.state == .locallyForgotten && active == nil
@@ -411,7 +416,7 @@ import Observation
             showConnection = false
             if pairingRemoved {
                 loadLocalImages(); status = savedNavigation == nil ? "Disconnected" : "Disconnected · saved history"
-                pairingMessage = pairingRemovalPending ? "Disconnect intent saved. Service revocation and shutdown are unconfirmed." : pairingCleanupPending ? "Pairing was revoked; local credential removal still needs to finish." : savedNavigation == nil ? "Pairing removed. No saved conversation list is available on this device." : "Pairing removed. History is kept on this device."
+                pairingMessage = pairingRemovalPending ? unconfirmedRemovalMessage : pairingCleanupPending ? "Pairing was revoked; local credential removal still needs to finish." : savedNavigation == nil ? "Pairing removed. No saved conversation list is available on this device." : "Pairing removed. History is kept on this device."
                 return
             }
             hostStopped = false
@@ -431,7 +436,7 @@ import Observation
             let enrolled = try await initial.enroll(code:enrollmentCode,deviceName:deviceName)
             let connection = DeviceConnection(baseURL:url,installationID:expectedInstallation,deviceID:enrolled.deviceId,fixtureLoopback:true)
             try storage.save(connection,token:enrolled.deviceToken)
-            pairingRemoved = false; hostStopped = false; pairingCleanupPending = false; pairingRemovalPending = false; localPairingForgotten = false; pairingStatus = nil
+            pairingRemoved = false; hostStopped = false; companionRemoval = false; pairingCleanupPending = false; pairingRemovalPending = false; localPairingForgotten = false; pairingStatus = nil
             preparedAppRemoval = nil
             client = try FortClient(baseURL:url,installationID:expectedInstallation,token:enrolled.deviceToken,fixtureLoopback:true,session:session)
             pendingStore = try PendingStore(directory:storage.directory,installationID:expectedInstallation)
@@ -446,7 +451,7 @@ import Observation
             let pairing = try await client.pairing()
             guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal else { throw OwnerLifecycleError.wrongPairing }
             pairingStatus = pairing; pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
-        } catch { pairingMessage = error.localizedDescription }
+        } catch { pairingStatus = nil; pairingMessage = error.localizedDescription }
     }
     public func setPairingExpiry(days: Int?) async {
         guard canManagePairing, !lifecycleBusy, let client else { return }
@@ -457,26 +462,42 @@ import Observation
             pairingStatus = pairing; pairingMessage = "Pairing expiry saved."
         } catch { pairingMessage = error.localizedDescription }
     }
-    private func completePairingRemoval(_ connection: DeviceConnection) throws {
-        client = nil; connected = false; hostStopped = true; pairingRemoved = true; pairingStatus = nil
+    private var unconfirmedRemovalMessage: String {
+        isCompanionPairing ? "Phone disconnect is unconfirmed. Retry with the saved credential, or revoke this phone on the owning Mac. History is kept." : "Disconnect intent saved. Service revocation and shutdown are unconfirmed. Retry recovery or explicitly forget only this device's credential."
+    }
+    private func completePairingRemoval(_ connection: DeviceConnection, companion: Bool = false) throws {
+        let active = try storage.connection()
+        guard try active == connection || active == nil && storage.disconnectedConnection() == connection else { throw OwnerLifecycleError.wrongPairing }
+        if companion {
+            let intent = try storage.pairingRemoval()
+            guard intent?.connection == connection, intent?.scope == .companion else { throw OwnerLifecycleError.wrongPairing }
+        }
+        client = nil; connected = false; hostStopped = !companion; companionRemoval = companion; pairingRemoved = true; pairingStatus = nil
         pairingCleanupPending = true; pairingRemovalPending = false
         try storage.removePairing(connection)
         pairingCleanupPending = false; localPairingForgotten = false
-        pairingMessage = "Disconnected. Runtime shutdown and revocation were confirmed; the local credential was removed. History is kept."
+        pairingMessage = companion ? "This phone’s access was revoked and its local credential removed. The host and saved history are kept." : "Disconnected. Runtime shutdown and revocation were confirmed; the local credential was removed. History is kept."
         status = pairingMessage
     }
     public func stopLocalHost(disconnect: Bool) async {
-        guard canManagePairing, !isBusy, !lifecycleBusy, let client else { return }
+        guard canDisconnectPairing, disconnect || canControlHost, !isBusy, !lifecycleBusy, let client else { return }
+        let companion = isCompanionPairing
         lifecycleBusy = true; isBusy = true
         defer { lifecycleBusy = false; isBusy = false }
         do {
             guard let connection = try storage.connection() else { throw OwnerLifecycleError.wrongPairing }
             if disconnect {
-                try storage.beginPairingRemoval(connection)
+                try storage.beginPairingRemoval(connection,scope:companion ? .companion : nil)
+                companionRemoval = companion
                 pairingRemovalPending = true; pairingRemoved = true
             }
-            _ = try await client.stopHost(disconnect:disconnect)
-            if disconnect { try completePairingRemoval(connection) }
+            let removal = disconnect ? try storage.pairingRemoval() : nil
+            if companion { _ = try await client.leaveCompanion(deviceID:connection.deviceID) }
+            else { _ = try await client.stopHost(disconnect:disconnect) }
+            if disconnect {
+                guard try storage.pairingRemoval() == removal else { throw OwnerLifecycleError.wrongPairing }
+                try completePairingRemoval(connection,companion:companion)
+            }
             else {
                 hostStopped = true
                 pairingMessage = "Local work stopped. Pairing, history and owner controls remain available. Resume explicitly when ready."
@@ -486,7 +507,7 @@ import Observation
         } catch {
             if disconnect && pairingRemovalPending {
                 self.client = nil; connected = false
-                pairingMessage = "Disconnect intent saved. Service revocation and shutdown are unconfirmed. Retry recovery or explicitly forget only this device's credential."
+                pairingMessage = pairingCleanupPending ? "Revocation confirmed; local credential removal is incomplete." : unconfirmedRemovalMessage
             } else { pairingMessage = error.localizedDescription }
         }
     }
@@ -496,7 +517,11 @@ import Observation
         defer { lifecycleBusy = false; isBusy = false }
         do {
             guard let intent = try storage.pairingRemoval() else { throw OwnerLifecycleError.wrongPairing }
-            if let ownedInstallation {
+            if intent.scope == .companion {
+                companionRemoval = true
+                guard intent.state != .locallyForgotten, try storage.connection() == intent.connection else { throw OwnerLifecycleError.unavailable }
+                _ = try await restoredClient(intent.connection).leaveCompanion(deviceID:intent.connection.deviceID)
+            } else if let ownedInstallation {
                 let proof = try await ownedInstallation.recoverPairingRemoval(intent.connection)
                 guard proof.connection == intent.connection, proof.hostStopped, proof.pairingRevoked else { throw OwnerLifecycleError.stopUnconfirmed }
             } else {
@@ -504,8 +529,9 @@ import Observation
                 let recovery = try restoredClient(intent.connection)
                 _ = try await recovery.stopHost(disconnect:true)
             }
-            try completePairingRemoval(intent.connection)
-        } catch { pairingMessage = pairingCleanupPending ? "Revocation confirmed; local credential removal is incomplete." : "Service revocation and shutdown remain unconfirmed. Verified local host recovery is required if the service credential expired or its response was lost." }
+            guard try storage.pairingRemoval() == intent else { throw OwnerLifecycleError.wrongPairing }
+            try completePairingRemoval(intent.connection,companion:intent.scope == .companion)
+        } catch { pairingMessage = pairingCleanupPending ? "Revocation confirmed; local credential removal is incomplete." : unconfirmedRemovalMessage }
     }
     public func forgetLocalPairing() {
         guard pairingRemovalPending, !lifecycleBusy else { return }
@@ -513,7 +539,7 @@ import Observation
             guard let intent = try storage.pairingRemoval() else { throw OwnerLifecycleError.wrongPairing }
             try storage.removePairing(intent.connection,revocationConfirmed:false)
             client = nil; connected = false; pairingRemoved = true; localPairingForgotten = true
-            pairingMessage = "Local credential removed only. Service revocation and shutdown are unconfirmed. History is kept."
+            pairingMessage = isCompanionPairing ? "Local credential removed only. Phone revocation is unconfirmed; revoke this phone on the owning Mac. History is kept." : "Local credential removed only. Service revocation and shutdown are unconfirmed. History is kept."
         } catch { pairingMessage = "Local credential removal could not finish. Service revocation remains unconfirmed." }
     }
     public func finishPairingRemoval() {
@@ -582,6 +608,7 @@ import Observation
         do {
             let current = try await client.installation()
             installation = current
+            if current.supports("companionPairing") { await refreshPairing() }
             if current.supports("eventReplay"), current.eventCursor == nil || current.eventCursor! < 0 { throw ClientError.invalidResponse }
             runtimeReadiness = current.supports("runtimeRecovery") ? try await client.runtimeReadiness() : nil
             if current.supports("runtimeRecovery") { hostStopped = runtimeReadiness?.state == "stopped" }
@@ -832,6 +859,7 @@ import Observation
     }
     public func restartRuntime() async {
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
+        if installation?.supports("ownerPairing") == true && !canControlHost { return }
         let resumingOwner = canResumeLocalWork
         guard installation?.supports("runtimeRecovery") == true, runtimeReadiness?.state == "restartRequired" || resumingOwner, runtimeReadiness?.canRestart == true, !isBusy, let client, let installation else { return }
         isBusy = true

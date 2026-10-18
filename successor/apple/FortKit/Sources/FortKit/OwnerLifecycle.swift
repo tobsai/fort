@@ -2,13 +2,21 @@ import Foundation
 
 public struct PairingStatus: Codable, Equatable, Sendable {
     public enum Mode: String, Codable, Sendable { case temporary; case ownerLocal = "owner-local" }
+    public enum Role: String, Codable, Sendable { case companion }
     public let deviceId: String
     public let mode: Mode
     public let expiresAt: String?
+    public var role: Role? = nil
 }
 public struct HostStopReceipt: Codable, Sendable {
     public let runtimeStopped: Bool
     public let revoked: Bool
+}
+public struct CompanionRevocation: Decodable, Sendable {
+    public let installationId: String
+    public let deviceId: String
+    public let revoked: Bool
+    public let scope: String
 }
 public struct OwnedHostStop: Sendable {
     public let hostStopped: Bool
@@ -20,8 +28,10 @@ public struct OwnedHostStop: Sendable {
 }
 public struct PairingRemovalIntent: Codable, Equatable, Sendable {
     public enum State: String, Codable, Sendable { case requested, confirmed, locallyForgotten }
+    public enum Scope: String, Codable, Sendable { case companion }
     public let connection: DeviceConnection
     public let state: State
+    public var scope: Scope? = nil
 }
 public struct PairingRecoveryProof: Sendable {
     public let connection: DeviceConnection

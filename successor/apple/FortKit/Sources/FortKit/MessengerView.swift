@@ -93,7 +93,7 @@ public struct MessengerView: View {
                     if let memory = model.conversationMemory, !memory.text.isEmpty { Text("Saved memory applies to this conversation").font(.caption).foregroundStyle(.secondary) }
                     if let runtime = model.runtimeReadiness {
                         Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
-                        if runtime.state == "restartRequired" { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
+                        if runtime.state == "restartRequired" && (model.installation?.supports("ownerPairing") != true || model.canControlHost) { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
                         if runtime.state == "stopped" && model.canManagePairing { Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork) }
                     }
                     if let scheduler = model.schedulerStatus, scheduler.state == "fault" {

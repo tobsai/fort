@@ -36,6 +36,12 @@ public struct FortClient: Sendable {
         guard receipt.runtimeStopped, receipt.revoked == disconnect else { throw OwnerLifecycleError.stopUnconfirmed }
         return receipt
     }
+    public func leaveCompanion(deviceID: String) async throws -> CompanionRevocation {
+        let receipt: CompanionRevocation = try await send("v1/pairing/leave",method:.post,body:["deviceId":deviceID])
+        guard receipt.installationId == installationID, receipt.deviceId == deviceID,
+              receipt.revoked, receipt.scope == "companion-only" else { throw OwnerLifecycleError.wrongPairing }
+        return receipt
+    }
     public func models() async throws -> ModelCatalog { try await get("v1/models") }
     public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
         struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }
