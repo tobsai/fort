@@ -1,5 +1,10 @@
 # Fort delivery through TestFlight
 
+Current Node-foundation continuation: [Apple host activation gate](APPLE-HOST-ACTIVATION.md)
+records verified/proposed identities, missing profiles, the smallest account check
+and conditional provisioning/startup actions. Those actions remain unperformed;
+the engineering source/build checkpoint is separate from release readiness.
+
 The owner requires TestFlight distribution, not a standalone binary (message
 `01a14bf2-68bb-7211-896f-b813da65f78b` in UI task
 `01a14bac-6acb-70be-926a-23ab4584a0f1`). Local Debug/QA artifacts remain engineering

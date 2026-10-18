@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 1aae20a02fcbe5cd81f0dc8345a4ca12ac3cf100ec01e9e257a5c9d52723ae80
+Reviewed content SHA256: 83046630398f7bc96748bc6bf171a7f108dd2bd127b3c96406d53fc7dd8fcb3b
 
 ### Vendor independence
 Status: planned
@@ -888,6 +888,16 @@ package metadata, helper discovery, third-party redistribution closure, signed
 App Group/profile, authentication, provider operations and TestFlight remain separate
 unrun gates. A version response cannot establish those capabilities or complete v1.
 
+Keep a concrete Apple activation gate with the exact current engineering identifiers,
+verified signing team, local profile inventory and proposed production client/helper/
+App Group strings. Historical references and proposed names are not verified account
+records or adopted release identities. Define the smallest read-only account check,
+any conditional provisioning changes and separate per-user startup action. Do not
+request activation approval before the actual signed package and its scope are ready
+for review. This clarifies the existing Apple dependency/removal gate; it adds no
+runtime dependency, performance work, account grant, provisioning change or activation.
+Continue independent implementation while those external gates remain open.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -1171,6 +1181,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/packaging/node-bundle.test.ts`
 - `successor/packaging/sandbox-probe.swift`
 - `successor/packaging/runtime-fixture.mjs`
+- `successor/APPLE-HOST-ACTIVATION.md`
+- `successor/TESTFLIGHT-DELIVERY-20261017.md`
 - `successor/packaging/vendor/codex-0.157.1/LICENSE`
 - `successor/packaging/vendor/codex-0.157.1/NOTICE`
 - `successor/evidence/2026-10-17-node-foundation/codex-bundle-version.md`

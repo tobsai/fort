@@ -39,6 +39,12 @@ service/runtime and 56 native tests are not a pass for the new foundation.
 
 ## Authority and current blockers
 
+The [Apple host activation gate](APPLE-HOST-ACTIVATION.md) records the exact current
+engineering IDs, proposed release/helper/group set, missing local profiles and
+separate read-only account, provisioning and startup steps. Production host activation
+remains unperformed.
+Local wrapper and lifecycle implementation continues independently.
+
 Ordinary coding, tests, routine fixes, CI files and requested delivery work are
 authorized by the source decision. Do not request routine staged approvals.
 Existing signing/account metadata needs verification; new credentials, grants,
