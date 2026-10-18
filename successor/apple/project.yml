@@ -21,6 +21,19 @@ settings:
     INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 targets:
+  FortHost:
+    type: application
+    platform: macOS
+    sources: [Host]
+    dependencies:
+      - package: FortKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.mac.host
+        INFOPLIST_KEY_CFBundleDisplayName: Fort Host
+        INFOPLIST_KEY_LSBackgroundOnly: YES
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: NO
   FortiOS:
     type: application
     platform: iOS
@@ -83,6 +96,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.mac.uitests
         TEST_TARGET_NAME: FortMac
 schemes:
+  FortHost:
+    build:
+      targets:
+        FortHost: all
   FortiOS:
     build:
       targets:

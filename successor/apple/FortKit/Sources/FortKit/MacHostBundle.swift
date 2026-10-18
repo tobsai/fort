@@ -21,6 +21,11 @@ struct MacHostCodeSignature: Sendable {
     let appSandbox: Bool
     let inheritsSandbox: Bool
     let applicationGroups: [String]
+    let entitlementKeys: [String]
+    init(appSandbox: Bool, inheritsSandbox: Bool, applicationGroups: [String], entitlementKeys: [String] = []) {
+        self.appSandbox = appSandbox; self.inheritsSandbox = inheritsSandbox
+        self.applicationGroups = applicationGroups; self.entitlementKeys = entitlementKeys
+    }
 }
 
 public struct MacHostBundle: Sendable {
@@ -93,7 +98,7 @@ public struct MacHostBundle: Sendable {
             groups = parsed
         } else { groups = [] }
         return try MacHostCodeSignature(appSandbox:boolean(entitlements["com.apple.security.app-sandbox"]),
-            inheritsSandbox:boolean(entitlements["com.apple.security.inherit"]),applicationGroups:groups)
+            inheritsSandbox:boolean(entitlements["com.apple.security.inherit"]),applicationGroups:groups,entitlementKeys:Array(entitlements.keys))
     }
 
     private static func boolean(_ value: Any?) throws -> Bool {
@@ -110,7 +115,7 @@ public struct MacHostBundle: Sendable {
         var info = stat()
         guard lstat(url.path,&info) == 0, info.st_mode & S_IFMT == S_IFDIR, info.st_mode & 0o022 == 0 else { throw MacHostBundleError.unsafeFile }
     }
-    private static func withFile<T>(_ url: URL, limit: Int, body: (Int32,stat) throws -> T) throws -> T {
+    static func withFile<T>(_ url: URL, limit: Int, body: (Int32,stat) throws -> T) throws -> T {
         try path(url)
         let descriptor = Darwin.open(url.path,O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
         guard descriptor >= 0 else { throw MacHostBundleError.unsafeFile }

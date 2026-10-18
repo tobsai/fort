@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0b620e3c200be18b28376ce1e34b9a51e77d3325a787c052294257d3bf85ce5c
+Reviewed content SHA256: 40b27a3b4c59246efd654379b6d1b7ded9b7c1d124c2efd05e5479891fd70209
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,58 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Helper executable and fixed program revision
+
+Add a background-only engineering `FortHost` app target and an inert fixed-program
+inspection seam. The entry point derives the containing Fort app from its own
+`Bundle.main` helper URL and requires that URL to equal the helper in the fully
+inspected parent bundle. It accepts no arbitrary app path, executable, argument,
+environment or configuration override from command-line or XPC data. The fixed
+helper paths are `Contents/MacOS/node`, `Contents/MacOS/FortProcessGuardian` and
+`Contents/Resources/host/main.mjs`. All are canonical, nonempty, regular, single-link,
+not group/world writable files; native executables must be executable. Bound sizes
+at 512 MiB, 8 MiB and 256 KiB respectively. Resource/code integrity remains covered
+by the complete parent/helper signature check; this is not an atomic update lock.
+
+Require both native tools to be Apple-anchored code under the helper's signing team,
+with exact derived identifiers `<serviceIdentifier>.node` and
+`<serviceIdentifier>.guardian`. Their entitlement key sets must be exactly App
+Sandbox plus sandbox inheritance, both true, with no independently granted App
+Group. Extend existing read-only code metadata to expose keys without changing the
+client/helper entitlement requirements. Provisioning presence is still explicitly
+unverified; actual profile eligibility and runtime/library/legal closure remain gates.
+
+Only a successfully inspected program constructs the service lifecycle with fixed
+Node flags (`--jitless`, `--no-experimental-strip-types`, `--no-warnings`), the bundled
+bootstrap, an empty environment and the exact guardian. The helper handles SIGTERM
+by canceling pending startup and awaiting shared service shutdown. Failure uses a
+generic diagnostic and nonzero exit; no fallback runtime or registration is added.
+The production bootstrap contents/runtime configuration remain a subsequent reviewed
+packaging slice. Do not install a placeholder runtime or claim the helper can serve
+without its required resources.
+
+The target's local engineering identifier is `io.fort.spec058.fixture.mac.host`;
+it is not adopted/registered as a release identifier. It has App Sandbox enabled,
+no outgoing network capability, no App Group/profile and no automatic parent-app
+embedding/activation. Those must come from the exact reviewed production package.
+Creating the target grants no Apple capability or startup authority.
+
+Vendor independence: the Swift program selects only the provider-neutral core
+bootstrap boundary; the provider stays behind its optional artifact. Modularity:
+reuse bundle/file/signature/lifecycle checks and keep Node/bootstrap supplied
+separately. Speed: 20 isolated metadata-only program inspections with fake signatures,
+p95 <=50 ms; real complete signature validation retains the <=2 s target and remains
+unmeasured until a complete signed helper exists. Installation/removal: missing or
+unsafe contents fail before App Group lookup/core launch; signal handling delegates
+to the verified lifecycle, with no service registration or app deletion.
+
+Acceptance: exact derived parent/helper, fixed paths, code requirements, permissions,
+symlink/hardlink/directory/oversize and entitlement negative controls; public inspection
+of the test runner refuses its non-helper layout. Full native tests, strict TypeScript,
+fresh unsigned helper/Mac/iPhone builds and generated-project diff review. No helper
+launch, actual signal delivery to the new target, provider, profiles, named listener
+or TestFlight claim. Reuse decision 059 for this local executable preparation.
+
 ### Native helper service lifecycle revision
 
 Compose the existing exact App Group storage, guarded core host and authenticated
@@ -1534,6 +1586,13 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/packaging/core-artifact.ts`
 - `successor/packaging/core-artifact.test.ts`
 - `successor/apple/FortKit/Sources/FortKit/MacAgentService.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacHostProgram.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostProgramTests.swift`
+- `successor/apple/Host/FortHost.swift`
+- `successor/apple/project.yml`
+- `successor/apple/FortSpec058.xcodeproj/project.pbxproj`
+- `successor/apple/FortSpec058.xcodeproj/xcshareddata/xcschemes/FortHost.xcscheme`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-program.md`
 - `successor/apple/FortKit/Tests/FortKitTests/MacAgentServiceTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-agent-service.md`
 - `successor/packaging/codex-executor-artifact.ts`

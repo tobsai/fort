@@ -4,7 +4,7 @@ import Darwin
 import Testing
 @testable import FortKit
 
-private struct HostBundleFixture {
+struct HostBundleFixture {
     let root: URL
     let app: URL
     let helper: URL
@@ -230,6 +230,7 @@ func hostBundleCodeSignatureVerifiesRetainedSignedProbe() throws {
     let app = URL(fileURLWithPath:path,isDirectory:true)
     let signed = try MacHostBundle.codeSignature(at:app,identifier:identifier,team:team)
     #expect(signed.appSandbox && !signed.inheritsSandbox && signed.applicationGroups.isEmpty)
+    #expect(Set(signed.entitlementKeys) == ["com.apple.security.app-sandbox"])
     #expect(throws:MacHostBundleError.self) { try MacHostBundle.codeSignature(at:app,identifier:"io.fort.foreign",team:team) }
     #expect(throws:MacHostBundleError.self) { try MacHostBundle.codeSignature(at:app,identifier:identifier,team:"ZZZZZ99999") }
     let copy = FileManager.default.temporaryDirectory.appendingPathComponent("Fort059SignatureCopy-" + UUID().uuidString + ".app")

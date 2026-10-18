@@ -9,10 +9,12 @@
 /* Begin PBXBuildFile section */
 		25A463B50675A556B79DCCED /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		39F12B140A8750F249A1EA86 /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
+		4FC71A37DDC51189016E0EC2 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 758FD594ED2718FA5EEEA86D /* FortKit */; };
 		73A5A220DFEB2195787C5A32 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9879AC4BE78E0915A76A7A94 /* FortKit */; };
 		A79A1A763DF7D0977098A771 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD9921B37AD9B66D20A41BED /* FortKit */; };
 		BD1862C279922A400780F2AB /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		C445733B345FBC225CD53A84 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5EA0927D7A956DB1973A38B1 /* FortKit */; };
+		CC3E6C5B331D58AC87D620D6 /* FortHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8596E0E3538837B6D3A724C /* FortHost.swift */; };
 		CF994BD145569F5E3B3D476C /* NativeJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */; };
 		DCEB5A14597C397CA8E6D773 /* NativeJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */; };
 /* End PBXBuildFile section */
@@ -35,6 +37,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0BC3F644C346A2FC9208D1F6 /* FortHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FortHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0BEC1FA69D5048919908B89B /* FortiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FortiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D63AC390E2E1F9BC1A071BB /* FortMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FortMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FortApp.swift; sourceTree = "<group>"; };
@@ -42,6 +45,7 @@
 		35B06F30ACB2232278049438 /* FortMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FortMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeJourneyTests.swift; sourceTree = "<group>"; };
 		6A9B943A9D96276439005E45 /* FortiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FortiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8596E0E3538837B6D3A724C /* FortHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FortHost.swift; sourceTree = "<group>"; };
 		C086F850514F1EF24B5282DB /* FortKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FortKit; path = FortKit; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -70,6 +74,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F9207BCB8688DF50D71CA13E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4FC71A37DDC51189016E0EC2 /* FortKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -93,6 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				D3A1BE74EF3A571962A6D081 /* Apps */,
+				F2B7303CD471119D836CBE57 /* Host */,
 				230CC20A730BFBE9D5D87858 /* Packages */,
 				0D6ABC803CB7618946B1E686 /* UITests */,
 				F72718C5249670C2A28E1876 /* Products */,
@@ -107,9 +120,18 @@
 			path = Apps;
 			sourceTree = "<group>";
 		};
+		F2B7303CD471119D836CBE57 /* Host */ = {
+			isa = PBXGroup;
+			children = (
+				B8596E0E3538837B6D3A724C /* FortHost.swift */,
+			);
+			path = Host;
+			sourceTree = "<group>";
+		};
 		F72718C5249670C2A28E1876 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				0BC3F644C346A2FC9208D1F6 /* FortHost.app */,
 				0BEC1FA69D5048919908B89B /* FortiOS.app */,
 				6A9B943A9D96276439005E45 /* FortiOSUITests.xctest */,
 				0D63AC390E2E1F9BC1A071BB /* FortMac.app */,
@@ -196,6 +218,25 @@
 			productReference = 35B06F30ACB2232278049438 /* FortMacUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		DDC9B56A37CC8AB841F4E8D2 /* FortHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6AD8548D372FC27E73D2840E /* Build configuration list for PBXNativeTarget "FortHost" */;
+			buildPhases = (
+				A6249BF86E5C3DC3887EACAC /* Sources */,
+				F9207BCB8688DF50D71CA13E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FortHost;
+			packageProductDependencies = (
+				758FD594ED2718FA5EEEA86D /* FortKit */,
+			);
+			productName = FortHost;
+			productReference = 0BC3F644C346A2FC9208D1F6 /* FortHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 		FFD52F3F5698920F124307C3 /* FortiOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 51CBFE147F8CED3109E1D1C9 /* Build configuration list for PBXNativeTarget "FortiOS" */;
@@ -249,6 +290,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				DDC9B56A37CC8AB841F4E8D2 /* FortHost */,
 				7616329AC9339C18F5D96413 /* FortMac */,
 				AC7BD399AF1732FCAD78A3AB /* FortMacUITests */,
 				ABE46552601AD79A09758839 /* FortQA */,
@@ -280,6 +322,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCEB5A14597C397CA8E6D773 /* NativeJourneyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6249BF86E5C3DC3887EACAC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC3E6C5B331D58AC87D620D6 /* FortHost.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,6 +525,24 @@
 			};
 			name = Debug;
 		};
+		7275BC14819754BD4EB7186F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort Host";
+				INFOPLIST_KEY_LSBackgroundOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.host;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 		7D3EC587F3617B377263CF88 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -608,6 +676,24 @@
 			};
 			name = Release;
 		};
+		F041904C226ECE008DC4CAF2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fort Host";
+				INFOPLIST_KEY_LSBackgroundOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.fort.spec058.fixture.mac.host;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
 		F2765AF5FC10D3677AC53A8F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -654,6 +740,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		6AD8548D372FC27E73D2840E /* Build configuration list for PBXNativeTarget "FortHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F041904C226ECE008DC4CAF2 /* Debug */,
+				7275BC14819754BD4EB7186F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7231603CA7CEB14C844FF9B3 /* Build configuration list for PBXNativeTarget "FortQA" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -692,6 +787,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		5EA0927D7A956DB1973A38B1 /* FortKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FortKit;
+		};
+		758FD594ED2718FA5EEEA86D /* FortKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FortKit;
 		};

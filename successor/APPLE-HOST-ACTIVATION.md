@@ -61,7 +61,8 @@ Proposed layout:
   system API and storage preflight. A returned URL alone is not entitlement evidence.
 
 This is a per-user agent, not a root daemon or a separately published helper product.
-The production wrapper/package still requires implementation. Official runtime
+The background helper target and native lifecycle now compile; runtime bootstrap,
+complete signed package and profile integration remain. Official runtime
 metadata/helper layout is a separate gate. The strict no-extended-ACL storage policy
 needs compatibility evidence from the actual provisioned container; do not repair
 unknown ACLs or delete retained history. The iPhone needs no Mac App Group merely
@@ -106,6 +107,15 @@ registration occurred. These Apple actions would not authorize provider sign-in,
 credential copying, public ingress, another device's access, deployment or upload.
 
 ## Local code and verified checkpoint
+
+Subsequent local preparation added a background-only engineering helper target,
+`io.fort.spec058.fixture.mac.host`. It is not a release identity or a registered
+capability. Its unsigned build has no host manifest, Node, guardian, bootstrap or
+embedded profile, and cannot pass the new fixed-program checks. No activation
+request is ready. Current source/tests/build evidence is in
+[helper program preparation](evidence/2026-10-17-node-foundation/mac-host-program.md)
+and the [v1 ledger](V1-ACCEPTANCE.md); the initial checkpoint table below remains
+historical evidence rather than the latest build inventory.
 
 Independent work includes wrapper/configuration and signature validation, exact
 owned-installation cleanup, provider adapter containment, synthetic recovery tests
