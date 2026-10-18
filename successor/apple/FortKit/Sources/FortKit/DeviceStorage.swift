@@ -70,7 +70,6 @@ public final class DeviceStorage {
         do { return try token(for:connection) }
         catch DeviceStorageError.keychain(errSecItemNotFound) { return nil }
     }
-    #if os(macOS)
     func removeOwnerSetupCredential(_ connection: DeviceConnection, expectedToken: String?) throws {
         guard try ownerSetupCredential(for:connection) == expectedToken else { throw OwnerSetupPreparationError.changedPreparation }
         if expectedToken != nil { try credentials.remove(connection) }
@@ -81,6 +80,19 @@ public final class DeviceStorage {
         guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw OwnerSetupPreparationError.randomUnavailable }
         return Data(bytes).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
     }
+    func prepareCompanionCredential(connection: DeviceConnection, mayCreate: Bool, tokenGenerator: () throws -> String) throws -> String {
+        guard connection.role == .companion else { throw ClientError.invalidResponse }
+        if let token = try ownerSetupCredential(for:connection) {
+            guard validCompanionToken(token) else { throw ClientError.invalidResponse }
+            return token
+        }
+        guard mayCreate else { throw OwnerSetupPreparationError.missingCredential }
+        let token = try tokenGenerator()
+        guard validCompanionToken(token) else { throw ClientError.invalidResponse }
+        try credentials.save(connection,token:token)
+        return token
+    }
+    #if os(macOS)
     func prepareOwnerSetupCredential(connection: DeviceConnection, setupID: String, mayCreate: Bool, tokenGenerator: () throws -> String) throws -> OwnerSetupRequest {
         var created = false
         let token: String

@@ -69,26 +69,34 @@ public struct DeviceConnection: Codable, Equatable, Sendable {
     public let endpoint: DeviceEndpoint
     public let installationID: String
     public let deviceID: String
-    public init(endpoint: DeviceEndpoint, installationID: String, deviceID: String) throws {
+    public let role: PairingStatus.Role?
+    public init(endpoint: DeviceEndpoint, installationID: String, deviceID: String, role: PairingStatus.Role? = nil) throws {
         self.endpoint = endpoint; self.installationID = installationID; self.deviceID = deviceID
+        self.role = role
         try validate()
     }
     init(baseURL: URL, installationID: String, deviceID: String, fixtureLoopback: Bool) {
         endpoint = .network(baseURL:baseURL,fixtureLoopback:fixtureLoopback)
         self.installationID = installationID; self.deviceID = deviceID
+        role = nil
     }
-    private enum Keys: String, CodingKey { case schemaVersion, endpoint, installationID, deviceID, baseURL, fixtureLoopback }
+    private enum Keys: String, CodingKey { case schemaVersion, endpoint, installationID, deviceID, baseURL, fixtureLoopback, role }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy:Keys.self)
         if values.contains(.schemaVersion) {
             let version = try values.decode(Int.self,forKey:.schemaVersion)
-            guard [2,3].contains(version),
+            guard [2,3,4].contains(version),
                   !values.contains(.baseURL), !values.contains(.fixtureLoopback) else { throw ClientError.invalidResponse }
             endpoint = try values.decode(DeviceEndpoint.self,forKey:.endpoint)
-            guard version == endpoint.connectionSchemaVersion else { throw ClientError.invalidResponse }
+            if version == 4 { role = try values.decode(PairingStatus.Role.self,forKey:.role) }
+            else {
+                guard version == endpoint.connectionSchemaVersion, !values.contains(.role) else { throw ClientError.invalidResponse }
+                role = nil
+            }
         } else {
-            guard !values.contains(.endpoint) else { throw ClientError.invalidResponse }
+            guard !values.contains(.endpoint), !values.contains(.role) else { throw ClientError.invalidResponse }
             endpoint = .network(baseURL:try values.decode(URL.self,forKey:.baseURL),fixtureLoopback:try values.decode(Bool.self,forKey:.fixtureLoopback))
+            role = nil
         }
         installationID = try values.decode(String.self,forKey:.installationID)
         deviceID = try values.decode(String.self,forKey:.deviceID)
@@ -97,11 +105,15 @@ public struct DeviceConnection: Codable, Equatable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         try validate()
         var values = encoder.container(keyedBy:Keys.self)
-        try values.encode(endpoint.connectionSchemaVersion,forKey:.schemaVersion); try values.encode(endpoint,forKey:.endpoint)
+        try values.encode(role == .companion ? 4 : endpoint.connectionSchemaVersion,forKey:.schemaVersion); try values.encode(endpoint,forKey:.endpoint)
         try values.encode(installationID,forKey:.installationID); try values.encode(deviceID,forKey:.deviceID)
+        try values.encodeIfPresent(role,forKey:.role)
     }
     func validate() throws {
         guard [installationID,deviceID].allSatisfy({ !$0.isEmpty && $0.utf8.count <= 4096 && !$0.contains("/") && $0.rangeOfCharacter(from:.controlCharacters) == nil }) else { throw ClientError.invalidResponse }
         try endpoint.validate()
+        if role == .companion {
+            guard case .network(let address,let fixture) = endpoint, !fixture, address.scheme == "https" else { throw ClientError.insecureEndpoint }
+        }
     }
 }

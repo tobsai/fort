@@ -113,7 +113,8 @@ private struct OwnerSetupPlan: Codable, Equatable {
         return current
     }
     private func verifyPlan(_ plan: OwnerSetupPlan, files: OwnerSetupFiles) throws {
-        guard let saved = try files.read(.pending), try JSONDecoder().decode(OwnerSetupPlan.self,from:saved) == plan else { throw OwnerSetupPreparationError.changedPreparation }
+        guard try files.read(.companionSetup) == nil, try files.read(.accountSignIn) == nil,
+              let saved = try files.read(.pending), try JSONDecoder().decode(OwnerSetupPlan.self,from:saved) == plan else { throw OwnerSetupPreparationError.changedPreparation }
         _ = try matchingConnection(files,for:plan)
     }
     public func pendingSetup() throws -> PendingOwnerSetup? {
@@ -178,7 +179,7 @@ private struct OwnerSetupPlan: Codable, Equatable {
         try Task.checkCancellation()
         let files = try OwnerSetupFiles(directory:storage.directory)
         defer { files.close() }
-        guard try files.read(.hostRemoval) == nil else { throw MacHostRemovalError.setupBlocked }
+        guard try files.read(.hostRemoval) == nil, try files.read(.companionSetup) == nil, try files.read(.accountSignIn) == nil, try files.read(.historyRemoval) == nil else { throw MacHostRemovalError.setupBlocked }
         let decoder = JSONDecoder(), encoder = JSONEncoder()
         let existing = try files.read(.connection).map { try decoder.decode(DeviceConnection.self,from:$0) }
         var plan: OwnerSetupPlan
@@ -193,7 +194,7 @@ private struct OwnerSetupPlan: Codable, Equatable {
             }
             guard case .available(let offer) = try await control.beginOwnerSetup(timeout:30) else { throw OwnerSetupPreparationError.existingPairing }
             try Task.checkCancellation()
-            guard try files.read(.connection) == nil, try files.read(.pending) == nil else { throw OwnerSetupPreparationError.changedPreparation }
+            guard try files.read(.connection) == nil, try files.read(.pending) == nil, try files.read(.companionSetup) == nil, try files.read(.accountSignIn) == nil, try files.read(.historyRemoval) == nil else { throw OwnerSetupPreparationError.changedPreparation }
             plan = try OwnerSetupPlan(connection:DeviceConnection(endpoint:endpoint,installationID:offer.installationID,deviceID:UUID().uuidString),offer:offer,phase:.preparing)
             try files.write(encoder.encode(plan),to:.pending)
         }
@@ -208,7 +209,7 @@ private struct OwnerSetupPlan: Codable, Equatable {
         try Task.checkCancellation()
         let receipt = try await control.completeOwnerSetup(request,timeout:30)
         try Task.checkCancellation()
-        guard receipt.installationID == request.installationID, receipt.deviceID == request.deviceID,
+        guard try files.read(.companionSetup) == nil, try files.read(.accountSignIn) == nil, try files.read(.historyRemoval) == nil, receipt.installationID == request.installationID, receipt.deviceID == request.deviceID,
               let saved = try files.read(.pending), try decoder.decode(OwnerSetupPlan.self,from:saved) == plan,
               try storage.token(for:plan.connection) == request.deviceToken else { throw OwnerSetupPreparationError.changedPreparation }
         let current = try files.read(.connection).map { try decoder.decode(DeviceConnection.self,from:$0) }

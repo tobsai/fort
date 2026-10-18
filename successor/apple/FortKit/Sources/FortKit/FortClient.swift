@@ -50,6 +50,12 @@ public struct FortClient: Sendable {
               receipt.revoked, receipt.scope == "companion-only" else { throw OwnerLifecycleError.wrongPairing }
         return receipt
     }
+    public func joinCompanion(invitationID: String, code: String, deviceID: String, deviceToken: String, deviceName: String) async throws -> CompanionJoinReceipt {
+        let receipt: CompanionJoinReceipt = try await send("v1/devices/join",method:.post,body:["installationId":installationID,"invitationId":invitationID,"code":code,"deviceId":deviceID,"deviceToken":deviceToken,"deviceName":deviceName])
+        guard receipt.installationId == installationID, receipt.deviceId == deviceID,
+              receipt.role == .companion else { throw OwnerLifecycleError.wrongPairing }
+        return receipt
+    }
     public func models() async throws -> ModelCatalog { try await get("v1/models") }
     public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
         struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }

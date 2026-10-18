@@ -99,7 +99,7 @@ extension DeviceStorage {
         let files = try OwnerSetupFiles(directory:directory)
         do {
             guard let current = try files.read(.connection), try JSONDecoder().decode(DeviceConnection.self,from:current) == connection,
-                  try files.read(.pending) == nil, try files.read(.hostRemoval) == nil, try files.read(.historyRemoval) == nil else { throw ClientError.invalidResponse }
+                  try files.read(.pending) == nil, try files.read(.companionSetup) == nil, try files.read(.hostRemoval) == nil, try files.read(.historyRemoval) == nil else { throw ClientError.invalidResponse }
             let prior = try files.read(.removal).map { try JSONDecoder().decode(PairingRemovalIntent.self,from:$0) }
             let disconnected = try files.read(.disconnected).map { try JSONDecoder().decode(DeviceConnection.self,from:$0) }
             if let prior {

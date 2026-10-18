@@ -218,3 +218,44 @@ func nativeCompanionLostReplyRecoveryMeetsItsIsolatedBudget() async throws {
     #expect(encoded["role"] as? String == "companion")
     #expect(status.deviceId == "phone" && status.mode == .ownerLocal && status.expiresAt == nil)
 }
+
+#if os(macOS)
+private final class ExpiredCompanionProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let url = request.url, url.host == "expired-phone.invalid" else {
+            Issue.record("Unexpected fixture endpoint"); client?.urlProtocol(self,didFailWithError:URLError(.unsupportedURL)); return
+        }
+        let status: Int, body: String
+        switch url.path {
+        case "/v1/installation": status = 401; body = #"{"error":{"code":"unauthorized","message":"Synthetic expired phone"}}"#
+        case "/v1/pairing/leave": status = 200; body = #"{"installationId":"one","deviceId":"phone","revoked":true,"scope":"companion-only"}"#
+        default: Issue.record("Expired phone requested a host or unrelated route: \(url.path)"); client?.urlProtocol(self,didFailWithError:URLError(.unsupportedURL)); return
+        }
+        guard let response = HTTPURLResponse(url:url,statusCode:status,httpVersion:nil,headerFields:["Content-Type":"application/json"]) else { return }
+        client?.urlProtocol(self,didReceive:response,cacheStoragePolicy:.notAllowed)
+        client?.urlProtocol(self,didLoad:Data(body.utf8)); client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+@Test @MainActor func nativeExpiredPhoneRetainsOnlyItsExactLeaveAuthority() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fort-expired-phone-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:directory) }
+    let credentials = CompanionCredentials(), storage = try DeviceStorage(directory:directory,credentials:credentials)
+    let connection = try DeviceConnection(endpoint:.network(baseURL:URL(string:"https://expired-phone.invalid")!,fixtureLoopback:false),installationID:"one",deviceID:"phone",role:.companion)
+    try storage.save(connection,token:"synthetic-phone")
+    let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [ExpiredCompanionProtocol.self]
+    let session = URLSession(configuration:configuration); defer { session.invalidateAndCancel() }
+    let model = MessengerModel(storage:storage,session:session); await model.restore()
+    #expect(model.isCompanionPairing && model.canDisconnectPairing)
+    #expect(!model.canControlHost && !model.canManageProviderAccount && !model.canResumeLocalWork)
+    await model.stopLocalHost(disconnect:false); await model.restartRuntime(); await model.startAccountSignIn()
+    #expect(try storage.connection() == connection)
+    await model.stopLocalHost(disconnect:true)
+    #expect(try storage.connection() == nil)
+    #expect(credentials.removed == [connection])
+    #expect(try storage.pairingRemoval()?.scope == .companion)
+    #expect(try storage.pairingRemoval()?.state == .confirmed)
+}
+#endif

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 31a21666eceb06798a23812ad29a381736945cc7f5e2b7eb50408f59f813c0fe
+Reviewed content SHA256: 4b6fa5e10941fd54b30256a16edea8dc217d3535845ca4d78f9a937bfd5751c8
 
 ### Vendor independence
 Status: planned
@@ -2544,7 +2544,66 @@ account-controls-challenge.png, account-controls-canceled.png and
 account-controls-reopened.png. Reuse decision 059's ordinary implementation and
 local validation authority; no external or persistent-access authority is added.
 
+### Durable native companion preparation
+
+Continue decision 059 from the preserved preparation at 1b08c22, rebased onto
+83effc5 after the native Mac account controls. Add a shared native coordinator for an explicit
+HTTPS invitation and prepared phone credential. Construction/import is inert. The
+user supplies the exact address, installation, invitation and code. Before sending
+join, persist the new device identity, invitation/code digest and preparation state
+under the existing guarded private-file lease; put only the device token in the
+existing credential store. Persist its digest before the first network request.
+No plaintext invitation code or token is written to the journal. Missing or changed
+ready credentials stop recovery; never silently generate a replacement.
+
+Exact join retries preserve identity. Recovery after a lost reply may verify the
+prepared credential through authenticated installation/pairing reads without the
+invitation code or a new join. It must validate the exact installation, device and
+companion role before publishing a connection. A denied read is uncertainty, not
+proof that no grant happened. Pending setup stays available for exact code retry,
+explicit phone-only revocation, or clearly unconfirmed local forgetting. Recheck
+pending bytes, current connection and token after every awaited boundary. Keep
+confirmed cleanup retriable if local credential removal fails. Reject competing
+owner setup/removal/account sign-in and preserve unrelated records. Owner setup,
+account preparation and local history deletion reciprocally refuse a pending phone
+setup before contacting a host or changing credentials/history. No new automatic polling.
+
+Persist companion role in a new explicit connection schema, restricted to HTTPS
+network endpoints. Preserve decoding of earlier primary/demo schemas. This enables
+an expired phone to use only exact leave recovery; it never gains host authority
+from a failed status read. The shared file helper may add one bounded pending
+record and exact removal method; do not duplicate its private-directory, symlink,
+ownership, locking or fsync logic. Keep ordinary Keychain operations behind the
+existing credential seam. Tests use disposable memory credentials only.
+
+Vendor independence: plain Fort contracts, existing Swift crypto/security/file APIs
+and HTTPS platform trust. Modularity: preparation owns its journal; the core owns
+membership and the transport owns TLS. No provider or hosted identity is required.
+Speed: one prepared record and explicit requests; 20 synthetic prepare/lost-reply/
+recover journeys must have p95 below 100 ms excluding actual network and Keychain.
+Installation/removal: no actual credential or network activation during preparation;
+explicit pending revocation versus local forgetting, retained history by default.
+
+Test first: exact preparation before join, lost-reply recovery with no new token,
+wrong receipt, missing/changed credential, private-file substitution, competing
+setup, pending cancellation/partial cleanup, schema compatibility and expired-phone
+leave. Compile both platforms. This slice prepares the native setup seam; ordinary
+invitation/UI and secure-listener composition follow separately. Rollback before
+real pairing use only; no existing connection is rewritten or reset during this work.
+
+Exact files: successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift (new),
+DeviceConnection.swift, DeviceStorage.swift, FortClient.swift, OwnerSetupFiles.swift,
+OwnerSetupPreparation.swift, SavedHistoryRemoval.swift, MessengerModel.swift,
+AccountSignIn.swift in the same source directory; AccountSignInTests.swift; new
+successor/apple/FortKit/Tests/FortKitTests/CompanionSetupTests.swift and existing
+CompanionLifecycleTests.swift; this spec, v1 ledger, current Ponytail review and
+evidence native-companion-setup.md. Source and fixtures remain distinct from actual
+Keychain, HTTPS, physical-device, installed-UI and TestFlight acceptance.
+
 ## Implementation paths
+- `successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CompanionSetupTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-companion-setup.md`
 - `successor/apple/FortKit/Sources/FortKit/AccountSignInFixture.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/AccountSignInFixtureTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/account-controls-idle.png`

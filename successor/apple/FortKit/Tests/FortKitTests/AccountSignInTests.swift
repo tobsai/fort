@@ -174,14 +174,17 @@ private final class AccountCredentials: DeviceCredentials {
 }
 
 @Test @MainActor func nativeAccountProtectedIntentRefusesLinksAndCompetingRemoval() async throws {
-    for kind in ["symlink","hardlink","removal"] {
+    for kind in ["symlink","hardlink","removal","companion"] {
         let fixture = try AccountFixture(); defer { fixture.close() }
         let target = fixture.directory.appendingPathComponent("synthetic-retained"), path = fixture.directory.appendingPathComponent("account-sign-in.json")
         try Data("synthetic retained evidence".utf8).write(to:target)
         try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:target.path)
         if kind == "symlink" { try FileManager.default.createSymbolicLink(at:path,withDestinationURL:target) }
         else if kind == "hardlink" { try FileManager.default.linkItem(at:target,to:path) }
-        else { try fixture.storage.beginPairingRemoval(fixture.connection) }
+        else if kind == "companion" {
+            let files = try OwnerSetupFiles(directory:fixture.directory)
+            try files.write(Data("{}".utf8),to:.companionSetup); files.close()
+        } else { try fixture.storage.beginPairingRemoval(fixture.connection) }
         let model = try fixture.model(); await model.restore(); await model.startAccountSignIn()
         #expect(await fixture.transport.requestBodies.isEmpty)
         #expect(try String(contentsOf:target,encoding:.utf8) == "synthetic retained evidence")

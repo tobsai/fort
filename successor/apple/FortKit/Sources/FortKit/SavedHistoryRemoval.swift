@@ -169,7 +169,7 @@ extension DeviceStorage {
         try connection.validate()
         let records = try OwnerSetupFiles(directory:directory); defer { records.close() }
         func verifyPairing() throws {
-            guard try records.read(.pending) == nil, try records.read(.connection) == nil,
+            guard try records.read(.pending) == nil, try records.read(.companionSetup) == nil, try records.read(.connection) == nil,
                   let disconnected = try records.read(.disconnected),
                   try JSONDecoder().decode(DeviceConnection.self,from:disconnected) == connection,
                   let removal = try records.read(.removal),

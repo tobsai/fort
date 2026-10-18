@@ -1,131 +1,135 @@
 What this repo does: Fort is a single-owner native messenger with a durable Node
-core and optional runtimes. This slice exposes account operations to the primary
-Mac owner; one optional phone has no account-management authority.
+core and optional runtimes. This slice prepares one phone companion for an exact
+Mac host, with no shared hosting or automatic identity fallback.
 
-Codex self-review, October 18, 2026, base a522d2a. Read the complete new Swift account
-DTO/storage/view/fixture modules and tests, the changed model/client/storage callers,
-stop/disconnect/removal flow, existing owner file protections and service contract.
-Traced data before/after awaits, retry deadlines, status recovery and code lifetime.
-Reviewed final build/test logs, package input/output verification and all four exact
-synthetic UI screenshots. The pinned whole-repository baseline is retained; this is
-proportionate review, with no new dead-code or whole-tree assurance claim.
+Codex self-review, October 18, 2026, base 83effc5. Read the complete new preparation
+coordinator and tests, versioned connection decoding, credential helpers, join/leave
+client checks and changed model/owner/account/history callers. Traced the protected
+journal before every effect and after awaits, interrupted token preparation, uncertain
+join, exact recovery, cancellation/forgetting and partial cleanup. Reviewed the old
+removal reconciliation and expired-phone authority against the service's companion
+contract. The whole-repository baseline is preserved; no fresh whole-tree or dead-code
+claim is made. The parked source was selectively restored without replacing newer work.
 
 ## Must fix
 
-1. **Saved intent accepted fields outside the contract — fixed.**
-   - What this is: The client restores an account operation after interruption.
-   - Problem: Generic decoding ignored an extra field, weakening the exact saved-record boundary.
-   - Fix: Strict key validation rejects additional/missing keys; the public model keeps the record and refuses login.
-   - If skipped: A changed record could be silently adopted as the original request.
+1. **Pending setup could overwrite unrelated recovery state — fixed.**
+   - What this is: A new phone setup shares the protected local journal directory.
+   - Problem: The parked code generated a credential and joined despite an older unconfirmed removal. A competing owner setup also contacted its host and published another connection.
+   - Fix: Require exact confirmed historical removal or matching current cleanup; block competing owner setup before host contact and recheck after awaits. Both original regressions now pass.
+   - If skipped: One flow could hide another unresolved grant or change the user's selected host.
 
-2. **Removal and re-pairing left conflicting account state — fixed.**
-   - What this is: Confirmed disconnect and a later exact pairing share protected local storage.
-   - Problem: Confirmed removal left the account intent; a historical confirmed receipt then blocked the new pairing.
-   - Fix: Retire only the matching intent after confirmed cleanup, and distinguish the current connection from an older confirmed receipt. Keep unconfirmed/foreign records blocking.
-   - If skipped: A user could disconnect successfully but be unable to sign in after pairing again.
+2. **Other operations ignored a pending phone or account flow — fixed.**
+   - What this is: Owner setup, account setup and saved-history removal share that directory.
+   - Problem: New public regressions showed overlapping account/phone work and history deletion during phone preparation.
+   - Fix: Reciprocal guards reject these operations before credentials, requests or deletion. Existing account, owner and deletion regressions remain green.
+   - If skipped: Setup/removal truth could diverge between independently valid operations.
 
-3. **A late challenge returned after Stop — fixed.**
-   - What this is: Starting sign-in and stopping local work can overlap across an await.
-   - Problem: The held start response redisplayed its code after Stop completed; the public regression failed.
-   - Fix: Stop/removal invalidate earlier account responses. Start/cancel recheck the captured generation before further effects; replies recheck before presentation. Status refresh does not run during lifecycle work.
-   - If skipped: A canceled or uncertain operation could look active again after the owner stopped it.
+3. **Unknown phone journal fields were silently accepted — fixed.**
+   - What this is: Lost replies restore the prepared journal and credential.
+   - Problem: An added field was ignored and the changed record was adopted; the public test observed extra requests and a published connection.
+   - Fix: Strict key decoding rejects changed schemas before recovery requests and preserves the record. Late-response byte checks protect already-running work.
+   - If skipped: Changed recovery evidence could be treated as the original intent.
 
-4. **Actual provider and delivery acceptance remains open.**
-   - What this is: Native, service, owned executor and optional protocol layers now exist.
-   - Problem: Synthetic UI and unsigned packages do not prove the exact signed installed provider or TestFlight journey.
-   - Fix: Verify Apple records/profiles and complete specifically authorized startup/network/provider actions, then actual installed and TestFlight acceptance.
-   - If skipped: Engineering evidence would be mistaken for a usable delivered product.
+4. **An expired phone lost its leave authority — fixed.**
+   - What this is: Ordinary status reads may be denied after pairing expiry.
+   - Problem: The model could no longer identify the saved connection as a companion or request exact leave.
+   - Fix: Schema 4 retains companion role only for HTTPS. The model permits only that phone's leave recovery and rejects contradictory role responses; host/account controls remain unavailable.
+   - If skipped: Disconnect recovery would depend on a still-valid ordinary status read.
 
-## Should fix
+5. **Ordinary phone setup is not composed yet — open.**
+   - What this is: The coordinator and public model recovery are now available.
+   - Problem: The normal connection/settings UI and Mac invitation/secure-listener lifecycle still need composition.
+   - Fix: Add the explicit import/retry/recovery/revoke controls and exact Mac invitation/lifecycle path, then inspect their synthetic UI before real device acceptance.
+   - If skipped: Passing coordinator tests would be mistaken for usable phone setup.
 
-5. **Concurrent suite load invalidated timing comparisons — resolved for this run.**
-   - What this is: Existing functional journeys contain numeric performance assertions.
-   - Problem: The ordinary parallel run exceeded two budgets although isolated reruns passed.
-   - Fix: Run the full native suite with explicit --no-parallel and measure the account journey independently. All final assertions passed without changed limits.
-   - If skipped: Shared CPU load could be mistaken for a functional regression or for a repeatable speed result.
+6. **Actual device and delivery acceptance remains open.**
+   - What this is: Real use needs exact Apple, Keychain, HTTPS trust and provider authority.
+   - Problem: These builds/tests use disposable memory credentials, protocol fixtures and unsigned clients.
+   - Fix: Continue authorized source composition, then perform only approved credential/trust/startup/provider actions and verify installed physical/TestFlight behavior.
+   - If skipped: Fixture success would overstate privacy, lifecycle and delivery acceptance.
 
-The added fixture is DEBUG-only and has no network, Keychain, provider process or
-startup composition. It uses the actual native controls with an explicitly synthetic
-runtime and in-process transport. Its HTTP-shaped responses are not provider evidence.
-No dependency, alternate launcher or credential store was added. Release exclusion is
-checked separately. Mac/phone identity, provider and tool-sandbox boundaries stay exact.
+No new dependency, provider path, process launcher or credential store was introduced.
+The existing guarded private-file lease owns atomic writes, mode/owner/ACL/link checks
+and durability. Current preparation adds one bounded journal; no code or token is
+written to it. Confirmed history is kept unless separately removed. No lean finding.
 
-Verdict: Native account behavior and exact synthetic UI are verified. Keep provider,
-signed installed lifecycle, phone pairing and TestFlight acceptance open.
-Not checked: Real accounts/credentials/provider calls, certificate changes, Apple remote
-records/profiles, network/startup activation, physical devices, remote CI or TestFlight.
-The current 200-file review package remains unsigned and unlaunched.
+Verdict: Phone preparation and exact recovery are verified synthetically. Complete
+ordinary UI/lifecycle composition and external acceptance before calling it usable.
+Not checked: Real Keychain, TLS identity/trust, LAN, startup, provider/certificate/account
+actions, current installed phone UI, physical devices, remote CI or TestFlight. The
+prior Mac review package is preserved at 83effc5 and was not relabeled or activated.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "a522d2a266efcd21366b82313fa2f6a5895e5c19",
+  "reviewedCommit": "83effc5435a29abd6c910078f1558989a4960add",
   "reviewer": "Codex",
-  "scope": "Native primary-owner account DTOs, protected intent, explicit start/status/cancel/retry, lifecycle response invalidation, DEBUG offline UI composition, tests, spec and evidence.",
+  "scope": "Durable native companion preparation and exact recovery, role-preserving connection schema, reciprocal owner/account/history isolation, expired-phone leave authority, tests, spec and evidence.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Final full native suite: 284 passed, 12 optional skipped, zero failed; Swift Testing reports 296 including skips. Explicit --no-parallel.",
-    "Account focus: 13 passed and one budget skip; two factory tests passed after final QA wrapper. Initial public red cases fixed.",
-    "20 isolated start/cancel samples after five warmups: p95 8.004708 ms under 100 ms; maximum 8.372083 ms.",
-    "Fresh QA/Mac/iPhone Simulator/helper Debug and FortKit Release builds passed.",
-    "Exact sandboxed QA AX/screenshots verified idle, challenge, canceled and cold-reopen unconfirmed. Link not followed. Exact app stopped; zero remaining processes.",
-    "200 package outputs and 198 input hashes/modes/membership independently verified; zero profiles; exact public unsigned-activation refusal passed."
+    "Final native suite: 300 passed, 13 optional skips, zero failed; Swift Testing reports 313 including skips. Explicit --no-parallel and current compiled resource inputs.",
+    "Prepared-phone/schema focus: 15 passed, one benchmark skip; expired-phone/account/companion regressions also passed together.",
+    "Observed public red cases: unconfirmed older removal, competing owner/account/history work, changed journal fields and expired-phone leave. Corrected runs passed.",
+    "20 serial prepare/lost-reply/recover samples after five warmups: p95 30.543625 ms, maximum 31.051708 ms, under 100 ms.",
+    "Fresh unsigned Mac/iPhone Simulator Debug builds and FortKit Release compilation passed; complete file inventories recorded."
   ],
   "exceptions": [
-    "Proportionate review; retained pinned baseline, no dead-code or fresh whole-tree claim.",
-    "Initial full parallel run had two timing failures; isolated and explicit nonparallel full runs passed without threshold changes.",
-    "Initial QA build lacked full signing; launch command erroneously continued after failed verification. Exact app stopped without account interaction; repaired ad-hoc sandbox build verified before subsequent launches.",
-    "Actual provider, certificate/account changes, network/startup grants, remote CI, physical devices and TestFlight not performed."
+    "Proportionate review with the existing pinned baseline retained; no fresh whole-tree or dead-code assurance.",
+    "No actual credential, trust, LAN, startup, provider, certificate, physical device or TestFlight action. Simulator execution blocked by existing CoreSimulator version mismatch.",
+    "Public coordinator/model foundation only; ordinary pairing UI and Mac invitation/secure-listener composition remain open. Previous source/fixture/package milestones remain distinct."
   ],
   "findings": [
     {
-      "id": "NATIVE-ACCOUNT-INTENT",
-      "detail": "Additional intent fields now fail strict decoding and retain the protected record; observed public regression fixed.",
+      "id": "PHONE-OLDER-REMOVAL",
+      "detail": "Unconfirmed historical removal and competing primary setup initially allowed effects. Exact receipt reconciliation and owner guards now reject before host/credential effects.",
       "disposition": "fixed"
     },
     {
-      "id": "NATIVE-ACCOUNT-REMOVAL",
-      "detail": "Confirmed disconnect retires only its exact account intent; confirmed historical removal permits a later pairing while unconfirmed state blocks it.",
+      "id": "PHONE-CROSS-OPERATION",
+      "detail": "Pending phone/account/history operations were not reciprocally isolated. New public regressions pass with guarded shared records.",
       "disposition": "fixed"
     },
     {
-      "id": "NATIVE-ACCOUNT-LATE-STOP",
-      "detail": "Delayed start challenge previously reappeared after Stop. Lifecycle generation invalidation and async rechecks now reject it; public red-to-green regression passed.",
+      "id": "PHONE-JOURNAL",
+      "detail": "Unknown saved-plan fields were silently adopted; strict decoding now rejects before recovery requests and retains evidence.",
       "disposition": "fixed"
     },
     {
-      "id": "ACCOUNT-ACTIVATION",
-      "detail": "Exact Apple records/profiles, authorized network/startup/provider actions, signed installed behavior and TestFlight remain unverified; ledger retains blockers.",
+      "id": "PHONE-EXPIRED-LEAVE",
+      "detail": "Expired phone restore lost companion identity. Versioned role now permits only exact leave recovery and excludes host/account authority.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "PHONE-COMPOSITION",
+      "detail": "Ordinary invitation/preparation/recovery UI and exact secure-listener lifecycle remain to compose; acceptance ledger records this next step.",
       "disposition": "open"
     },
     {
-      "id": "NATIVE-SUITE-TIMING",
-      "detail": "Parallel load exceeded two performance assertions. Isolated and explicitly nonparallel suites passed without altered limits; measurement context is recorded.",
-      "disposition": "accepted-exception"
+      "id": "PHONE-EXTERNAL-ACCEPTANCE",
+      "detail": "Actual Keychain/TLS/trust/device/installed-provider/TestFlight verification remains separate and unperformed.",
+      "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "2a9af51925af6d838e34d9a43da76c0664e7674d8a3f36e7e01797fc817f3d9f",
-    "successor/V1-ACCEPTANCE.md": "fd8da64c00cbefac6a82c0b7f5a817f4458effb378dc6375bdda1adcf03dea42",
-    "successor/apple/Apps/FortApp.swift": "5b961e02b0da9d720a82ecdc5746f8072ff8c089122c9428f4936bdbfefe07d2",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift": "f1113cd0e8f63eb3a5be400cdf74cee9b205ece9e94aa8f64bd8436af0e5fab8",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignInFixture.swift": "3f95f4295b151eeaf58b045d5dcc1081be00c867b91888433716c0b609e1b228",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignInView.swift": "20e96b7dad49ae8e944f2e3c9d25af14b84f24b873343ff397cf14db6077592b",
-    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "e67729a52565983dbe5a3ae2fd8eda94483819eab3a558985cc2df446d492a11",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "29f4baf9f677d5c052264bb7c15393aab3cc699070cd76a3e7959ffaf420094d",
-    "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift": "2d8c0a5742197ebe79272e0ed45e6ddbff8ba9cb98c778e9bdbbc2dc46517a5d",
-    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "6319966a7facd4d68e0a572b92d1a973b9be578c85de445dda5b4ec9cd587243",
-    "successor/apple/FortKit/Tests/FortKitTests/AccountSignInFixtureTests.swift": "bd2f3572b12bef027a658d53ace4007318d85d0e49a154941d3d1723a3c0e34a",
-    "successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift": "9b3b18efc4648047ed2d3a5eddd83022411d6d2fc47f3e3b336eff6c29851e40",
-    "successor/evidence/2026-10-17-node-foundation/account-controls-canceled.png": "d24261078296304df4070052f9507d9d71262e76c1ceb9132ebbe931df30b7bb",
-    "successor/evidence/2026-10-17-node-foundation/account-controls-challenge.png": "a510c05390103ca2ffc244ba796fba53b409877a5cd6493d567e018dd65f15ad",
-    "successor/evidence/2026-10-17-node-foundation/account-controls-idle.png": "c3b8e69319324ad4d88bde444878a854e6a91e5eaa18d482e24b28ef3263cdb8",
-    "successor/evidence/2026-10-17-node-foundation/account-controls-reopened.png": "7f5cd85b28bb9cb5ddcaaae38e0a8cc362cae32ed409eb234a37707b0e90d293",
-    "successor/evidence/2026-10-17-node-foundation/mac-review-package.md": "4a21eb8ce0fab9f7b78c4218dea71119ef4c822127a9ed9b35d54ce73c479a06",
-    "successor/evidence/2026-10-17-node-foundation/native-account-sign-in.md": "c7525fc8c5a48f0a4e475688b89517b09311f12c1cc06a18b503fa13c6d4f9ff"
+    "specs/059-modular-node-v1.md": "7556f775e054c2b5afdaeb4a8c4d063c9a3c8ef1637d6ea855dbef1285b4b562",
+    "successor/V1-ACCEPTANCE.md": "513d75661ca72b4392d4e10a5cd53de7e524c3934bfe9876842fc2ffd707db4c",
+    "successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift": "44fc7cba2ed8a995a9d7567efa59862c0da5429634c31f28ed07b56dcea6c883",
+    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "829c9a1ef7afa30ec81b29d031ce4ec9d7f9144754d4e822b126240fabe4335e",
+    "successor/apple/FortKit/Sources/FortKit/DeviceConnection.swift": "beb283860a0768dab035951ed2ecb4b141bfc9daebf310bb2809a3d0cfbacc79",
+    "successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift": "c3866f0e512b4867504e87252a3eb8ee8696a830ca2ac3502485e43925a72c33",
+    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "ec62260d1e1ee471f83b83240a810f4969fd8c39d4d970775575a65baa47ae2d",
+    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "5cf4e517319e53de94826627d675b480ffe3f382a2b7930b0b75c6d487ce4d93",
+    "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift": "1d8571079e5c21f228426d4b58e552d14c7ba21888f8a2f46fe327499f57d74d",
+    "successor/apple/FortKit/Sources/FortKit/OwnerSetupPreparation.swift": "d648f94478e09d0603db8d56222e4aa5e8a6a4270b88a02556127a089c918465",
+    "successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift": "d03183e71305f1627c817937fd45571d43f0dd31ba3b06bedc12abb8b813f4de",
+    "successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift": "0d2ee2ee249c8365c0f7e02f8f425ced0e2995cd833a3c02d546be6151c8bf4b",
+    "successor/apple/FortKit/Tests/FortKitTests/CompanionLifecycleTests.swift": "d80e10ec2af82efa83f494d9340bd383a5060458663e43b2ffc140b88f7472b9",
+    "successor/apple/FortKit/Tests/FortKitTests/CompanionSetupTests.swift": "028c25045f0b05f6de0553993c5403886ec465944389594fe9f60f9028d3c18b",
+    "successor/evidence/2026-10-17-node-foundation/native-companion-setup.md": "e273cc3d584ae322f3011e1ee5f64a1661cd3e4372e7210f3829ddeda84d2376"
   }
 }
 ```

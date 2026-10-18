@@ -255,7 +255,10 @@ import Observation
     }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
-    public var canDisconnectPairing: Bool { canManagePairing && (installation?.supports("companionPairing") != true || pairingStatus != nil) }
+    public var canDisconnectPairing: Bool {
+        !isOfflinePreview && !pairingRemoved && client != nil &&
+        (isCompanionPairing || canManagePairing && (installation?.supports("companionPairing") != true || pairingStatus != nil))
+    }
     public var canControlHost: Bool { canDisconnectPairing && !isCompanionPairing }
     public var canResumeLocalWork: Bool { canControlHost && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }
     public var runtimeReadiness: RuntimeReadiness?
@@ -522,7 +525,7 @@ import Observation
             let disconnected = try storage.disconnectedConnection()
             let intent = try storage.pairingRemoval()
             let removal = intent?.connection == connection ? intent : nil
-            companionRemoval = removal?.scope == .companion
+            companionRemoval = connection.role == .companion || removal?.scope == .companion
             pairingRemoved = active == nil || active == disconnected || removal != nil
             pairingRemovalPending = removal?.state == .requested || removal?.state == .locallyForgotten
             localPairingForgotten = removal?.state == .locallyForgotten && active == nil
@@ -576,7 +579,8 @@ import Observation
         guard canManagePairing, let client else { return }
         do {
             let pairing = try await client.pairing()
-            guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal else { throw OwnerLifecycleError.wrongPairing }
+            guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal,
+                  connection.role == nil || pairing.role == connection.role else { throw OwnerLifecycleError.wrongPairing }
             pairingStatus = pairing; if isCompanionPairing { accountSignInStatus = nil }
             pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
         } catch { pairingStatus = nil; accountSignInStatus = nil; pairingMessage = error.localizedDescription }
