@@ -5,7 +5,17 @@ October 18, 2026: **not provisioned, registered or activated**. Governing design
 [owner decision](../docs/architecture/decisions/059-node-foundation.md).
 Source checkpoint: `9c3d17d06e9010147c2448be1a25c6962de0efbd` on
 `codex/fort-openai-rebuild-20261016`. This records the missing external steps;
-it does not authorize them. Independent implementation continues.
+it does not authorize them. Independent implementation continues. The current
+source/package checkpoint is `1b08c224a497974f09c39b3af9c1f99c4be39cc0`; see the
+[190-file review package and Mac test path](evidence/2026-10-17-node-foundation/mac-review-package.md#current-mac-test-milestone).
+Its public inspector correctly refuses unsigned code. No profile was fabricated.
+
+Read-only recheck on October 18: the existing App Store Connect window still shows
+sign-in text and an email-entry field. Existing accessibility permission was used
+to read labels only; no field value was read or control pressed. Current team,
+role, app/helper/group records, profiles and agreements remain unverified. The owner
+sign-in question is pending; this is an access prerequisite, not evidence that the
+records are missing. No credentials, new access or Apple settings were changed.
 
 ## Exact identities and missing profiles
 
@@ -61,9 +71,9 @@ Proposed layout:
   system API and storage preflight. A returned URL alone is not entitlement evidence.
 
 This is a per-user agent, not a root daemon or a separately published helper product.
-The background helper target and native lifecycle now compile; runtime bootstrap,
-complete signed package and profile integration remain. Official runtime
-metadata/helper layout is a separate gate. The strict no-extended-ACL storage policy
+The background helper, native lifecycle and runtime bootstrap now compile and the
+complete unsigned payload is assembled. Signed package/profile integration and
+actual runtime acceptance remain. The strict no-extended-ACL storage policy
 needs compatibility evidence from the actual provisioned container; do not repair
 unknown ACLs or delete retained history. The iPhone needs no Mac App Group merely
 to pair over its future network transport; this group grants no cross-device access.
@@ -80,9 +90,10 @@ not this account's authorization or approval of the proposed names.
 1. **Read-only account check.** An owner/admin with existing authorized Apple access
    verifies team `T3JB5MYZ93`, the two historical client records, and whether the exact
    helper/group proposals already exist. Retain only identifiers, platform, capability
-   membership, role and profile purpose/expiry. This environment exposes neither an
-   authenticated App Store Connect inspection tool nor UI automation. No login or
-   API-key access was attempted; evidence requires no credential or private key.
+   membership, role and profile purpose/expiry. The existing browser remains at
+   sign-in and no cached authorized CLI session is available. The owner must sign in
+   through the existing account before the permitted read-only check can continue.
+   No API key is needed for that UI check; do not send credentials in chat.
 2. **Conditional provisioning approval.** Reuse matching existing records/profiles
    when available. Otherwise, the smallest proposed mutation is to register only the
    missing verified Mac client/helper IDs and shared group, associate the group with
@@ -108,11 +119,14 @@ credential copying, public ingress, another device's access, deployment or uploa
 
 ## Local code and verified checkpoint
 
-Subsequent local preparation added a background-only engineering helper target,
+Earlier local preparation added a background-only engineering helper target,
 `io.fort.spec058.fixture.mac.host`. It is not a release identity or a registered
-capability. Its unsigned build has no host manifest, Node, guardian, bootstrap or
-embedded profile, and cannot pass the new fixed-program checks. No activation
-request is ready. Current source/tests/build evidence is in
+capability. That initial standalone build lacked the runtime payload. The current
+composed review app now contains manifest, Node, guardian and bootstrap, but still
+has no embedded profile or valid final signature. No activation request is ready.
+The helper still has outgoing networking disabled and native provider sign-in is
+not implemented; these are separate prerequisites for real-provider chat.
+Historical source/tests/build evidence is in
 [helper program preparation](evidence/2026-10-17-node-foundation/mac-host-program.md)
 and the [v1 ledger](V1-ACCEPTANCE.md); the initial checkpoint table below remains
 historical evidence rather than the latest build inventory.
