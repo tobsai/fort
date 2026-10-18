@@ -22,6 +22,7 @@
     "pretypecheck": "npm run check:specs",
     "test:packaging": "node verification/test-suite.mjs --suite signed",
     "build:core": "node packaging/core-artifact.ts",
+    "build:codex-executor": "node packaging/codex-executor-artifact.ts",
     "test:core-artifact": "node --test packaging/core-artifact.test.ts",
     "test:macos": "node verification/test-suite.mjs --suite macos",
     "test:inventory": "node verification/test-suite.mjs --list"

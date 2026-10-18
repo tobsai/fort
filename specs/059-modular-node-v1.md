@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: fdd43607090f65151cdc27edbbe20096b815ed0f300dbb25a89de96e45d19e3a
+Reviewed content SHA256: 83b56f7aa13d3eeec19c27e70cd205b3ccc186c1440f7110eef086fe6ad5ee32
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,44 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Optional compiled executor artifact revision
+
+Package the existing guarded Codex composition as a separate optional JavaScript
+artifact with declarations, its Fort source license and a complete per-file size/
+SHA256 manifest. Compile only the composition's static dependency graph. Exclude
+service/database code, optional context implementations, prototypes, donor source,
+fixtures, Node dependencies and actual Node/Codex/guardian executables. Those
+executables and their legal/provenance closure remain separately supplied and
+verified; this artifact is not a self-contained application or permission grant.
+Publish no package and introduce no auto-install/update/sign-in behavior.
+Run the pinned compiler with an empty environment so ambient Node preload options
+cannot turn this build into an unreviewed hook invocation.
+
+Use an absolute new destination, refuse overwrite, and clean up only a directory
+created by the current build if compilation fails. Preserve existing paths. The
+package exports the composition functions and TypeScript declarations; its runtime
+imports must resolve entirely within the artifact or Node built-ins. No TypeScript
+loader or source checkout is needed to consume the produced JavaScript. Prove the
+published declarations from an external strict TypeScript consumer as well.
+
+Vendor independence: the core artifact retains no Codex dependency and its existing
+independently shaped provider contract suite must still pass. Removing this optional
+artifact leaves that core build unchanged. Modularity: application composition
+selects the package explicitly; no new core-domain import or lifecycle policy.
+Speed: measure five serial builds into fresh directories with warm installed tools,
+all file hashes and declarations included, p95 <=10 seconds; first sample retained.
+No incremental cache is introduced. Installation/removal: explicit paths and
+fail-closed destination ownership, no runtime installation, new credential or service.
+
+Acceptance: portable build/inventory/hash/license/overwrite and declaration checks;
+Mac synthetic compiled-artifact discovery and exact text execution with TypeScript
+stripping disabled, followed by independent absence of both process groups. Use
+separate fresh workspaces and explicit environments. Run strict TypeScript, the full
+portable suite and existing Mac executor regressions. No real provider, signed
+package, installed app or TestFlight proof is claimed. Reuse decision 059 for this
+bounded packaging step. Production bootstrap/helper, runtime redistribution and
+Apple/account activation gates remain separate.
+
 ### Guarded model discovery revision
 
 Complete the existing model picker boundary through the owned worker. An explicitly
@@ -1458,6 +1496,12 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/codex.ts`
 - `successor/packaging/core-artifact.ts`
 - `successor/packaging/core-artifact.test.ts`
+- `successor/packaging/codex-executor-artifact.ts`
+- `successor/packaging/codex-executor-artifact.test.ts`
+- `successor/packaging/codex-executor-artifact.macos.test.ts`
+- `successor/packaging/fixtures/executor-contract.mjs`
+- `successor/tsconfig.codex-executor.json`
+- `successor/evidence/2026-10-17-node-foundation/codex-executor-artifact.md`
 - `successor/packaging/fixtures/provider-contract.mjs`
 - `successor/tsconfig.core.json`
 - `successor/evidence/2026-10-17-node-foundation/core-artifact.md`
