@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 34e6f961849b308e55bbf9f2180cce31113ed593b399514c12ec38f081720548
+Reviewed content SHA256: 83b7dc5e477b0938f9a5fe3896fcd22c58f2d5d9b53b2a00cadbc4bfa076624f
 
 ### Vendor independence
 Status: planned
@@ -1021,6 +1021,55 @@ and signed/installed acceptance remain later gates under the same v1 direction.
 
 ## Performance verification
 
+### Ordinary Mac host controls revision
+
+Wire the ordinary Mac client to an inert `MacHostControl` constructed from its
+exact application bundle URL. Construction does not inspect, register or connect.
+The public controller obtains `Bundle.main.bundleURL` itself: ServiceManagement
+registration is scoped to the running app, so production callers cannot select a
+different app to verify. Alternate URLs/backends are internal test injection only.
+Explicit inspection validates the bundle before reading registration status;
+invalid packages expose an unavailable state without a fallback identity. Keep
+the first verified client/helper/team/group identity for that controller lifetime,
+refusing later drift. A separate user enable action repeats bundle verification
+before invoking the existing startup boundary. Never register during inspection,
+owner setup, restore, a view refresh or construction. OS approval-required, enabled,
+not-registered and unavailable states remain distinct; enabled registration does
+not claim a running provider or successful pairing. There is no raw disable button:
+removal must use the durable stop/revoke/exit proof already specified.
+
+Only an enabled verified registration permits new owner setup. Repeat inspection
+before setup; failures keep existing records and credentials and send nothing.
+Refuse startup enable while any durable host-removal record exists, including a
+confirmed one awaiting explicit reinstall reconciliation. Hold the existing private
+progress lease across an enable action, preserving its records. Reject saved
+connection identity mismatches before credential lookup or host contact.
+The ordinary app uses these controls, while explicit debug/UI fixtures keep their
+separate paths. Display concise startup status, explicit enable/check actions and
+the existing separate pairing flow. Missing unsigned engineering package metadata
+must display unavailable rather than offer legacy fixture enrollment as a fallback.
+No actual startup activation or provider invocation is part of this source slice.
+
+The expanded native compilation reproduced Swift's sending-closure diagnostic in
+the existing workspace URLProtocol fixture, including with a fresh scratch build.
+Make its immutable request and already-Sendable protocol owner explicit task
+captures; keep compiler concurrency checking enabled and run the full native suite.
+This is a test-boundary repair, with no production transport change.
+
+Vendor independence: Mac-specific lifecycle remains outside portable contracts and
+provider adapters. Modularity: the controller composes bundle inspection and startup
+status, with the existing setup coordinator retaining credential/protocol ownership.
+Speed: no recurring polling; expensive bundle work stays asynchronous off the UI
+actor. Twenty isolated controller inspections with fake signature/status backends
+must meet p95 <=50 ms, separate from the unverified real package/OS budget above.
+Installation/removal: explicit enable, fresh verification and fail-closed setup;
+durable removal and complete installed acceptance remain separate. Test inert
+construction/inspection, changed identity or signature before enable/setup, OS
+approval states, repeated actions and cancellation without real registration.
+Fresh unsigned Mac/iPhone builds and native tests cover integration; accessibility,
+screenshots and actual startup remain unverified. Reuse decision 059 for this
+ordinary local source integration; no new identifier/profile/grant is adopted.
+
 ### Native host bundle inspection revision
 
 Add a read-only Mac bundle inspection before wiring startup controls. The signed
@@ -1337,6 +1386,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/MacHostBundle.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacHostBundleTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-host-bundle.md`
+- `successor/apple/FortKit/Sources/FortKit/MacHostControl.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostControlTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-control.md`
+- `successor/apple/Apps/FortApp.swift`
 - `successor/runner/codex-executor.test.ts`
 - `successor/runner/fixtures/codex-executor-worker.mjs`
 - `successor/runner/fixtures/codex-executor-runtime.mjs`

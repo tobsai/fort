@@ -109,15 +109,77 @@ import Observation
     private var ownerSetupCoordinator: OwnerSetupCoordinator?
     private var ownerSetupEndpoint: DeviceEndpoint?
     private var ownerSetupInspected = false
+    public private(set) var localHost: MacHostControl?
+    private var localHostSetupReady = false
     public private(set) var pendingOwnerSetup: PendingOwnerSetup?
     public private(set) var ownerSetupBusy = false
     public private(set) var ownerSetupMessage = "Checking saved setup…"
     public var hasOwnerSetup: Bool { ownerSetupCoordinator != nil && !isOfflinePreview && !isInteractiveFixture }
     public var canCompleteOwnerSetup: Bool {
         hasOwnerSetup && ownerSetupInspected && !ownerSetupBusy && !isBusy && !lifecycleBusy && client == nil && !connected &&
-        pendingOwnerSetup?.phase != .canceling && pendingOwnerSetup?.phase != .canceled
+        pendingOwnerSetup?.phase != .canceling && pendingOwnerSetup?.phase != .canceled &&
+        (localHost == nil || (localHostSetupReady && localHost?.canPair == true))
     }
-    public var canCancelOwnerSetup: Bool { hasOwnerSetup && ownerSetupInspected && pendingOwnerSetup != nil && !ownerSetupBusy && !isBusy && !lifecycleBusy && client == nil && !connected }
+    public var canCancelOwnerSetup: Bool {
+        hasOwnerSetup && ownerSetupInspected && pendingOwnerSetup != nil && !ownerSetupBusy && !isBusy && !lifecycleBusy && client == nil && !connected &&
+        (localHost == nil || (localHostSetupReady && (localHost?.canPair == true || pendingOwnerSetup?.phase == .canceled)))
+    }
+    public var canInspectLocalHost: Bool { localHost != nil && localHost?.isBusy == false && !ownerSetupBusy && !isBusy && !lifecycleBusy }
+    public var canEnableLocalHost: Bool { canInspectLocalHost && localHostSetupReady && localHost?.canEnable == true }
+    public convenience init(directory: URL, localHost: MacHostControl) throws {
+        try self.init(directory:directory)
+        self.localHost = localHost
+    }
+    private func verifyLocalHostRecords(_ files: OwnerSetupFiles, endpoint: MacAgentEndpoint) throws {
+        guard try files.read(.hostRemoval) == nil else { throw MacHostRemovalError.setupBlocked }
+        for record in [OwnerSetupFiles.Record.connection,.disconnected] {
+            if let bytes = try files.read(record) {
+                guard try JSONDecoder().decode(DeviceConnection.self,from:bytes).endpoint == .macAgent(endpoint) else { throw OwnerSetupPreparationError.wrongHost }
+            }
+        }
+    }
+    private func configureLocalHostSetup() {
+        localHostSetupReady = false; ownerSetupInspected = false
+        guard let localHost, let endpoint = localHost.endpoint else {
+            ownerSetupMessage = localHost?.message ?? "No local host is configured."; return
+        }
+        do {
+            do {
+                let files = try OwnerSetupFiles(directory:storage.directory); defer { files.close() }
+                try verifyLocalHostRecords(files,endpoint:endpoint)
+            }
+            if let ownerSetupEndpoint, ownerSetupEndpoint != .macAgent(endpoint) { throw OwnerSetupPreparationError.wrongHost }
+            if ownerSetupCoordinator == nil {
+                ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,agent:endpoint)
+                ownerSetupEndpoint = .macAgent(endpoint)
+            }
+            localHostSetupReady = true
+            inspectOwnerSetup()
+        } catch {
+            ownerSetupMessage = "Saved host state prevents setup or startup changes. Finish any saved removal and check this installation's identity. Records and credentials have been kept."
+        }
+    }
+    public func inspectLocalHost() async {
+        guard canInspectLocalHost, let localHost else { return }
+        await localHost.inspect()
+        configureLocalHostSetup()
+    }
+    public func enableLocalHost() async {
+        guard canEnableLocalHost, let localHost, let endpoint = localHost.endpoint else { return }
+        lifecycleBusy = true; defer { lifecycleBusy = false }
+        do {
+            do {
+                let files = try OwnerSetupFiles(directory:storage.directory); defer { files.close() }
+                try verifyLocalHostRecords(files,endpoint:endpoint)
+                await localHost.enable()
+                try verifyLocalHostRecords(files,endpoint:endpoint)
+            }
+            configureLocalHostSetup()
+        } catch {
+            localHostSetupReady = false; ownerSetupInspected = false
+            ownerSetupMessage = "Startup could not be confirmed while saved host state is unresolved. Existing records and credentials have been kept."
+        }
+    }
     public convenience init(directory: URL, ownerServiceIdentifier: String, signingTeam: String) throws {
         try self.init(directory:directory)
         ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,serviceIdentifier:ownerServiceIdentifier,signingTeam:signingTeam)
@@ -128,14 +190,16 @@ import Observation
         ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,agent:ownerAgent)
         ownerSetupEndpoint = .macAgent(ownerAgent)
     }
-    convenience init(storage: DeviceStorage, session: URLSession, ownerEndpoint: DeviceEndpoint, ownerSetupControl: any OwnerSetupControl, connectionTransport: @escaping (DeviceEndpoint) throws -> any FortTransport) throws {
+    convenience init(storage: DeviceStorage, session: URLSession, ownerEndpoint: DeviceEndpoint, ownerSetupControl: any OwnerSetupControl, connectionTransport: @escaping (DeviceEndpoint) throws -> any FortTransport, localHost: MacHostControl? = nil) throws {
         self.init(storage:storage,session:session)
         self.connectionTransport = connectionTransport
         ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,endpoint:ownerEndpoint,control:ownerSetupControl,tokenGenerator:DeviceStorage.makeOwnerDeviceToken)
         ownerSetupEndpoint = ownerEndpoint
+        self.localHost = localHost
     }
     public func inspectOwnerSetup() {
         guard hasOwnerSetup, !ownerSetupBusy, let ownerSetupCoordinator else { return }
+        guard localHost == nil || localHostSetupReady else { return }
         do {
             pendingOwnerSetup = try ownerSetupCoordinator.pendingSetup()
             ownerSetupInspected = true
@@ -152,6 +216,8 @@ import Observation
         }
     }
     public func completeOwnerSetup() async {
+        guard canCompleteOwnerSetup else { return }
+        if localHost != nil { await inspectLocalHost() }
         guard canCompleteOwnerSetup, let ownerSetupCoordinator else { return }
         ownerSetupBusy = true
         var completed = false
@@ -170,6 +236,8 @@ import Observation
         }
     }
     public func cancelOwnerSetup(_ expected: OwnerSetupIdentity) async {
+        guard canCancelOwnerSetup else { return }
+        if localHost != nil { await inspectLocalHost() }
         guard canCancelOwnerSetup, let ownerSetupCoordinator else { return }
         guard pendingOwnerSetup?.identity == expected else {
             inspectOwnerSetup(); ownerSetupMessage = "Saved setup changed. Review it before canceling."; return
@@ -219,6 +287,12 @@ import Observation
     public func restore() async {
         guard !isOfflinePreview, !isInteractiveFixture, client == nil else { return }
         #if os(macOS)
+        if localHost != nil {
+            await inspectLocalHost()
+            guard localHostSetupReady, localHost?.canPair == true else {
+                showConnection = true; status = ownerSetupMessage; return
+            }
+        }
         if hasOwnerSetup {
             guard !ownerSetupBusy else { return }
             inspectOwnerSetup()

@@ -46,7 +46,17 @@ import FortKit
                     let isUITest = ProcessInfo.processInfo.arguments.contains("--fixture-ui-test") && UUID(uuidString:environment["FORT_UI_TEST_SESSION"] ?? "") != nil
                     if isUITest { directory = directory.appendingPathComponent("UITests/" + environment["FORT_UI_TEST_SESSION"]!,isDirectory:true) }
                     #endif
-                    let created = try MessengerModel(directory:directory)
+                    let created: MessengerModel
+                    #if os(macOS)
+                    #if DEBUG
+                    if isUITest { created = try MessengerModel(directory:directory) }
+                    else { created = try MessengerModel(directory:directory,localHost:MacHostControl()) }
+                    #else
+                    created = try MessengerModel(directory:directory,localHost:MacHostControl())
+                    #endif
+                    #else
+                    created = try MessengerModel(directory:directory)
+                    #endif
                     #if DEBUG
                     if isUITest {
                         created.endpoint = environment["FORT_FIXTURE_URL"] ?? created.endpoint

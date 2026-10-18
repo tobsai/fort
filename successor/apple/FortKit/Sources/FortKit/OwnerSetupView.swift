@@ -1,6 +1,24 @@
 #if os(macOS)
 import SwiftUI
 
+struct MacHostControlView: View {
+    @Bindable var model: MessengerModel
+    @Bindable var host: MacHostControl
+    var body: some View {
+        Section("Local host") {
+            Text(host.message).font(.callout).accessibilityIdentifier("local-host-status")
+            if host.isBusy { ProgressView("Checking the local host…") }
+            if host.status == .notRegistered {
+                Button("Enable local host") { Task { await model.enableLocalHost() } }
+                    .disabled(!model.canEnableLocalHost).accessibilityIdentifier("local-host-enable")
+            }
+            Button("Check host status") { Task { await model.inspectLocalHost() } }
+                .disabled(!model.canInspectLocalHost).accessibilityIdentifier("local-host-inspect")
+            Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
+        }
+    }
+}
+
 struct OwnerSetupView: View {
     @Bindable var model: MessengerModel
     @State private var cancellation: OwnerSetupIdentity?

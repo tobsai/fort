@@ -364,4 +364,87 @@ func ownerSetupModelInspectionMeetsLocalBudgetWithoutActivation(endpoint: Device
     #expect(credentials.reads == reads && control.begins == 1 && control.requests.count == 1)
     #expect(await transport.paths.isEmpty)
 }
+private actor SetupHostBackend: MacHostStartupBackend {
+    var current: MacHostStartupStatus = .notRegistered
+    var registrations = 0
+    func status() -> MacHostStartupStatus { current }
+    func register() { registrations += 1; current = .enabled }
+    func unregister() { Issue.record("Unexpected startup removal") }
+    func setStatus(_ status: MacHostStartupStatus) { current = status }
+}
+@MainActor private final class SetupHostFixture {
+    let app = URL(fileURLWithPath:"/synthetic/Fort.app",isDirectory:true)
+    let backend = SetupHostBackend()
+    let endpoint = try! MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic")
+    var valid = true
+    var inspections = 0
+    lazy var host = MacHostControl(applicationURL:app,inspectBundle:{ url in
+        self.inspections += 1
+        guard self.valid else { throw MacHostBundleError.signature }
+        return MacHostBundle(applicationURL:url,helperURL:url.appendingPathComponent("Contents/Helpers/FortHost.app",isDirectory:true),endpoint:self.endpoint,clientIdentifier:"io.fort.synthetic")
+    },makeStartup:{ try MacHostStartup(endpoint:$0,backend:self.backend) })
+}
+
+@Test @MainActor func ownerSetupModelRequiresFreshEnabledHostBeforeCreatingCredential() async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    await model.restore()
+    #expect(!model.canCompleteOwnerSetup && model.canEnableLocalHost)
+    await model.completeOwnerSetup()
+    #expect(setup.begins == 0 && credentials.reads == 0 && credentials.saves == 0)
+    #expect(await fixture.backend.registrations == 0)
+    await model.enableLocalHost()
+    #expect(model.canCompleteOwnerSetup && !model.canEnableLocalHost)
+    #expect(await fixture.backend.registrations == 1)
+    fixture.valid = false
+    await model.completeOwnerSetup()
+    #expect(!model.canCompleteOwnerSetup && !model.connected)
+    #expect(setup.begins == 0 && credentials.reads == 0 && credentials.saves == 0)
+    #expect(await transport.paths.isEmpty)
+    fixture.valid = true
+    await model.inspectLocalHost(); await model.completeOwnerSetup()
+    #expect(model.connected && setup.begins == 1 && credentials.saves == 1)
+    #expect(try storage.connection()?.endpoint == .macAgent(fixture.endpoint))
+}
+
+@Test(arguments:[false,true]) @MainActor
+func ownerSetupModelNeverEnablesStartupOverASavedHostRemoval(_ addedAfterInspection: Bool) async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    if addedAfterInspection { await model.inspectLocalHost(); #expect(model.canEnableLocalHost) }
+    let record = Data("unverified host removal evidence must be preserved".utf8)
+    do {
+        let files = try OwnerSetupFiles(directory:root); defer { files.close() }
+        try files.write(record,to:.hostRemoval)
+    }
+    if !addedAfterInspection { await model.inspectLocalHost() }
+    await model.enableLocalHost(); await model.completeOwnerSetup()
+    #expect(!model.canEnableLocalHost && !model.canCompleteOwnerSetup)
+    let blocked = model.ownerSetupMessage
+    model.inspectOwnerSetup()
+    #expect(model.ownerSetupMessage == blocked)
+    #expect(await fixture.backend.registrations == 0)
+    #expect(setup.begins == 0 && credentials.reads == 0 && credentials.saves == 0)
+    #expect(try Data(contentsOf:root.appendingPathComponent("host-removal.json")) == record)
+}
+
+@Test @MainActor func ownerSetupModelRejectsSavedForeignHostBeforeCredentialLookup() async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let foreign = try DeviceConnection(endpoint:setupModelEndpoint,installationID:"installation",deviceID:"device")
+    try storage.save(foreign,token:"synthetic-only")
+    let before = try Data(contentsOf:root.appendingPathComponent("connection.json"))
+    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    await fixture.backend.setStatus(.enabled)
+    await model.restore(); await model.completeOwnerSetup()
+    #expect(!model.canCompleteOwnerSetup && !model.connected)
+    #expect(setup.begins == 0 && credentials.reads == 0 && credentials.saves == 1)
+    #expect(await transport.paths.isEmpty)
+    #expect(try Data(contentsOf:root.appendingPathComponent("connection.json")) == before)
+}
 #endif

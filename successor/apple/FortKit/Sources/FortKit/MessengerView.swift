@@ -238,7 +238,12 @@ public struct MessengerView: View {
         NavigationStack {
             Form {
                 #if os(macOS)
-                if model.hasOwnerSetup { OwnerSetupView(model:model) }
+                if let host = model.localHost {
+                    MacHostControlView(model:model,host:host)
+                    if model.hasOwnerSetup { OwnerSetupView(model:model) }
+                    else { Text(model.ownerSetupMessage).font(.callout) }
+                }
+                else if model.hasOwnerSetup { OwnerSetupView(model:model) }
                 else { fixtureConnectionFields }
                 #else
                 fixtureConnectionFields
