@@ -113,6 +113,7 @@ import Observation
     private var ownerSetupInspected = false
     public private(set) var localHost: MacHostControl?
     private var localHostSetupReady = false
+    private var reinstallConnection: DeviceConnection?
     public private(set) var pendingOwnerSetup: PendingOwnerSetup?
     public private(set) var ownerSetupBusy = false
     public private(set) var ownerSetupMessage = "Checking saved setup…"
@@ -128,6 +129,23 @@ import Observation
     }
     public var canInspectLocalHost: Bool { localHost != nil && localHost?.isBusy == false && !ownerSetupBusy && !isBusy && !lifecycleBusy }
     public var canEnableLocalHost: Bool { canInspectLocalHost && localHostSetupReady && localHost?.canEnable == true }
+    public var hasCompletedHostRemoval: Bool { reinstallConnection != nil }
+    public var canPrepareLocalReinstall: Bool { canInspectLocalHost && reinstallConnection != nil && localHost?.canEnable == true && client == nil && !connected }
+    public func prepareLocalReinstall() async {
+        guard canPrepareLocalReinstall, let localHost, let connection = reinstallConnection else { return }
+        lifecycleBusy = true; defer { lifecycleBusy = false }
+        do {
+            let removal = try localHost.removal(connection:connection,directory:storage.directory)
+            try await removal.prepareForSetup {
+                guard try self.storage.ownerSetupCredential(for:connection) == nil else { throw MacHostRemovalError.setupBlocked }
+            }
+            preparedAppRemoval = nil
+            configureLocalHostSetup()
+            if localHostSetupReady { ownerSetupMessage = "Ready to set up again. Saved conversations are kept. Enable the local host and connect this Mac separately." }
+        } catch {
+            ownerSetupMessage = "Setup remains blocked. Confirm that removal and local credential cleanup finished, then check this app's host identity. Saved conversations are kept."
+        }
+    }
     public convenience init(directory: URL, localHost: MacHostControl) throws {
         try self.init(directory:directory)
         self.localHost = localHost
@@ -141,7 +159,7 @@ import Observation
         }
     }
     private func configureLocalHostSetup() {
-        localHostSetupReady = false; ownerSetupInspected = false; ownedInstallation = nil
+        localHostSetupReady = false; ownerSetupInspected = false; ownedInstallation = nil; reinstallConnection = nil
         guard let localHost, let endpoint = localHost.endpoint else {
             ownerSetupMessage = localHost?.message ?? "No local host is configured."; return
         }
@@ -151,6 +169,7 @@ import Observation
                 if let bytes = try files.read(.connection) ?? files.read(.disconnected) {
                     ownedInstallation = try localHost.removal(connection:JSONDecoder().decode(DeviceConnection.self,from:bytes),directory:storage.directory)
                 }
+                reinstallConnection = try MacHostRemoval.completedConnection(files,endpoint:endpoint)
                 try verifyLocalHostRecords(files,endpoint:endpoint)
             }
             if let ownerSetupEndpoint, ownerSetupEndpoint != .macAgent(endpoint) { throw OwnerSetupPreparationError.wrongHost }
@@ -161,7 +180,9 @@ import Observation
             localHostSetupReady = true
             inspectOwnerSetup()
         } catch {
-            ownerSetupMessage = "Saved host state prevents setup or startup changes. Finish any saved removal and check this installation's identity. Records and credentials have been kept."
+            ownerSetupMessage = reinstallConnection != nil
+                ? "Removal was recorded as complete. Check host status and set up Fort again to keep saved conversations."
+                : "Saved host state prevents setup or startup changes. Finish any saved removal and check this installation's identity. Records and credentials have been kept."
         }
     }
     public func inspectLocalHost() async {

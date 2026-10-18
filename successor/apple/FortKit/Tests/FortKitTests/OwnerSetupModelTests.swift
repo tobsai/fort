@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Security
+import Darwin
 import Testing
 @testable import FortKit
 
@@ -469,6 +470,58 @@ func ordinaryMacModelOffersVerifiedRemovalEvenWhenSavedProgressBlocksSetup(saved
     fixture.valid = false
     await model.inspectLocalHost()
     #expect(model.removableAppURL == nil)
+}
+
+@Test(arguments:["ready","credential","bundle"]) @MainActor
+func ordinaryMacReinstallNeedsExplicitActionAndVerifiedCredentialAbsence(_ barrier: String) async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let connection = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"installation",deviceID:"old-device")
+    let child = Process(), input = Pipe()
+    child.executableURL = URL(fileURLWithPath:"/bin/cat"); child.environment = [:]
+    child.standardInput = input; child.standardOutput = FileHandle.nullDevice; child.standardError = FileHandle.nullDevice
+    try child.run()
+    defer { try? input.fileHandleForWriting.close(); child.waitUntilExit() }
+    let host = try MacHostProcess.observe(processID:child.processIdentifier,effectiveUserID:geteuid()).record
+    try input.fileHandleForWriting.close(); child.waitUntilExit()
+    struct Completed: Encodable {
+        let version = 1, phase = "confirmed"
+        let connection: DeviceConnection
+        let receipt: MacOwnerRecoveryReceipt
+        let host: MacHostProcessRecord
+    }
+    let saved = try JSONEncoder().encode(Completed(connection:connection,receipt:MacOwnerRecoveryReceipt(installationID:connection.installationID,deviceID:connection.deviceID,runtimeStopped:true,pairingRevoked:true,coreStopped:true),host:host))
+    do {
+        let files = try OwnerSetupFiles(directory:root); defer { files.close() }
+        try files.write(saved,to:.hostRemoval)
+        try files.write(JSONEncoder().encode(connection),to:.disconnected)
+        try files.write(JSONEncoder().encode(PairingRemovalIntent(connection:connection,state:.confirmed)),to:.removal)
+    }
+    let history = root.appendingPathComponent("retained-history"); try Data("retained".utf8).write(to:history)
+    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    await model.restore()
+    #expect(model.canPrepareLocalReinstall && !model.canEnableLocalHost && !model.canCompleteOwnerSetup)
+    #expect(credentials.reads == 0 && credentials.saves == 0 && credentials.removals == 0)
+    #expect(await fixture.backend.registrations == 0)
+    if barrier == "credential" { credentials.values["installation/old-device"] = "synthetic-only" }
+    if barrier == "bundle" { fixture.valid = false }
+    await model.prepareLocalReinstall()
+    if barrier != "ready" {
+        #expect(try Data(contentsOf:root.appendingPathComponent("host-removal.json")) == saved)
+        #expect(!model.canEnableLocalHost)
+        if barrier == "bundle" { #expect(credentials.reads == 0) }
+        credentials.values.removeAll(); fixture.valid = true
+        await model.prepareLocalReinstall()
+    }
+    #expect(model.canEnableLocalHost && !model.canCompleteOwnerSetup && !model.canPrepareLocalReinstall)
+    #expect(!FileManager.default.fileExists(atPath:root.appendingPathComponent("host-removal.json").path))
+    #expect(try String(contentsOf:history,encoding:.utf8) == "retained")
+    #expect(credentials.saves == 0 && credentials.removals == 0 && setup.begins == 0)
+    #expect(await fixture.backend.registrations == 0)
+    await model.enableLocalHost()
+    #expect(model.canCompleteOwnerSetup && setup.begins == 0)
+    #expect(await fixture.backend.registrations == 1)
 }
 
 @Test @MainActor func ordinaryMacRemovalCompositionMetadataBudget() async throws {

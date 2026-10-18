@@ -116,6 +116,47 @@ private struct HostRemovalRecord: Codable {
     }
     public func removeHistory() throws { throw OwnerLifecycleError.historyDeletionUnavailable }
 
+    private static func verifyLocalCleanup(_ files: OwnerSetupFiles, connection: DeviceConnection) throws {
+        guard try files.read(.pending) == nil, try files.read(.connection) == nil,
+              let disconnected = try files.read(.disconnected), let removal = try files.read(.removal),
+              try JSONDecoder().decode(DeviceConnection.self,from:disconnected) == connection else { throw MacHostRemovalError.setupBlocked }
+        let intent = try JSONDecoder().decode(PairingRemovalIntent.self,from:removal)
+        guard intent.connection == connection, intent.state == .confirmed else { throw MacHostRemovalError.setupBlocked }
+    }
+    static func completedConnection(_ files: OwnerSetupFiles, endpoint: MacAgentEndpoint) throws -> DeviceConnection? {
+        guard let bytes = try files.read(.hostRemoval) else { return nil }
+        let record = try JSONDecoder().decode(HostRemovalRecord.self,from:bytes)
+        guard record.isConfirmed, record.connection.endpoint == .macAgent(endpoint) else { throw MacHostRemovalError.setupBlocked }
+        try verifyLocalCleanup(files,connection:record.connection)
+        return record.connection
+    }
+    public func prepareForSetup(verifyCredentialAbsent: @MainActor () throws -> Void) async throws {
+        guard !active else { throw MacHostRemovalError.busy }
+        try Task.checkCancellation()
+        active = true; defer { active = false }
+        try await verifyBundle()
+        try Task.checkCancellation()
+        let files = try OwnerSetupFiles(directory:directory); defer { files.close() }
+        try Self.verifyLocalCleanup(files,connection:connection)
+        guard let bytes = try files.read(.hostRemoval) else { return }
+        let record = try JSONDecoder().decode(HostRemovalRecord.self,from:bytes)
+        guard record.connection == connection, record.isConfirmed, let observation = try record.observation else { throw MacHostRemovalError.setupBlocked }
+        func unchanged() throws {
+            try Self.verifyLocalCleanup(files,connection:connection)
+            guard try files.read(.hostRemoval) == bytes else { throw MacHostRemovalError.changedProgress }
+        }
+        guard try await startup.inspect() == .notRegistered else { throw OwnerLifecycleError.startupUnconfirmed }
+        try unchanged()
+        try await observation.host.waitForExit(timeout:exitTimeout)
+        guard try await startup.inspect() == .notRegistered else { throw OwnerLifecycleError.startupUnconfirmed }
+        try unchanged()
+        try Task.checkCancellation()
+        try verifyCredentialAbsent()
+        try unchanged()
+        try Task.checkCancellation()
+        try files.removeHostRemoval()
+    }
+
     public func stopAndRevoke() async throws -> OwnedHostStop {
         guard !active else { throw MacHostRemovalError.busy }
         try Task.checkCancellation()

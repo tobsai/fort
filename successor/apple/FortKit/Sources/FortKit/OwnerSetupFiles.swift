@@ -98,6 +98,7 @@ final class OwnerSetupFiles {
     }
     func removePending() throws { try remove(.pending) }
     func removeConnection() throws { try remove(.connection) }
+    func removeHostRemoval() throws { try remove(.hostRemoval) }
     func close() {
         if lock >= 0 {
             while flock(lock,LOCK_UN) != 0 && errno == EINTR {}

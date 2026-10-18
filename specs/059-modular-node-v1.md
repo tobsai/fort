@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 28c489859eb035c7eb9b39f9cab5b8262cc6a02a8f2a46261dd9a5907c511840
+Reviewed content SHA256: cac4c725a4ff85b3fc8be239d5ebb020fce2fffd86269c69bb71fdfc85988c7f
 
 ### Vendor independence
 Status: planned
@@ -1702,6 +1702,40 @@ setup, resume, private-channel, native and strict checks, rebuild exact resource
 then require the final semantic review and staged gates. Installed re-pairing,
 Keychain and provider acceptance remain separate external gates.
 
+### Retained-history reinstall reconciliation
+
+Resolve the saved-removal blocker under unchanged decision 059. Add an explicit
+native Set up Fort again action after completed removal. Recheck the exact current
+app/helper/endpoint identity, confirmed recovery receipt, independently absent
+recorded helper, startup not registered, absent active/pending connection, matching
+confirmed local pairing-removal/disconnected records and absent exact credential.
+Hold the existing private owner-file lease and revalidate records across waits.
+Only then remove the completed host-removal block with durable directory sync.
+Preserve history, disconnected/revocation markers and unrelated files. Repeated
+inspection remains inert; a lost successful action leaves setup available without
+starting anything. Pending, corrupt, foreign or changed progress remains blocked.
+
+The action must not register startup, reconnect, create/delete credentials, launch
+the helper, revoke again or remove history. Enabling and pairing remain separate
+explicit actions. Existing completed-disconnect pairing handles the later connection.
+No new runtime or public-service contract is needed. Keep the exact credential
+absence check inside the explicit action; mere UI inspection must not read Keychain.
+
+Vendor independence: no runtime/vendor change. Modularity: removal owns its proof
+and transition; native model presents the existing host's capability. Speed: no
+idle work, timer or new process; 20 isolated synthetic reconciliation samples must
+have p95 <=500 ms, excluding fixture preparation, real Keychain and macOS callbacks.
+Installation/removal: retained history is the default, and completed removal is
+reconciled without bypassing unfinished cleanup or silently activating persistent
+access. No actual owner metadata or credentials are changed during development.
+
+Acceptance: public removal red-to-green, exact confirmation and credential-absence
+checks, progress/identity/startup/helper mismatch refusal, interruption/retry and
+native model eligibility; preserve setup guards and historical removal behavior.
+Run native regressions, isolated timing, strict checks, fresh unsigned clients and
+final Ponytail/staged gates. Actual reinstall, Keychain/startup, installed UI and
+TestFlight remain separately gated.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -1731,6 +1765,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `successor/evidence/2026-10-17-node-foundation/owner-reinstall.md`
 - `successor/service/owner-repair.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-repair.md`
 - `successor/service/owner-resume.test.ts`

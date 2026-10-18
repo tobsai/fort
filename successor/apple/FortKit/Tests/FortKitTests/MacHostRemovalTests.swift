@@ -424,4 +424,101 @@ private func removalPhase(_ directory: URL) throws -> String? {
     #expect(await fixture.backend.registrations == 0)
     #expect(try String(contentsOf:history,encoding:.utf8) == "retained")
 }
+@MainActor private func completedReinstallFixture() async throws -> RemovalFixture {
+    let fixture = try RemovalFixture()
+    var ready = false; defer { if !ready { fixture.clean() } }
+    try fixture.child.finish()
+    _ = try await fixture.removal(timeout:1).stopAndRevoke()
+    let files = try OwnerSetupFiles(directory:fixture.directory); defer { files.close() }
+    try files.write(JSONEncoder().encode(fixture.connection),to:.disconnected)
+    try files.write(JSONEncoder().encode(PairingRemovalIntent(connection:fixture.connection,state:.confirmed)),to:.removal)
+    try files.removeConnection()
+    ready = true
+    return fixture
+}
+
+@Test @MainActor func hostRemovalExplicitReinstallPreservesHistoryAndDoesNotEnableOrPair() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    let history = fixture.directory.appendingPathComponent("retained-history")
+    try Data("synthetic retained history".utf8).write(to:history)
+    let disconnected = try Data(contentsOf:fixture.directory.appendingPathComponent("disconnected.json"))
+    let revocation = try Data(contentsOf:fixture.directory.appendingPathComponent("pairing-removal.json"))
+    var credentialChecks = 0
+    let removal = try fixture.removal(timeout:1)
+    try await removal.prepareForSetup { credentialChecks += 1 }
+    #expect(credentialChecks == 1)
+    #expect(!FileManager.default.fileExists(atPath:fixture.progressURL.path))
+    #expect(try Data(contentsOf:fixture.directory.appendingPathComponent("disconnected.json")) == disconnected)
+    #expect(try Data(contentsOf:fixture.directory.appendingPathComponent("pairing-removal.json")) == revocation)
+    #expect(try String(contentsOf:history,encoding:.utf8) == "synthetic retained history")
+    #expect(await fixture.recovery.calls == 1)
+    #expect(await fixture.backend.removals == 1)
+    #expect(await fixture.backend.registrations == 0)
+    try await removal.prepareForSetup { credentialChecks += 1 }
+    #expect(credentialChecks == 1)
+}
+@Test(arguments:["requested","recovered","active-connection","pending","foreign-disconnected","unconfirmed-local","startup","live-helper","credential","bundle","changed-progress"])
+@MainActor func hostRemovalReinstallPreservesUnconfirmedChangedOrForeignState(_ barrier: String) async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    var record = try #require(JSONSerialization.jsonObject(with:Data(contentsOf:fixture.progressURL)) as? [String:Any])
+    let live = barrier == "live-helper" ? try RemovalChild() : nil
+    defer { try? live?.finish() }
+    if barrier == "requested" { record["phase"] = "requested"; record.removeValue(forKey:"host"); record.removeValue(forKey:"receipt") }
+    if barrier == "recovered" { record["phase"] = "recovered" }
+    if let live { record["host"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(MacHostProcess.observe(processID:live.process.processIdentifier,effectiveUserID:geteuid()).record)) }
+    do {
+        let files = try OwnerSetupFiles(directory:fixture.directory); defer { files.close() }
+        try files.write(JSONSerialization.data(withJSONObject:record),to:.hostRemoval)
+        if barrier == "active-connection" { try files.write(JSONEncoder().encode(fixture.connection),to:.connection) }
+        if barrier == "pending" { try files.write(Data("pending synthetic setup".utf8),to:.pending) }
+        if barrier == "foreign-disconnected" {
+            let foreign = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"foreign",deviceID:"device")
+            try files.write(JSONEncoder().encode(foreign),to:.disconnected)
+        }
+        if barrier == "unconfirmed-local" { try files.write(JSONEncoder().encode(PairingRemovalIntent(connection:fixture.connection,state:.locallyForgotten)),to:.removal) }
+    }
+    if barrier == "startup" { await fixture.backend.setStatus(.enabled) }
+    let before = try Data(contentsOf:fixture.progressURL), changed = Data("synthetic replacement progress".utf8)
+    let removal = try fixture.removal(verifyBundle:{ if barrier == "bundle" { throw MacHostBundleError.signature } })
+    var credentialChecks = 0
+    await #expect(throws:(any Error).self) {
+        try await removal.prepareForSetup {
+            credentialChecks += 1
+            if barrier == "credential" { throw DeviceStorageError.removalUnavailable }
+            if barrier == "changed-progress" { try changed.write(to:fixture.progressURL) }
+        }
+    }
+    #expect(try Data(contentsOf:fixture.progressURL) == (barrier == "changed-progress" ? changed : before))
+    #expect(credentialChecks == (["credential","changed-progress"].contains(barrier) ? 1 : 0))
+    #expect(await fixture.recovery.calls == 1)
+    #expect(await fixture.backend.removals == 1)
+    #expect(await fixture.backend.registrations == 0)
+}
+
+@Test @MainActor func hostRemovalCanceledReinstallKeepsItsConfirmedRecordForRetry() async throws {
+    let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+    let before = try Data(contentsOf:fixture.progressURL), removal = try fixture.removal()
+    let work = Task {
+        try await removal.prepareForSetup { withUnsafeCurrentTask { $0?.cancel() } }
+    }
+    await #expect(throws:CancellationError.self) { try await work.value }
+    #expect(try Data(contentsOf:fixture.progressURL) == before)
+    try await removal.prepareForSetup {}
+    #expect(!FileManager.default.fileExists(atPath:fixture.progressURL.path))
+}
+
+@Test @MainActor func hostRemovalReinstallDurabilityBudget() async throws {
+    guard let destination = ProcessInfo.processInfo.environment["FORT_REINSTALL_BENCHMARK"] else { return }
+    var samples: [Double] = []
+    for _ in 0..<20 {
+        let fixture = try await completedReinstallFixture(); defer { fixture.clean() }
+        let removal = try fixture.removal(timeout:1), started = ContinuousClock.now
+        try await removal.prepareForSetup {}
+        let duration = started.duration(to:.now).components
+        samples.append(Double(duration.seconds) * 1000 + Double(duration.attoseconds) / 1e15)
+    }
+    try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination))
+    print("Synthetic reinstall reconciliation p95: \(samples.sorted()[18]) ms")
+    #expect(samples.sorted()[18] <= 500)
+}
 #endif

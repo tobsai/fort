@@ -8,6 +8,11 @@ struct MacHostControlView: View {
         Section("Local host") {
             Text(host.message).font(.callout).accessibilityIdentifier("local-host-status")
             if host.isBusy { ProgressView("Checking the local host…") }
+            if model.hasCompletedHostRemoval {
+                Button("Set up Fort again") { Task { await model.prepareLocalReinstall() } }
+                    .disabled(!model.canPrepareLocalReinstall).accessibilityIdentifier("local-host-prepare-reinstall")
+                Text("Keeps saved conversations. You’ll enable the local host and connect this Mac separately afterward.").font(.caption)
+            }
             if host.status == .notRegistered {
                 Button("Enable local host") { Task { await model.enableLocalHost() } }
                     .disabled(!model.canEnableLocalHost).accessibilityIdentifier("local-host-enable")
