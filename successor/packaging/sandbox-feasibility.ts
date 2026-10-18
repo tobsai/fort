@@ -34,6 +34,7 @@ type ProbeRun = {
   outcome: 'completed' | 'timedOut' | 'failed'; stdout: string; diagnostics: string;
   parentPid: number; childPid: number | null; childGroup: number | null;
   ownedProcessesAbsent: boolean; elapsedMs: number; executionMs: number | null; hungChildObserved: boolean;
+  parentStartupMs: number | null; parentWorkMs: number | null;
 };
 const absent = (pid: number) => {
   try { process.kill(pid, 0); return false; }
@@ -46,6 +47,7 @@ async function runProbe(executable: string, outside: string, scenario: string, t
     let stdout = '', stderr = '';
     let timedOut = false, outputLimit = false, finishing = false;
     let childStartedAt: number | undefined;
+    let parentStartedAt: number | undefined;
     let fallback: ReturnType<typeof setTimeout> | undefined;
     const stop = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} } };
     const finish = async (code: number | null) => {
@@ -61,13 +63,21 @@ async function runProbe(executable: string, outside: string, scenario: string, t
       const deadline = performance.now() + 1500;
       while (!ownedAbsent() && performance.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
       const ownedProcessesAbsent = ownedAbsent();
-      resolveRun({ outcome: timedOut ? 'timedOut' : code === 0 && !outputLimit && ownedProcessesAbsent ? 'completed' : 'failed', stdout, diagnostics: stderr.replace(/^FORT_PROBE_CHILD.*\n/m, ''), parentPid, childPid, childGroup, ownedProcessesAbsent, elapsedMs: performance.now() - started, executionMs: childStartedAt === undefined ? null : performance.now() - childStartedAt, hungChildObserved: stdout.includes('synthetic child is holding its output pipe open') });
+      resolveRun({ outcome: timedOut ? 'timedOut' : code === 0 && !outputLimit && ownedProcessesAbsent && parentStartedAt !== undefined ? 'completed' : 'failed', stdout, diagnostics: stderr.replace(/^FORT_PROBE_(?:PARENT|CHILD).*\n/gm, ''), parentPid, childPid, childGroup, ownedProcessesAbsent,
+        elapsedMs: performance.now() - started, parentStartupMs: parentStartedAt === undefined ? null : parentStartedAt - started,
+        parentWorkMs: parentStartedAt === undefined ? null : (childStartedAt ?? performance.now()) - parentStartedAt,
+        executionMs: childStartedAt === undefined ? null : performance.now() - childStartedAt, hungChildObserved: stdout.includes('synthetic child is holding its output pipe open') });
     };
     const killWithFallback = () => { stop(); fallback ??= setTimeout(() => { void finish(null); }, 2000); };
     let timer = setTimeout(() => { timedOut = true; killWithFallback(); }, 15_000);
     child.stdout.on('data', chunk => { stdout += chunk.toString(); if (stdout.length > 65_536) { stdout = stdout.slice(0, 65_536); outputLimit = true; killWithFallback(); } });
     child.stderr.on('data', chunk => {
       stderr += chunk.toString();
+      const parent = /^FORT_PROBE_PARENT ([0-9]+) ([0-9]+)$/m.exec(stderr);
+      if (parentStartedAt === undefined && parent && Number(parent[1]) === child.pid && Number(parent[2]) === child.pid) {
+        parentStartedAt = performance.now(); clearTimeout(timer);
+        timer = setTimeout(() => { timedOut = true; killWithFallback(); }, timeoutMs);
+      }
       if (childStartedAt === undefined && /^FORT_PROBE_CHILD [0-9]+ [0-9]+$/m.test(stderr)) {
         childStartedAt = performance.now(); clearTimeout(timer);
         timer = setTimeout(() => { timedOut = true; killWithFallback(); }, timeoutMs);

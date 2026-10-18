@@ -58,6 +58,11 @@ Logs: `/tmp/fort059-private-recovery-xpc.log`,
 `/tmp/fort059-private-recovery-xpc-system.log`,
 `/tmp/fort059-private-recovery-xpc-cleanup.json`.
 
+The subsequent [probe phase repair](probe-phases.md) passed all four signed
+scenarios and retained a current artifact with independently checked cleanup.
+That confirms ordinary XPC/core compatibility; the new recovery command remains
+private-pipe-only until an owner XPC composition is implemented.
+
 The current ordinary XPC interface still carries only authenticated Fort requests;
 it does not expose this pipe command. A pinned owner lifecycle composition and
 ordinary app setup remain to be implemented and separately verified. Startup

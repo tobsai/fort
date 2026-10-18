@@ -14,6 +14,9 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
   assert.equal(result.status, 0, result.stderr + result.stdout + '\nRetained fixture: ' + root);
   const proof: unknown = JSON.parse(result.stdout);
   assert.ok(proof && typeof proof === 'object');
+  for (const key of ['parentStartupMs', 'parentWorkMs', 'executionMs']) {
+    assert.ok(key in proof && typeof Reflect.get(proof, key) === 'number' && Reflect.get(proof, key) > 0, key + ' was not measured');
+  }
   for (const key of ['xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcProcessesAbsent', 'coreExactMessages', 'coreRestart', 'outsideReadDenied', 'outsideWriteDenied', 'loopbackListenDenied', 'ownedProcessesAbsent', 'syntheticContainerAbsent']) {
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }

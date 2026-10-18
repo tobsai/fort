@@ -4,6 +4,7 @@ import Darwin
 let files = FileManager.default
 let privateRoot = files.temporaryDirectory.appendingPathComponent("fort059-" + UUID().uuidString, isDirectory: true)
 do {
+    FileHandle.standardError.write(Data("FORT_PROBE_PARENT \(getpid()) \(getpgrp())\n".utf8))
     try files.createDirectory(at: privateRoot, withIntermediateDirectories: false)
     defer { try? files.removeItem(at: privateRoot) }
     guard CommandLine.arguments.count == 3 else { throw CocoaError(.fileReadInvalidFileName) }

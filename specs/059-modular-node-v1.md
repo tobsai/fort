@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 583a6796f2914fb1986d7f2eda8eb22eaf3a4076e32b325e3fd24e980f420b44
+Reviewed content SHA256: 756d9d75255d6b1234ba4bb3826343a62278574590bc69fed1a32484d645466e
 
 ### Vendor independence
 Status: planned
@@ -332,6 +332,18 @@ constant-size local lifecycle work with no extra dependency or idle activity. It
 does not expose enrollment, change signed XPC admission, activate startup or add
 network access. Ordinary app setup and the installed owner adapter remain separate.
 
+The signed feasibility harness must distinguish first process entry from XPC
+checks and Node execution. Emit an exact parent PID/group marker on entry, retain
+the 15-second initial launch bound, then start a separate bounded parent-work
+phase and the existing Node-child execution deadline. Record startup, parent work
+and child execution durations separately; none establishes the product's measured
+startup budgets. This corrects a reproduced timeout where macOS signing evaluation
+occupied almost all of launch's deadline before XPC checks began. Preserve the
+failed artifact and original result, independently prove owned processes absent,
+and remove only that fixture's generated containers. Keep the hung-child timeout
+negative control and all signed identity/sandbox checks. This test-only repair
+adds no runtime dependency, product authority, idle work or installation change.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -384,6 +396,9 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/probe-phases.md`
+- `successor/evidence/2026-10-17-node-foundation/probe-phases.json`
 
 - `successor/apple/FortKit/Tests/FortKitTests/CoreRecoveryTests.swift`
 - `successor/host/fixtures/owner-core.mjs`
