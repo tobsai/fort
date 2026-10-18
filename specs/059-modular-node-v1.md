@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: f626f806ee4a1bb9f545b6b9683441e5cc8a056a23ef6a7a1ffed280da1afc4c
+Reviewed content SHA256: f7d7ed01e21baed6c978a56db719c0f311b3f5037b6e2165679c8a69f701ad56
 
 ### Vendor independence
 Status: planned
@@ -715,6 +715,43 @@ profiles, expand signed entitlements, register/start a job or change the accepte
 single-owner per-user host into a root daemon. Production identity selection, owned
 host composition, update/rollback and installed acceptance remain separate work.
 
+Add a Mac startup-registration boundary around SMAppService's per-user agent API.
+It takes the validated agent endpoint and derives only its exact code-identifier
+plist name under the containing app's LaunchAgents directory. It does not create
+or copy a plist, select a different service, change entitlements or register during
+construction/inspection. Expose not-registered, enabled/eligible, requires-approval,
+not-found and unknown/unsupported states distinctly; none proves a running process,
+runtime stop, pairing revocation or helper/descendant absence.
+
+Explicit enable reconciles current state, returns existing enabled/approval-needed
+state without another registration and refuses missing/unsupported configuration.
+Explicit disable treats already-unregistered as a registration-only result, otherwise
+awaits SMAppService's asynchronous completion and checks the resulting status.
+Reconcile status after errors before deciding whether the desired registration state
+was reached. A task canceled after an OS operation begins cannot undo that operation;
+retain operation-in-progress until completion, refresh its observed state and report
+cancellation without compensating re-registration. Reject overlapping mutations;
+inspection cannot report an in-flight change as completed. Use an actor-owned system
+adapter so synchronous ServiceManagement calls do not run on the UI actor. No polling,
+automatic retry, launchctl shell, startup grant or OS-setting navigation is added.
+
+Vendor independence: Apple-specific registration stays outside core/provider code.
+Modularity: expose Fort-owned registration states and a bounded backend seam for
+synthetic tests, separate from owned-runtime shutdown proof. Speed: no idle activity;
+20 synthetic inspect/reconcile samples target p95 <=50 ms, excluding OS interaction.
+Run this asynchronous timing check explicitly in isolation, without unrelated
+test work queued on the UI actor; normal suite execution keeps its behavior checks
+and records the timing check as excluded rather than enforcing a contended budget.
+ServiceManagement's real call/completion latency requires installed evidence; a
+callback that has not returned remains pending, never a shutdown success. Installation/
+removal: preserve explicit consent, approval-needed and denied/uncertain outcomes;
+the eventual installation adapter must combine startup absence with independent
+runtime/core/helper proof before removing credentials. Test repeated calls, changed
+external status, partial register/unregister failures, missing states, overlapping
+actions, task cancellation before/after dispatch and delayed callback completion.
+Compile both clients. Do not invoke the real registration backend in tests or wire
+it into ordinary app construction until exact bundle/profile/activation gates pass.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -796,6 +833,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/MacAgentEndpoint.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacAgentEndpointTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-agent-boundary.md`
+- `successor/apple/FortKit/Sources/FortKit/MacHostStartup.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostStartupTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-startup.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`
