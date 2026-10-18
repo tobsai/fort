@@ -104,6 +104,87 @@ import Observation
     public var showConnection = true
     private let storage: DeviceStorage
     private let session: URLSession
+    private var connectionTransport: ((DeviceEndpoint) throws -> any FortTransport)?
+    #if os(macOS)
+    private var ownerSetupCoordinator: OwnerSetupCoordinator?
+    private var ownerSetupEndpoint: DeviceEndpoint?
+    private var ownerSetupInspected = false
+    public private(set) var pendingOwnerSetup: PendingOwnerSetup?
+    public private(set) var ownerSetupBusy = false
+    public private(set) var ownerSetupMessage = "Checking saved setup…"
+    public var hasOwnerSetup: Bool { ownerSetupCoordinator != nil && !isOfflinePreview && !isInteractiveFixture }
+    public var canCompleteOwnerSetup: Bool {
+        hasOwnerSetup && ownerSetupInspected && !ownerSetupBusy && !isBusy && !lifecycleBusy && client == nil && !connected &&
+        pendingOwnerSetup?.phase != .canceling && pendingOwnerSetup?.phase != .canceled
+    }
+    public var canCancelOwnerSetup: Bool { hasOwnerSetup && ownerSetupInspected && pendingOwnerSetup != nil && !ownerSetupBusy && !isBusy && !lifecycleBusy && client == nil && !connected }
+    public convenience init(directory: URL, ownerServiceIdentifier: String, signingTeam: String) throws {
+        try self.init(directory:directory)
+        ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,serviceIdentifier:ownerServiceIdentifier,signingTeam:signingTeam)
+        ownerSetupEndpoint = .macHost(serviceIdentifier:ownerServiceIdentifier,signingTeam:signingTeam)
+    }
+    convenience init(storage: DeviceStorage, session: URLSession, ownerEndpoint: DeviceEndpoint, ownerSetupControl: any OwnerSetupControl, connectionTransport: @escaping (DeviceEndpoint) throws -> any FortTransport) throws {
+        self.init(storage:storage,session:session)
+        self.connectionTransport = connectionTransport
+        ownerSetupCoordinator = try OwnerSetupCoordinator(storage:storage,endpoint:ownerEndpoint,control:ownerSetupControl,tokenGenerator:DeviceStorage.makeOwnerDeviceToken)
+        ownerSetupEndpoint = ownerEndpoint
+    }
+    public func inspectOwnerSetup() {
+        guard hasOwnerSetup, !ownerSetupBusy, let ownerSetupCoordinator else { return }
+        do {
+            pendingOwnerSetup = try ownerSetupCoordinator.pendingSetup()
+            ownerSetupInspected = true
+            switch pendingOwnerSetup?.phase {
+            case .preparing: ownerSetupMessage = "Setup was interrupted before its credential was ready. Continue or cancel this setup."
+            case .ready: ownerSetupMessage = "Setup has not been confirmed. Retry the saved setup or cancel it."
+            case .canceling: ownerSetupMessage = "Cancellation is saved. The host has not confirmed it yet."
+            case .canceled: ownerSetupMessage = "Cancellation was confirmed. Finish removing the prepared credential from this device."
+            case nil: ownerSetupMessage = "Connect this Mac to its configured Fort host. Pairing has no default expiry."
+            }
+        } catch {
+            ownerSetupInspected = false
+            ownerSetupMessage = "Saved setup could not be read safely. Its records and credential have been kept."
+        }
+    }
+    public func completeOwnerSetup() async {
+        guard canCompleteOwnerSetup, let ownerSetupCoordinator else { return }
+        ownerSetupBusy = true
+        var completed = false
+        var failure = "Setup could not be confirmed. Review the saved setup before retrying or canceling."
+        do { _ = try await ownerSetupCoordinator.connect(); completed = true }
+        catch let error as OwnerSetupPreparationError { failure = error.localizedDescription }
+        catch {}
+        ownerSetupBusy = false
+        inspectOwnerSetup()
+        if completed {
+            preparedAppRemoval = nil
+            await restore()
+        } else {
+            ownerSetupMessage = failure
+            status = ownerSetupMessage
+        }
+    }
+    public func cancelOwnerSetup(_ expected: OwnerSetupIdentity) async {
+        guard canCancelOwnerSetup, let ownerSetupCoordinator else { return }
+        guard pendingOwnerSetup?.identity == expected else {
+            inspectOwnerSetup(); ownerSetupMessage = "Saved setup changed. Review it before canceling."; return
+        }
+        ownerSetupBusy = true
+        var finished = false
+        do { _ = try await ownerSetupCoordinator.cancelPendingSetup(expected); finished = true }
+        catch {}
+        ownerSetupBusy = false
+        inspectOwnerSetup()
+        if finished {
+            await restore()
+            ownerSetupMessage = "No unfinished setup remains. Saved conversations have been kept."
+            if installation == nil { status = ownerSetupMessage }
+        } else {
+            ownerSetupMessage += " Recovery could not finish. Its saved state has been kept."
+            status = ownerSetupMessage
+        }
+    }
+    #endif
     private var client: FortClient?
     private var pendingStore: PendingStore?
     private var refreshing = false
@@ -127,14 +208,29 @@ import Observation
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false }
     init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false, ownedInstallation: (any OwnedMacInstallation)? = nil) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview; self.ownedInstallation = ownedInstallation }
     private func restoredClient(_ connection: DeviceConnection) throws -> FortClient {
-        let transport = try connection.endpoint.transport(session:session)
+        let transport = try connectionTransport?(connection.endpoint) ?? connection.endpoint.transport(session:session)
         return FortClient(installationID:connection.installationID,token:try storage.token(for:connection),transport:transport)
     }
     public func restore() async {
         guard !isOfflinePreview, !isInteractiveFixture, client == nil else { return }
+        #if os(macOS)
+        if hasOwnerSetup {
+            guard !ownerSetupBusy else { return }
+            inspectOwnerSetup()
+            guard ownerSetupInspected, pendingOwnerSetup == nil else {
+                showConnection = true; status = ownerSetupMessage; return
+            }
+        }
+        #endif
         do {
             let active = try storage.connection()
             guard let connection = try active ?? storage.disconnectedConnection() else { return }
+            #if os(macOS)
+            if hasOwnerSetup, connection.endpoint != ownerSetupEndpoint {
+                status = "The saved connection belongs to a different host. Its records and credential have been kept."
+                return
+            }
+            #endif
             let disconnected = try storage.disconnectedConnection()
             let intent = try storage.pairingRemoval()
             let removal = intent?.connection == connection ? intent : nil
@@ -167,6 +263,9 @@ import Observation
         catch { status = "Could not restore this device connection. Saved pairing has been kept." }
     }
     public func enroll() async {
+        #if os(macOS)
+        guard !hasOwnerSetup else { return }
+        #endif
         guard !isOfflinePreview, !isInteractiveFixture, !isBusy, let url = URL(string:endpoint) else { return }
         isBusy = true; defer { isBusy = false }
         do {

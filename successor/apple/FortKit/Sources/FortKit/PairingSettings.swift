@@ -31,6 +31,9 @@ struct PairingSettingsView: View {
     private func confirm(_ selected: Action) { action = selected; showConfirmation = true }
     var body: some View {
         Form {
+            #if os(macOS)
+            if model.hasOwnerSetup && (model.pendingOwnerSetup != nil || model.showConnection) { OwnerSetupView(model:model) }
+            #endif
             Section("Pairing") {
                 if let pairing = model.pairingStatus {
                     Text(pairing.expiresAt.map { "Expires: \($0)" } ?? "No expiry · stays paired until you disconnect")

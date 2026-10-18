@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5448ed45ba72e10c346e0f2fadf7cc0a7fe277aa437b86be26bb3911e3452fdd
+Reviewed content SHA256: fd2c795ffbd5336831d6bc147117cea6f8119734f650357749ccbb2b75f68cea
 
 ### Vendor independence
 Status: planned
@@ -647,6 +647,37 @@ ordinary UI wiring is introduced. Existing request/cleanup deadlines and the
 500 ms synthetic file-durability budget remain; installed Keychain timing and
 hardware power-loss behavior remain separate gates.
 
+Expose prepared owner setup in the native model and connection/settings views,
+only when app composition explicitly supplies the exact pinned Mac host. Launch,
+restore and sheet inspection read pending metadata without beginning/completing
+setup, reading its credential or contacting the host. Pending or unreadable setup
+blocks connection restoration, including a partially persisted connection; it
+cannot silently resume delivery or be overwritten by legacy fixture enrollment.
+An explicit connect/retry action uses the same coordinator. Explicit cancellation
+captures the displayed setup identity, confirms that scope and keeps history.
+Lost replies and failed cleanup remain visible, with retry actions selected from
+the persisted phase. A stale confirmation cannot cancel a replacement setup.
+Serialize model actions; repeated clicks, restore and fixture enrollment cannot
+race an active setup/cancellation. After successful setup restore the ordinary
+Fort client through its transport boundary; after cancellation restore only any
+retained disconnected history. Unconfigured apps, iPhone, offline previews and
+interactive fixtures must not infer a local host or gain setup authority.
+
+This refinement remains under decision 059. Vendor independence: no provider or
+paid path is selected; exact host identity is supplied by composition. Modularity:
+keep credential/durable-phase rules in the existing coordinator and client transport
+behind FortTransport; the UI projects state and invokes explicit public actions.
+Speed: inspection/action projection adds no timers or background work; retain the
+500 ms synthetic file-operation target and existing request deadlines. Verify 20
+isolated model inspections at p95 <=50 ms, excluding host/credential operations.
+Installation/removal: expose uncertainty and retained history without registering
+startup, granting persistent access or claiming whole-app removal. Test public
+model actions with in-memory credentials/control and transport, ordinary restore,
+stale confirmations, missing capability/unsafe state, overlapping actions and
+restart; build both platforms. Existing app construction remains unconfigured
+until its actual host bundle/lifecycle is supplied. UI screenshots/accessibility,
+actual Keychain/XPC and installed setup acceptance remain separate gates.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -722,6 +753,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-xpc.json`
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupCancellationTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-recovery.md`
+- `successor/apple/FortKit/Sources/FortKit/OwnerSetupView.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupModelTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-model.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

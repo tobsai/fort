@@ -237,17 +237,25 @@ public struct MessengerView: View {
     private var connectionForm: some View {
         NavigationStack {
             Form {
-                Section("Local installation") {
-                    Text("Use the address, installation ID and one-time enrollment code from the approved local Fort session. This prototype uses loopback on this Mac.").font(.callout)
-                    TextField("Service address",text:$model.endpoint).autocorrectionDisabled()
-                    TextField("Installation ID",text:$model.expectedInstallation).autocorrectionDisabled()
-                    TextField("Device name",text:$model.deviceName)
-                    SecureField("One-time enrollment code",text:$model.enrollmentCode)
-                }
+                #if os(macOS)
+                if model.hasOwnerSetup { OwnerSetupView(model:model) }
+                else { fixtureConnectionFields }
+                #else
+                fixtureConnectionFields
+                #endif
                 Text(model.status).font(.callout)
-                Button("Enroll this device") { Task { await model.enroll() } }.disabled(model.isBusy || model.enrollmentCode.isEmpty || model.expectedInstallation.isEmpty)
                 if model.installation != nil { Button("Return to conversation") { model.showConnection = false } }
             }.formStyle(.grouped).navigationTitle("Connect to Fort")
         }.frame(minWidth:320,minHeight:440)
+    }
+    @ViewBuilder private var fixtureConnectionFields: some View {
+        Section("Local installation") {
+            Text("Use the address, installation ID and one-time enrollment code from the approved local Fort session. This prototype uses loopback on this Mac.").font(.callout)
+            TextField("Service address",text:$model.endpoint).autocorrectionDisabled()
+            TextField("Installation ID",text:$model.expectedInstallation).autocorrectionDisabled()
+            TextField("Device name",text:$model.deviceName)
+            SecureField("One-time enrollment code",text:$model.enrollmentCode)
+        }
+        Button("Enroll this device") { Task { await model.enroll() } }.disabled(model.isBusy || model.enrollmentCode.isEmpty || model.expectedInstallation.isEmpty)
     }
 }
