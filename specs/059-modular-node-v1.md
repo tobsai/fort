@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: f4b9e18f053aa2048d5f91f37bb01e31f774043cf492a1dd685a18cb9b134ddb
+Reviewed content SHA256: 802d08abb05124a2bd8f8d979b7a9a80255d36ddf423e7759ab97697b88b0b27
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,33 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Artifact build-environment repair
+
+Apply the executor builder's isolated compiler environment and destination ownership
+rules to the independent core builder. Require Node 26.5.0 and a new normalized,
+nonroot absolute destination; record its device/inode after creation. Compiler and
+Git license-fallback subprocesses receive an empty environment and bounded timeouts.
+Use the same empty/bounded license fallback in the executor builder. Inspect emitted
+files without following symlinks and require regular single-link files. On failure,
+remove only the created destination if its current directory identity still matches;
+preserve a replacement directory. This is a point-in-time ownership guard, not an
+atomic filesystem transaction against a same-user race.
+
+Vendor independence: core output remains free of provider implementations. Modularity:
+this repairs the existing two packaging functions without changing runtime contracts
+or adding a dependency. Speed: five serial fresh core artifacts, warm toolchain/cache,
+no incremental output reuse, each/p95 <=10 s; provider/network excluded. Installation/
+removal: no install hooks or activation, no ambient Node preload/Git environment
+inheritance, and no deletion of an unrelated existing destination. Reuse decision 059
+for this recoverable build-path issue.
+
+Acceptance: first reproduce the core compiler executing an authored synthetic ambient
+preload, then prove the marker stays absent and compilation succeeds. Verify malformed
+and existing destination refusal with original contents intact, complete manifest
+file/size/hash correspondence, typed/compiled core independence journeys and ordinary
+owned-core restart/disposal. Run portable tests and strict TypeScript; no signed/native
+build, provider/account or installed claim is needed for this packaging-only repair.
+
 ### Compiled private executor composition revision
 
 Expose a production constructor in the optional Codex artifact with only exact
@@ -1475,6 +1502,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/private-codex-plan.md`
 - `successor/evidence/2026-10-17-node-foundation/codex-auth-source-audit.json`
 - `successor/evidence/2026-10-17-node-foundation/private-codex-executor.md`
+- `successor/evidence/2026-10-17-node-foundation/artifact-build-environment.md`
 - `successor/host/owned-core.ts`
 - `successor/host/owned-core.test.ts`
 - `successor/host/fixtures/owned-core.mjs`

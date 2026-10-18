@@ -19,7 +19,7 @@ export function buildCodexExecutor(destination: string) {
     try { license = readFileSync(join(repository, 'LICENSE')); }
     catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
-      license = execFileSync('git', ['show', 'HEAD:LICENSE'], { cwd: repository });
+      license = execFileSync('git', ['show', 'HEAD:LICENSE'], { cwd: repository, env: {}, timeout: 5000 });
     }
     writeFileSync(join(destination, 'LICENSE'), license, { flag: 'wx' });
     writeFileSync(join(destination, 'package.json'), JSON.stringify({ name: 'fort-codex-executor', version: '0.1.0', private: true,
