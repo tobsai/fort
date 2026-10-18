@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9caccafe548a86793f334a04f487d24af1b0e10fbd1c403285f5299f5c78f1e2
+Reviewed content SHA256: 53cc8e6bf6923da47b74d6c21c95117aea861ccc7c4fba8f6668519087904948
 
 ### Vendor independence
 Status: planned
@@ -66,6 +66,12 @@ One Fort application owns agent/binding revisions, conversations, commands, runs
 approvals, routines and calendar decisions. A versioned client contract contains
 bounded pages, replay cursors and capability descriptors without provider SDK types.
 Native clients own presentation and durable pending intent, not execution truth.
+Admission and dispatch check the selected runtime's declared memory/skill
+capabilities. A request requiring unsupported context fails explicitly before
+acceptance; already accepted work that loses support fails before execution.
+Historical receipts, messages and saved context remain readable after capability
+removal. Library editing and export remain available independently of invocation.
+Clearing an owner note explicitly allows plain text without memory content.
 The scheduler arms the nearest due occurrence with at most one clock-reconciliation
 wakeup per minute, and no timer when no work remains. No due decision means no
 ledger write. Missed-work policy uses occurrence lateness and startup recovery,
@@ -162,6 +168,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/executor-process.test.ts`
 - `successor/runner/fixtures/executor-worker.mjs`
 - `successor/evidence/2026-10-17-node-foundation/executor-process.md`
+- `successor/evidence/2026-10-17-node-foundation/capabilities.md`
 
 - `.github/workflows/fort-quality.yml`
 - `successor/verification/test-suite.mjs`

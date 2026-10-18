@@ -310,8 +310,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if(!prior)return undefined;
     const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return acceptance(receipt);
   };
+  const unsupportedContext = (configuration: TurnConfiguration): string | undefined => {
+    if (configuration.skills.length && !provider.capabilities.includes('skills')) return 'The selected runtime does not support skills. Restore support or send without selected skills.';
+    if (configuration.memory?.text && !provider.capabilities.includes('memory')) return 'The selected runtime does not support saved memory. Restore support or explicitly clear the note before sending.';
+    return undefined;
+  };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
+    const unavailable = unsupportedContext(configuration);
+    if (unavailable) fail(409, 'capabilityUnavailable', unavailable);
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
     if (Number(db.prepare('SELECT count(*) AS count FROM dispatch_outbox').get()?.count) >= 1000) fail(429,'queueFull','This installation has 1000 unresolved turns. Complete, cancel or resolve earlier work before adding another.');
     const queued = db.prepare('SELECT count(*) AS count FROM dispatch_outbox WHERE conversation_id=?').get(conversationId);
@@ -461,6 +468,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       ORDER BY o.position LIMIT 1`).get();
     const queued = nextRow ? decodeRun(json(nextRow)) : undefined;
     if (!queued?.configuration) return false;
+    const contextFailure = unsupportedContext(queued.configuration);
+    if (contextFailure) {
+      transaction(() => { put('runs', queued.runId, { ...queued, state: 'failed', statusDetail: contextFailure,
+        ...(queued.routine ? { routine: stopRoutine(queued.routine, 'failed', contextFailure) } : {}) }); append(queued.conversationId, 'runStopped', queued.runId); });
+      return true;
+    }
     if(bindingDisabled(queued.bindingRevisionId)){
       const detail='The pinned binding revision was disabled before dispatch. Nothing was sent.';
       transaction(()=>{put('runs',queued.runId,{...queued,state:'failed',statusDetail:detail,...(queued.routine?{routine:stopRoutine(queued.routine,'failed',detail)}:{})});append(queued.conversationId,'runStopped',queued.runId);});return true;

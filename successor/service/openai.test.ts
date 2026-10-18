@@ -336,6 +336,61 @@ test('owner memory is conversation-scoped, revision-pinned at acceptance and dur
   assert.equal((await h.api(home+'/memory',{expectedRevisionId:cleared.body.revisionId,recoveryEpoch:epoch,text:'x'.repeat(8193)})).status,400);
 });
 
+test('removing memory support preserves history and receipts but refuses new context until support returns or the owner clears it', async t => {
+  const provider = structuredClone(CODEX_RUNTIME), calls: ChatInput[] = [];
+  const h = await setup(t, { provider, runtime: { async execute(input) { calls.push(input); return { kind: 'completed', text: 'Exact reply', effectiveModel: null }; }, async dispose() {} } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Memory', model: 'exact-model', instructions: 'Use the supplied context.' })).body;
+  const path = '/v1/conversations/' + agent.homeConversationId, epoch = h.service.installation.recoveryEpoch;
+  const memory = (await h.api<ConversationMemory>(path + '/memory', { recoveryEpoch: epoch, expectedRevisionId: null, text: 'Retained owner note' })).body;
+  const command = { requestId: 'with-memory', text: 'Use the note', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: epoch, skills: [], memoryRevisionId: memory.revisionId };
+  const accepted = (await h.api<Acceptance>(path + '/messages', command)).body;
+  await h.service.dispatchNext();
+  provider.capabilities = ['plainText']; await h.restart();
+  const retained = (await h.api<Snapshot>(path + '/snapshot')).body;
+  assert.deepEqual(retained.memory, memory);
+  assert.deepEqual(retained.messages.map(message => message.text), ['Use the note', 'Exact reply']);
+  assert.deepEqual((await h.api<Acceptance>(path + '/messages', command)).body.receipt, accepted.receipt);
+  const unsupported = await h.api<{ error: { code: string } }>(path + '/messages', { ...command, requestId: 'unsupported-memory' });
+  assert.equal(unsupported.status, 409); assert.equal(unsupported.body.error.code, 'capabilityUnavailable');
+  assert.equal(h.service.inspectSession().receipts.length, 1); assert.equal(calls.length, 1);
+  provider.capabilities = ['plainText', 'memory']; await h.restart();
+  assert.equal((await h.api(path + '/messages', { ...command, requestId: 'restored-memory' })).status, 201);
+  await h.service.dispatchNext(); assert.deepEqual(calls[1].configuration.memory, memory);
+  provider.capabilities = ['plainText']; await h.restart();
+  const cleared = (await h.api<ConversationMemory>(path + '/memory', { recoveryEpoch: epoch, expectedRevisionId: memory.revisionId, text: '' })).body;
+  assert.equal((await h.api(path + '/messages', { ...command, requestId: 'without-memory', memoryRevisionId: cleared.revisionId })).status, 201);
+  await h.service.dispatchNext(); assert.equal(calls[2].configuration.memory?.text, '');
+});
+
+test('a runtime without skills can retain reviewed bundles but cannot accept their chat or routine invocation', async t => {
+  const provider = structuredClone(CODEX_RUNTIME); provider.capabilities = ['plainText'];
+  let calls = 0;
+  const h = await setup(t, { provider, runtime: { async execute() { calls++; return { kind: 'completed', text: 'Plain reply', effectiveModel: null }; }, async dispose() {} } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Plain', model: 'exact-model', instructions: 'Plain text.' })).body;
+  const path = '/v1/conversations/' + agent.homeConversationId;
+  const skill = (await h.api<InstructionSkill>('/v1/skills', { name: 'Retained', instructions: 'Retained reviewed instructions.' })).body;
+  assert.ok(skill.bundle);
+  assert.equal((await h.api('/v1/skills/' + skill.skillId + '/review', { revisionId: skill.revisionId, digest: skill.bundle.digest, enable: true })).status, 200);
+  const ref = { skillId: skill.skillId, revisionId: skill.revisionId }, epoch = h.service.installation.recoveryEpoch;
+  const command = { requestId: 'unsupported-skill', text: 'Invoke', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: epoch, skills: [ref] };
+  const rejected = await h.api<{ error: { code: string } }>(path + '/messages', command);
+  assert.equal(rejected.status, 409); assert.equal(rejected.body.error.code, 'capabilityUnavailable');
+  const routine = (await h.api<RoutineRevision>('/v1/routines', { definition: { schemaVersion: 1, name: 'Retained routine', agentId: agent.agentId, conversationId: agent.homeConversationId, bindingRevisionId: agent.binding.bindingRevisionId, instructions: 'Use the reviewed skill.', inputs: [], skills: [{ ...ref, digest: skill.bundle.digest }], steps: [{ stepId: 'task', name: 'Task', type: 'task', instructions: 'Produce a reply.', inputNames: [], outputStepIds: [] }] } })).body;
+  const routineRejected = await h.api<{ error: { code: string } }>('/v1/routines/' + routine.routineId + '/run', { requestId: 'unsupported-routine', routineRevisionId: routine.revisionId, recoveryEpoch: epoch, inputs: {} });
+  assert.equal(routineRejected.status, 409); assert.equal(routineRejected.body.error.code, 'capabilityUnavailable');
+  assert.equal(h.service.inspectSession().receipts.length, 0);
+  assert.deepEqual((await h.api<InstructionSkill>('/v1/skills/' + skill.skillId + '/revisions/' + skill.revisionId)).body.bundle, skill.bundle);
+  assert.equal((await h.api(path + '/messages', { ...command, requestId: 'plain', skills: [] })).status, 201);
+  await h.service.dispatchNext(); assert.equal(calls, 1);
+  provider.capabilities = ['plainText', 'skills']; await h.restart();
+  const queued = (await h.api<Acceptance>('/v1/routines/' + routine.routineId + '/run', { requestId: 'supported-then-removed', routineRevisionId: routine.revisionId, recoveryEpoch: epoch, inputs: {} })).body;
+  provider.capabilities = ['plainText']; await h.restart();
+  assert.equal(await h.service.dispatchNext(), true);
+  const snapshot = (await h.api<Snapshot>(path + '/snapshot')).body;
+  assert.equal(snapshot.runs.find(run => run.runId === queued.receipt.runId)?.state, 'failed');
+  assert.equal(calls, 1);
+});
+
 test('request cancellation persists before acceptance and fences late chat or routine submission after restart',async t=>{
   const h=await setup(t),agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Write.'})).body,epoch=h.service.installation.recoveryEpoch;
   const command={requestId:'cancel-before-accept',recoveryEpoch:epoch,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,text:'Late original message',skills:[]};
