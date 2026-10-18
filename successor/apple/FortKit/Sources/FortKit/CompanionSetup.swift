@@ -5,7 +5,7 @@ func validCompanionToken(_ value: String) -> Bool {
     guard value.utf8.count == 43, let bytes = Data(base64Encoded:value.replacingOccurrences(of:"-",with:"+").replacingOccurrences(of:"_",with:"/") + "="), bytes.count == 32 else { return false }
     return bytes.base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"") == value
 }
-private func companionIdentifier(_ value: String) -> Bool {
+func validCompanionIdentifier(_ value: String) -> Bool {
     !value.isEmpty && value.utf8.count <= 128 && value.rangeOfCharacter(from:CharacterSet(charactersIn:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-").inverted) == nil
 }
 private func companionDigest(_ value: String) -> String { SHA256.hash(data:Data(value.utf8)).map { String(format:"%02x",$0) }.joined() }
@@ -42,7 +42,7 @@ private struct CompanionPlan: Codable, Equatable {
         try connection.validate()
         let digestValid: (String) -> Bool = { $0.utf8.count == 64 && $0.rangeOfCharacter(from:CharacterSet(charactersIn:"0123456789abcdef").inverted) == nil }
         guard version == 1, connection.role == .companion,
-              [connection.installationID,connection.deviceID,invitationID].allSatisfy(companionIdentifier),
+              [connection.installationID,connection.deviceID,invitationID].allSatisfy(validCompanionIdentifier),
               digestValid(codeSHA256), credentialSHA256.map(digestValid) ?? true,
               credentialSHA256 != codeSHA256, !deviceName.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,
               deviceName.utf8.count <= 128 else { throw OwnerSetupPreparationError.changedPreparation }

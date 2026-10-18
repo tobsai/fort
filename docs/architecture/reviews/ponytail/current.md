@@ -1,155 +1,117 @@
-What this repo does: Fort is a single-owner native messenger backed by a modular
-Node service and optional runtimes. This review assumes one owning Mac and one
-companion phone, with no shared hosting. The donor remains quarantined.
+What this repo does: Fort is a single-owner native messenger with a modular Node
+service and optional runtimes. This review assumes one primary Mac and one phone,
+with no shared hosting. The imported donor stays quarantined.
 
 Reviewer: Codex primary implementation agent, October 18, 2026. Base:
-`b0caff657c328b345c29d18456ef60f6948c6aab`. This is a proportionate semantic review,
-not an independent reviewer claim. The whole-tree baseline is preserved.
+`75d072a083169495730d423f598d2b2616cc4058`. This is a scoped semantic review,
+not an independent-reviewer claim. The whole-tree baseline remains preserved.
 
-Reviewed all staged source, tests, spec changes and evidence; traced ordinary
-FortApp/MessengerView construction, pending setup through CompanionSetupCoordinator,
-private storage and credential continuity, restore/refresh, removal, history clearing,
-account/host guards and DEBUG-only composition. Checked existing native UI-test
-callers before changing initialization. No code was declared unused. The unchanged
-service, TLS adapter and provider implementation were not re-audited line by line.
-The pinned Ponytail skill was read as text; no upstream script or plugin ran.
+Read the exact new Swift values, FortClient callers, shared identifier validation,
+all new tests, spec revision and evidence. Compared the three request/response shapes
+with contracts/v1.ts and service/companion-pairing.ts, and checked the existing HTTP
+routes and authority boundary. Traced the recording transport and no-retry behavior.
+Existing phone preparation still uses the same identifier algorithm. No new storage,
+credential generation, listener, SDK, package, timer or lifecycle worker is added.
+No code was declared unused; the new client entry points are the reviewed prerequisite
+for the next Mac control slice. The pinned Ponytail skill was applied as text only.
 
 ## Must fix before v1 acceptance
 
-1. **The owning Mac cannot yet issue an invitation through ordinary controls.**
-   - What this is: The phone form consumes the existing exact invitation contract.
-   - Problem: A user still lacks composed Mac invitation and secure-listener controls;
-     native phone source alone cannot connect the two installed products.
-   - Fix: Implement that bounded Mac lifecycle next, with public behavior tests and
-     explicit identity/trust/credential authority before activation.
-   - If we skip it: The form exists but an ordinary owner cannot complete setup.
-   - Disposition: Open, carried in the acceptance ledger; no listener was enabled.
+1. **Ordinary Mac pairing management is not composed yet.**
+   - What this is: Native public contracts now exist for overview, invitation and
+     exact phone revocation, matching the service's primary-host endpoints.
+   - Problem: No ordinary Mac control invokes them yet, and its optional secure
+     listener is still uncomposed. These methods alone do not pair installed devices.
+   - Fix: Add explicit Mac controls and reviewed listener lifecycle, retaining exact
+     identity, lost-response behavior and required external authority.
+   - If we skip it: The owner cannot complete ordinary two-device setup.
+   - Disposition: Open in the v1 ledger; continue implementation, without activation.
 
-2. **Actual device and distribution acceptance is still missing.**
-   - What this is: Swift compile, synthetic Mac UI and in-process protocol tests.
-   - Problem: They cannot prove actual iPhone Keychain, TLS trust, installed host,
-     provider access or TestFlight availability. CLI cold QA launch needed a normal
-     reopen event to show a window, and alert AX Cancel returned -25205.
-   - Fix: Verify the exact authorized installed Mac/iPhone builds, ordinary launch,
-     confirmation interactions, provider journey and Apple distribution separately.
-   - If we skip it: We could label a tested source slice as a usable delivered app.
-   - Disposition: Open. Mandatory external approvals remain pending; no workaround
-     certificate, trust, account, network or startup grant was introduced.
+2. **Real installed and Apple delivery gates remain unverified.**
+   - What this is: Contract fixtures, full native tests and unsigned build evidence.
+   - Problem: These do not prove actual Keychain/TLS/trust, network/startup permission,
+     provider behavior, physical devices or TestFlight. Prior QA cold-window/alert
+     interaction limits also remain recorded at their original revision.
+   - Fix: Verify exact authorized installed artifacts and provider journeys through
+     the required Apple/device gates; do not substitute fixtures or reuse old grants.
+   - If we skip it: A source import or engineering build could be called a delivered v1.
+   - Disposition: Open. Pending certificate approval remains unconsumed.
 
-## Fixed in this slice
+## Fixed during this slice
 
-3. **Expired phone access hid disconnect and offered misleading controls.**
-   - What this is: PairingSettings previously placed disconnect inside ordinary
-     management access; the first new QA build also retained an expiry editor.
-   - Problem: An expired credential could leave the owner without visible phone-only
-     removal, while the status text claimed a pending chat existed.
-   - Fix: Expose exact leave separately, require verified access for expiry edits,
-     and show a phone-specific unconfirmed-access message. Observed model regressions
-     went red then green; final expired screenshot/AX shows the correction.
-   - If we skip it: The owner cannot understand or act on the expired pairing safely.
-   - Disposition: Fixed, including phone-only confirmation and no host/account UI.
+3. **Permissive values could misstate the selected companion.**
+   - What this is: The first native overview/invitation implementation decoded plain
+     strings and ignored state fields it did not understand.
+   - Problem: Wrong/extra fields, impossible dates, invalid IDs, an inactive phone
+     without expiry, or a phone claiming the primary ID could be accepted. Invalid
+     request identifiers and codes also reached the injected transport.
+   - Fix: Require exact overview/invitation keys, validated state values, matching
+     installation/host/invitation, and the existing exact phone revocation proof.
+     Validate input before I/O and reuse the phone identifier/token predicates.
+   - If we skip it: Future controls can display an unverified identity or send a
+     request that should have been rejected locally.
+   - Disposition: Fixed. The 21 observed red issues now pass, with valid states,
+     UTF-8 name boundaries, exact methods/auth/body, lost-response and no-retry controls.
 
-4. **A lost join response needed explicit native recovery and removal choices.**
-   - What this is: The durable coordinator existed without ordinary phone controls.
-   - Problem: A generic enrollment form could not represent a prepared invitation,
-     exact retry, local forgetting or the retained history of an earlier installation.
-   - Fix: Use the coordinator in the ordinary iPhone model/form. Reopen reads pending
-     state only; explicit recovery reuses its credential, clears stale draft display,
-     and refuses a changed connection or stale forget target. Confirmed cancellation
-     and unconfirmed local forgetting have different new-pairing availability.
-   - If we skip it: Users can misread an uncertain result or carry a prior draft into
-     a different installation.
-   - Disposition: Fixed through public model tests and inspected synthetic controls.
+Verdict: Commit the verified native contract boundary, then compose Mac controls.
+This is source/build progress, not installed-product or v1 acceptance.
 
-5. **New ordinary setup would break the existing DEBUG enrollment UI tests.**
-   - What this is: Existing NativeJourneyTests explicitly select a UUID UI-test session.
-   - Problem: Routing every iPhone initialization to invitations hides those tests'
-     existing loopback enrollment controls.
-   - Fix: Retain an explicit DEBUG-only initializer constrained to UITests/UUID, used
-     only by the existing test flag/session combination. Ordinary and Release paths
-     retain companion setup. The path guard was tested red then green.
-   - If we skip it: Future native test runs fail for a composition change unrelated
-     to the behaviors those tests exercise.
-   - Disposition: Fixed in source/build; actual simulator execution remains blocked
-     by the existing CoreSimulator version mismatch.
-
-Verdict: Commit the bounded phone-control slice. Continue Mac invitation/listener
-composition; do not claim installed-product or v1 acceptance.
-
-Not checked: actual accounts, provider runtime, Keychain, LAN/TLS/trust, background
-registration, ordinary installed cold launch, actual alert Cancel activation, physical
-Mac/iPhone acceptance, signed archives, upload/processing/TestFlight availability,
-remote CI and provider closure. The final native suite passed 307 functions with 14
-optional skips; this slice's isolated p95 is 25.541 ms under 100 ms. Fresh QA/Mac/iPhone
-builds, Release compilation, QA signature, exact screenshots and QA absence passed.
-Portable service tests were not repeated for this Swift-only slice. Full evidence:
-[phone controls](../../../successor/evidence/2026-10-17-node-foundation/native-companion-controls.md).
+Not checked: actual invitation/revocation against a real host; credential, TLS/trust,
+LAN or startup activation; real provider accounts; physical devices; ordinary UI or
+simulator execution; signed archives, upload, Apple processing and TestFlight;
+remote CI and provider closure. The service/provider implementation was not changed
+or re-audited in full. Native full suite: 317 passed, 15 optional skips, zero failures.
+All 11 focused functions and the p95 0.354 ms isolated contract budget passed.
+Fresh unsigned Mac/iPhone builds and Release compilation passed. No ordinary app
+was launched; prior exact QA screenshots remain tied to their original build.
+See [evidence](../../../successor/evidence/2026-10-17-node-foundation/native-companion-management.md).
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "b0caff657c328b345c29d18456ef60f6948c6aab",
+  "reviewedCommit": "75d072a083169495730d423f598d2b2616cc4058",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Ordinary native phone setup, exact recovery/removal, expired access controls, DEBUG-only fixture and reviewed evidence; single owner and one phone",
+  "scope": "Native primary-host companion management contracts, exact public client requests/receipts, shared identifier checks and evidence; one Mac and one phone",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Final serial native suite: 307 functions passed, 14 optional skips, zero failures (321 reported).",
-    "Seven phone/legacy focus functions passed, one performance skip; 14 affected lifecycle functions passed after expired UI correction.",
-    "20 isolated samples after five warmups: p50 23.772 ms, p95 25.541 ms, maximum 26.238 ms, under 100 ms.",
-    "Fresh QA/Mac/iPhone builds and Release compilation passed; QA strict signature and sandbox entitlements verified.",
-    "Exact final synthetic AX/screenshots for preparation, reopen, recovery and expired leave; exact QA process count zero.",
-    "Actual provider/Keychain/LAN/trust/device/TestFlight and simulator execution unrun; alert AX Cancel failed with -25205; normal QA termination succeeded."
+    "317 native functions passed, 15 optional skips, zero failures (332 reported).",
+    "11 focused functions passed including parameterized identity/state/input/date/UTF-8 cases and isolated budget; 21 red issues observed before correction.",
+    "20 synthetic serial three-request journeys after five warmups: p50 0.350 ms, p95 0.354 ms, maximum 0.356 ms under 100 ms.",
+    "Fresh unsigned Mac/iPhone Simulator and Release builds passed; exact file inventories recorded.",
+    "Actual provider, credential, TLS/trust, listener, device and TestFlight checks unrun; no ordinary app launched."
   ],
   "exceptions": [
-    "Synthetic in-process responses and memory credentials establish source/UI behavior only.",
-    "Preserve the prior account-revision inert review package; no new archive, deployment, provider cleanup or certificate action."
+    "This bounded contract slice precedes ordinary Mac controls and listener composition.",
+    "Portable service checks and UI screenshots were not repeated for these Swift contract-only changes; earlier evidence stays tied to its revision."
   ],
   "findings": [
     {
       "id": "PHONE-MAC-COMPOSITION",
-      "detail": "Ordinary Mac invitation and secure-listener lifecycle remain uncomposed.",
+      "detail": "Mac invitation/revocation controls and secure listener lifecycle remain uncomposed.",
       "disposition": "open"
     },
     {
       "id": "PHONE-INSTALLED-ACCEPTANCE",
-      "detail": "Actual trust/Keychain/provider/device/TestFlight, ordinary cold-window and alert Cancel acceptance remain unverified.",
+      "detail": "Exact external authority, real device/provider and Apple delivery gates remain unverified; prior cold-window/alert limits retained.",
       "disposition": "open"
     },
     {
-      "id": "PHONE-EXPIRED-CONTROLS",
-      "detail": "Expired leave is visible independently; expiry editing and messages require verified access.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-RECOVERY-CONTROLS",
-      "detail": "Explicit pending recovery, captured confirmation, credential continuity and history/draft isolation are composed and tested.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "PHONE-LEGACY-UI-TESTS",
-      "detail": "Preserved explicitly scoped DEBUG-only loopback UI-test initialization.",
+      "id": "COMPANION-MANAGEMENT-BOUNDARY",
+      "detail": "Strict states and identity receipts, valid canonical dates/names and pre-I/O input checks fix the observed permissive boundary.",
       "disposition": "fixed"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "662d35afbe8e6d35b026b79ac7f56dedda7322f2e6ea5437b1d223903027b166",
-    "successor/V1-ACCEPTANCE.md": "c8de06efe67eebfa6fd3ce7801fed7f05092a45cddfdc72a609b252073e2f733",
-    "successor/apple/Apps/FortApp.swift": "3e7f87ae99f388b56a1cf478c3c969dd24426dfd922855f60337fa9cbdf72722",
-    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "bd4bf30bd9446637a584a74898e31e4755184e3c57dfd8bb12879a7466d5a6ee",
-    "successor/apple/FortKit/Sources/FortKit/CompanionSetupFixture.swift": "c79a57b441114c8b01596ea9c3b25ef89df77462c6df90f5f13019e6be202f03",
-    "successor/apple/FortKit/Sources/FortKit/CompanionSetupView.swift": "bc981739156b68fb25a1867eb2058eb4e2502e0f50478abfd25e30c84faa8cb1",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "caa1eb587ddf12fd2695536d2e6c54199e8b4cd3cde33f33a975be51a1e3c6b4",
-    "successor/apple/FortKit/Sources/FortKit/MessengerView.swift": "9ea305852bd8792187d80b09f5b73efa306f3901d17d04515e9b4667a5de35e6",
-    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "35ae83a2d4a8a41d26ae3e36dc06421d3f2381fd71d232037999799e79f48c17",
-    "successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift": "1f057f441a63f17ad891154eb74c744a06b701564a55db5f10d27aebad61fe08",
-    "successor/evidence/2026-10-17-node-foundation/native-companion-controls.md": "f4eca5c9e03d7e65d07476acd7e5fc4a34277401be82c3b02174d49ae7d628f6",
-    "successor/evidence/2026-10-17-node-foundation/phone-controls-expired.png": "91fddc939e91abd8ef709fda8efaa64fdf0002b5e7076489d563bf5bcb5b1bfc",
-    "successor/evidence/2026-10-17-node-foundation/phone-controls-paired.png": "c675e2aa4607239e843be0a7ff0cdebf98f77187f8e4e98586461fa61c03f8a3",
-    "successor/evidence/2026-10-17-node-foundation/phone-controls-prepared.png": "dca0ecdbffabec6a95c09196df09031558369ff3043746d107d0c9ee4297e170",
-    "successor/evidence/2026-10-17-node-foundation/phone-controls-reopened.png": "ac3c429fc41ed6bc97d649cbb9fbb1eef3a2fbddb0b5720de3724dfadd961458"
+    "specs/059-modular-node-v1.md": "95c2824a8efedc90cc435943760c154fb181874c9fc8c4ce8f363830c8a4e303",
+    "successor/V1-ACCEPTANCE.md": "20d48e74eddca777a43b97fa073af2ae3513bce3e374f44746808b3b171078cb",
+    "successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift": "9534735bc68f2c78d890b569cbda8e58623a05ec6047bd2292105beacd6ddb27",
+    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "dcc5435cb802777827f3161116e0c4f78f1f64c93d341df1c628ebb1d81f7968",
+    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "fcd58ee976737effb760ba79349a7b1030dea39f639f70f262880227cd606135",
+    "successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift": "e3a17b6d65d974846f9b98cb5e383355f343fa82b2cd1f1bca839aaf08ee5114",
+    "successor/evidence/2026-10-17-node-foundation/native-companion-management.md": "b8390be1081e6616fff6a7a0db63cb374ad6d15c50b7f3b32e6cf39b32eb55c6"
   }
 }
 ```

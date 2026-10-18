@@ -56,6 +56,25 @@ public struct FortClient: Sendable {
               receipt.role == .companion else { throw OwnerLifecycleError.wrongPairing }
         return receipt
     }
+    public func companionOverview(hostDeviceID: String) async throws -> CompanionOverview {
+        guard validCompanionIdentifier(installationID), validCompanionIdentifier(hostDeviceID) else { throw ClientError.invalidResponse }
+        let overview: CompanionOverview = try await get("v1/pairing/companion")
+        guard overview.installationId == installationID, overview.hostDeviceId == hostDeviceID else { throw OwnerLifecycleError.wrongPairing }
+        return overview
+    }
+    public func inviteCompanion(invitationID: String, code: String) async throws -> CompanionInvitation {
+        guard validCompanionIdentifier(installationID), validCompanionIdentifier(invitationID), validCompanionToken(code) else { throw ClientError.invalidResponse }
+        let receipt: CompanionInvitation = try await send("v1/pairing/invitation",method:.post,body:["invitationId":invitationID,"code":code])
+        guard receipt.installationId == installationID, receipt.invitationId == invitationID else { throw OwnerLifecycleError.wrongPairing }
+        return receipt
+    }
+    public func revokeCompanion(deviceID: String) async throws -> CompanionRevocation {
+        guard validCompanionIdentifier(installationID), validCompanionIdentifier(deviceID) else { throw ClientError.invalidResponse }
+        let receipt: CompanionRevocation = try await send("v1/pairing/revoke-companion",method:.post,body:["deviceId":deviceID])
+        guard receipt.installationId == installationID, receipt.deviceId == deviceID,
+              receipt.revoked, receipt.scope == "companion-only" else { throw OwnerLifecycleError.wrongPairing }
+        return receipt
+    }
     public func models() async throws -> ModelCatalog { try await get("v1/models") }
     public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
         struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }

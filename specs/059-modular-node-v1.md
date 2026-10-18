@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 40e4bc2d99d758da005c5750fe630f3b7445374328bb103982c3b2827706d68e
+Reviewed content SHA256: 8e112f24075699737c7c90d8f3e93beea231f1c6ef042009e60bc53aada268ad
 
 ### Vendor independence
 Status: planned
@@ -2658,7 +2658,54 @@ phone-controls-prepared.png, phone-controls-reopened.png, phone-controls-paired.
 phone-controls-expired.png in that evidence directory. Reuse unchanged-scope decision
 059; real credential/trust/network/provider/Apple action still needs its own authority.
 
+
+### Native companion management contracts
+
+Continue decision 059 from 75d072a. Add the native public client values for the
+already implemented primary-host companion overview, exact invitation and exact
+phone revocation contracts. This is the first bounded Mac-side slice; it does not
+create ordinary UI, a TLS identity, listener, grant or background service.
+
+Decode available, invited and paired states as a discriminated value. Require exact
+installation and host identity on overview, exact invitation identity on its receipt,
+and exact installation/device/revoked/companion-only proof on revocation. Refuse wrong
+or unknown state fields, malformed identifiers, dates and names before presenting
+values. Validate invitation ID/code and revocation target before transport; the caller
+must explicitly supply them. Never generate, persist or log invitation codes here.
+Use the current FortTransport and authentication headers, with one request per call;
+there is no implicit retry, fallback, runtime or provider dependency. The service
+continues to enforce primary-host authority; a client value cannot confer that role.
+
+Vendor independence: Swift decodes Fort-owned JSON, independent of providers and
+hosting. Modularity: reuse the existing public transport and revocation proof;
+no additional store, worker or SDK. Speed: 20 serial synthetic overview/invite/revoke
+journeys after five warmups must have p95 below 100 ms, excluding actual network,
+Keychain and human time. Installation/removal: construction and import are inert;
+this layer cannot activate transport or credential provisioning. Shared hosting and
+ambient discovery remain excluded.
+
+Test first through FortClient with an injected recording transport: exact request
+methods/body/auth, each overview state, foreign installation/host/invitation/device,
+malformed or contradictory response fields, invalid request rejection before I/O,
+exact revocation scope and lost-response behavior without retry. Run full native
+regressions, fresh Mac/iPhone compile, Release compilation and the isolated budget.
+No existing UI is changed, so prior UI evidence stays tied to its exact build. Real
+Mac/phone/provider/TLS/TestFlight verification remains open. The tradeoff is a small
+contract slice before composition, preserving source review and exact identity tests;
+it is not a declaration that the Mac invitation journey is finished.
+
+Exact files: this spec; successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift
+(new), FortClient.swift and CompanionSetup.swift (shared identifier validation);
+successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift (new);
+successor/V1-ACCEPTANCE.md; docs/architecture/reviews/ponytail/current.md; and
+successor/evidence/2026-10-17-node-foundation/native-companion-management.md (new).
+Reuse unchanged-scope decision 059; no external activation or credential authority
+is inferred. Rollback removes only the unused new client entry points and values.
+
 ## Implementation paths
+- `successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-companion-management.md`
 - `successor/apple/FortKit/Sources/FortKit/CompanionSetupView.swift`
 - `successor/apple/FortKit/Sources/FortKit/CompanionSetupFixture.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift`
