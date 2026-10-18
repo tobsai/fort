@@ -5,15 +5,19 @@ import Foundation
     func exchange(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
 }
 
+func macPeerRequirement(identifier: String, signingTeam: String) throws -> String {
+    guard identifier.utf8.count <= 255,
+          identifier.range(of:"^[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$",options:.regularExpression) != nil,
+          signingTeam.range(of:"^[A-Z0-9]{10}$",options:.regularExpression) != nil else { throw ClientError.invalidResponse }
+    return "anchor apple generic and identifier \"\(identifier)\" and certificate leaf[subject.OU] = \"\(signingTeam)\""
+}
+
 public struct MacXPCTransport: FortTransport {
     private let serviceIdentifier: String
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
-        guard serviceIdentifier.utf8.count <= 255,
-              serviceIdentifier.range(of:"^[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$",options:.regularExpression) != nil,
-              signingTeam.range(of:"^[A-Z0-9]{10}$",options:.regularExpression) != nil else { throw ClientError.invalidResponse }
         self.serviceIdentifier = serviceIdentifier
-        requirement = "anchor apple generic and identifier \"\(serviceIdentifier)\" and certificate leaf[subject.OU] = \"\(signingTeam)\""
+        requirement = try macPeerRequirement(identifier:serviceIdentifier,signingTeam:signingTeam)
     }
     public func send(_ request: FortRequest) async throws -> FortResponse {
         try Task.checkCancellation()

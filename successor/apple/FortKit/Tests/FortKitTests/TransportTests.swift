@@ -83,6 +83,31 @@ private final class PrefixHTTP: URLProtocol, @unchecked Sendable {
 }
 
 #if os(macOS)
+@Test func nativeHostForwardsOneBoundedRequestAndRejectsMalformedInput() async throws {
+    let transport = RecordedTransport(body:"  Exact cedar 🌲\r\n")
+    let channel = MacHostChannel(transport:transport)
+    func exchange(_ bytes: Data, channel: MacHostChannel) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            channel.exchange(bytes) { data,error in
+                if let error { continuation.resume(throwing:error) }
+                else if let data { continuation.resume(returning:data) }
+                else { continuation.resume(throwing:ClientError.invalidResponse) }
+            }
+        }
+    }
+    let request = FortRequest(path:"/v1/probe",method:.post,installationID:"exact",token:"synthetic",body:Data("input".utf8),timeout:1)
+    let bytes = try JSONEncoder().encode(request)
+    let reply = try JSONDecoder().decode(FortResponse.self,from:await exchange(bytes,channel:channel))
+    #expect(reply.body == Data("  Exact cedar 🌲\r\n".utf8))
+    await #expect(throws:(any Error).self) { try await exchange(bytes,channel:channel) }
+    for invalid in [Data("invalid-json".utf8),Data(repeating:65,count:2 * 1024 * 1024 + 1)] {
+        await #expect(throws:(any Error).self) { try await exchange(invalid,channel:MacHostChannel(transport:transport)) }
+    }
+    let requests = await transport.received()
+    #expect(requests.count == 1 && requests[0].body == request.body && requests[0].token == "synthetic")
+    #expect(throws:ClientError.self) { try MacHostListener(clientIdentifier:"invalid\" or true",signingTeam:"AAAAAAAAAA",transport:transport) }
+}
+
 @Test func nativeXPCRefusesMalformedPeerIdentityAndNonrelativeRoutes() async throws {
     #expect(throws:ClientError.self) { try MacXPCTransport(serviceIdentifier:"invalid\" or true",signingTeam:"AAAAAAAAAA") }
     #expect(throws:ClientError.self) { try MacXPCTransport(serviceIdentifier:"synthetic.unavailable",signingTeam:"invalid\"") }

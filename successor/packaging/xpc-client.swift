@@ -36,7 +36,7 @@ func probeXPC() async throws -> [String: Any] {
     }
     let oversizedBody = await invalid(request("/v1/large-body"))
     let oversizedFrame = await invalid(request("/v1/large-frame"))
-    return ["xpcRoundTrip":accepted.status == 200 && echo.text == text && echo.installation == "synthetic" && echo.pid > 1 && echo.pid != getpid(),
+    var proof: [String:Any] = ["xpcRoundTrip":accepted.status == 200 && echo.text == text && echo.installation == "synthetic" && echo.pid > 1 && echo.pid != getpid(),
             "xpcClientRejected":clientError == NSXPCConnectionInterrupted,
             "xpcServiceRejected":serviceError == NSXPCConnectionCodeSigningRequirementFailure,
             "xpcClientError":clientError, "xpcServiceError":serviceError, "xpcServicePid":echo.pid,
@@ -45,4 +45,6 @@ func probeXPC() async throws -> [String: Any] {
             "xpcInvalidStatusRejected":await invalid(request("/v1/status")),
             "xpcOversizedResponseRejected":oversizedBody && oversizedFrame,
             "xpcOversizedRequestRejected":await invalid(request(body:Data(repeating:65,count:2 * 1024 * 1024)))]
+    for (key,value) in try await probeCoreXPC() { proof[key] = value }
+    return proof
 }

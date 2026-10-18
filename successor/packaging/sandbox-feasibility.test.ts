@@ -20,6 +20,9 @@ test('embedded XPC peers authenticate exact identities and reject mismatches wit
   assert.equal('xpcClientError' in proof && proof.xpcClientError, 4097);
   assert.equal('xpcServiceError' in proof && proof.xpcServiceError, 4102);
   assert.equal('xpcForcedCleanup' in proof && proof.xpcForcedCleanup, false);
+  for (const key of ['xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreProcessesAbsent', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied']) {
+    assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
+  }
   assert.ok('xpcServicePid' in proof && typeof proof.xpcServicePid === 'number');
   const servicePid = proof.xpcServicePid;
   assert.throws(() => process.kill(servicePid, 0), { code: 'ESRCH' });

@@ -33,11 +33,20 @@ private final class Listener: NSObject, NSXPCListenerDelegate {
     }
 }
 
+private struct RejectingTransport: FortTransport {
+    func send(_ request: FortRequest) async throws -> FortResponse { throw ClientError.invalidResponse }
+}
+
 @main private enum ServiceMain {
     static func main() {
         guard let requirement = Bundle.main.object(forInfoDictionaryKey:"FortClientRequirement") as? String else { exit(2) }
         DispatchQueue.global().asyncAfter(deadline:.now() + 8) { exit(0) }
-        let delegate = Listener(requirement:requirement)
+        let delegate: any NSXPCListenerDelegate
+        if let client = Bundle.main.object(forInfoDictionaryKey:"FortClientIdentifier") as? String, client.hasSuffix(".wrong-client"),
+           let team = Bundle.main.object(forInfoDictionaryKey:"FortSigningTeam") as? String {
+            guard let pinned = try? MacHostListener(clientIdentifier:client,signingTeam:team,transport:RejectingTransport()) else { exit(2) }
+            delegate = pinned
+        } else { delegate = Listener(requirement:requirement) }
         let listener = NSXPCListener.service()
         listener.delegate = delegate
         withExtendedLifetime(delegate) { listener.resume() }

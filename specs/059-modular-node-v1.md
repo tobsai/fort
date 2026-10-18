@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: ceb22f0442700dd286afb6d6c25141787130ec8fdb2a623d06c116aefd0094e0
+Reviewed content SHA256: c3eff23f4502e752d906089fb11ad7871ed2a59acb3d3df623a22fe0a5595f0c
 
 ### Vendor independence
 Status: planned
@@ -267,6 +267,26 @@ polling; process exit and pipe readiness drive normal operation. Lifecycle timer
 run only during launch, requests and shutdown. Existing setup authority is not
 expanded; the synthetic fixture alone supplies enrollment outside the transport.
 
+Connect the native XPC server adapter to a supplied Fort transport. Pin the exact
+client identifier/team and effective user before accepting a connection. Each
+connection admits one bounded request; invalidation cancels its task. Decode and
+validate the same request/response limits without changing domain authority.
+Prove the complete signed app → XPC service → owned Node pipes → private core
+socket journey with synthetic bootstrap/restart/stop composition confined to the
+packaging fixture. Preserve existing signature mismatch and sandbox denial tests;
+record child/helper PIDs and independently prove their groups absent. Require
+exact durable messages, unauthorized/foreign rejection, restart/idempotency,
+transport cancellation and clean shutdown under unchanged entitlements. This
+small Apple hosting adapter adds no dependency, credential, registration or
+network listener. Real installation/bootstrap remains a separate authority gate;
+fixture control routes must never enter the core or ordinary app composition.
+The signed proof found execution of Node from the outer app bundle denied to the
+XPC service. Package the exact runtime, dependency closure, licenses and compiled
+core inside the service's own bundle; retain the outer-executable denial as a
+negative control. Do not grant access to the outer bundle or expand entitlements.
+The feasibility app retains its separate outer runtime for existing controls;
+that duplication is test packaging, not the intended installed product layout.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -319,6 +339,12 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MacHostChannel.swift`
+- `successor/packaging/xpc-core-service.swift`
+- `successor/packaging/xpc-core-client.swift`
+- `successor/evidence/2026-10-17-node-foundation/xpc-core.md`
+- `successor/evidence/2026-10-17-node-foundation/xpc-core.json`
 
 - `successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CoreProcessTests.swift`
