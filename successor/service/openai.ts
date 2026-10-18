@@ -11,6 +11,7 @@ import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, 
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
+import { PrivateSocketLease } from './private-socket.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -936,6 +937,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
   let baseURL = ''; let endpoint: ServiceEndpoint | undefined; let closed = false; let starting = false; let dispatchStopped = ownerControl !== undefined && ownerControl.intent !== 'running'; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
+  let privateSocket: PrivateSocketLease | undefined;
   server.on('connection',socket=>{
     let resolveClosed!:()=>void;
     acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));
@@ -953,6 +955,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       for(const socket of acceptedConnections.keys())socket.destroy();
       await Promise.all([...acceptedConnections.values()]);
     }
+    privateSocket?.release();
   };
   let runtimeStopped:Promise<void>|undefined;
   const stopRuntime=()=>{
@@ -1001,14 +1004,16 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     starting = true;
     try {
     listener = { ...listener };
+    signal=signal?AbortSignal.any([signal,listenerAbort.signal]):listenerAbort.signal;
+    signal.throwIfAborted();
     if (listener.kind === 'privateSocket') {
       const directory = lstatSync(options.dataDirectory);
       if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}\.sock$/.test(listener.name) || realpathSync(options.dataDirectory) !== realpathSync(process.cwd())
         || !process.getuid || directory.uid !== process.getuid() || (directory.mode & 0o077) !== 0) throw new Error('Private socket requires a short filename and an owner-only ledger working directory');
-      try { lstatSync(join(options.dataDirectory, listener.name)); throw new Error('Private socket path is occupied; existing files are preserved'); }
-      catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error; }
+      const lease = new PrivateSocketLease(db, options.dataDirectory, listener.name);
+      await lease.prepare(signal);
+      privateSocket = lease;
     } else if (listener.kind !== 'loopback') throw new Error('Unsupported service transport');
-    signal=signal?AbortSignal.any([signal,listenerAbort.signal]):listenerAbort.signal;
     signal.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const cleanup=()=>{server.off('error',failed);server.off('close',canceled);};
@@ -1018,7 +1023,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       try {
         const binding = listener.kind === 'privateSocket' ? { path: listener.name, signal } : { port: listener.port ?? 0, host: '127.0.0.1', signal };
         server.listen(binding, () => {
-          try { if (listener.kind === 'privateSocket') chmodSync(join(options.dataDirectory, listener.name), 0o600); }
+          try {
+            if (listener.kind === 'privateSocket') {
+              chmodSync(join(options.dataDirectory, listener.name), 0o600);
+              privateSocket?.bound();
+            }
+          }
           catch (error) { failed(error); server.close(); return; }
           cleanup(); resolve();
         });

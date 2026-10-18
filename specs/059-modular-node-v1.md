@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 982a8e7dcbff5364e9ab6854ddc4457bc5ae7735721a2facb5c601c8fb0e37a8
+Reviewed content SHA256: 2fdbb1b0392fa77e17f083412f211f77b42558a5d4d12e1b7ce7d7cef79617f5
 
 ### Vendor independence
 Status: planned
@@ -401,6 +401,27 @@ This improves owned-runtime removal without enabling a provider, persistent host
 or computer-tool authority. Official runtime adapters and installed containment
 remain separate migration/acceptance work.
 
+Recover an established private socket after abrupt core death using durable exact
+ownership. Store its directory device/inode/owner and socket device/inode/owner/
+change-time identity in the same exclusively locked ledger after binding, before
+publishing readiness. On restart, only the same selected name with an exact
+record may be reclaimed; require a socket rather than a symlink/file and a bounded
+250 ms connection probe that returns connection-refused. A live, timed-out or
+otherwise uncertain endpoint fails closed. Recheck identity and cancellation
+before unlinking. Preserve unknown/replaced sockets and malformed ownership
+records, including a crash before the ownership record was committed; do not
+invent authority for those paths. Retain the record until cleanup is confirmed.
+
+This internal transport adapter adds no vendor/package dependency and keeps domain
+contracts unchanged. Its metadata lives with the owner ledger and is removable
+with that installation; no external credential or startup grant is introduced.
+The only added normal work is a small startup/shutdown metadata write, with no
+idle polling or writes; stale-socket probing has the stated 250 ms bound.
+Test SIGKILL/restart with authenticated durable history and exact receipt replay,
+active-owner refusal, replacement/symlink/regular-file preservation and canceled
+recovery. This enables recovery of recorded resources, not unrestricted directory
+cleanup or proof of installed-host recovery at every startup instruction.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -455,6 +476,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 ## Implementation paths
 
 - `successor/host/mac-process-guardian.swift`
+- `successor/service/private-socket.ts`
+- `successor/evidence/2026-10-17-node-foundation/private-socket-recovery.md`
 - `successor/host/fixtures/executor-supervisor.mjs`
 - `successor/evidence/2026-10-17-node-foundation/executor-parent-exit.md`
 - `successor/host/fixtures/core-supervisor.swift`
