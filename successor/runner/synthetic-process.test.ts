@@ -13,7 +13,9 @@ const limits={handshakeMs:1000,turnMs:1500,interruptMs:100,teardownMs:100,writeM
 test('owned synthetic process preserves exact fragmented UTF-8 and waits for observed cleanup before terminal delivery',async t=>{
   const events:RuntimeEvidence[]=[];const dispatch=make();
   const run=startSyntheticProcess(dispatch,{directory:await directory(t),scenario:'fragmented',limits,maxWriteChunkBytes:7,deliver:async event=>{events.push(event);return {attemptId:event.attemptId,sequence:event.sequence,cursor:event.sequence,duplicate:false};}});
+  const ready = await run.ready;
   const result=await run.result;
+  assert.equal(ready,true);
   assert.equal(result.cleanup,'observed');assert.equal(result.evidence,'confirmed');assert.equal(result.terminal,'completed');
   assert.equal(result.startWritesAttempted,1);assert(result.writeChunks>2);assert.equal(result.pendingWriteBytes,0);
   assert.deepEqual(events.map(event=>event.kind),['started','terminal']);const terminal=events.at(-1);assert(terminal?.kind==='terminal');assert.equal(terminal.messages[0].text,dispatch.text);
@@ -29,18 +31,20 @@ for(const scenario of ['exit-zero','partial-eof','handshake-stall','stdout-flood
   const run=startSyntheticProcess(make(),{directory:await directory(t),scenario,limits:{...limits,handshakeMs:150},deliver:async event=>{events.push(event);return receipt(event);}});
   const result=await run.result;
   assert(performance.now()-began<3000);assert.equal(result.cleanup,'observed');absent(result.pid);
-  assert.equal(result.terminal,'unknown');assert.equal(events.at(-1)?.kind,'outcomeUnknown');assert(result.stdoutBytes<=1_000_001);assert(result.stderrBytes<=65_537);assert(result.trace.length<=128);
+  assert.equal(await run.ready,scenario!=='handshake-stall');assert.equal(result.terminal,'unknown');assert.equal(events.at(-1)?.kind,'outcomeUnknown');assert(result.stdoutBytes<=1_000_001);assert(result.stderrBytes<=65_537);assert(result.trace.length<=128);
   if(scenario==='exit-zero'||scenario==='partial-eof')assert.equal(result.exit?.code,0);
 });
 
 for(const cancel of [false,true])test(`never-reading stdin ${cancel?'cancellation':'write timeout'} remains bounded independently of backpressure`,async t=>{
   const events:RuntimeEvidence[]=[];let evidenceAt=0;const began=performance.now();
   const run=startSyntheticProcess(make('\0'.repeat(65_536)),{directory:await directory(t),scenario:'blocked-input',limits:{...limits,writeMs:cancel?2000:75},deliver:async event=>{events.push(event);evidenceAt=performance.now();return receipt(event);}});
+  const ready = await run.ready;
+  const cancelBegan = performance.now();
   const timer=cancel?setTimeout(()=>run.cancel(),100):undefined;t.after(()=>{if(timer)clearTimeout(timer);});
   const result=await run.result;
-  assert.equal(result.startWritesAttempted,1);assert.equal(result.cleanup,'observed');absent(result.pid);
+  assert.equal(ready,true);assert.equal(result.startWritesAttempted,1);assert.equal(result.cleanup,'observed');absent(result.pid);
   assert.equal(result.terminal,'unknown');assert.equal(result.pendingWriteBytes,0);assert(result.writtenBytes<393_000);
-  assert.equal(events.at(-1)?.kind,'outcomeUnknown');assert(evidenceAt-began<1000);assert(performance.now()-began<2000);
+  assert.equal(events.at(-1)?.kind,'outcomeUnknown');assert(evidenceAt-(cancel?cancelBegan:began)<1000);assert(performance.now()-began<2000);
 });
 
 for(const scenario of ['ignore-term','interruptible'] as const)test(`cancel ${scenario} requires correlated terminal evidence and observed cleanup`,async t=>{

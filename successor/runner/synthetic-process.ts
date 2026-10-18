@@ -28,6 +28,7 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
   const report:ProcessReport={pid:child.pid??null,exit:null,cleanup:'unverified',evidence:'confirmed',terminal:'unknown',failure:null,forced:false,stdoutBytes:0,stderrBytes:0,writtenBytes:0,writeChunks:0,pendingWriteBytes:0,startWritesAttempted:0,deliveryAttempts:0,peakQueuedEvidence:0,acknowledgedThrough:0,rootExitedBeforePipesClosed:false,trace:[]};
   const trace=(value:string)=>{if(report.trace.length<128)report.trace.push(value);};
   let resolveResult!:(report:ProcessReport)=>void;const result=new Promise<ProcessReport>(resolve=>{resolveResult=resolve;});
+  let resolveReady!:(ready:boolean)=>void;const readiness=new Promise<boolean>(resolve=>{resolveReady=resolve;});
   let finished=false;let closing=false;let closeAt=0;let killedAt:number|undefined;let groupGone=false;let stdioClosed=false;let stdoutEnded=false;let ready=false;let hello=Buffer.alloc(0);let drainUntil:number|undefined;
   let pendingTerminal:Extract<RuntimeEvidence,{kind:'terminal'}>|undefined;
   let writing=false;const writes:Buffer[]=[];
@@ -126,7 +127,7 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
     if(pendingTerminal&&!deliveryFailed){const event=pendingTerminal;pendingTerminal=undefined;events.push(observed?event:unknown(event.sequence));void pumpEvidence();return;}
     if(delivering||events.length)return;
     if(!observed){report.terminal='unknown';report.failure??='cleanupUnverified';}
-    finished=true;clearInterval(timer);options.signal?.removeEventListener('abort',abort);
+    finished=true;resolveReady(false);clearInterval(timer);options.signal?.removeEventListener('abort',abort);
     child.stdin.destroy();child.stdout.destroy();child.stderr.destroy();child.unref();report.pendingWriteBytes=0;resolveResult(structuredClone(report));
   }
   const read=(chunk:Buffer)=>{
@@ -142,7 +143,7 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
           if(newline>4096){fail('handshakeLimit');requestClose(true);return;}
           let message:unknown;try{message=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(hello.subarray(0,newline)));}catch{fail('invalidHandshake');return;}
           if(!message||typeof message!=='object'||Array.isArray(message)||Object.keys(message).sort().join(',')!=='kind,threadId'||(message as {kind:unknown}).kind!=='ready'||(message as {threadId:unknown}).threadId!==dispatch.threadId){fail('invalidHandshake');return;}
-          part=hello.subarray(newline+1);hello=Buffer.alloc(0);ready=true;apply(driver.ready(dispatch.threadId));
+          part=hello.subarray(newline+1);hello=Buffer.alloc(0);ready=true;apply(driver.ready(dispatch.threadId));resolveReady(true);
         }
         if(part.length)apply(driver.receive(part));
       }
@@ -164,5 +165,5 @@ export function startSyntheticProcess(input:SyntheticDispatch,options:Options) {
   },5);
   options.signal?.addEventListener('abort',abort,{once:true});
   if(options.signal?.aborted)abort();else apply(driver.begin());
-  return {pid:child.pid??null,result,cancel(){apply(driver.cancel());}};
+  return {pid:child.pid??null,ready:readiness,result,cancel(){apply(driver.cancel());}};
 }
