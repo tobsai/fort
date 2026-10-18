@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8ef9f7c7b4cae24c0ef4af44078cf59eeb74543de9760fa2cd9a2a6be7895b0e
+Reviewed content SHA256: 3b64ea6adfffe6e8004f2eb66dd48f85828c17b40d962df937b035262c028e18
 
 ### Vendor independence
 Status: planned
@@ -1828,7 +1828,43 @@ without execution and inspect the complete resulting file/mode manifest. Record
 missing exact signing/profiles and Codex static notice closure as concrete remaining
 work; the assembler cannot waive them or claim installed-product acceptance.
 
+### Fixed OpenSSL configuration for packaged Node launches
+
+Decision 059 covers correcting the concrete sandbox prerequisite recorded in
+`sandbox.md`: the successful probe supplies a fixed local Node OpenSSL configuration,
+while production host and private worker launch omitted it. Package the same
+`nodejs_conf = fort_node` empty Node section in the executor artifact, copy it into
+the host resource root, and pass the exact packaged path to both Node invocations.
+Reject missing, unsafe or altered configuration during program/worker preparation;
+a later malformed-file change must fail launch without executing the runtime.
+Do not inherit machine OpenSSL variables, change global configuration, enable legacy
+algorithms, relax sandbox/signature checks, or add caller-selected Node flags.
+
+Vendor independence: Node remains the accepted runtime; the correction adds no AI,
+hosting or account dependency. Modularity: the optional executor carries its own
+configuration; host composition copies that resource, core contracts remain unchanged.
+Speed: existing <=50 ms native metadata and <=2 s synthetic private executor p95
+budgets remain; measure 20 isolated samples separately from builds/provider latency.
+Installation/removal: the two tiny files live inside existing removable artifacts;
+no machine files, credentials, account connections or startup registration change.
+
+Acceptance: artifact manifest/content checks, native missing/link/mode/size/content
+refusal, compiled executor late-mutation startup refusal with owned process absence,
+and native service late-mutation refusal before listener/runtime availability.
+Retain the complete synthetic native journey and verify final Mac review composition.
+Use fresh temporary fixtures only; signature callbacks remain explicitly synthetic.
+Source/build/fixture evidence cannot establish actual sandboxed provider or installed
+TestFlight acceptance. Alternative ambient defaults already failed the sandbox proof;
+fixed packaged configuration removes that prerequisite without expanding authority.
+Exact paths for this slice are the executor/host builders and their tests, executor
+contract fixture and private launch implementation, MacHostProgram/Bundle/AgentService
+and associated native program/journey tests, Mac assembly/test, this spec, ledger,
+current review and `node-openssl-configuration.md` evidence. Roll back this local
+slice without touching the retained earlier packages or any owner data.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/node-openssl-configuration.md`
 
 - `successor/evidence/2026-10-17-node-foundation/mac-review-package.md`
 

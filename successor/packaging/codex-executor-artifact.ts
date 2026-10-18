@@ -21,6 +21,7 @@ export function buildCodexExecutor(destination: string) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
       license = execFileSync('git', ['show', 'HEAD:LICENSE'], { cwd: repository, env: {}, timeout: 5000 });
     }
+    writeFileSync(join(destination, 'node-openssl.cnf'), 'nodejs_conf = fort_node\n[fort_node]\n', { flag: 'wx', mode: 0o600 });
     writeFileSync(join(destination, 'LICENSE'), license, { flag: 'wx' });
     writeFileSync(join(destination, 'package.json'), JSON.stringify({ name: 'fort-codex-executor', version: '0.1.0', private: true,
       type: 'module', license: 'MIT', os: ['darwin'], engines: { node: '26.5.0' },

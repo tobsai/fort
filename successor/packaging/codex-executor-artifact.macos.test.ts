@@ -20,7 +20,9 @@ test('the isolated compiled executor discovers and executes without TypeScript o
   writeFileSync(join(root, 'runtime.mjs'), readFileSync(new URL('../runner/fixtures/codex-executor-runtime.mjs', import.meta.url), 'utf8').replace("'../codex-preflight-fixture.ts'", "'./preflight.mjs'"));
   const samples: number[] = [];
   const privateScenarios = process.env.FORT_PRIVATE_EXECUTOR_BENCHMARK ? Array.from({ length: 20 }, (_, index) => 'private-' + index) : ['private'];
-  for (const scenario of ['complete', 'foreign-host', ...privateScenarios, 'private-changed', 'private-foreign']) await t.test(scenario, () => {
+  for (const scenario of ['complete', 'foreign-host', ...privateScenarios, 'private-changed', 'private-foreign', 'private-openssl-changed', 'private-openssl-missing', 'private-openssl-altered', 'private-openssl-linked']) await t.test(scenario, () => {
+    rmSync(join(artifact, 'node-openssl.cnf'), { force:true });
+    writeFileSync(join(artifact, 'node-openssl.cnf'), 'nodejs_conf = fort_node\n[fort_node]\n', { mode:0o600 });
     const directory = join(root, scenario); mkdirSync(directory, { mode: 0o700 }); mkdirSync(join(directory, 'workspace'), { mode: 0o700 });
     if (scenario.startsWith('private')) {
       mkdirSync(join(directory, 'private'), { mode: 0o700 });
@@ -45,7 +47,7 @@ await import(${JSON.stringify(pathToFileURL(join(root, 'runtime.mjs')).href)});
     assert.equal(proof.status, 0, proof.stderr);
     const report = JSON.parse(proof.stdout);
     assert.equal(report.groupsAbsent, true); assert.equal(report.scenario, scenario);
-    const refused = scenario === 'foreign-host' || scenario === 'private-changed';
+    const refused = scenario === 'foreign-host' || scenario === 'private-changed' || scenario.startsWith('private-openssl-');
     assert.equal(report.runtimeStarted, !refused);
     if (refused) assert.equal(report.models, 0);
     else { assert.equal(report.models, 1); assert.equal(report.exactText, scenario !== 'private-foreign'); }

@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, openSync, closeSync, fstatSync, readSync, realpathSync, constants } from 'node:fs';
 import { isAbsolute, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -24,10 +24,22 @@ function compiledWorker(): string {
   return worker;
 }
 
+function nodeConfiguration(): string {
+  const path = fileURLToPath(new URL('../node-openssl.cnf', import.meta.url));
+  if (realpathSync(path) !== path) throw new Error('Unsafe Node configuration');
+  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const info = fstatSync(descriptor), data = Buffer.alloc(1025);
+    if (!info.isFile() || info.nlink !== 1 || info.mode & 0o022 || info.size > 1024 ||
+        data.subarray(0, readSync(descriptor, data)).toString('utf8') !== 'nodejs_conf = fort_node\n[fort_node]\n') throw new Error('Invalid Node configuration');
+  } finally { closeSync(descriptor); }
+  return path;
+}
+
 export function createPrivateCodexExecutorProcess(options: PrivateCodexOptions): ExecutorProcess {
-  const worker = compiledWorker(), plan = privateCodexLaunchPlan(options);
+  const worker = compiledWorker(), configuration = nodeConfiguration(), plan = privateCodexLaunchPlan(options);
   return createCodexExecutorProcess({ executable: process.execPath,
-    args: ['--jitless', '--no-experimental-strip-types', '--no-warnings', worker,
+    args: ['--jitless', '--no-experimental-strip-types', '--no-warnings', '--openssl-config=' + configuration, worker,
       '--executable', plan.executable, '--guardian', plan.guardian, '--directory', options.directory, '--host', options.hostId],
     cwd: options.directory, env: {}, guardian: plan.guardian, hostId: options.hostId });
 }

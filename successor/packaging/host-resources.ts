@@ -16,6 +16,7 @@ export function buildHostResources(destination: string) {
   try {
     buildCore(join(destination, 'core'));
     buildCodexExecutor(join(destination, 'executor'));
+    copyFileSync(join(destination, 'executor/node-openssl.cnf'), join(destination, 'node-openssl.cnf'));
     const context = join(destination, 'context'); mkdirSync(context, { mode: 0o700 });
     const compiler = spawnSync(process.execPath, [join(source, 'node_modules/typescript/bin/tsc'), '-p', join(source, 'tsconfig.context.json'), '--outDir', context], { env: {}, encoding: 'utf8', timeout: 20_000 });
     if (compiler.status !== 0) throw new Error('Context compilation failed: ' + compiler.stdout + compiler.stderr);

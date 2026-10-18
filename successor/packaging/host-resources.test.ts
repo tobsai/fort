@@ -23,6 +23,7 @@ test('host resources compose isolated compiled modules with complete attribution
     assert.equal(bytes.length, file.bytes); assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256);
   }
   for (const license of ['core/LICENSE', 'executor/LICENSE', 'context/LICENSE']) assert.ok(readFileSync(join(destination, license), 'utf8').includes('MIT License'));
+  for (const path of ['node-openssl.cnf', 'executor/node-openssl.cnf']) assert.equal(readFileSync(join(destination, path), 'utf8'), 'nodejs_conf = fort_node\n[fort_node]\n');
   assert.ok(files.includes('context/modules/local-context.js'));
   assert.ok(!files.some(path => path.startsWith('core/') && /(?:codex|modules\/)/.test(path)));
   assert.ok(!files.some(path => path.startsWith('executor/modules/')));

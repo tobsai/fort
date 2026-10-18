@@ -125,7 +125,7 @@ public struct MacHostBundle: Sendable {
               info.st_size > 0, info.st_size <= limit, info.st_mode & 0o022 == 0 else { throw MacHostBundleError.unsafeFile }
         return try body(descriptor,info)
     }
-    private static func read(_ url: URL, limit: Int) throws -> Data {
+    static func read(_ url: URL, limit: Int) throws -> Data {
         try withFile(url,limit:limit) { descriptor, info in
             let data = try FileHandle(fileDescriptor:descriptor,closeOnDealloc:false).read(upToCount:limit + 1) ?? Data()
             var after = stat()

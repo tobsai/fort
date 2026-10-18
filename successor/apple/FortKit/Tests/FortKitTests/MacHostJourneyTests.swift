@@ -12,8 +12,8 @@ import Testing
     func invalidate() { active = false }
 }
 
-@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_TEST_HOST_RESOURCES"] != nil))
-@MainActor func nativeBundledHostJourneyPreservesIdentityAndHistoryThenRevokesAndStops() async throws {
+@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_TEST_HOST_RESOURCES"] != nil), arguments:[false,true])
+@MainActor func nativeBundledHostJourneyPreservesIdentityAndHistoryThenRevokesAndStops(_ changedConfiguration: Bool) async throws {
     let env = ProcessInfo.processInfo.environment, fixture = try HostBundleFixture()
     defer { try? fixture.remove() }
     let resources = URL(fileURLWithPath:try #require(env["FORT_TEST_HOST_RESOURCES"]))
@@ -80,6 +80,14 @@ import Testing
     }
     let started = ContinuousClock.now
     var service = makeService()
+    if changedConfiguration {
+        try Data("nodejs_conf = broken\n[broken\n".utf8).write(to:program.opensslConfiguration)
+        await #expect(throws:(any Error).self) { try await service.start() }
+        #expect(listener == nil)
+        #expect(!FileManager.default.fileExists(atPath:authored.appendingPathComponent("processes.jsonl").path))
+        #expect(!FileManager.default.fileExists(atPath:container.appendingPathComponent("FortHost/core.sock").path))
+        return
+    }
     var phase = "initial setup and send"
     do {
         #expect(listener == nil && !FileManager.default.fileExists(atPath:container.appendingPathComponent("FortHost").path))

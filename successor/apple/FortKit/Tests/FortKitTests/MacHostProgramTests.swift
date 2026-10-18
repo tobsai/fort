@@ -6,11 +6,11 @@ import Testing
 
 private let inheritedKeys = ["com.apple.security.app-sandbox","com.apple.security.inherit"]
 private func programFiles(_ fixture: HostBundleFixture) throws -> [URL] {
-    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs"),fixture.helper.appendingPathComponent("Contents/MacOS/codex")]
+    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs"),fixture.helper.appendingPathComponent("Contents/MacOS/codex"),fixture.helper.appendingPathComponent("Contents/Resources/host/node-openssl.cnf")]
     try FileManager.default.createDirectory(at:files[2].deletingLastPathComponent(),withIntermediateDirectories:true)
     for (index,file) in files.enumerated() {
-        try Data("synthetic presence only".utf8).write(to:file)
-        try FileManager.default.setAttributes([.posixPermissions:index != 2 ? 0o700 : 0o600],ofItemAtPath:file.path)
+        try Data((index == 4 ? "nodejs_conf = fort_node\n[fort_node]\n" : "synthetic presence only").utf8).write(to:file)
+        try FileManager.default.setAttributes([.posixPermissions:[0,1,3].contains(index) ? 0o700 : 0o600],ofItemAtPath:file.path)
     }
     return files
 }
@@ -52,7 +52,7 @@ func hostProgramRejectsInvalidInheritedToolAuthority(_ tool: String, _ variant: 
     }
 }
 
-@Test(arguments:[0,1,2,3], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
+@Test(arguments:[0,1,2,3,4], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
 func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: String) throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     let files = try programFiles(fixture), file = files[index]
@@ -65,10 +65,17 @@ func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: Stri
     case "writable": try FileManager.default.setAttributes([.posixPermissions:0o777],ofItemAtPath:file.path)
     case "oversize":
         let handle = try FileHandle(forWritingTo:file); defer { try? handle.close() }
-        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024,512 * 1024 * 1024]
+        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024,512 * 1024 * 1024,1024]
         try handle.truncate(atOffset:limits[index] + 1)
     default: break
     }
+    #expect(throws:(any Error).self) { try MacHostProgram.inspect(helperURL:fixture.helper) { _, identifier, _ in programSignature(fixture,identifier:identifier) } }
+}
+
+@Test func hostProgramRefusesAlteredNodeConfiguration() throws {
+    let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
+    let files = try programFiles(fixture)
+    try Data("nodejs_conf = foreign\n[foreign]\n".utf8).write(to:files[4])
     #expect(throws:(any Error).self) { try MacHostProgram.inspect(helperURL:fixture.helper) { _, identifier, _ in programSignature(fixture,identifier:identifier) } }
 }
 

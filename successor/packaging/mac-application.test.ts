@@ -20,8 +20,8 @@ function fixture(fullNode=false) {
     put(`${kind}/Contents/Info.plist`,`<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${identifier}</string><key>CFBundleExecutable</key><string>${executable}</string></dict></plist>`);
     put(`${kind}/Contents/MacOS/${executable}`,'inert synthetic code; never execute',0o700);
   }
-  const hostFiles=['main.mjs','core/LICENSE','executor/LICENSE','context/LICENSE'];
-  const files=hostFiles.map(path=>{const bytes=Buffer.from('synthetic '+path);put('host/'+path,bytes);return {path,bytes:bytes.length,sha256:hash(bytes)};});
+  const hostFiles=['main.mjs','core/LICENSE','executor/LICENSE','context/LICENSE','node-openssl.cnf','executor/node-openssl.cnf'];
+  const files=hostFiles.map(path=>{const bytes=Buffer.from(path.endsWith('.cnf')?'nodejs_conf = fort_node\n[fort_node]\n':'synthetic '+path);put('host/'+path,bytes);return {path,bytes:bytes.length,sha256:hash(bytes)};});
   put('host/manifest.json',JSON.stringify({format:1,artifact:'fort-host-resources',files}));
   const node=Buffer.from('synthetic Node; never execute'),library=Buffer.from('synthetic library'),notice=Buffer.from('synthetic attribution');
   put('node/bin/node',node,0o700);put('node/lib/libnode.dylib',library,0o700);put('node/licenses/synthetic/LICENSE',notice);
@@ -54,7 +54,7 @@ test('Mac assembly produces only an inert review bundle and exact local host lay
   assert.equal(readFileSync(join(f.root,'client/Contents/MacOS/FortMac'),'utf8'),'inert synthetic code; never execute');
 });
 
-for (const scenario of ['existing','identity','group','host-hash','path-escape','unexpected','node-hash','symlink','hardlink','writable','missing-license','missing-executable','wrong-codex']) {
+for (const scenario of ['existing','identity','group','host-hash','path-escape','unexpected','node-hash','symlink','hardlink','writable','missing-license','missing-executable','wrong-codex','missing-openssl','altered-openssl']) {
   test('Mac assembly refuses '+scenario+' without changing source or existing files',{skip:process.platform!=='darwin'},t=>{
     const f=fixture();t.after(()=>rmSync(f.root,{recursive:true,force:true}));
     const source=join(f.root,'client/Contents/MacOS/FortMac'),original=readFileSync(source);
@@ -71,6 +71,13 @@ for (const scenario of ['existing','identity','group','host-hash','path-escape',
       case 'writable':chmodSync(source,0o777);break;
       case 'missing-license':rmSync(join(f.root,'host/core/LICENSE'));break;
       case 'missing-executable':chmodSync(source,0o600);break;
+      case 'missing-openssl':
+      case 'altered-openssl': {
+        const path='executor/node-openssl.cnf', manifestPath=join(f.root,'host/manifest.json'), metadata=JSON.parse(readFileSync(manifestPath,'utf8'));
+        if(scenario==='missing-openssl') {rmSync(join(f.root,'host',path));metadata.files=metadata.files.filter((entry:{path:string})=>entry.path!==path);}
+        else {const data=Buffer.from('nodejs_conf = other\n[other]\n');f.put('host/'+path,data);Object.assign(metadata.files.find((entry:{path:string})=>entry.path===path),{bytes:data.length,sha256:hash(data)});}
+        writeFileSync(manifestPath,JSON.stringify(metadata));break;
+      }
       case 'wrong-codex':f.args[f.args.indexOf('--codex')+1]=f.put('wrong-codex','inert',0o700);break;
     }
     const result=f.run();assert.notEqual(result.status,0);assert.ok(result.stderr.trim());

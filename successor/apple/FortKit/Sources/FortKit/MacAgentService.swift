@@ -49,7 +49,7 @@ public enum MacAgentServiceError: Error, LocalizedError {
             _ = try storage.prepareRuntimeDirectory()
             return storage
         },launch:{ try await MacCoreHost.launch(executable:program.executable,
-            arguments:["--jitless","--no-experimental-strip-types","--no-warnings",program.bootstrap.path],directory:$0,environment:[:],guardian:program.guardian) },
+            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:[:],guardian:program.guardian) },
             makeListener:makeListener)
     }
     init(prepareStorage: @escaping @MainActor () throws -> MacAgentStorage,

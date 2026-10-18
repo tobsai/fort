@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -21,12 +21,29 @@ if (scenario === 'worker') {
     writeFileSync(preload, `require('node:fs').writeFileSync(${JSON.stringify(join(directory, 'unexpected-preload'))},'synthetic');process.exit(42);`);
     process.env.NODE_OPTIONS = '--require=' + preload;
   }
+  if (['private-openssl-missing', 'private-openssl-altered', 'private-openssl-linked'].includes(scenario)) {
+    const configuration = join(artifact, 'node-openssl.cnf');
+    if (scenario === 'private-openssl-altered') writeFileSync(configuration, 'nodejs_conf = foreign\n[foreign]\n');
+    else {
+      rmSync(configuration);
+      if (scenario === 'private-openssl-linked') {
+        const target = join(directory, 'linked.cnf'); writeFileSync(target, 'nodejs_conf = fort_node\n[fort_node]\n'); symlinkSync(target, configuration);
+      }
+    }
+    assert.throws(() => createPrivateCodexExecutorProcess({ executable: join(directory, 'synthetic-codex.mjs'),
+      directory: join(directory, 'private'), guardian, hostId: 'fixture-host' }));
+    assert.equal(existsSync(join(directory, 'launch.json')), false);
+    assert.equal(existsSync(join(directory, 'runtime.json')), false);
+    process.stdout.write(JSON.stringify({scenario, models:0, runtimeStarted:false, groupsAbsent:true, observations:[]}) + '\n');
+    process.exit(0);
+  }
   const runtime = privateWorker ? createPrivateCodexExecutorProcess({ executable: join(directory, 'synthetic-codex.mjs'),
     directory: join(directory, 'private'), guardian, hostId: 'fixture-host' }) : createCodexExecutorProcess({ executable: process.execPath,
     args: ['--no-experimental-strip-types', script, 'worker', artifact, directory, guardian], cwd: directory, env: {}, guardian,
     hostId: scenario === 'foreign-host' ? 'foreign-host' : 'fixture-host' });
   assert.equal(runtime.lastExit, undefined); assert.equal(existsSync(join(directory, 'runtime.json')), false);
   if (scenario === 'private-changed') writeFileSync(join(directory, 'private/state/.env'), 'SYNTHETIC=must-not-load', { mode: 0o600 });
+  if (scenario === 'private-openssl-changed') writeFileSync(join(artifact, 'node-openssl.cnf'), 'nodejs_conf = broken\n[broken\n');
   const observations = [];
   function confirmAbsent(includeRuntime) {
     const owned = privateWorker ? { outerGuardian: runtime.lastExit.pid } : JSON.parse(readFileSync(join(directory, 'worker.json'), 'utf8'));
@@ -42,7 +59,7 @@ if (scenario === 'worker') {
   }
   try {
     const catalog = await runtime.models(new AbortController().signal);
-    if (scenario === 'foreign-host' || scenario === 'private-changed') {
+    if (scenario === 'foreign-host' || scenario === 'private-changed' || scenario === 'private-openssl-changed') {
       assert.notEqual(catalog.state, 'ready'); assert.equal(catalog.models.length, 0);
       assert.equal(existsSync(join(directory, 'runtime.json')), false); confirmAbsent(false);
       if (scenario === 'private-changed') assert.equal(readFileSync(join(directory, 'private/state/.env'), 'utf8'), 'SYNTHETIC=must-not-load');

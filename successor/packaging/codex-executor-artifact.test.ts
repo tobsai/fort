@@ -22,6 +22,7 @@ test('the optional executor artifact contains complete compiled dependencies and
     const bytes = readFileSync(join(artifact, file.path));
     assert.equal(bytes.length, file.bytes); assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256);
   }
+  assert.equal(readFileSync(join(artifact, 'node-openssl.cnf'), 'utf8'), 'nodejs_conf = fort_node\n[fort_node]\n');
   assert.match(readFileSync(join(artifact, 'LICENSE'), 'utf8'), /Copyright \(c\) 2026 Tobias Gunn/);
   const packageJSON = JSON.parse(readFileSync(join(artifact, 'package.json'), 'utf8'));
   assert.equal(packageJSON.private, true); assert.equal(packageJSON.scripts, undefined); assert.equal(packageJSON.dependencies, undefined);
