@@ -21,7 +21,20 @@ if (mode !== 'blocked-input') {
       if (mode === 'gate' && frame.kind === 'cancel') { emit({ protocolVersion: 1, kind: 'error', id: frame.id, error: 'canceled' }); continue; }
       if (frame.kind === 'cancel' || mode === 'ignore-cancel' || mode === 'hang') continue;
       const response = { protocolVersion: 1, kind: 'response', id: frame.id, response: { status: 200, body: Buffer.from('exact').toString('base64') } };
-      if (mode.startsWith('recovery-proof-')) {
+      if (mode.startsWith('setup-proof-')) {
+        const proof = { installationId: mode === 'setup-proof-installation' ? 'foreign' : frame.setup.installationId,
+          deviceId: mode === 'setup-proof-device' ? 'foreign' : frame.setup.deviceId,
+          expiresAt: mode === 'setup-proof-expiry' ? 'invalid' : null };
+        if (mode === 'setup-proof-missing-expiry') delete proof.expiresAt;
+        emit({ ...response, response: { status: mode === 'setup-proof-status' ? 503 : 200, body: Buffer.from(JSON.stringify(proof)).toString('base64') } });
+      }
+      else if (mode.startsWith('setup-offer-')) {
+        const offer = { kind: mode === 'setup-offer-kind' ? 'unknown' : 'available',
+          installationId: mode === 'setup-offer-installation' ? 'wrong/path' : 'installation',
+          setupId: mode === 'setup-offer-id' ? '' : 'setup', expiresAt: mode === 'setup-offer-expiry' ? '2026-10-18T00:00:00Z' : '2026-10-18T00:00:00.000Z' };
+        emit({ ...response, response: { status: 200, body: Buffer.from(JSON.stringify(offer)).toString('base64') } });
+      }
+      else if (mode.startsWith('recovery-proof-')) {
         const proof = { installationId: mode === 'recovery-proof-installation' ? 'foreign' : frame.recovery.installationID,
           deviceId: mode === 'recovery-proof-device' ? 'foreign' : frame.recovery.deviceID,
           runtimeStopped: mode !== 'recovery-proof-runtime', revoked: mode !== 'recovery-proof-revocation' };

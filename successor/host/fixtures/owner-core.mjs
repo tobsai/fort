@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
-const [directory, corePath, channelPath, mode] = process.argv.slice(2);
+const [directory, corePath, channelPath, mode, setupBehavior] = process.argv.slice(2);
 if (!directory || !corePath || !channelPath || !['initial', 'expired', 'resume'].includes(mode)) throw new Error('Select exact synthetic owner inputs');
 const { createApplication } = await import(pathToFileURL(corePath).href);
 const { servePrivateChannel } = await import(pathToFileURL(channelPath).href);
@@ -12,8 +13,14 @@ const service = createApplication({ dataDirectory: directory, autoRun: true, own
 const lifetime = setTimeout(() => process.stdin.destroy(new Error('Synthetic deadline')), 15_000);
 try {
   await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' }, resumeOwnerHost: mode === 'resume' });
-  writeFileSync('setup.json', JSON.stringify({ installation: service.installation, ...(mode !== 'expired' ? { enrollment: service.issueEnrollment() } : {}) }), { mode: 0o600 });
-  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerRecovery: service.recoverOwnerPairing });
+  writeFileSync('setup.json', JSON.stringify({ installation: service.installation, ...(mode !== 'expired' && service.inspectSession().deviceIDs.length === 0 ? { enrollment: service.issueEnrollment() } : {}) }), { mode: 0o600 });
+  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerRecovery: service.recoverOwnerPairing,
+    ownerSetup: { begin: service.beginOwnerSetup, complete: async request => {
+      const receipt = service.completeOwnerSetup(request);
+      if (setupBehavior === 'slow') { writeFileSync('setup-committed.json', 'true', { mode: 0o600 }); await delay(100); }
+      return receipt;
+    } }
+  });
 } catch { process.exitCode = 1; }
 finally { clearTimeout(lifetime); await service.close(); }
 if (process.exitCode === 1) process.exit(1);

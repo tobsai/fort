@@ -22,7 +22,7 @@ public struct MacCorePairingRecovery: Decodable, Sendable {
     }
 }
 
-public final class MacCoreProcessTransport: FortTransport, Sendable {
+public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Sendable {
     private let state: CoreProcessState
     public let processID: Int32
     private init(_ state: CoreProcessState) { self.state = state; processID = state.pid }
@@ -56,6 +56,19 @@ public final class MacCoreProcessTransport: FortTransport, Sendable {
               proof.runtimeStopped, proof.pairingRevoked else { throw ClientError.invalidResponse }
         return proof
     }
+    public func beginOwnerSetup(timeout: TimeInterval = 30) async throws -> OwnerSetupState {
+        guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+        let response = try await exchange(.setup(.begin(timeout)))
+        guard response.status == 200, let offer = try? JSONDecoder().decode(OwnerSetupState.self,from:response.body) else { throw ClientError.invalidResponse }
+        return offer
+    }
+    public func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval = 30) async throws -> OwnerSetupReceipt {
+        guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
+        let response = try await exchange(.setup(.complete(request,timeout)))
+        guard response.status == 200, let receipt = try? JSONDecoder().decode(OwnerSetupReceipt.self,from:response.body),
+              receipt.installationID == request.installationID, receipt.deviceID == request.deviceID else { throw ClientError.invalidResponse }
+        return receipt
+    }
     private func exchange(_ command: CoreCommand) async throws -> FortResponse {
         try Task.checkCancellation()
         let call = CoreCall()
@@ -87,19 +100,38 @@ private struct CoreRequestFrame: Encodable {
     let id: Int
     let request: FortRequest?
     let recovery: MacOwnerRecoveryRequest?
+    let setup: CoreSetupCommand?
     init(id: Int, command: CoreCommand) {
         self.id = id
         switch command {
-        case .request(let value): kind = "request"; request = value; recovery = nil
-        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil
+        case .request(let value): kind = "request"; request = value; recovery = nil; setup = nil
+        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil; setup = nil
+        case .setup(let value): kind = "ownerSetup"; setup = value; recovery = nil; request = nil
         }
     }
 }
 private enum CoreCommand: Sendable {
     case request(FortRequest)
     case recovery(MacOwnerRecoveryRequest)
+    case setup(CoreSetupCommand)
     var timeout: TimeInterval {
-        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout }
+        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout }
+    }
+}
+private enum CoreSetupCommand: Encodable, Sendable {
+    case begin(TimeInterval)
+    case complete(OwnerSetupRequest,TimeInterval)
+    var timeout: TimeInterval {
+        switch self { case .begin(let value): value; case .complete(_,let value): value }
+    }
+    enum CodingKeys: String, CodingKey { case operation, timeout }
+    func encode(to encoder: any Encoder) throws {
+        var value = encoder.container(keyedBy:CodingKeys.self)
+        try value.encode(timeout,forKey:.timeout)
+        switch self {
+        case .begin: try value.encode("begin",forKey:.operation)
+        case .complete(let request,_): try value.encode("complete",forKey:.operation); try request.encode(to:encoder)
+        }
     }
 }
 private struct CoreCancelFrame: Encodable {

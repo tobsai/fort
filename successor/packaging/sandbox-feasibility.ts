@@ -128,7 +128,7 @@ try {
   const xpcExecutables: string[] = [], xpcIdentifiers: string[] = [];
   if (values.scenario === 'xpc') {
     const nativeTransport = ['FortTransport.swift', 'MacOwnerControl.swift', 'MacXPCTransport.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
-    const nativeHost = ['MacCoreProcessTransport.swift', 'MacHostChannel.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
+    const nativeHost = ['OwnerSetup.swift', 'MacCoreProcessTransport.swift', 'MacHostChannel.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
     copyFileSync(join(source, '../host/fixtures/native-core.mjs'), join(app, 'Contents/Resources/native-core.mjs'));
     const details = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', join(runtime, 'bin/node')], { encoding: 'utf8', timeout: 10_000 });
     const team = /^TeamIdentifier=([A-Z0-9]+)$/m.exec(details.stderr)?.[1];

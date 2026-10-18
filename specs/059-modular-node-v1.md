@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 382248542398e16cc580f10788290f0657e37ca1559a483c3efc071266c1b3b7
+Reviewed content SHA256: e597f23311e281efda4826a28891c28fb410e3238ad931e7299a70db445d7792
 
 ### Vendor independence
 Status: planned
@@ -484,6 +484,21 @@ pipe slice. It reuses the same process/storage lifecycle and budgets; small loca
 control frames add no polling or background process. Swift/XPC and durable native
 preparation remain separately required before ordinary setup can use it.
 
+Add language-neutral owner setup values to FortKit and implement its setup
+control protocol on the existing Mac core-process transport. Validate decoded
+identities, canonical credential encoding, expiry and operation deadlines. The
+completion receipt must match the exact submitted installation/device. Tests use
+the compiled core and synthetic prepared tokens to prove offer/completion/retry,
+restart, timeout/cancel uncertainty, authentication and owned process/socket
+cleanup; malformed/foreign replies must fail. No Keychain write, credential
+generation in ordinary setup, app/XPC integration or startup activation belongs
+to this slice. Types remain usable by other native transports without importing
+provider code. Reuse the same bounded channel/process lifetime, with no new
+dependency, polling or idle work; installed setup performance remains unmeasured.
+Include the new value types in standalone guardian and signed-probe compiler
+source lists. Rerun their existing process/sandbox regression checks without
+changing entitlements or claiming signed setup/XPC integration.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -542,6 +557,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/service/owner-setup.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-pipe.md`
+- `successor/apple/FortKit/Sources/FortKit/OwnerSetup.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CoreSetupTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-native.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`
