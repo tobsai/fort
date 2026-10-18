@@ -41,3 +41,27 @@ and applicability separately. A future PR needs a trusted base and applicable
 scope review before a CI range check can be treated as enforcement.
 
 See [the results and limits](../evidence/2026-10-17-node-foundation/quality-ci.md).
+
+## Performance measurements
+
+The portable suite includes a bounded smoke check of the measurement CLI. It
+does not establish any performance budget. To measure the Mac core baseline:
+
+```sh
+node successor/verification/performance.mjs --mode core --destination /absolute/new/private/output
+```
+
+Run from the repository root with Node 26.5.0. The destination must not exist.
+The command compiles the core, loads synthetic data over loopback HTTP, samples
+its owned core process and exits with code 2 if a budget fails. The controller
+owns the HTTP client and diagnostic file reads. It runs no real provider and
+creates no startup registration. Avoid overlapping builds or tests when timing.
+The parent hashes the synthetic ledger outside the worker's idle interval.
+
+The recorded [native measurement procedure](../evidence/2026-10-17-node-foundation/native-measurement.py)
+copies the tracked Swift sources and builds Mac/iPhone Simulator apps without
+signing, installation or launch. Its recorded destination is intentionally not
+reusable; select a fresh destination before another measurement. Read the
+[performance evidence](../evidence/2026-10-17-node-foundation/performance.md) for
+source pins, cache conditions, raw samples and limits. These engineering checks
+do not establish bundled-host, installed-product or TestFlight performance.

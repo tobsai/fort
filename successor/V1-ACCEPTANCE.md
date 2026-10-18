@@ -17,16 +17,16 @@ service/runtime and 56 native tests are not a pass for the new foundation.
 | Identity/model/avatar/settings/image display | Prior implementation | Prior fixtures only | Prior engineering apps | New installed QA open | Carry behavior through new contracts and exact builds |
 | Reviewed skills and routines | Prior implementation | Prior fixtures only | Prior engineering apps | Open | Retain behavior and isolate optional context |
 | Pairing/disconnect/removal/history choices | Intent/retry prototype | Prior fixtures only | Real adapter absent | Unrun | Owned process/startup cleanup, expiry/lost-response recovery |
-| Native iPhone/Mac journeys | Prior clients | Prior fixtures only | Prior engineering apps | Physical TestFlight unrun | Reachable authenticated transport and actual provider |
-| Performance budgets | Planned | Controlled measurements unrun | Unrun | Unrun | Record conditions and separate provider latency |
+| Native iPhone/Mac journeys | Prior clients with current contracts | Prior fixtures only | Fresh unsigned Mac/iPhone Simulator client builds passed | Physical TestFlight unrun | Reachable authenticated transport, bundled host and actual provider |
+| Performance budgets | Reproducible core CLI and captured native build procedure | 828 portable tests, strict typecheck and 18 gate tests passed; all 11 core budgets passed | Five clean/incremental samples per core and native platform passed | Installed/bundled-host/provider measurements unrun | Core-only idle RSS 100.27/94.42 MiB, acceptance p95 14.67 ms, page p95 13.94 ms; preserved earlier combined-process failures; [conditions and raw evidence](evidence/2026-10-17-node-foundation/performance.md) |
 | Quality CI / signed Apple lane | Test discovery and read-only GitHub workflow prepared | 792 portable, 2 macOS and 18 gate tests passed; strict typecheck and YAML parse passed | Unrun in CI | Signed Apple lane unconfigured | Linux/GitHub execution, PR scope enforcement and authorized Xcode Cloud setup; [evidence](evidence/2026-10-17-node-foundation/quality-ci.md) |
 
 ## Delivery matrix
 
 | Platform | Source/tests | Build | Archive | Upload | Apple processed | Tester available | Physical acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mac | New foundation planned | Prior engineering only | Unrun | Unrun | Unverified | Unverified | Unrun |
-| iPhone | New foundation planned | Prior Simulator only | Unrun | Unrun | Unverified | Unverified | Unrun |
+| Mac | Foundation migration in progress | Fresh unsigned native client only | Unrun | Unrun | Unverified | Unverified | Unrun |
+| iPhone | Foundation migration in progress | Fresh unsigned Simulator client only | Unrun | Unrun | Unverified | Unverified | Unrun |
 
 ## Authority and current blockers
 

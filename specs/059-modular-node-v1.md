@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 35fa797677c27c87e139a017899a789e7943373c26db19adad0fb55fb36ac0cf
+Reviewed content SHA256: 9aec16ea97d362bf7c44af783444f49b600136fa934b32b5fa67ed147b539d01
 
 ### Vendor independence
 Status: planned
@@ -43,11 +43,11 @@ Tradeoffs: Use one modular service and one writer, with an executor containment 
 Unresolved judgment: none
 
 ### Speed
-Status: planned
+Status: implemented-unverified
 Affected boundaries: Node packaging, TypeScript checks, Swift builds, indexed ledger, outbox dispatch, scheduler and native refresh.
 Dependency/removal impact: Retain Node by owner choice; remove repeated full-history persistence, whole-kind scans and per-second idle checkpoints. Native refresh uses events/wakeups and bounded reconciliation. Avoid required third-party server frameworks until needed.
 Acceptance criteria: On recorded MacBookPro18,2/64 GiB/10 CPU, macOS 27.2, Node 26.5.0, TypeScript 6.0.3 and Xcode 27.1/Swift 6.4, target clean core check/build <=10 s, incremental <=3 s; clean native Debug build <=120 s, incremental <=20 s; core cold startup <=2 s and warm <=500 ms; local acceptance p95 <=25 ms and 100-message page p95 <=50 ms at 10,000 messages; idle core RSS <=128 MiB, CPU <=0.5% of one core and <=1 wakeup/s over 60 s; zero scheduler DB writes with no due/state-changing work over 60 s; 10,000 1-KiB messages <=64 MiB ledger. Measure at least 5 clean/warm build/start samples and 100 request samples, fixed workload, cache conditions and p50/p95; record provider/process latency and memory separately. These are engineering targets, not measured claims or promises about remote providers.
-Evidence: Existing timings are incidental; no controlled results yet. Node links to Homebrew libraries on the development host, so package size/dependency closure and jitless overhead must be measured. The owner's Node choice supersedes a cross-language selection experiment.
+Evidence: Controlled source/core and native build measurements are recorded in successor/evidence/2026-10-17-node-foundation/performance.md with exact samples and limitations. The core-only process passes all measured budgets with unchanged service code. Earlier combined-process memory failures remain alongside the corrected diagnostic/client separation. Final bundled-host and real-provider measurements remain open. The owner's Node choice supersedes a cross-language selection experiment.
 Tradeoffs: Start without JIT entitlement expansion and measure the effect; do not silently relax sandbox/security to meet a speed target. If targets fail, profile the actual bottleneck and fix within Node before proposing a material design change. Track bundled runtime bytes separately from the app/core.
 Unresolved judgment: none
 
@@ -152,6 +152,30 @@ startup/background behavior requires explicit consent. Node/official-runtime
 packaging must be self-contained and retain all license/provenance material.
 Diagnostics are local/redacted; no default telemetry or auto-update service.
 
+## Performance verification
+
+The local verification CLI creates a new private output directory and refuses
+overwrite. A smoke mode verifies its report/control flow but cannot satisfy
+performance budgets. The core measurement mode uses five fresh compile/package
+and process-start samples, five incremental edits in a copied source tree, at
+least 10,000 synthetic 1-KiB messages, 100 acceptance/page samples and 60 seconds
+of idle observation with a future schedule enabled. Node runs compiled code with
+JIT disabled. Record exact source/artifact/toolchain, cache conditions and process
+topology; no system cache purge or provider/account access is required. The
+controller owns the synthetic HTTP client; the measured worker owns only the
+compiled core and immediate provider fixture. Report client/HTTP round trips
+and fixture dispatch/IPC time separately. The parent may inspect
+only its owned worker's OS resource counters; OS interrupt and package-idle
+wakeups are separate metrics, not a claim about total energy use. The parent
+hashes ledger and WAL files outside the idle CPU/counter sampling interval, so
+those diagnostic allocations do not enter worker memory. Native app builds use
+five fresh Debug DerivedData directories and five copied-source incremental edits
+per Mac/iPhone Simulator target, with signing disabled and no install or launch.
+Preserve the exact measurement procedure, source hashes and last clean apps.
+Native app builds and final bundled-host measurements remain separate from this
+core baseline. Verification adds no product runtime dependency, optional-module
+import, provider authority or startup registration.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -180,6 +204,15 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/verification/performance.mjs`
+- `successor/verification/performance-worker.mjs`
+- `successor/verification/performance-client.mjs`
+- `successor/verification/process-metrics.c`
+- `successor/verification/performance.test.mjs`
+- `successor/evidence/2026-10-17-node-foundation/performance.md`
+- `successor/evidence/2026-10-17-node-foundation/performance.json`
+- `successor/evidence/2026-10-17-node-foundation/native-measurement.py`
 
 - `successor/contracts/context.ts`
 - `successor/modules/local-context.ts`

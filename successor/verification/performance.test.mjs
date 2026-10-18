@@ -1,0 +1,34 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+
+test('the measurement CLI produces a labeled smoke report without claiming budgets and refuses overwrite', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'fort-performance-cli-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'measurement'), cli = fileURLToPath(new URL('./performance.mjs', import.meta.url));
+  const run = spawnSync(process.execPath, [cli, '--mode', 'smoke', '--destination', destination], { encoding: 'utf8', timeout: 60_000 });
+  assert.equal(run.status, 0, run.stderr);
+  const report = JSON.parse(await readFile(join(destination, 'report.json'), 'utf8'));
+  assert.equal(report.mode, 'smoke');
+  assert.equal(report.budgetEligible, false);
+  assert.equal(report.runtime.node, 'v26.5.0');
+  assert.equal(report.runtime.jit, false);
+  assert.equal(report.workload.messageBytes, 1024);
+  assert.equal(report.workload.baselineMessages, 30);
+  assert.equal(report.requests.acceptance.samplesMs.length, 3);
+  assert.equal(report.requests.page.samplesMs.length, 3);
+  assert.equal(report.requests.clientPid, report.runtime.controllerPid);
+  assert.ok(Number.isSafeInteger(report.idle.workerPid));
+  assert.notEqual(report.requests.clientPid, report.idle.workerPid);
+  assert.equal(report.idle.ledgerChanged, false);
+  assert.equal(report.provider.kind, 'synthetic-in-process');
+  assert.equal(report.provider.realProviderUsed, false);
+  const bytes = await readFile(join(destination, 'report.json'));
+  const repeat = spawnSync(process.execPath, [cli, '--mode', 'smoke', '--destination', destination], { encoding: 'utf8', timeout: 5_000 });
+  assert.notEqual(repeat.status, 0);
+  assert.deepEqual(await readFile(join(destination, 'report.json')), bytes);
+});
