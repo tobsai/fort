@@ -22,7 +22,7 @@ private struct NoFixtureCredentials: DeviceCredentials {
         let isNew = !FileManager.default.fileExists(atPath:root.appendingPathComponent("interactive-fixture.json").path)
         let fixture = try InteractiveFixtureStore(directory:root)
         let installation = await fixture.installation
-        let client = try FortClient(baseURL:URL(string:"https://interactive-fixture.invalid")!,installationID:installation.installationId,transport:fixture)
+        let client = FortClient(installationID:installation.installationId,transport:fixture)
         let model = MessengerModel(storage:storage,session:.shared)
         try model.configureInteractiveFixture(client:client,fixture:fixture,installation:installation)
         model.fixtureCatalogScenario = await fixture.scenario
@@ -33,7 +33,7 @@ private struct NoFixtureCredentials: DeviceCredentials {
     static var imageURL: URL { Bundle.module.url(forResource:"qa-sample",withExtension:"png")! }
 }
 
-actor InteractiveFixtureStore: FortHTTPTransport {
+actor InteractiveFixtureStore: FortTransport {
     private struct State: Codable {
         var installation: Installation
         var agents: [Agent]
@@ -79,16 +79,15 @@ actor InteractiveFixtureStore: FortHTTPTransport {
         if state.scenario == .missingSelection { let saved = Set(state.agents.map { $0.binding.selectedModel }); options.removeAll { saved.contains($0.id) } }
         return ModelCatalog(provider:"simulated",state:"ready",models:options,checkedAt:Self.time,detail:"Simulated catalog · no provider discovery")
     }
-    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        guard let url = request.url, url.host == "interactive-fixture.invalid", request.value(forHTTPHeaderField:"Authorization") == nil,
-              request.value(forHTTPHeaderField:"X-Fort-Installation-Id") == state.installation.installationId else { throw ClientError.invalidResponse }
-        func response<T:Encodable>(_ value: T, status: Int = 200) throws -> (Data,URLResponse) {
-            guard let response = HTTPURLResponse(url:url,statusCode:status,httpVersion:nil,headerFields:["Content-Type":"application/json"]) else { throw ClientError.invalidResponse }
-            return (try JSONEncoder().encode(value),response)
+    func send(_ request: FortRequest) async throws -> FortResponse {
+        guard let url = URLComponents(string:request.path), url.scheme == nil, url.host == nil, request.token == nil,
+              request.installationID == state.installation.installationId else { throw ClientError.invalidResponse }
+        func response<T:Encodable>(_ value: T, status: Int = 200) throws -> FortResponse {
+            FortResponse(status:status,body:try JSONEncoder().encode(value))
         }
-        func error(_ code: String, _ message: String) throws -> (Data,URLResponse) { try response(["error":["code":code,"message":message]],status:409) }
+        func error(_ code: String, _ message: String) throws -> FortResponse { try response(["error":["code":code,"message":message]],status:409) }
         let parts = url.path.split(separator:"/").map(String.init)
-        if request.httpMethod == "GET" {
+        if request.method == .get {
             switch url.path {
             case "/v1/installation": return try response(state.installation)
             case "/v1/agents": return try response(AgentList(agents:state.agents))
@@ -100,7 +99,7 @@ actor InteractiveFixtureStore: FortHTTPTransport {
                 return try error("fixtureRoute","This action is not part of the interactive fixture.")
             }
         }
-        guard request.httpMethod == "POST", let data = request.httpBody else { throw ClientError.invalidResponse }
+        guard request.method == .post, let data = request.body else { throw ClientError.invalidResponse }
         if parts.count >= 2, parts[1] == "agents" {
             struct Body: Decodable { let name: String; let instructions: String; let model: String; let avatar: AgentAvatar?; let expectedBindingRevisionId: String? }
             let body = try JSONDecoder().decode(Body.self,from:data)

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 426085dba328c27e902b11bb6268c31edb7659881aec732550dcda6c46dd64f3
+Reviewed content SHA256: e798eee5aeb798e960415d4df901e61e52f306fc2b3fe91900301cc9dd9e13b3
 
 ### Vendor independence
 Status: planned
@@ -203,6 +203,19 @@ This tests the Apple-specific control boundary without a provider dependency or
 new production package; it does not implement the core bridge, login lifecycle
 or executor confinement. Record the actual SDK/runtime and every cleanup result.
 
+Separate native client behavior from its network carrier. A small Fort-owned
+request/response contract carries a relative versioned path, method, installation
+identity, optional device token, body and deadline; the response carries status
+and body. The existing HTTPS/explicit fixture-loopback adapter keeps endpoint
+validation and redirect refusal. A local transport can be supplied without a
+network address, while the same client performs installation/replay validation
+and service-error decoding. Migrate the interactive fixture and remove the old
+optional HTTP-only seam. Test exact text and identity, encoded replay queries,
+timeouts/cancellation, mismatched installations and preserved HTTP behavior.
+No local XPC implementation or device-storage migration is implied by this seam.
+This adds no runtime dependency, provider authority or persistent registration;
+it keeps native contracts reusable with constant transport-selection overhead.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -255,6 +268,10 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/FortTransport.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/TransportTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-transport.md`
 
 - `successor/packaging/xpc-protocol.swift`
 - `successor/packaging/xpc-service.swift`
