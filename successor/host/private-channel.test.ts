@@ -312,8 +312,12 @@ test('explicit owner pipe recovery verifies exact identity and revokes without a
   const enrolled = await host.api('/v1/devices/enroll', { ...object(host.setup.enrollment), deviceName: 'Synthetic owner' });
   const token = string(enrolled.body.deviceToken), deviceID = string(enrolled.body.deviceId), installationID = string(host.installed.installationId);
   assert.equal((await host.api('/v1/pairing/recover', { installationID, deviceID }, token)).status, 404);
-  assert.equal((await host.recover('foreign', deviceID)).error, 'unavailable');
-  assert.equal((await host.recover(installationID, 'foreign')).error, 'unavailable');
+  for (const [installation, device] of [['foreign', deviceID], [installationID, 'foreign']]) {
+    const rejected = await host.recover(installation, device);
+    assert.equal(rejected.kind, 'response');
+    assert.equal(object(rejected.response).status, 409);
+    assert.deepEqual(JSON.parse(Buffer.from(string(object(rejected.response).body), 'base64').toString()), { installationId: installation, deviceId: device, outcome: 'identityRejected' });
+  }
   assert.equal((await host.api('/v1/pairing', undefined, token)).status, 200);
   const result = await host.recover(installationID, deviceID);
   assert.equal(result.kind, 'response');

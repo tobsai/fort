@@ -1,6 +1,10 @@
 #if os(macOS)
 import Foundation
 
+public enum MacOwnerRecoveryError: Error {
+    case identityRejected
+}
+
 func ownerControlUnavailable() -> NSError {
     NSError(domain:"Fort.OwnerControl",code:1,userInfo:[NSLocalizedDescriptionKey:"This host has no owner recovery control."])
 }

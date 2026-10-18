@@ -13,6 +13,7 @@ import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutin
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 import { PrivateSocketLease } from './private-socket.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
+import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -1082,9 +1083,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules,
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
-      if (identity.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Recovery requires this exact installation.');
+      if (identity.installationId !== installation.installationId) throw new OwnerRecoveryIdentityRejected('installation');
       const deviceId = id(identity.deviceId);
-      await stopOwner(deviceId, true);
+      try { await stopOwner(deviceId, true); }
+      catch (error) {
+        if (error instanceof APIError && error.code === 'pairingMismatch') throw new OwnerRecoveryIdentityRejected('device');
+        throw error;
+      }
       return { installationId: installation.installationId, deviceId, runtimeStopped: true, revoked: true };
     },
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',storedReceipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },

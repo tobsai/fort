@@ -3,6 +3,7 @@ import { request } from 'node:http';
 import type { Readable, Writable } from 'node:stream';
 import type { ServiceEndpoint } from '../service/openai.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
+import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 
 type PrivateEndpoint = Extract<ServiceEndpoint, { kind: 'privateSocket' }>;
 type NativeRequest = { path: string; method: 'GET' | 'POST'; installationID: string; token?: string; body?: Buffer; timeout: number };
@@ -162,7 +163,11 @@ export async function servePrivateChannel(options: {
         }
         response = { status: 200, body: Buffer.from(JSON.stringify(proof)).toString('base64') };
       }
-    } catch {}
+    } catch (error) {
+      if (work.kind === 'recovery' && error instanceof OwnerRecoveryIdentityRejected) {
+        response = { status: 409, body: Buffer.from(JSON.stringify({ installationId: work.request.installationID, deviceId: work.request.deviceID, outcome: 'identityRejected' })).toString('base64') };
+      }
+    }
     finally { clearTimeout(timer); }
     if (closing) return;
     if (controller.signal.aborted) response = undefined;

@@ -50,6 +50,11 @@ public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Ow
     public func recoverOwnerPairing(installationID: String, deviceID: String, timeout: TimeInterval = 30) async throws -> MacCorePairingRecovery {
         let request = try MacOwnerRecoveryRequest(installationID:installationID,deviceID:deviceID,timeout:timeout)
         let response = try await exchange(.recovery(request))
+        if response.status == 409, response.body.count <= 1024,
+           let rejection = try? JSONDecoder().decode([String:String].self,from:response.body),
+           rejection == ["installationId":installationID,"deviceId":deviceID,"outcome":"identityRejected"] {
+            throw MacOwnerRecoveryError.identityRejected
+        }
         guard response.status == 200,
               let proof = try? JSONDecoder().decode(MacCorePairingRecovery.self,from:response.body),
               proof.installationID == installationID, proof.deviceID == deviceID,

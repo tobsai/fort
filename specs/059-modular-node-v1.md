@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: f7d7ed01e21baed6c978a56db719c0f311b3f5037b6e2165679c8a69f701ad56
+Reviewed content SHA256: 38d33dff954f60dec93ca7e99bf7ae6ae245846dff10eb4145836c52bdb99135
 
 ### Vendor independence
 Status: planned
@@ -752,6 +752,49 @@ actions, task cancellation before/after dispatch and delayed callback completion
 Compile both clients. Do not invoke the real registration backend in tests or wire
 it into ordinary app construction until exact bundle/profile/activation gates pass.
 
+Compose the private child transport behind a Mac core-host lifecycle controller.
+The controller forwards the existing command, setup and cancellation contracts while
+serving. Exact owner recovery occupies one shared operation, blocks other work,
+validates the core's revocation/runtime-stop receipt, then awaits a clean process/group
+exit and verifies the private socket is absent before reporting `coreStopped`.
+Concurrent retries for the same identity share the operation; different identities
+are rejected while it is pending. Successful repeated recovery returns the retained
+receipt only for its exact identity. An uncertain recovery failure leaves the controller in a
+recovery-only state. Distinguish an authoritative identity rejection made before
+any stop mutation: the core emits a dedicated rejection type, the private pipe
+returns only the exact requested identity and fixed rejection outcome, and Swift
+validates those fields before restoring its prior serving state. Generic errors,
+timeouts, foreign/malformed rejection bodies and runtime stop failures cannot
+restore ordinary traffic. A rejection during an already uncertain recovery leaves
+that prior recovery-only state intact. Before a valid revocation receipt, an explicit retry revalidates
+its supplied identity with the core. After revocation, retain that exact proof and
+retry only child/socket cleanup; reject foreign identities and never delete an
+unexpected socket path. This retained proof is local to the controller incarnation;
+a later host must obtain durable recovery evidence from the core again. It never
+reopens traffic after uncertain recovery, restarts a process or resumes durable work
+implicitly. Cancellation of a caller after dispatch cannot abandon the shared cleanup.
+
+Explicit host shutdown waits for a pending recovery, then closes its remaining child.
+Repeated shutdown shares its result. An unclean exit, remaining socket or unconfirmed
+revocation never becomes a successful owner-recovery receipt. Retain history and all
+credential/startup ownership outside this controller. Its receipt proves core/runtime
+cleanup, not host-helper exit, startup unregistration, app removal or profile authority.
+The composed process retains the existing transport bounds and caller-supplied launch
+configuration; production launch must use the parent-exit guardian. Test through the
+public host contracts with real isolated child-process fixtures, including overlapping
+recovery, caller cancellation, failed cleanup, exact retry and post-stop request denial.
+Use this controller in the existing signed embedded-XPC fixture and retain all
+identity, cancellation, crash-recovery, sandbox and cleanup controls unchanged.
+
+Vendor independence: this controller adds no provider or storage implementation.
+Modularity: one lifecycle owner composes existing Swift transport/control contracts;
+the production wrapper and installation adapter retain separate responsibilities.
+Speed: no polling or idle work is introduced; existing 30-second command and six-second
+child cleanup bounds apply. Record combined synthetic recovery duration separately,
+with a target <=2 seconds for the normal no-active-turn fixture, excluding cold launch.
+Installation/removal: no registration, credentials or real provider access occurs;
+ordinary app composition remains gated by the exact bundle/profile and startup scope.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -806,6 +849,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 ## Implementation paths
 
 - `successor/host/mac-process-guardian.swift`
+- `successor/contracts/owner-recovery.ts`
 - `successor/contracts/owner-setup.ts`
 - `successor/service/owner-setup.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup.md`
@@ -833,6 +877,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Sources/FortKit/MacAgentEndpoint.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacAgentEndpointTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-agent-boundary.md`
+- `successor/apple/FortKit/Sources/FortKit/MacCoreHost.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacCoreHostTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-core-host.md`
+- `successor/evidence/2026-10-17-node-foundation/mac-core-host.json`
 - `successor/apple/FortKit/Sources/FortKit/MacHostStartup.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacHostStartupTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-host-startup.md`

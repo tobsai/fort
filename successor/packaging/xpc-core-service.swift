@@ -5,6 +5,7 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl, Ow
     private let directory: URL
     private let bundle: URL
     private var core: MacCoreProcessTransport?
+    private var host: MacCoreHost?
     private var restarting = false
     private var canceledRequests = 0
     private let outerExecutableDenied: Bool
@@ -12,10 +13,11 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl, Ow
     func start() async throws {
         let resources = bundle.appendingPathComponent("Contents/Resources")
         guard let outside = Bundle.main.object(forInfoDictionaryKey:"FortOutsideMarker") as? String else { throw ClientError.invalidResponse }
-        core = try await MacCoreProcessTransport.launch(executable:bundle.appendingPathComponent("Contents/MacOS/node"),arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + resources.appendingPathComponent("node-openssl.cnf").path,resources.appendingPathComponent("native-core.mjs").path,directory.path,resources.appendingPathComponent("Core/service/openai.js").path,resources.appendingPathComponent("Core/host/private-channel.js").path,outside,"owner"],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.parentExit(guardian:bundle.appendingPathComponent("Contents/MacOS/FortProcessGuardian")))
+        let process = try await MacCoreProcessTransport.launch(executable:bundle.appendingPathComponent("Contents/MacOS/node"),arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + resources.appendingPathComponent("node-openssl.cnf").path,resources.appendingPathComponent("native-core.mjs").path,directory.path,resources.appendingPathComponent("Core/service/openai.js").path,resources.appendingPathComponent("Core/host/private-channel.js").path,outside,"owner"],directory:directory,environment:["PATH":"/usr/bin:/bin","HOME":directory.path,"TMPDIR":directory.path],lifecycle:.parentExit(guardian:bundle.appendingPathComponent("Contents/MacOS/FortProcessGuardian")))
+        core = process; host = MacCoreHost(core:process,directory:directory)
     }
     func send(_ request: FortRequest) async throws -> FortResponse {
-        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
+        guard let host, !restarting else { throw URLError(.resourceUnavailable) }
         if request.path == "/v1/fixture-bootstrap" { return try bootstrap() }
         if request.path == "/v1/fixture-crash" {
             _ = kill(getpid(),SIGKILL)
@@ -23,39 +25,36 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl, Ow
         }
         if request.path == "/v1/fixture-restart" {
             restarting = true
-            let stopped = try await core.close()
+            let stopped = try await host.shutdown()
             guard stopped.exitedCleanly && !stopped.forced else { throw ClientError.invalidResponse }
-            self.core = nil
+            self.core = nil; self.host = nil
             try await start(); restarting = false
             return try bootstrap()
         }
-        do { return try await core.send(request) }
+        do { return try await host.send(request) }
         catch is CancellationError { canceledRequests += 1; throw CancellationError() }
     }
     func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt {
         try request.validate()
-        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
+        guard let host, !restarting else { throw URLError(.resourceUnavailable) }
         restarting = true
         defer { restarting = false }
-        let proof = try await core.recoverOwnerPairing(installationID:request.installationID,deviceID:request.deviceID,timeout:request.timeout)
-        let stopped = try await core.close()
-        guard stopped.exitedCleanly && !stopped.forced && !FileManager.default.fileExists(atPath:directory.appendingPathComponent("core.sock").path) else { throw ClientError.invalidResponse }
-        self.core = nil
-        let receipt = MacOwnerRecoveryReceipt(installationID:proof.installationID,deviceID:proof.deviceID,runtimeStopped:proof.runtimeStopped,pairingRevoked:proof.pairingRevoked,coreStopped:true)
+        let receipt = try await host.recoverPairing(request)
+        self.core = nil; self.host = nil
         DispatchQueue.global().asyncAfter(deadline:.now() + 0.2) { exit(0) }
         return receipt
     }
     func beginOwnerSetup(timeout: TimeInterval) async throws -> OwnerSetupState {
-        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
-        return try await core.beginOwnerSetup(timeout:timeout)
+        guard let host, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await host.beginOwnerSetup(timeout:timeout)
     }
     func completeOwnerSetup(_ request: OwnerSetupRequest, timeout: TimeInterval) async throws -> OwnerSetupReceipt {
-        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
-        return try await core.completeOwnerSetup(request,timeout:timeout)
+        guard let host, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await host.completeOwnerSetup(request,timeout:timeout)
     }
     func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval) async throws -> OwnerSetupCancellation {
-        guard let core, !restarting else { throw URLError(.resourceUnavailable) }
-        return try await core.cancelOwnerSetup(identity,timeout:timeout)
+        guard let host, !restarting else { throw URLError(.resourceUnavailable) }
+        return try await host.cancelOwnerSetup(identity,timeout:timeout)
     }
     private func bootstrap() throws -> FortResponse {
         guard let core,
@@ -68,7 +67,7 @@ private actor FixtureCore: FortTransport, MacOwnerControl, OwnerSetupControl, Ow
         setup["executions"] = try JSONDecoder().decode(Int.self,from:Data(contentsOf:directory.appendingPathComponent("executions.json")))
         return FortResponse(status:200,body:try JSONSerialization.data(withJSONObject:setup))
     }
-    func close() async { if let core { _ = try? await core.close() }; core = nil }
+    func close() async { if let host { _ = try? await host.shutdown() }; core = nil; host = nil }
 }
 
 private struct StartingFixture: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {

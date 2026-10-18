@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createApplication } from './openai.ts';
+import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import type { Agent, RoutineRevision, RuntimeReadiness, ScheduleRevision, SchedulePreview, Snapshot } from '../contracts/v1.ts';
 
@@ -123,8 +124,8 @@ test('trusted local recovery verifies expired and already-revoked pairing withou
   const before = (await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
   now += 2 * 86_400_000;
   assert.equal((await h.api('/v1/pairing')).status, 401);
-  await assert.rejects(h.service.recoverOwnerPairing({ ...h.identity, installationId: 'other-installation' }), /exact installation/);
-  await assert.rejects(h.service.recoverOwnerPairing({ ...h.identity, deviceId: 'other-device' }), /exact owner pairing/);
+  await assert.rejects(h.service.recoverOwnerPairing({ ...h.identity, installationId: 'other-installation' }), OwnerRecoveryIdentityRejected);
+  await assert.rejects(h.service.recoverOwnerPairing({ ...h.identity, deviceId: 'other-device' }), OwnerRecoveryIdentityRejected);
   assert.equal(disposals, 0);
   const proof = { ...h.identity, runtimeStopped: true, revoked: true };
   assert.deepEqual(await h.service.recoverOwnerPairing(h.identity), proof);
@@ -207,4 +208,17 @@ test('explicit start never renews an expired credential and temporary sessions c
     assert.deepEqual(temporary.service.inspectSession().deviceIDs, [temporary.identity.deviceId]);
     await assert.rejects(temporary.restart({ resumeOwnerHost: true }), /owner-local/);
   }
+});
+
+test('a runtime failure cannot masquerade as a harmless recovery identity rejection', async t => {
+  let fails = true;
+  const h = await fixture(t, { runtime: {
+    async execute() { return { kind: 'notStarted', message: 'Synthetic only.' }; },
+    async dispose() { if (fails) throw new OwnerRecoveryIdentityRejected('device'); },
+  } });
+  await assert.rejects(h.service.recoverOwnerPairing(h.identity), error => error instanceof Error && !(error instanceof OwnerRecoveryIdentityRejected) && error.message.includes('shutdown was not confirmed'));
+  assert.deepEqual(h.service.inspectSession().deviceIDs, [h.identity.deviceId]);
+  assert.equal((await h.api('/v1/agents', { name: 'Blocked', instructions: 'Fixture', model: 'exact' })).status, 503);
+  fails = false;
+  assert.deepEqual(await h.service.recoverOwnerPairing(h.identity), { ...h.identity, runtimeStopped: true, revoked: true });
 });

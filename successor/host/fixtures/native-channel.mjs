@@ -21,7 +21,15 @@ if (mode !== 'blocked-input') {
       if (mode === 'gate' && frame.kind === 'cancel') { emit({ protocolVersion: 1, kind: 'error', id: frame.id, error: 'canceled' }); continue; }
       if (frame.kind === 'cancel' || mode === 'ignore-cancel' || mode === 'hang') continue;
       const response = { protocolVersion: 1, kind: 'response', id: frame.id, response: { status: 200, body: Buffer.from('exact').toString('base64') } };
-      if (mode.startsWith('setup-cancel-proof-')) {
+      if (mode.startsWith('recovery-rejection-')) {
+        const proof = { installationId: mode === 'recovery-rejection-installation' ? 'foreign' : frame.recovery.installationID,
+          deviceId: mode === 'recovery-rejection-device' ? 'foreign' : frame.recovery.deviceID,
+          outcome: mode === 'recovery-rejection-outcome' ? 'unknown' : 'identityRejected' };
+        if (mode === 'recovery-rejection-extra') proof.extra = 'unexpected';
+        if (mode === 'recovery-rejection-large') proof.extra = 'x'.repeat(1024);
+        emit({ ...response, response: { status: mode === 'recovery-rejection-status' ? 200 : 409, body: Buffer.from(JSON.stringify(proof)).toString('base64') } });
+      }
+      else if (mode.startsWith('setup-cancel-proof-')) {
         const proof = { installationId: mode === 'setup-cancel-proof-installation' ? 'foreign' : frame.setup.installationId,
           setupId: mode === 'setup-cancel-proof-setup' ? 'foreign' : frame.setup.setupId,
           deviceId: mode === 'setup-cancel-proof-device' ? 'foreign' : frame.setup.deviceId,
