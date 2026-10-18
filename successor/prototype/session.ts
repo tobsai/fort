@@ -174,7 +174,7 @@ export class CandidatePacket {
       checkpoint={stage:'session',check:'preflight-identity'};
       if (preflight.model!=='gpt-6-astra' || preflight.runtimeVersion!=='0.157.1' || now()>=workDeadline || abort.signal.aborted) throw new Error('Session preflight did not complete within its budget');
       checkpoint={stage:'session',check:'listener-start'};
-      await service.start({ port:previous?.port??0,signal:abort.signal });
+      await service.start({ listener:{kind:'loopback',port:previous?.port??0},signal:abort.signal });
       abort.signal.throwIfAborted();
       state.installationId=service.installation.installationId;state.port=Number(new URL(service.baseURL).port);this.save(state);
       accepting=true;

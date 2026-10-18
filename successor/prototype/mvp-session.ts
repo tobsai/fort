@@ -123,7 +123,7 @@ export class MvpPacket {
         await service.close({preserveSessionCredential:true});service=undefined;
         await launch();service=openService();
         if(service.installation.installationId!==state.installationId)throw new Error('Installation changed during restart');
-        await service.start({port:state.port,signal:abort.signal});if(!active())throw new Error('Restart deadline passed');accepting=true;
+        await service.start({listener:{kind:'loopback',port:state.port},signal:abort.signal});if(!active())throw new Error('Restart deadline passed');accepting=true;
       }catch(error){await finish(false);throw error;}finally{restarting=false;}
     };
     try{

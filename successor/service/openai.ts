@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createServer, type IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { mkdirSync, lstatSync, chmodSync } from 'node:fs';
+import { mkdirSync, lstatSync, chmodSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
@@ -13,6 +13,8 @@ import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutin
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
+export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
+export type ServiceEndpoint = Readonly<{ kind: 'loopback'; url: string } | { kind: 'privateSocket'; directory: string; name: string }>;
 type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
@@ -916,7 +918,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
-  let baseURL = ''; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
+  let baseURL = ''; let endpoint: ServiceEndpoint | undefined; let closed = false; let dispatchStopped = false; let stopCommandActive = false; let closing: Promise<void> | undefined; let scheduleTimer:ReturnType<typeof setTimeout>|undefined;
   server.on('connection',socket=>{
     let resolveClosed!:()=>void;
     acceptedConnections.set(socket,new Promise<void>(resolve=>{resolveClosed=resolve;}));
@@ -945,8 +947,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const api = { installation, issueEnrollment, dispatchNext, tickSchedules,
     inspectSession() { return { installation,runs:list('runs',decodeRun),receipts:list('requests',storedReceipt),deviceIDs:db.prepare('SELECT id FROM devices').all().map(row=>id(row.id)) }; },
-    get baseURL() { return baseURL; }, async start({ port = 0,signal }: { port?:number;signal?:AbortSignal } = {}) {
+    get baseURL() { if (endpoint?.kind === 'privateSocket') throw new Error('Private socket transport has no TCP URL'); return baseURL; },
+    get endpoint() { return endpoint; },
+    async start({ listener = { kind: 'loopback' }, signal }: { listener?: ServiceListener; signal?: AbortSignal } = {}) {
     if(closed)throw new Error('Service is closed');
+    listener = { ...listener };
+    if (listener.kind === 'privateSocket') {
+      const directory = lstatSync(options.dataDirectory);
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}\.sock$/.test(listener.name) || realpathSync(options.dataDirectory) !== realpathSync(process.cwd())
+        || !process.getuid || directory.uid !== process.getuid() || (directory.mode & 0o077) !== 0) throw new Error('Private socket requires a short filename and an owner-only ledger working directory');
+      try { lstatSync(join(options.dataDirectory, listener.name)); throw new Error('Private socket path is occupied; existing files are preserved'); }
+      catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error; }
+    } else if (listener.kind !== 'loopback') throw new Error('Unsupported service transport');
     signal=signal?AbortSignal.any([signal,listenerAbort.signal]):listenerAbort.signal;
     signal.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
@@ -954,10 +966,25 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const failed=(error:unknown)=>{cleanup();reject(error);};
       const canceled=()=>failed(new Error('Listener startup canceled'));
       server.once('error',failed);server.once('close',canceled);
-      try {server.listen({port,host:'127.0.0.1',signal},()=>{cleanup();resolve();});}catch(error){failed(error);}
+      try {
+        const binding = listener.kind === 'privateSocket' ? { path: listener.name, signal } : { port: listener.port ?? 0, host: '127.0.0.1', signal };
+        server.listen(binding, () => {
+          try { if (listener.kind === 'privateSocket') chmodSync(join(options.dataDirectory, listener.name), 0o600); }
+          catch (error) { failed(error); server.close(); return; }
+          cleanup(); resolve();
+        });
+      } catch(error) { failed(error); }
     });
     signal?.throwIfAborted();
-    const address = server.address(); if (!address || typeof address === 'string') throw new Error('Missing listener'); baseURL = `http://127.0.0.1:${address.port}`;runScheduleClock(true);queueMicrotask(wake);
+    const address = server.address();
+    if (listener.kind === 'privateSocket') {
+      if (address !== listener.name) throw new Error('Private listener identity changed');
+      endpoint = Object.freeze({ kind: 'privateSocket', directory: realpathSync(options.dataDirectory), name: listener.name });
+    } else {
+      if (!address || typeof address === 'string') throw new Error('Missing listener');
+      baseURL = `http://127.0.0.1:${address.port}`; endpoint = Object.freeze({ kind: 'loopback', url: baseURL });
+    }
+    runScheduleClock(true);queueMicrotask(wake);
   }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;
     closed = true; clearTimeout(scheduleTimer); active?.abort();

@@ -922,7 +922,7 @@ for(const when of ['before','during'] as const)test(`canceled listener startup e
   const port=address.port;
   await new Promise<void>((resolve,reject)=>reservation.close(error=>error?reject(error):resolve()));
   const cancellation=new AbortController();if(when==='before')cancellation.abort();
-  const starting=service.start({port,signal:cancellation.signal});
+  const starting=service.start({listener:{kind:'loopback',port},signal:cancellation.signal});
   const result=starting.then(()=> 'unexpected success',()=> 'rejected');
   cancellation.abort();
   assert.equal(await result,'rejected');

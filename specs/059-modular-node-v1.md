@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 09c37b75a1e340cae6686266b60ada3ad07ced8f0558969375968588324a353b
+Reviewed content SHA256: a2fce3da2ba775188575bc340b5a5c77bfabd13feee2e807eb5fd627090cb358
 
 ### Vendor independence
 Status: planned
@@ -161,6 +161,16 @@ same parent sandbox and child inheritance entitlements, outside-file denials,
 TCP-listener denial and owned-process cleanup checks. Record observed support
 or refusal without adding a network entitlement or treating same-process local
 IPC as completed XPC/helper lifecycle or reachable iPhone transport.
+The core listener may explicitly select loopback TCP or a private Unix socket.
+Private-socket mode requires a short validated filename, the ledger directory
+as the process working directory, owner-only directory/socket permissions and
+an absent socket path. It preserves the same HTTP authentication, Origin checks,
+durable acceptance and replay. Startup refuses occupied paths and never removes
+an unknown socket/file. A typed endpoint distinguishes the transports; private
+mode provides no TCP URL. Test an actual core/client process exchange, denial
+without authorization, restart/history, socket cleanup and invalid startup
+scope. This prepares the host boundary without activating a background job or
+claiming XPC, provider or iPhone acceptance.
 
 ## Performance verification
 
@@ -225,6 +235,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/native-measurement.py`
 - `successor/evidence/2026-10-17-node-foundation/local-ipc.md`
 - `successor/evidence/2026-10-17-node-foundation/local-ipc.json`
+- `successor/service/socket-transport.test.ts`
+- `successor/service/fixtures/socket-host.ts`
+- `successor/evidence/2026-10-17-node-foundation/private-transport.md`
 
 - `successor/contracts/context.ts`
 - `successor/modules/local-context.ts`
