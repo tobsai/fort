@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 873499581a14bb1ece63abbc8806ad17564d356a8796f94f1122f871597e6b6c
+Reviewed content SHA256: feabeb43ea68c2b9431bafa1b6af27ee00ca316ed28bfe224e77de2d793c1ef0
 
 ### Vendor independence
 Status: planned
@@ -824,6 +824,38 @@ resume, failed startup/EOF/abort cleanup and wrong/private/symlink directory ref
 through the actual child protocol. Run the compiled artifact and guarded native host
 journey. This prepares composition; it does not install or register a production host.
 
+Prepare the production agent's private ledger directory through the exact validated
+App Group identifier. Resolve only Apple's group-container API; a missing lookup or
+inaccessible container fails without a HOME, Application Support or temporary fallback.
+On macOS the returned URL alone is not entitlement evidence; the production wrapper
+must separately validate its signed package/profile before invoking this adapter.
+Do not create an App Group container. Open the returned container without following its
+final symlink, confirm current-user ownership, no group/other write permissions and
+no extended ACL entries, and derive its canonical path from the open descriptor.
+Create only the fixed `FortHost` child at mode 0700; existing contents remain intact.
+Reject non-directory/symlink paths, foreign ownership, group/other permissions or
+extended ACL entries on that child. Do not chmod, strip ACLs, migrate or delete to
+make an unknown location acceptable. Sync new directory creation before returning.
+
+Return an identity-bound storage value that rechecks the original container and child
+before yielding the launch directory. Replaced, moved, deleted or permission-changed
+paths fail; ordinary reopen preserves the same history. Descriptor-relative creation
+and identity checks bound accidental path replacement; this is not isolation from a
+hostile process with the same user's access, nor a claim to hold a lease on the ledger.
+The core's existing exclusive ledger/socket ownership remains authoritative. No
+credentials, runtime, startup registration or provider configuration are read here.
+
+Vendor independence: this is an Apple placement adapter over the existing portable
+private-directory contract; no AI/vendor dependency changes. Modularity: group lookup
+and safe storage preparation stay outside the Node core and optional modules. Speed:
+no timer or idle work; measure 20 isolated prepare/reopen/validate samples each, target
+p95 <=50 ms per operation, excluding Apple lookup, launch, provider and UI latency.
+Installation/removal: fixed group-relative storage is discoverable and history is
+retained by default. Prove exact lookup/no fallback, preserved history, concurrent
+preparation, invalid storage refusal, identity-change rejection and a guarded core
+journey from the prepared directory. The system App Group lookup and actual profile
+authorization remain unrun until matching production identities/profiles exist.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -908,6 +940,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupModelTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-model.md`
 - `successor/apple/FortKit/Sources/FortKit/MacAgentEndpoint.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacAgentStorage.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacAgentStorageTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-agent-storage.md`
 - `successor/apple/FortKit/Tests/FortKitTests/MacAgentEndpointTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-agent-boundary.md`
 - `successor/apple/FortKit/Sources/FortKit/MacCoreHost.swift`
