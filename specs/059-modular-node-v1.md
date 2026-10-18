@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: c3eff23f4502e752d906089fb11ad7871ed2a59acb3d3df623a22fe0a5595f0c
+Reviewed content SHA256: 7888a9d88689951512643eb7b20a0f002cbc6b7d617b336db34ce486930a7798
 
 ### Vendor independence
 Status: planned
@@ -287,6 +287,20 @@ negative control. Do not grant access to the outer bundle or expand entitlements
 The feasibility app retains its separate outer runtime for existing controls;
 that duplication is test packaging, not the intended installed product layout.
 
+Native saved connections must select an explicit network or exact Mac XPC
+endpoint. Version the record, decode existing URL records without rewriting them,
+and retain installation/device identifiers and the existing Keychain account.
+Reject unknown/mixed formats, insecure network endpoints and malformed local
+peer identities before credential access; never fall back to another carrier.
+Restore/recovery choose the recorded endpoint, while disconnected local history
+remains readable without a transport or token. A Mac endpoint on iPhone fails
+explicitly. Existing HTTPS/fixture-loopback enrollment remains separate from
+future owned setup; this migration does not enroll, activate startup or access
+real credentials. Test old/new records, malformed input, read-only migration,
+local history and unchanged network behavior using temporary storage and fake
+credential providers. This removes URL coupling without adding a vendor or
+dependency; work is constant per small record and preserves removal identity.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -339,6 +353,11 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/DeviceConnection.swift`
+- `successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/DeviceConnectionTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/device-endpoints.md`
 
 - `successor/apple/FortKit/Sources/FortKit/MacHostChannel.swift`
 - `successor/packaging/xpc-core-service.swift`

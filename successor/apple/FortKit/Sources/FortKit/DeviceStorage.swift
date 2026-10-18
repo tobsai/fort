@@ -2,12 +2,6 @@ import Foundation
 import Security
 import CryptoKit
 
-public struct DeviceConnection: Codable, Equatable, Sendable {
-    public let baseURL: URL
-    public let installationID: String
-    public let deviceID: String
-    public let fixtureLoopback: Bool
-}
 struct SavedNavigation: Codable {
     let installation: Installation
     let agents: [Agent]
@@ -67,10 +61,11 @@ public final class DeviceStorage {
         return try JSONDecoder().decode(DeviceConnection.self, from: Data(contentsOf: file))
     }
     public func save(_ connection: DeviceConnection, token: String) throws {
+        let record = try JSONEncoder().encode(connection)
         try credentials.save(connection,token:token)
-        try protectedWrite(JSONEncoder().encode(connection),to:directory.appendingPathComponent("connection.json"))
+        try protectedWrite(record,to:directory.appendingPathComponent("connection.json"))
     }
-    public func token(for connection: DeviceConnection) throws -> String { try credentials.token(for:connection) }
+    public func token(for connection: DeviceConnection) throws -> String { try connection.validate(); return try credentials.token(for:connection) }
     public func disconnectedConnection() throws -> DeviceConnection? {
         let file = directory.appendingPathComponent("disconnected.json")
         guard FileManager.default.fileExists(atPath:file.path) else { return nil }

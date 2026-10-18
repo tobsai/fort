@@ -126,6 +126,10 @@ import Observation
     public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     public init(directory: URL) throws { storage = try DeviceStorage(directory:directory); session = .shared; isOfflinePreview = false }
     init(storage: DeviceStorage, session: URLSession, isOfflinePreview: Bool = false, ownedInstallation: (any OwnedMacInstallation)? = nil) { self.storage = storage; self.session = session; self.isOfflinePreview = isOfflinePreview; self.ownedInstallation = ownedInstallation }
+    private func restoredClient(_ connection: DeviceConnection) throws -> FortClient {
+        let transport = try connection.endpoint.transport(session:session)
+        return FortClient(installationID:connection.installationID,token:try storage.token(for:connection),transport:transport)
+    }
     public func restore() async {
         guard !isOfflinePreview, !isInteractiveFixture, client == nil else { return }
         do {
@@ -138,7 +142,7 @@ import Observation
             pairingRemovalPending = removal?.state == .requested || removal?.state == .locallyForgotten
             localPairingForgotten = removal?.state == .locallyForgotten && active == nil
             pairingCleanupPending = active != nil && (removal?.state == .confirmed || (removal == nil && active == disconnected))
-            endpoint = connection.baseURL.absoluteString; expectedInstallation = connection.installationID
+            endpoint = connection.endpoint.displayName; expectedInstallation = connection.installationID
             pendingStore = try PendingStore(directory:storage.directory,installationID:connection.installationID)
             pending = try pendingStore?.pending() ?? []
             if let saved = try storage.navigation(installationID:connection.installationID) {
@@ -157,9 +161,10 @@ import Observation
                 return
             }
             hostStopped = false
-            client = try FortClient(baseURL:connection.baseURL,installationID:connection.installationID,token:storage.token(for:connection),fixtureLoopback:connection.fixtureLoopback,session:session)
+            client = try restoredClient(connection)
             loadLocalImages();await refresh()
-        } catch { status = "Could not restore this device connection. Enroll again to continue." }
+        } catch ClientError.localHostUnavailable { status = ClientError.localHostUnavailable.localizedDescription }
+        catch { status = "Could not restore this device connection. Saved pairing has been kept." }
     }
     public func enroll() async {
         guard !isOfflinePreview, !isInteractiveFixture, !isBusy, let url = URL(string:endpoint) else { return }
@@ -234,7 +239,7 @@ import Observation
                 guard proof.connection == intent.connection, proof.hostStopped, proof.pairingRevoked else { throw OwnerLifecycleError.stopUnconfirmed }
             } else {
                 guard intent.state != .locallyForgotten, try storage.connection() == intent.connection else { throw OwnerLifecycleError.unavailable }
-                let recovery = try FortClient(baseURL:intent.connection.baseURL,installationID:intent.connection.installationID,token:storage.token(for:intent.connection),fixtureLoopback:intent.connection.fixtureLoopback,session:session)
+                let recovery = try restoredClient(intent.connection)
                 _ = try await recovery.stopHost(disconnect:true)
             }
             try completePairingRemoval(intent.connection)

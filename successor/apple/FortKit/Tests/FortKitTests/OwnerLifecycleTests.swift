@@ -19,7 +19,7 @@ private final class LifecycleCredentials: DeviceCredentials {
     let credentials = LifecycleCredentials(), storage = try DeviceStorage(directory:root,credentials:credentials)
     let connection = DeviceConnection(baseURL:try #require(URL(string:"https://fixture.invalid")),installationID:"one",deviceID:"device",fixtureLoopback:false)
     try storage.save(connection,token:"fixture-only")
-    let other = DeviceConnection(baseURL:connection.baseURL,installationID:"two",deviceID:"device",fixtureLoopback:false)
+    let other = try DeviceConnection(endpoint:connection.endpoint,installationID:"two",deviceID:"device")
     #expect(throws:(any Error).self) { try storage.removePairing(other) }
     #expect(credentials.removed.isEmpty)
     let installation = Installation(contractVersion:"1.0",installationId:"one",recoveryEpoch:"epoch",mode:"openai",serviceName:"Fort Prototype")
@@ -52,7 +52,7 @@ private final class LifecycleCredentials: DeviceCredentials {
     func stopAndRevoke() async throws -> OwnedHostStop { operations.append("stop"); return OwnedHostStop(hostStopped:stopped,pairingRevoked:revoked,startupUnregistered:unregistered) }
     func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof {
         operations.append("recover")
-        let scope = wrongScope ? DeviceConnection(baseURL:connection.baseURL,installationID:"another-installation",deviceID:connection.deviceID,fixtureLoopback:connection.fixtureLoopback) : connection
+        let scope = try wrongScope ? DeviceConnection(endpoint:connection.endpoint,installationID:"another-installation",deviceID:connection.deviceID) : connection
         return PairingRecoveryProof(connection:scope,hostStopped:stopped,pairingRevoked:stopped)
     }
     func removeHistory() throws { operations.append("history"); if failHistory { throw URLError(.cannotRemoveFile) } }

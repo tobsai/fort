@@ -1,12 +1,13 @@
 import Foundation
 
 public enum ClientError: Error, LocalizedError {
-    case insecureEndpoint, invalidResponse, wrongInstallation, service(String, String)
+    case insecureEndpoint, invalidResponse, wrongInstallation, localHostUnavailable, service(String, String)
     public var errorDescription: String? {
         switch self {
         case .insecureEndpoint: "Use an HTTPS Fort address. Fixture HTTP is limited to this computer's loopback address."
         case .invalidResponse: "Fort returned an unreadable response."
         case .wrongInstallation: "This address belongs to a different Fort installation."
+        case .localHostUnavailable: "This connection is available only on its Mac. Connect this device using the host’s secure network address."
         case .service(_, let message): message
         }
     }
