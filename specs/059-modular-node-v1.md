@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 4848f9091685e1d6643cc2e26faa96587719b23ac756bb35b1f43e70b027ca76
+Reviewed content SHA256: 982a8e7dcbff5364e9ab6854ddc4457bc5ae7735721a2facb5c601c8fb0e37a8
 
 ### Vendor independence
 Status: planned
@@ -385,6 +385,22 @@ the guardian inside the core service's own bundle. This is lifecycle ownership,
 not containment of hostile descendants escaping their group, and does not yet
 prove executor cleanup when Node itself dies or ordinary installed-host behavior.
 
+Extend the same explicit lifecycle choice to the optional process executor:
+portable cooperative group supervision or an exact Mac parent-exit guardian.
+Reject a malformed guardian path or unsupported platform before launch and copy
+the selected configuration so callers cannot change it later. The guardian owns
+the executor group and watches the exact Node parent; retain the existing
+dispatch/evidence protocol, deadlines, cancellation and clean-exit requirement.
+Prove abrupt Node-parent death removes a noncooperative worker and descendant
+within three seconds through a real core dispatch. Check guarded exact replies,
+correlated cancellation, bad evidence and unchanged fixture permission denials.
+The existing native guard is reused, with the same measured per-active-process
+cost and no idle executor process. Vendor/core contracts remain unchanged and the
+implementation stays removable; no new package or entitlement is introduced.
+This improves owned-runtime removal without enabling a provider, persistent host
+or computer-tool authority. Official runtime adapters and installed containment
+remain separate migration/acceptance work.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -439,6 +455,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 ## Implementation paths
 
 - `successor/host/mac-process-guardian.swift`
+- `successor/host/fixtures/executor-supervisor.mjs`
+- `successor/evidence/2026-10-17-node-foundation/executor-parent-exit.md`
 - `successor/host/fixtures/core-supervisor.swift`
 - `successor/host/guardian.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/parent-exit-guard.md`

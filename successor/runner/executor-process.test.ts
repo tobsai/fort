@@ -10,11 +10,19 @@ import { ExecutorProcess } from './executor-process.ts';
 import type { ChatInput } from './chat-runtime.ts';
 import { sealDispatch, type ExecutionDispatch } from '../contracts/executor.ts';
 
+test('executor composition rejects relative guardians and unsupported Mac supervision', () => {
+  const options = { executable: process.execPath, args: [], cwd: process.cwd(), env: {} };
+  for (const guardian of ['relative', '/invalid\0guardian']) {
+    assert.throws(() => new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian } }), /exact Mac guardian/);
+  }
+  if (process.platform !== 'darwin') assert.throws(() => new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian: '/exact/guardian' } }), /exact Mac guardian/);
+});
+
 async function setup(t: TestContext, scenario = 'echo', attemptTimeoutMs = 5_000, change?: (input: ChatInput, dispatch: ExecutionDispatch) => { input: ChatInput; dispatch: ExecutionDispatch }) {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'fort-executor-contract-')));
   const worker = fileURLToPath(new URL('./fixtures/executor-worker.mjs', import.meta.url));
   const runtime = new ExecutorProcess({ executable: process.execPath,
-    args: ['--permission', '--allow-fs-read=' + worker, worker, scenario], cwd: directory, env: {} });
+    args: ['--permission', '--allow-fs-read=' + worker, worker, scenario], cwd: directory, env: {}, lifecycle: { kind: 'processGroup' } });
   const provider = { provider: 'process-fixture', name: 'Process fixture', runtimeVersion: 'fixture-1', hostId: 'fixture-host', session: 'stateless', capabilities: ['plainText', 'cancel'] } as const;
   const service = createApplication({ dataDirectory: directory, provider: { ...provider, capabilities: [...provider.capabilities] },
     runtime: change ? { execute(input, signal, dispatch) { const changed = change(input, dispatch); return runtime.execute(changed.input, signal, changed.dispatch); }, dispose: () => runtime.dispose() } : runtime, attemptTimeoutMs });

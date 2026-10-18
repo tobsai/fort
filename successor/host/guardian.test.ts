@@ -160,3 +160,56 @@ test('the parent-exit guard waits without idle polling within its resource budge
   assert.ok(cpuPercentUpperBound <= 0.1, 'guardian idle CPU exceeds 0.1% including ps rounding');
   t.diagnostic(JSON.stringify({ first, last, elapsedSeconds, cpuPercentUpperBound, scope: 'guardian only; ps CPU resolution 10 ms' }));
 });
+
+test('abrupt Node service death removes the dispatched executor and noncooperative descendant', { skip: process.platform !== 'darwin', timeout: 15_000 }, async t => {
+  const directory = mkdtempSync('/tmp/fort059-executor-owner-');
+  const child = spawn(process.execPath, [join(source, 'host/fixtures/executor-supervisor.mjs'), directory, guardian, 'parent-death'], { cwd: directory, env: {}, stdio: 'ignore' });
+  const pid = child.pid;
+  assert.ok(pid && pid > 1);
+  let group: number | undefined;
+  t.after(async () => {
+    for (const target of [pid, ...(group ? [-group] : [])]) { try { process.kill(target, 'SIGKILL'); } catch {} }
+    assert.ok(await until(() => absent(pid) && (!group || absent(-group)), 2000), 'fixture cleanup was not confirmed');
+    rmSync(directory, { recursive: true, force: true });
+  });
+  assert.ok(await until(() => existsSync(join(directory, 'executor-descendant-pid.json')), 6000));
+  const executor = readPid(join(directory, 'executor-pid.json'));
+  const descendant = readPid(join(directory, 'executor-descendant-pid.json'));
+  const grouping = spawnSync('/bin/ps', ['-p', String(executor), '-o', 'pgid='], { encoding: 'utf8', timeout: 1000 });
+  assert.equal(grouping.status, 0, grouping.stderr);
+  group = Number(grouping.stdout.trim());
+  assert.ok(Number.isSafeInteger(group) && group > 1 && group !== pid);
+  assert.equal(absent(executor), false);
+  assert.equal(absent(descendant), false);
+  process.kill(pid, 'SIGKILL');
+  const started = performance.now();
+  assert.ok(await until(() => [pid, group, executor, descendant, -group].every(absent), 3000), 'executor group survived abrupt Node owner exit');
+  t.diagnostic(JSON.stringify({ owner: pid, group, executor, descendant, cleanupMs: performance.now() - started }));
+});
+
+test('guarded executor preserves exact replies, cancellation, invalid evidence and permission denials', { skip: process.platform !== 'darwin', timeout: 15_000 }, async t => {
+  for (const [scenario, expected] of [
+    ['echo', 'completed'], ['await-cancel', 'canceled'], ['permission-controls', 'completed'],
+    ['missing-guardian', 'failed'],
+    ['stale-generation', 'outcomeUnknown'], ['terminal-then-hang', 'outcomeUnknown']
+  ] as const) await t.test(scenario, () => {
+    const directory = mkdtempSync('/tmp/fort059-guarded-executor-');
+    try {
+      const selected = scenario === 'missing-guardian' ? join(build, 'missing-guardian') : guardian;
+      const result = spawnSync(process.execPath, [join(source, 'host/fixtures/executor-supervisor.mjs'), directory, selected, scenario], { cwd: directory, env: {}, encoding: 'utf8', timeout: 10_000 });
+      assert.equal(result.status, 0, result.stderr);
+      const proof: unknown = JSON.parse(readFileSync(join(directory, 'owner-done.json'), 'utf8'));
+      assert.ok(proof && typeof proof === 'object' && 'state' in proof && 'messages' in proof && 'exit' in proof);
+      assert.equal(proof.state, expected);
+      assert.deepEqual(proof.messages, expected === 'completed' ? ['Exact synthetic reply', 'Exact synthetic reply'] : ['Exact synthetic reply']);
+      const exit = proof.exit;
+      assert.ok(exit && typeof exit === 'object' && 'groupAbsent' in exit && 'pid' in exit && 'forced' in exit);
+      assert.equal(exit.groupAbsent, true);
+      if (expected === 'failed') { assert.equal(exit.pid, null); return; }
+      assert.equal(typeof exit.pid, 'number');
+      assert.ok(typeof exit.pid === 'number');
+      assert.ok(absent(exit.pid) && absent(-exit.pid));
+      if (expected !== 'outcomeUnknown') assert.equal(exit.forced, false);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+});

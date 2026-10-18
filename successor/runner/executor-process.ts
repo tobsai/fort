@@ -5,7 +5,10 @@ import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, sealDispatch, type Exec
 import type { RuntimeReadiness } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 
-type ProcessOptions = { executable: string; args: string[]; cwd: string; env: Record<string, string> };
+type ProcessOptions = {
+  executable: string; args: string[]; cwd: string; env: Record<string, string>;
+  lifecycle: { kind: 'processGroup' } | { kind: 'macParentExit'; guardian: string };
+};
 type ExitReport = { pid: number | null; groupAbsent: boolean; forced: boolean; code: number | null; signal: NodeJS.Signals | null };
 
 function object(value: unknown): Record<string, unknown> {
@@ -50,7 +53,9 @@ export class ExecutorProcess implements ChatRuntime {
 
   constructor(options: ProcessOptions) {
     if (!isAbsolute(options.executable) || !isAbsolute(options.cwd)) throw new Error('Select exact executor and working-directory paths');
-    this.options = { ...options, args: [...options.args], env: { ...options.env } };
+    if (!options.lifecycle || !['processGroup', 'macParentExit'].includes(options.lifecycle.kind)) throw new Error('Select an explicit executor lifecycle');
+    if (options.lifecycle.kind === 'macParentExit' && (process.platform !== 'darwin' || !isAbsolute(options.lifecycle.guardian) || options.lifecycle.guardian.includes('\0'))) throw new Error('Select an exact Mac guardian on macOS');
+    this.options = { ...options, args: [...options.args], env: { ...options.env }, lifecycle: { ...options.lifecycle } };
   }
 
   get lastExit(): Readonly<ExitReport> | undefined { return this.report; }
@@ -70,7 +75,10 @@ export class ExecutorProcess implements ChatRuntime {
   async execute(input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult> {
     if (this.stopped || this.blocked || this.active || signal.aborted) return { kind: 'notStarted', message: 'Executor is stopped, busy or canceled. Nothing was sent.' };
     if (!validDispatch(input, dispatch)) return { kind: 'notStarted', message: 'Execution scope, input, policy or deadline was not confirmed. Nothing was sent.' };
-    const child = spawn(this.options.executable, this.options.args, { cwd: this.options.cwd, env: this.options.env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const { executable, args, lifecycle } = this.options;
+    const child = spawn(lifecycle.kind === 'macParentExit' ? lifecycle.guardian : executable,
+      lifecycle.kind === 'macParentExit' ? [String(process.pid), executable, ...args] : args,
+      { cwd: this.options.cwd, env: this.options.env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let bytes = 0, frames = 0, pending = Buffer.alloc(0), result: ChatResult | undefined;
     let invalid = false, forced = false, closed = false, finishing = false, groupGone = false, spawnFailed = false;
     let cancelTimer: ReturnType<typeof setTimeout> | undefined, killTimer: ReturnType<typeof setTimeout> | undefined, finishTimer: ReturnType<typeof setTimeout> | undefined;

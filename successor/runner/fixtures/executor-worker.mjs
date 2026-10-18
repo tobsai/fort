@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
-import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import { createConnection } from 'node:net';
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -43,6 +43,13 @@ for await (const line of lines) {
       socket.once('connect', () => { socket.destroy(); resolve(false); });
     });
     if (!networkDenied) process.exit(7);
+  }
+  if (scenario === 'parent-death') {
+    const descendant = spawn(process.execPath, ['-e', 'process.on("SIGTERM",()=>{});setTimeout(()=>process.exit(3),20000);'], { env: {}, stdio: 'ignore' });
+    writeFileSync('executor-pid.json', JSON.stringify(process.pid), { mode: 0o600 });
+    writeFileSync('executor-descendant-pid.json', JSON.stringify(descendant.pid), { mode: 0o600 });
+    setTimeout(() => process.exit(3), 20_000);
+    await hang();
   }
   const frame = { protocolVersion: 1, kind: 'terminal', sequence: 1, dispatchDigest, attemptId: dispatch.attempt.attemptId, generation: dispatch.attempt.generation, result: { kind: 'completed', text: input.text, effectiveModel: null } };
   if (scenario === 'await-cancel') { active = frame; continue; }
