@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "36650394c5b38c2990ccf2a3457165ca3e9d9726",
+  "files": [
+    {
+      "path": "codex-rs/login/src/auth/storage.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/login/src/auth/storage.rs",
+      "bytes": 18076,
+      "sha256": "2e95a8998687e926675d41b5d941c3c3546a652c03d9680e6c7385e59bf459af"
+    },
+    {
+      "path": "codex-rs/config/src/types.rs",
+      "url": "https://raw.githubusercontent.com/openai/codex/36650394c5b38c2990ccf2a3457165ca3e9d9726/codex-rs/config/src/types.rs",
+      "bytes": 40857,
+      "sha256": "6950ac6af54f2efb8572610c9caf674b8a5865d3d66e0c53387615318e81a57f"
+    }
+  ]
+}

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 40b27a3b4c59246efd654379b6d1b7ded9b7c1d124c2efd05e5479891fd70209
+Reviewed content SHA256: a567edaed4f01480d035128d558724dec25f896e75267df92cee9edb9c742160
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,48 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Private Codex launch-plan revision
+
+Add an inert, read-only launch-plan export to the optional executor artifact. The
+trusted composition supplies exact normalized executable/guardian paths and an
+existing canonical owner-only runtime directory. Fix its children as `home`,
+`state`, `workspace` and `tmp`; all must be current-user directories with mode 0700,
+without symlink components. Require empty `home` and `workspace`. Refuse any
+`state/.env` or `state/config.toml` entry before launch, including dangling links.
+If `state/auth.json` exists, inspect metadata only: private regular single-link,
+current-user, nonempty and at most 128 KiB. Never read, copy, create or delete its
+contents. Recheck directory identities before returning; this is a point-in-time
+check, not an atomic launch lease or proof against a same-user mutation race.
+
+Build fixed app-server stdio arguments using the existing no-tools controls and
+permission declaration. Additionally request ChatGPT-only login, file-scoped CLI
+and MCP auth stores, and explicitly disabled OpenTelemetry exporters/prompt logging.
+The exact environment contains only the derived HOME/CODEX_HOME/TMPDIR, system PATH,
+fixed locale and UTC. Return immutable arguments/environment and accept no ambient
+environment/config overrides. Construction performs no process, network, login,
+credential or persistent setup action. It does not choose a model or billing fallback.
+Preserve historical demo launchers and observed startup fixtures unchanged.
+
+Vendor independence: this plan belongs only to the removable Codex artifact; core
+and clients keep their existing contracts. Modularity: share the reviewed control
+constants, export one plan rather than another process owner, and retain the existing
+guardian/disposal protocol. Speed: 20 serial inspections of fresh synthetic private
+layouts, warm toolchain/filesystem caches, target p95 <=5 ms excluding provider and
+process startup; no idle work. Installation/removal: derive all mutable paths from
+the explicit owned root, perform no filesystem repair/deletion, and require separate
+runtime signature/provenance, directory preparation, credential grant and installed
+sandbox acceptance. Private environment and computer-tool restrictions do not confine
+the agent host. No account migration or credential-store policy adoption is granted.
+
+Acceptance: prove exact argv/cwd/environment through a synthetic child; reject unsafe
+paths, missing/nonprivate/symlink directories, ambient startup entries and unsafe
+synthetic auth metadata while preserving bytes. Prove compiled exports/declarations,
+run portable tests, strict typechecking and affected guarded Mac artifact tests.
+Keep actual Codex configuration/account behavior unrun and record pinned official
+source evidence for dotenv and auth-store selection. Packaging bootstrap, creation
+of private directories and real runtime/legal/account/Apple acceptance remain open.
+Reuse decision 059 for this local source preparation, with no actual Codex invocation.
+
 ### Helper executable and fixed program revision
 
 Add a background-only engineering `FortHost` app target and an inert fixed-program
@@ -1394,6 +1436,10 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `successor/runner/private-codex-plan.ts`
+- `successor/runner/private-codex-plan.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/private-codex-plan.md`
+- `successor/evidence/2026-10-17-node-foundation/codex-auth-source-audit.json`
 - `successor/host/owned-core.ts`
 - `successor/host/owned-core.test.ts`
 - `successor/host/fixtures/owned-core.mjs`

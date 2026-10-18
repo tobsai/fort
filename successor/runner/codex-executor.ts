@@ -5,6 +5,7 @@ import { CodexChat } from './codex-chat.ts';
 import { launchGuardedCodexProcess } from './guarded-codex-process.ts';
 import { serveExecutorWorker } from './executor-worker.ts';
 import { ExecutorProcess } from './executor-process.ts';
+export { privateCodexLaunchPlan } from './private-codex-plan.ts';
 
 type CodexExecutorOptions = {
   input: Readable; output: Writable; hostId: string;
