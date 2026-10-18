@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 6d7e90ca3b518ec246772050114785fa0390f931e05bebba63dbe3619cbfe515
+Reviewed content SHA256: 5a2cc43eb64701480f8609672063b106249753f734e4f7a46be26fc01e1e67c4
 
 ### Vendor independence
 Status: planned
@@ -1021,6 +1021,39 @@ and signed/installed acceptance remain later gates under the same v1 direction.
 
 ## Performance verification
 
+### Guarded official protocol composition revision
+
+Compose the owned worker with the existing exact Codex 0.157.1 protocol adapter
+and guarded runtime launcher. Local composition supplies the guardian, executable,
+argv, empty workspace, environment and host identity. Clone that configuration
+before reading the dispatch. The incoming request cannot choose any process paths,
+environment or account. Pin provider/version in the worker, use the exact selected
+model, retain all existing runtime/permission/configuration checks, and derive the
+child work deadline from the sealed attempt. Dispose through the owned connection
+before terminal output. Actual executable provenance, package layout and provider
+activation remain separate required gates; synthetic integration cannot supply them.
+
+The outer executor's 250 ms cancellation allowance is too short for the official
+adapter's existing two-second interrupt deadline plus up to one second of child
+cleanup. Add an explicit optional cooperative-cancellation allowance bounded to
+250..3500 ms, retaining the historical 250 ms default. Codex composition selects
+3500 ms in the parent. Preserve the hard dispatch deadline and existing TERM/KILL
+cleanup bounds. Report unknown when cancellation or cleanup cannot be confirmed.
+
+Vendor independence: this composition stays outside the portable core and is
+removable; other runtime adapters keep the existing worker interface. Modularity:
+reuse worker, protocol and process ownership without copying the historical
+prototype launch plan or its consumed activation packets. Speed: measure 20
+isolated full synthetic parent/worker/guardian/runtime journeys, p95 <=2 seconds,
+excluding compiler, signing and provider work; cancellation with delayed synthetic
+interrupt confirmation must complete within 3500 ms plus the existing cleanup
+reserve. Installation/removal: prove exact-model/config refusal, normal completion,
+delayed cancellation, forced unknown outcomes and the entire nested process/group
+chain absent after abrupt launcher death within three seconds. Tests use a new
+synthetic protocol process with explicit empty environment and temporary files;
+no actual Codex process, provider/account reads, credentials or startup actions.
+Reuse decision 059 for this local adapter integration scope.
+
 ### Owned executor worker revision
 
 Implement the receiving half of the existing executor protocol as a provider-neutral
@@ -1263,6 +1296,12 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/fixtures/owned-executor.mjs`
 - `successor/evidence/2026-10-17-node-foundation/executor-worker.md`
 - `successor/runner/executor-process.ts`
+- `successor/runner/codex-executor.ts`
+- `successor/runner/codex-executor.test.ts`
+- `successor/runner/fixtures/codex-executor-worker.mjs`
+- `successor/runner/fixtures/codex-executor-runtime.mjs`
+- `successor/runner/fixtures/codex-executor-host.mjs`
+- `successor/evidence/2026-10-17-node-foundation/codex-executor.md`
 - `successor/runner/executor-process.test.ts`
 - `successor/runner/fixtures/executor-worker.mjs`
 - `successor/evidence/2026-10-17-node-foundation/executor-process.md`

@@ -8,6 +8,7 @@ import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 type ProcessOptions = {
   executable: string; args: string[]; cwd: string; env: Record<string, string>;
   lifecycle: { kind: 'processGroup' } | { kind: 'macParentExit'; guardian: string };
+  cooperativeCancellationMs?: number;
 };
 type ExitReport = { pid: number | null; groupAbsent: boolean; forced: boolean; code: number | null; signal: NodeJS.Signals | null };
 
@@ -55,6 +56,8 @@ export class ExecutorProcess implements ChatRuntime {
     if (!isAbsolute(options.executable) || !isAbsolute(options.cwd)) throw new Error('Select exact executor and working-directory paths');
     if (!options.lifecycle || !['processGroup', 'macParentExit'].includes(options.lifecycle.kind)) throw new Error('Select an explicit executor lifecycle');
     if (options.lifecycle.kind === 'macParentExit' && (process.platform !== 'darwin' || !isAbsolute(options.lifecycle.guardian) || options.lifecycle.guardian.includes('\0'))) throw new Error('Select an exact Mac guardian on macOS');
+    const allowance = options.cooperativeCancellationMs ?? 250;
+    if (!Number.isInteger(allowance) || allowance < 250 || allowance > 3500) throw new Error('Select a bounded cooperative cancellation allowance');
     this.options = { ...options, args: [...options.args], env: { ...options.env }, lifecycle: { ...options.lifecycle } };
   }
 
@@ -126,7 +129,8 @@ export class ExecutorProcess implements ChatRuntime {
       if (finishing || cancelTimer || forced) return;
       const frame = { protocolVersion: 1, kind: 'cancel', dispatchDigest: dispatch.dispatchDigest, attemptId: dispatch.attempt.attemptId, generation: dispatch.attempt.generation };
       child.stdin.write(JSON.stringify(frame) + '\n', error => { if (error) fail(); });
-      cancelTimer = setTimeout(forceStop, 250);
+      const allowance = Math.min(this.options.cooperativeCancellationMs ?? 250, Math.max(0, dispatch.deadline - Date.now()) + 250);
+      cancelTimer = setTimeout(forceStop, allowance);
     };
     const deadline = setTimeout(() => { invalid = true; cancel(); }, Math.max(1, dispatch.deadline - Date.now()));
     child.on('error', () => { spawnFailed = !child.pid; fail(); });

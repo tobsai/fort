@@ -16,13 +16,16 @@ test('executor composition rejects relative guardians and unsupported Mac superv
     assert.throws(() => new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian } }), /exact Mac guardian/);
   }
   if (process.platform !== 'darwin') assert.throws(() => new ExecutorProcess({ ...options, lifecycle: { kind: 'macParentExit', guardian: '/exact/guardian' } }), /exact Mac guardian/);
+  for (const cooperativeCancellationMs of [0, 249, 3501, 5000, NaN, Infinity, 250.5]) {
+    assert.throws(() => new ExecutorProcess({ ...options, lifecycle: { kind: 'processGroup' }, cooperativeCancellationMs }), /cancellation allowance/);
+  }
 });
 
-async function setup(t: TestContext, scenario = 'echo', attemptTimeoutMs = 5_000, change?: (input: ChatInput, dispatch: ExecutionDispatch) => { input: ChatInput; dispatch: ExecutionDispatch }) {
+async function setup(t: TestContext, scenario = 'echo', attemptTimeoutMs = 5_000, change?: (input: ChatInput, dispatch: ExecutionDispatch) => { input: ChatInput; dispatch: ExecutionDispatch }, cooperativeCancellationMs?: number) {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'fort-executor-contract-')));
   const worker = fileURLToPath(new URL('./fixtures/executor-worker.mjs', import.meta.url));
   const runtime = new ExecutorProcess({ executable: process.execPath,
-    args: ['--permission', '--allow-fs-read=' + worker, worker, scenario], cwd: directory, env: {}, lifecycle: { kind: 'processGroup' } });
+    args: ['--permission', '--allow-fs-read=' + worker, worker, scenario], cwd: directory, env: {}, lifecycle: { kind: 'processGroup' }, cooperativeCancellationMs });
   const provider = { provider: 'process-fixture', name: 'Process fixture', runtimeVersion: 'fixture-1', hostId: 'fixture-host', session: 'stateless', capabilities: ['plainText', 'cancel'] } as const;
   const service = createApplication({ dataDirectory: directory, provider: { ...provider, capabilities: [...provider.capabilities] },
     runtime: change ? { execute(input, signal, dispatch) { const changed = change(input, dispatch); return runtime.execute(changed.input, signal, changed.dispatch); }, dispose: () => runtime.dispose() } : runtime, attemptTimeoutMs });
@@ -135,6 +138,16 @@ test('a successful result arriving after the service deadline cannot complete th
   assert.equal(snapshot.runs[0].state, 'outcomeUnknown');
   assert.equal(snapshot.messages.length, 1);
   assert.equal(h.runtime.lastExit?.groupAbsent, true);
+});
+
+test('a longer cooperative allowance cannot extend the dispatch deadline cleanup bound', async t => {
+  const h = await setup(t, 'hang', 200, undefined, 3500);
+  await h.send('bounded-cancel', 'Synthetic deadline');
+  const started = performance.now(); await h.service.dispatchNext();
+  assert.ok(performance.now() - started < 2500);
+  assert.equal(h.runtime.lastExit?.forced, true); assert.equal(h.runtime.lastExit?.groupAbsent, true);
+  const pid = h.runtime.lastExit?.pid; assert.ok(pid && pid > 1);
+  for (const target of [pid, -pid]) assert.throws(() => process.kill(target, 0), { code: 'ESRCH' });
 });
 
 test('changed input, policy digest or expired authority is refused before process launch', async t => {
