@@ -201,8 +201,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
-  const put = (kind: Entity, entityId: string, data: unknown) => db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
+  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  const put = (kind: Entity, entityId: string, data: unknown) => {
+    const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
+    if (['agents', 'agentBindings', 'disabledBindings', 'conversations', 'skills', 'skillRevisions', 'routines', 'schedules'].includes(kind)) append('_workspace', 'workspaceChanged', entityId);
+    return result;
+  };
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
   const authenticate = (request: IncomingMessage) => {
@@ -225,9 +229,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return operation(deviceId);
   });
   const cursor = () => Number(db.prepare('SELECT coalesce(max(sequence),0) AS cursor FROM events').get()?.cursor);
+  const eventWaiters = new Set<() => void>();
   const append = (conversationId: string, kind: string, entityId: string) => {
     const event = { schemaVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, eventId: randomUUID(), conversationId, entityId, kind, createdAt: new Date().toISOString(), data: {} };
-    return Number(db.prepare('INSERT INTO events(data) VALUES (?)').run(JSON.stringify(event)).lastInsertRowid);
+    const sequence = Number(db.prepare('INSERT INTO events(data) VALUES (?)').run(JSON.stringify(event)).lastInsertRowid);
+    db.prepare('DELETE FROM events WHERE sequence<=?').run(sequence - 10_000);
+    queueMicrotask(() => { for (const wake of [...eventWaiters]) wake(); });
+    return sequence;
   };
   const held = new Set<string>();
   transaction(() => {
@@ -414,9 +422,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     scheduleTimer.unref();
   };
   const runScheduleClock = (downtime = false) => {
+    const wasFault = schedulerFault;
     try { tickSchedules(downtime); schedulerFault = false; }
     catch { schedulerFault = true; }
     armScheduleClock();
+    if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
   const runtimeReadiness=():RuntimeReadiness=>options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
@@ -537,7 +547,30 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }); status = 201;
       } else {
         authenticate(request);
-        if (request.method === 'GET' && url.pathname === '/v1/installation') result = installation;
+        if (request.method === 'GET' && url.pathname === '/v1/installation') result = { ...installation, eventCursor: cursor() };
+        else if (request.method === 'GET' && url.pathname === '/v1/events') {
+          const after = Number(url.searchParams.get('after')), wait = Number(url.searchParams.get('wait') ?? 0);
+          if (!url.searchParams.has('after') || !Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(wait) || wait < 0 || wait > 25_000) fail(400, 'invalidCursor', 'Use a nonnegative cursor and a wait of at most 25000 milliseconds.');
+          const checkCursor = () => {
+            if (url.searchParams.get('recoveryEpoch') !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Refresh this installation after recovery.');
+            const first = Number(db.prepare('SELECT coalesce(min(sequence),1) AS first FROM events').get()?.first);
+            if (after < first - 1 || after > cursor()) fail(409, 'cursorExpired', 'Refresh durable state before resuming event replay.');
+          };
+          checkCursor();
+          if (wait && after === cursor()) {
+            if (eventWaiters.size >= 8) fail(429, 'tooManyWaits', 'At most eight event waits may be open.');
+            await new Promise<void>(resolve => {
+              const finish = () => { clearTimeout(timer); eventWaiters.delete(changed); response.off('close', finish); listenerAbort.signal.removeEventListener('abort', finish); resolve(); };
+              const changed = () => { if (closed || cursor() > after) finish(); };
+              const timer = setTimeout(finish, wait); timer.unref();
+              eventWaiters.add(changed); response.once('close', finish); listenerAbort.signal.addEventListener('abort', finish, { once: true });
+            });
+          }
+          if (response.destroyed) return;
+          authenticate(request); checkCursor();
+          const events = db.prepare('SELECT sequence,data FROM events WHERE sequence>? ORDER BY sequence LIMIT 256').all(after).map(row => ({ ...record(json(row)), sequence: Number(row.sequence) }));
+          result = { installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, semantics: 'invalidation', cursor: events.at(-1)?.sequence ?? after, events };
+        }
         else if(request.method==='GET'&&url.pathname==='/v1/pairing')result=owner(request,pairingStatus);
         else if(request.method==='POST'&&url.pathname==='/v1/pairing/expiry'){
           const body=await readBody(request);

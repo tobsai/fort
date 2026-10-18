@@ -68,6 +68,58 @@ test('model discovery rejects evidence from a different provider', async t => {
   assert.deepEqual(result.models, []);
 });
 
+test('bounded invalidation replay waits for committed changes and resumes at the exact page cursor', async t => {
+  const h = await setup(t);
+  const installation = (await h.api<Installation & { eventCursor: number }>('/v1/installation')).body;
+  assert.ok(installation.capabilities?.includes('eventReplay'));
+  type Page = { semantics: string; cursor: number; events: { sequence: number; kind: string }[] };
+  const query = `/v1/events?recoveryEpoch=${installation.recoveryEpoch}&after=`;
+  const waiting = h.api<Page>(query + installation.eventCursor + '&wait=25000');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  for (let i = 0; i < 90; i++) await h.api('/v1/agents', { name: 'Fixture ' + i, model: 'exact-model', instructions: 'Synthetic.' });
+  const awakened = await waiting;
+  assert.equal(awakened.status, 200);
+  assert.equal(awakened.body.semantics, 'invalidation');
+  assert.ok(awakened.body.events.length > 0);
+  const first = (await h.api<Page>(query + installation.eventCursor)).body;
+  assert.equal(first.events.length, 256);
+  assert.equal(first.cursor, first.events.at(-1)?.sequence);
+  const second = (await h.api<Page>(query + first.cursor)).body;
+  assert.ok(second.events.length > 0 && second.events.length <= 256);
+  assert.ok(second.events.every(event => event.sequence > first.cursor));
+  assert.equal(new Set([...first.events, ...second.events].map(event => event.sequence)).size, first.events.length + second.events.length);
+  const idle = (await h.api<Page>(query + second.cursor + '&wait=10')).body;
+  assert.deepEqual(idle.events, []);
+  assert.equal(idle.cursor, second.cursor);
+  assert.equal((await h.api(query + second.cursor + '&wait=25001')).status, 400);
+  assert.equal((await h.api(query + (second.cursor + 1))).status, 409);
+  assert.equal((await h.api(`/v1/events?after=0&recoveryEpoch=foreign`)).status, 409);
+});
+
+test('event retention requires snapshot recovery and concurrent waits apply backpressure', async t => {
+  const h = await setup(t);
+  await h.service.close();
+  const fixture = new DatabaseSync(join(h.directory, 'openai-candidate-b.sqlite'));
+  fixture.exec('BEGIN');
+  const insert = fixture.prepare('INSERT INTO events(data) VALUES (?)');
+  for (let i = 0; i < 10_050; i++) insert.run(JSON.stringify({ schemaVersion: 1, installationId: h.service.installation.installationId, recoveryEpoch: h.service.installation.recoveryEpoch, eventId: 'fixture-' + i, entityId: 'workspace', conversationId: '_workspace', kind: 'workspaceChanged', createdAt: '2026-10-18T00:00:00Z', data: {} }));
+  fixture.exec('COMMIT'); fixture.close();
+  await h.restart();
+  await h.api('/v1/agents', { name: 'Trim fixture', model: 'exact-model', instructions: 'Synthetic.' });
+  const installation = (await h.api<Installation>('/v1/installation')).body;
+  const query = `/v1/events?recoveryEpoch=${installation.recoveryEpoch}&after=`;
+  const expired = await h.api<{ error: { code: string } }>(query + '0');
+  assert.equal(expired.status, 409); assert.equal(expired.body.error.code, 'cursorExpired');
+  assert.equal((await h.api(query + installation.eventCursor)).status, 200);
+  const waits = Array.from({ length: 8 }, () => h.api(query + installation.eventCursor + '&wait=25000'));
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal((await h.api(query + installation.eventCursor + '&wait=1')).status, 429);
+  await h.api('/v1/agents', { name: 'Wake fixture', model: 'exact-model', instructions: 'Synthetic.' });
+  assert.ok((await Promise.all(waits)).every(response => response.status === 200));
+  const latest = (await h.api<Installation>('/v1/installation')).body;
+  assert.equal((await h.api(query + latest.eventCursor + '&wait=1')).status, 200);
+});
+
 test('reopening an installation with another runtime identity fails before dispatch', async t => {
   const h = await setup(t);
   await h.api('/v1/agents', { name: 'Writer', model: 'exact-model', instructions: 'Reply.' });
@@ -218,7 +270,7 @@ test('oversized composed routine configuration cannot partially commit manual or
   await h.api(path+'/state',{recoveryEpoch:epoch,revisionId:saved.revisionId,previewDigest:preview.digest,enable:true});
   const before=(await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`)).body;
   now+=60_000;assert.equal(h.service.tickSchedules(),0);
-  const after=await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`);assert.equal(after.status,200);assert.deepEqual(after.body,before);
+  const after=await h.api<Snapshot>(`/v1/conversations/${agent.homeConversationId}/snapshot`);assert.equal(after.status,200);assert.deepEqual({...after.body,cursor:before.cursor},before);assert.ok(after.body.cursor > before.cursor);
   assert.equal(invalid.body.error.code,'invalidConfiguration');
   const inspection=h.service.inspectSession();assert.equal(inspection.runs.length,0);assert.equal(inspection.receipts.length,0);assert.equal(calls,0);
   const occurrence=(await h.api<{occurrences:ScheduleOccurrence[]}>(path+'/occurrences')).body.occurrences;assert.equal(occurrence.length,1);assert.equal(occurrence[0]?.state,'blocked');
@@ -814,7 +866,8 @@ test('owner creates two exact Agent Homes, an instruction skill and a shared con
   assert.equal(room.status, 201);
   const identity = h.service.installation;
   await h.restart();
-  assert.deepEqual((await h.api<Installation>('/v1/installation')).body, identity);
+  const { eventCursor, ...reopened } = (await h.api<Installation>('/v1/installation')).body;
+  assert.deepEqual(reopened, identity); assert.ok(eventCursor !== undefined && eventCursor > 0);
   assert.deepEqual((await h.api<{ agents: Agent[] }>('/v1/agents')).body.agents, [writer.body, reviewer.body]);
   assert.deepEqual((await h.api<{ skills: InstructionSkill[] }>('/v1/skills')).body.skills, [skill.body]);
   const rooms = (await h.api<{ conversations: Conversation[] }>('/v1/conversations')).body.conversations;

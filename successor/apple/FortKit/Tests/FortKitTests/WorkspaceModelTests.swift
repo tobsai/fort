@@ -3,6 +3,13 @@ import Testing
 @testable import FortKit
 
 private actor WorkspaceServer {
+    var expireCursor = false
+    var eventSupport = false, eventSequence = 0, installationReads = 0, invalidationWaits = 0
+    func enableEvents() { eventSupport = true }
+    func expireEvents() { expireCursor = true; eventSequence += 2 }
+    func invalidate() { eventSequence += 1; revision = "two" }
+    func eventCounts() -> (Int,Int) { (installationReads,invalidationWaits) }
+
     var paging = false
     func enablePaging() { paging = true }
     static let registry = Registry()
@@ -50,7 +57,7 @@ private actor WorkspaceServer {
     var revision = "one", offline = false, loseNextResponse = false
     var savedRevisions: [String] = [], submissions: [[String:Any]] = []
     var acceptance: [String:Any]?
-    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":(routineSupport ? ["routines","routineGates"] : []) + (cancellationSupport ? ["requestCancellation"] : []) + (memorySupport ? ["conversationMemory"] : []) + (runtimeSupport ? ["runtimeRecovery"] : [])] }
+    var installation: [String:Any] { ["contractVersion":"1.0","installationId":"model-test","recoveryEpoch":"epoch","mode":"openai","serviceName":"Fort Prototype","capabilities":(routineSupport ? ["routines","routineGates"] : []) + (cancellationSupport ? ["requestCancellation"] : []) + (memorySupport ? ["conversationMemory"] : []) + (runtimeSupport ? ["runtimeRecovery"] : []) + (eventSupport ? ["eventReplay"] : []),"eventCursor":eventSequence] }
     func agent(_ id: String) -> [String:Any] { ["agentId":id,"name":id.capitalized,"homeConversationId":id+"-home","readiness":"requiresLiveReview","instructions":"Original instructions.","binding":["bindingRevisionId":id+"-"+revision,"provider":"codex","runtimeVersion":"0.157.1","selectedModel":"gpt-6-astra","hostId":"local-codex","enabled":true]] }
     var skill: [String:Any] {
         var value: [String:Any] = ["skillId":"marker","revisionId":revision,"name":"Marker","instructions":"End with [CHECKED]."]
@@ -85,7 +92,17 @@ private actor WorkspaceServer {
         let path = request.url!.path
         if path == "/v1/devices/enroll" { return try result(["installation":installation,"deviceId":"synthetic","deviceToken":"synthetic-only","expiresAt":"2099-01-01T00:00:00Z"]) }
         if path == "/v1/runtime", runtimeSupport { return try result(runtime) }
-        if path == "/v1/installation" { return try result(installation) }
+        if path == "/v1/installation" { installationReads += 1; return try result(installation) }
+        if path == "/v1/events", eventSupport {
+            invalidationWaits += 1
+            if expireCursor { expireCursor = false; return try result(["error":["code":"cursorExpired","message":"Refresh durable state."]],409) }
+            let query = URLComponents(url:request.url!,resolvingAgainstBaseURL:false)?.queryItems ?? []
+            #expect(query.first(where:{$0.name == "wait"})?.value == "25000")
+            #expect(request.timeoutInterval >= 30)
+            let after = query.first(where:{$0.name == "after"})?.value.flatMap(Int.init) ?? -1
+            let events: [[String:Any]] = eventSequence > after ? [["schemaVersion":1,"installationId":"model-test","recoveryEpoch":"epoch","eventId":"event-\(eventSequence)","sequence":eventSequence,"entityId":"writer","conversationId":"_workspace","kind":"workspaceChanged","createdAt":"2026-10-18T00:00:00Z"]] : []
+            return try result(["installationId":"model-test","recoveryEpoch":"epoch","cursor":eventSequence,"semantics":"invalidation","events":events])
+        }
         if path == "/v1/routines", request.httpMethod == "GET", routineSupport { return try result(["routines":[routine]]) }
         if path == "/v1/agents" { return try result(["agents":[agent("writer"),agent("reviewer")]]) }
         if path == "/v1/skills/marker/revisions/one", let priorSkill { return try result(priorSkill) }
@@ -389,4 +406,28 @@ private final class ModelCredentials: DeviceCredentials {
     #expect(disabled.revisionId == "one" && !disabled.canInvoke)
     #expect(model.skills.first?.revisionId == "two" && model.skills.first?.canInvoke == true)
     #expect(try await model.skillRevision(ref).canInvoke == false)
+}
+
+@Test @MainActor func nativeInvalidationsRefreshOnlyWhenStateChanges() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enableEvents(); await model.refresh()
+    let before = await server.eventCounts()
+    let files = try FileManager.default.contentsOfDirectory(at:storage.directory,includingPropertiesForKeys:[.contentModificationDateKey])
+    let dates = try files.map { try $0.resourceValues(forKeys:[.contentModificationDateKey]).contentModificationDate }
+    await model.waitForChanges()
+    let idle = await server.eventCounts()
+    #expect(idle.0 == before.0 && idle.1 == before.1 + 1)
+    #expect(try files.map { try $0.resourceValues(forKeys:[.contentModificationDateKey]).contentModificationDate } == dates)
+    await server.invalidate(); await model.waitForChanges()
+    #expect(model.agents.first?.binding.bindingRevisionId == "writer-two")
+    let changed = await server.eventCounts()
+    #expect(changed.0 == before.0 + 1)
+    await model.waitForChanges()
+    #expect(await server.eventCounts().0 == changed.0)
+    await server.expireEvents(); await model.waitForChanges()
+    #expect(model.connected)
+    #expect(await server.eventCounts().0 == changed.0 + 1)
+    await model.waitForChanges()
+    #expect(await server.eventCounts().0 == changed.0 + 1)
 }

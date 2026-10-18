@@ -129,6 +129,7 @@ public struct FortClient: Sendable {
         try await get("v1/routines/\(try segment(routineID))/revisions/\(try segment(revisionID))")
     }
     public func runtimeReadiness() async throws -> RuntimeReadiness { try await get("v1/runtime") }
+    public func schedulerStatus() async throws -> SchedulerStatus { try await get("v1/scheduler") }
     public func restartRuntime(recoveryEpoch: String) async throws -> RuntimeReadiness {
         struct Body: Encodable { let recoveryEpoch: String }
         return try await send("v1/runtime/restart",method:"POST",body:Body(recoveryEpoch:recoveryEpoch))
@@ -145,10 +146,22 @@ public struct FortClient: Sendable {
         struct Body: Encodable { let requestId: String; let bindingRevisionId: String; let recoveryEpoch: String; let text: String; let recipientAgentId: String?; let skills: [SkillReference]?; let memoryRevisionId: String? }
         return try await send("v1/conversations/\(try segment(pending.conversationID))/messages", method: "POST", body: Body(requestId: pending.requestID, bindingRevisionId: pending.bindingRevision, recoveryEpoch: pending.recoveryEpoch, text: pending.text, recipientAgentId:pending.recipientAgentID, skills:pending.skills,memoryRevisionId:pending.memoryRevisionId))
     }
-    public func events(after cursor: Int, recoveryEpoch: String) async throws -> EventPage {
+    public func events(after cursor: Int, recoveryEpoch: String, waitMilliseconds: Int = 0) async throws -> EventPage {
+        guard cursor >= 0, (0...25_000).contains(waitMilliseconds) else { throw ClientError.invalidResponse }
         var components = URLComponents(url: baseURL.appendingPathComponent("v1/events"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "after", value: String(cursor)), URLQueryItem(name: "recoveryEpoch", value: recoveryEpoch)]
-        return try await request(url: components.url!, method: "GET", data: nil)
+        components.queryItems = [URLQueryItem(name: "after", value: String(cursor)), URLQueryItem(name: "recoveryEpoch", value: recoveryEpoch), URLQueryItem(name:"wait",value:String(waitMilliseconds))]
+        let page: EventPage = try await request(url: components.url!, method: "GET", data: nil, timeout: max(10,Double(waitMilliseconds)/1000 + 5))
+        guard page.installationId == installationID, page.recoveryEpoch == recoveryEpoch,
+              page.events.count <= 256, page.cursor == (page.events.last?.sequence ?? cursor),
+              Set(page.events.map(\.eventId)).count == page.events.count,
+              waitMilliseconds == 0 || page.semantics == "invalidation" else { throw ClientError.invalidResponse }
+        var previous = cursor
+        for event in page.events {
+            guard event.schemaVersion == 1, event.installationId == installationID, event.recoveryEpoch == recoveryEpoch,
+                  !event.eventId.isEmpty, event.sequence > previous else { throw ClientError.invalidResponse }
+            previous = event.sequence
+        }
+        return page
     }
     public func acknowledgeRead(conversationID: String, messageID: String, cursor: Int, recoveryEpoch: String) async throws {
         struct Body: Encodable { let recoveryEpoch: String; let messageId: String; let cursor: Int }
@@ -182,8 +195,8 @@ public struct FortClient: Sendable {
     }
     private func get<T: Decodable>(_ path: String) async throws -> T { try await request(url: baseURL.appendingPathComponent(path), method: "GET", data: nil) }
     private func send<T: Decodable, B: Encodable>(_ path: String, method: String, body: B) async throws -> T { try await request(url: baseURL.appendingPathComponent(path), method: method, data: JSONEncoder().encode(body)) }
-    private func request<T: Decodable>(url: URL, method: String, data: Data?) async throws -> T {
-        var request = URLRequest(url: url); request.httpMethod = method; request.httpBody = data; request.timeoutInterval = 10
+    private func request<T: Decodable>(url: URL, method: String, data: Data?, timeout: TimeInterval = 10) async throws -> T {
+        var request = URLRequest(url: url); request.httpMethod = method; request.httpBody = data; request.timeoutInterval = timeout
         request.setValue(installationID, forHTTPHeaderField: "X-Fort-Installation-Id")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }

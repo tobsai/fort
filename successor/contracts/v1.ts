@@ -1,7 +1,7 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
 export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
 export type RuntimeDescriptor = { provider: string; name: string; runtimeVersion: string; hostId: string; session: 'stateless' | 'sessionful'; capabilities: RuntimeCapability[] };
-export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor };
+export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor; eventCursor?: number };
 export type Binding = { bindingRevisionId: string; provider: string; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
 export type AgentAvatar = 'orbit' | 'ember' | 'sprout';
 export type ModelOption = { id:string; name:string; availability:'available'|'unavailable'; detail?:string };
@@ -16,6 +16,7 @@ export type Receipt = { requestId: string; conversationId: string; messageId: st
 export type Acceptance = { receipt: Receipt; snapshot: Snapshot; message?: Message; run?: Run };
 export type RequestCancellation = { requestId: string; recoveryEpoch: string; conversationId: string; bindingRevisionId: string } & ({ status: 'notAccepted' } | { status: 'accepted'; receipt: Receipt; run: Run; snapshot: Snapshot; message?: Message });
 export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryEpoch: string; eventId: string; sequence: number; entityId: string; conversationId: string; kind: string; createdAt: string; data: unknown };
+export type InvalidationPage = { installationId:string; recoveryEpoch:string; semantics:'invalidation'; cursor:number; events:DurableEvent[] };
 export const MAX_TEXT_BYTES = 65_536;
 
 type ApprovalIdentity = { approvalId: string; installationId: string; recoveryEpoch: string; runId: string; attemptId: string; bindingRevisionId: string; actionDigest: string; expiresAt: string; state: 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'; decidedByDeviceId: string | null; decidedAt: string | null };

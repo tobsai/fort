@@ -17,6 +17,7 @@ public struct Installation: Codable, Equatable, Sendable {
     public let serviceName: String
     public var capabilities: [String]? = nil
     public var runtime: RuntimeDescriptor? = nil
+    public var eventCursor: Int? = nil
     public func supports(_ capability: String) -> Bool { supportsCommands && capabilities?.contains(capability) == true }
     public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai", "local"].contains(mode) }
 }
@@ -229,6 +230,13 @@ public struct EventPage: Codable, Sendable {
     public let recoveryEpoch: String
     public let cursor: Int
     public let events: [DurableEvent]
+    public var semantics: String? = nil
+}
+public struct SchedulerStatus: Codable, Sendable {
+    public let state: String
+    public let detail: String?
+    public let nextWakeAt: String?
+    public let retryAt: String?
 }
 public struct DurableEvent: Codable, Sendable {
     public let schemaVersion: Int

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9e5332133ba7f6bd902451fd2e982faab31a3c1db8503fd018449f6a43cbeae2
+Reviewed content SHA256: ce2695d7831741f42e5befebce36bfc21e2fa70d3ca4b18c9e96e8098f607420
 
 ### Vendor independence
 Status: planned
@@ -87,7 +87,13 @@ page in memory, with an explicit return to latest history. Admission allows at
 most 100 unresolved turns per conversation; duplicate receipts do not consume
 capacity, and cancellation or terminal resolution releases it. These are
 unchanged-scope implementation bounds under decision 059. Events explicitly distinguish replayable deltas
-from invalidation wakeups; expired cursors trigger snapshot recovery.
+from invalidation wakeups; expired cursors trigger snapshot recovery. The initial
+client stream explicitly carries invalidations, at most 256 per response and the
+latest 10,000 events retained. Authenticated waits last at most 25 seconds, with
+at most eight concurrent waits per single-owner service. Installation reads carry
+a cursor captured before native refresh reads so concurrent edits cannot be lost.
+Idle responses cause no native cache rewrite. Backgrounding cancels the wait.
+Workspace edits and scheduler faults also wake clients; no-due checks do not.
 
 The service allocates attempt IDs/generations and dispatches immutable binding,
 input/context/policy digests, limits, deadline and scoped grant references. Executors
@@ -132,6 +138,8 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/replay.md`
 
 - `successor/evidence/2026-10-17-node-foundation/scheduler.md`
 

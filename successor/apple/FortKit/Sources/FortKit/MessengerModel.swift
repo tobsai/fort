@@ -95,6 +95,8 @@ import Observation
     public var uninstallAppURL: URL? { ownedInstallation?.appURL }
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var runtimeReadiness: RuntimeReadiness?
+    public var schedulerStatus: SchedulerStatus?
+    private var eventCursor: Int?
     public var status = "Connect to your fixture installation."
     public var isBusy = false
     public var connected = false
@@ -275,12 +277,43 @@ import Observation
         }
         await synchronize()
     }
+    public func waitForChanges() async {
+        guard !Task.isCancelled else { return }
+        guard !isBusy else { try? await Task.sleep(for:.milliseconds(250)); return }
+        guard let client, let current = installation else { try? await Task.sleep(for:.seconds(1)); return }
+        if !current.supports("eventReplay") {
+            do { try await Task.sleep(for:.seconds(30)); await refresh() } catch {}
+            return
+        }
+        guard connected, let cursor = eventCursor else {
+            await refresh()
+            if !connected { try? await Task.sleep(for:.seconds(5)) }
+            return
+        }
+        do {
+            let page = try await client.events(after:cursor,recoveryEpoch:current.recoveryEpoch,waitMilliseconds:25_000)
+            try Task.checkCancellation()
+            guard installation?.installationId == current.installationId, installation?.recoveryEpoch == current.recoveryEpoch else { return }
+            if !page.events.isEmpty { await refresh() }
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case ClientError.service(let code,_) = error, ["cursorExpired","recoveryEpochChanged"].contains(code) {
+                eventCursor = nil; await refresh()
+            } else {
+                connected = false; status = error.localizedDescription
+                try? await Task.sleep(for:.seconds(5))
+            }
+        }
+    }
     private func synchronize() async {
         guard let client else { return }
         do {
             let current = try await client.installation()
             installation = current
+            if current.supports("eventReplay"), current.eventCursor == nil || current.eventCursor! < 0 { throw ClientError.invalidResponse }
             runtimeReadiness = current.supports("runtimeRecovery") ? try await client.runtimeReadiness() : nil
+            schedulerStatus = current.supports("schedulerStatus") ? try await client.schedulerStatus() : nil
             agents = try await client.agents()
             if !agents.contains(where:{$0.agentId == selectedAgentID}) { selectedAgentID = agents.first?.agentId }
             if hasWorkspace {
@@ -317,6 +350,7 @@ import Observation
                 let incoming = try await client.snapshot(conversationID:conversationID)
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
+            eventCursor = current.eventCursor
             loadLocalImages();connected = true
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
             if isInteractiveFixture && pendingErrors.isEmpty { status = "Interactive QA · simulated replies · no network or credentials" }
@@ -357,7 +391,7 @@ import Observation
         try transcript.apply(incoming)
         guard let accepted = transcript.snapshot else { throw ClientError.invalidResponse }
         // Crash before pending removal leaves the same immutable request available for safe replay.
-        try storage.saveSnapshot(accepted)
+        if try storage.snapshot(installationID:expectedInstallation,conversationID:conversationID) != accepted { try storage.saveSnapshot(accepted) }
         if activeConversationID == conversationID { snapshot = accepted }
     }
     public func send() async {

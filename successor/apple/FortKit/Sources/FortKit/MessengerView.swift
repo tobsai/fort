@@ -72,17 +72,15 @@ public struct MessengerView: View {
         .sheet(isPresented:$showSettings) { FortSettingsView(model:model) }
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
-        .task {
-            guard !model.isOfflinePreview else { return }
+        .task(id:scenePhase) {
+            guard !model.isOfflinePreview, scenePhase == .active else { return }
             await model.restore()
             guard !model.isInteractiveFixture else { return }
             while !Task.isCancelled {
-                try? await Task.sleep(for:.seconds(2))
-                if scenePhase == .active { await model.refresh() }
+                await model.waitForChanges()
             }
         }
         .onChange(of:model.selectedAgentID) { _,_ in Task { await model.refresh() } }
-        .onChange(of:scenePhase) { _,phase in if phase == .active { Task { await model.refresh() } } }
     }
 
     private var conversationHeader: some View {
@@ -96,6 +94,9 @@ public struct MessengerView: View {
                     if let runtime = model.runtimeReadiness {
                         Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
                         if runtime.state == "restartRequired" { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
+                    }
+                    if let scheduler = model.schedulerStatus, scheduler.state == "fault" {
+                        Text(scheduler.detail ?? "Schedules need attention.").font(.callout).foregroundStyle(.orange).accessibilityIdentifier("scheduler-fault")
                     }
                     Text(model.status).font(.callout).accessibilityIdentifier("connection-status")
                 }.frame(maxWidth:.infinity,alignment:.leading).padding()

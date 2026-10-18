@@ -81,6 +81,9 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
             try require(!draftSkill.canInvoke && draftSkill.bundle?.files.count == 1,"instruction authoring bypassed bundle review")
             let skill = try await client.reviewSkill(draftSkill,enable:true)
             let room = try await client.createConversation(name:"Sample planning",participantAgentIds:[writer.id,reviewer.id])
+            let replayBaseline = try await client.installation()
+            guard let eventCursor = replayBaseline.eventCursor else { throw CheckFailure(reason:"missing event cursor") }
+            async let firstChange = client.events(after:eventCursor,recoveryEpoch:replayBaseline.recoveryEpoch,waitMilliseconds:5000)
             var first: PendingSubmission?
             var receipts: [Receipt] = [], completedRunIDs: [String] = []
             let samples: [(Agent,String,String,[SkillReference])] = [
@@ -104,12 +107,18 @@ func awaitState(_ client: FortClient, conversationID: String, state: String, run
                 receipts.append(acceptance.receipt); completedRunIDs.append(acceptance.receipt.runId)
                 try store.remove(requestID:pending.requestID)
             }
+            let changed = try await firstChange
+            try require(changed.semantics == "invalidation" && !changed.events.isEmpty,"native change replay did not wake")
+            let caughtUp = try await client.installation()
+            guard let caughtUpCursor = caughtUp.eventCursor else { throw CheckFailure(reason:"missing refreshed cursor") }
+            let idle = try await client.events(after:caughtUpCursor,recoveryEpoch:caughtUp.recoveryEpoch,waitMilliseconds:20)
+            try require(idle.events.isEmpty && idle.cursor == caughtUpCursor,"native idle replay advanced state")
             try require(try store.pending().isEmpty,"native queue is not empty")
             try require(receipts.count == 4 && Set(completedRunIDs).count == 4,"four distinct completed sample receipts are required")
             let state = WorkspaceCheckState(token:enrollment.deviceToken,writer:writer,reviewer:reviewer,room:room,skill:skill,pending:first!,receipts:receipts,completedRunIDs:completedRunIDs,pendingRequestCount:try store.pending().count)
             try JSONEncoder().encode(state).write(to:stateFile,options:.atomic)
             try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:stateFile.path)
-            print("PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue")
+            print("PASS native workspace creation, four synthetic turns, receipts, skills, attribution, invalidation/idle replay and empty pending queue")
             return
         }
         if CommandLine.arguments[1] == "workspace-replay" {
