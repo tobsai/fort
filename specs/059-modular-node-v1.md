@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: c1c4bdf2d70cd84595340839fa3417646d8b79d81dfe32b70d0423a97ab8f4bd
+Reviewed content SHA256: ceb22f0442700dd286afb6d6c25141787130ec8fdb2a623d06c116aefd0094e0
 
 ### Vendor independence
 Status: planned
@@ -246,6 +246,27 @@ EOF cleanup. Build and exercise the relay from the compiled vendor-free artifact
 This is a small hosting adapter with no production dependency, polling, TCP
 listener or provider activation; Swift supervision/XPC forwarding remains next.
 
+Add the Mac process transport behind the same native request contract. Explicit
+composition supplies one exact executable, arguments, private directory and
+environment; no shell, inherited environment, enrollment or provider selection.
+Own a distinct process group and nonblocking stdin/stdout pipes. Accept readiness
+within five seconds, at most eight outstanding calls, 2 MiB input and 12 MiB
+output frames, 8 MiB response bodies and 30-second request deadlines. Validate
+correlation/version/status and settle each continuation once. Cancellation sends
+a correlated cancel and retains capacity until acknowledgment; failure to drain
+an input write or acknowledge cancellation within five seconds closes the host.
+Closing first sends EOF, then escalates to TERM after two seconds and KILL after
+four, with a six-second total cleanup bound. Report clean close separately from
+forced shutdown and require the child reaped and process group absent. These
+are owned-process lifecycle checks, not containment of a hostile process that
+escapes its group. Test exact source/compiled core requests, auth, replay/restart,
+cancellation, malformed/oversized/stale output, absent readiness, blocked input
+and hung-child cleanup. Keep real XPC composition, persistent startup and actual
+providers as separate acceptance gates. This adds no package dependency or idle
+polling; process exit and pipe readiness drive normal operation. Lifecycle timers
+run only during launch, requests and shutdown. Existing setup authority is not
+expanded; the synthetic fixture alone supplies enrollment outside the transport.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -298,6 +319,12 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CoreProcessTests.swift`
+- `successor/host/fixtures/native-core.mjs`
+- `successor/host/fixtures/native-channel.mjs`
+- `successor/evidence/2026-10-17-node-foundation/native-core-process.md`
 
 - `successor/host/private-channel.ts`
 - `successor/host/private-channel.test.ts`
