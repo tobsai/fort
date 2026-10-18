@@ -1000,6 +1000,41 @@ test('bounded device authorization expires even if the service remains open',asy
   assert.throws(()=>h.service.issueEnrollment(),/closed/);
 });
 
+test('advancing read acknowledgement wakes replay while duplicate and older acknowledgements make no writes', async t => {
+  const h = await setup(t, { runtime: { async dispose() {}, async execute() { return { kind: 'completed', text: 'Synthetic reply', effectiveModel: null }; } } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Reader', model: 'synthetic-model', instructions: 'Reply.' })).body;
+  const path = `/v1/conversations/${agent.homeConversationId}`;
+  const epoch = h.service.installation.recoveryEpoch;
+  await h.api(path + '/messages', { requestId: 'read-replay', text: 'Synthetic request', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: epoch, skills: [] });
+  await h.service.dispatchNext();
+  const snapshot = (await h.api<Snapshot>(path + '/snapshot')).body;
+  const last = snapshot.messages.at(-1)!;
+  type Page = { cursor: number; events: { kind: string; conversationId: string; entityId: string }[] };
+  const query = `/v1/events?recoveryEpoch=${epoch}&after=`;
+  const waiting = h.api<Page>(query + snapshot.cursor + '&wait=1000');
+  const command = { recoveryEpoch: epoch, cursor: snapshot.cursor, messageId: last.messageId };
+  const acknowledged = await h.api<{ lastReadMessageSequence: number }>(path + '/read', command);
+  assert.equal(acknowledged.status, 200);
+  assert.equal(acknowledged.body.lastReadMessageSequence, last.sequence);
+  const changed = (await waiting).body;
+  assert.deepEqual(changed.events.map(({ kind, conversationId, entityId }) => ({ kind, conversationId, entityId })), [{ kind: 'readChanged', conversationId: agent.homeConversationId, entityId: last.messageId }]);
+  const wal = join(h.directory, 'openai-candidate-b.sqlite-wal');
+  const fingerprint = async () => createHash('sha256').update(await readFile(wal)).digest('hex');
+  const before = await fingerprint();
+  for (const message of [last, snapshot.messages[0]!, last]) {
+    const repeated = await h.api<{ lastReadMessageSequence: number }>(path + '/read', { ...command, messageId: message.messageId });
+    assert.equal(repeated.status, 200);
+    assert.equal(repeated.body.lastReadMessageSequence, last.sequence);
+  }
+  assert.equal(await fingerprint(), before);
+  const idle = (await h.api<Page>(query + changed.cursor)).body;
+  assert.equal(idle.cursor, changed.cursor);
+  assert.deepEqual(idle.events, []);
+  await h.restart();
+  assert.equal((await h.api<Snapshot>(path + '/snapshot')).body.lastReadMessageSequence, last.sequence);
+  assert.deepEqual((await h.api<Page>(query + snapshot.cursor)).body.events, changed.events);
+});
+
 test('explicit automatic dispatch runs new accepted work and read acknowledgement persists monotonically', async t => {
   const h = await setup(t, { autoRun: true, runtime: { async dispose() {}, async execute() { return { kind: 'completed', text: 'Saved reply', effectiveModel: null }; } } });
   const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'gpt-6-astra', instructions: 'Reply.' })).body;

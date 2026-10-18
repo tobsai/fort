@@ -863,7 +863,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             const message = row ? decodeMessage(json(row)) : undefined;
             if (body.recoveryEpoch !== installation.recoveryEpoch || typeof body.cursor !== 'number' || !Number.isSafeInteger(body.cursor) || body.cursor > cursor() || !message || message.conversationId !== conversationId || message.sequence > body.cursor) fail(409, 'readConflict', 'Read acknowledgement does not match this conversation.');
             const prior = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
-            const sequence = Math.max(prior ? Number(record(json(prior)).sequence) : 0, message.sequence); put('reads', conversationId, { sequence }); return { lastReadMessageSequence: sequence };
+            const previous = prior ? Number(record(json(prior)).sequence) : 0;
+            const sequence = Math.max(previous, message.sequence);
+            if (sequence > previous) {
+              put('reads', conversationId, { sequence });
+              append(conversationId, 'readChanged', message.messageId);
+            }
+            return { lastReadMessageSequence: sequence };
           });
         }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {

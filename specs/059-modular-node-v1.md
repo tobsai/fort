@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9aec16ea97d362bf7c44af783444f49b600136fa934b32b5fa67ed147b539d01
+Reviewed content SHA256: 0b9143bbbff6c75545b11adca926aa21fc23ba478127affaa9b9e5d3c37ce611
 
 ### Vendor independence
 Status: planned
@@ -100,6 +100,10 @@ at most eight concurrent waits per single-owner service. Installation reads carr
 a cursor captured before native refresh reads so concurrent edits cannot be lost.
 Idle responses cause no native cache rewrite. Backgrounding cancels the wait.
 Workspace edits and scheduler faults also wake clients; no-due checks do not.
+An advancing read acknowledgement emits a durable conversation invalidation in
+the same transaction. Duplicate or older acknowledgements preserve the current
+read position without a ledger write or event, preventing refresh loops between
+clients. Replay and restart retain the acknowledged position.
 
 The service allocates attempt IDs/generations and dispatches immutable binding,
 input/context/policy digests, limits, deadline and scoped grant references. Executors

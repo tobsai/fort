@@ -39,3 +39,26 @@ Logs: `/tmp/fort059-replay-final-service.log`,
 `/tmp/fort059-replay-native-final.log`, `/tmp/fort059-replay-native-http.log`,
 `/tmp/fort059-replay-typecheck-final.log`, `/tmp/fort059-replay-node-all.log`.
 No real provider, account, startup service, installed UI or distribution was used.
+
+## Read acknowledgement correction
+
+The service now emits `readChanged` in the transaction that advances a
+conversation's read position. Other clients can replay that invalidation and
+refresh their read projection. Repeating the same acknowledgement or sending an
+older one returns the retained position without writing the ledger or emitting
+another event. This prevents read-triggered refresh loops.
+
+The public HTTP regression first failed because the bounded event wait returned
+no read invalidation. It now verifies exactly one event, unchanged WAL hashes
+for duplicate/older acknowledgements, idle replay and durable position/event
+recovery after restart. All 65 service tests, 829 portable tests with no skips,
+strict TypeScript checking and the compiled Swift HTTP journey passed. The
+native journey still reports ten synthetic executions, six restarts, two lost
+acceptances, one lost cancellation, no duplicate/canceled dispatch and an empty
+pending queue. No Swift source changed and installed UI acceptance remains open.
+
+Logs: `/tmp/fort059-read-replay-red.log`,
+`/tmp/fort059-read-replay-service.log`,
+`/tmp/fort059-read-replay-portable.log`,
+`/tmp/fort059-read-replay-typecheck.log`,
+`/tmp/fort059-read-replay-native-http.log`.
