@@ -3,7 +3,7 @@ import Foundation
 import Darwin
 
 final class OwnerSetupFiles {
-    enum Record: String { case pending = "owner-setup.json", connection = "connection.json" }
+    enum Record: String { case pending = "owner-setup.json", connection = "connection.json", removal = "pairing-removal.json", disconnected = "disconnected.json" }
     private let path: String
     private let identity: stat
     private var directory: Int32
@@ -78,11 +78,19 @@ final class OwnerSetupFiles {
         try verifyDirectory()
         guard renameat(directory,temporary,directory,record.rawValue) == 0, fsync(directory) == 0 else { throw Self.ioError() }
     }
-    func removePending() throws {
-        guard try read(.pending) != nil else { throw OwnerSetupPreparationError.changedPreparation }
-        guard unlinkat(directory,Record.pending.rawValue,0) == 0, fsync(directory) == 0 else { throw Self.ioError() }
+    private func remove(_ record: Record) throws {
+        guard try read(record) != nil else { throw OwnerSetupPreparationError.changedPreparation }
+        guard unlinkat(directory,record.rawValue,0) == 0, fsync(directory) == 0 else { throw Self.ioError() }
     }
-    func close() { if lock >= 0 { Darwin.close(lock); lock = -1 }; if directory >= 0 { Darwin.close(directory); directory = -1 } }
+    func removePending() throws { try remove(.pending) }
+    func removeConnection() throws { try remove(.connection) }
+    func close() {
+        if lock >= 0 {
+            while flock(lock,LOCK_UN) != 0 && errno == EINTR {}
+            Darwin.close(lock); lock = -1
+        }
+        if directory >= 0 { Darwin.close(directory); directory = -1 }
+    }
     deinit { close() }
 }
 #endif

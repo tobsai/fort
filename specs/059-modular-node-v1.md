@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2c0270a54fd09f50810a3c64ef93f2ae40d69785128e72dfcbb24b712fe40755
+Reviewed content SHA256: 5448ed45ba72e10c346e0f2fadf7cc0a7fe277aa437b86be26bb3911e3452fdd
 
 ### Vendor independence
 Status: planned
@@ -614,6 +614,39 @@ boundary and existing separate cleanup/relaunch timing budgets. Report this as
 synthetic signed evidence, separate from ordinary client recovery and installed
 product acceptance.
 
+Add explicit native pending-setup inspection and cancellation recovery before app
+composition. Inspection acquires the existing private file lease (creating its
+empty lock file when absent) and reads validated metadata, with no credential
+read, host request or activation. Cancellation accepts the exact displayed
+installation/setup/device identity and pinned endpoint; stale identities, foreign
+connections and absent cancellation capability preserve local state. Persist
+canceling intent under the existing exclusive lease before invoking the host, and
+block connect/re-enrollment while canceling or confirmed cancellation remains.
+Persist an exact validated cancellation receipt before local credential cleanup.
+Lost replies, task cancellation, host failures, storage/credential failures and
+restart retain a recoverable phase. A saved confirmed receipt can finish local
+cleanup without another remote claim or automatic host activation.
+
+Keep ready-phase credential hashes and refuse deletion of an altered credential.
+For interrupted preparation, validate any retained credential and bind its digest
+before cleanup; missing credentials are allowed, read errors remain failures.
+Delete only the exact prepared credential, confirming absence; preserve unexpected
+changes. If final connection persistence had already succeeded, record its confirmed
+removal and retained-history reference before removing that exact connection. Keep
+history snapshots and unrelated records. Remove pending metadata last; repeating an
+already-finished operation reports no pending setup, not a new revocation. Use the
+same anchored, bounded private file operations and lock. Malformed/unsafe records
+remain untouched. Test public inspection/cancel seams, missing/changed credentials,
+partial writes/removals, stale identities/hosts/proofs, overlapping operations,
+interrupted finalization, restart and the compiled core. Explicitly unlock the
+lease before closing its descriptor so a duplicate retained during process
+creation cannot extend the completed operation's lock; verify immediate reacquisition
+while that duplicate remains open. No new provider/storage
+dependency, idle work, real Keychain access, startup activation, app removal or
+ordinary UI wiring is introduced. Existing request/cleanup deadlines and the
+500 ms synthetic file-durability budget remain; installed Keychain timing and
+hardware power-loss behavior remain separate gates.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -687,6 +720,8 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-native.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-xpc.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup-cancellation-xpc.json`
+- `successor/apple/FortKit/Tests/FortKitTests/OwnerSetupCancellationTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

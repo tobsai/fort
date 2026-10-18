@@ -67,6 +67,15 @@ public final class DeviceStorage {
     }
     public func token(for connection: DeviceConnection) throws -> String { try connection.validate(); return try credentials.token(for:connection) }
     #if os(macOS)
+    func ownerSetupCredential(for connection: DeviceConnection) throws -> String? {
+        do { return try token(for:connection) }
+        catch DeviceStorageError.keychain(errSecItemNotFound) { return nil }
+    }
+    func removeOwnerSetupCredential(_ connection: DeviceConnection, expectedToken: String?) throws {
+        guard try ownerSetupCredential(for:connection) == expectedToken else { throw OwnerSetupPreparationError.changedPreparation }
+        if expectedToken != nil { try credentials.remove(connection) }
+        guard try ownerSetupCredential(for:connection) == nil else { throw OwnerSetupPreparationError.changedPreparation }
+    }
     static func makeOwnerDeviceToken() throws -> String {
         var bytes = [UInt8](repeating:0,count:32)
         guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw OwnerSetupPreparationError.randomUnavailable }
