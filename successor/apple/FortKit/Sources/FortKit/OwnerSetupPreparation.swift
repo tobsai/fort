@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import CryptoKit
 
@@ -17,6 +16,7 @@ public enum OwnerSetupPreparationError: Error, LocalizedError {
     }
 }
 
+#if os(macOS)
 public struct PendingOwnerSetup: Equatable, Sendable {
     public enum Phase: String, Sendable { case preparing, ready, canceling, canceled }
     public let identity: OwnerSetupIdentity

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: b90e73b50174dfc01c9d844ec7d1f06b63e9617f9623805a92b69b633f19fe77
+Reviewed content SHA256: af4e727b13ecefb2f48bffd9fcb35f85565c8e4e24829f72e6f0831b9eaabf79
 
 ### Vendor independence
 Status: planned
@@ -1982,7 +1982,39 @@ choice prompt. Exact slice paths are the maintenance source/entry/test, core art
 configuration/packager, host-resource packager/test, Mac core process transport and
 history request/test, this spec, v1 ledger, review and maintenance evidence note.
 
+### iPhone saved-copy deletion
+
+Extend the existing explicit saved-cache deletion seam to iPhone. Capture the exact
+DeviceConnection in the confirmation, require a confirmed disconnect and absent
+credential, keep recovery records, host ledger/settings and other installations, and
+clear the visible cache only after success. A network endpoint is data here; this
+operation must not create a transport request or activate access. Immediate acceptance
+remains same-local-network scope, with no change to transport or security settings.
+
+Vendor independence: no provider call or account dependency. Modularity: share the
+bounded descriptor-relative cache traversal and private metadata lease on Apple
+platforms; retain the ACL/owner/mode/inode checks on both platforms, using the iOS SDK
+Darwin declarations, alongside the existing iOS sandbox and Data Protection storage. Expose the credential absence query on
+both platforms without creating credentials. Do not port Mac startup/host controls.
+Speed: retain 4,096-entry/256 MiB aggregate and 16 MiB file bounds, explicit action
+only, no background work; preserve the existing 500 ms/100-snapshot synthetic budget.
+Installation/removal: no new service, permission, dependency or host deletion authority.
+Test exact network-endpoint cache removal, stale confirmations, refusal matrices,
+retry and model clearing through shared synthetic fixtures; compile both clients.
+Simulator execution/physical Data Protection and installed accessibility/screenshots
+are distinct unverified gates if the local simulator cannot run. Rollback hides this
+control on iPhone without changing stored data or the Mac safety checks.
+
+Exact slice files: OwnerSetupFiles.swift (shared guarded lease),
+OwnerSetupPreparation.swift (shared error placement only), DeviceStorage.swift,
+SavedHistoryRemoval.swift, MessengerModel.swift, PairingSettings.swift and existing
+SavedHistoryRemovalTests.swift under FortKit; this spec, v1 ledger, current review,
+and iphone-saved-history.md evidence. No actual user history may be deleted during
+implementation. This is an unchanged-scope refinement under decision 059.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/iphone-saved-history.md`
 
 - `successor/host/history-maintenance.ts`
 - `successor/host/history-maintenance.test.ts`

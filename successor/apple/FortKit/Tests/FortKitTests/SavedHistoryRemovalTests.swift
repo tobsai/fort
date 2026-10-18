@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import Security
 import CryptoKit
@@ -18,10 +17,14 @@ private final class HistoryCredentials: DeviceCredentials {
     }
     func remove(_ connection: DeviceConnection) throws { present = false }
 }
-private func historyFixture() throws -> (URL, DeviceStorage, DeviceConnection, HistoryCredentials) {
+private func historyFixture(network: Bool = false) throws -> (URL, DeviceStorage, DeviceConnection, HistoryCredentials) {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("fort-history-delete-" + UUID().uuidString)
     let credentials = HistoryCredentials(), storage = try DeviceStorage(directory:root,credentials:credentials)
-    let endpoint = DeviceEndpoint.macAgent(try MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic"))
+    #if os(macOS)
+    let endpoint: DeviceEndpoint = network ? .network(baseURL:URL(string:"https://192.0.2.1")!,fixtureLoopback:false) : .macAgent(try MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic"))
+    #else
+    let endpoint: DeviceEndpoint = .network(baseURL:URL(string:"https://192.0.2.1")!,fixtureLoopback:false)
+    #endif
     let connection = try DeviceConnection(endpoint:endpoint,installationID:"one",deviceID:"device")
     try storage.save(connection,token:"synthetic")
     for id in ["one","other"] {
@@ -101,7 +104,7 @@ func savedHistoryDeletionRefusesUnsafeStateBeforeRemovingAnyHistory(scenario: St
     for file in files where file != snapshot && file.lastPathComponent.hasPrefix("snapshot-") { #expect(FileManager.default.fileExists(atPath:file.path)) }
 }
 @Test @MainActor func savedHistoryNativeActionClearsOnlyAfterConfirmedDeletion() async throws {
-    let (root,storage,connection,credentials) = try historyFixture()
+    let (root,storage,connection,credentials) = try historyFixture(network:true)
     defer { try? FileManager.default.removeItem(at:root) }
     let model = MessengerModel(storage:storage,session:.shared)
     await model.restore()
@@ -116,7 +119,7 @@ func savedHistoryDeletionRefusesUnsafeStateBeforeRemovingAnyHistory(scenario: St
     credentials.present = false
     model.deleteSavedHistory(connection)
     #expect(model.installation == nil && model.pending.isEmpty && model.localImages.isEmpty)
-    #expect(model.status == "Saved history deleted on this Mac")
+    #expect(model.status == "Saved history deleted on this device")
     let reopened = MessengerModel(storage:storage,session:.shared)
     await reopened.restore()
     #expect(reopened.installation == nil && reopened.pending.isEmpty)
@@ -169,4 +172,3 @@ func savedHistoryDeletionRejectsChangesAndRetriesInterruptedCleanup(scenario: St
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:output))
     #expect(samples.sorted()[18] <= 500)
 }
-#endif

@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import Darwin
 
@@ -108,4 +107,3 @@ final class OwnerSetupFiles {
     }
     deinit { close() }
 }
-#endif

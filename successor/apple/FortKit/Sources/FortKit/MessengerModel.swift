@@ -94,9 +94,11 @@ import Observation
     private var ownedInstallation: (any OwnedMacInstallation)?
     public var removableAppURL: URL? { ownedInstallation?.appURL }
     public var canDeleteLocalHistory: Bool { ownedInstallation?.supportsHistoryDeletion == true }
-    #if os(macOS)
     public var canDeleteSavedHistory: Bool {
-        !isOfflinePreview && !isInteractiveFixture && !isBusy && !lifecycleBusy && !ownerSetupBusy &&
+        #if os(macOS)
+        guard !ownerSetupBusy else { return false }
+        #endif
+        return !isOfflinePreview && !isInteractiveFixture && !isBusy && !lifecycleBusy &&
         !connected && client == nil && pairingRemoved && !pairingCleanupPending && !pairingRemovalPending && !expectedInstallation.isEmpty
     }
     public var savedHistoryDeletionTarget: DeviceConnection? {
@@ -115,11 +117,10 @@ import Observation
             agents = []; conversations = []; skills = []; routines = []; schedules = []
             selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
             lastSavedSkill = nil; draft = ""; eventCursor = nil
-            status = "Saved history deleted on this Mac"
-            pairingMessage = "Saved conversations, pending submissions and image previews for this installation were deleted on this Mac. The host ledger and other devices are unchanged. Recovery records are kept."
+            status = "Saved history deleted on this device"
+            pairingMessage = "Saved conversations, pending submissions and image previews for this installation were deleted on this device. The host ledger and other devices are unchanged. Recovery records are kept."
         } catch { pairingMessage = "Saved-history deletion is incomplete. The displayed history is kept; check this installation and retry." }
     }
-    #endif
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var canResumeLocalWork: Bool { canManagePairing && runtimeReadiness?.state == "stopped" && runtimeReadiness?.canRestart == true && !isBusy && !lifecycleBusy }

@@ -1,77 +1,83 @@
-What this repo does: Fort is a single-owner native messenger with a local Node
-ledger and optional runtime adapters. This slice exposes offline history maintenance
-only through a separately launched, owned private process. Expected load is one owner,
-one bounded command and the existing capped local ledger.
+What this repo does: Fort is a single-owner native messenger with a local ledger
+and optional providers. This slice gives iPhone the same explicit saved-copy deletion
+as Mac. Expected load is one owner and the existing bounded local cache.
 
 ## Semantic review
 
-Codex self-review, October 18, 2026, base c28720d. Read the pinned Ponytail skill
-and preserved baseline. Reviewed every changed source/test/configuration, the ledger
-transaction and format guards, native framing/cancellation/process ownership callers,
-compiled entry and resource manifest construction. Traced exact identity, parent EOF,
-malformed controls, lost replies, retry, recovery epoch and process-group absence.
-Checked that ordinary HTTP/XPC/core dispatch receives no deletion route. Reviewed
-final staged evidence against raw test logs and the fresh artifact manifest.
+Codex self-review, October 18, 2026, base bb2086d. Applied the pinned Ponytail skill
+and retained baseline. Reviewed all changed sources and callers: captured connection,
+disconnected/restored model state, credential absence, metadata lease, bounded
+traversal, no-follow/owner/link/inode/ACL checks, refusal/retry and visible state reset.
+Inspected actual iOS SDK ACL declarations and both compiled clients. No filesystem
+check was removed; Mac startup/setup implementation remains guarded. Checked the
+package test target graph after the first library-only scheme exposed no tests.
+Read final diffs, test logs, timing samples and exact artifact inventory.
 
 ## Must fix
 
-1. **Owner-facing host history deletion remains incomplete — open.**
-   - What this is: The maintenance command can now delete a disconnected synthetic ledger.
-   - Problem: Production has no durable captured confirmation linked to completed
-     startup/host/executor/credential absence and client cache cleanup.
-   - Fix: Compose and test that native coordinator before enabling the control.
-   - If skipped: Passing a private command test would be misrepresented as product deletion.
+1. **iPhone runtime acceptance is still missing — open.**
+   - What this is: Shared source and tests now compile for iOS.
+   - Problem: Local CoreSimulator is incompatible with Xcode and cannot establish runtime behavior.
+   - Fix: Run synthetic tests on compatible tools, then physical Data Protection and installed UI acceptance.
+   - If skipped: Build success could be mistaken for a tested iPhone app.
 
-Verdict: The bounded source and compiled-fixture slice passes; continue native
-composition. No new dependency or alternative process manager was added. The final
-full portable rerun includes the prior ledger's two last format guards.
-Not checked: actual owner history or accounts, App Group/profile eligibility, installed
-UI, provider behavior, physical iPhone, signed apps, TestFlight or remote CI. New optional
-compiled maintenance was explicitly enabled locally. No release exception is granted.
+2. **Full host-ledger deletion is still incomplete — open.**
+   - What this is: This control removes only a device's saved copy.
+   - Problem: Native host deletion still lacks durable confirmation and lifecycle composition.
+   - Fix: Complete the separate host-maintenance coordinator and exact installed checks.
+   - If skipped: The owner cannot request verified removal of host conversation history.
+
+Verdict: Shared cache slice passes source/fixture/build checks. No new implementation
+of filesystem deletion or dependency was added; platform guards were narrowed while
+preserving the existing checks. This is not installed-product or release signoff.
+Not checked: physical/iOS execution, actual Keychain/Data Protection, installed
+accessibility/screenshots, provider behavior, signing/TestFlight or remote CI.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "c28720dec6ae89390fad8e274f618c22161d3bae",
+  "reviewedCommit": "bb2086d9ee3bc7df9c5e5f85605d57c42bf1ac20",
   "reviewer": "Codex",
-  "scope": "Bounded offline history-maintenance entry, exact Swift request/receipt and private guarded-process integration, packaging graph and final portable/native regression evidence.",
+  "scope": "Share exact-confirmation saved-cache deletion on iPhone and Mac without weakening filesystem/credential checks; network-endpoint synthetic model behavior, both client builds and iOS test compilation.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "findings": [
     {
+      "id": "IPHONE-CACHE-EXECUTION",
+      "disposition": "open",
+      "detail": "Shared code and tests compile for iOS, but incompatible CoreSimulator prevents iOS runtime/physical Data Protection/UI acceptance."
+    },
+    {
       "id": "NATIVE-HOST-DELETION",
       "disposition": "open",
-      "detail": "Private compiled maintenance now passes, but durable native confirmation and completed lifecycle/credential/cache composition remain before enabling production deletion."
+      "detail": "Native host-ledger deletion still needs durable captured confirmation and completed lifecycle/credential/cache composition."
     }
   ],
   "tests": [
-    "18 controls/packaging passed; one optional measurement skipped.",
-    "Strict TypeScript and Swift package build passed.",
-    "Compiled native synthetic deletion/retry/reopen/old-epoch denial passed; PID/group absent; 125.127333 ms within 5000 ms bound.",
-    "Final portable: 1158 passed, six optional skips. Final native: 253 executed functions passed, ten optional skips.",
-    "94 payload files and manifest hashes verified; no new application assembled."
+    "Initial network-endpoint model status expectation failed, then passed after shared device-neutral action.",
+    "Four saved-cache behavior functions including 15 unsafe and three interruption/change cases passed; dedicated fifth timing function passed with 20 isolated measurements, p95 46.304375 ms within 500 ms.",
+    "Full native: 253 executed functions passed, ten optional skips.",
+    "Unsigned Debug Mac/iPhone Simulator clients passed; FortKit-Package test bundle compiled and linked for arm64/x86_64 iOS Simulator.",
+    "Exact app inventory includes Debug dylibs; manifest digest recorded. Portable source unchanged; preceding 1158-pass/six-skip result not rerun."
   ],
   "exceptions": [
-    "No real data, credential, startup, provider, network or installed-product invocation.",
-    "New optional compiled journey was explicitly enabled locally; remote CI execution and release configuration unverified.",
-    "Single integration timing is not a percentile benchmark; earlier isolated ledger benchmark remains separate."
+    "No iOS test execution or installed UI acceptance; CoreSimulator 1171.7.0 is older than required 1174.9.2.",
+    "No actual history/Keychain/provider/network/startup/account action.",
+    "Initial FortKit build-for-testing scheme had no test configurations; only later FortKit-Package build establishes test compilation."
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "0cbead9b2f2a54b53ea067d7c360466a8baf4476430364f5b075dcffef8ebf90",
-    "successor/V1-ACCEPTANCE.md": "667475d87f77ff48855fe34e20afc82233fc9ab2d3800cb0157c12e154d88116",
-    "successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift": "91a895171a1ee45d126a22c5a45f146e3add6547e082085d6abc66711a99c2d3",
-    "successor/apple/FortKit/Sources/FortKit/MacHistoryDeletion.swift": "699751d28374cd169fa38df2568967df2804246638dc279f77f1eeaf2abe1fbd",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHistoryDeletionTests.swift": "62e47f9e8cf6dfec64de0ba784b17ae05df15aeceeadc73a81947fa41fe07e37",
-    "successor/evidence/2026-10-17-node-foundation/history-maintenance.md": "1ccc1e3fc0288ae05671344164b9c26d11d4be8b8c4b30a29656467f43e03719",
-    "successor/host/history-maintenance.mjs": "a12434cebc87aca7e64ca6ff7c5f9c19190ce844c65bae4e313c3d906d97397b",
-    "successor/host/history-maintenance.test.ts": "fc9cfd73fa9bfcfb15cfded2376653c46d0cdecd302329152db0535c22c1acd6",
-    "successor/host/history-maintenance.ts": "98ea24d6700df634f8f3c3a411d4cacb6a8758a52c0f79811455fcc67f186c2a",
-    "successor/packaging/core-artifact.ts": "ad29c5a9610f15e2034c602f5fde127552c1119c250620085ebdcf084b272465",
-    "successor/packaging/host-resources.test.ts": "fd6ee2fe1ec379313a6dd099f413643c52d584e97a4248f563df6ed56f41e639",
-    "successor/packaging/host-resources.ts": "9e7d7e1c4f1d16f8ec64b0ea79970efde4a219dbb711b409cafa8423aab71cc1",
-    "successor/tsconfig.core.json": "a9f429083cccc1da962adaabe1f1d3bf978c5d1f177bb7a06d5eb6b39d18853f"
+    "specs/059-modular-node-v1.md": "e759ec8dfd2f2872500539149dfdc5c7fb07087e65765e081da14dced0156633",
+    "successor/V1-ACCEPTANCE.md": "a4779efb0a031c4ae7d71b0bae4c1dfb99aaf76525c3051186bd22914b162616",
+    "successor/apple/FortKit/Sources/FortKit/DeviceStorage.swift": "58d906d524cd17397eb3c358388c4a8d11e6f2ebda815db2d955b7fef56ff13a",
+    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "bc77d52e03f84d7abfd079c51f14955f9c320663b5b785be53a5a2d8548026a0",
+    "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift": "b540aededba58c19a5fdce08b670c33d2b155bc0b81c5fd9d5c51f9d1fbd799b",
+    "successor/apple/FortKit/Sources/FortKit/OwnerSetupPreparation.swift": "06bcf69cde51f1ffbfcc554f030937836d56d09a2b3bbac20f102a0e1edaa4b1",
+    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "d7f8c4f769833bb7c6f7f7aa221fd31b7225feb1a42afbfa4569e573103c1844",
+    "successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift": "55b9b9b36d47f46b75ae12478e8f1b56da0e842d6687150d9d4648fa143fcee6",
+    "successor/apple/FortKit/Tests/FortKitTests/SavedHistoryRemovalTests.swift": "78cc5e02c7f345a281b3be263826224693b8ab4ad80c41cd8c2dd30fe7115776",
+    "successor/evidence/2026-10-17-node-foundation/iphone-saved-history.md": "1284b8b7909495b91720381b39ec10e16d5755874e6224489512ed2e6c40191c"
   }
 }
 ```

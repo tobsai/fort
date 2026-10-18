@@ -66,11 +66,11 @@ public final class DeviceStorage {
         try protectedWrite(record,to:directory.appendingPathComponent("connection.json"))
     }
     public func token(for connection: DeviceConnection) throws -> String { try connection.validate(); return try credentials.token(for:connection) }
-    #if os(macOS)
     func ownerSetupCredential(for connection: DeviceConnection) throws -> String? {
         do { return try token(for:connection) }
         catch DeviceStorageError.keychain(errSecItemNotFound) { return nil }
     }
+    #if os(macOS)
     func removeOwnerSetupCredential(_ connection: DeviceConnection, expectedToken: String?) throws {
         guard try ownerSetupCredential(for:connection) == expectedToken else { throw OwnerSetupPreparationError.changedPreparation }
         if expectedToken != nil { try credentials.remove(connection) }

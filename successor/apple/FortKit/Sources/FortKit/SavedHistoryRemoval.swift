@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import CryptoKit
 import Darwin
@@ -190,4 +189,3 @@ extension DeviceStorage {
         guard try savedHistory(in:root,installationID:connection.installationID).isEmpty else { throw SavedHistoryRemovalError.changedStore }
     }
 }
-#endif
