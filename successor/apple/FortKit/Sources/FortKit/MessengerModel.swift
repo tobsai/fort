@@ -48,6 +48,31 @@ import Observation
     public var selectedSkillIDs: Set<String> = []
     public var workspaceSaving = false
     public var snapshot: Snapshot?
+    private var historyPage: Snapshot?
+    private var historyRevision = 0
+    public private(set) var loadingEarlierMessages = false
+    public var displaySnapshot: Snapshot? {
+        let page = isViewingEarlierMessages ? historyPage : snapshot
+        return page?.conversationId == activeConversationID && page?.installationId == installation?.installationId ? page : nil
+    }
+    public var isViewingEarlierMessages: Bool { historyPage != nil && historyPage?.conversationId == activeConversationID && historyPage?.installationId == installation?.installationId && historyPage?.recoveryEpoch == installation?.recoveryEpoch }
+    public func showLatestMessages() { historyRevision += 1; historyPage = nil }
+    public func loadEarlierMessages() async {
+        guard !loadingEarlierMessages, let client, let current = displaySnapshot,
+              let before = current.window?.olderBefore, current.conversationId == activeConversationID else { return }
+        loadingEarlierMessages = true
+        let revision = historyRevision
+        defer { loadingEarlierMessages = false }
+        do {
+            let incoming = try await client.snapshot(conversationID:current.conversationId,before:before)
+            guard incoming.recoveryEpoch == current.recoveryEpoch, incoming.window?.before == before else { throw ClientError.invalidResponse }
+            var validation = Transcript(installationID:current.installationId,conversationID:current.conversationId)
+            try validation.apply(incoming)
+            guard historyRevision == revision, activeConversationID == current.conversationId, installation?.installationId == current.installationId,
+                  installation?.recoveryEpoch == current.recoveryEpoch, displaySnapshot?.window == current.window else { return }
+            historyPage = validation.snapshot
+        } catch { status = error.localizedDescription }
+    }
     public var pending: [PendingSubmission] = []
     public var pendingErrors: [String:String] = [:]
     public var installation: Installation?
@@ -315,12 +340,12 @@ import Observation
               cancellation.bindingRevisionId == item.bindingRevision, cancellation.recoveryEpoch == item.recoveryEpoch else { throw ClientError.invalidResponse }
         switch cancellation.status {
         case .notAccepted:
-            guard cancellation.receipt == nil, cancellation.run == nil, cancellation.snapshot == nil else { throw ClientError.invalidResponse }
+            guard cancellation.receipt == nil, cancellation.run == nil, cancellation.snapshot == nil, cancellation.message == nil else { throw ClientError.invalidResponse }
         case .accepted:
             guard let receipt = cancellation.receipt, let run = cancellation.run, let snapshot = cancellation.snapshot,
                   run.runId == receipt.runId, run.requestId == item.requestID, run.conversationId == item.conversationID,
-                  run.bindingRevisionId == item.bindingRevision, ["cancelRequested","canceled","completed","failed","outcomeUnknown","closedUnknown"].contains(run.state), snapshot.runs.contains(run),
-                  item.matches(Acceptance(receipt:receipt,snapshot:snapshot)) else { throw ClientError.invalidResponse }
+                  run.bindingRevisionId == item.bindingRevision, ["cancelRequested","canceled","completed","failed","outcomeUnknown","closedUnknown"].contains(run.state),
+                  item.matches(Acceptance(receipt:receipt,snapshot:snapshot,message:cancellation.message,run:run)) else { throw ClientError.invalidResponse }
             try persist(snapshot,conversationID:item.conversationID,epoch:item.recoveryEpoch)
         }
         try pendingStore?.remove(requestID:item.requestID)
@@ -337,6 +362,7 @@ import Observation
     }
     public func send() async {
         guard canSend, let agent = recipient, let conversationID = activeConversationID, let installation, let pendingStore else { return }
+        showLatestMessages()
         do {
             try pendingStore.enqueue(conversationID:conversationID,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:draft,recipientAgentID:hasWorkspace ? agent.id : nil,skills:hasWorkspace ? skills.filter { selectedSkillIDs.contains($0.id) }.map(\.reference) : nil,memoryRevisionId:supportsMemory ? conversationMemory?.revisionId : nil)
             draft = ""; selectedSkillIDs = []; pending = try pendingStore.pending(); try saveNavigation()
@@ -349,6 +375,7 @@ import Observation
         try storage.saveNavigation(SavedNavigation(installation:installation, agents:agents, selectedAgentID:selectedAgentID, conversations:conversations, skills:skills, selectedConversationID:selectedConversationID, recipientAgentID:recipientAgentID))
     }
     public func selectConversation(_ id: String?) async {
+        showLatestMessages()
         selectedConversationID = id; recipientAgentID = nil; selectedSkillIDs = []
         if let room = selectedConversation, room.kind == "home" { selectedAgentID = room.participantAgentIds.first }
         snapshot = id.flatMap { try? storage.snapshot(installationID:expectedInstallation,conversationID:$0) }

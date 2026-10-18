@@ -20,14 +20,17 @@ public struct PendingSubmission: Codable, Equatable, Sendable, Identifiable {
     public func canRetry(in epoch: String) -> Bool { recoveryEpoch == epoch && reviewRequired == nil && cancelRequested != true }
     public func matches(_ acceptance: Acceptance) -> Bool {
         let receipt = acceptance.receipt
+        let message = acceptance.message ?? acceptance.snapshot.messages.first { $0.messageId == receipt.messageId }
+        let run = acceptance.run ?? acceptance.snapshot.runs.first { $0.runId == receipt.runId }
         guard receipt.requestId == requestID, receipt.conversationId == conversationID, receipt.bindingRevisionId == bindingRevision,
-              acceptance.snapshot.messages.contains(where: { $0.messageId == receipt.messageId && $0.requestId == requestID && $0.role == "user" }) else { return false }
-        if let memoryRevisionId, acceptance.snapshot.runs.first(where: { $0.runId == receipt.runId })?.configuration?.memory?.revisionId != memoryRevisionId { return false }
+              let message, message.messageId == receipt.messageId, message.requestId == requestID, message.conversationId == conversationID, message.role == "user" else { return false }
+        if let run, run.runId != receipt.runId || run.requestId != requestID || run.conversationId != conversationID || run.bindingRevisionId != bindingRevision { return false }
+        if let memoryRevisionId, run?.configuration?.memory?.revisionId != memoryRevisionId { return false }
         if let routine {
-            guard let accepted = acceptance.snapshot.runs.first(where: { $0.runId == receipt.runId && $0.requestId == requestID })?.routine else { return false }
+            guard let accepted = run?.routine else { return false }
             return accepted.routineId == routine.routineId && accepted.revisionId == routine.revisionId && accepted.definition == routine.definition && accepted.inputs == routine.inputs
         }
-        return acceptance.snapshot.messages.contains(where: { $0.messageId == receipt.messageId && $0.text == text })
+        return message.text == text
     }
 }
 

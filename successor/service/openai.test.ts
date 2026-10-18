@@ -77,7 +77,7 @@ test('reopening an installation with another runtime identity fails before dispa
   } finally { await replacement?.close(); }
 });
 
-test('two hundred durable turns retain exact replay within a four MiB ledger budget', async t => {
+test('two hundred durable turns page exact replay within a four MiB ledger budget', async t => {
   let lastInput: ChatInput | undefined;
   const h = await setup(t, { runtime: {
     async execute(input) { lastInput = input; return { kind: 'completed', text: 'r'.repeat(1024), effectiveModel: null }; },
@@ -98,12 +98,53 @@ test('two hundred durable turns retain exact replay within a four MiB ledger bud
   await h.restart();
   const recovered = (await h.api<Acceptance>('/v1/requests/compact-0')).body;
   assert.deepEqual(recovered.receipt, first.receipt);
-  assert.equal(recovered.snapshot.messages.length, 400);
+  assert.equal(recovered.snapshot.messages.length, 100);
   assert.equal(recovered.snapshot.messages.at(-1)?.text, 'r'.repeat(1024));
+  assert.equal(recovered.message?.text, '0000' + 'u'.repeat(1020));
+  const messages = [...recovered.snapshot.messages];
+  let before = recovered.snapshot.window?.olderBefore;
+  let pages = 1;
+  while (before !== null && before !== undefined) {
+    const boundary = before;
+    const page = (await h.api<Snapshot>(path + '/snapshot?before=' + boundary)).body;
+    assert.equal(page.messages.length, 100);
+    assert.equal(page.window?.before, before);
+    assert.ok(page.messages.every(message => message.sequence < boundary));
+    messages.unshift(...page.messages);
+    before = page.window?.olderBefore;
+    assert.ok(++pages <= 4);
+  }
+  assert.equal(pages, 4);
+  assert.equal(messages.length, 400);
+  assert.equal(new Set(messages.map(message => message.messageId)).size, 400);
+  assert.equal(messages[0]?.text, '0000' + 'u'.repeat(1020));
+  const read = await h.api(path + '/read', { messageId: messages[0]?.messageId, cursor: recovered.snapshot.cursor, recoveryEpoch: h.service.installation.recoveryEpoch });
+  assert.equal(read.status, 200);
   await h.service.close();
   const bytes = (await stat(join(h.directory, 'openai-candidate-b.sqlite'))).size;
   assert.ok(bytes <= 4 * 1024 * 1024, `ledger used ${bytes} bytes for 200 synthetic turns`);
   t.diagnostic(`200 turns, 400 one-KiB messages: ${bytes} database bytes after close`);
+});
+
+test('conversation queue admission stays bounded and cancellation releases capacity without changing receipts', async t => {
+  const h = await setup(t);
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Writer', model: 'exact-model', instructions: 'Reply.' })).body;
+  const path = `/v1/conversations/${agent.homeConversationId}`;
+  const command = (index: number) => ({ requestId: 'queued-' + index, text: 'Synthetic queue item', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
+  let first: Acceptance | undefined;
+  for (let index = 0; index < 100; index++) {
+    const accepted = await h.api<Acceptance>(path + '/messages', command(index));
+    assert.equal(accepted.status, 201);
+    first ??= accepted.body;
+  }
+  assert.ok(first);
+  assert.equal((await h.api(path + '/messages', command(100))).status, 429);
+  assert.deepEqual((await h.api<Acceptance>(path + '/messages', command(0))).body.receipt, first.receipt);
+  assert.equal((await h.api(`/v1/runs/${first.receipt.runId}/cancel`, { recoveryEpoch: h.service.installation.recoveryEpoch })).status, 200);
+  assert.equal((await h.api(path + '/messages', command(100))).status, 201);
+  const snapshot = (await h.api<Snapshot>(path + '/snapshot')).body;
+  assert.equal(snapshot.messages.length, 100);
+  assert.equal(snapshot.runs.filter(run => run.state === 'queued').length, 100);
 });
 
 test('runtime dispatch carries the exact durable service attempt and generation', async t => {

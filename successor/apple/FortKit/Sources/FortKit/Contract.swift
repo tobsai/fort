@@ -176,6 +176,10 @@ public struct Approval: Codable, Equatable, Sendable, Identifiable {
 }
 public struct ApprovalResolution: Codable, Sendable { public let approval: Approval; public let run: Run }
 public struct RunResponse: Codable, Sendable { public let run: Run }
+public struct MessageWindow: Codable, Equatable, Sendable {
+    public let before: Int?
+    public let olderBefore: Int?
+}
 public struct Snapshot: Codable, Equatable, Sendable {
     public let installationId: String
     public let recoveryEpoch: String
@@ -186,10 +190,11 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public let lastReadMessageSequence: Int
     public let approvals: [Approval]
     public let memory: ConversationMemory?
-    public init(installationId: String, recoveryEpoch: String, conversationId: String, cursor: Int, messages: [Message], runs: [Run], lastReadMessageSequence: Int, approvals: [Approval] = [], memory: ConversationMemory? = nil) {
-        self.installationId=installationId; self.recoveryEpoch=recoveryEpoch; self.conversationId=conversationId; self.cursor=cursor; self.messages=messages; self.runs=runs; self.lastReadMessageSequence=lastReadMessageSequence; self.approvals=approvals; self.memory=memory
+    public let window: MessageWindow?
+    public init(installationId: String, recoveryEpoch: String, conversationId: String, cursor: Int, messages: [Message], runs: [Run], lastReadMessageSequence: Int, approvals: [Approval] = [], memory: ConversationMemory? = nil, window: MessageWindow? = nil) {
+        self.installationId=installationId; self.recoveryEpoch=recoveryEpoch; self.conversationId=conversationId; self.cursor=cursor; self.messages=messages; self.runs=runs; self.lastReadMessageSequence=lastReadMessageSequence; self.approvals=approvals; self.memory=memory; self.window=window
     }
-    private enum CodingKeys: CodingKey { case installationId,recoveryEpoch,conversationId,cursor,messages,runs,lastReadMessageSequence,approvals,memory }
+    private enum CodingKeys: CodingKey { case installationId,recoveryEpoch,conversationId,cursor,messages,runs,lastReadMessageSequence,approvals,memory,window }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self)
         installationId = try values.decode(String.self,forKey:.installationId)
@@ -201,6 +206,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
         lastReadMessageSequence = try values.decode(Int.self,forKey:.lastReadMessageSequence)
         approvals = try values.decodeIfPresent([Approval].self,forKey:.approvals) ?? []
         memory = try values.decodeIfPresent(ConversationMemory.self,forKey:.memory)
+        window = try values.decodeIfPresent(MessageWindow.self,forKey:.window)
     }
 }
 public struct Receipt: Codable, Equatable, Sendable {
@@ -212,7 +218,12 @@ public struct Receipt: Codable, Equatable, Sendable {
     public let inputDigest: String
     public let acceptedAt: String
 }
-public struct Acceptance: Codable, Sendable { public let receipt: Receipt; public let snapshot: Snapshot }
+public struct Acceptance: Codable, Sendable {
+    public let receipt: Receipt
+    public let snapshot: Snapshot
+    public var message: Message? = nil
+    public var run: Run? = nil
+}
 public struct EventPage: Codable, Sendable {
     public let installationId: String
     public let recoveryEpoch: String
@@ -243,6 +254,11 @@ public struct Transcript: Sendable {
         guard incoming.cursor >= 0, Set(incoming.messages.map(\.messageId)).count == incoming.messages.count,
               incoming.messages.allSatisfy({ $0.conversationId == conversationID && $0.sequence > 0 && $0.sequence <= incoming.cursor }),
               zip(incoming.messages, incoming.messages.dropFirst()).allSatisfy({ $0.sequence < $1.sequence }) else { throw ContractError.invalidSnapshot }
+        if let window = incoming.window {
+            guard incoming.messages.count <= 100,
+                  window.before.map({ boundary in boundary > 0 && incoming.messages.allSatisfy { $0.sequence < boundary } }) ?? true,
+                  window.olderBefore.map({ $0 > 0 && $0 == incoming.messages.first?.sequence }) ?? true else { throw ContractError.invalidSnapshot }
+        }
         if let existing = snapshot, existing.recoveryEpoch == incoming.recoveryEpoch, incoming.cursor < existing.cursor { return }
         snapshot = incoming
     }
@@ -325,6 +341,7 @@ public struct RequestCancellation: Codable, Sendable {
     public let conversationId: String; public let bindingRevisionId: String
     public let status: Status
     public let receipt: Receipt?; public let run: Run?; public let snapshot: Snapshot?
+    public var message: Message? = nil
 }
 
 public struct RuntimeReadiness: Codable, Equatable, Sendable {

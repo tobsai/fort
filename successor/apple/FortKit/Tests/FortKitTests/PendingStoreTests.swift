@@ -2,6 +2,21 @@ import Foundation
 import Testing
 @testable import FortKit
 
+@Test func olderPendingReceiptMatchesItsExplicitMessageOutsideTheLatestPage() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:root) }
+    let pending = try PendingStore(directory:root,installationID:"one").enqueue(conversationID:"home",bindingRevision:"binding",recoveryEpoch:"epoch",text:"Exact old request")
+    let receipt = Receipt(requestId:pending.requestID,conversationId:"home",messageId:"old",runId:"run",bindingRevisionId:"binding",inputDigest:"digest",acceptedAt:"2026-10-18T00:00:00Z")
+    let latest = Snapshot(installationId:"one",recoveryEpoch:"epoch",conversationId:"home",cursor:300,messages:[],runs:[],lastReadMessageSequence:0)
+    let message = Message(messageId:"old",conversationId:"home",requestId:pending.requestID,role:"user",text:"Exact old request",sequence:1,createdAt:"2026-10-18T00:00:00Z")
+    let receiptData = try JSONEncoder().encode(receipt)
+    let snapshotData = try JSONEncoder().encode(latest)
+    let messageData = try JSONEncoder().encode(message)
+    let response = Data(("{\"receipt\":" + String(decoding:receiptData,as:UTF8.self) + ",\"snapshot\":" + String(decoding:snapshotData,as:UTF8.self) + ",\"message\":" + String(decoding:messageData,as:UTF8.self) + "}").utf8)
+    let accepted = try JSONDecoder().decode(Acceptance.self,from:response)
+    #expect(pending.matches(accepted))
+}
+
 @Test func pendingSubmissionSurvivesClientRestartWithoutChangingBytesOrIdentity() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }

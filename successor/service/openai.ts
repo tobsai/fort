@@ -145,7 +145,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     CREATE TABLE IF NOT EXISTS enrollment (hash TEXT PRIMARY KEY, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS entities (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(kind,id));
-    CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS message_page ON entities(json_extract(data,'$.conversationId'),json_extract(data,'$.sequence')) WHERE kind='messages';
+    CREATE INDEX IF NOT EXISTS run_request ON entities(json_extract(data,'$.requestId')) WHERE kind='runs';
+    CREATE INDEX IF NOT EXISTS run_state ON entities(json_extract(data,'$.conversationId'),json_extract(data,'$.state')) WHERE kind='runs';
+    CREATE INDEX IF NOT EXISTS approval_run ON entities(json_extract(data,'$.runId')) WHERE kind='routineApprovals';`);
   const runtimeIdentity = JSON.stringify({ provider: provider.provider, runtimeVersion: provider.runtimeVersion, hostId: provider.hostId });
   const savedRuntime = db.prepare("SELECT data FROM metadata WHERE key='runtimeIdentity'").get();
   try {
@@ -235,12 +239,21 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const conversationMemory=(conversationId:string):ConversationMemory|undefined=>{
     const row=db.prepare("SELECT data FROM entities WHERE kind='conversationMemory' AND id=?").get(conversationId);return row?decodeMemory(json(row)):undefined;
   };
-  const snapshot = (conversationId: string): Snapshot => {
+  const snapshot = (conversationId: string, before: number | null = null): Snapshot => {
     load('conversations', conversationId, decodeConversation);
     const read = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
     const memory=conversationMemory(conversationId);
-    return { ...(memory?{memory}:{}),installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages: list('messages', decodeMessage).filter(m => m.conversationId === conversationId), runs: list('runs', decodeRun).filter(r => r.conversationId === conversationId), approvals: list('routineApprovals',decodeRoutineApproval).filter(approval=>load('runs',approval.runId,decodeRun).conversationId===conversationId), lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
+    const rows = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.conversationId')=? AND json_extract(data,'$.sequence')<? ORDER BY json_extract(data,'$.sequence') DESC LIMIT 101").all(conversationId, before ?? Number.MAX_SAFE_INTEGER);
+    const messages = rows.slice(0, 100).map(row => decodeMessage(json(row))).reverse();
+    const requestIds = JSON.stringify([...new Set(messages.map(message => message.requestId))]);
+    const related = db.prepare("SELECT rowid,data FROM entities WHERE kind='runs' AND json_extract(data,'$.requestId') IN (SELECT value FROM json_each(?))").all(requestIds);
+    const active = db.prepare("SELECT rowid,data FROM entities WHERE kind='runs' AND json_extract(data,'$.conversationId')=? AND json_extract(data,'$.state') IN ('queued','running','cancelRequested','waitingForApproval','outcomeUnknown') ORDER BY rowid LIMIT 100").all(conversationId);
+    const runs = [...new Map([...related, ...active].map(row => [Number(row.rowid), row])).entries()].sort(([a], [b]) => a-b).map(([,row]) => decodeRun(json(row)));
+    const approvals = db.prepare("SELECT data FROM entities WHERE kind='routineApprovals' AND json_extract(data,'$.runId') IN (SELECT value FROM json_each(?)) ORDER BY rowid").all(JSON.stringify(runs.map(run => run.runId))).map(row => decodeRoutineApproval(json(row)));
+    return { ...(memory?{memory}:{}),installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch, conversationId, cursor: cursor(), messages, runs, approvals, window: { before, olderBefore: rows.length > 100 ? messages[0]?.sequence ?? null : null }, lastReadMessageSequence: read ? Number(record(json(read)).sequence) : 0 };
   };
+  const acceptance = (receipt: Receipt): Acceptance => ({ receipt, snapshot: snapshot(receipt.conversationId), message: load('messages', receipt.messageId, decodeMessage), run: load('runs', receipt.runId, decodeRun) });
+
   const cancelRun=(runId:string):Run=>{
     const run=load('runs',runId,decodeRun);
     if(run.state!=='queued'&&run.state!=='running'&&run.state!=='waitingForApproval')return run;
@@ -265,19 +278,21 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const priorAcceptance=(requestId:string,fingerprint:string):Acceptance|undefined=>{
     const prior=db.prepare("SELECT data FROM entities WHERE kind='requests' AND id=?").get(requestId);
     if(!prior)return undefined;
-    const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return {receipt,snapshot:snapshot(receipt.conversationId)};
+    const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return acceptance(receipt);
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration,routine}=command;
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
+    const queued = db.prepare("SELECT count(*) AS count FROM entities WHERE kind='runs' AND json_extract(data,'$.conversationId')=? AND json_extract(data,'$.state') IN ('queued','running','cancelRequested','waitingForApproval','outcomeUnknown')").get(conversationId);
+    if (Number(queued?.count) >= 100) fail(429,'queueFull','This conversation has 100 unresolved turns. Complete, cancel or resolve earlier work before adding another.');
     try { decodeConfiguration(configuration); }
     catch(error){if(error instanceof APIError&&error.status===400)fail(400,'invalidConfiguration','Combined Agent and routine instructions must fit within 16384 bytes. Shorten the saved configuration before running it.');throw error;}
     const messageId=randomUUID(),runId=randomUUID(),acceptedAt=new Date().toISOString(),sequence=append(conversationId,'messageAccepted',messageId);
     const message:Message={messageId,conversationId,requestId,role:'user',text:inputText,sequence,createdAt:acceptedAt,recipientAgentId:configuration.agentId,recipientAgentName:configuration.agentName};
     const run:Run={runId,requestId,conversationId,bindingRevisionId,state:'queued',selectedModel:configuration.selectedModel,effectiveModel:null,modelEvidence:'unreported',attemptId:null,configuration,...(routine?{routine}:{})};
     put('messages',messageId,message);put('runs',runId,run);
-    const acceptance:Acceptance={receipt:{requestId,conversationId,messageId,runId,bindingRevisionId,inputDigest:digest(inputText),acceptedAt},snapshot:snapshot(conversationId)};
-    put('requests',requestId,{fingerprint,receipt:acceptance.receipt});return acceptance;
+    const receipt:Receipt={requestId,conversationId,messageId,runId,bindingRevisionId,inputDigest:digest(inputText),acceptedAt};
+    put('requests',requestId,{fingerprint,receipt});return acceptance(receipt);
   });
   const saveInstructions=(request:IncomingMessage,body:Record<string,unknown>,skillId?:string)=>owner(request,()=>{
     if(Object.keys(body).some(key=>!['name','instructions','expectedRevisionId'].includes(key)))fail(400,'invalidCommand','Use only the instruction authoring fields. Review authority separately.');
@@ -623,8 +638,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           });
         }
         else if (request.method === 'GET' && url.pathname === '/v1/conversations') result = { conversations: list('conversations', decodeConversation) };
-        else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) result = snapshot(id(url.pathname.split('/')[3]));
-        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) { const receipt = load('requests', id(url.pathname.split('/')[3]), storedReceipt); result = { receipt, snapshot: snapshot(receipt.conversationId) }; }
+        else if (request.method === 'GET' && /^\/v1\/conversations\/[^/]+\/snapshot$/.test(url.pathname)) {
+          const before = url.searchParams.has('before') ? Number(url.searchParams.get('before')) : null;
+          if(before !== null && (!Number.isSafeInteger(before) || before < 1)) fail(400,'invalidCursor','Use a positive message sequence.');
+          result = snapshot(id(url.pathname.split('/')[3]), before);
+        }
+        else if (request.method === 'GET' && /^\/v1\/requests\/[^/]+$/.test(url.pathname)) { const receipt = load('requests', id(url.pathname.split('/')[3]), storedReceipt); result = acceptance(receipt); }
         else if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/close-unknown$/.test(url.pathname)) {
           const body=await readBody(request),runId=id(url.pathname.split('/')[3]);
           result=owner(request,()=>{
@@ -672,7 +691,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
               const receipt=storedReceipt(json(accepted));
               if(receipt.conversationId!==scope.conversationId||receipt.bindingRevisionId!==scope.bindingRevisionId)fail(409,'requestConflict','The accepted request belongs to a different scope.');
               const run=cancelRun(receipt.runId);put('requestCancellations',requestId,scope);
-              return {...scope,status:'accepted',receipt,run,snapshot:snapshot(scope.conversationId)};
+              return {...scope,status:'accepted',receipt,run,message:load('messages',receipt.messageId,decodeMessage),snapshot:snapshot(scope.conversationId)};
             }
             load('conversations',scope.conversationId,decodeConversation);
             put('requestCancellations',requestId,scope);return {...scope,status:'notAccepted'};
@@ -694,9 +713,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/read$/.test(url.pathname)) {
           const body = await readBody(request), conversationId = id(url.pathname.split('/')[3]);
           result = owner(request, () => {
-            const current = snapshot(conversationId), message = current.messages.find(m => m.messageId === body.messageId);
-            if (body.recoveryEpoch !== installation.recoveryEpoch || typeof body.cursor !== 'number' || !Number.isSafeInteger(body.cursor) || body.cursor > current.cursor || !message || message.sequence > body.cursor) fail(409, 'readConflict', 'Read acknowledgement does not match this conversation.');
-            const sequence = Math.max(current.lastReadMessageSequence, message.sequence); put('reads', conversationId, { sequence }); return { lastReadMessageSequence: sequence };
+            load('conversations', conversationId, decodeConversation);
+            const row = typeof body.messageId === 'string' ? db.prepare("SELECT data FROM entities WHERE kind='messages' AND id=?").get(body.messageId) : undefined;
+            const message = row ? decodeMessage(json(row)) : undefined;
+            if (body.recoveryEpoch !== installation.recoveryEpoch || typeof body.cursor !== 'number' || !Number.isSafeInteger(body.cursor) || body.cursor > cursor() || !message || message.conversationId !== conversationId || message.sequence > body.cursor) fail(409, 'readConflict', 'Read acknowledgement does not match this conversation.');
+            const prior = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
+            const sequence = Math.max(prior ? Number(record(json(prior)).sequence) : 0, message.sequence); put('reads', conversationId, { sequence }); return { lastReadMessageSequence: sequence };
           });
         }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {

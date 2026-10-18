@@ -10,11 +10,11 @@ export type Agent = { agentId: string; name: string; homeConversationId: string;
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string };
 export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; attemptGeneration?: number; configuration?: TurnConfiguration; routine?: RoutineExecution; statusDetail?: string };
 export type ConversationMemory = { conversationId: string; revisionId: string; text: string };
-export type Snapshot = { memory?: ConversationMemory; installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };
+export type Snapshot = { window?: { before: number | null; olderBefore: number | null }; memory?: ConversationMemory; installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };
 export type Submission = { requestId: string; bindingRevisionId: string; recoveryEpoch: string; text: string };
 export type Receipt = { requestId: string; conversationId: string; messageId: string; runId: string; bindingRevisionId: string; inputDigest: string; acceptedAt: string };
-export type Acceptance = { receipt: Receipt; snapshot: Snapshot };
-export type RequestCancellation = { requestId: string; recoveryEpoch: string; conversationId: string; bindingRevisionId: string } & ({ status: 'notAccepted' } | { status: 'accepted'; receipt: Receipt; run: Run; snapshot: Snapshot });
+export type Acceptance = { receipt: Receipt; snapshot: Snapshot; message?: Message; run?: Run };
+export type RequestCancellation = { requestId: string; recoveryEpoch: string; conversationId: string; bindingRevisionId: string } & ({ status: 'notAccepted' } | { status: 'accepted'; receipt: Receipt; run: Run; snapshot: Snapshot; message?: Message });
 export type DurableEvent = { schemaVersion: 1; installationId: string; recoveryEpoch: string; eventId: string; sequence: number; entityId: string; conversationId: string; kind: string; createdAt: string; data: unknown };
 export const MAX_TEXT_BYTES = 65_536;
 

@@ -105,9 +105,23 @@ public struct MessengerView: View {
         ScrollViewReader { position in
             ScrollView {
                 LazyVStack(alignment:.leading,spacing:16) {
+                    if model.isViewingEarlierMessages {
+                        HStack {
+                            Text("Earlier messages").font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Latest messages") { model.showLatestMessages() }.accessibilityIdentifier("history-latest")
+                        }
+                    }
+                    if model.displaySnapshot?.window?.olderBefore != nil {
+                        Button(model.loadingEarlierMessages ? "Loading earlier messages…" : "Earlier messages") {
+                            Task { await model.loadEarlierMessages() }
+                        }.disabled(model.loadingEarlierMessages).accessibilityIdentifier("history-earlier")
+                    }
                     if let error = model.imageError { Text(error).font(.caption).foregroundStyle(.orange) }
-                    ForEach(model.localImages.filter { $0.afterSequence == 0 }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
-                    ForEach(model.snapshot?.transcriptRows ?? []) { row in
+                    if model.displaySnapshot?.window?.olderBefore == nil {
+                        ForEach(model.localImages.filter { $0.afterSequence == 0 }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
+                    }
+                    ForEach(model.displaySnapshot?.transcriptRows ?? []) { row in
                         switch row {
                         case .message(let message):
                             messageRow(message)
@@ -116,7 +130,7 @@ public struct MessengerView: View {
                         case .approval(let approval): approvalRow(approval)
                         }
                     }
-                    ForEach(model.localImages.filter { image in image.afterSequence != 0 && model.snapshot?.messages.contains(where:{$0.sequence == image.afterSequence}) != true }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
+                    ForEach(model.localImages.filter { image in model.displaySnapshot?.window == nil && image.afterSequence != 0 && model.displaySnapshot?.messages.contains(where:{$0.sequence == image.afterSequence}) != true }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
                     ForEach(model.pending.filter { $0.conversationID == model.activeConversationID }) { pending in pendingRow(pending) }
                     Color.clear.frame(height:1).id("conversation-bottom")
                 }.padding()
@@ -124,7 +138,8 @@ public struct MessengerView: View {
             .accessibilityIdentifier("conversation-history")
             .onChange(of:model.pending.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
             .onChange(of:model.localImages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
-            .onChange(of:model.snapshot?.messages.count) { _,_ in position.scrollTo("conversation-bottom",anchor:.bottom) }
+            .onChange(of:model.snapshot?.messages.last?.id) { _,_ in if !model.isViewingEarlierMessages { position.scrollTo("conversation-bottom",anchor:.bottom) } }
+            .onChange(of:model.isViewingEarlierMessages) { _,earlier in if !earlier { position.scrollTo("conversation-bottom",anchor:.bottom) } }
         }
     }
     private func messageRow(_ message: Message) -> some View {

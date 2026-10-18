@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 7c66000750e5ab85d64e85157eb242b6ff3abab40a198f06f88080a14d3bc415
+Reviewed content SHA256: 5d4611b43a0afea5b3fe15769b368ddf0e0ef341e0af91d429ef56aadfaac5ec
 
 ### Vendor independence
 Status: planned
@@ -70,7 +70,13 @@ Native clients own presentation and durable pending intent, not execution truth.
 One SQLite WAL ledger owns indexed relational state plus compact receipts, events
 and dispatch outbox in the same transaction. Store messages once; use immutable
 context references/digests, not snapshots/history copied into each acceptance.
-Snapshots are bounded projections. Events explicitly distinguish replayable deltas
+Snapshots expose at most 100 messages per page with an explicit older-page cursor.
+Receipt responses carry the exact accepted message/run separately for recovery
+outside that page. Native clients keep the latest page and at most one earlier
+page in memory, with an explicit return to latest history. Admission allows at
+most 100 unresolved turns per conversation; duplicate receipts do not consume
+capacity, and cancellation or terminal resolution releases it. These are
+unchanged-scope implementation bounds under decision 059. Events explicitly distinguish replayable deltas
 from invalidation wakeups; expired cursors trigger snapshot recovery.
 
 The service allocates attempt IDs/generations and dispatches immutable binding,
@@ -116,6 +122,14 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Tests/FortKitTests/WorkspaceModelTests.swift`
+
+- `successor/apple/FortKit/Sources/FortKit/FortClient.swift`
+- `successor/apple/FortKit/Sources/FortKit/PendingStore.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/ContractTests.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/PendingStoreTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/paging.md`
 
 - `successor/evidence/2026-10-17-node-foundation/timeout-cleanup.md`
 

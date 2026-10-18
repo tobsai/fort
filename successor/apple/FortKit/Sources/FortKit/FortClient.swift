@@ -89,7 +89,14 @@ public struct FortClient: Sendable {
         struct Body: Encodable { let name: String; let participantAgentIds: [String] }
         return try await send("v1/conversations", method:"POST", body:Body(name:name, participantAgentIds:participantAgentIds))
     }
-    public func snapshot(conversationID: String) async throws -> Snapshot { try await get("v1/conversations/\(try segment(conversationID))/snapshot") }
+    public func snapshot(conversationID: String, before: Int? = nil) async throws -> Snapshot {
+        let path = "v1/conversations/\(try segment(conversationID))/snapshot"
+        guard let before else { return try await get(path) }
+        guard before > 0, var components = URLComponents(url:baseURL.appendingPathComponent(path),resolvingAgainstBaseURL:false) else { throw ClientError.invalidResponse }
+        components.queryItems = [URLQueryItem(name:"before",value:String(before))]
+        guard let url = components.url else { throw ClientError.invalidResponse }
+        return try await request(url:url,method:"GET",data:nil)
+    }
     public func receipt(requestID: String) async throws -> Acceptance { try await get("v1/requests/\(try segment(requestID))") }
     public func schedules() async throws -> [ScheduleRevision] {
         struct Response: Decodable { let schedules: [ScheduleRevision] }

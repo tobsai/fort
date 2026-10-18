@@ -3,6 +3,8 @@ import Testing
 @testable import FortKit
 
 private actor WorkspaceServer {
+    var paging = false
+    func enablePaging() { paging = true }
     static let registry = Registry()
     actor Registry {
         var servers: [String:WorkspaceServer] = [:]
@@ -63,7 +65,14 @@ private actor WorkspaceServer {
     func reconnect() { offline = false }
     func edits() -> [String] { savedRevisions }
     func replaySummary() -> (Int,Bool) { (submissions.count, submissions.count == 2 && NSDictionary(dictionary:submissions[0]).isEqual(to:submissions[1])) }
-    func snapshot(_ conversation: String) -> [String:Any] {
+    func snapshot(_ conversation: String, before: Int? = nil) -> [String:Any] {
+        if paging {
+            let upper = (before ?? 301) - 1, lower = max(1,upper - 99)
+            let messages: [[String:Any]] = (lower...upper).map { sequence in
+                ["messageId":"message-\(sequence)","requestId":"request-\(sequence)","conversationId":conversation,"role":"user","text":"Message \(sequence)","sequence":sequence,"createdAt":"2026-10-18T00:00:00Z"]
+            }
+            return ["installationId":"model-test","recoveryEpoch":"epoch","conversationId":conversation,"cursor":300,"messages":messages,"runs":[],"approvals":[],"lastReadMessageSequence":0,"window":["before":before as Any? ?? NSNull(),"olderBefore":lower > 1 ? lower as Any : NSNull()]]
+        }
         var current: [String:Any] = ["installationId":"model-test","recoveryEpoch":"epoch","conversationId":conversation,"cursor":memoryCursor,"messages":[],"runs":[],"approvals":[],"lastReadMessageSequence":0]
         if let acceptance, let snapshot = acceptance["snapshot"] as? [String:Any], snapshot["conversationId"] as? String == conversation { current = snapshot }
         current["cursor"] = max(current["cursor"] as? Int ?? 0,memoryCursor)
@@ -82,7 +91,10 @@ private actor WorkspaceServer {
         if path == "/v1/skills/marker/revisions/one", let priorSkill { return try result(priorSkill) }
         if path == "/v1/skills" { return try result(["skills":[skill]]) }
         if path == "/v1/conversations" { return try result(["conversations":[["conversationId":"shared","name":"Sample planning","kind":"shared","participantAgentIds":["writer","reviewer"]],["conversationId":"writer-home","name":"Writer","kind":"home","participantAgentIds":["writer"]],["conversationId":"reviewer-home","name":"Reviewer","kind":"home","participantAgentIds":["reviewer"]]]]) }
-        if path.hasSuffix("/snapshot") { return try result(snapshot(path.split(separator:"/").map(String.init)[2])) }
+        if path.hasSuffix("/snapshot") {
+            let before = URLComponents(url:request.url!,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name == "before"})?.value.flatMap(Int.init)
+            return try result(snapshot(path.split(separator:"/").map(String.init)[2],before:before))
+        }
         var data = request.httpBody ?? Data()
         if let stream = request.httpBodyStream { stream.open(); defer { stream.close() }; var bytes=[UInt8](repeating:0,count:1024); while stream.hasBytesAvailable { let n=stream.read(&bytes,maxLength:bytes.count); if n<=0 { break }; data.append(contentsOf:bytes.prefix(n)) } }
         let body = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
@@ -173,6 +185,26 @@ private final class ModelCredentials: DeviceCredentials {
     let model=MessengerModel(storage:storage,session:session); model.endpoint="https://"+host; model.expectedInstallation="model-test"; model.enrollmentCode="synthetic-only"; await model.enroll()
     #expect(model.connected)
     return (model,storage,session,server)
+}
+
+@Test @MainActor func earlierHistoryUsesBoundedPagesAndPreservesTheLatestCache() async throws {
+    let (model,storage,session,server) = try await setupWorkspace()
+    defer { try? FileManager.default.removeItem(at:storage.directory); session.invalidateAndCancel() }
+    await server.enablePaging()
+    await model.refresh()
+    #expect(model.displaySnapshot?.messages.first?.sequence == 201)
+    await model.loadEarlierMessages()
+    #expect(model.isViewingEarlierMessages)
+    #expect(model.displaySnapshot?.messages.count == 100)
+    #expect(model.displaySnapshot?.messages.first?.sequence == 101)
+    #expect(model.snapshot?.messages.first?.sequence == 201)
+    await model.loadEarlierMessages()
+    #expect(model.displaySnapshot?.messages.first?.sequence == 1)
+    #expect(model.displaySnapshot?.window?.olderBefore == nil)
+    #expect(try storage.snapshot(installationID:"model-test",conversationID:try #require(model.activeConversationID))?.messages.first?.sequence == 201)
+    model.showLatestMessages()
+    #expect(!model.isViewingEarlierMessages)
+    #expect(model.displaySnapshot?.messages.first?.sequence == 201)
 }
 
 @Test @MainActor func loadedWorkspaceFormsKeepTheirOriginalRevisionAcrossPolling() async throws {
