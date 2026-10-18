@@ -62,7 +62,7 @@ async function runProbe(executable: string, outside: string, scenario: string, t
 try {
   const { values } = parseArgs({ options: { runtime: { type: 'string' }, identity: { type: 'string' }, destination: { type: 'string' }, scenario: { type: 'string', default: 'normal' }, 'timeout-ms': { type: 'string', default: '15000' } }, strict: true });
   if (!values.runtime || !values.identity || !values.destination) throw new Error('Required: --runtime, --identity, --destination');
-  if (values.scenario !== 'normal' && values.scenario !== 'hang') throw new Error('Unknown synthetic scenario');
+  if (values.scenario !== 'normal' && values.scenario !== 'hang' && values.scenario !== 'core') throw new Error('Unknown synthetic scenario');
   const timeoutMs = Number(values['timeout-ms']);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 15000) throw new Error('Timeout must be 100 to 15000 milliseconds');
   if (process.platform !== 'darwin') throw new Error('macOS proof only');
@@ -89,6 +89,10 @@ try {
   renameSync(join(runtime, 'licenses'), join(app, 'Contents/Resources/NodeLicenses'));
   copyFileSync(join(runtime, 'manifest.json'), join(app, 'Contents/Resources/runtime-staging-manifest.json'));
   copyFileSync(join(source, 'runtime-fixture.mjs'), join(app, 'Contents/Resources/runtime-fixture.mjs'));
+  if (values.scenario === 'core') {
+    command(process.execPath, [join(source, 'core-artifact.ts'), '--destination', join(app, 'Contents/Resources/Core')]);
+    copyFileSync(join(source, 'core-fixture.mjs'), join(app, 'Contents/Resources/core-fixture.mjs'));
+  }
   writeFileSync(join(app, 'Contents/Resources/node-openssl.cnf'), 'nodejs_conf = fort_node\n[fort_node]\n');
   const executable = join(app, 'Contents/MacOS/FortSandboxProbe');
   command('/usr/bin/xcrun', ['swiftc', join(source, 'sandbox-probe.swift'), '-o', executable]);
@@ -106,6 +110,7 @@ try {
   if (run.outcome === 'completed') {
     const parsed: unknown = JSON.parse(run.stdout);
     if (!parsed || typeof parsed !== 'object' || !('sqlite' in parsed) || parsed.sqlite !== 'ready' || !('outsideReadDenied' in parsed) || parsed.outsideReadDenied !== true || !('outsideWriteDenied' in parsed) || parsed.outsideWriteDenied !== true || !('loopbackListenDenied' in parsed) || parsed.loopbackListenDenied !== true || !('privateSocketRoundTrip' in parsed) || typeof parsed.privateSocketRoundTrip !== 'boolean') throw new Error('Invalid sandbox evidence');
+    if (values.scenario === 'core' && ['coreAuthentication', 'coreExactMessages', 'coreReplay', 'coreRestart', 'coreNoDuplicate', 'coreSocketAbsent'].some(key => !(key in parsed) || Reflect.get(parsed, key) !== true)) throw new Error('Compiled core evidence was not confirmed');
     proof = parsed;
   }
   const { stdout: _stdout, ...execution } = run;

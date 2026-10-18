@@ -47,5 +47,6 @@ const privateSocket = await new Promise(resolve => {
     client.once('end', () => finish(received === 'private-ipc-ready', received === 'private-ipc-ready' ? null : 'wrong-reply'));
   });
 });
-process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure }) + '\n');
+const core = scenario === 'core' ? await (await import('./core-fixture.mjs')).probeCore(privateRoot) : {};
+process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure, ...core }) + '\n');
 if (sqlite !== 'ready' || !outsideReadDenied || !outsideWriteDenied || !loopbackListenDenied) process.exitCode = 1;

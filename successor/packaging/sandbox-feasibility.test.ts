@@ -6,6 +6,19 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const identity = process.env.FORT_SIGNING_IDENTITY;
+test('the compiled core accepts and replays exact synthetic messages inside the signed sandbox bundle', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
+  assert.ok(identity);
+  const root = mkdtempSync('/tmp/fort059-sandbox-core-test-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', identity, '--destination', join(root, 'proof'), '--scenario', 'core'], { encoding: 'utf8', timeout: 90_000 });
+  assert.equal(result.status, 0, result.stderr);
+  const proof: unknown = JSON.parse(result.stdout);
+  assert.ok(proof && typeof proof === 'object');
+  for (const key of ['coreAuthentication', 'coreExactMessages', 'coreReplay', 'coreRestart', 'coreNoDuplicate', 'coreSocketAbsent', 'privateSocketRoundTrip', 'outsideReadDenied', 'outsideWriteDenied', 'loopbackListenDenied', 'ownedProcessesAbsent', 'syntheticContainerAbsent']) {
+    assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
+  }
+});
+
 test('a sandboxed child retaining open pipes is killed with its parent within the cleanup bound', { skip: process.platform !== 'darwin' ? 'requires macOS' : !identity ? 'requires explicitly selected existing signing identity' : false }, t => {
   assert.ok(identity);
   const root = mkdtempSync('/tmp/fort059-sandbox-hang-');

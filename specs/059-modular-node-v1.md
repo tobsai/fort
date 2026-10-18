@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: a2fce3da2ba775188575bc340b5a5c77bfabd13feee2e807eb5fd627090cb358
+Reviewed content SHA256: e7b0835a2e2e1b4eb41920ce7704e289c2f5e5ff642c5b0444ddf5374b8c09ba
 
 ### Vendor independence
 Status: planned
@@ -171,6 +171,13 @@ mode provides no TCP URL. Test an actual core/client process exchange, denial
 without authorization, restart/history, socket cleanup and invalid startup
 scope. This prepares the host boundary without activating a background job or
 claiming XPC, provider or iPhone acceptance.
+Combine the compiled core artifact with the existing signed Swift/Node sandbox
+probe as a separate synthetic scenario. Exercise authenticated private-socket
+accept/reply/replay, duplicate recovery after restart and cleanup, retaining the
+outside-file/TCP denials and unchanged entitlements. Its in-process provider and
+HTTP client remain fixtures. This validates the actual core in the bundle but
+does not establish Swift/XPC peer identity, official executor confinement or
+persistent lifecycle.
 
 ## Performance verification
 
@@ -238,6 +245,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/service/socket-transport.test.ts`
 - `successor/service/fixtures/socket-host.ts`
 - `successor/evidence/2026-10-17-node-foundation/private-transport.md`
+- `successor/packaging/core-fixture.mjs`
+- `successor/evidence/2026-10-17-node-foundation/sandbox-core.md`
+- `successor/evidence/2026-10-17-node-foundation/sandbox-core.json`
 
 - `successor/contracts/context.ts`
 - `successor/modules/local-context.ts`
