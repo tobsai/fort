@@ -12,11 +12,13 @@ import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 import { PrivateSocketLease } from './private-socket.ts';
+import type { OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
 export type ServiceEndpoint = Readonly<{ kind: 'loopback'; url: string } | { kind: 'privateSocket'; directory: string; name: string }>;
 type OwnerControl = { deviceId: string; intent: 'running' | 'stop' | 'disconnect' };
+type OwnerSetup = { version: 1; setupId: string; expires: number } & ({ state: 'pending' } | { state: 'completed'; deviceId: string });
 type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
@@ -627,6 +629,63 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     });
     return { installationId: installation.installationId, code };
   };
+  const setupPolicy = () => {
+    if (closed || dispatchStopped || starting || stopCommandActive) fail(409, 'hostUnavailable', 'Owner setup requires a running local host.');
+    if (!ownerPairingPolicy) fail(403, 'temporaryPairing', 'Owner setup requires an explicitly configured owner-local installation.');
+    return ownerPairingPolicy;
+  };
+  const readOwnerSetup = (): OwnerSetup | undefined => {
+    const row = db.prepare("SELECT data FROM metadata WHERE key='ownerSetup'").get();
+    if (!row) return undefined;
+    try {
+      const value = record(json(row));
+      if (value.version !== 1 || typeof value.expires !== 'number' || !Number.isSafeInteger(value.expires) || value.expires <= 0) throw new Error();
+      const base = { version: 1 as const, setupId: id(value.setupId), expires: value.expires };
+      if (value.state === 'pending') return { ...base, state: 'pending' };
+      if (value.state === 'completed') return { ...base, state: 'completed', deviceId: id(value.deviceId) };
+      throw new Error();
+    } catch { fail(409, 'invalidSetupState', 'Stored owner setup cannot be recovered.'); }
+  };
+  const saveOwnerSetup = (setup: OwnerSetup) => db.prepare("INSERT OR REPLACE INTO metadata VALUES ('ownerSetup',?)").run(JSON.stringify(setup));
+  const setupReceipt = (deviceId: string): OwnerSetupReceipt => ({ installationId: installation.installationId, deviceId, expiresAt: pairingStatus(deviceId).expiresAt });
+  const beginOwnerSetup = (): OwnerSetupState => {
+    setupPolicy();
+    return transaction(() => {
+      const paired = db.prepare('SELECT id FROM devices WHERE expires=0 OR expires>?').get(now());
+      if (paired) return { kind: 'paired', ...setupReceipt(id(paired.id)) };
+      let setup = readOwnerSetup();
+      if (!setup || setup.state === 'completed' || setup.expires <= now()) {
+        setup = { version: 1, state: 'pending', setupId: randomUUID(), expires: now() + 300_000 };
+        saveOwnerSetup(setup);
+      }
+      return { kind: 'available', installationId: installation.installationId, setupId: setup.setupId, expiresAt: new Date(setup.expires).toISOString() };
+    });
+  };
+  const completeOwnerSetup = (request: OwnerSetupRequest): OwnerSetupReceipt => {
+    const policy = setupPolicy(), value = record(request);
+    if (value.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Setup requires this exact installation.');
+    const setupId = id(value.setupId), deviceId = id(value.deviceId), token = value.deviceToken;
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token) || Buffer.from(token, 'base64url').toString('base64url') !== token) fail(400, 'invalidSetupToken', 'Use a newly generated 32-byte device token.');
+    return transaction(() => {
+      const setup = readOwnerSetup();
+      if (!setup || setup.setupId !== setupId) fail(409, 'setupMismatch', 'Setup requires the current exact offer.');
+      if (setup.state === 'completed') {
+        const device = db.prepare('SELECT id FROM devices WHERE id=? AND hash=? AND (expires=0 OR expires>?)').get(deviceId, digest(token), now());
+        if (setup.deviceId !== deviceId || ownerControl?.deviceId !== deviceId || !device) fail(409, 'pairingMismatch', 'The completed setup no longer matches an active pairing.');
+        return setupReceipt(deviceId);
+      }
+      if (setup.expires <= now()) fail(409, 'setupExpired', 'Owner setup has expired. Begin a new setup.');
+      if (db.prepare('SELECT 1 FROM devices WHERE expires=0 OR expires>?').get(now())) fail(409, 'alreadyPaired', 'Disconnect the paired device before enrolling another.');
+      if (ownerControl?.deviceId === deviceId) fail(409, 'deviceReused', 'Use a new device identity after a prior pairing.');
+      const expires = policy.expiresAfterDays === null ? 0 : now() + policy.expiresAfterDays * 86_400_000;
+      db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
+      db.prepare('DELETE FROM enrollment').run();
+      db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(token), expires);
+      saveOwnerSetup({ ...setup, state: 'completed', deviceId });
+      saveOwnerControl({ deviceId, intent: 'running' });
+      return setupReceipt(deviceId);
+    });
+  };
   const listenerAbort = new AbortController();
   const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {
@@ -645,7 +704,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           db.prepare('DELETE FROM enrollment WHERE hash=?').run(digest(body.code));
           const deviceId = randomUUID(), deviceToken = randomBytes(32).toString('base64url'), expires = ownerPairingPolicy ? (ownerPairingPolicy.expiresAfterDays===null?0:now()+ownerPairingPolicy.expiresAfterDays*86_400_000) : Math.min(now()+30*86_400_000,credentialDeadline ?? Infinity);
           db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(deviceToken), expires);
-          if (ownerPairingPolicy) saveOwnerControl({ deviceId, intent: 'running' });
+          if (ownerPairingPolicy) {
+            db.prepare("DELETE FROM metadata WHERE key='ownerSetup'").run();
+            saveOwnerControl({ deviceId, intent: 'running' });
+          }
           return { installation, deviceId, deviceToken, expiresAt: expires===0?null:new Date(expires).toISOString() };
         }); status = 201;
       } else {
@@ -983,7 +1045,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
     } finally { stopCommandActive = false; }
   };
-  const api = { installation, issueEnrollment, dispatchNext, tickSchedules,
+  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, dispatchNext, tickSchedules,
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
       if (identity.installationId !== installation.installationId) fail(409, 'installationMismatch', 'Recovery requires this exact installation.');
       const deviceId = id(identity.deviceId);

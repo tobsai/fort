@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0cdeeb5c287a8ba97c06587dbf7e13f435b17a57ebc8b30d31a1a7b5b05a57d0
+Reviewed content SHA256: 8422ad1a8a17737de9a06fe7f58c181db9850325f52ddaeabb127c196e70e190
 
 ### Vendor independence
 Status: planned
@@ -448,6 +448,29 @@ identity mismatch, outside-file/TCP/outer-executable denials and owner-recovery
 controls. This signed synthetic result is separate from ordinary installed-app,
 official provider and TestFlight acceptance.
 
+Prepare resumable owner setup at the trusted local composition boundary. A
+five-minute setup offer records an opaque setup ID and exact installation before
+pairing; repeated offers before expiry reuse it. An existing active pairing is
+reported without issuing another offer. The client prepares its exact device ID
+and cryptographically random token in local storage before submission. Completion
+binds installation/setup/device/token and stores only the token hash. Its receipt
+contains identity and expiry, never the token. Repeating the same completed
+request confirms the existing pairing without extending expiry or creating a
+device; different identity/token, expired, revoked or superseded requests fail.
+Do not resume a stopped host, convert bounded sessions or replace an active owner.
+Preserve legacy enrollment behavior while native setup migrates to this seam.
+
+This first core slice adds Fort-owned types and local methods only. Do not expose
+setup over HTTP or claim native storage/XPC/ordinary-app integration until those
+are implemented and tested. AI/runtime/hosting dependencies stay unchanged;
+durable setup state belongs to the same exclusive ledger and adds no package,
+idle polling or startup service. Work is bounded to a few indexed metadata/device
+operations and one setup record, with no provider calls. Test lost-reply retry,
+restart, conflicting requests, expiry/revocation/supersession, paused-host refusal,
+existing-owner reporting, bounded-session exclusion and authenticated API access.
+Tests use synthetic credentials; ordinary owner activation remains an explicit
+user action, with its persistent access scope and real-provider grants separate.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -502,6 +525,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 ## Implementation paths
 
 - `successor/host/mac-process-guardian.swift`
+- `successor/contracts/owner-setup.ts`
+- `successor/service/owner-setup.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`
