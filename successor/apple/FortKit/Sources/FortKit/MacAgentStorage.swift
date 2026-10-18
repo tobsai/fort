@@ -28,7 +28,19 @@ public struct MacAgentStorage: Sendable {
         try prepare(for:endpoint,resolveContainer:FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:))
     }
 
+    public static func inspectExisting(for endpoint: MacAgentEndpoint) throws -> Self {
+        try inspectExisting(for:endpoint,resolveContainer:FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:))
+    }
+
+    static func inspectExisting(for endpoint: MacAgentEndpoint, resolveContainer: (String) throws -> URL?) throws -> Self {
+        try resolve(for:endpoint,resolveContainer:resolveContainer,create:false)
+    }
+
     static func prepare(for endpoint: MacAgentEndpoint, resolveContainer: (String) throws -> URL?) throws -> Self {
+        try resolve(for:endpoint,resolveContainer:resolveContainer,create:true)
+    }
+
+    private static func resolve(for endpoint: MacAgentEndpoint, resolveContainer: (String) throws -> URL?, create: Bool) throws -> Self {
         guard let url = try resolveContainer(endpoint.appGroup) else { throw MacAgentStorageError.groupUnavailable }
         guard url.isFileURL, url.host == nil || url.host == "", url.path.hasPrefix("/"), !url.path.contains("\0") else { throw MacAgentStorageError.unsafeDirectory }
         let parent = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -37,7 +49,7 @@ public struct MacAgentStorage: Sendable {
         let parentIdentity = try identity(parent,privateDirectory:false)
         let canonical = URL(fileURLWithPath:try path(parent),isDirectory:true)
         try verifyLink(parent:AT_FDCWD,name:canonical.path,expected:parentIdentity)
-        if mkdirat(parent,child,0o700) != 0 && errno != EEXIST { throw ioError() }
+        if create && mkdirat(parent,child,0o700) != 0 && errno != EEXIST { throw ioError() }
         let directory = openat(parent,child,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard directory >= 0 else { throw ioError() }
         defer { Darwin.close(directory) }
@@ -45,7 +57,7 @@ public struct MacAgentStorage: Sendable {
         try verifyLink(parent:parent,name:child,expected:childIdentity)
         try verifyLink(parent:AT_FDCWD,name:canonical.path,expected:parentIdentity)
         guard try path(directory) == canonical.appendingPathComponent(child).path else { throw MacAgentStorageError.changedDirectory }
-        guard fsync(directory) == 0, fsync(parent) == 0 else { throw ioError() }
+        if create { guard fsync(directory) == 0, fsync(parent) == 0 else { throw ioError() } }
         let result = Self(container:canonical,containerIdentity:parentIdentity,directoryIdentity:childIdentity)
         _ = try result.validatedDirectory()
         return result

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5308615e66fcc7927d5fbb1f925e1b25f8feafee77773c93286f8fdbf88754e2
+Reviewed content SHA256: ca8a04adfff2c5bf58e137b3c23d10ff64267f1ff8a615110387fae2a6c59440
 
 ### Vendor independence
 Status: planned
@@ -1927,7 +1927,32 @@ Exact paths: the new service operation/test and evidence below, this spec, v1 le
 and current Ponytail review. Installed/native lifecycle and physical acceptance remain
 separate gates; no new persistent or destructive action against owner data is authorized.
 
+### Inspect existing native host storage during removal
+
+The next native-removal dependency is a read-only way to open the exact existing
+App Group/FortHost directory. Share the current canonical descriptor, owner/mode,
+ACL and inode validation with installation preparation, but never create a missing
+container/child, repair permissions, create Runtime paths or fsync in inspection mode.
+Vendor independence: no runtime/provider boundary changes. Modularity: one shared
+storage validator with separate prepare/inspect entry points; no second filesystem
+implementation. Speed: metadata-only, no history traversal; 20 repeated inspection
+samples on the recorded Mac/Xcode toolchain must have p95 <=50 ms. Installation/removal:
+missing storage refuses and stays absent; existing history and unknown children stay
+untouched. Test missing/unsafe/replaced directories, exact group resolution and shared
+prepare behavior with synthetic containers only. Actual App Group/account permission
+or deletion authority is not inferred. This is an unchanged-scope refinement under
+decision 059. Roll back source/tests without touching owner storage. Exact paths are
+MacAgentStorage.swift and MacAgentStorageTests.swift, the native-storage-inspection
+note, this spec, v1 ledger and current review. Full deletion/native wiring stays open.
+The full regression exposed an existing ObservedChild fixture stuck in Foundation
+waitUntilExit after its synthetic cat child had exited. Also repair only that test
+fixture in MacHostProcessTests.swift using owned POSIX spawn/EOF and bounded waitpid
+cleanup; production process observation remains unchanged. Record the interrupted run
+and prove child absence and the existing observation behavior before claiming a pass.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/native-storage-inspection.md`
 
 - `successor/service/delete-history.ts`
 - `successor/service/delete-history.test.ts`

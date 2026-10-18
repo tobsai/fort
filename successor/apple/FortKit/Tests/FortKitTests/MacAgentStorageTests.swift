@@ -13,6 +13,20 @@ private func storageEndpoint() throws -> MacAgentEndpoint {
     try MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic")
 }
 
+@Test func agentStorageInspectionNeverCreatesMissingStorage() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let endpoint = try storageEndpoint()
+    var lookups: [String] = []
+    #expect(throws:(any Error).self) {
+        try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ lookups.append($0); return root })
+    }
+    #expect(lookups == [endpoint.appGroup])
+    #expect(try FileManager.default.contentsOfDirectory(atPath:root.path).isEmpty)
+    #expect(throws:MacAgentStorageError.self) { try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in nil }) }
+    #expect(throws:(any Error).self) { try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in root.appendingPathComponent("absent") }) }
+    #expect(try FileManager.default.contentsOfDirectory(atPath:root.path).isEmpty)
+}
+
 @Test func agentStorageResolvesOnlyItsExactGroupAndPreservesHistoryAcrossReopen() throws {
     let root = try agentStorageRoot()
     defer { try? FileManager.default.removeItem(at:root) }
@@ -33,6 +47,12 @@ private func storageEndpoint() throws -> MacAgentEndpoint {
     try bytes.write(to:history)
     let reopened = try MacAgentStorage.prepare(for:endpoint,resolveContainer:{ _ in root })
     #expect(try reopened.validatedDirectory() == directory)
+    #expect(try Data(contentsOf:history) == bytes)
+    #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path) == ["retained-history"])
+    var inspectedGroups: [String] = []
+    let inspected = try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ inspectedGroups.append($0); return root })
+    #expect(inspectedGroups == [endpoint.appGroup])
+    #expect(try inspected.validatedDirectory() == directory)
     #expect(try Data(contentsOf:history) == bytes)
     #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path) == ["retained-history"])
 }
@@ -83,6 +103,7 @@ private func storageACL(_ directory: URL, add: Bool) throws {
             else { try storageACL(container,add:true) }
         }
         var before = stat(); #expect(lstat(container.path,&before) == 0)
+        #expect(throws:(any Error).self) { try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in container }) }
         #expect(throws:(any Error).self) { try MacAgentStorage.prepare(for:endpoint,resolveContainer:{ _ in container }) }
         var after = stat(); #expect(lstat(container.path,&after) == 0)
         #expect(before.st_ino == after.st_ino && before.st_mode == after.st_mode)
@@ -119,6 +140,7 @@ private func storageACL(_ directory: URL, add: Bool) throws {
             else { #expect(chmod(directory.path,kind == "shared" ? 0o750 : 0o500) == 0) }
         }
         var before = stat(); #expect(lstat(directory.path,&before) == 0)
+        #expect(throws:(any Error).self) { try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in root }) }
         #expect(throws:(any Error).self) { try MacAgentStorage.prepare(for:endpoint,resolveContainer:{ _ in root }) }
         var after = stat(); #expect(lstat(directory.path,&after) == 0)
         #expect(before.st_ino == after.st_ino && before.st_mode == after.st_mode)
@@ -145,6 +167,7 @@ private func storageACL(_ directory: URL, add: Bool) throws {
         let container = root.appendingPathComponent("group")
         try FileManager.default.createDirectory(at:container,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
         let storage = try MacAgentStorage.prepare(for:endpoint,resolveContainer:{ _ in container })
+        let inspected = try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in container })
         let directory = try storage.validatedDirectory()
         let bytes = Data("preserved synthetic history".utf8)
         try bytes.write(to:directory.appendingPathComponent("history"))
@@ -164,6 +187,7 @@ private func storageACL(_ directory: URL, add: Bool) throws {
         default: try storageACL(directory,add:true)
         }
         #expect(throws:(any Error).self) { try storage.validatedDirectory() }
+        #expect(throws:(any Error).self) { try inspected.validatedDirectory() }
         let retained = kind == "container-replaced" ? moved.appendingPathComponent("FortHost") : ["child-replaced","symlink","removed"].contains(kind) ? moved : directory
         #expect(try Data(contentsOf:retained.appendingPathComponent("history")) == bytes)
         if kind == "acl" { try storageACL(directory,add:false) }
@@ -297,6 +321,25 @@ func agentStorageRuntimePreparationBudget() throws {
         samples.append(Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15)
     }
     let destination = try #require(ProcessInfo.processInfo.environment["FORT_RUNTIME_STORAGE_BENCHMARK"])
+    try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination),options:.withoutOverwriting)
+    #expect(samples.sorted()[18] <= 50)
+}
+
+@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_STORAGE_INSPECTION_SAMPLES"] != nil))
+func agentStorageExistingInspectionBudget() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let endpoint = try storageEndpoint()
+    let storage = try MacAgentStorage.prepare(for:endpoint,resolveContainer:{ _ in root })
+    let directory = try storage.validatedDirectory()
+    var samples: [Double] = []
+    for _ in 0..<20 {
+        let start = ContinuousClock.now
+        let observed = try MacAgentStorage.inspectExisting(for:endpoint,resolveContainer:{ _ in root }).validatedDirectory()
+        let elapsed = start.duration(to:.now).components
+        samples.append(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15)
+        #expect(observed == directory)
+    }
+    let destination = try #require(ProcessInfo.processInfo.environment["FORT_STORAGE_INSPECTION_SAMPLES"])
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination),options:.withoutOverwriting)
     #expect(samples.sorted()[18] <= 50)
 }

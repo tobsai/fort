@@ -1,68 +1,56 @@
 What this repo does: Fort is a single-owner native AI messenger with a local Node
-core and optional runtime adapters. This slice adds an offline SQLite history-deletion
-interface, exercised only on disposable fixtures. Expected load is one stopped owner
-installation, bounded to 256 MiB across its ledger and sidecars.
+core and optional runtime adapters. This slice supplies existing-storage inspection
+for native removal. Expected load is one local owner and metadata-only inspection.
 
 ## Semantic review
 
-Codex self-review, October 18, 2026, base `ac1ecad`. Used the pinned
+Codex self-review, October 18, 2026, base `2c12461`. Used the pinned
 [Ponytail skill](https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md)
-and preserved baseline. Read the complete new operation/tests; traced service schema,
-owner setup/disconnect/re-pair, epoch admission, schedule progress/consent and private
-socket ownership. Reviewed native removal/lifecycle/storage composition to identify
-what this seam cannot prove. Searched the tracked source and new files for callers:
-there is no production caller yet. Reviewed final diff, refusal cases, rollback,
-post-commit cleanup reporting, preservation rules, measurements and evidence limits.
+and preserved baseline. Reviewed storage preparation, all validation helpers, native
+service callers, new inspection behavior and refusal matrices. Traced the exact
+stalled test process, its one-second stack sample, fixture ownership/reaping and all
+seven observation-test callers. Production MacHostProcess was not changed. Reviewed
+final source and staged diff, no-creation behavior, measurements and reported limits.
 
 ## Must fix
 
-1. **Native host deletion is still unavailable — open.**
-   - What this is: The new operation is an offline adapter interface. Ordinary native
-     removal still reports history deletion unavailable.
-   - Problem: A caller-supplied identity and SQLite lease do not establish user consent,
-     startup removal, executor exit, credential cleanup or App Group ownership.
-   - Fix: Wire the exact native lifecycle and retained confirmation through the fixed
-     verified maintenance program, then exercise installed-product acceptance.
-   - If skipped: This remains source preparation rather than the requested full removal
-     feature. Owner: implementation agent; no real-data deletion is authorized here.
+1. **Full native history removal remains unavailable — open.**
+   - What this is: Storage inspection is a prerequisite of the new offline ledger seam.
+   - Problem: The app still lacks the verified maintenance launch and durable captured
+     confirmation linked to completed removal/credential/process-absence checks.
+   - Fix: Compose that next boundary and test exact installed behavior separately.
+   - If skipped: The source pieces cannot be presented as working product deletion.
 
-2. **Erasing occurrence records can repeat an enabled schedule — fixed.**
-   - What this is: Shared occurrence IDs prevent duplicate scheduled work, while each
-     schedule keeps its own checked-through time.
-   - Problem: Removing IDs while one enabled schedule lags can make old work eligible.
-   - Fix: Require paused schedules; preserve definitions/progress. The existing fresh
-     preview/enable flow advances progress. Public reopen/re-pair tests verify no replay.
-   - If skipped: An apparently successful history deletion could cause unexpected work.
-
-3. **Future lifecycle records were accepted — fixed.**
-   - What this is: Setup and deletion receipts have versioned persisted formats.
-   - Problem: Version 2 records could pass the first implementation's state checks.
-   - Fix: Two failing refusal tests now pass with explicit supported-version checks.
-   - If skipped: A later format could be erased without understanding its semantics.
+2. **Removal inspection could create missing storage — fixed.**
+   - What this is: The existing prepare method creates a missing FortHost directory.
+   - Problem: Using it during removal changes storage that should only be inspected.
+   - Fix: Add inspectExisting and share the validator; skip mkdir/fsync in that path.
+     The failing absence test now passes alongside retained and unsafe-path tests.
+   - If skipped: A removal check could recreate absent storage and obscure absence evidence.
 
 ## Should fix
 
-4. **Directory link-count pin rejected normal SQLite activity — fixed.**
-   - What this is: Opening this database may create WAL and shared-memory files.
-   - Problem: Treating the directory's link count as immutable rejected that valid work.
-   - Fix: Pin directory inode/owner/mode, while separately enforcing single-link regular
-     database/sidecar files. The complete public deletion journey now passes.
-   - If skipped: The operation refuses a normal stopped installation.
+3. **An observation-test fixture could wait indefinitely after child exit — fixed.**
+   - What this is: ObservedChild used Foundation Process and waitUntilExit in an async test.
+   - Problem: The full run stalled there with no live child; the sampled stack and exact
+     process inspection document the observed failure without claiming an OS root cause.
+   - Fix: Own the synthetic child with POSIX spawn/EOF and bounded waitpid. Preserve all
+     production observation tests. Only the exact stalled test PID was stopped.
+   - If skipped: Routine verification can hang and never produce a trustworthy result.
 
-Verdict: This bounded offline seam passes its final focused tests and strict types;
-continue native integration. No native capability, provider action or release signoff
-is inferred. No new dependencies, generic cleanup framework or public route was added.
-Not checked: real history, hostile same-UID mutations, native ACL/Keychain/container
-inspection, actual startup/process absence, installed UI, provider operation or TestFlight.
-The full portable suite and benchmark preceded the last two format guards; final focused
-checks include them. The detailed evidence states the exact sequence and unrun checks.
+Verdict: Source/fixture slice verified; continue native maintenance composition. The
+shared validator avoids a second filesystem implementation. No dependency, permission,
+registration or production process-lifecycle change was introduced.
+Not checked: actual App Group resolver/OS container provisioning, real storage or
+credentials, installed UI, provider access, new application artifacts or TestFlight.
+The interrupted full run is preserved as failed/incomplete; the final full rerun passes.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "ac1ecad5cb10e807a89b97684e74d311c17d90f8",
+  "reviewedCommit": "2c1246173de396af1ac1ecafe41759eaa9adedf7",
   "reviewer": "Codex",
-  "scope": "Offline exact-owner SQLite history deletion, schema/lifecycle/filesystem refusal, atomic epoch fence and retry, retained configuration/schedule consent, synthetic behavior and measurement evidence. Native wiring remains open.",
+  "scope": "Read-only existing Mac host-storage inspection with shared filesystem validation; synthetic absent/unsafe/replaced storage; repair of the observed test-only child wait hang; exact verification limits.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
@@ -71,37 +59,34 @@ checks include them. The detailed evidence states the exact sequence and unrun c
     {
       "id": "NATIVE-HOST-DELETION",
       "disposition": "open",
-      "detail": "Production caller remains disabled until exact confirmation, startup/process absence, credential and App Group checks are wired and verified."
+      "detail": "Maintenance launch, exact durable confirmation and native removal/credential/absence composition remain."
     },
     {
-      "id": "SCHEDULE-REPLAY",
+      "id": "INSPECTION-CREATES-STORAGE",
       "disposition": "fixed",
-      "detail": "Deletion requires paused schedules; public re-pair/fresh-preview tests verify no erased occurrence replay."
+      "detail": "Read-only existing-storage entry point shares validation but skips mkdir/fsync; absent storage remains absent."
     },
     {
-      "id": "FUTURE-REMOVAL-FORMATS",
+      "id": "OBSERVED-CHILD-WAIT",
       "disposition": "fixed",
-      "detail": "Reproduced future setup/deletion version acceptance and added fail-closed checks."
-    },
-    {
-      "id": "DIRECTORY-PIN",
-      "disposition": "fixed",
-      "detail": "Directory inode/owner/mode pin permits SQLite sidecar creation; regular file link-count checks remain strict."
+      "detail": "Sampled Foundation wait hang in synthetic fixture replaced by owned POSIX spawn/EOF and bounded waitpid; production observation unchanged."
     }
   ],
   "tests": [
-    "Final focused suite: 38 passed, one optional benchmark skipped; final strict TypeScript passed.",
-    "Earlier full portable suite: 1140 passed, six optional measurements skipped; before the two future-format guards.",
-    "20 isolated 10000-message deletion/compaction samples: p50 132.961167 ms, p95 139.239458 ms, max 140.539292 ms; budget 2000 ms; before final two version guards.",
-    "Public setup/send/disconnect/delete/re-pair, stale epoch, schedule consent, unsafe schema/files, transaction rollback and post-commit cleanup retry tested on disposable fixtures only."
+    "Focused storage: 10 functions passed, three optional skipped, with 25 runtime-directory parameter cases plus unsafe and revalidation matrices.",
+    "Seven process-observation tests pass with repaired synthetic child fixture.",
+    "Final full native suite: 251 functions passed, ten optional skipped (261 discovered); synthetic compiled host journey 1694.777125 ms and owned groups absent.",
+    "20 isolated warm metadata inspections: p50 0.190250 ms, p95 0.195417 ms, max 0.197917 ms; target p95 <=50 ms.",
+    "Initial absence test red; initial full native run stalled and was terminated only after exact process/stack diagnosis. No new application artifacts or real account/history actions."
   ],
   "exceptions": [],
   "files": {
-    "specs/059-modular-node-v1.md": "7bc7c2b9dfd0e830d3019e39eba2e4c1c7481efc67a9a9db7c2229f5b9300b43",
-    "successor/V1-ACCEPTANCE.md": "021bc1f6ace97cea799b5e2828909905ff5e3d9833f49f1da05b044fad75071d",
-    "successor/evidence/2026-10-17-node-foundation/host-history-deletion.md": "50f65bb198ad502d3dba80ca7850832d642c4d19a9587286b0fb06dfe6686d00",
-    "successor/service/delete-history.test.ts": "a7adc028cfb90d966d3754312999d28b2f676e1314586f76593c0720e571063a",
-    "successor/service/delete-history.ts": "8d5da3c64be71c5e1898e6b3695c257dbb78617c4eb9e2d2c87883ae7a9a2ae3"
+    "specs/059-modular-node-v1.md": "ef09969a7bfcc43fd6f71c89704889596262eb8cf562b0fb4d27c279dff70ab7",
+    "successor/V1-ACCEPTANCE.md": "5a85227e163e50802ea84a202c2b655e644ff5f7792c6f33874c12b5096d2cfc",
+    "successor/apple/FortKit/Sources/FortKit/MacAgentStorage.swift": "d86a1557f5053ca3b17bb216e229a1c6a9a72297116365ad18643b415f54a62d",
+    "successor/apple/FortKit/Tests/FortKitTests/MacAgentStorageTests.swift": "7931d2eb504e0a6b8968aaab0ce4cdf1aaa9b2d208d237f2de0391d8ee8d55ea",
+    "successor/apple/FortKit/Tests/FortKitTests/MacHostProcessTests.swift": "8c205f67b7e0262e611b08338a75ecfa78b5384b5be2a66757aafe610f3f4546",
+    "successor/evidence/2026-10-17-node-foundation/native-storage-inspection.md": "947f273f065c67ff3a4e629174d5f0e3c973f0dec171c62c290de1145e5a844d"
   }
 }
 ```
