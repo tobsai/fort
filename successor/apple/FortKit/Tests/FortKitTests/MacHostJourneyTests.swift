@@ -24,7 +24,9 @@ import Testing
     let tools = fixture.helper.appendingPathComponent("Contents/MacOS")
     try FileManager.default.copyItem(at:node.resolvingSymlinksInPath(),to:tools.appendingPathComponent("node"))
     let nodeLibrary = node.resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("lib/libnode.147.dylib")
-    try FileManager.default.copyItem(at:nodeLibrary,to:tools.appendingPathComponent("libnode.147.dylib"))
+    if FileManager.default.fileExists(atPath:nodeLibrary.path) {
+        try FileManager.default.copyItem(at:nodeLibrary,to:tools.appendingPathComponent("libnode.147.dylib"))
+    }
     try FileManager.default.copyItem(at:guardian,to:tools.appendingPathComponent("FortProcessGuardian"))
     let authored = fixture.root.appendingPathComponent("authored")
     try FileManager.default.createDirectory(at:authored,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])

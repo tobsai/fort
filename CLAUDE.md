@@ -51,6 +51,9 @@ The donor under `foundation/` stays quarantined with its license/provenance inta
 4. Before UI/release completion, inspect exact installed builds through accessibility,
    screenshots and authorized real-provider behavior. TestFlight is required for
    user delivery; a local build or upload receipt does not establish acceptance.
+5. Before committing or completing a slice, perform the required
+   [Ponytail review](specs/README.md#required-ponytail-review) and run its evidence
+   gate on the exact staged files. A metadata pass is not a semantic review.
 
 ## Working discipline
 

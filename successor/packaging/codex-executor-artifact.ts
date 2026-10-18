@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 
 export function buildCodexExecutor(destination: string) {
   if (process.version !== 'v26.5.0') throw new Error('Executor packaging requires Node 26.5.0');
-  if (!isAbsolute(destination) || destination === '/' || normalize(destination) !== destination || destination.includes('\0')) throw new Error('Use an absolute, new artifact directory');
+  if (!isAbsolute(destination) || destination === '/' || normalize(destination) !== destination || !destination.isWellFormed() || destination.includes('\0')) throw new Error('Use an absolute, new artifact directory');
   const source = fileURLToPath(new URL('../', import.meta.url));
   const repository = fileURLToPath(new URL('../../', import.meta.url));
   mkdirSync(destination, { mode: 0o700 });

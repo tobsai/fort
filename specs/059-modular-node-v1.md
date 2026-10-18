@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 05a169e716bcc63d3e27da0e5665b7cc57d871e15e390e2ad2210aa100cbae33
+Reviewed content SHA256: d38a1f8cdb90d4f263a85881430cfdc255065dd2d72807c19efbb7507d7376a7
 
 ### Vendor independence
 Status: planned
@@ -1514,6 +1514,93 @@ installation/privacy/lifecycle authority remains unchanged; no action-specific
 approval is inferred from synthetic completion. Revisit machine identity only if
 an explicit migration/device-attestation requirement arises.
 
+### Ordinary Mac removal composition revision
+
+Under unchanged decision 059, connect the existing durable MacHostRemoval controller
+to the ordinary verified Mac host and native model. Reuse that controller as the
+OwnedMacInstallation implementation, with an exact inspected app URL and connection;
+do not add a second removal coordinator. Before external recovery/unregistration,
+revalidate the same bundle identity. Setup remains blocked by saved removal progress,
+but that progress must not hide the control needed to finish removal after restart.
+The default path confirms revocation, core stop, startup unregistration and observed
+helper exit before removing the exact device credential and offering system app
+removal. Retain history and the recovery record. Disconnect recovery confirms core
+revocation without silently unregistering startup. Construction remains inert.
+
+Expose history deletion as a real capability of the installation, rather than
+allowing an unavailable production callback to begin destructive preparation. The
+production controller initially supports retained-history removal only; the separate
+history-deletion boundary remains unimplemented and must not be represented as v1
+completion. Refuse an unsupported deletion before shutdown, credential changes or
+file removal. Existing fixture implementations opt into their authored deletion
+capability. This is incremental wiring, not removal of the accepted deletion goal.
+
+Vendor independence: Apple installation lifecycle stays outside service/provider
+contracts; no AI or hosting dependency changes. Modularity: reuse the durable
+controller and small installation contract; one capability expresses actual support,
+with no generic adapter framework. Speed: 20 synthetic controller-to-removal metadata
+journeys p95 <=50 ms excluding deliberate child-exit waits, signatures and provider
+latency; existing bounded helper waits remain <=30 seconds and no new timer is added.
+Installation/removal: exact package/connection identity, retained recovery progress,
+no hidden registration or history deletion; wrong package, unsupported deletion,
+foreign pairing, failed cleanup and retry remain explicit. The real Apple activation,
+credential and installed-UI gates remain unchanged. No tests use a system registration,
+real Keychain credential or existing user history.
+
+Acceptance: public native lifecycle/model red-to-green tests for ordinary control
+availability, saved-removal recovery, unsupported deletion before effects, exact
+app/endpoint checks, retained-history completion and repeated cleanup. Re-run affected
+native tests, unsigned Apple builds and structural/staged gates. Actual installed
+accessibility, screenshots and provider inspection remain separate. Review deletion
+semantics separately before enabling that capability; keep the owner's clarification
+request visible while continuing the independently authorized retained-history path.
+
+### Required Ponytail review revision
+
+The owner's October 18 instruction, "Yes. Let's add a ponytail check as a required
+review", is recorded in `docs/architecture/decisions/060-required-ponytail-review.md`.
+Require a whole-repository baseline with explicit depth/omissions, followed by
+proportionate semantic reviews of changed files, callers and affected boundaries.
+Use the original read-only audit skill pinned by upstream commit and SHA256.
+Never install its hooks/scripts or apply a global mode. Preserve Fort requirements,
+security checks and explicit exceptions; simplicity does not justify removing them.
+
+Keep one workflow in specs/README.md with short agent-document pointers. Store the
+baseline and current change review in docs/architecture/reviews/ponytail; Git retains
+earlier change reports. Each report records reviewed commit/scope, skill provenance,
+reviewer, concrete findings/dispositions, test evidence and omissions/exceptions.
+An open v1 finding remains in the acceptance ledger even when its reviewed slice
+can be committed. Release-blocking exceptions cannot be relabeled as completion.
+
+A small Node CLI verifies the staged snapshot or a trusted committed comparison
+base. It requires the baseline, valid review metadata and SHA256 coverage of each
+changed regular file, including deletions and both rename paths. Exclude only the
+current report itself to avoid a circular digest. Read blobs from Git's selected
+snapshot, never unstaged replacement content; reject missing/stale coverage, wrong
+skill pin, invalid revision, empty comparisons and malformed evidence. This checks
+evidence integrity and scope, not whether a semantic review happened or was sound.
+Run it before completion/commit and in the existing read-only PR quality job. A
+manual CI invocation must supply an explicit trusted base. No branch protection or
+remote CI success is inferred from a local workflow file.
+
+Vendor independence: Node's standard library and local Git only; no review service
+or AI vendor dependency. Modularity: one standalone evidence gate, separate from
+the spec validator and behavior tests. Speed: synthetic CLI cases complete within
+10 seconds each; one staged repository check targets <=5 seconds, with no runtime
+or idle-process cost. Installation/removal: no dependencies, credentials, hooks,
+startup services or external mutation; removing this gate leaves product behavior
+unchanged but would violate the owner's review requirement. Test the public CLI
+against temporary repositories with stale, missing, renamed, deleted and unstaged
+files. Reuse existing CI rather than adding a service or approval framework.
+
+The baseline's bounded follow-up also fixes executor Unicode-path rejection,
+native CI fixture composition and the stale successor README, and deletes the
+unused MacHostRemoval constructor. Use an observed red-to-green public path test;
+validate the existing native journey with both standalone and Homebrew Node layout
+selection as available. The missing native resume journey stays an explicit v1
+blocker pending its separate private-host slice. No automatic resume or new grant
+is authorized by this review mechanism.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -1543,6 +1630,15 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `specs/README.md`
+- `docs/architecture/decisions/060-required-ponytail-review.md`
+- `docs/architecture/reviews/ponytail/baseline-20261018.md`
+- `docs/architecture/reviews/ponytail/current.md`
+- `ops/architecture/validate-reviews.mjs`
+- `ops/architecture/validate-reviews.test.mjs`
+- `successor/README.md`
+
+- `successor/evidence/2026-10-17-node-foundation/native-removal-composition.md`
 - `successor/evidence/2026-10-17-node-foundation/native-host-composition.md`
 - `successor/apple/FortKit/Tests/FortKitTests/MacHostJourneyTests.swift`
 - `successor/tsconfig.context.json`

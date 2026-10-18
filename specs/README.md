@@ -32,6 +32,54 @@ to a reviewed spec before implementation. Historical approval is not a substitut
    spec per bounded slice; split unrelated work rather than claim an arbitrary
    accepted spec applies. The declaration is covered by the reviewed digest.
 
+## Required Ponytail review
+
+The owner requires a whole-repository baseline and proportionate semantic review
+of later changes. Use the [original read-only skill at its pinned commit](https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md),
+SHA256 `2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28`.
+Read it as text; no installation, hooks, scripts or global modes are needed.
+Fort's requirements, identity checks and security gates remain authoritative.
+
+1. Read the [baseline](../docs/architecture/reviews/ponytail/baseline-20261018.md).
+   Review the changed files, callers and affected persistence, auth, lifecycle and
+   performance boundaries. Search the whole tracked tree before declaring code
+   unused. Expand the scope when a shared boundary changes. State what was omitted.
+2. Write [the current review](../docs/architecture/reviews/ponytail/current.md).
+   Use the skill's concrete findings and report format. Record the reviewed commit
+   and scope, reviewer, immutable skill reference/hash, tests and unrun checks,
+   findings with dispositions, and explicit exceptions. Preserve the baseline;
+   Git history retains each earlier current report. Do not claim that filling in
+   metadata constitutes the semantic review.
+3. Fix in-scope defects through public behavior tests. Review the final changes.
+   Keep unresolved v1 blockers in the acceptance ledger, including owner/reason
+   and the remaining acceptance gate. A scoped commit is not v1 or release signoff.
+4. Include one `fort-review` JSON code block in the current report with `format: 1`,
+   `reviewedCommit`, `reviewer`, `scope`, `skill: {url, sha256}`, `tests`,
+   `exceptions`, `findings` and `files`. Each finding has `id`, `detail` and a
+   `disposition` of `fixed`, `open` or `accepted-exception`. Empty findings and
+   exceptions are valid when accurate. Tests must explicitly state available proof.
+   `files` maps every changed path to SHA256 of its Git mode, a NUL byte and exact
+   file bytes, or `null` for a deletion. Both rename paths need entries. This binds
+   executable permissions as well as content. Only the current report is excluded
+   from its own coverage to avoid a circular digest.
+5. Stage only the intended slice and run both spec gates, then
+   `node ops/architecture/validate-reviews.mjs --staged` and
+   `git diff --cached --check`. `reviewedCommit` must equal HEAD for a staged check.
+   After a source/evidence edit, inspect that change and refresh its coverage before
+   repeating the gate. Do not mechanically reseal a file without reviewing it.
+
+The existing PR quality job runs the same evidence check with `--base` set to the
+trusted pull-request base SHA. Before opening a PR, review the full branch range
+and make the current report cover its resulting changes. Manual CI requires an
+explicit full comparison SHA. The base must be an ancestor; an empty comparison
+cannot establish review. No network, hooks, credentials or product process is used.
+Run the behavior tests with `npm --prefix successor run test:reviews`.
+
+This gate checks evidence presence, provenance and freshness only. It cannot
+authenticate a reviewer, prove they read the code, assess a finding or authorize
+an exception. Semantic review and actual completion judgment remain mandatory.
+Local workflow preparation does not enable remote branch protection or prove CI ran.
+
 ## Status vocabulary
 
 Review status is one of `draft`, `needs-reassessment`, `ready-for-review`,
@@ -78,7 +126,9 @@ This is exact-path coverage, not semantic applicability or authenticated approva
 A reviewer must check that the declared spec actually governs the change, its
 real owner decision covers the scope, and promised behavior/evidence is adequate.
 There is no automatic mapping for multiple specs or historical code, no approval
-service and no remote CI enforcement. See the [proposed CI procedure](../docs/architecture/reassessment-20261017.md#proposed-ci-enforcement-of-change-scope).
+service. The local workflow file runs structural and Ponytail evidence checks;
+remote execution and branch protection remain unverified. See the
+[original CI proposal](../docs/architecture/reassessment-20261017.md#proposed-ci-enforcement-of-change-scope).
 
 ## Preservation and enforcement limits
 
@@ -97,7 +147,8 @@ claimed reviewed. Files outside this worktree are outside this local check.
 
 The successor npm `test` and `typecheck` lifecycles run the structural check
 first. Direct tool invocations can bypass npm; agents must still run the required
-checks. The gate is local; no GitHub workflow or branch protection has been configured.
+checks. The GitHub quality workflow is prepared locally; no remote run or branch
+protection configuration has been verified.
 It validates structure, status and accepted-content integrity. It cannot verify
 human approval, evidence truth, actual removability, performance or the completeness
 of requirements. Required behavioral/benchmark/removal tests and human review

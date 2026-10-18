@@ -23,6 +23,10 @@ Use the full spec gate and accepted Spec 059 gate before implementation; before
 committing a product slice also use `--staged` against the declared exact files.
 Structural status/digest do not authenticate the actual owner decision.
 
+Complete the [required Ponytail review](../specs/README.md#required-ponytail-review)
+before each slice's commit/completion. Record findings, dispositions and limits,
+then validate the staged review evidence. Keep open v1 findings in the ledger.
+
 ## Historical handoff — architecture reassessment
 
 Read the root [directives](../CLAUDE.md), [constitution](../ARCHITECTURE.md) and

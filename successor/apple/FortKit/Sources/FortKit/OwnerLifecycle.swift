@@ -33,11 +33,13 @@ public struct PairingRecoveryProof: Sendable {
 }
 @MainActor public protocol OwnedMacInstallation {
     var appURL: URL { get }
+    var supportsHistoryDeletion: Bool { get }
     func stopAndRevoke() async throws -> OwnedHostStop
     func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof
     func removeHistory() throws
 }
 extension OwnedMacInstallation {
+    public var supportsHistoryDeletion: Bool { false }
     public func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof { throw OwnerLifecycleError.unavailable }
 }
 public enum HistoryRemoval: Sendable, Equatable { case keep; case deleteConfirmed }
@@ -46,13 +48,14 @@ public struct PreparedAppRemoval: Sendable, Equatable {
     public let history: HistoryRemoval
 }
 public enum OwnerLifecycleError: Error, LocalizedError {
-    case stopUnconfirmed, startupUnconfirmed, wrongPairing, unavailable
+    case stopUnconfirmed, startupUnconfirmed, wrongPairing, unavailable, historyDeletionUnavailable
     public var errorDescription: String? {
         switch self {
         case .stopUnconfirmed: "Shutdown or revocation was not confirmed. The app and local pairing have been kept for recovery."
         case .startupUnconfirmed: "Startup unregistration was not confirmed. The app and local pairing have been kept for recovery."
         case .wrongPairing: "The saved pairing changed. Reload settings before continuing."
         case .unavailable: "The installed host has not registered a verified removal path."
+        case .historyDeletionUnavailable: "This installation keeps history during removal. No removal action was started."
         }
     }
 }
@@ -63,6 +66,7 @@ public enum OwnerLifecycleError: Error, LocalizedError {
         self.installation = installation; self.removeCredential = removeCredential
     }
     public func prepareForRemoval(history: HistoryRemoval = .keep) async throws -> PreparedAppRemoval {
+        guard history != .deleteConfirmed || installation.supportsHistoryDeletion else { throw OwnerLifecycleError.historyDeletionUnavailable }
         let receipt = try await installation.stopAndRevoke()
         guard receipt.hostStopped, receipt.pairingRevoked else { throw OwnerLifecycleError.stopUnconfirmed }
         guard receipt.startupUnregistered else { throw OwnerLifecycleError.startupUnconfirmed }

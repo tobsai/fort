@@ -18,6 +18,8 @@
     "test:native-stop": "node --test prototype/mvp-app.test.ts",
     "check:specs": "node ../ops/architecture/validate-specs.mjs",
     "test:specs": "node --test ../ops/architecture/validate-specs.test.mjs",
+    "test:reviews": "node --test ../ops/architecture/validate-reviews.test.mjs",
+    "check:review": "node ../ops/architecture/validate-reviews.mjs --staged",
     "pretest": "npm run check:specs",
     "pretypecheck": "npm run check:specs",
     "test:packaging": "node verification/test-suite.mjs --suite signed",

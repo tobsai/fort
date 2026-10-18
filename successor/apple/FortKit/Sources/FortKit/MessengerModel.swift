@@ -93,6 +93,7 @@ import Observation
     public var localPairingForgotten = false
     private var ownedInstallation: (any OwnedMacInstallation)?
     public var removableAppURL: URL? { ownedInstallation?.appURL }
+    public var canDeleteLocalHistory: Bool { ownedInstallation?.supportsHistoryDeletion == true }
     public private(set) var preparedAppRemoval: PreparedAppRemoval?
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var runtimeReadiness: RuntimeReadiness?
@@ -139,13 +140,16 @@ import Observation
         }
     }
     private func configureLocalHostSetup() {
-        localHostSetupReady = false; ownerSetupInspected = false
+        localHostSetupReady = false; ownerSetupInspected = false; ownedInstallation = nil
         guard let localHost, let endpoint = localHost.endpoint else {
             ownerSetupMessage = localHost?.message ?? "No local host is configured."; return
         }
         do {
             do {
                 let files = try OwnerSetupFiles(directory:storage.directory); defer { files.close() }
+                if let bytes = try files.read(.connection) ?? files.read(.disconnected) {
+                    ownedInstallation = try localHost.removal(connection:JSONDecoder().decode(DeviceConnection.self,from:bytes),directory:storage.directory)
+                }
                 try verifyLocalHostRecords(files,endpoint:endpoint)
             }
             if let ownerSetupEndpoint, ownerSetupEndpoint != .macAgent(endpoint) { throw OwnerSetupPreparationError.wrongHost }

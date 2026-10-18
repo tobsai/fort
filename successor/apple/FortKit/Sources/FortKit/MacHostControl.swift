@@ -32,6 +32,15 @@ import Observation
          makeStartup: @escaping @MainActor (MacAgentEndpoint) throws -> MacHostStartup) {
         self.applicationURL = applicationURL; self.inspectBundle = inspectBundle; self.makeStartup = makeStartup
     }
+    func removal(connection: DeviceConnection, directory: URL) throws -> MacHostRemoval {
+        guard let identity, endpoint == identity.endpoint, connection.endpoint == .macAgent(identity.endpoint) else { throw OwnerLifecycleError.wrongPairing }
+        let startup = try makeStartup(identity.endpoint)
+        return try MacHostRemoval(connection:connection,directory:directory,applicationURL:identity.applicationURL,verifyBundle:{
+            let observed = try await self.inspectBundle(identity.applicationURL)
+            guard observed.applicationURL == identity.applicationURL, observed.helperURL == identity.helperURL,
+                  observed.endpoint == identity.endpoint, observed.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
+        },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3)
+    }
     public func inspect() async { await perform(enable:false) }
     public func enable() async {
         guard canEnable else { return }

@@ -67,7 +67,9 @@ private struct HostRemovalRecord: Codable {
     }
 }
 
-@MainActor public final class MacHostRemoval {
+@MainActor public final class MacHostRemoval: OwnedMacInstallation {
+    public let appURL: URL
+    private let verifyBundle: @MainActor () async throws -> Void
     public let connection: DeviceConnection
     private let directory: URL
     private let startup: MacHostStartup
@@ -75,14 +77,12 @@ private struct HostRemovalRecord: Codable {
     private let exitTimeout: TimeInterval
     private var active = false
 
-    public convenience init(connection: DeviceConnection, directory: URL, exitTimeout: TimeInterval = 3) throws {
-        guard case .macAgent(let endpoint) = connection.endpoint else { throw OwnerLifecycleError.wrongPairing }
-        try self.init(connection:connection,directory:directory,startup:MacHostStartup(endpoint:endpoint),recover:MacXPCTransport(agent:endpoint).recoverPairingAndObserveHost,exitTimeout:exitTimeout)
-    }
-    init(connection: DeviceConnection, directory: URL, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval) throws {
+    init(connection: DeviceConnection, directory: URL, applicationURL: URL, verifyBundle: @escaping @MainActor () async throws -> Void, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval) throws {
         guard case .macAgent(let endpoint) = connection.endpoint, endpoint == startup.endpoint,
               exitTimeout.isFinite, exitTimeout > 0, exitTimeout <= 30 else { throw OwnerLifecycleError.wrongPairing }
         _ = try MacOwnerRecoveryRequest(installationID:connection.installationID,deviceID:connection.deviceID)
+        guard applicationURL.isFileURL, applicationURL.path.hasPrefix("/"), applicationURL.host == nil || applicationURL.host == "" else { throw MacHostBundleError.configuration }
+        appURL = applicationURL; self.verifyBundle = verifyBundle
         self.connection = connection; self.directory = directory; self.startup = startup
         self.recover = recover; self.exitTimeout = exitTimeout
     }
@@ -98,11 +98,31 @@ private struct HostRemovalRecord: Codable {
         try verifyConnection(files)
         guard try files.read(.hostRemoval) == bytes else { throw MacHostRemovalError.changedProgress }
     }
+    public func recoverPairingRemoval(_ expected: DeviceConnection) async throws -> PairingRecoveryProof {
+        guard expected == connection else { throw OwnerLifecycleError.wrongPairing }
+        guard !active else { throw MacHostRemovalError.busy }
+        try Task.checkCancellation()
+        active = true; defer { active = false }
+        try await verifyBundle()
+        try Task.checkCancellation()
+        let files = try OwnerSetupFiles(directory:directory); defer { files.close() }
+        try verifyConnection(files)
+        guard try files.read(.hostRemoval) == nil else { throw MacHostRemovalError.setupBlocked }
+        let request = try MacOwnerRecoveryRequest(installationID:connection.installationID,deviceID:connection.deviceID)
+        let observation = try await recover(request)
+        try observation.receipt.validate(for:request)
+        try verifyConnection(files)
+        return PairingRecoveryProof(connection:connection,hostStopped:observation.receipt.coreStopped,pairingRevoked:observation.receipt.pairingRevoked)
+    }
+    public func removeHistory() throws { throw OwnerLifecycleError.historyDeletionUnavailable }
+
     public func stopAndRevoke() async throws -> OwnedHostStop {
         guard !active else { throw MacHostRemovalError.busy }
         try Task.checkCancellation()
         active = true
         defer { active = false }
+        try await verifyBundle()
+        try Task.checkCancellation()
         let files = try OwnerSetupFiles(directory:directory)
         defer { files.close() }
         try verifyConnection(files)

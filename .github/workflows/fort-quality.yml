@@ -3,6 +3,11 @@ name: Fort quality
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      review_base:
+        description: Trusted full commit SHA for the reviewed comparison
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +31,11 @@ jobs:
           package-manager-cache: false
       - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix successor run test:specs
+      - run: npm --prefix successor run test:reviews
+      - name: Check required review evidence
+        env:
+          FORT_REVIEW_BASE: ${{ github.event.pull_request.base.sha || inputs.review_base }}
+        run: node ops/architecture/validate-reviews.mjs --base "$FORT_REVIEW_BASE"
       - run: node ops/architecture/validate-specs.mjs --implementation specs/059-modular-node-v1.md
       - run: npm --prefix successor run typecheck
       - run: npm --prefix successor test
@@ -47,6 +57,15 @@ jobs:
       - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix successor run check:specs
       - run: npm --prefix successor run test:macos
+      - name: Prepare synthetic native host fixtures
+        shell: bash
+        run: |
+          xcrun swiftc successor/host/mac-process-guardian.swift -o "$RUNNER_TEMP/fort-guardian"
+          node successor/packaging/host-resources.ts --destination "$RUNNER_TEMP/fort-host-resources" > "$RUNNER_TEMP/fort-host-manifest.json"
+          echo "FORT_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
+          echo "FORT_TEST_GUARDIAN=$RUNNER_TEMP/fort-guardian" >> "$GITHUB_ENV"
+          echo "FORT_TEST_CORE_ARTIFACT=$RUNNER_TEMP/fort-host-resources/core" >> "$GITHUB_ENV"
+          echo "FORT_TEST_HOST_RESOURCES=$RUNNER_TEMP/fort-host-resources" >> "$GITHUB_ENV"
       - run: xcrun swift test --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift"
       - name: Verify compiled native HTTP journeys
         shell: bash

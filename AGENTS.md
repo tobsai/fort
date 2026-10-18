@@ -18,6 +18,8 @@ It is the authoritative four-principle design grid.
   `--staged` to check every changed path against the spec's reviewed declaration.
 - **Surgical work:** name exact files, preserve unrelated changes, historical
   approvals and source pins. Do not revive legacy services or reset consumed demos.
+- **Required review:** complete the [Ponytail review](specs/README.md#required-ponytail-review)
+  and staged evidence gate before committing or declaring a slice complete.
 - **Working in `successor/`:** read [its handoff](successor/AGENTS.md). It contains
   current implementation progress and the adopted Node foundation handoff.
 - **Authority:** ordinary coding, tests, routine fixes, CI and requested delivery

@@ -71,13 +71,13 @@ private final class RemovalChild {
     let receipt = MacOwnerRecoveryReceipt(installationID:connection.installationID,deviceID:connection.deviceID,runtimeStopped:true,pairingRevoked:true,coreStopped:true)
     let recovery = RemovalRecovery(MacHostRecoveryObservation(receipt:receipt,host:observed)), backend = RemovalStartup()
     let startup = try MacHostStartup(endpoint:endpoint,backend:backend)
-    let first = try MacHostRemoval(connection:connection,directory:directory,startup:startup,recover:{ try await recovery.recover($0) },exitTimeout:0.03)
+    let first = try MacHostRemoval(connection:connection,directory:directory,applicationURL:URL(fileURLWithPath:"/synthetic/Fort.app"),verifyBundle:{},startup:startup,recover:{ try await recovery.recover($0) },exitTimeout:0.03)
     await #expect(throws:URLError(.timedOut)) { try await first.stopAndRevoke() }
     #expect(child.process.isRunning)
     #expect(await backend.removals == 1)
     #expect(await recovery.calls == 1)
     try child.finish()
-    let restarted = try MacHostRemoval(connection:connection,directory:directory,startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:{ try await recovery.recover($0) },exitTimeout:1)
+    let restarted = try MacHostRemoval(connection:connection,directory:directory,applicationURL:URL(fileURLWithPath:"/synthetic/Fort.app"),verifyBundle:{},startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:{ try await recovery.recover($0) },exitTimeout:1)
     let stopped = try await restarted.stopAndRevoke()
     #expect(stopped.hostStopped && stopped.pairingRevoked && stopped.startupUnregistered)
     _ = try await restarted.stopAndRevoke()
@@ -112,9 +112,9 @@ private final class RemovalChild {
         let observed = try MacHostProcess.observe(processID:child.process.processIdentifier,effectiveUserID:geteuid())
         recovery = RemovalRecovery(MacHostRecoveryObservation(receipt:MacOwnerRecoveryReceipt(installationID:connection.installationID,deviceID:connection.deviceID,runtimeStopped:true,pairingRevoked:true,coreStopped:true),host:observed))
     }
-    func removal(timeout: TimeInterval = 0.03, recover: (@Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation)? = nil) throws -> MacHostRemoval {
+    func removal(timeout: TimeInterval = 0.03, verifyBundle: @escaping @MainActor () async throws -> Void = {}, recover: (@Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation)? = nil) throws -> MacHostRemoval {
         let recovery = self.recovery
-        return try MacHostRemoval(connection:connection,directory:directory,startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:recover ?? { try await recovery.recover($0) },exitTimeout:timeout)
+        return try MacHostRemoval(connection:connection,directory:directory,applicationURL:URL(fileURLWithPath:"/synthetic/Fort.app"),verifyBundle:verifyBundle,startup:MacHostStartup(endpoint:endpoint,backend:backend),recover:recover ?? { try await recovery.recover($0) },exitTimeout:timeout)
     }
     func clean() { try? child.finish(); try? FileManager.default.removeItem(at:directory) }
 }
@@ -370,5 +370,58 @@ private func removalPhase(_ directory: URL) throws -> String? {
     #expect(await fixture.backend.removals == 1)
     #expect(try JSONDecoder().decode(PairingRemovalIntent.self,from:Data(contentsOf:intent)).state == .locallyForgotten)
     #expect(!FileManager.default.fileExists(atPath:connectionFile.path))
+}
+
+@Test @MainActor func hostRemovalRevalidatesBundleBeforeRecoveryOrProgressWrites() async throws {
+    let fixture = try RemovalFixture(); defer { fixture.clean() }
+    let removal = try fixture.removal(verifyBundle:{ throw MacHostBundleError.signature })
+    await #expect(throws:MacHostBundleError.self) { try await removal.stopAndRevoke() }
+    await #expect(throws:MacHostBundleError.self) { try await removal.recoverPairingRemoval(fixture.connection) }
+    #expect(await fixture.recovery.calls == 0)
+    #expect(await fixture.backend.removals == 0)
+    #expect(!FileManager.default.fileExists(atPath:fixture.progressURL.path))
+    #expect(fixture.child.process.isRunning)
+}
+
+@Test @MainActor func hostRemovalDisconnectRecoveryPreservesStartupAndRejectsForeignPairing() async throws {
+    let fixture = try RemovalFixture(); defer { fixture.clean() }
+    let removal = try fixture.removal()
+    let foreign = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"foreign",deviceID:"device")
+    await #expect(throws:OwnerLifecycleError.self) { try await removal.recoverPairingRemoval(foreign) }
+    #expect(await fixture.recovery.calls == 0)
+    let proof = try await removal.recoverPairingRemoval(fixture.connection)
+    #expect(proof.connection == fixture.connection && proof.hostStopped && proof.pairingRevoked)
+    #expect(await fixture.recovery.calls == 1)
+    #expect(await fixture.backend.current == .enabled)
+    #expect(await fixture.backend.removals == 0)
+    #expect(!FileManager.default.fileExists(atPath:fixture.progressURL.path))
+    #expect(fixture.child.process.isRunning)
+}
+
+@Test @MainActor func hostRemovalLifecycleRetriesCredentialCleanupWithoutReactivatingOrDeletingHistory() async throws {
+    let fixture = try RemovalFixture(); defer { fixture.clean() }
+    let history = fixture.directory.appendingPathComponent("synthetic-history")
+    try Data("retained".utf8).write(to:history)
+    let removal = try fixture.removal(timeout:1)
+    var cleanupAttempts = 0
+    let lifecycle = OwnerLifecycle(installation:removal,removeCredential:{
+        cleanupAttempts += 1
+        if cleanupAttempts == 1 { throw URLError(.cannotRemoveFile) }
+    })
+    await #expect(throws:OwnerLifecycleError.self) { try await lifecycle.prepareForRemoval(history:.deleteConfirmed) }
+    #expect(cleanupAttempts == 0)
+    #expect(await fixture.recovery.calls == 0)
+    #expect(await fixture.backend.removals == 0)
+    try fixture.child.finish()
+    await #expect(throws:URLError.self) { try await lifecycle.prepareForRemoval() }
+    #expect(try removalPhase(fixture.directory) == "confirmed")
+    let restarted = OwnerLifecycle(installation:try fixture.removal(timeout:1),removeCredential:{ cleanupAttempts += 1 })
+    let prepared = try await restarted.prepareForRemoval()
+    #expect(prepared.appURL == URL(fileURLWithPath:"/synthetic/Fort.app") && prepared.history == .keep)
+    #expect(cleanupAttempts == 2)
+    #expect(await fixture.recovery.calls == 1)
+    #expect(await fixture.backend.removals == 1)
+    #expect(await fixture.backend.registrations == 0)
+    #expect(try String(contentsOf:history,encoding:.utf8) == "retained")
 }
 #endif

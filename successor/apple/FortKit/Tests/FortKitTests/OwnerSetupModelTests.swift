@@ -447,4 +447,47 @@ func ownerSetupModelNeverEnablesStartupOverASavedHostRemoval(_ addedAfterInspect
     #expect(await transport.paths.isEmpty)
     #expect(try Data(contentsOf:root.appendingPathComponent("connection.json")) == before)
 }
+
+@Test(arguments:[false,true]) @MainActor
+func ordinaryMacModelOffersVerifiedRemovalEvenWhenSavedProgressBlocksSetup(savedProgress: Bool) async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let connection = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"installation",deviceID:"device")
+    try storage.save(connection,token:"synthetic-only")
+    if savedProgress {
+        let files = try OwnerSetupFiles(directory:root); defer { files.close() }
+        try files.write(Data("synthetic progress; interpretation deferred until explicit removal".utf8),to:.hostRemoval)
+    }
+    let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    #expect(model.removableAppURL == nil)
+    await model.inspectLocalHost()
+    #expect(model.removableAppURL == fixture.app)
+    #expect(credentials.reads == 0 && credentials.removals == 0)
+    #expect(await fixture.backend.registrations == 0)
+    if savedProgress { #expect(!model.canEnableLocalHost && !model.canCompleteOwnerSetup) }
+    fixture.valid = false
+    await model.inspectLocalHost()
+    #expect(model.removableAppURL == nil)
+}
+
+@Test @MainActor func ordinaryMacRemovalCompositionMetadataBudget() async throws {
+    let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
+    let storage = try DeviceStorage(directory:root,credentials:credentials)
+    let connection = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"installation",deviceID:"device")
+    try storage.save(connection,token:"synthetic-only")
+    var samples: [Double] = []
+    for _ in 0..<20 {
+        let started = ProcessInfo.processInfo.systemUptime
+        let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+        await model.inspectLocalHost()
+        samples.append((ProcessInfo.processInfo.systemUptime - started) * 1000)
+        #expect(model.removableAppURL == fixture.app && !model.canDeleteLocalHistory)
+    }
+    #expect(samples.sorted()[18] <= 50)
+    #expect(credentials.reads == 0 && credentials.removals == 0)
+    #expect(await fixture.backend.registrations == 0)
+    print("FORT_REMOVAL_COMPOSITION_MS " + String(decoding:try JSONEncoder().encode(samples),as:UTF8.self))
+}
 #endif

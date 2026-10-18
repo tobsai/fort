@@ -1,4 +1,40 @@
-# Fort Spec 058 successor
+# Fort Node foundation
+
+The active implementation follows [Spec 059](../specs/059-modular-node-v1.md):
+a Node/TypeScript core, one local ledger, optional runtime/context modules and
+Swift native clients. Read [AGENTS.md](AGENTS.md) and the
+[v1 acceptance ledger](V1-ACCEPTANCE.md) for current progress and limitations.
+The source import in `foundation/` remains quarantined and is not a runtime dependency.
+
+Ordinary verification uses Node 26.5.0 and the pinned development dependencies.
+Inspect package scripts/configuration, then install with lifecycle hooks disabled:
+
+```sh
+npm --prefix successor ci --ignore-scripts --no-audit --no-fund
+npm --prefix successor run test:specs
+npm --prefix successor run test:reviews
+npm --prefix successor run typecheck
+npm --prefix successor test
+```
+
+On macOS, run `npm --prefix successor run test:macos`. Native tests also need an
+explicit Node binary, compiled synthetic guardian and fresh host resources. The
+exact preparation steps and environment variables are in the
+[native quality job](../.github/workflows/fort-quality.yml). Its resources use an
+authored runtime fixture; no provider sign-in or startup registration is needed.
+The host-resource builder requires a new absolute destination and never replaces
+an existing artifact. Signed probes, timing budgets, installed UI and actual
+provider checks are separate evidence stages, not implied by these commands.
+
+Before committing or declaring a slice complete, follow the
+[required Ponytail review](../specs/README.md#required-ponytail-review) and staged
+spec/review gates. No remote CI run, TestFlight delivery or installed acceptance
+is implied by the local source and tests.
+
+## Historical Stage 1 and Spec 058 instructions
+
+The following records describe the earlier prototype. Their subset commands and
+completion claims apply to those historical increments, not current validation.
 
 This is the implemented Stage 1 **fixture increment**: a fresh authenticated
 TypeScript/SQLite service, constrained deterministic fixture worker, FortKit,

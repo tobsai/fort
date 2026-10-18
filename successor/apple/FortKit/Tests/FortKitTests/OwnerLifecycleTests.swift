@@ -47,6 +47,7 @@ private final class LifecycleCredentials: DeviceCredentials {
     var stopped = false
     var revoked = true
     var unregistered = true
+    var supportsHistoryDeletion = true
     var failHistory = false
     var wrongScope = false
     func stopAndRevoke() async throws -> OwnedHostStop { operations.append("stop"); return OwnedHostStop(hostStopped:stopped,pairingRevoked:revoked,startupUnregistered:unregistered) }
@@ -215,4 +216,13 @@ private final class LifecycleHTTPProtocol: URLProtocol, @unchecked Sendable {
     await model.prepareForRemoval(history:.deleteConfirmed)
     #expect(model.preparedAppRemoval?.history == .deleteConfirmed)
     #expect(model.pairingMessage.contains("The confirmed local history was deleted."))
+}
+
+@Test @MainActor func removalRefusesUnsupportedHistoryDeletionBeforeAnyEffect() async throws {
+    let installation = RemovalFixture(); installation.stopped = true; installation.supportsHistoryDeletion = false
+    let lifecycle = OwnerLifecycle(installation:installation,removeCredential:{ installation.operations.append("credential") })
+    await #expect(throws:OwnerLifecycleError.self) { try await lifecycle.prepareForRemoval(history:.deleteConfirmed) }
+    #expect(installation.operations.isEmpty)
+    #expect(try await lifecycle.prepareForRemoval().history == .keep)
+    #expect(installation.operations == ["stop","credential"])
 }

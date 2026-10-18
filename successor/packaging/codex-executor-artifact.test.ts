@@ -77,6 +77,13 @@ test('executor compilation does not inherit ambient Node preload hooks', t => {
   }
 });
 
+test('executor packaging rejects ill-formed Unicode before creating any output', t => {
+  const root = realpathSync(mkdtempSync('/tmp/fort059-executor-unicode-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.throws(() => buildCodexExecutor(join(root, 'executor-\ud800')), /absolute, new artifact directory/);
+  assert.deepEqual(readdirSync(root), []);
+});
+
 test('five isolated fresh executor builds meet the packaging budget', { skip: !process.env.FORT_EXECUTOR_BUILD_BENCHMARK }, t => {
   const destination = process.env.FORT_EXECUTOR_BUILD_BENCHMARK; assert.ok(destination);
   const root = realpathSync(mkdtempSync('/tmp/fort059-executor-build-budget-')), samples: number[] = [];

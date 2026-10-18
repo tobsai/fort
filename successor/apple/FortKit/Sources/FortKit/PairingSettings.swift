@@ -61,7 +61,8 @@ struct PairingSettingsView: View {
                 Button("Prepare to remove Fort…",role:.destructive) { confirm(.uninstall) }
                     .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
                 Button("Prepare removal and delete local history…",role:.destructive) { confirm(.deleteHistory) }
-                    .disabled(model.removableAppURL == nil || model.isBusy || model.lifecycleBusy)
+                    .disabled(!model.canDeleteLocalHistory || model.isBusy || model.lifecycleBusy)
+                if model.removableAppURL != nil && !model.canDeleteLocalHistory { Text("This installation keeps history during removal.").font(.caption).foregroundStyle(.secondary) }
                 if model.removableAppURL == nil { Text("Removal preparation is available after this Mac’s owned host is installed. This development build cannot yet verify its shutdown and startup unregistration.").font(.caption).foregroundStyle(.secondary) }
                 if let ready = model.preparedAppRemoval { Text("Ready for system removal: \(ready.appURL.path)").font(.caption) }
                 Text("History is kept by default. Deleting it requires a separate confirmation.").font(.caption)
