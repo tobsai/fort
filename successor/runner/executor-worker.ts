@@ -1,11 +1,13 @@
 import type { Readable, Writable } from 'node:stream';
 import type { ChatRuntime } from './chat-runtime.ts';
 import { DISPATCH_FRAME_BYTES, MODEL_FRAME_BYTES, parseExecutorModelRequest, parseExecutorModelCatalog, parseExecutorRequest, parseExecutorResult, validateExecutorBinding, validateExecutorCancel, validateExecutorModelCancel, type ExecutorBinding, type ExecutorRequest, type ExecutorModelRequest } from './executor-wire.ts';
+import { ACCOUNT_FRAME_BYTES, parseExecutorAccountRequest, parseAccountChallenge, parseAccountSignInResult, validateExecutorAccountCancel, type ExecutorAccountRequest } from './executor-account-wire.ts';
 
 type WorkerOptions = {
   input: Readable; output: Writable; binding: ExecutorBinding;
   createRuntime(request: ExecutorRequest, signal: AbortSignal): ChatRuntime;
   createDiscovery?(request: ExecutorModelRequest, signal: AbortSignal): ChatRuntime;
+  createSignIn?(request: ExecutorAccountRequest, signal: AbortSignal): ChatRuntime;
 };
 type Operation = {
   deadline: number; requestBytes: number; canceledIsFailure: boolean;
@@ -15,7 +17,7 @@ type Operation = {
   cancel(value: unknown): void;
 };
 
-export function serveExecutorWorker({ input, output, binding, createRuntime, createDiscovery }: WorkerOptions): Promise<void> {
+export function serveExecutorWorker({ input, output, binding, createRuntime, createDiscovery, createSignIn }: WorkerOptions): Promise<void> {
   validateExecutorBinding(binding);
   const selected = { ...binding }, done = Promise.withResolvers<void>(), failed = Promise.withResolvers<never>();
   void failed.promise.catch(() => {});
@@ -40,6 +42,31 @@ export function serveExecutorWorker({ input, output, binding, createRuntime, cre
     else done.resolve();
   }
   function operation(value: unknown): Operation {
+    if (value && typeof value === 'object' && 'kind' in value && value.kind === 'accountSignIn') {
+      const accepted = parseExecutorAccountRequest(value, selected);
+      if (!createSignIn) throw new Error('Account sign-in is not configured');
+      return { deadline: accepted.deadline, requestBytes: ACCOUNT_FRAME_BYTES, canceledIsFailure: false,
+        create: () => createSignIn(accepted, controller.signal),
+        execute: async runtime => {
+          if (!runtime.signIn || Date.now() >= accepted.workDeadline) throw new Error('Account sign-in is unavailable');
+          let offered = false;
+          const durationMs = accepted.workDeadline - Date.now();
+          const workTimer = setTimeout(() => controller.abort(), Math.max(1, durationMs));
+          try {
+            return await runtime.signIn({ durationMs, onChallenge: value => {
+              const challenge = parseAccountChallenge(value);
+              if (offered || stopped || invalid || controller.signal.aborted || Date.now() >= accepted.workDeadline) throw new Error('Account challenge is no longer available');
+              offered = true;
+              output.write(JSON.stringify({ protocolVersion: 1, kind: 'accountChallenge', sequence: 0,
+                requestId: accepted.requestId, requestDigest: accepted.requestDigest, challenge }) + '\n');
+            } }, controller.signal);
+          } finally { clearTimeout(workTimer); }
+        },
+        terminal: result => ({ protocolVersion: 1, kind: 'accountResult', sequence: 1,
+          requestId: accepted.requestId, requestDigest: accepted.requestDigest, result: parseAccountSignInResult(result) }),
+        cancel: value => validateExecutorAccountCancel(value, accepted),
+      };
+    }
     if (value && typeof value === 'object' && 'kind' in value && value.kind === 'models') {
       const accepted = parseExecutorModelRequest(value, selected);
       if (!createDiscovery) throw new Error('Model discovery is not configured');

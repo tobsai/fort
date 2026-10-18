@@ -98,6 +98,30 @@ test('guarded model discovery refuses unsafe configuration and a foreign account
   });
 });
 
+test('guarded account sign-in forwards a validated challenge without a chat turn and proves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
+  const h = setup(t, 'account-success'), shown: unknown[] = [];
+  assert.ok(h.runtime.signIn);
+  const result = await h.runtime.signIn({ durationMs: 5000, onChallenge: value => { shown.push(value); } }, new AbortController().signal);
+  assert.deepEqual(result, { kind: 'signedIn' });
+  assert.deepEqual(shown, [{ kind: 'deviceCode', verificationURL: 'https://auth.openai.com/codex/device', userCode: 'FORT-TEST' }]);
+  const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(methods.filter(value => value.method === 'account/login/start'), [{ method: 'account/login/start', loginType: 'chatgptDeviceCode' }]);
+  assert.equal(methods.some(value => value.method === 'thread/start' || value.method === 'turn/start'), false);
+  assert.equal(h.runtime.lastExit?.forced, false); assert.equal(h.runtime.lastExit?.groupAbsent, true);
+  allAbsent(h.directory);
+});
+
+test('guarded account cancellation retains a completed account race and disposes every process', { skip: process.platform !== 'darwin' }, async t => {
+  for (const scenario of ['account-cancel', 'account-race']) await t.test(scenario, async t => {
+    const h = setup(t, scenario), abort = new AbortController();
+    assert.ok(h.runtime.signIn);
+    const result = await h.runtime.signIn({ durationMs: 5000, onChallenge: () => abort.abort() }, abort.signal);
+    assert.deepEqual(result, { kind: scenario === 'account-race' ? 'signedIn' : 'canceled' });
+    assert.equal(h.runtime.lastExit?.forced, false); assert.equal(h.runtime.lastExit?.groupAbsent, true);
+    allAbsent(h.directory);
+  });
+});
+
 test('canceling guarded model discovery disposes its runtime and leaves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
   const h = setup(t, 'catalog-cancel'), controller = new AbortController(); assert.ok(h.runtime.models);
   const pending = h.runtime.models(controller.signal);

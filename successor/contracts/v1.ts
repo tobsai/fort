@@ -1,4 +1,7 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
+export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string };
+export type AccountSignInResult = { kind: 'signedIn' | 'canceled' | 'failed' | 'unconfirmed' };
+export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void };
 export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
 export type RuntimeDescriptor = { provider: string; name: string; runtimeVersion: string; hostId: string; session: 'stateless' | 'sessionful'; capabilities: RuntimeCapability[] };
 export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor; eventCursor?: number };

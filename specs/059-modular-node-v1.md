@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 1de2d96e69738755244df50e4cbfd414089c482e2e692633c98d6d2c971ca71a
+Reviewed content SHA256: 2ea4ca1a03f7f8ef182b90ab4907ee52bbac441a5f1d1b9fc47e2d8899012af8
 
 ### Vendor independence
 Status: planned
@@ -2365,7 +2365,71 @@ successor/packaging/codex-executor-artifact.test.ts, this spec, v1 ledger, curre
 Ponytail review and evidence codex-account-sign-in.md. This refines accepted runtime
 setup; actual account/security activation still requires its concrete authority.
 
+### Owned executor sign-in composition
+
+Continue the Mac account path from d69cfb3. Carry the optional account operation
+through the existing executor ownership boundary rather than launching an unrelated
+process beside it. Add provider-neutral device-challenge/result values and an
+optional runtime sign-in method. Default construction and ordinary dispatch remain
+inert with respect to account login; no service/native action is enabled in this slice.
+
+Use a versioned request bound to exact provider/runtime/host, fresh request ID,
+digest and deadline. The existing single active executor slot excludes chat, model
+discovery and another sign-in while account work is pending. Accept at most one
+distinct bounded challenge followed by a correlated terminal result. Deliver no
+challenge after terminal completion or cancellation, and never retain provider login
+IDs, tokens or account labels in the neutral protocol. Duplicate identical progress
+does not repeat presentation; changed/foreign/oversized progress fails closed.
+The optional Codex adapter translates only its validated device challenge and uses
+the same pinned private launch configuration and guardian chain as ordinary work.
+
+Keep the existing process deadline ceiling at 120 seconds and cancellation grace
+unchanged. Bound sign-in work to 1–115,000 ms, reserving five seconds within the
+request deadline for account cancellation and owned cleanup. Preserve existing
+parent-death, forced shutdown, absent-process and blocked-cleanup behavior. A terminal
+account result is accepted only after clean worker exit and independently observed
+owned process-group absence. Forced termination or uncertain cleanup returns
+unconfirmed; cancellation never implies logout or account revocation.
+
+Vendor independence: public values contain no Codex/OpenAI account type; an
+independently shaped fixture uses its own provider/runtime/host and verification
+origin. Core still omits provider implementations. Modularity: extend the existing
+bounded worker channel and ownership slot, with opt-in account factory/capability;
+no parallel launcher, dependency, service or database is added. Speed: twenty serial
+synthetic process sign-in/cancel journeys after five warmups, p95 under two seconds
+excluding compilation, actual account interaction and network. Installation/removal:
+owned disposal cancels account work, no process survives parent shutdown, no browser
+opens and no account is modified by these fixtures. Actual sign-in and networking
+remain explicit future grants after the package/native flow is reviewable.
+
+Acceptance: fail first at the public ExecutorProcess sign-in interface, then prove
+challenge/completion, existing account/no challenge, exclusive work, cancellation,
+bad identity/digest/deadline, progress ordering/duplication/limits and process absence.
+Exercise the real worker and Codex adapter with authored protocol processes only,
+plus independent provider-shaped fixtures. Re-run portable and guarded Mac regressions,
+strict TypeScript and artifact checks. Ordinary service/native composition remains
+separate. Rollback removes only this optional command/capability while preserving
+message/account state and the prior artifact.
+
+Capture the original challenge callback at each public operation boundary; later
+caller mutation must not redirect a display code or replace the operation's scope.
+
+Exact files: successor/contracts/v1.ts; runner/chat-runtime.ts,
+runner/executor-account-wire.ts, runner/executor-account.test.ts,
+runner/executor-process.ts, runner/executor-worker.ts, runner/codex-chat.ts,
+runner/codex-executor.ts, runner/codex-executor.test.ts,
+runner/codex-account.ts, runner/codex-account.test.ts,
+runner/fixtures/executor-account-worker.mjs and
+runner/fixtures/codex-executor-runtime.mjs under successor/; this spec, v1 ledger,
+current Ponytail review and evidence owned-provider-sign-in.md. Decision 059 covers
+this implementation; no real provider, credential or persistent-access action is
+authorized by the source changes.
+
 ## Implementation paths
+- `successor/runner/executor-account-wire.ts`
+- `successor/runner/executor-account.test.ts`
+- `successor/runner/fixtures/executor-account-worker.mjs`
+- `successor/evidence/2026-10-17-node-foundation/owned-provider-sign-in.md`
 - `successor/runner/codex-account.ts`
 - `successor/runner/codex-account.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/codex-account-sign-in.md`

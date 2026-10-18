@@ -1,135 +1,113 @@
 What this repo does: Fort is a single-owner native messenger with a durable Node
-core and optional runtimes. This slice prepares one explicit provider sign-in
-operation while keeping ordinary startup, browser and credential behavior inert.
+core and optional runtime adapters. This slice carries explicit device sign-in
+through the existing owned process lifecycle, for one owner and one active executor.
 
-## Semantic review
-
-Codex self-review, October 18, 2026, base 326eff2. Used the pinned Ponytail method
-and retained the whole-repository baseline. Read the new operation and every test,
-its executor export, artifact compiler/export/declaration checks, existing protocol
-request/disposal semantics, control verification and the pinned official account
-schema. Traced every await, early return, cancellation path, challenge callback,
-completion event and cleanup outcome. Checked current host/private launch code to
-separate this protocol seam from unimplemented native ownership. Reviewed final
-portable/typecheck logs, isolated measurements and independently verified resources.
-No user credential, provider response or historical message body was inspected.
+Codex self-review, October 18, 2026, base d69cfb3. Read the changed contracts,
+request/progress/result parser, shared exchange, worker, Codex adapter and fixtures;
+traced exclusivity, cancellation, output bounds, cleanup and completion races.
+Constructor validates the pinned Codex version; direct chat rejects busy state.
+Read every new behavioral test and final validation logs, checked artifact exports
+and independently verified resource hashes. Retained the whole-repository baseline.
+Applied the pinned Ponytail method as a report; fixes were separate test-first work.
 
 ## Must fix
 
-1. **Unsolicited completion could establish success — fixed.**
-   - What this is: An account notification may arrive before a login request.
-   - Problem: The initial fixture showed success from such a notification before
-     this operation had started a login.
-   - Fix: Require an active login attempt before accepting completion, then match
-     its returned login identifier and independently read account state.
-   - If skipped: Unrelated protocol state could be reported as this attempt's result.
+1. **Worker consumed its cleanup reserve — fixed.**
+   - What this is: Account work and process cleanup have separate deadlines.
+   - Problem: A 300 ms pending fixture initially took 5,310 ms and lost confirmed cancellation.
+   - Fix: Abort runtime work at its own deadline, retaining five seconds for cleanup.
+   - If skipped: Ordinary expiration can force termination and lose the truthful result.
 
-2. **Late server refusal could leave a success result — fixed.**
-   - What this is: A server request can arrive immediately after an account reply.
-   - Problem: Both existing-account and new-account fixtures reproduced success
-     after an unsupported tool request had already closed the connection.
-   - Fix: Confirm the connection is still open when accepting account state.
-   - If skipped: The caller would receive success after the control boundary failed.
+2. **Caller mutation could redirect the challenge — fixed.**
+   - What this is: The operation accepts a display callback.
+   - Problem: Changing the supplied options after start replaced the code recipient.
+   - Fix: Capture the original callback at both public operation boundaries; regressions pass.
+   - If skipped: An ongoing request could display its code through a changed destination.
 
-3. **Native and private-process ownership remain incomplete — open.**
-   - What this is: This operation consumes an explicitly owned connection.
-   - Problem: Ordinary host/service/native startup does not compose the private
-     authentication process, primary-owner action or challenge/cancel UI yet.
-   - Fix: Wire those seams with durable lost-response handling and guarded cleanup;
-     preserve provider/network/startup authorization and exact identities.
-   - If skipped: This package would remain a protocol preparation, not usable sign-in.
+3. **Usable native sign-in remains incomplete — open.**
+   - What this is: The owned runtime capability now works through authored processes.
+   - Problem: Primary-owner service start/status/cancel and native controls are not composed yet.
+   - Fix: Implement those seams with exact identity, durable lost-response recovery and tests.
+   - If skipped: A packaged capability would be mistaken for an accessible product flow.
 
-4. **Actual activation still requires verified external prerequisites — open.**
-   - What this is: The Mac package needs matching Apple identities and provider access.
-   - Problem: Existing Apple access remains at sign-in; final profiles, helper network
-     authority, real authentication, installed UI and TestFlight are unverified.
-   - Fix: Continue code work while awaiting the existing-account access prerequisite,
-     then request only concrete missing grants with the package ready to review.
-   - If skipped: Engineering fixtures could be mistaken for usable delivery.
+4. **Real activation and delivery remain unverified — open.**
+   - What this is: Signed Mac operation requires exact Apple and provider prerequisites.
+   - Problem: Profiles, helper network authority, real account operation and TestFlight are unverified.
+   - Fix: Continue independent source work; verify existing access and obtain only required concrete grants.
+   - If skipped: Fixture acceptance would be mislabeled as provider or installed acceptance.
 
-## Should fix
+The shared executor slot and cleanup mechanism avoid a second launcher. Progress is
+bounded, correlated, copied and presented once; no challenge survives cancellation
+or terminal completion. Forced/uncertain process cleanup cannot claim success.
+No dependencies, browser opening, credential storage or persistence schema were added.
 
-5. **The operation was absent from compiled output — fixed.**
-   - What this is: The optional executor compiles only dependencies of its entry.
-   - Problem: Source tests passed while the first artifact check could not find
-     the new account module.
-   - Fix: Export it through that entry and check inert import and typed consumers.
-   - If skipped: Native composition could not call the tested source operation.
-
-Challenge display is bounded and uses one exact official URL. The operation never
-opens it, retries login, substitutes an API key, sends tokens or grants server tool
-requests. Cancellation is followed by account inspection, so a completed login is
-not mislabeled as sign-out. Disposal failure prevents a success return. One active
-operation per connection, one bounded attempt timer and no polling keep the seam
-small. No new dependencies, persistence schema or broad authentication framework
-were introduced. No dead-code claim or fresh whole-tree audit is made.
-
-Verdict: The optional protocol operation is verified synthetically and packaged;
-private/native composition and actual provider/Apple acceptance remain open.
-Not checked: Real Codex login, exact process ownership for this new operation,
-credentials, browser, network entitlement, installed UI, archive/upload/TestFlight
-or physical devices. Prior native/QA artifacts remain separately labeled.
+Verdict: Owned account protocol/composition passes synthetic regression; finish the
+primary-owner/native flow before proposing actual account activation.
+Not checked: Real provider/account, new credentials, network entitlement, startup,
+signed installation, Apple records, remote CI or TestFlight. Native artifact unchanged.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "326eff2468f8c3fb60843438c7ceb77ef136c7bb",
+  "reviewedCommit": "d69cfb3e72247c1a7ccd3ff976f3f9cbbc3f4d8b",
   "reviewer": "Codex",
-  "scope": "Optional explicit Codex device-sign-in protocol, compiled export/declarations, synthetic behavior, spec and evidence.",
+  "scope": "Owned optional account operation, worker protocol and guarded Codex composition; spec, evidence and ledger.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Final portable: 1234 passed, zero failed, ten documented skips.",
-    "Final account and packaging: 47 passed, zero failed, two opt-in budget skips.",
-    "Strict TypeScript passed. Existing guarded Mac executor regressions: 31 passed, three opt-in skips.",
-    "Twenty isolated synthetic journeys after five warmups: p95 0.495792 ms under 25 ms.",
-    "100-file host resources independently verified; optional compiled export/import/declaration consumer passed.",
-    "Observed stub, unsolicited completion, missing compiled export and late forbidden-request regressions fixed.",
-    "No actual Codex/account/browser/credential/startup/provider/installed UI/TestFlight execution."
+    "1259 portable passed, zero failed, 11 documented skips.",
+    "129 focused passed, four skips; 35 guarded Mac passed, three skips. Strict TypeScript passed.",
+    "20 isolated process journeys, five warmups: p95 93.669167 ms under 2000 ms.",
+    "102 resource files independently hash/size/membership verified.",
+    "Missing capability/composition, work deadline and mutated callback regressions observed red and fixed."
   ],
   "exceptions": [
-    "Proportionate semantic review; prior whole-repository baseline retained, not replaced by a new full audit.",
-    "Operation has no ordinary host/native caller yet. Production launch still retains its own 120-second ceiling and guarded cleanup.",
-    "No source authorization state or literal runtime version claims actual signed provider acceptance.",
-    "Native and 190-file review app are unchanged; the later host resource artifact is recorded separately."
+    "Proportionate review; whole-tree baseline preserved. No dead-code claim.",
+    "Synthetic authored processes only; no real provider, credentials, installed UI or TestFlight.",
+    "Core has historical service/database names; optional provider implementation remains outside it.",
+    "Native review app unchanged; new resources are separate artifact."
   ],
   "findings": [
     {
-      "id": "ACCOUNT-UNSOLICITED",
-      "detail": "An unsolicited completion before login initially could establish signed-in success. Completion now requires a started attempt; failing public regression passes.",
+      "id": "OWNED-ACCOUNT-DEADLINE",
+      "detail": "Worker initially waited through cleanup reserve; work-deadline abort now permits correlated cancellation and clean exit.",
       "disposition": "fixed"
     },
     {
-      "id": "ACCOUNT-LATE-REQUEST",
-      "detail": "A forbidden server request immediately after an account reply initially left a success result. Closed connection now prevents confirmation; existing/new account regressions pass.",
+      "id": "OWNED-ACCOUNT-CALLBACK",
+      "detail": "Mutating callback options could redirect challenge; original callbacks captured at both public boundaries.",
       "disposition": "fixed"
     },
     {
-      "id": "ACCOUNT-PACKAGE",
-      "detail": "The public account operation initially was missing from compiled output. Export, inert import and declaration consumer now pass.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "ACCOUNT-COMPOSITION",
-      "detail": "Owned private process, primary-owner service lifecycle and native challenge/cancel/status flow are still required before usable sign-in. No ordinary caller is enabled.",
+      "id": "ACCOUNT-SERVICE-NATIVE",
+      "detail": "Primary-owner service action, durable lost-response status and native controls remain required for usable sign-in.",
       "disposition": "open"
     },
     {
       "id": "ACCOUNT-ACTIVATION",
-      "detail": "Apple records/profiles, helper network authority and explicit provider/startup grants remain unverified or unperformed. The fixture is not provider or TestFlight acceptance.",
+      "detail": "Apple profiles, exact network/provider/startup authority, installed behavior and TestFlight remain unverified.",
       "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "886152f824f35143f8420128299e2ac7c290a6aad075bc49db53769dccf8e906",
-    "successor/V1-ACCEPTANCE.md": "2fa0177cfffb60e7f95366e0aa86f9de81fa833e3e9e140b36769fcb6772281e",
-    "successor/evidence/2026-10-17-node-foundation/codex-account-sign-in.md": "299a53afad0abb3df153d20df9573339043650f6db56fe2b42c241bd1fd0af18",
-    "successor/packaging/codex-executor-artifact.test.ts": "507661ad3dc78e5f9b9041eec7aa84fa7fe6330af41a019be02e2f6881801848",
-    "successor/runner/codex-account.test.ts": "7d37996002754a5d084aa48a1efbdebdb4f08d8dcfd2a6edaa4ed08529cebcdc",
-    "successor/runner/codex-account.ts": "806e241982f0c4c978064e596c7a9a9231674ab6af1d0a43f0f1f6231d3f97a1",
-    "successor/runner/codex-executor.ts": "882b1422df4bd83a137495c0ee1193f29dc2d656e1638ce104b47a68e9659826"
+    "specs/059-modular-node-v1.md": "89a139c714801206c5de8d431f78c0e44d5cf258e6c6ff5a97e5a162e238866d",
+    "successor/contracts/v1.ts": "c7530f2f1a8d7f4d3afdb3b1bbc2551d770c4155a1c61ff1a009a0f318e93fcc",
+    "successor/runner/chat-runtime.ts": "0377046b395338212b4aa73fe613075d8c832ff6ce61e577cc029449a9acf5a5",
+    "successor/runner/codex-account.test.ts": "e24416e43fab8bff480268e7245d7ff40a026dc5064e7cd955b365642b583370",
+    "successor/runner/codex-account.ts": "c567718e6f68701fb6e6f68ad1889dfb1b6020966b8dd150d29317b2af6fe91e",
+    "successor/runner/codex-chat.ts": "d266b2c572ec792933425daa2cd3d28d3b40e646650fd7b4b0759acc84f4e6b9",
+    "successor/runner/codex-executor.test.ts": "6e8573d04f410efabcb70f24f7fa9670d249d15b7143d557b0ee051e1c9b2e4e",
+    "successor/runner/codex-executor.ts": "e91f76118a5951fec32a57ef884c0f4efe6907b56dd070b12dbb065b5950bf5c",
+    "successor/runner/executor-process.ts": "1c18babbba36152358258849a11c3bf0f078589555398c3327eba25bf6693e7b",
+    "successor/runner/executor-worker.ts": "5a873564c855620411a13d21be69eaee55957686fc79eb2ddf57e834c4ce4f5c",
+    "successor/runner/fixtures/codex-executor-runtime.mjs": "aca2e714657ecc5cfef92ff9774dded5cda8e0f35b5cd88656447827e044b2ac",
+    "successor/runner/executor-account-wire.ts": "588ffbe5c276d3cb2a4ed8b448d91141bdf6d86cbc6caf35cbec47f28c70f6cf",
+    "successor/runner/executor-account.test.ts": "30c71296d1f2629ac922a5693561bcc9a9f4f8d4abea53c96902ecec3148899b",
+    "successor/runner/fixtures/executor-account-worker.mjs": "dc26d733e2a67ce8e497f8dcbafb37fc4c9ab0b4869d3fef624c7cfef8c2a064",
+    "successor/evidence/2026-10-17-node-foundation/owned-provider-sign-in.md": "5c58892e71b3f6b4b63944cbdc2b0d3dd8336c639a5ec11889d27abb2be10d38",
+    "successor/V1-ACCEPTANCE.md": "40fd8517674db60577f902c3c96d3ccba35d089722d3f16b540d8c4b066f0833"
   }
 }
 ```

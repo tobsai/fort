@@ -16,7 +16,7 @@ type CodexExecutorOptions = {
   input: Readable; output: Writable; hostId: string;
   runtime: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs'>;
 };
-type CodexProcessOptions = Omit<ConstructorParameters<typeof ExecutorProcess>[0], 'lifecycle' | 'cooperativeCancellationMs' | 'discovery'> & { guardian: string; hostId: string };
+type CodexProcessOptions = Omit<ConstructorParameters<typeof ExecutorProcess>[0], 'lifecycle' | 'cooperativeCancellationMs' | 'discovery' | 'signIn'> & { guardian: string; hostId: string };
 type PrivateCodexOptions = Parameters<typeof privateCodexLaunchPlan>[0] & { hostId: string };
 
 function compiledWorker(): string {
@@ -47,7 +47,7 @@ export function createPrivateCodexExecutorProcess(options: PrivateCodexOptions):
 
 export function createCodexExecutorProcess({ guardian, hostId, ...process }: CodexProcessOptions): ExecutorProcess {
   return new ExecutorProcess({ ...process, lifecycle: { kind: 'macParentExit', guardian }, cooperativeCancellationMs: 3500,
-    discovery: { provider: 'codex', runtimeVersion: '0.157.1', hostId } });
+    discovery: { provider: 'codex', runtimeVersion: '0.157.1', hostId }, signIn: { provider: 'codex', runtimeVersion: '0.157.1', hostId } });
 }
 
 export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void> {
@@ -62,6 +62,7 @@ export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void>
     binding: { provider: 'codex', runtimeVersion: '0.157.1', hostId: options.hostId },
     createRuntime: ({ dispatch }) => create(dispatch.deadline),
     createDiscovery: ({ deadline }) => create(deadline),
+    createSignIn: ({ deadline }) => create(deadline),
   });
 }
 

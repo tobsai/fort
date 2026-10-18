@@ -16,9 +16,13 @@ writeFileSync(join(directory, 'runtime.json'), JSON.stringify({ runtime: process
 const send = frame => process.stdout.write(JSON.stringify(frame) + '\n');
 const reply = (id, result) => send({ id, result });
 const completed = status => send({ method: 'turn/completed', params: { threadId: 'fixture-thread', turn: { id: 'fixture-turn', status, error: null } } });
+let accountAuthenticated = !scenario.startsWith('account-');
+const accountLoginId = '2a190387-aee4-4d5f-ab17-63210a74f348';
+const accountCompleted = success => send({ method: 'account/login/completed', params: { loginId: accountLoginId, success, error: null } });
 for await (const line of createInterface({ input: process.stdin })) {
   const frame = JSON.parse(line), { id, method, params } = frame;
-  appendFileSync(join(directory, 'methods.jsonl'), JSON.stringify({ method, model: params?.model, refreshToken: params?.refreshToken }) + '\n');
+  appendFileSync(join(directory, 'methods.jsonl'), JSON.stringify({ method, model: params?.model, refreshToken: params?.refreshToken,
+    loginType: method === 'account/login/start' ? params?.type : undefined }) + '\n');
   if (method === 'initialized') continue;
   if (method === 'initialize') reply(id, {});
   else if (method === 'config/read') {
@@ -27,7 +31,17 @@ for await (const line of createInterface({ input: process.stdin })) {
   } else if (method === 'permissionProfile/list') reply(id, { data: [{ id: 'fort_candidate_b_no_files', allowed: true }], nextCursor: null });
   else if (method === 'experimentalFeature/list') reply(id, { data: syntheticFeatures(), nextCursor: null });
   else if (method === 'mcpServerStatus/list') reply(id, { data: [], nextCursor: null });
-  else if (method === 'account/read') reply(id, { account: { type: scenario === 'foreign-account' ? 'apiKey' : 'chatgpt' }, requiresOpenaiAuth: true });
+  else if (method === 'account/read') reply(id, { account: accountAuthenticated ? { type: scenario === 'foreign-account' ? 'apiKey' : 'chatgpt' } : null, requiresOpenaiAuth: true });
+  else if (method === 'account/login/start' && scenario.startsWith('account-')) {
+    if (params.type !== 'chatgptDeviceCode') process.exit(3);
+    reply(id, { type: 'chatgptDeviceCode', loginId: accountLoginId, verificationUrl: 'https://auth.openai.com/codex/device', userCode: 'FORT-TEST' });
+    if (scenario === 'account-success') setTimeout(() => { accountAuthenticated = true; accountCompleted(true); }, 20);
+  }
+  else if (method === 'account/login/cancel' && scenario.startsWith('account-')) {
+    if (params.loginId !== accountLoginId) process.exit(3);
+    if (scenario === 'account-race') { accountAuthenticated = true; accountCompleted(true); reply(id, { status: 'notFound' }); }
+    else { accountCompleted(false); reply(id, { status: 'canceled' }); }
+  }
   else if (method === 'model/list') {
     writeFileSync(join(directory, 'model-list-started'), 'synthetic');
     if (scenario !== 'catalog-cancel') reply(id, { data: scenario === 'catalog' ? [

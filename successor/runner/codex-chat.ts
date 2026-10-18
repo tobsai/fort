@@ -1,4 +1,4 @@
-import type { RuntimeReadiness, ModelCatalog, ModelOption } from '../contracts/v1.ts';
+import type { RuntimeReadiness, ModelCatalog, ModelOption, AccountSignInOptions, AccountSignInResult } from '../contracts/v1.ts';
 import { randomUUID } from 'node:crypto';
 import { executionDigest } from '../contracts/executor.ts';
 import { isAbsolute, normalize } from 'node:path';
@@ -8,6 +8,7 @@ import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
 import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
+import { signInCodexAccount } from './codex-account.ts';
 
 type CodexChatOptions={ connection:CodexConnection; workspace:string; runtimeVersion:string; replacement?:{ maximumConnections:number; deadline:number; now?:()=>number; connect:()=>CodexConnection } };
 export class CodexChat implements ChatRuntime {
@@ -40,6 +41,16 @@ export class CodexChat implements ChatRuntime {
   readiness():RuntimeReadiness {
     const replacement=this.options.replacement,closed=this.options.connection.isClosed;
     return {state:this.disposed?'stopped':this.busy?'busy':closed?'restartRequired':'ready',canRestart:!this.disposed&&!this.busy&&!this.recoveryBlocked&&closed&&replacement!==undefined&&this.connectionsUsed<replacement.maximumConnections&&(replacement.now??Date.now)()<replacement.deadline,detail:this.disposed?'Runtime stopped.':this.detail,connectionsUsed:this.connectionsUsed,...(replacement?{maximumConnections:replacement.maximumConnections}:{})};
+  }
+  async signIn(options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+    const { durationMs, onChallenge } = options;
+    if (this.disposed || this.initialized || this.busy || this.options.connection.isClosed) return { kind: 'unconfirmed' };
+    this.busy = true;
+    try {
+      return await signInCodexAccount({ connection: this.options.connection, workspace: this.options.workspace,
+        runtimeVersion: '0.157.1', signal, timeoutMs: durationMs,
+        onChallenge: challenge => onChallenge({ kind: 'deviceCode', verificationURL: challenge.verificationURL, userCode: challenge.userCode }) });
+    } finally { this.busy = false; this.disposed = true; }
   }
   restart(signal:AbortSignal):Promise<void> {
     if(!this.readiness().canRestart)return Promise.reject(new Error('Runtime replacement is unavailable or its budget is exhausted'));

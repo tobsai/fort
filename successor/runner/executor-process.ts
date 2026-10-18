@@ -3,20 +3,23 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, sealDispatch, type ExecutionDispatch } from '../contracts/executor.ts';
-import type { ModelCatalog, RuntimeReadiness } from '../contracts/v1.ts';
+import type { ModelCatalog, RuntimeReadiness, AccountSignInOptions, AccountSignInResult } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { MODEL_EVIDENCE_BYTES, parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from './executor-wire.ts';
+import { ACCOUNT_EVIDENCE_BYTES, parseExecutorAccountFrame, type ExecutorAccountRequest } from './executor-account-wire.ts';
 
 type ProcessOptions = {
   executable: string; args: string[]; cwd: string; env: Record<string, string>;
   lifecycle: { kind: 'processGroup' } | { kind: 'macParentExit'; guardian: string };
   cooperativeCancellationMs?: number;
   discovery?: ExecutorBinding;
+  signIn?: ExecutorBinding;
 };
 type ExitReport = { pid: number | null; groupAbsent: boolean; forced: boolean; code: number | null; signal: NodeJS.Signals | null };
 type Exchange<T> = {
   request: object; cancel: object; deadline: number; evidenceBytes: number;
   parse(value: unknown): T;
+  observe?(value: unknown, terminalSeen: boolean): boolean;
   canComplete(): boolean;
   failure(spawnFailed: boolean, absent: boolean): T;
 };
@@ -61,6 +64,7 @@ export class ExecutorProcess implements ChatRuntime {
   private blocked = false;
   private report: ExitReport | undefined;
   readonly models?: (signal: AbortSignal) => Promise<ModelCatalog>;
+  readonly signIn?: (options: AccountSignInOptions, signal: AbortSignal) => Promise<AccountSignInResult>;
 
   constructor(options: ProcessOptions) {
     if (!isAbsolute(options.executable) || !isAbsolute(options.cwd)) throw new Error('Select exact executor and working-directory paths');
@@ -73,6 +77,12 @@ export class ExecutorProcess implements ChatRuntime {
       validateExecutorBinding(options.discovery);
       const binding = Object.freeze({ ...options.discovery });
       this.models = signal => this.discover(binding, signal);
+    }
+    if (options.signIn) {
+      validateExecutorBinding(options.signIn);
+      if (options.discovery && executionDigest(options.discovery) !== executionDigest(options.signIn)) throw new Error('Account and model discovery must select the same runtime');
+      const binding = Object.freeze({ ...options.signIn });
+      this.signIn = (request, signal) => this.authenticateAccount(binding, request, signal);
     }
   }
 
@@ -119,6 +129,39 @@ export class ExecutorProcess implements ChatRuntime {
       canComplete: () => !this.stopped && !signal.aborted && Date.now() < request.deadline,
       failure: (spawnFailed, absent) => ({ provider: binding.provider, state: !absent ? 'error' : spawnFailed || signal.aborted || this.stopped ? 'unavailable' : 'error', models: [],
         detail: absent ? 'Model discovery did not finish with valid evidence and clean exit. Your selection has not changed.' : 'Executor cleanup is unconfirmed. Model discovery and new dispatch are blocked.' }),
+    });
+  }
+
+  private async authenticateAccount(binding: ExecutorBinding, options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+    const { durationMs, onChallenge } = options;
+    if (this.stopped || this.blocked || this.active || signal.aborted
+        || !Number.isSafeInteger(durationMs) || durationMs < 1 || durationMs > 115_000) return { kind: 'unconfirmed' };
+    const workDeadline = Date.now() + durationMs;
+    const body = { protocolVersion: 1, kind: 'accountSignIn', requestId: randomUUID(), binding, workDeadline, deadline: workDeadline + 5000 } as const;
+    const request: ExecutorAccountRequest = { ...body, requestDigest: executionDigest(body) };
+    let challengeDigest: string | undefined;
+    return this.exchange(signal, {
+      request, deadline: request.deadline, evidenceBytes: ACCOUNT_EVIDENCE_BYTES,
+      cancel: { protocolVersion: 1, kind: 'cancelAccount', requestId: request.requestId, requestDigest: request.requestDigest },
+      observe: (value, terminalSeen) => {
+        const frame = parseExecutorAccountFrame(value, request);
+        if (frame.kind === 'result') return false;
+        if (terminalSeen) throw new Error('Account challenge followed terminal evidence');
+        const digest = executionDigest(frame.value);
+        if (challengeDigest && challengeDigest !== digest) throw new Error('Account challenge changed');
+        if (!challengeDigest) {
+          challengeDigest = digest;
+          if (!signal.aborted && !this.stopped) onChallenge({ ...frame.value });
+        }
+        return true;
+      },
+      parse: value => {
+        const frame = parseExecutorAccountFrame(value, request);
+        if (frame.kind !== 'result') throw new Error('Account terminal evidence is missing');
+        return frame.value;
+      },
+      canComplete: () => Date.now() < request.deadline,
+      failure: () => ({ kind: 'unconfirmed' }),
     });
   }
 
@@ -189,7 +232,9 @@ export class ExecutorProcess implements ChatRuntime {
         const line = pending.subarray(0, newline); pending = pending.subarray(newline + 1);
         try {
           if (++frames > 8) throw new Error('Too many evidence frames');
-          const next = protocol.parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(line)));
+          const value: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(line));
+          if (protocol.observe?.(value, result !== undefined)) continue;
+          const next = protocol.parse(value);
           if (result && executionDigest(next) !== executionDigest(result)) throw new Error('Conflicting terminal');
           result = next;
         } catch { fail(); return; }

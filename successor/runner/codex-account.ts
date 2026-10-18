@@ -41,7 +41,7 @@ function waitForCompletion(ready: Promise<Completion | 'closed'>, signal: AbortS
 }
 
 export async function signInCodexAccount(options: SignInOptions): Promise<CodexSignInResult> {
-  const { connection, workspace } = options;
+  const { connection, workspace, onChallenge } = options;
   if (active.has(connection)) throw new Error('This account connection is already in use');
   active.add(connection);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -85,7 +85,7 @@ export async function signInCodexAccount(options: SignInOptions): Promise<CodexS
     loginStarted = true;
     challenge = parseChallenge(await connection.request('account/login/start', { type: 'chatgptDeviceCode' }, signal));
     if (connection.isClosed || (completion && completion.loginId !== challenge.loginId)) return { kind: 'unconfirmed' };
-    options.onChallenge({ ...challenge });
+    onChallenge({ ...challenge });
     const observed = await waitForCompletion(ready.promise, signal);
     if (observed === 'closed') return { kind: 'unconfirmed' };
     if (observed === 'aborted') {

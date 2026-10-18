@@ -218,6 +218,15 @@ test('one connection cannot start competing sign-in attempts or mutate the captu
   assert.equal(f.calls.filter(call => call.method === 'account/login/start').length, 1);
 });
 
+test('account protocol retains the original callback when its options are later changed', async () => {
+  const f = fixture(); let shown = 0;
+  const options: Parameters<typeof signInCodexAccount>[0] = { connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1',
+    signal: new AbortController().signal, timeoutMs: 1000, onChallenge: () => { shown++; f.complete(); } };
+  const pending = signInCodexAccount(options);
+  options.onChallenge = () => { throw new Error('Changed callback must not receive the code'); };
+  assert.deepEqual(await pending, { kind: 'signedIn' }); assert.equal(shown, 1);
+});
+
 test('device sign-in synthetic protocol budget', { skip: !process.env.FORT_ACCOUNT_BENCHMARK }, async () => {
   const samples: number[] = [];
   for (let i = 0; i < 25; i++) {
