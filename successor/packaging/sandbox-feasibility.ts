@@ -127,7 +127,7 @@ try {
   const executable = join(app, 'Contents/MacOS/FortSandboxProbe');
   const xpcExecutables: string[] = [], xpcIdentifiers: string[] = [];
   if (values.scenario === 'xpc') {
-    const nativeTransport = ['FortTransport.swift', 'MacXPCTransport.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
+    const nativeTransport = ['FortTransport.swift', 'MacOwnerControl.swift', 'MacXPCTransport.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
     const nativeHost = ['MacCoreProcessTransport.swift', 'MacHostChannel.swift'].map(file => join(source, '../apple/FortKit/Sources/FortKit', file));
     copyFileSync(join(source, '../host/fixtures/native-core.mjs'), join(app, 'Contents/Resources/native-core.mjs'));
     const details = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', join(runtime, 'bin/node')], { encoding: 'utf8', timeout: 10_000 });
@@ -194,7 +194,7 @@ try {
   writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(JSON.stringify(result) + '\n');
   if (run.outcome !== 'completed') process.exitCode = 1;
-  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
+  if (values.scenario === 'xpc' && (xpcCleanup?.xpcForcedCleanup || xpcCleanup?.xpcProcessesAbsent !== true || !xpcCoreProcessesAbsent || ['xpcOwnerRecovery', 'xpcOwnerForeignRejected', 'xpcOwnerNoHTTPRecovery', 'xpcOwnerClientRejected', 'xpcOwnerServiceRejected', 'xpcOwnerDisabled', 'xpcRoundTrip', 'xpcClientRejected', 'xpcServiceRejected', 'xpcCancellation', 'xpcTimeout', 'xpcMalformedResponseRejected', 'xpcInvalidStatusRejected', 'xpcOversizedRequestRejected', 'xpcOversizedResponseRejected', 'xpcCoreAuthentication', 'xpcCoreExactMessages', 'xpcCoreReplay', 'xpcCoreCancellation', 'xpcCoreRestart', 'xpcCoreNoDuplicate', 'xpcCoreStopped', 'xpcCoreOuterExecutableDenied', 'xpcCoreOutsideReadDenied', 'xpcCoreOutsideWriteDenied', 'xpcCoreTCPDenied'].some(key => !(key in xpc) || Reflect.get(xpc, key) !== true))) process.exitCode = 1;
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Sandbox proof failed') + '\n');
   process.exitCode = 1;

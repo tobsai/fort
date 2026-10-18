@@ -35,9 +35,8 @@ public final class MacCoreProcessTransport: FortTransport, Sendable {
         return try await exchange(.request(request))
     }
     public func recoverOwnerPairing(installationID: String, deviceID: String, timeout: TimeInterval = 30) async throws -> MacCorePairingRecovery {
-        guard [installationID,deviceID].allSatisfy({ !$0.isEmpty && $0.utf8.count <= 128 && $0.rangeOfCharacter(from:CharacterSet(charactersIn:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-").inverted) == nil }),
-              timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
-        let response = try await exchange(.recovery(CoreRecoveryRequest(installationID:installationID,deviceID:deviceID,timeout:timeout)))
+        let request = try MacOwnerRecoveryRequest(installationID:installationID,deviceID:deviceID,timeout:timeout)
+        let response = try await exchange(.recovery(request))
         guard response.status == 200,
               let proof = try? JSONDecoder().decode(MacCorePairingRecovery.self,from:response.body),
               proof.installationID == installationID, proof.deviceID == deviceID,
@@ -74,7 +73,7 @@ private struct CoreRequestFrame: Encodable {
     let kind: String
     let id: Int
     let request: FortRequest?
-    let recovery: CoreRecoveryRequest?
+    let recovery: MacOwnerRecoveryRequest?
     init(id: Int, command: CoreCommand) {
         self.id = id
         switch command {
@@ -83,14 +82,9 @@ private struct CoreRequestFrame: Encodable {
         }
     }
 }
-private struct CoreRecoveryRequest: Encodable, Sendable {
-    let installationID: String
-    let deviceID: String
-    let timeout: TimeInterval
-}
 private enum CoreCommand: Sendable {
     case request(FortRequest)
-    case recovery(CoreRecoveryRequest)
+    case recovery(MacOwnerRecoveryRequest)
     var timeout: TimeInterval {
         switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout }
     }

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
-const [directory, corePath, channelPath, outside] = process.argv.slice(2);
+const [directory, corePath, channelPath, outside, mode] = process.argv.slice(2);
 if (!directory || !corePath || !channelPath) throw new Error('Select exact synthetic inputs');
 const { createApplication } = await import(pathToFileURL(corePath).href);
 const { servePrivateChannel } = await import(pathToFileURL(channelPath).href);
@@ -18,6 +18,7 @@ if (outside) {
   });
 }
 const service = createApplication({ dataDirectory: directory, autoRun: true,
+  ...(mode === 'owner' ? { ownerPairingPolicy: { expiresAfterDays: null } } : {}),
   provider: { provider: 'native-pipe-fixture', name: 'Native pipe fixture', runtimeVersion: '1', hostId: 'synthetic', session: 'stateless', capabilities: ['plainText'] },
   runtime: { async execute(input) {
     writeFileSync('executions.json', JSON.stringify(++executions), { mode: 0o600 });
@@ -28,8 +29,9 @@ writeFileSync('executions.json', '0', { mode: 0o600 });
 const lifetime = setTimeout(() => process.stdin.destroy(new Error('Synthetic deadline')), 15_000);
 try {
   await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' } });
-  writeFileSync('setup.json', JSON.stringify({ installation: service.installation, enrollment: service.issueEnrollment(), controls }), { mode: 0o600 });
-  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout });
+  const enrollment = mode !== 'owner' || service.inspectSession().deviceIDs.length === 0 ? service.issueEnrollment() : undefined;
+  writeFileSync('setup.json', JSON.stringify({ installation: service.installation, enrollment, controls }), { mode: 0o600 });
+  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerRecovery: mode === 'owner' ? service.recoverOwnerPairing : undefined });
 } catch { process.exitCode = 1; }
 finally { clearTimeout(lifetime); await service.close(); }
 if (process.exitCode === 1) process.exit(1);

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 756d9d75255d6b1234ba4bb3826343a62278574590bc69fed1a32484d645466e
+Reviewed content SHA256: c24146992c7fbb8065057e536fcc29bc7d6efee9e81abf3c7e6c38871ffd6e43
 
 ### Vendor independence
 Status: planned
@@ -344,6 +344,22 @@ and remove only that fixture's generated containers. Keep the hung-child timeout
 negative control and all signed identity/sandbox checks. This test-only repair
 adds no runtime dependency, product authority, idle work or installation change.
 
+Add a distinct owner-recovery method to the pinned Mac XPC protocol. A host must
+explicitly supply a Fort-owned owner control; ordinary transport construction
+leaves it unavailable. Validate a small exact installation/device request and a
+bounded deadline on both peers, admit one operation per connection, propagate
+cancellation, and require exact returned identity plus runtime disposal,
+revocation and core-process exit before accepting its receipt. The receipt does
+not establish helper-process absence or startup unregistration. Keep this method
+separate from Fort HTTP routing and credentials. Exercise the real signed
+Swift/XPC/Node path with synthetic owner pairing, foreign identity and disabled
+control checks, both signature mismatch directions, retained history/restart and
+independent process/container absence. Unit-test bounds, missing controls and
+unconfirmed/foreign replies. This extends the existing local lifecycle boundary,
+adds no dependency/network capability or idle polling, and grants no real pairing,
+startup activation or provider authority. A real owner installation adapter and
+app setup still must compose these proofs before removal can be offered.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -396,6 +412,11 @@ versioned client command/replay API; executor dispatch/evidence protocol; lifecy
 client/platform adapter; native user journeys. Use one red → green slice at a time.
 
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MacOwnerControl.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacOwnerControlTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/xpc-owner-recovery.md`
+- `successor/evidence/2026-10-17-node-foundation/xpc-owner-recovery.json`
 
 - `successor/evidence/2026-10-17-node-foundation/probe-phases.md`
 - `successor/evidence/2026-10-17-node-foundation/probe-phases.json`

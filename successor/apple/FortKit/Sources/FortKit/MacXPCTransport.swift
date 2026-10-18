@@ -10,9 +10,10 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
 #if os(macOS)
 @objc(FortHostChannel) public protocol FortHostChannel {
     func exchange(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
+    func recoverPairing(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
 }
 
-public struct MacXPCTransport: FortTransport {
+public struct MacXPCTransport: FortTransport, MacOwnerControl {
     private let serviceIdentifier: String
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
@@ -32,23 +33,39 @@ public struct MacXPCTransport: FortTransport {
               (100..<600).contains(response.status), response.body.count <= 8 * 1024 * 1024 else { throw ClientError.invalidResponse }
         return response
     }
+    public func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt {
+        try Task.checkCancellation(); try request.validate()
+        let encoded = try JSONEncoder().encode(request)
+        guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
+        let call = XPCRequest(serviceIdentifier:serviceIdentifier,requirement:requirement,timeout:request.timeout,operation:.recovery,responseLimit:1024)
+        let data = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
+        } onCancel: { call.cancel() }
+        let receipt = try JSONDecoder().decode(MacOwnerRecoveryReceipt.self,from:data)
+        try receipt.validate(for:request)
+        return receipt
+    }
 }
 
+private enum XPCOperation { case exchange, recovery }
 private final class XPCRequest: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.XPCRequest")
     private let serviceIdentifier: String
     private let requirement: String
     private let timeout: TimeInterval
+    private let operation: XPCOperation
+    private let responseLimit: Int
     private var continuation: CheckedContinuation<Data, any Error>?
     private var connection: NSXPCConnection?
     private var deadline: DispatchWorkItem?
     private var outcome: Result<Data, any Error>?
 
-    init(serviceIdentifier: String, requirement: String, timeout: TimeInterval) {
+    init(serviceIdentifier: String, requirement: String, timeout: TimeInterval, operation: XPCOperation = .exchange, responseLimit: Int = 12 * 1024 * 1024) {
         self.serviceIdentifier = serviceIdentifier; self.requirement = requirement; self.timeout = timeout
+        self.operation = operation; self.responseLimit = responseLimit
     }
     func start(_ bytes: Data, continuation: CheckedContinuation<Data, any Error>) {
-        queue.async {
+        queue.async { [self] in
             if let outcome = self.outcome { continuation.resume(with:outcome); return }
             self.continuation = continuation
             let connection = NSXPCConnection(serviceName:self.serviceIdentifier)
@@ -60,10 +77,15 @@ private final class XPCRequest: @unchecked Sendable {
             connection.resume()
             let proxy = connection.remoteObjectProxyWithErrorHandler { [weak self] error in self?.complete(.failure(error)) }
             guard let channel = proxy as? FortHostChannel else { self.finish(.failure(ClientError.invalidResponse)); return }
-            channel.exchange(bytes) { [weak self] data,error in
-                if let error { self?.complete(.failure(error)) }
-                else if let data, data.count <= 12 * 1024 * 1024 { self?.complete(.success(data)) }
-                else { self?.complete(.failure(ClientError.invalidResponse)) }
+            let reply: (Data?,NSError?) -> Void = { [weak self] data,error in
+                guard let self else { return }
+                if let error { self.complete(.failure(error)) }
+                else if let data, data.count <= self.responseLimit { self.complete(.success(data)) }
+                else { self.complete(.failure(ClientError.invalidResponse)) }
+            }
+            switch self.operation {
+            case .exchange: channel.exchange(bytes,reply:reply)
+            case .recovery: channel.recoverPairing(bytes,reply:reply)
             }
         }
     }

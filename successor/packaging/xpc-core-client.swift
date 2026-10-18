@@ -21,6 +21,7 @@ func probeCoreXPC() async throws -> [String:Any] {
     let anonymous = try await api("/v1/installation",installation:installation)
     let enrolled = try await api("/v1/devices/enroll",installation:installation,body:["installationId":installation,"code":try string(enrollment["code"]),"deviceName":"Synthetic signed XPC"])
     let token = try string(enrolled.1["deviceToken"])
+    let device = try string(enrolled.1["deviceId"])
     let foreign = try await api("/v1/installation",installation:"foreign",token:token)
     let agent = try await api("/v1/agents",installation:installation,token:token,body:["name":"Signed XPC Home","model":"exact-synthetic","instructions":"Echo."])
     let home = try string(agent.1["homeConversationId"]), agentID = try string(agent.1["agentId"])
@@ -49,7 +50,14 @@ func probeCoreXPC() async throws -> [String:Any] {
     let restarted = try await api("/v1/fixture-restart",body:[:])
     let duplicate = try await api("/v1/conversations/" + home + "/messages",installation:installation,token:token,body:command)
     let afterRestart = try await api("/v1/fixture-bootstrap")
-    let stop = try await api("/v1/fixture-stop",body:[:])
+    let noHTTPRecovery = try await api("/v1/pairing/recover",installation:installation,token:token,body:[:])
+    var foreignRecoveries = 0
+    for identity in [("foreign",device),(installation,"foreign")] {
+        do { _ = try await transport.recoverPairing(MacOwnerRecoveryRequest(installationID:identity.0,deviceID:identity.1,timeout:3)) }
+        catch { foreignRecoveries += 1 }
+    }
+    let stillPaired = try await api("/v1/installation",installation:installation,token:token)
+    let recovered = try await transport.recoverPairing(MacOwnerRecoveryRequest(installationID:installation,deviceID:device,timeout:3))
     let oldReceipt = try object(accepted.1["receipt"]), newReceipt = try object(duplicate.1["receipt"])
     let duplicateMessages = try object(duplicate.1["snapshot"])["messages"] as? [[String:Any]]
     let restartedInstallation = try string(object(restarted.1["installation"])["installationId"])
@@ -62,7 +70,10 @@ func probeCoreXPC() async throws -> [String:Any] {
             "xpcCoreCancellation":canceled && beforeRestart.1["canceledRequests"] as? Int == 1,
             "xpcCoreRestart":firstPID != secondPID && restartedInstallation == installation,
             "xpcCoreNoDuplicate":NSDictionary(dictionary:oldReceipt).isEqual(to:newReceipt) && duplicateMessages?.compactMap { $0["text"] as? String } == [text,text] && beforeRestart.1["executions"] as? Int == 1 && afterRestart.1["executions"] as? Int == 0,
-            "xpcCoreStopped":stop.1["clean"] as? Bool == true,"xpcCoreOuterExecutableDenied":setup["outerExecutableDenied"] as? Bool == true,
+            "xpcCoreStopped":recovered.coreStopped,"xpcCoreOuterExecutableDenied":setup["outerExecutableDenied"] as? Bool == true,
+            "xpcOwnerRecovery":recovered.installationID == installation && recovered.deviceID == device && recovered.runtimeStopped && recovered.pairingRevoked && recovered.coreStopped,
+            "xpcOwnerForeignRejected":foreignRecoveries == 2 && stillPaired.0 == 200,
+            "xpcOwnerNoHTTPRecovery":noHTTPRecovery.0 == 404,
             "xpcCoreOutsideReadDenied":controls["outsideReadDenied"] as? Bool == true && restartedControls["outsideReadDenied"] as? Bool == true,
             "xpcCoreOutsideWriteDenied":controls["outsideWriteDenied"] as? Bool == true && restartedControls["outsideWriteDenied"] as? Bool == true,
             "xpcCoreTCPDenied":controls["tcpDenied"] as? Bool == true && restartedControls["tcpDenied"] as? Bool == true,

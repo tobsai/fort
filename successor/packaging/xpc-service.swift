@@ -3,6 +3,9 @@ import Darwin
 
 private final class Channel: NSObject, FortHostChannel {
     private var pending: [(Data?, NSError?) -> Void] = []
+    func recoverPairing(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
+        reply(nil,ownerControlUnavailable())
+    }
     func exchange(_ data: Data, reply: @escaping (Data?, NSError?) -> Void) {
         do {
             guard data.count <= 8192 else { throw ClientError.invalidResponse }

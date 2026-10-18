@@ -22,6 +22,12 @@ func probeXPC() async throws -> [String: Any] {
         catch { let error = error as NSError; return error.domain == NSCocoaErrorDomain ? error.code : -1 }
     }
     let clientError = await errorCode(clientMismatch), serviceError = await errorCode(serviceMismatch)
+    let ownerRequest = try MacOwnerRecoveryRequest(installationID:"synthetic",deviceID:"synthetic",timeout:3)
+    func ownerError(_ peer: MacXPCTransport) async -> NSError? {
+        do { _ = try await peer.recoverPairing(ownerRequest); return nil }
+        catch { return error as NSError }
+    }
+    let ownerClientError = await ownerError(clientMismatch), ownerServiceError = await ownerError(serviceMismatch), ownerDisabled = await ownerError(transport)
     let pending = Task { try await transport.send(request("/v1/hold")) }
     try await Task.sleep(for:.milliseconds(50)); pending.cancel()
     var canceled = false
@@ -40,6 +46,9 @@ func probeXPC() async throws -> [String: Any] {
             "xpcClientRejected":clientError == NSXPCConnectionInterrupted,
             "xpcServiceRejected":serviceError == NSXPCConnectionCodeSigningRequirementFailure,
             "xpcClientError":clientError, "xpcServiceError":serviceError, "xpcServicePid":echo.pid,
+            "xpcOwnerClientRejected":ownerClientError?.domain == NSCocoaErrorDomain && ownerClientError?.code == NSXPCConnectionInterrupted,
+            "xpcOwnerServiceRejected":ownerServiceError?.domain == NSCocoaErrorDomain && ownerServiceError?.code == NSXPCConnectionCodeSigningRequirementFailure,
+            "xpcOwnerDisabled":ownerDisabled?.domain == "Fort.OwnerControl" && ownerDisabled?.code == 1,
             "xpcCancellation":canceled, "xpcTimeout":timedOut,
             "xpcMalformedResponseRejected":await invalid(request("/v1/invalid")),
             "xpcInvalidStatusRejected":await invalid(request("/v1/status")),
