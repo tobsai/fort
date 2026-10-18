@@ -121,4 +121,17 @@ private final class ProcessInspection: @unchecked Sendable {
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination))
     #expect(samples.sorted()[18] <= 5)
 }
+
+@Test func hostProcessRestoresItsRecordedLifetimeBeforeAndAfterExit() async throws {
+    let child = try ObservedChild()
+    let original = try MacHostProcess.observe(processID:child.process.processIdentifier,effectiveUserID:geteuid())
+    let encoded = try JSONEncoder().encode(original.record)
+    let restored = try MacHostProcess.restore(JSONDecoder().decode(MacHostProcessRecord.self,from:encoded))
+    #expect(restored.processID == original.processID)
+    #expect(try !restored.hasExited())
+    try child.finish()
+    let reopened = try MacHostProcess.restore(JSONDecoder().decode(MacHostProcessRecord.self,from:encoded))
+    try await reopened.waitForExit(timeout:1)
+    #expect(try restored.hasExited())
+}
 #endif

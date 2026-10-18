@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 13902df8764234bc097d5dbe64743008335ffb18ae1be9862b4d4a22c34eec58
+Reviewed content SHA256: 0fdb739fa797b348be7159ad20a5041128f65f65096feb50679f8fc0881f1c3c
 
 ### Vendor independence
 Status: planned
@@ -930,6 +930,51 @@ entitlements. A restarted client, durable partial-removal proof, SMAppService
 unregistration and production App Group/profile/installed acceptance remain separate
 work. Reuse decision 059 for this unchanged lifecycle scope; no external activation.
 
+Compose a durable Mac removal operation over exact named-agent recovery, the existing
+SMAppService wrapper and authenticated process observation. Bind it to one recorded
+agent endpoint/installation/device and the client's existing private storage. Use
+`host-removal.json` under the existing owner-file lease and bounded atomic durable
+writes. Refuse missing/foreign connection metadata, pending setup, malformed/unsafe
+records and changed storage without repairing or deleting them. Reject extended ACLs
+on the private directory, lease file and records, including ACL changes during an
+operation; do not strip permissions to make a location acceptable. Ordinary construction
+has no registration, connection, credential or provider effect.
+
+Persist requested intent before recovery, then validated receipt and process identity
+before unregistration. Restore only a validated recorded PID, original user and start
+timestamp; no public process-observation decoder is exposed. A new boot or reused PID
+cannot turn an unknown lookup into success: only absent PID or changed start time
+confirms the original process is gone, and inspection errors remain unconfirmed.
+No boot identifier or new OS grant is needed. If the agent is still registered on a
+retry, recover its exact current peer again before unregistering. If it is already
+not registered and a recovery receipt was durably saved, finish from that record
+without XPC activation. An already-confirmed operation must still observe absent
+original process and unregistered startup; unexpected re-registration fails rather
+than applying old authority to a new host lifetime.
+
+Await the actual startup callback/status and original helper absence, then recheck
+startup and exact connection/record before persisting confirmation. Only this returns
+all three OwnedHostStop assertions. Cancellation, timeout, write failure or uncertain
+OS state preserves progress for explicit retry; it does not remove credentials,
+history or app files. Conflicting/concurrent setup/removal is refused under the same
+lease, and pending removal records block new owner setup. Production app composition,
+removal-record reconciliation for an explicitly new installation, and history deletion
+remain later integration work; this operation is not installed-product signoff.
+
+Vendor independence: no provider/core/storage-engine dependency changes. Modularity:
+OS startup, authenticated XPC and private client progress stay in the Apple lifecycle
+adapter; the core recovery contract stays unchanged. Speed: no idle work; the existing
+30-second recovery, explicit OS callback, <=30-second process-wait and storage limits
+remain. Measure 20 isolated confirmed-record retries, target p95 <=50 ms, excluding
+real startup callback/XPC/provider latency. Installation/removal: prove restart after
+unregistration, failed and repeated recovery, exact identity/storage rejection,
+callback/exit ordering, cancellation, stale confirmation, persistence-before-dispatch
+and preserved history/credentials through the public operation with synthetic files
+and an injected startup backend. Serialize signed verification and restore an encoded
+process observation from the real authenticated fixture peer without changing its
+entitlements. Do not invoke real SMAppService, Keychain, App Group or provider actions.
+Reuse decision 059 for this unchanged local lifecycle implementation scope.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -1076,6 +1121,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 - `successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift`
 - `successor/apple/FortKit/Sources/FortKit/MacHostProcess.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacHostRemoval.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostRemovalTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-host-removal.md`
 - `successor/apple/FortKit/Tests/FortKitTests/MacHostProcessTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/mac-host-process.md`
 - `successor/evidence/2026-10-17-node-foundation/native-xpc.md`

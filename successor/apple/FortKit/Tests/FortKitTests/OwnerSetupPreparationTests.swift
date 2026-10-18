@@ -313,4 +313,19 @@ private let preparedEndpoint = DeviceEndpoint.macHost(serviceIdentifier:"io.fort
         } catch { _ = try? await second.close(); throw error }
     } catch { _ = try? await first.close(); throw error }
 }
+@Test @MainActor func ownerSetupCannotStartWhileAnOwnedHostRemovalRecordExists() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fort-setup-removal-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:directory) }
+    let credentials = PreparedCredentials(), control = PreparedControl()
+    let storage = try DeviceStorage(directory:directory,credentials:credentials)
+    let marker = directory.appendingPathComponent("host-removal.json")
+    let bytes = Data("unresolved removal evidence".utf8)
+    try bytes.write(to:marker)
+    try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:marker.path)
+    var generated = 0
+    let coordinator = try OwnerSetupCoordinator(storage:storage,endpoint:preparedEndpoint,control:control,tokenGenerator:{ generated += 1; return String(repeating:"A",count:43) })
+    await #expect(throws:MacHostRemovalError.self) { try await coordinator.connect() }
+    #expect(control.begins == 0 && control.attempts == 0 && generated == 0 && credentials.saves == 0)
+    #expect(try Data(contentsOf:marker) == bytes)
+}
 #endif

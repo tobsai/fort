@@ -9,24 +9,25 @@ public struct MacHostRecoveryObservation: Sendable {
 
 public struct MacHostProcess: Sendable {
     public let processID: Int32
-    private let startedSeconds: UInt64
-    private let startedMicroseconds: UInt64
+    let record: MacHostProcessRecord
     private let inspect: @Sendable (Int32) throws -> MacProcessSnapshot?
 
-    private init(processID: Int32, snapshot: MacProcessSnapshot, inspect: @escaping @Sendable (Int32) throws -> MacProcessSnapshot?) {
-        self.processID = processID
-        startedSeconds = snapshot.startedSeconds; startedMicroseconds = snapshot.startedMicroseconds
-        self.inspect = inspect
+    private init(record: MacHostProcessRecord, inspect: @escaping @Sendable (Int32) throws -> MacProcessSnapshot?) {
+        self.processID = record.processID; self.record = record; self.inspect = inspect
+    }
+    static func restore(_ record: MacHostProcessRecord, inspect: @escaping @Sendable (Int32) throws -> MacProcessSnapshot? = MacProcessSnapshot.read) throws -> MacHostProcess {
+        try record.validate()
+        return MacHostProcess(record:record,inspect:inspect)
     }
     static func observe(processID: Int32, effectiveUserID: UInt32, inspect: @escaping @Sendable (Int32) throws -> MacProcessSnapshot? = MacProcessSnapshot.read) throws -> MacHostProcess {
         guard processID > 1, processID != getpid(), effectiveUserID == geteuid(),
               let snapshot = try inspect(processID), snapshot.effectiveUserID == effectiveUserID,
               snapshot.startedSeconds > 0, snapshot.startedMicroseconds < 1_000_000 else { throw ClientError.invalidResponse }
-        return MacHostProcess(processID:processID,snapshot:snapshot,inspect:inspect)
+        return try restore(MacHostProcessRecord(processID:processID,effectiveUserID:effectiveUserID,startedSeconds:snapshot.startedSeconds,startedMicroseconds:snapshot.startedMicroseconds),inspect:inspect)
     }
     public func hasExited() throws -> Bool {
         guard let current = try inspect(processID) else { return true }
-        return current.startedSeconds != startedSeconds || current.startedMicroseconds != startedMicroseconds
+        return current.startedSeconds != record.startedSeconds || current.startedMicroseconds != record.startedMicroseconds
     }
     public func waitForExit(timeout: TimeInterval = 3) async throws {
         guard timeout.isFinite, timeout > 0, timeout <= 30 else { throw ClientError.invalidResponse }
@@ -38,6 +39,16 @@ public struct MacHostProcess: Sendable {
             guard remaining > .zero else { throw URLError(.timedOut) }
             try await clock.sleep(for:min(remaining,.milliseconds(25)))
         }
+    }
+}
+
+struct MacHostProcessRecord: Codable, Sendable {
+    let processID: Int32
+    let effectiveUserID: UInt32
+    let startedSeconds: UInt64
+    let startedMicroseconds: UInt64
+    func validate() throws {
+        guard processID > 1, effectiveUserID == geteuid(), startedSeconds > 0, startedMicroseconds < 1_000_000 else { throw ClientError.invalidResponse }
     }
 }
 

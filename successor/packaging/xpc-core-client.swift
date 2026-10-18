@@ -113,11 +113,13 @@ func probeCoreXPC() async throws -> [String:Any] {
     do { _ = try await transport.beginOwnerSetup(timeout:3) } catch { remainsStopped = true }
     let observed = try await transport.recoverPairingAndObserveHost(MacOwnerRecoveryRequest(installationID:installation,deviceID:device,timeout:3))
     let recovered = observed.receipt
+    let recordedHost = try JSONEncoder().encode(observed.host.record)
+    let restoredHost = try MacHostProcess.restore(JSONDecoder().decode(MacHostProcessRecord.self,from:recordedHost))
     let exitStarted = ContinuousClock.now
-    try await observed.host.waitForExit(timeout:3)
+    try await restoredHost.waitForExit(timeout:3)
     let exitDuration = exitStarted.duration(to:.now).components
     let observedExitMs = Double(exitDuration.seconds) * 1000 + Double(exitDuration.attoseconds) / 1e15
-    let observedExited = try observed.host.hasExited()
+    let observedExited = try observed.host.hasExited() && restoredHost.hasExited() && restoredHost.processID == observed.host.processID
     let oldReceipt = try object(accepted.1["receipt"]), newReceipt = try object(duplicate.1["receipt"])
     let duplicateMessages = try object(duplicate.1["snapshot"])["messages"] as? [[String:Any]]
     let restartedInstallation = try string(object(restarted.1["installation"])["installationId"])

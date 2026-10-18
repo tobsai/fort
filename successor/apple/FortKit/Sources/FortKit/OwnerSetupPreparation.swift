@@ -178,6 +178,7 @@ private struct OwnerSetupPlan: Codable, Equatable {
         try Task.checkCancellation()
         let files = try OwnerSetupFiles(directory:storage.directory)
         defer { files.close() }
+        guard try files.read(.hostRemoval) == nil else { throw MacHostRemovalError.setupBlocked }
         let decoder = JSONDecoder(), encoder = JSONEncoder()
         let existing = try files.read(.connection).map { try decoder.decode(DeviceConnection.self,from:$0) }
         var plan: OwnerSetupPlan

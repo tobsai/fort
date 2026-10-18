@@ -3,17 +3,28 @@ import Foundation
 import Darwin
 
 final class OwnerSetupFiles {
-    enum Record: String { case pending = "owner-setup.json", connection = "connection.json", removal = "pairing-removal.json", disconnected = "disconnected.json" }
+    enum Record: String { case hostRemoval = "host-removal.json", pending = "owner-setup.json", connection = "connection.json", removal = "pairing-removal.json", disconnected = "disconnected.json" }
     private let path: String
     private let identity: stat
     private var directory: Int32
     private var lock: Int32
     private let limit = 16 * 1024
     private static func ioError() -> NSError { NSError(domain:NSPOSIXErrorDomain,code:Int(errno)) }
+    private static func noACL(_ descriptor: Int32) throws {
+        errno = 0
+        guard let acl = acl_get_fd_np(descriptor,ACL_TYPE_EXTENDED) else {
+            if errno == ENOENT { return }
+            throw ioError()
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?
+        guard acl_get_entry(acl,Int32(ACL_FIRST_ENTRY.rawValue),&entry) == -1, errno == EINVAL else { throw ClientError.invalidResponse }
+    }
     private static func regular(_ descriptor: Int32) throws -> stat {
         var info = stat()
         guard fstat(descriptor,&info) == 0 else { throw ioError() }
         guard info.st_mode & S_IFMT == S_IFREG, info.st_uid == geteuid(), info.st_mode & 0o077 == 0, info.st_nlink == 1 else { throw ClientError.invalidResponse }
+        try noACL(descriptor)
         return info
     }
     init(directory url: URL) throws {
@@ -25,6 +36,7 @@ final class OwnerSetupFiles {
         var identity = stat()
         guard fstat(directory,&identity) == 0 else { throw Self.ioError() }
         guard identity.st_mode & S_IFMT == S_IFDIR, identity.st_uid == geteuid(), identity.st_mode & 0o077 == 0 else { throw ClientError.invalidResponse }
+        try Self.noACL(directory)
         lock = openat(directory,"owner-setup.lock",O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK,0o600)
         guard lock >= 0 else { throw Self.ioError() }
         _ = try Self.regular(lock)
@@ -41,6 +53,8 @@ final class OwnerSetupFiles {
         guard lstat(path,&current) == 0 else { throw Self.ioError() }
         guard current.st_mode & S_IFMT == S_IFDIR, current.st_dev == identity.st_dev, current.st_ino == identity.st_ino,
               current.st_uid == geteuid(), current.st_mode & 0o077 == 0 else { throw OwnerSetupPreparationError.changedPreparation }
+        try Self.noACL(directory)
+        _ = try Self.regular(lock)
     }
     func read(_ record: Record) throws -> Data? {
         try verifyDirectory()
