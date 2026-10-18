@@ -1,121 +1,101 @@
 What this repo does: Fort is a single-owner native AI messenger with a local Node
-core and optional runtime adapters. This slice adds explicit deletion of one Mac
-client's saved copy and records concrete distribution requirements. Expected load
-is one owner, with bounded local caches and no shared hosting.
+core and optional runtime adapters. This slice composes an inert Mac review bundle
+from explicit local build inputs. Expected load is one owner assembling a package.
 
 ## Semantic review
 
-Codex self-review, October 18, 2026, base `ddb8917ae6a65d4aa5ab271744d0d9c5fdc3cc3a`.
-Read the immutable [Ponytail skill](https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md),
-the preserved baseline, changed source/tests/spec/evidence, storage formats and
-pairing/recovery callers. Traced descriptor ownership, parsing, identity, bounded
-reads, preflight, unlink/sync, failure/retry, model clearing and confirmation capture.
-Reviewed packaging hooks/source before the safe ad-hoc check and read-only retained
-signature/attribution audit. No external reviewer or independent attestation.
+Codex self-review, October 18, 2026, base `e352ffa`. Used the pinned
+[Ponytail skill](https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md)
+and preserved baseline. Read the new CLI/test, test discovery, changed native test,
+MacHostBundle/Program/AgentService, source app config, host-resource and executor
+packagers, launch paths and recorded sandbox evidence. Traced source reads,
+hash/identity checks, copies, native metadata subprocesses, destination cleanup,
+file/mode manifest and native signature/profile refusal. No independent attestation.
 
 ## Must fix
 
-1. **No usable saved-copy deletion — fixed for the Mac client scope.**
-   - What this is: The native removal flow retained every local history file.
-   - Problem: The owner had no ordinary way to clear a disconnected Mac's saved copy.
-   - Fix: A separate confirmation captures the exact installation; public storage
-     verifies revocation and credential absence before bounded descriptor-relative
-     deletion. It preserves other installations, host data and recovery records.
-   - If skipped: The owner must manipulate files manually. Full host-ledger and iPhone
-     deletion are still open implementation work, not a release exception.
+1. **Production launch omitted the proven OpenSSL configuration — open.**
+   - What this is: The sandbox probe supplies a fixed bundled Node configuration.
+   - Problem: Current core and executor-worker launch paths omit it; the earlier
+     sandbox run already recorded a denied global Homebrew configuration read.
+   - Fix: Carry the same bounded configuration through both artifacts and launch
+     plans, then test synthetic runtime behavior before installed acceptance.
+   - If skipped: The final helper can retain an unwanted machine configuration
+     prerequisite. Owner: implementation agent; next local slice, no release exception.
 
-2. **Changed files could pass an earlier preflight — fixed.**
-   - What this is: Pairing credential verification may occur after filesystem reads.
-   - Problem: A selected file changing during that check could invalidate preflight.
-   - Fix: Verify all selected identities/content after that check, then each file
-     before unlink. Public mutation/refusal tests and interrupted retry pass.
-   - If skipped: A changed file might be removed using stale assumptions. This still
-     does not claim atomic exclusion of hostile code running as the same user.
-
-3. **Confirmation and reopen could misstate deletion — fixed.**
-   - What this is: A UI confirmation waits while observable state can change.
-   - Problem: Reading the current target only on confirmation could delete another
-     installation; reopening also claimed saved history existed after deletion.
-   - Fix: Capture the exact connection, reject stale identity, clear projections only
-     on success, and derive reopen wording from stored navigation. Model regressions pass.
-   - If skipped: The destructive scope or resulting status can differ from what the
-     owner saw. Installed accessibility and real Keychain behavior remain unrun.
+2. **Client builds lacked a composed host — fixed as review preparation.**
+   - What this is: The ordinary client build did not contain the host/runtime layout.
+   - Problem: A build pass alone could not establish even the package composition.
+   - Fix: Explicit CLI checks hashes/identity, retains attribution and produces a
+     review-only artifact. Fifteen tests and read-only native refusal/layout checks pass.
+   - If skipped: Signing/provisioning review has no concrete package to assess.
+     This still does not establish usable installed operation.
 
 ## Should fix
 
-4. **Codex dependency notices are not a complete shipping inventory — open.**
-   - What this is: The current engineering copy preserves root Apache LICENSE/NOTICE.
-   - Problem: Its pinned workspace has statically linked dependencies; root files do
-     not establish complete third-party attribution for the exact executable.
-   - Fix: Finish that source/binary inventory and bind the required notices to final
-     package assembly. Apache redistribution permission itself is already documented.
-   - If skipped: A package could omit required notices. Owner: implementation agent;
-     this is package work, not a request for generic legal approval.
+3. **Codex third-party notice closure remains incomplete — open.**
+   - What this is: Exact root LICENSE/NOTICE are present in the composed artifact.
+   - Problem: They do not enumerate all statically linked dependency obligations.
+   - Fix: Finish the pinned source/binary inventory before distribution.
+   - If skipped: A shipping package could omit attribution. Owner: implementation agent;
+     Apache permission itself does not require a generic new owner approval.
 
-Verdict: The bounded Mac client deletion slice is fixture/build verified. Continue
-host-history deletion and package assembly; v1 and release remain unaccepted.
-Not checked: real owner data/Keychain, provider or startup activation, account records,
-full Codex static dependency closure, installed accessibility/screenshots, physical
-Mac/iPhone, TestFlight, remote CI/branch protection. Donor/history baseline preserved.
-The unchanged TypeScript portable suite was not repeated; prior 1104 passes are
-separate evidence. No dependency or hook was added. No unused-code saving is claimed.
+Verdict: Inert package preparation is verified; fix the two open runtime/notice
+issues and continue deletion/installed-product work. No release acceptance.
+Not checked: product process launch, actual signatures/profiles/App Groups, provider
+or account access, startup activation, native UI/accessibility/screenshots, iPhone
+transport, full history erasure, TestFlight, remote CI and branch protection.
+No hook/dependency was added. Native/service behavior is unchanged by this slice;
+prior 240 native and 1104 portable passes remain separate evidence. No speculative
+framework or unused-code reduction is claimed. The deliberate unsigned refusal is
+an acceptance check, not a defect to bypass.
+
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "ddb8917ae6a65d4aa5ab271744d0d9c5fdc3cc3a",
+  "reviewedCommit": "e352ffa4934dbd7973ebc99429b7305296869d93",
   "reviewer": "Codex",
-  "scope": "Bounded Mac saved-history deletion, exact native confirmation and distribution requirements audit",
+  "scope": "Inert Mac assembly CLI, changed native inspection test and test discovery, source artifact builders and launch/configuration boundaries. Self-review; baseline preserved.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "findings": [
     {
-      "id": "MAC-SAVED-HISTORY",
-      "disposition": "fixed",
-      "detail": "Exact scoped client-cache deletion passes synthetic storage/model tests."
-    },
-    {
-      "id": "DELETION-STALE-PREFLIGHT",
-      "disposition": "fixed",
-      "detail": "Post-credential and per-file validation; changed-root/file and partial retry tested."
-    },
-    {
-      "id": "DELETION-UI-IDENTITY",
-      "disposition": "fixed",
-      "detail": "Captured connection and honest reopen state; native regressions pass."
-    },
-    {
-      "id": "HOST-AND-IOS-HISTORY",
+      "id": "OPENSSL-BOOTSTRAP",
       "disposition": "open",
-      "detail": "Full host-ledger and iPhone cached-history deletion remain implementation work; no release exception."
+      "detail": "Both production Node launches omit the fixed configuration already required by the sandbox probe; implement in the next local slice before runtime acceptance."
+    },
+    {
+      "id": "MAC-PACKAGE-COMPOSITION",
+      "disposition": "fixed",
+      "detail": "Explicit local-only assembly produces a hashed unsigned review bundle with source preservation and native refusal checks."
     },
     {
       "id": "CODEX-NOTICE-CLOSURE",
       "disposition": "open",
-      "detail": "Exact statically linked third-party notices must be completed before shipping."
+      "detail": "Pinned root LICENSE/NOTICE retained; complete statically linked third-party inventory remains before distribution."
     }
   ],
   "tests": [
-    "240 native functions passed at final production source; four focused functions passed with 15 refusal/three mutation cases",
-    "20 synthetic 100-snapshot samples p95 43.269041 ms; excludes real Keychain",
-    "Final unsigned Mac/iPhone Simulator builds and seven-file mode/content manifests; installed UI unrun",
-    "Strict TypeScript passed; unchanged portable suite not rerun (prior 1104 passes)",
-    "26 retained Node image hashes/signatures/load commands and 39 notice hashes passed; no runtime invocation",
-    "Fresh ad-hoc Node SQLite launch failed at known Team-ID library validation; no validation relaxation",
-    "Real history, credentials, providers, startup, account/provisioning and TestFlight unrun"
+    "15 packaging functions passed with explicitly selected local Node/Codex bytes; neither runtime invoked.",
+    "One test-discovery function and strict TypeScript passed.",
+    "Unsigned Release client/helper and guardian builds passed.",
+    "One read-only native layout/signature/profile refusal function passed.",
+    "171 output hashes/modes and 169 input hashes verified; three warm assemblies p95 1880.101542 ms.",
+    "Installed runtime/UI, account/signing/provisioning, provider, TestFlight and remote CI unrun."
   ],
   "exceptions": [],
   "files": {
-    "specs/059-modular-node-v1.md": "60d73fba9d65f18cfd7bb753d73a28edb3ba8e4d30d58ff6d19ec4e1c57be476",
-    "successor/V1-ACCEPTANCE.md": "361945002c8922e9172cac922322d5502485d07747765f844470c41351e4e8ea",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "b9e341b89e1a41e59e9072161db8d05d20bf5d0b5363a38bd9546f707931e7b1",
-    "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "a978934c64537ea691f2201b61c558fa052d1de8202b4db67ced6821ff5a91f1",
-    "successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift": "a7388c8310a59c52bd6b60961b2651f74807dc398b762382e6dd1889473aa77b",
-    "successor/apple/FortKit/Tests/FortKitTests/SavedHistoryRemovalTests.swift": "fd047da3ca2c5c3116c60898f9636b48aab69f41f7bbf7e74d86b5cb010cedfb",
-    "successor/evidence/2026-10-17-node-foundation/distribution-requirements.md": "d64f8b913aa07afd55f251ba7405f3619e376d5dd56cbc2208e37b24a7cd5f21",
-    "successor/evidence/2026-10-17-node-foundation/saved-history-deletion.md": "bdfa31814a613d9302b24beec23196b7a3cab198082e473e81d9415664b07e25"
+    "specs/059-modular-node-v1.md": "6803099f70fa97202cd5a5aa150c72912176f103bd573fd51e29cdf151ec7483",
+    "successor/V1-ACCEPTANCE.md": "a39aabe0c7d9f302e15260966ec1b20c52150a7c113e8bffde391adb6061b9e9",
+    "successor/apple/FortKit/Tests/FortKitTests/MacHostBundleTests.swift": "6d804f78335d10db0a11ef9dadd6475e224849194467a0f2d52f2f3262c8d7a1",
+    "successor/evidence/2026-10-17-node-foundation/mac-review-package.md": "ea044830d1bf731d35a0311aa9de7a4b5cbb268a9820c2bd429019fe4bbec875",
+    "successor/packaging/mac-application.test.ts": "e9b7598fe0794cf91e8427ec093f149117a644e0d25f453b54b439db7ee0f67d",
+    "successor/packaging/mac-application.ts": "ea7614a749d8e1dab31e6e622fea830c34c60be7ac3c40a425b65c934a9d3a43",
+    "successor/verification/test-suite.mjs": "df04f4e0a878a5db50dffcb3f5dd8c792f1d0f699efc60a8cb67b2396f4a799a",
+    "successor/verification/test-suite.test.mjs": "529321c3abaa91a5693e09c5d50c04810bd586f7cc173d3881a7297f8ae1845d"
   }
 }
 ```

@@ -12,6 +12,7 @@ const special = new Map([
   ['runner/codex-executor.test.ts', 'macos'],
   ['runner/guarded-codex-process.test.ts', 'macos'],
   ['packaging/codex-executor-artifact.macos.test.ts', 'macos'],
+  ['packaging/mac-application.test.ts', 'macos'],
   ['packaging/node-bundle.test.ts', 'signed'],
   ['packaging/sandbox-feasibility.test.ts', 'signed']
 ]);

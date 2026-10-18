@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: ec244f3edde74ca44052c5d537bdd88aaad992e5159b1cdbf11de1f7639083d9
+Reviewed content SHA256: 8ef9f7c7b4cae24c0ef4af44078cf59eeb74543de9760fa2cd9a2a6be7895b0e
 
 ### Vendor independence
 Status: planned
@@ -1796,7 +1796,45 @@ data deletion requires action-time authorization and is not executed by this wor
 Research package licenses and Apple rules from read-only primary sources, record
 concrete obligations and uncertainties, and do not infer account or startup grants.
 
+### Inert Mac review-package assembly
+
+Continue decision 059 with a public packaging CLI that assembles an existing unsigned
+Mac client/helper, exact compiled host resources, a hashed standalone Node closure,
+pinned Codex executable/licenses and compiled guardian into a fresh destination.
+Require explicit client/helper/team/group configuration matching input bundle IDs.
+Generate the identical client/helper host configuration and exact bundle-local
+LaunchAgent plist required by MacHostBundle. No caller-selected startup arguments,
+KeepAlive, automatic activation or network-policy expansion are added.
+
+Vendor independence: runtime payloads remain at the existing optional adapter seam;
+portable core is unchanged. Modularity: only composition assembles independent
+artifacts; inputs retain their manifests, licenses and origin hashes. No donor,
+voice companion, code-mode helper or cloud service is included. Speed: three warm
+assembly samples of the real local payload target p95 <=15 seconds, excluding
+compilation, signing and provider latency; no runtime or idle work is introduced.
+Installation/removal: copy only into one new directory, reject links, path escapes,
+input changes and preexisting destinations, clean only the exact directory created
+by a failed invocation. Never overwrite source apps. Run native inspection tools
+with an empty environment; inspect metadata only. A review bundle is explicitly
+unapproved for execution/distribution: it has no invented profiles and is not
+signed, installed, launched, uploaded or registered. Existing signatures cannot
+establish the final required code identities after relocation.
+
+Acceptance: CLI red-to-green on synthetic Mac input bundles; exact paths, both host
+manifests and LaunchAgent definition; all resource/runtime/notice hashes preserved;
+preexisting destination, invalid identity, unexpected/missing files, tampered hash,
+linked input, and changed-source refusal. Assemble actual local engineering bytes
+without execution and inspect the complete resulting file/mode manifest. Record
+missing exact signing/profiles and Codex static notice closure as concrete remaining
+work; the assembler cannot waive them or claim installed-product acceptance.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/mac-review-package.md`
+
+- `successor/packaging/mac-application.test.ts`
+
+- `successor/packaging/mac-application.ts`
 
 - `successor/evidence/2026-10-17-node-foundation/distribution-requirements.md`
 

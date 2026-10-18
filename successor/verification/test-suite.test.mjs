@@ -11,7 +11,7 @@ test('test discovery includes prior omissions and partitions privileged checks e
     return JSON.parse(result.stdout);
   });
   for (const path of ['service/agent-settings.test.ts', 'service/owner-pairing.test.ts', 'service/migrate-ledger.test.ts', 'packaging/core-artifact.test.ts', 'packaging/codex-executor-artifact.test.ts', 'prototype/owner-demo.test.ts', 'runner/startup-diagnostic.test.ts']) assert.ok(suites[0].files.includes(path));
-  assert.deepEqual(suites[1].files, ['host/guardian.test.ts', 'packaging/codex-executor-artifact.macos.test.ts', 'prototype/mvp-app.test.ts', 'runner/codex-executor.test.ts', 'runner/confinement-canary.test.ts', 'runner/guarded-codex-process.test.ts']);
+  assert.deepEqual(suites[1].files, ['host/guardian.test.ts', 'packaging/codex-executor-artifact.macos.test.ts', 'packaging/mac-application.test.ts', 'prototype/mvp-app.test.ts', 'runner/codex-executor.test.ts', 'runner/confinement-canary.test.ts', 'runner/guarded-codex-process.test.ts']);
   assert.deepEqual(suites[2].files, ['packaging/node-bundle.test.ts', 'packaging/sandbox-feasibility.test.ts']);
   const all = suites.flatMap(suite => suite.files);
   assert.equal(new Set(all).size, all.length);

@@ -200,6 +200,28 @@ func hostBundleInspectionRequiresEachIndependentSignature(_ helper: Bool, _ chan
     #expect(try Data(contentsOf:fixture.manifest) == fixture.configuration)
 }
 
+@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_TEST_REVIEW_PACKAGE"] != nil))
+func hostBundleReviewAssemblyReachesProvisioningGateAndRefusesPublicActivation() async throws {
+    let path = try #require(ProcessInfo.processInfo.environment["FORT_TEST_REVIEW_PACKAGE"])
+    let app = URL(fileURLWithPath:path,isDirectory:true).resolvingSymlinksInPath()
+    let manifest = app.appendingPathComponent("Contents/Resources/fort-host.json")
+    let before = try Data(contentsOf:manifest)
+    let fields = try JSONDecoder().decode([String:String].self,from:before)
+    let group = try #require(fields["appGroup"])
+    do {
+        _ = try MacHostBundle.inspect(applicationURL:app) { _, _, _ in
+            MacHostCodeSignature(appSandbox:true,inheritsSandbox:false,applicationGroups:[group])
+        }
+        Issue.record("Review assembly unexpectedly contained provisioning evidence")
+    } catch MacHostBundleError.profiles { }
+    do {
+        _ = try await MacHostBundle.inspect(applicationURL:app)
+        Issue.record("Unsigned review assembly passed normal inspection")
+    } catch MacHostBundleError.signature { }
+    #expect(try Data(contentsOf:manifest) == before)
+    #expect(!FileManager.default.fileExists(atPath:app.appendingPathComponent("Contents/embedded.provisionprofile").path))
+}
+
 @Test func hostBundlePublicInspectionRejectsUnsignedSyntheticBundle() async throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     do { _ = try await MacHostBundle.inspect(applicationURL:fixture.app); Issue.record("Unsigned bundle accepted") }
