@@ -83,6 +83,133 @@ import Observation
     private var imageStore: LocalChatImageStore { LocalChatImageStore(directory:storage.directory.appendingPathComponent("local-images",isDirectory:true)) }
     public var modelCatalog: ModelCatalog = .unchecked
     public var loadingModels = false
+    public var accountSignInStatus: AccountSignInStatus?
+    public private(set) var accountSignInBusy = false
+    public private(set) var accountSignInMessage = "Sign in explicitly to the selected runtime."
+    private var accountSignInIntent: AccountSignInIntent?
+    private var accountStatusGeneration = UUID()
+    public var hasPendingAccountSignIn: Bool { accountSignInIntent != nil }
+    public var canManageProviderAccount: Bool {
+        #if os(macOS)
+        canControlHost && installation?.supports("accountSignIn") == true
+        #else
+        false
+        #endif
+    }
+    private func accountScope() throws -> (FortClient, DeviceConnection, Installation) {
+        guard canManageProviderAccount, let client, let installation, let connection = try storage.connection(),
+              connection.installationID == installation.installationId, pairingStatus?.deviceId == connection.deviceID else { throw ClientError.invalidResponse }
+        return (client,connection,installation)
+    }
+    private func accountScopeMatches(_ connection: DeviceConnection, _ selected: Installation) throws -> Bool {
+        let current = try storage.connection()
+        return canManageProviderAccount && installation?.installationId == selected.installationId && installation?.recoveryEpoch == selected.recoveryEpoch
+            && current == connection && pairingStatus?.deviceId == connection.deviceID
+    }
+    private func acceptAccountStatus(_ value: AccountSignInStatus, connection: DeviceConnection, installation selected: Installation, intent: AccountSignInIntent?, generation: UUID) throws {
+        guard generation == accountStatusGeneration, try accountScopeMatches(connection,selected), try storage.accountSignInIntent(for:connection) == intent else { throw ClientError.invalidResponse }
+        if let intent {
+            guard intent.request.recoveryEpoch == selected.recoveryEpoch else { throw ClientError.invalidResponse }
+            if let operation = value.operation, intent.request.matches(operation) {
+                if value.finishedResult != nil { try storage.clearAccountSignIn(intent); accountSignInIntent = nil }
+            } else {
+                guard value.revision == intent.request.expectedRevision, !value.isActive else { throw ClientError.invalidResponse }
+                accountSignInStatus = nil; accountSignInMessage = "The saved request has no confirmed receipt. Retry that request or discard it after it expires."; return
+            }
+        }
+        if let operation = value.operation, value.challenge != nil, operation.expiresAt <= Int64(Date().timeIntervalSince1970 * 1000) {
+            accountSignInStatus = .canceling(operation); accountSignInMessage = "The code has expired. Check status for the confirmed outcome."; return
+        }
+        accountSignInStatus = value
+        switch value {
+        case .idle: accountSignInMessage = "No sign-in attempt is active."
+        case .unavailable: accountSignInMessage = "This runtime does not offer sign-in here."
+        case .starting: accountSignInMessage = "Waiting for the runtime’s sign-in instructions."
+        case .challenge: accountSignInMessage = "Open the verification page and enter this code before it expires."
+        case .canceling: accountSignInMessage = "Cancellation is awaiting confirmation."
+        case .finished(_,let result):
+            switch result {
+            case .signedIn: accountSignInMessage = "This attempt completed sign-in. Account access will be checked again when you send."
+            case .canceled: accountSignInMessage = "This sign-in attempt was canceled. Existing account access was not revoked."
+            case .failed: accountSignInMessage = "This sign-in attempt failed. You can start a new attempt."
+            case .unconfirmed: accountSignInMessage = "This attempt’s outcome is unconfirmed. It will not be retried automatically."
+            }
+        }
+    }
+    public func refreshAccountSignIn() async {
+        guard !accountSignInBusy, !lifecycleBusy else { return }
+        guard canManageProviderAccount else { accountSignInStatus = nil; return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let generation = accountStatusGeneration
+        do {
+            let (client,connection,selected) = try accountScope()
+            let intent = try storage.accountSignInIntent(for:connection); accountSignInIntent = intent
+            let result = try await client.accountSignInStatus()
+            try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
+        } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
+    }
+    public func startAccountSignIn() async {
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let generation = accountStatusGeneration
+        do {
+            let (client,connection,selected) = try accountScope()
+            guard try storage.accountSignInIntent(for:connection) == nil else { throw ClientError.invalidResponse }
+            let current = try await client.accountSignInStatus()
+            guard generation == accountStatusGeneration, try accountScopeMatches(connection,selected), !current.isActive else { throw ClientError.invalidResponse }
+            if case .unavailable = current { throw ClientError.invalidResponse }
+            let request = AccountSignInRequest(operationId:UUID().uuidString,expectedRevision:current.revision,recoveryEpoch:selected.recoveryEpoch,expiresAt:Int64(Date().timeIntervalSince1970 * 1000) + 110_000)
+            let intent = AccountSignInIntent(format:1,connection:connection,request:request)
+            try storage.prepareAccountSignIn(intent); accountSignInIntent = intent
+            let result = try await client.startAccountSignIn(request)
+            try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
+        } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in was not confirmed. Check status before retrying the saved request." }
+    }
+    public func retryAccountSignIn() async {
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let generation = accountStatusGeneration
+        do {
+            let (client,connection,selected) = try accountScope()
+            guard let intent = try storage.accountSignInIntent(for:connection), intent.request.recoveryEpoch == selected.recoveryEpoch,
+                  intent.request.expiresAt > Int64(Date().timeIntervalSince1970 * 1000) else { throw ClientError.invalidResponse }
+            accountSignInIntent = intent
+            let result = try await client.startAccountSignIn(intent.request)
+            try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
+        } catch { accountSignInStatus = nil; accountSignInMessage = "The exact saved sign-in request could not be confirmed. Its deadline has not been extended." }
+    }
+    public func cancelAccountSignIn() async {
+        guard !accountSignInBusy, !lifecycleBusy else { return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let generation = accountStatusGeneration
+        do {
+            let (client,connection,selected) = try accountScope()
+            var intent = try storage.accountSignInIntent(for:connection)
+            let current = try await client.accountSignInStatus()
+            guard generation == accountStatusGeneration, try accountScopeMatches(connection,selected), let operation = current.operation else { throw ClientError.invalidResponse }
+            if let intent { guard intent.request.recoveryEpoch == selected.recoveryEpoch, intent.request.matches(operation) else { throw ClientError.invalidResponse } }
+            else {
+                let adopted = AccountSignInIntent(format:1,connection:connection,request:AccountSignInRequest(operationId:operation.operationID,expectedRevision:operation.revision - 1,recoveryEpoch:selected.recoveryEpoch,expiresAt:operation.expiresAt))
+                try storage.prepareAccountSignIn(adopted); intent = adopted
+            }
+            accountSignInIntent = intent; accountSignInStatus = nil
+            let result = try await client.cancelAccountSignIn(operation,recoveryEpoch:selected.recoveryEpoch)
+            try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
+        } catch { accountSignInStatus = nil; accountSignInMessage = "Cancellation is unconfirmed. Check status or retry cancellation; account access has not been revoked." }
+    }
+    public func discardExpiredAccountSignIn() async {
+        guard !accountSignInBusy, !lifecycleBusy else { return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        do {
+            let (client,connection,selected) = try accountScope()
+            guard let intent = try storage.accountSignInIntent(for:connection), intent.request.recoveryEpoch == selected.recoveryEpoch,
+                  intent.request.expiresAt + 5000 <= Int64(Date().timeIntervalSince1970 * 1000) else { throw ClientError.invalidResponse }
+            let current = try await client.accountSignInStatus()
+            guard try accountScopeMatches(connection,selected), !current.isActive, try storage.accountSignInIntent(for:connection) == intent else { throw ClientError.invalidResponse }
+            try storage.clearAccountSignIn(intent); accountSignInIntent = nil; accountSignInStatus = current
+            accountSignInMessage = "The expired local request was discarded. No login or account revocation was performed."
+        } catch { accountSignInStatus = nil; accountSignInMessage = "The request is kept until its deadline and cleanup period pass and the host confirms no active sign-in." }
+    }
     public var pairingStatus: PairingStatus?
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
@@ -450,8 +577,9 @@ import Observation
         do {
             let pairing = try await client.pairing()
             guard let connection = try storage.connection(), pairing.deviceId == connection.deviceID, pairing.mode == .ownerLocal else { throw OwnerLifecycleError.wrongPairing }
-            pairingStatus = pairing; pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
-        } catch { pairingStatus = nil; pairingMessage = error.localizedDescription }
+            pairingStatus = pairing; if isCompanionPairing { accountSignInStatus = nil }
+            pairingMessage = "Pairing lasts until you disconnect unless you choose an expiry."
+        } catch { pairingStatus = nil; accountSignInStatus = nil; pairingMessage = error.localizedDescription }
     }
     public func setPairingExpiry(days: Int?) async {
         guard canManagePairing, !lifecycleBusy, let client else { return }
@@ -472,7 +600,8 @@ import Observation
             let intent = try storage.pairingRemoval()
             guard intent?.connection == connection, intent?.scope == .companion else { throw OwnerLifecycleError.wrongPairing }
         }
-        client = nil; connected = false; hostStopped = !companion; companionRemoval = companion; pairingRemoved = true; pairingStatus = nil
+        if !companion { try storage.retireAccountSignInAfterConfirmedDisconnect(connection); accountSignInIntent = nil }
+        accountSignInStatus = nil; client = nil; connected = false; hostStopped = !companion; companionRemoval = companion; pairingRemoved = true; pairingStatus = nil
         pairingCleanupPending = true; pairingRemovalPending = false
         try storage.removePairing(connection)
         pairingCleanupPending = false; localPairingForgotten = false
@@ -482,6 +611,7 @@ import Observation
     public func stopLocalHost(disconnect: Bool) async {
         guard canDisconnectPairing, disconnect || canControlHost, !isBusy, !lifecycleBusy, let client else { return }
         let companion = isCompanionPairing
+        accountStatusGeneration = UUID(); accountSignInStatus = nil
         lifecycleBusy = true; isBusy = true
         defer { lifecycleBusy = false; isBusy = false }
         do {
@@ -538,7 +668,7 @@ import Observation
         do {
             guard let intent = try storage.pairingRemoval() else { throw OwnerLifecycleError.wrongPairing }
             try storage.removePairing(intent.connection,revocationConfirmed:false)
-            client = nil; connected = false; pairingRemoved = true; localPairingForgotten = true
+            accountSignInStatus = nil; client = nil; connected = false; pairingRemoved = true; localPairingForgotten = true
             pairingMessage = isCompanionPairing ? "Local credential removed only. Phone revocation is unconfirmed; revoke this phone on the owning Mac. History is kept." : "Local credential removed only. Service revocation and shutdown are unconfirmed. History is kept."
         } catch { pairingMessage = "Local credential removal could not finish. Service revocation remains unconfirmed." }
     }
@@ -552,6 +682,7 @@ import Observation
     }
     public func prepareForRemoval(history: HistoryRemoval = .keep) async {
         guard !isOfflinePreview, !isBusy, !lifecycleBusy, let ownedInstallation else { return }
+        accountStatusGeneration = UUID(); accountSignInStatus = nil
         lifecycleBusy = true; isBusy = true
         preparedAppRemoval = nil
         defer { lifecycleBusy = false; isBusy = false }
@@ -559,7 +690,8 @@ import Observation
             guard let connection = try storage.connection() ?? storage.disconnectedConnection() else { throw OwnerLifecycleError.wrongPairing }
             let removal = OwnerLifecycle(installation:ownedInstallation,removeCredential:{ self.client = nil; self.connected = false; self.pairingRemoved = true; self.pairingCleanupPending = true; try self.storage.removePairing(connection); self.pairingCleanupPending = false })
             preparedAppRemoval = try await removal.prepareForRemoval(history:history)
-            client = nil; connected = false; pairingRemoved = true
+            try storage.retireAccountSignInAfterConfirmedDisconnect(connection); accountSignInIntent = nil
+            accountSignInStatus = nil; client = nil; connected = false; pairingRemoved = true
             let historyMessage = history == .keep ? "History is kept." : "The confirmed local history was deleted."
             pairingMessage = "Host shutdown, revocation and startup unregistration are confirmed. Local pairing is removed. \(historyMessage) Remove the Fort app using TestFlight or macOS."
         } catch { pairingMessage = error.localizedDescription }
@@ -609,6 +741,7 @@ import Observation
             let current = try await client.installation()
             installation = current
             if current.supports("companionPairing") { await refreshPairing() }
+            await refreshAccountSignIn()
             if current.supports("eventReplay"), current.eventCursor == nil || current.eventCursor! < 0 { throw ClientError.invalidResponse }
             runtimeReadiness = current.supports("runtimeRecovery") ? try await client.runtimeReadiness() : nil
             if current.supports("runtimeRecovery") { hostStopped = runtimeReadiness?.state == "stopped" }

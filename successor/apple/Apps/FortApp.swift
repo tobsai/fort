@@ -6,7 +6,7 @@ import FortKit
     @State private var startupError: String?
     private var windowTitle: String {
         #if FORT_INTERACTIVE_QA
-        return "Fort QA — First-wave interactive fixture"
+        return ProcessInfo.processInfo.arguments.contains("--qa-account") ? "Fort QA — Account controls (synthetic)" : "Fort QA — First-wave interactive fixture"
         #else
         return "Fort"
         #endif
@@ -14,7 +14,14 @@ import FortKit
     var body: some Scene {
         WindowGroup(windowTitle) {
             Group {
-                if let model { MessengerView(model:model) }
+                if let model {
+                    #if FORT_INTERACTIVE_QA && DEBUG && os(macOS)
+                    if ProcessInfo.processInfo.arguments.contains("--qa-account") { AccountSignInFixtureView(model:model) }
+                    else { MessengerView(model:model) }
+                    #else
+                    MessengerView(model:model)
+                    #endif
+                }
                 else { ContentUnavailableView("Fort could not open local storage",systemImage:"externaldrive.badge.exclamationmark",description:Text(startupError ?? "Opening Fort…")) }
             }
             .task {
@@ -28,6 +35,12 @@ import FortKit
                         guard arguments.indices.contains(position + 1), let id = UUID(uuidString:arguments[position + 1]) else { throw ClientError.invalidResponse }
                         session = id.uuidString.lowercased()
                     } else { session = UUID().uuidString.lowercased() }
+                    #if os(macOS)
+                    if arguments.contains("--qa-account") {
+                        model = try await AccountSignInFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + session,isDirectory:true))
+                        return
+                    }
+                    #endif
                     model = try await InteractiveFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortInteractiveQA-" + session,isDirectory:true))
                     return
                     #else

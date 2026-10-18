@@ -53,6 +53,9 @@ struct PairingSettingsView: View {
             #if os(macOS)
             if model.hasOwnerSetup && (model.pendingOwnerSetup != nil || model.showConnection) { OwnerSetupView(model:model) }
             #endif
+            #if os(macOS)
+            if model.canManageProviderAccount { AccountSignInView(model:model) }
+            #endif
             Section("Pairing") {
                 if let pairing = model.pairingStatus {
                     Text(pairing.expiresAt.map { "Expires: \($0)" } ?? "No expiry · stays paired until you disconnect")

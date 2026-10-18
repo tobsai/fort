@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 68297057c54647f493d9b84374e285baef12f74245667ec7a60aa8c01c96cec9
+Reviewed content SHA256: 31a21666eceb06798a23812ad29a381736945cc7f5e2b7eb50408f59f813c0fe
 
 ### Vendor independence
 Status: planned
@@ -2471,7 +2471,90 @@ successor/service/account-sign-in.ts, successor/service/account-sign-in.test.ts,
 successor/evidence/2026-10-17-node-foundation/owner-account-sign-in.md,
 successor/V1-ACCEPTANCE.md and docs/architecture/reviews/ponytail/current.md.
 
+### Native primary-owner sign-in controls
+
+Continue decision 059 with explicit Mac Settings controls using the authenticated
+account service contract. Advertise sign-in only for the primary owner-local Mac
+with accountSignIn capability. Pairing/restore/refresh may read status but never
+start or retry login. The view shows the exact runtime name, bounded device code,
+verification link and truthful operation result. Open the URL only by a user click;
+no browser launch, account, credential or provider action occurs during these tests.
+
+Before POST persist one exact start intent: connection, recovery epoch, operation ID,
+expected revision and absolute expiry. No device code, provider login ID, email,
+account token or verification URL is persisted. Use existing owner-only locked files,
+reject symlink/hardlink/replaced/foreign state and conflicting removal/setup. Retry
+only the identical saved request while unexpired; do not extend its window. Restored
+intent only GETs status. Cancellation targets that exact operation/revision and may
+be explicitly retried; a lost reply stays uncertain. Do not accept responses after
+connection/epoch/pairing/intent changes. Expired unaccepted intent may be discarded
+only explicitly after the cleanup reserve and a fresh authoritative status confirms
+it is no longer the active operation. Finished result is an operation receipt, not
+an ongoing account-state claim.
+
+Vendor independence: native DTOs are Fort-owned and validate neutral states and HTTPS
+challenge values; no provider SDK/name selects behavior. Modularity: ordinary FortClient
+transport and existing protected storage, no parallel login agent or credential store.
+Speed: 20 serial native synthetic start/status/cancel journeys after five warmups,
+p95 under 100 ms excluding real user/provider/network. Installation/removal: ordinary
+stop/disconnect stays available during sign-in; challenge clears on changing pairing,
+terminal/canceled/expired state and failed status. Stored intent permits recovery
+without automatic login. Confirmed primary disconnect retires only the matching local
+account intent after host cleanup/revocation; uncertain or foreign records are kept. No startup or network entitlement changes are in scope.
+
+Acceptance: public native model red → green for explicit start, saved intent before
+POST, exact lost-response retry/relaunch, cancellation, foreign/late results, companion
+refusal, expired intent, strict decoder/URL handling and protected-file refusal. Run
+focused/full native tests and fresh unsigned Mac/iPhone builds. Inspect the exact
+synthetic Settings through accessibility/screenshots when a fixture is composed.
+Real provider, signed installed app and TestFlight remain distinct external gates.
+Rollback removes UI/methods only; retained intent is not an instruction to auto-replay.
+
+Exact files: this spec; successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift,
+AccountSignInView.swift, FortClient.swift, MessengerModel.swift, OwnerSetupFiles.swift,
+PairingSettings.swift; successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift;
+successor/evidence/2026-10-17-node-foundation/native-account-sign-in.md;
+successor/V1-ACCEPTANCE.md and docs/architecture/reviews/ponytail/current.md.
+
+### Offline inspection of native account controls
+
+Refine the same native slice with a DEBUG-only Mac account fixture reached solely
+through the dedicated FortQA target's explicit `--qa-account` argument. Its window
+and runtime are labeled synthetic. Compose the ordinary model and transport with
+an in-process responder, temporary session directory and non-Keychain test token;
+there is no provider process, network, browser automation or startup registration.
+Persist only synthetic operation metadata so a cold reopen reports unconfirmed
+instead of initiating or resuming sign-in. No device code/URL/token is written.
+
+Vendor independence: the synthetic service exercises Fort's neutral contract.
+Modularity: its factory is absent from Release builds and normal app composition.
+Speed: no new runtime dependency or background process; the existing native journey
+budget applies. Installation/removal: an isolated ad-hoc QA identity and temporary
+session path preserve ordinary app data and all existing installations. Test the
+public factory's explicit start/cancel, cold restore without automatic login, and
+refusal outside its named temporary root. Inspect the exact app/window through AX
+and screenshots without following the verification link. Fixture acceptance does
+not establish provider, signed installation, release or TestFlight acceptance.
+
+Additional exact files: successor/apple/Apps/FortApp.swift;
+successor/apple/FortKit/Sources/FortKit/AccountSignInFixture.swift;
+successor/apple/FortKit/Tests/FortKitTests/AccountSignInFixtureTests.swift;
+successor/evidence/2026-10-17-node-foundation/account-controls-idle.png,
+account-controls-challenge.png, account-controls-canceled.png and
+account-controls-reopened.png. Reuse decision 059's ordinary implementation and
+local validation authority; no external or persistent-access authority is added.
+
 ## Implementation paths
+- `successor/apple/FortKit/Sources/FortKit/AccountSignInFixture.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/AccountSignInFixtureTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/account-controls-idle.png`
+- `successor/evidence/2026-10-17-node-foundation/account-controls-challenge.png`
+- `successor/evidence/2026-10-17-node-foundation/account-controls-canceled.png`
+- `successor/evidence/2026-10-17-node-foundation/account-controls-reopened.png`
+- `successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift`
+- `successor/apple/FortKit/Sources/FortKit/AccountSignInView.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/native-account-sign-in.md`
 - `successor/contracts/account.ts`
 - `successor/service/account-sign-in.ts`
 - `successor/service/account-sign-in.test.ts`

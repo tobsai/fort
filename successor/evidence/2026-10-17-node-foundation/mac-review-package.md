@@ -1,6 +1,30 @@
 # Inert Mac review package — October 18, 2026
 
-## Current Mac test milestone
+## Native account checkpoint
+
+Current native source: a522d2a plus the reviewed native-account slice. New inert bundle:
+`/private/tmp/fort059-account-milestone-20261018/Fort.app`. Current unsigned Mac/helper
+builds are `/tmp/fort059-account-{mac,helper}-20261018/Build/Products/Debug/` and host
+resources are `/tmp/fort059-owner-account-host-resources` (108 verified files).
+The retained Node, guardian, pinned Codex 0.157.1 and engineering configuration inputs
+below are unchanged. The application/runtime was not launched or signed.
+
+Independent verification matched **200 output files / 395,097,724 bytes**, all
+**198 input hashes**, modes, exact output membership and zero profiles.
+Report SHA256: `e4c1b3a4e9c35056184454503e9492f9bbf25b3e5af26ca9cb352fc453f30aa8`.
+Canonical output inventory SHA256: `09c599d4c333428c3a344332fb6582d8ff2ac059397b333456f1893dcbdc37e5`.
+Full verification: `/tmp/fort059-account-package-inventory.json`.
+Normal public inspection rejects its unsigned signature; the synthetic signature
+callback reaches the missing-profile gate. That exact native check passed.
+
+[Native account evidence](native-account-sign-in.md) records fresh builds and actual
+synthetic Settings inspection. These controls now exist through native/service/owned
+executor/protocol layers. Real provider and signed installed acceptance still require
+exact Apple records/profiles and authorized network/startup/provider actions.
+The launchable artifact remains the separately labeled offline QA app. Neither artifact
+establishes TestFlight availability. The earlier package below remains preserved.
+
+## Earlier Mac test milestone — source 1b08c224
 
 Source: `1b08c224a497974f09c39b3af9c1f99c4be39cc0`. The current review bundle is
 `/private/tmp/fort059-mac-milestone-20261018/Fort.app`. It combines the fresh unsigned

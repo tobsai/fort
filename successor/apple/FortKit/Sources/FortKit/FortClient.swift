@@ -26,6 +26,14 @@ public struct FortClient: Sendable {
     public func agents() async throws -> [Agent] { let result: AgentList = try await get("v1/agents"); return result.agents }
     public func conversations() async throws -> [Conversation] { struct Response: Decodable { let conversations: [Conversation] }; let result: Response = try await get("v1/conversations"); return result.conversations }
     public func skills() async throws -> [InstructionSkill] { struct Response: Decodable { let skills: [InstructionSkill] }; let result: Response = try await get("v1/skills"); return result.skills }
+    public func accountSignInStatus() async throws -> AccountSignInStatus { try await get("v1/account/sign-in") }
+    public func startAccountSignIn(_ intent: AccountSignInRequest) async throws -> AccountSignInStatus {
+        try intent.validate(); return try await send("v1/account/sign-in/start",method:.post,body:intent)
+    }
+    public func cancelAccountSignIn(_ operation: AccountOperation, recoveryEpoch: String) async throws -> AccountSignInStatus {
+        struct Body: Encodable { let operationId: String; let revision: Int; let recoveryEpoch: String }
+        return try await send("v1/account/sign-in/cancel",method:.post,body:Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch))
+    }
     public func pairing() async throws -> PairingStatus { try await get("v1/pairing") }
     public func setPairingExpiry(days: Int?) async throws -> PairingStatus {
         let body: [String:Any] = ["expiresAfterDays":days.map { $0 as Any } ?? NSNull()]
