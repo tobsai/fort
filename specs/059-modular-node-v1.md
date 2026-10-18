@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 83b56f7aa13d3eeec19c27e70cd205b3ccc186c1440f7110eef086fe6ad5ee32
+Reviewed content SHA256: 0b620e3c200be18b28376ce1e34b9a51e77d3325a787c052294257d3bf85ce5c
 
 ### Vendor independence
 Status: planned
@@ -1107,6 +1107,43 @@ without launching or modifying it. No new entitlement, profile, credential,
 registration or provider action is authorized by these tests. Reuse decision 059
 for this local native integration scope.
 
+### Native helper service lifecycle revision
+
+Compose the existing exact App Group storage, guarded core host and authenticated
+Mac listener into one explicit helper lifecycle. Construction is inert. Starting
+resolves and validates the exact group storage before core launch, waits for the
+core's private-channel readiness, revalidates storage identity, then opens only the
+configured Mach service with the existing same-user/exact-code requirement.
+No launch registration, pairing, credential lookup or provider request is implicit.
+The trusted helper composition supplies its already-inspected bundle and exact core
+executable/arguments/environment/guardian; no XPC request selects those inputs.
+
+Starting is single-use. Shutdown refuses new starts, invalidates the listener once,
+awaits any in-progress core launch and closes the resulting core. Concurrent shutdown
+callers share that operation. A canceled start or failed listener/storage check must
+close the core before propagating failure. A failed launch or forced/uncertain cleanup
+cannot produce a clean-stop receipt or trigger an automatic retry. Retain failure
+state. Successful pairing recovery still leaves the helper alive until its explicit
+shutdown/OS unregistration, so the recovery reply can return to the client first.
+This wrapper does not itself claim startup unregistration or helper-process exit.
+
+Vendor independence: the lifecycle imports only Fort-owned Swift/core contracts,
+not a concrete provider. Modularity: retain existing core, storage and XPC seams;
+the helper only composes their ownership. Speed: measure 20 serial fresh synthetic
+guarded-core starts/readiness/stops with a fixture listener, p95 <=2 seconds,
+including private storage preparation; no idle timer or polling is added.
+Installation/removal: no service activation in this slice, no new permission or
+credential; clean shutdown is separate from durable removal and OS registration.
+
+Acceptance: public lifecycle tests with synthetic storage/listener boundaries cover
+inert construction, ordering, repeated/concurrent calls, cancellation, storage change,
+listener failure, launch failure and unconfirmed cleanup. Exercise the actual guarded
+compiled core with synthetic runtime, verify readiness before listener activation and
+prove its recorded PID/group absent after shutdown. Run the full native regression,
+strict TypeScript and unsigned client builds. Actual named Mach registration/App Group
+lookup, signed helper target/bootstrap, provider, installed UI and TestFlight remain
+unrun. Reuse decision 059; no new external authority is inferred.
+
 ### Optional compiled executor artifact revision
 
 Package the existing guarded Codex composition as a separate optional JavaScript
@@ -1496,6 +1533,9 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/runner/codex.ts`
 - `successor/packaging/core-artifact.ts`
 - `successor/packaging/core-artifact.test.ts`
+- `successor/apple/FortKit/Sources/FortKit/MacAgentService.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacAgentServiceTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/mac-agent-service.md`
 - `successor/packaging/codex-executor-artifact.ts`
 - `successor/packaging/codex-executor-artifact.test.ts`
 - `successor/packaging/codex-executor-artifact.macos.test.ts`
