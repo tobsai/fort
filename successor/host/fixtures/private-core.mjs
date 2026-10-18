@@ -11,8 +11,18 @@ const service = createApplication({ dataDirectory: directory, autoRun: true,
 const lifetime = setTimeout(() => { process.stdin.destroy(new Error('Synthetic deadline')); }, 15_000);
 try {
   await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' } });
-  process.send?.({ kind: 'setup', installation: service.installation, enrollment: service.issueEnrollment() });
-  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerRecovery: mode === 'owner' ? async identity => {
+  const enrollment = mode === 'owner' && service.inspectSession().deviceIDs.length ? undefined : service.issueEnrollment();
+  process.send?.({ kind: 'setup', installation: service.installation, enrollment });
+  await servePrivateChannel({ endpoint: service.endpoint, input: process.stdin, output: process.stdout, ownerSetup: mode === 'owner' ? {
+    begin: () => recoveryBehavior === 'setup-bad-offer' ? { kind: 'available', installationId: service.installation.installationId, setupId: 'synthetic', expiresAt: 'invalid' } : service.beginOwnerSetup(),
+    complete: async request => {
+      if (recoveryBehavior === 'setup-throws') throw new Error('synthetic-secret');
+      const receipt = service.completeOwnerSetup(request);
+      if (recoveryBehavior === 'setup-slow') await delay(100);
+      if (recoveryBehavior === 'setup-wrong') return { ...receipt, deviceId: 'wrong-device' };
+      return { ...receipt, unexpectedSecret: 'synthetic-secret' };
+    },
+  } : undefined, ownerRecovery: mode === 'owner' ? async identity => {
     const proof = await service.recoverOwnerPairing(identity);
     return recoveryBehavior === 'wrong-proof' ? { ...proof, deviceId: 'another-device' } : proof;
   } : undefined });

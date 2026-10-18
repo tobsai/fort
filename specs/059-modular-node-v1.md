@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8422ad1a8a17737de9a06fe7f58c181db9850325f52ddaeabb127c196e70e190
+Reviewed content SHA256: 382248542398e16cc580f10788290f0657e37ca1559a483c3efc071266c1b3b7
 
 ### Vendor independence
 Status: planned
@@ -471,6 +471,19 @@ existing-owner reporting, bounded-session exclusion and authenticated API access
 Tests use synthetic credentials; ordinary owner activation remains an explicit
 user action, with its persistent access scope and real-provider grants separate.
 
+Carry owner setup over the existing private parent pipe through an explicit,
+default-disabled composition callback. Add begin/complete operations, bounded
+identifiers, canonical token validation, deadlines and cancellation under the same
+eight-request/frame/input limits. Return only validated offer/receipt fields;
+completion must match the submitted installation/device. A reply lost after a
+commit remains uncertain until the exact prepared request is retried. Tests cover
+source and compiled core, disabled/malformed paths, conflicting callback output,
+timeouts/cancellation and authenticated access after retry. No HTTP exception,
+provider dependency, startup activation or native integration is added by this
+pipe slice. It reuses the same process/storage lifecycle and budgets; small local
+control frames add no polling or background process. Swift/XPC and durable native
+preparation remain separately required before ordinary setup can use it.
+
 ## Performance verification
 
 The local verification CLI creates a new private output directory and refuses
@@ -528,6 +541,7 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 - `successor/contracts/owner-setup.ts`
 - `successor/service/owner-setup.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/owner-setup.md`
+- `successor/evidence/2026-10-17-node-foundation/owner-setup-pipe.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.md`
 - `successor/evidence/2026-10-17-node-foundation/xpc-crash-recovery.json`
 - `successor/service/private-socket.ts`

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test, type TestContext } from 'node:test';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 function object(value: unknown): Record<string, unknown> {
   assert.ok(value && typeof value === 'object' && !Array.isArray(value)); return value as Record<string, unknown>;
@@ -68,7 +69,12 @@ async function fixture(t: TestContext, artifact?: string, owner = false, recover
       child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'ownerRecovery', id, recovery: { installationID, deviceID, timeout } }) + '\n');
       return { id, result: Promise.race([response.promise, delay(5000, undefined, { ref: false }).then(() => { throw new Error('Missing recovery response'); })]).finally(() => responses.delete(id)) };
     };
-    return { installed, setup: await setup.promise, api, send, recovery,
+    const ownerSetup = (setup: unknown) => {
+      const id = ++nextID, response = Promise.withResolvers<Record<string, unknown>>(); responses.set(id, response);
+      child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'ownerSetup', id, setup }) + '\n');
+      return { id, result: Promise.race([response.promise, exited.promise.then(() => { throw new Error('Setup channel exited'); }), delay(5000, undefined, { ref: false }).then(() => { throw new Error('Missing setup response'); })]).finally(() => responses.delete(id)) };
+    };
+    return { installed, setup: await setup.promise, api, send, recovery, ownerSetup,
       recover: (installationID: string, deviceID: string, timeout = 3) => recovery(installationID, deviceID, timeout).result,
       executions: () => executions, close,
       cancel(id: number) { child.stdin?.write(JSON.stringify({ protocolVersion: 1, kind: 'cancel', id }) + '\n'); },
@@ -111,6 +117,91 @@ async function journey(t: TestContext, artifact?: string) {
 }
 
 test('private pipe requests preserve core authorization, exact messages, canceled waits and restart receipts', t => journey(t));
+
+function responseBody(frame: Record<string, unknown>) {
+  assert.equal(frame.kind, 'response');
+  const response = object(frame.response); assert.equal(response.status, 200);
+  return object(JSON.parse(Buffer.from(string(response.body), 'base64').toString()));
+}
+
+async function ownerSetupJourney(t: TestContext, artifact?: string) {
+  const local = await fixture(t, artifact, true), host = await local.start();
+  const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+  assert.equal(offer.kind, 'available');
+  const setup = { operation: 'complete', timeout: 3, installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') };
+  const receipt = responseBody(await host.ownerSetup(setup).result);
+  assert.deepEqual(receipt, { installationId: offer.installationId, deviceId: setup.deviceId, expiresAt: null });
+  assert.deepEqual(responseBody(await host.ownerSetup(setup).result), receipt);
+  assert.equal((await host.api('/v1/pairing', undefined, setup.deviceToken)).status, 200);
+  assert.equal((await host.api('/v1/owner/setup', {}, setup.deviceToken)).status, 404);
+  assert.deepEqual(responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result), { kind: 'paired', ...receipt });
+  await host.close();
+  const reopened = await local.start();
+  assert.deepEqual(responseBody(await reopened.ownerSetup(setup).result), receipt);
+  assert.equal((await reopened.api('/v1/pairing', undefined, setup.deviceToken)).status, 200);
+  assert.equal(reopened.executions(), 0);
+}
+
+test('explicit owner setup on the private pipe confirms the prepared credential across restart', t => ownerSetupJourney(t));
+
+test('setup stays disabled without composition and rejects malformed operations before calling core', async t => {
+  const begin = { operation: 'begin', timeout: 1 };
+  const complete = { operation: 'complete', timeout: 1, installationId: 'synthetic', setupId: 'synthetic', deviceId: 'synthetic', deviceToken: randomBytes(32).toString('base64url') };
+  for (const value of [begin, { ...begin, timeout: 31 }, { ...begin, timeout: 0 }, { ...begin, unexpected: 'field' },
+    { ...complete, operation: 'replace' }, { ...complete, setupId: '' }, { ...complete, deviceId: '../wrong' },
+    { ...complete, installationId: 'x'.repeat(129) }, { ...complete, deviceToken: 'x' }, { ...complete, deviceToken: 'A'.repeat(42) + 'B' }, { ...complete, token: 'unexpected' }]) {
+    const local = await fixture(t, undefined, value !== begin), host = await local.start();
+    host.raw(JSON.stringify({ protocolVersion: 1, kind: 'ownerSetup', id: 1, setup: value }) + '\n');
+    await host.failed(); await host.close();
+  }
+});
+
+test('a timed out or canceled setup reply stays uncertain until the same prepared credential is confirmed', async t => {
+  for (const cancel of [false, true]) {
+    const local = await fixture(t, undefined, true, 'setup-slow'), host = await local.start();
+    const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+    const setup = { operation: 'complete', timeout: cancel ? 3 : 0.01, installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') };
+    const pending = host.ownerSetup(setup);
+    if (cancel) host.cancel(pending.id);
+    assert.equal((await pending.result).error, cancel ? 'canceled' : 'timeout');
+    const receipt = responseBody(await host.ownerSetup({ ...setup, timeout: 3 }).result);
+    assert.deepEqual(receipt, { installationId: offer.installationId, deviceId: setup.deviceId, expiresAt: null });
+    assert.equal((await host.api('/v1/pairing', undefined, setup.deviceToken)).status, 200);
+    await host.close();
+  }
+});
+
+test('composition output is validated and only receipt fields cross the setup channel', async t => {
+  for (const behavior of ['setup-bad-offer', 'setup-wrong', 'setup-throws']) {
+    const local = await fixture(t, undefined, true, behavior), host = await local.start();
+    const begun = await host.ownerSetup({ operation: 'begin', timeout: 3 }).result;
+    if (behavior === 'setup-bad-offer') assert.equal(begun.error, 'unavailable');
+    else {
+      const offer = responseBody(begun);
+      const result = await host.ownerSetup({ operation: 'complete', timeout: 3, installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') }).result;
+      assert.equal(result.error, 'unavailable');
+      assert.equal(JSON.stringify(result).includes('synthetic-secret'), false);
+    }
+    await host.close();
+  }
+});
+
+test('concurrent matching setup retries use the same pairing and share the channel concurrency limit', async t => {
+  for (const overflow of [false, true]) {
+    const local = await fixture(t, undefined, true, 'setup-slow'), host = await local.start();
+    const offer = responseBody(await host.ownerSetup({ operation: 'begin', timeout: 3 }).result);
+    const setup = { operation: 'complete', timeout: 3, installationId: offer.installationId, setupId: offer.setupId, deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') };
+    if (overflow) {
+      host.raw(Array.from({ length: 9 }, (_, index) => JSON.stringify({ protocolVersion: 1, kind: 'ownerSetup', id: index + 2, setup }) + '\n').join(''));
+      await host.failed();
+    } else {
+      const receipts = await Promise.all(Array.from({ length: 8 }, () => host.ownerSetup(setup).result.then(responseBody)));
+      for (const receipt of receipts) assert.deepEqual(receipt, { installationId: offer.installationId, deviceId: setup.deviceId, expiresAt: null });
+      assert.equal((await host.api('/v1/pairing', undefined, setup.deviceToken)).status, 200);
+    }
+    await host.close();
+  }
+});
 
 test('explicit owner pipe recovery verifies exact identity and revokes without a bearer-token exception', async t => {
   const local = await fixture(t, undefined, true), host = await local.start();
@@ -165,6 +256,7 @@ test('the compiled vendor-free artifact supports the same private pipe journey',
   const build = spawnSync(process.execPath, [fileURLToPath(new URL('../packaging/core-artifact.ts', import.meta.url)), '--destination', artifact], { encoding: 'utf8', timeout: 30_000 });
   assert.equal(build.status, 0, build.stderr);
   await journey(t, artifact);
+  await ownerSetupJourney(t, artifact);
 });
 
 test('private pipe rejects malformed, oversized, foreign-route, invalid-body and stale request frames', async t => {
