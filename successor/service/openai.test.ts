@@ -125,10 +125,12 @@ test('reopening an installation with another runtime identity fails before dispa
   const h = await setup(t);
   await h.api('/v1/agents', { name: 'Writer', model: 'exact-model', instructions: 'Reply.' });
   await h.service.close();
-  let replacement: ReturnType<typeof createApplication> | undefined;
-  try {
-    assert.throws(() => { replacement = createApplication({ context: LOCAL_CONTEXT, dataDirectory: h.directory, provider: { ...CODEX_RUNTIME, provider: 'different-provider' } }); }, /runtime identity/i);
-  } finally { await replacement?.close(); }
+  for (const changed of [{ provider: 'different-provider' }, { hostId: 'different-host' }, { runtimeVersion: 'different-version' }]) {
+    let replacement: ReturnType<typeof createApplication> | undefined;
+    try {
+      assert.throws(() => { replacement = createApplication({ context: LOCAL_CONTEXT, dataDirectory: h.directory, provider: { ...CODEX_RUNTIME, ...changed } }); }, /runtime identity/i);
+    } finally { await replacement?.close(); }
+  }
 });
 
 test('global admission bounds unresolved work across Homes and cancellation releases one slot', async t => {

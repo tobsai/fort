@@ -190,7 +190,7 @@ import Testing
     let endpoint = try MacAgentEndpoint(serviceIdentifier:"io.fort.inert.host",signingTeam:"ABCDE12345",appGroup:"group.io.fort.inert")
     let app = URL(fileURLWithPath:"/synthetic/Fort.app",isDirectory:true)
     let bundle = MacHostBundle(applicationURL:app,helperURL:app.appendingPathComponent("Contents/Helpers/FortHost.app",isDirectory:true),endpoint:endpoint,clientIdentifier:"io.fort.inert")
-    _ = MacAgentService(bundle:bundle,executable:URL(fileURLWithPath:"/missing/node"),arguments:[],environment:[:],guardian:URL(fileURLWithPath:"/missing/guardian"))
+    _ = MacHostProgram(bundle:bundle,executable:URL(fileURLWithPath:"/missing/node"),guardian:URL(fileURLWithPath:"/missing/guardian"),bootstrap:URL(fileURLWithPath:"/missing/main.mjs"),codex:URL(fileURLWithPath:"/missing/codex")).makeService()
 }
 
 @Test @MainActor func agentServiceForcedCoreCleanupRemainsUnconfirmedOnEveryRetry() async throws {

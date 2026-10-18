@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 802d08abb05124a2bd8f8d979b7a9a80255d36ddf423e7759ab97697b88b0b27
+Reviewed content SHA256: 05a169e716bcc63d3e27da0e5665b7cc57d871e15e390e2ad2210aa100cbae33
 
 ### Vendor independence
 Status: planned
@@ -1468,6 +1468,52 @@ Native app builds and final bundled-host measurements remain separate from this
 core baseline. Verification adds no product runtime dependency, optional-module
 import, provider authority or startup registration.
 
+### Fixed native host resource composition revision
+
+Under unchanged decision 059, assemble the existing compiled core and optional
+Codex executor with a separately compiled local context module and one fixed
+`host/main.mjs`. Derive the bundled Codex and guardian paths from that module;
+accept no caller path/provider/model overrides. The native helper validates Codex
+with the same exact team, identifier and inheritance-only entitlements as Node
+and the guardian. It prepares only `Runtime/{home,state,workspace,tmp}` beneath
+its validated App Group FortHost directory, using the existing descriptor-relative
+storage checks. Existing entries, permissions and contents are preserved; unknown
+links, ACLs or shared directories fail without repair. Runtime construction stays
+inert until discovery/dispatch and retains the existing no-tool/private-file policy.
+
+Use the ledger's existing installation UUID plus stored provider/version/host
+binding. `local-codex` is installation-scoped, not a globally unique machine ID or
+physical-device attestation. Reopening with a changed host/provider/version is
+refused. Do not introduce a second identity file or infer migration from a copied
+ledger. The helper owns no credential migration, sign-in or legacy discovery.
+
+Vendor independence: composition explicitly selects the optional Codex and local
+context implementations; neither enters the standalone core artifact. Removal
+cost remains replacing the selected composition and preserving ledger identities.
+Modularity: reuse existing builders, storage and lifecycle; no new storage class,
+bootstrap state machine, plugin framework or third-party dependency. Context stays
+separate from the executor. Speed: five serial resource builds each <=10 seconds;
+20 private-directory preparations p95 <=50 ms; a synthetic native setup/catalog/
+text/reopen/revoke journey <=5 seconds excluding artifact compilation, measured
+separately from provider latency. No polling or idle timer is added. Installation
+and removal: resources include complete file hashes and source licenses, but
+binaries, signed helper/profile, actual runtime legal/auth closure, registration
+and installed acceptance remain separate. Temporary tests create no credentials,
+call no provider and register no service. No external authority is expanded.
+
+Acceptance: red/green at the resource builder and native storage/service seams;
+verify no ambient compiler preload, complete manifests, existing destination
+preservation, fixed bootstrap argv and separately removable core/context/executor.
+Drive Swift FortClient through the actual compiled bootstrap/core/worker against an
+authored synthetic Codex protocol process: owner setup, catalog, exact text,
+shutdown/reopen with retained identity/history and no replay, then revocation and
+independently absent process groups. Signature/container/listener fixtures do not
+prove Apple provisioning or OS sandbox confinement. Run affected native/portable
+checks and strict TypeScript; record failed and unrun checks. The existing
+installation/privacy/lifecycle authority remains unchanged; no action-specific
+approval is inferred from synthetic completion. Revisit machine identity only if
+an explicit migration/device-attestation requirement arises.
+
 ## V1 scope and sequence
 
 1. Preserve the accepted decision, source review and explicit acceptance checklist.
@@ -1497,6 +1543,12 @@ client/platform adapter; native user journeys. Use one red → green slice at a 
 
 ## Implementation paths
 
+- `successor/evidence/2026-10-17-node-foundation/native-host-composition.md`
+- `successor/apple/FortKit/Tests/FortKitTests/MacHostJourneyTests.swift`
+- `successor/tsconfig.context.json`
+- `successor/packaging/host-resources.test.ts`
+- `successor/packaging/host-resources.ts`
+- `successor/host/main.mjs`
 - `successor/runner/private-codex-plan.ts`
 - `successor/runner/private-codex-plan.test.ts`
 - `successor/evidence/2026-10-17-node-foundation/private-codex-plan.md`

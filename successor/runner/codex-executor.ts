@@ -8,6 +8,7 @@ import { launchGuardedCodexProcess } from './guarded-codex-process.ts';
 import { serveExecutorWorker } from './executor-worker.ts';
 import { ExecutorProcess } from './executor-process.ts';
 import { privateCodexLaunchPlan } from './private-codex-plan.ts';
+export { CODEX_RUNTIME } from './codex-descriptor.ts';
 export { privateCodexLaunchPlan } from './private-codex-plan.ts';
 
 type CodexExecutorOptions = {

@@ -6,16 +6,16 @@ import Testing
 
 private let inheritedKeys = ["com.apple.security.app-sandbox","com.apple.security.inherit"]
 private func programFiles(_ fixture: HostBundleFixture) throws -> [URL] {
-    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs")]
+    let files = [fixture.helper.appendingPathComponent("Contents/MacOS/node"),fixture.helper.appendingPathComponent("Contents/MacOS/FortProcessGuardian"),fixture.helper.appendingPathComponent("Contents/Resources/host/main.mjs"),fixture.helper.appendingPathComponent("Contents/MacOS/codex")]
     try FileManager.default.createDirectory(at:files[2].deletingLastPathComponent(),withIntermediateDirectories:true)
     for (index,file) in files.enumerated() {
         try Data("synthetic presence only".utf8).write(to:file)
-        try FileManager.default.setAttributes([.posixPermissions:index < 2 ? 0o700 : 0o600],ofItemAtPath:file.path)
+        try FileManager.default.setAttributes([.posixPermissions:index != 2 ? 0o700 : 0o600],ofItemAtPath:file.path)
     }
     return files
 }
 private func programSignature(_ fixture: HostBundleFixture, identifier: String) -> MacHostCodeSignature {
-    if identifier == fixture.endpoint.serviceIdentifier + ".node" || identifier == fixture.endpoint.serviceIdentifier + ".guardian" {
+    if identifier == fixture.endpoint.serviceIdentifier + ".node" || identifier == fixture.endpoint.serviceIdentifier + ".guardian" || identifier == fixture.endpoint.serviceIdentifier + ".codex" {
         return MacHostCodeSignature(appSandbox:true,inheritsSandbox:true,applicationGroups:[],entitlementKeys:inheritedKeys)
     }
     return fixture.signature
@@ -30,13 +30,14 @@ private func programSignature(_ fixture: HostBundleFixture, identifier: String) 
     }
     #expect(result.bundle.helperURL == fixture.helper && result.bundle.applicationURL == fixture.app)
     #expect(result.executable == files[0] && result.guardian == files[1] && result.bootstrap == files[2])
-    try #require(checks.count == 4)
+    try #require(checks.count == 5)
+    #expect(result.codex == files[3] && checks[4].0 == files[3] && checks[4].1 == fixture.endpoint.serviceIdentifier + ".codex")
     #expect(checks[2].0 == files[0] && checks[2].1 == fixture.endpoint.serviceIdentifier + ".node")
     #expect(checks[3].0 == files[1] && checks[3].1 == fixture.endpoint.serviceIdentifier + ".guardian")
     #expect(checks.allSatisfy { $0.2 == fixture.endpoint.signingTeam })
 }
 
-@Test(arguments:["node","guardian"], ["sandbox", "inheritance", "group", "extra-key", "missing-key", "signature"])
+@Test(arguments:["node","guardian","codex"], ["sandbox", "inheritance", "group", "extra-key", "missing-key", "signature"])
 func hostProgramRejectsInvalidInheritedToolAuthority(_ tool: String, _ variant: String) throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     _ = try programFiles(fixture)
@@ -51,7 +52,7 @@ func hostProgramRejectsInvalidInheritedToolAuthority(_ tool: String, _ variant: 
     }
 }
 
-@Test(arguments:[0,1,2], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
+@Test(arguments:[0,1,2,3], ["missing", "empty", "directory", "symlink", "hardlink", "writable", "oversize"])
 func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: String) throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     let files = try programFiles(fixture), file = files[index]
@@ -64,14 +65,14 @@ func hostProgramRejectsUnsafeOrMissingRuntimeFiles(_ index: Int, _ variant: Stri
     case "writable": try FileManager.default.setAttributes([.posixPermissions:0o777],ofItemAtPath:file.path)
     case "oversize":
         let handle = try FileHandle(forWritingTo:file); defer { try? handle.close() }
-        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024]
+        let limits: [UInt64] = [512 * 1024 * 1024,8 * 1024 * 1024,256 * 1024,512 * 1024 * 1024]
         try handle.truncate(atOffset:limits[index] + 1)
     default: break
     }
     #expect(throws:(any Error).self) { try MacHostProgram.inspect(helperURL:fixture.helper) { _, identifier, _ in programSignature(fixture,identifier:identifier) } }
 }
 
-@Test(arguments:[0,1]) func hostProgramRequiresExecutableNativeTools(_ index: Int) throws {
+@Test(arguments:[0,1,3]) func hostProgramRequiresExecutableNativeTools(_ index: Int) throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     let files = try programFiles(fixture)
     try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:files[index].path)

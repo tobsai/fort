@@ -68,6 +68,35 @@ public struct MacAgentStorage: Sendable {
         return url
     }
 
+    func prepareRuntimeDirectory() throws -> URL {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(root) }
+        guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+        if mkdirat(root,"Runtime",0o700) != 0 && errno != EEXIST { throw Self.ioError() }
+        let runtime = openat(root,"Runtime",O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard runtime >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(runtime) }
+        let runtimeIdentity = try Self.identity(runtime,privateDirectory:true)
+        try Self.verifyLink(parent:root,name:"Runtime",expected:runtimeIdentity)
+        for name in ["home","state","workspace","tmp"] {
+            if mkdirat(runtime,name,0o700) != 0 && errno != EEXIST { throw Self.ioError() }
+            let child = openat(runtime,name,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard child >= 0 else { throw Self.ioError() }
+            defer { Darwin.close(child) }
+            let identity = try Self.identity(child,privateDirectory:true)
+            try Self.verifyLink(parent:runtime,name:name,expected:identity)
+            guard fsync(child) == 0 else { throw Self.ioError() }
+        }
+        let result = url.appendingPathComponent("Runtime",isDirectory:true)
+        guard try Self.path(runtime) == result.path else { throw MacAgentStorageError.changedDirectory }
+        try Self.verifyLink(parent:root,name:"Runtime",expected:runtimeIdentity)
+        guard fsync(runtime) == 0, fsync(root) == 0 else { throw Self.ioError() }
+        guard try validatedDirectory() == url else { throw MacAgentStorageError.changedDirectory }
+        return result
+    }
+
     private static func ioError() -> NSError { NSError(domain:NSPOSIXErrorDomain,code:Int(errno)) }
     private static func snapshot(_ info: stat) -> Identity {
         Identity(device:info.st_dev,inode:info.st_ino,permissions:info.st_mode & 0o7777)

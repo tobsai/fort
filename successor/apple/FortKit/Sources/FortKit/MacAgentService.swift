@@ -38,10 +38,19 @@ public enum MacAgentServiceError: Error, LocalizedError {
     private var shutdownTask: Task<MacCoreStop,any Error>?
     private var listener: (any MacAgentServiceListener)?
 
-    public convenience init(bundle: MacHostBundle, executable: URL, arguments: [String], environment: [String:String], guardian: URL) {
-        self.init(prepareStorage:{ try MacAgentStorage.prepare(for:bundle.endpoint) },
-            launch:{ try await MacCoreHost.launch(executable:executable,arguments:arguments,directory:$0,environment:environment,guardian:guardian) },
-            makeListener:{ try SystemAgentListener(bundle:bundle,core:$0) })
+    public convenience init(program: MacHostProgram) {
+        self.init(program:program,resolveContainer:{ FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:$0) },
+            makeListener:{ try SystemAgentListener(bundle:program.bundle,core:$0) })
+    }
+    convenience init(program: MacHostProgram, resolveContainer: @escaping @MainActor (String) throws -> URL?,
+                     makeListener: @escaping @MainActor (MacCoreHost) throws -> any MacAgentServiceListener) {
+        self.init(prepareStorage:{
+            let storage = try MacAgentStorage.prepare(for:program.bundle.endpoint,resolveContainer:resolveContainer)
+            _ = try storage.prepareRuntimeDirectory()
+            return storage
+        },launch:{ try await MacCoreHost.launch(executable:program.executable,
+            arguments:["--jitless","--no-experimental-strip-types","--no-warnings",program.bootstrap.path],directory:$0,environment:[:],guardian:program.guardian) },
+            makeListener:makeListener)
     }
     init(prepareStorage: @escaping @MainActor () throws -> MacAgentStorage,
          launch: @escaping @MainActor (URL) async throws -> MacCoreHost,
