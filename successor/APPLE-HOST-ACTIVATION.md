@@ -1,5 +1,63 @@
 # Apple host activation gate
 
+## Apple access reconciled and minimum Mac provisioning request
+
+October 19, 2026, after the owner's 17:14 UTC "Updated" message. The existing
+Safari session is authenticated to Apple Developer and App Store Connect.
+The portal confirms Maple Tree Enterprises LLC, team `T3JB5MYZ93`, with the
+Account Holder session. No credential value was read or submitted.
+
+The coordinator supplied Apple confirmation email `1a155282da6a6b05`, received
+17:14:14 UTC, that the Program License Agreement was signed for this team. Its
+version is not named. Do not request acceptance of that same agreement again.
+App Store Connect Business independently lists Free Apps Agreement as Active,
+October 19, 2026 through September 11, 2027. Paid Apps Agreement is Active
+with New Agreement Available, September 12, 2026 through September 11, 2027.
+The Schedule 2 update banner is separate; it does not by itself prove that a free
+beta is blocked. No new agreement was accepted during this work.
+
+Read-only inventory found:
+
+- Existing Fort app record `6786748810`, named Fort Orchestrator, bundle ID
+  `io.mtree.fort`, SKU `fort-ios`; observed iOS 1.0 is Prepare for Submission.
+  Preserve it. No remote rename, platform addition or replacement is authorized
+  by this record. No separate Fort Mac record was verified.
+- The unfiltered App IDs list contains `io.mtree.fort`, `io.mtree.fort.watch` and
+  `io.mtree.fort.watch.widgets`. It has neither proposed Mac identifier below.
+  The App Groups list contains no group identifier or Fort group.
+- The unfiltered Profiles page shows five iOS profiles, no Mac profile and no
+  Fort profile. The older local cache's historical Fort iOS profiles are not
+  evidence of a current compatible Mac profile.
+- This Mac's provisioning UDID `00006001-000429402202801E` is already in Devices.
+  No new device registration is needed. Existing Apple Development identity
+  `58F40D1AB480565B89109B853235AC3A7B2E7AD1` remains the selected development
+  signing candidate. No new development key is indicated.
+
+The concrete remaining provisioning request is limited to team T3JB5MYZ93:
+
+1. Register explicit Mac app IDs `io.mtree.fort.mac` and `io.mtree.fort.mac.host`.
+2. Register `group.io.mtree.fort.mac` and associate only those two app IDs with it.
+3. Create Mac development profiles `Fort Mac Development 20261019` and
+   `Fort Host Development 20261019` for their matching IDs, the existing development
+   certificate above and the already-registered exact Mac; download and use those
+   profiles for the local signed build.
+
+This scope needs one explicit approval because the repository's current authority
+retains "Mandatory per-action security, credential/persistent-access approvals".
+It changes persistent Apple provisioning. It does not create a key, alter an
+existing app, accept an agreement or authorize host/network/provider/startup
+activation. Prepare the resulting exact signed artifact before requesting its
+separate installed-operation grant. TestFlight distribution profiles/app record,
+archive/upload and physical acceptance remain later, distinct steps.
+
+The already approved G2 Developer ID Application replacement remains valid and
+separate from this request; no new certificate was created or installed here.
+It is not a development or TestFlight prerequisite. Existing certificates remain.
+The [new branded review package](evidence/2026-10-17-node-foundation/release-assets.md)
+contains 202 verified files but is still unsigned, unprovisioned and unlaunched.
+Historical sign-in/agreement blockers below describe earlier checkpoints and are
+superseded by this current access record.
+
 ## Synthetic cold-launch diagnosis — source c906b00
 
 October 19, 2026. The earlier windowless QA launch follows the harness argument

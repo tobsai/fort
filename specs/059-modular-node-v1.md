@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: b21c51f11ec7368f1f87ffb949846b8a93fed81aff26258300f9abdfc131137d
+Reviewed content SHA256: 2cf6e64d2f4b646e554869110b36cca87e5ec2c111dfb7b7ca66bb9fcd6f4866
 
 ### Vendor independence
 Status: planned
@@ -3005,7 +3005,56 @@ boundaries are unchanged; observed UI timing is not a production speed benchmark
 The final signed installed launch, provisioning and provider gates remain open.
 See mac-review-package.md, cold-window-regression.json and account-selection-cold.png.
 
+## Local release branding and submission preparation
+
+Under the existing decision 059 and the October 19 delegated release-preparation
+request, set ordinary native display names to Fort and compile the existing Fort
+orb as a shared Mac/iPhone app-icon catalog. Retain exact technical bundle IDs,
+executables, signing defaults and explicit QA/fixture safety labels. Reuse only
+image bytes from commit 0960a39b294e2231614c47efb03ac2072f8ef5b0; import no legacy
+implementation or provider configuration. Keep submission material as local drafts.
+
+Vendor independence: the artwork adds no provider/runtime or service dependency.
+Modularity: only native resources/build metadata change; the core, optional modules,
+agent-host and computer-tool sandbox boundaries are unchanged. Speed: validate
+existing native clean-build targets (<=120 seconds) and record asset/package byte
+cost; do not claim startup/provider speed from this resource change. Installation
+and removal: verify compiled names/icons in fresh unsigned Mac and iPhone builds
+and explicitly labeled QA, and verify icons survive inert Mac assembly. No signing,
+activation, upload, new permission or account mutation is part of this slice.
+
+Acceptance uses the actual built bundle seam: first show the old ordinary artifact
+fails the Fort display-name/icon requirement, then inspect fresh Info.plist and
+compiled asset payloads, PNG sizes/opacity, image provenance and QA labels. Preserve
+all previous artifacts and source evidence. Draft only source-supported beta text,
+reviewer setup notes and privacy/export facts; unknown account, URLs, rights,
+retention, compliance answers and installed behavior remain release gates.
+The actual signed installed/UI/provider/TestFlight requirements are unchanged.
+
+Observed result: the old artifact fails the name/icon check. Fresh unsigned Mac,
+helper, QA and generic-device iPhone builds pass; compiled names/icons and QA labels
+are verified. The new inert 202-file package preserves icons and every output/input
+hash. release-assets.md and release-assets.json record exact builds and limitations.
+Submission drafts retain unverified privacy, runtime and installed claims as gates.
+The authenticated Apple read-only inventory now confirms the existing team, Fort iOS
+record and device, supplied Program License Agreement acceptance, active Free Apps
+terms and missing proposed Mac provisioning. No account mutation or new authority
+is inferred. APPLE-HOST-ACTIVATION.md records the exact separate approval scope.
+
 ## Implementation paths
+
+- `successor/apple/Apps/Assets.xcassets/Contents.json`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/Contents.json`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-16.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-32.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-64.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-128.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-256.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-512.png`
+- `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-1024.png`
+- `successor/release/SUBMISSION-DRAFT.md`
+- `successor/evidence/2026-10-17-node-foundation/release-assets.md`
+- `successor/evidence/2026-10-17-node-foundation/release-assets.json`
 
 - `successor/evidence/2026-10-17-node-foundation/cold-window-regression.json`
 - `successor/evidence/2026-10-17-node-foundation/account-selection-cold.png`

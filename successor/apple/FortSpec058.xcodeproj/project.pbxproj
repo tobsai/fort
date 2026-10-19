@@ -10,13 +10,16 @@
 		25A463B50675A556B79DCCED /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		39F12B140A8750F249A1EA86 /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		4FC71A37DDC51189016E0EC2 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 758FD594ED2718FA5EEEA86D /* FortKit */; };
+		6E33F71D27F4EF261A2C7C0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAEC78F3C7B5E364FDF28B19 /* Assets.xcassets */; };
 		73A5A220DFEB2195787C5A32 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9879AC4BE78E0915A76A7A94 /* FortKit */; };
+		911F45A74F662489A184B243 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAEC78F3C7B5E364FDF28B19 /* Assets.xcassets */; };
 		A79A1A763DF7D0977098A771 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD9921B37AD9B66D20A41BED /* FortKit */; };
 		BD1862C279922A400780F2AB /* FortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */; };
 		C445733B345FBC225CD53A84 /* FortKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5EA0927D7A956DB1973A38B1 /* FortKit */; };
 		CC3E6C5B331D58AC87D620D6 /* FortHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8596E0E3538837B6D3A724C /* FortHost.swift */; };
 		CF994BD145569F5E3B3D476C /* NativeJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */; };
 		DCEB5A14597C397CA8E6D773 /* NativeJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */; };
+		E8480125B38A991D9F471964 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAEC78F3C7B5E364FDF28B19 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +48,7 @@
 		35B06F30ACB2232278049438 /* FortMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FortMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4573A94A31B4699596D6A63D /* NativeJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeJourneyTests.swift; sourceTree = "<group>"; };
 		6A9B943A9D96276439005E45 /* FortiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FortiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAEC78F3C7B5E364FDF28B19 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B8596E0E3538837B6D3A724C /* FortHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FortHost.swift; sourceTree = "<group>"; };
 		C086F850514F1EF24B5282DB /* FortKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FortKit; path = FortKit; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -115,6 +119,7 @@
 		D3A1BE74EF3A571962A6D081 /* Apps */ = {
 			isa = PBXGroup;
 			children = (
+				AAEC78F3C7B5E364FDF28B19 /* Assets.xcassets */,
 				1AD9B2E9EDBD121500ACC0D1 /* FortApp.swift */,
 			);
 			path = Apps;
@@ -167,6 +172,7 @@
 			buildConfigurationList = C48D40679FE311FBF167F1D9 /* Build configuration list for PBXNativeTarget "FortMac" */;
 			buildPhases = (
 				3D338B293F6146508B19D542 /* Sources */,
+				23AC0D3B9B978E12BB827A6B /* Resources */,
 				B16C9FE8CEF5AD7D0AAC647B /* Frameworks */,
 			);
 			buildRules = (
@@ -186,6 +192,7 @@
 			buildConfigurationList = 7231603CA7CEB14C844FF9B3 /* Build configuration list for PBXNativeTarget "FortQA" */;
 			buildPhases = (
 				441AB5B3046F97F21FB7F6F4 /* Sources */,
+				69835FD289CD1266A4A319B7 /* Resources */,
 				C93625BEFA4718A5E1053291 /* Frameworks */,
 			);
 			buildRules = (
@@ -242,6 +249,7 @@
 			buildConfigurationList = 51CBFE147F8CED3109E1D1C9 /* Build configuration list for PBXNativeTarget "FortiOS" */;
 			buildPhases = (
 				ECEF8A644D6C1809966EC2D4 /* Sources */,
+				CB6B164EBAD3AA30963C9506 /* Resources */,
 				945F186FD10CBC2E28852B32 /* Frameworks */,
 			);
 			buildRules = (
@@ -299,6 +307,33 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		23AC0D3B9B978E12BB827A6B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E33F71D27F4EF261A2C7C0C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69835FD289CD1266A4A319B7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				911F45A74F662489A184B243 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB6B164EBAD3AA30963C9506 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E8480125B38A991D9F471964 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		3D338B293F6146508B19D542 /* Sources */ = {
@@ -510,7 +545,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
+				INFOPLIST_KEY_CFBundleDisplayName = Fort;
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -595,7 +630,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fort Fixture";
+				INFOPLIST_KEY_CFBundleDisplayName = Fort;
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;

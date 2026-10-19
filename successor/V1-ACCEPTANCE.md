@@ -18,6 +18,7 @@ work; the newest rows and linked evidence describe current progress.
 
 | Requirement | Implemented | Tests | Build/package | Installed/provider acceptance | Remaining |
 | --- | --- | --- | --- | --- | --- |
+| Native release branding and local submission drafts | Ordinary display name Fort; existing Fort icons compiled for Mac/iPhone; QA and fixture safety labels retained | Old bundle failed name/icon check; all fresh bundle checks, seven image dimensions/opacity/provenance and reproducible XcodeGen passed | Four unsigned builds passed; 202-file inert package and 200 inputs verified | No installed/provider/release claim; exact Apple team now authenticated and Program License Agreement confirmation reconciled | Approve bounded missing Mac IDs/group/development profiles using existing certificate/device. Complete privacy/runtime inventory, contact/URL decisions, signed installed and TestFlight gates. [Evidence](evidence/2026-10-17-node-foundation/release-assets.md), [Apple scope](APPLE-HOST-ACTIVATION.md#apple-access-reconciled-and-minimum-mac-provisioning-request) |
 | Synthetic cold-window diagnosis (c906b00) | Harness uses explicit `--qa-account YES`; all production source unchanged | Original failure reproduced; 5/5 corrected cold + 5/5 close/reopen; 2/2 no-argument; separate actual AX/screenshot; exact absence after every trial | Fresh 12-file ad-hoc QA build, strict signature and source equality verified; temporary app instrumentation removed | Synthetic only. No production lifecycle defect established; signed installed launch still unrun | Coordinator/owner: pending secure Apple handoff, matching profiles and exact signed host/provider/TestFlight acceptance. [Evidence](evidence/2026-10-17-node-foundation/mac-review-package.md#synthetic-cold-window-diagnosis--source-c906b00) |
 | Mac signing readiness and selected-account UI (81938a4) | Production unchanged; existing identity/profile metadata inspected; exact synthetic selection UI exercised | 21 assembly checks passed; 200 output / 198 input hashes matched; two actual AX/screenshot states; exact QA exit confirmed | Existing inert app unchanged and unsigned; separate ad-hoc 12-file QA passed signature checks | Synthetic UI only; first launch needed reopen. Four valid identities, zero compatible local Mac profiles across 91 files | Coordinator/owner: finish existing secure Apple handoff; verify/reuse IDs/group/profiles, then scoped provisioning if missing. G2 is separate from development/TestFlight. No independent packaging/UI check remains identified for this slice. [Evidence](evidence/2026-10-17-node-foundation/mac-review-package.md#signing-and-selected-account-ui-readiness--source-81938a4) |
 | Selected provider account correlation (after 28dfa3b) | Nonsecret identity through existing adapter/executor; primary selection, durable pin, mismatch refusal, native status and restart/re-pairing | 1,326 portable / 16 skips; 328 native / 16 skips; 19 guarded / 2 skips; strict TS; isolated selection p95 2.222 ms | Fresh unsigned Mac/helper/iPhone builds; 200-file review app, 198 inputs and exact refusal verified | Fixtures only; no credentials or real account lookup; unlaunched and unprovisioned | Source gap closed. Coordinator/owner: exact Apple/signing/account grants and installed Mac/provider/TestFlight acceptance remain. [Evidence](evidence/2026-10-17-node-foundation/account-correlation.md) |
@@ -95,8 +96,8 @@ work; the newest rows and linked evidence describe current progress.
 
 | Platform | Source/tests | Build | Archive | Upload | Apple processed | Tester available | Physical acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mac | Core/native account, host and local credential cleanup have synthetic evidence; exact provider identity and installed acceptance remain | Current unsigned 200-file Release review package; zero profiles | Unrun | Unrun | Unverified | Unverified | Unrun |
-| iPhone | Foundation migration in progress | Fresh unsigned Simulator client only | Unrun | Unrun | Unverified | Unverified | Unrun |
+| Mac | Core/native account, host and local credential cleanup have synthetic evidence; exact provider identity and installed acceptance remain | Current branded unsigned 202-file Release review package; zero profiles | Unrun | Unrun | Unverified | Unverified | Unrun |
+| iPhone | Native source/fixtures implemented; physical transport and installed acceptance remain | Fresh branded unsigned generic-device Release build; earlier Simulator builds preserved | Unrun | Unrun | Unverified | Unverified | Unrun |
 
 ## Authority and current blockers
 
@@ -107,8 +108,9 @@ remains unperformed. The [current consolidated grant review](APPLE-HOST-ACTIVATI
 recorded an exact-account confirmation gap and retained provider credentials. The
 [new cleanup slice](evidence/2026-10-17-node-foundation/provider-session-removal.md)
 fixes local credential removal in source and synthetic tests. Selected-account
-correlation remains unresolved and is now explicit in native status. Apple sign-in,
-record/profile verification, the final approved artifact and actual signed cleanup
+correlation is implemented and fixture-tested; actual account matching remains open.
+Apple sign-in and existing record inspection have now passed. The exact missing
+Mac provisioning request, final approved signed artifact and actual installed cleanup
 remain external/installed acceptance gates. No current activation is authorized.
 
 Ordinary coding, tests, routine fixes, CI files and requested delivery work are
@@ -118,7 +120,7 @@ security settings, agreements or destructive actions retain their mandatory
 per-action gates. Expired demos are not reusable. No blocker may be relabeled
 as completion; continue independent work and name any exact unavailable action.
 
-The first read-only dependency inventory found Node 26 linked to Homebrew
-libraries. The first packaging slice must remove that runtime prerequisite from
-its produced bundle before any self-contained claim. No provider was started,
-credential accessed or persistent service installed for this inventory.
+The original dependency inventory found Node 26 linked to Homebrew libraries.
+The current inert package includes its verified runtime dependency closure; that
+historical source inventory is not an unresolved packaging task. Installed runtime
+operation still needs its exact signed/authorized acceptance.

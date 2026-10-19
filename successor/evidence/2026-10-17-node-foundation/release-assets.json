@@ -1,0 +1,1459 @@
+{
+  "format": 1,
+  "date": "2026-10-19",
+  "sourceBase": "10712e8419c0374f315fa7e315dda5c996c31371",
+  "sourceChanges": "Only native resource/build metadata; no runtime source or signing/permission changes.",
+  "artwork": {
+    "sourceCommit": "0960a39b294e2231614c47efb03ac2072f8ef5b0",
+    "sourceDirectory": "ui/apple/macOS/Assets.xcassets/AppIcon.appiconset",
+    "method": "Byte-for-byte reuse; seven unique image resolutions supply ten Mac slots and one iOS slot.",
+    "images": [
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+        "pixels": 1024,
+        "alpha": false,
+        "bytes": 1421808,
+        "sha256": "c955b1d5b48588785fa0ba6177f108a27caf16671626202f5c6a2173e6c6df01"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-128.png",
+        "pixels": 128,
+        "alpha": false,
+        "bytes": 26078,
+        "sha256": "773464c995d27b111953d858ccb772adf7b2693db1c5675d711885f97448f2ed"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-16.png",
+        "pixels": 16,
+        "alpha": false,
+        "bytes": 1200,
+        "sha256": "be5ad5f871e7c0b122d687acc72d4d96fcd69ad18895054c4448e47b8104fd43"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-256.png",
+        "pixels": 256,
+        "alpha": false,
+        "bytes": 97981,
+        "sha256": "53fc38effd54605d6efd60f9a4fe6de6339015223ccaf0520c853d159b0d5d76"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-32.png",
+        "pixels": 32,
+        "alpha": false,
+        "bytes": 2489,
+        "sha256": "b37121f94572e0290c223fc36d705506862f71dea98bc92afd2dbf93a3f87c47"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-512.png",
+        "pixels": 512,
+        "alpha": false,
+        "bytes": 373352,
+        "sha256": "8eeb3cfaf6620f29f77f5a5505a95e9957bcc022ada2c6046fbc0dd54240e129"
+      },
+      {
+        "path": "successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/icon-64.png",
+        "pixels": 64,
+        "alpha": false,
+        "bytes": 7445,
+        "sha256": "2d6146985ea3459a619b3c7ce8a9ffbaf9e611d5ac211aef381ac39578d1f76e"
+      }
+    ]
+  },
+  "builds": [
+    {
+      "scheme": "FortMac",
+      "configuration": "Release",
+      "destination": "platform=macOS",
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortMac",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/fort059-release-assets-build-mac",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "seconds": 53.244,
+      "exitCode": 0,
+      "log": "/tmp/fort059-release-assets-FortMac.log"
+    },
+    {
+      "scheme": "FortHost",
+      "configuration": "Release",
+      "destination": "platform=macOS",
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortHost",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/fort059-release-assets-build-mac",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "seconds": 3.442,
+      "exitCode": 0,
+      "log": "/tmp/fort059-release-assets-FortHost.log"
+    },
+    {
+      "scheme": "FortQA",
+      "configuration": "Debug",
+      "destination": "platform=macOS",
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortQA",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/fort059-release-assets-build-qa",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "seconds": 24.332,
+      "exitCode": 0,
+      "log": "/tmp/fort059-release-assets-FortQA.log"
+    },
+    {
+      "scheme": "FortiOS",
+      "configuration": "Release",
+      "destination": "generic/platform=iOS",
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortiOS",
+        "-configuration",
+        "Release",
+        "-destination",
+        "generic/platform=iOS",
+        "-derivedDataPath",
+        "/tmp/fort059-release-assets-build-ios",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "seconds": 27.038,
+      "exitCode": 0,
+      "log": "/tmp/fort059-release-assets-FortiOS.log"
+    }
+  ],
+  "oldArtifactCheck": {
+    "app": "/tmp/fort059-account-correlation-review-20261019/Fort.app",
+    "kind": "mac",
+    "displayName": "Fort Fixture",
+    "bundleIdentifier": "io.fort.spec058.fixture.mac",
+    "iconFile": null,
+    "icons": null,
+    "errors": [
+      "display name is not Fort",
+      "compiled Assets.car is absent",
+      "declared macOS icon is absent"
+    ],
+    "passed": false
+  },
+  "newArtifactChecks": [
+    {
+      "app": "/tmp/fort059-release-assets-build-mac/Build/Products/Release/FortMac.app",
+      "kind": "mac",
+      "displayName": "Fort",
+      "bundleIdentifier": "io.fort.spec058.fixture.mac",
+      "iconFile": "AppIcon",
+      "icons": null,
+      "errors": [],
+      "passed": true
+    },
+    {
+      "app": "/tmp/fort059-release-assets-build-qa/Build/Products/Debug/FortQA.app",
+      "kind": "qa",
+      "displayName": "Fort QA First Wave",
+      "bundleIdentifier": "io.fort.qa.firstwave.20261017",
+      "iconFile": "AppIcon",
+      "icons": null,
+      "errors": [],
+      "passed": true
+    },
+    {
+      "app": "/tmp/fort059-release-assets-build-ios/Build/Products/Release-iphoneos/FortiOS.app",
+      "kind": "ios",
+      "displayName": "Fort",
+      "bundleIdentifier": "io.fort.spec058.fixture.ios",
+      "iconFile": null,
+      "icons": {
+        "CFBundlePrimaryIcon": {
+          "CFBundleIconFiles": [
+            "AppIcon60x60"
+          ],
+          "CFBundleIconName": "AppIcon"
+        }
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "app": "/tmp/fort059-release-assets-review-20261019/Fort.app",
+      "kind": "mac",
+      "displayName": "Fort",
+      "bundleIdentifier": "io.fort.spec058.fixture.mac",
+      "iconFile": "AppIcon",
+      "icons": null,
+      "errors": [],
+      "passed": true
+    }
+  ],
+  "package": {
+    "path": "/tmp/fort059-release-assets-review-20261019/Fort.app",
+    "signed": false,
+    "launched": false,
+    "embeddedProfiles": 0,
+    "fileCount": 202,
+    "byteCount": 407452451,
+    "inputsVerified": 200,
+    "reportPath": "/tmp/fort059-release-assets-review-20261019/package-report.json",
+    "reportSHA256": "8e85bc4cfd50b767f27ff4255216b54a5b49b7daee44059eb180f55f6ffd59c5",
+    "outputInventory": [
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libada.3.4.4.dylib",
+        "mode": 292,
+        "bytes": 613408,
+        "sha256": "167a4500de6f40f955b9113a17aa4c81b7788b57590635550c0bae9070d14017"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlicommon.1.2.0.dylib",
+        "mode": 292,
+        "bytes": 167440,
+        "sha256": "cdc49fba554c67b7a9ab6b89a0bcaa418b6a5176d5d17c8ded4565d3be54897c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlidec.1.2.0.dylib",
+        "mode": 292,
+        "bytes": 87904,
+        "sha256": "7076837142244e014ae810f2523c4b7ba14537786a45697fe15c5db32e3b78ed"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlienc.1.2.0.dylib",
+        "mode": 292,
+        "bytes": 653504,
+        "sha256": "93bef9478959ec61e4ee967cfd4ffb7f421d94c2e5cd214c8acacfbbc5e24219"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcares.2.19.7.dylib",
+        "mode": 292,
+        "bytes": 244000,
+        "sha256": "8a3f9c389b272f6d89e5217f50509e7624d3239f1753f1f67fa04c7b7617016c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcrypto.3.dylib",
+        "mode": 292,
+        "bytes": 4846208,
+        "sha256": "f9301cb27dda100b066bfa60ab1335b47dd34c07404ded93b5d795cdc5d534a9"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libffi.8.dylib",
+        "mode": 292,
+        "bytes": 137952,
+        "sha256": "5229c3867ab98d1de862e04f667e6d44bb977ce79961c84e23a62076db0494ef"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libhdr_histogram.6.3.3.dylib",
+        "mode": 292,
+        "bytes": 75776,
+        "sha256": "5d567654f76096d3980e4cf663c6dbc46dd0ac6686a4c8959eedea172a6617fe"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicudata.78.3.dylib",
+        "mode": 292,
+        "bytes": 33195296,
+        "sha256": "94e56714b7c4d6f14d82cd9c0e594a5b6e4dcd0b306cf1bcf4d6b6cd5915ad3e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicui18n.78.3.dylib",
+        "mode": 292,
+        "bytes": 3168448,
+        "sha256": "74a2eaf7f902d08f6a479f8b678ca14014f4fce8c0b7e1c9d85a385956f0a272"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicuuc.78.3.dylib",
+        "mode": 292,
+        "bytes": 1866768,
+        "sha256": "ff8ab9c93986643f88f76cfa77db1781eab2886a3190563e8ca4053d2a91696c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libllhttp.9.4.2.dylib",
+        "mode": 292,
+        "bytes": 95392,
+        "sha256": "17468242c9b7803b9215c101446c580980e995e4834ca2f54485b6b20df7f744"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libmerve.1.2.2.dylib",
+        "mode": 292,
+        "bytes": 95504,
+        "sha256": "07314c561cac26a43e4657f4ef2b572c7f8dc09b744911e5b2c0a9f57fc8199d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnbytes.dylib",
+        "mode": 292,
+        "bytes": 53072,
+        "sha256": "2c4a88846d371d5ee4510d15537a856b702331f859168f489d97a70f823ac5f0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp2.14.dylib",
+        "mode": 292,
+        "bytes": 201360,
+        "sha256": "aac3fdb3cd21abb7530660813338d48fba8fc17f24535e76ecf8e4b81e745b03"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp3.9.8.0.dylib",
+        "mode": 292,
+        "bytes": 201008,
+        "sha256": "7e7873cde261e1055ce7d56144ac536494ed9df8011aac2b78abc75ba2a55f2e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libngtcp2.16.dylib",
+        "mode": 292,
+        "bytes": 366176,
+        "sha256": "68351d441b3be2e175766652745922b322d21c717602edb59bff5e802b551867"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnode.147.dylib",
+        "mode": 292,
+        "bytes": 74695008,
+        "sha256": "e4561dc928fad9744ae96fbb2daccfa7d8d14c4880575ff315c77dd98c095cf7"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdjson.33.0.0.dylib",
+        "mode": 292,
+        "bytes": 112880,
+        "sha256": "5eb4fcfb37ffeae405db26827029e606d639469522edb1596c81372f374267ac"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdutf.34.0.0.dylib",
+        "mode": 292,
+        "bytes": 238944,
+        "sha256": "5e55ac3f663dd54dd7a32854c68a103b45e1b62670d1363c40f641c81dd750d3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsqlite3.3.53.3.dylib",
+        "mode": 292,
+        "bytes": 1287056,
+        "sha256": "e3ffb334fd10b581e3127d2033725317ab207ecb8e96d7f6d556b29fc2785f8c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libssl.3.dylib",
+        "mode": 292,
+        "bytes": 885152,
+        "sha256": "8df357df94dbc5611ac1322e0e1a2f0299589aa9bf68e139b058b6f4b72f2e27"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuv.1.0.0.dylib",
+        "mode": 292,
+        "bytes": 206480,
+        "sha256": "61cba3c506c883e2e61dff288c90f6930ceab7ffece3d200cee8d2dc6d7224cf"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuvwasi.dylib",
+        "mode": 292,
+        "bytes": 83360,
+        "sha256": "87d7aa148de2842eefb5c950be1443ec0e10ee3c964de30111a3a677cde6e382"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libzstd.1.5.7.dylib",
+        "mode": 292,
+        "bytes": 649824,
+        "sha256": "bcf830d0bc0f795c4b65d551f9259a91fa820ebf1ae61e9cc9fa1766d4ff7c6f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Info.plist",
+        "mode": 420,
+        "bytes": 1395,
+        "sha256": "f5efc79d9e5051874013a6c95d665034c4a971664f8fd108af225353205f670d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortHost",
+        "mode": 493,
+        "bytes": 15521800,
+        "sha256": "7476d2aea241e632dd320e04dea8df5a9811250623932bb03719064eba9367e7"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortProcessGuardian",
+        "mode": 493,
+        "bytes": 61992,
+        "sha256": "1cd000fb559da9154ceea0d4361a1c50cf557db93acafa5281d3ddb95cb48e2e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/MacOS/codex",
+        "mode": 493,
+        "bytes": 238223808,
+        "sha256": "27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/MacOS/node",
+        "mode": 365,
+        "bytes": 68160,
+        "sha256": "bc0dc1596505f5c13d6aad8ca4b75645f02dc6b21f0071dd7f3e0450faae5261"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/PkgInfo",
+        "mode": 420,
+        "bytes": 8,
+        "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/LICENSE",
+        "mode": 420,
+        "bytes": 10926,
+        "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/NOTICE",
+        "mode": 420,
+        "bytes": 242,
+        "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/SOURCE-AVAILABILITY.txt",
+        "mode": 420,
+        "bytes": 1869,
+        "sha256": "072ecb9716ccdd0f5a0dc9f27bf5f22225431be5b206da801dcb7d282d914ca3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/THIRD-PARTY-NOTICES.zip",
+        "mode": 420,
+        "bytes": 6007446,
+        "sha256": "82fe87e4ffdf2c6061514c10dfed75a2fe0f0537dc808d1ab98fd537bb120227"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/THIRD-PARTY-SOURCES.zip",
+        "mode": 420,
+        "bytes": 726266,
+        "sha256": "37f1f6c01311c4a6d3bc30efe81527c563ce2a26f5b7d41ff4b2003658c9ab8f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/CodexLicenses/THIRD-PARTY.json",
+        "mode": 420,
+        "bytes": 2493091,
+        "sha256": "e08eed4f0f065230e18dca896e015e6070efb6c892a9aad98a08478496c28734"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist",
+        "mode": 420,
+        "bytes": 1128,
+        "sha256": "860c6da00e818dbadcebb07749eaee97e907cbcff98ad34f5ed39fd132e8d8b4"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png",
+        "mode": 420,
+        "bytes": 985,
+        "sha256": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/ada-url-3.4.4/LICENSE-APACHE",
+        "mode": 420,
+        "bytes": 11342,
+        "sha256": "508d4676d4083e874df706f302d9d42e5e7f9aed3f5a7ea614dc6d2b2252a22f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/ada-url-3.4.4/LICENSE-MIT",
+        "mode": 420,
+        "bytes": 1071,
+        "sha256": "af0d7d2cef91fc243cf4ad98570b03d1f26f5e0227cad0f5f4a7376e2feb3160"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/brotli-1.2.0/LICENSE",
+        "mode": 420,
+        "bytes": 1084,
+        "sha256": "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/c-ares-1.34.8/AUTHORS",
+        "mode": 420,
+        "bytes": 1258,
+        "sha256": "10274d04e1aa59b340e84dbef26550bfc9827fc70908f78bfa755e1a8729939b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/c-ares-1.34.8/LICENSE.md",
+        "mode": 420,
+        "bytes": 1211,
+        "sha256": "460f5e768fda3752ca2169a95df062578a10fb126bfd65f3b9b1a1bed2f84807"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/hdrhistogram_c-0.11.10/COPYING.txt",
+        "mode": 420,
+        "bytes": 7048,
+        "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/hdrhistogram_c-0.11.10/LICENSE.txt",
+        "mode": 420,
+        "bytes": 2208,
+        "sha256": "93a583ec58cd981232ec6fab797ff6f17f350c97b83ae0700b2d9350c91028af"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/icu4c@78-78.3/LICENSE",
+        "mode": 420,
+        "bytes": 27718,
+        "sha256": "e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/icu4c@78-78.3/license.html",
+        "mode": 420,
+        "bytes": 622,
+        "sha256": "c62d7697c03979f5056d28b338fafc7a1152820f7b379adf4a9d88cd37160f96"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libffi-3.7.0/LICENSE",
+        "mode": 420,
+        "bytes": 1132,
+        "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libffi-3.7.0/LICENSE-BUILDTOOLS",
+        "mode": 420,
+        "bytes": 18698,
+        "sha256": "e67978cd18816c0cb7d29aaaacde7b7447402c2fb321a051698890a8eaedda94"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libnghttp2-1.69.0/AUTHORS",
+        "mode": 420,
+        "bytes": 2839,
+        "sha256": "7ba1242200acce0ee535e7d915bae67ece7ca1f89da342fdca7c6366ac44e47a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libnghttp2-1.69.0/COPYING",
+        "mode": 420,
+        "bytes": 1156,
+        "sha256": "6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libnghttp3-1.17.0/AUTHORS",
+        "mode": 420,
+        "bytes": 378,
+        "sha256": "b6f7c5345d9b294a9fd3d8aee84afcef4ff68f6a96be51e18a7aba189a4a71a9"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libnghttp3-1.17.0/COPYING",
+        "mode": 420,
+        "bytes": 1081,
+        "sha256": "58cc3fc8c6d6cb2485ab35eb5918e849b5bf1e56522974e106d7a39a88d61dcd"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libngtcp2-1.24.0/AUTHORS",
+        "mode": 420,
+        "bytes": 990,
+        "sha256": "e934ef5660872a6172cc2481b8545148dd278bd2389008ee3ea1122c00336d99"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libngtcp2-1.24.0/COPYING",
+        "mode": 420,
+        "bytes": 1080,
+        "sha256": "542dd526d2ea23565f0571cc68df6f05ed11248a90ff0f32de19d8ba589db513"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libuv-1.52.1/AUTHORS",
+        "mode": 420,
+        "bytes": 24334,
+        "sha256": "215addc20f9d61eb4fdcfdb5b11296cb869d0e648b3fd1b32c9c4450f1c80642"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libuv-1.52.1/LICENSE",
+        "mode": 420,
+        "bytes": 1079,
+        "sha256": "16de0c32b265cb7d46a6d3bd614f259dd4d693a5e26b3407b04aae8d73041f0c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libuv-1.52.1/LICENSE-docs",
+        "mode": 420,
+        "bytes": 18652,
+        "sha256": "cce5d01fa4a83b794271bd2c28cffdf99afd43c803e6ddefddae39b591ea7448"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/libuv-1.52.1/LICENSE-extra",
+        "mode": 420,
+        "bytes": 1603,
+        "sha256": "262c44bd2cdba037e6d2a82fba15f5800d292bc993a6f5d6b6ea487744d02836"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/llhttp-9.4.2/LICENSE",
+        "mode": 420,
+        "bytes": 1069,
+        "sha256": "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/llhttp-9.4.2/LICENSE-MIT",
+        "mode": 420,
+        "bytes": 1105,
+        "sha256": "ebca854e0134cd256d673627c20499f42577eb74bacf08b9f25b626a73c91277"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/merve-1.2.2_1/LICENSE-APACHE",
+        "mode": 420,
+        "bytes": 11340,
+        "sha256": "5e6e0b458f43ba255185e78cc8570d672e63ccaa7fd56dda067e2b577b37335b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/merve-1.2.2_1/LICENSE-MIT",
+        "mode": 420,
+        "bytes": 1053,
+        "sha256": "cd7b1dbf8003a68f06d4fc84afa797d6e7a5d5d64b2ccd381485f711620dd60a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/nbytes-0.1.4/LICENSE",
+        "mode": 420,
+        "bytes": 1064,
+        "sha256": "782ab5b8ae1540c1a2b102fdd00990ed268d4a3a98e90ad7fe724b489d7bb0f2"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/node-26.5.0/LICENSE",
+        "mode": 420,
+        "bytes": 157606,
+        "sha256": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/openssl@3-3.6.3/AUTHORS.md",
+        "mode": 420,
+        "bytes": 1022,
+        "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/openssl@3-3.6.3/LICENSE.txt",
+        "mode": 420,
+        "bytes": 10175,
+        "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdjson-4.6.4/AUTHORS",
+        "mode": 420,
+        "bytes": 106,
+        "sha256": "4db73a8c9fb6ef4cb80544420fe15a92c599a0b6ec2c00d87ee3dc6904ba2a57"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdjson-4.6.4/LICENSE",
+        "mode": 420,
+        "bytes": 11355,
+        "sha256": "5fa8894e890bd77958f93b165433e0fb0dffa5bc982bfb147e4748e95bad24e5"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdjson-4.6.4/LICENSE-MIT",
+        "mode": 420,
+        "bytes": 1065,
+        "sha256": "9ed0a34979f22fc33fc13d942233f22d44906c236d876bd05fadf18cb5abf7da"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdutf-9.0.0/AUTHORS",
+        "mode": 420,
+        "bytes": 88,
+        "sha256": "e9e4ace22b5bb79c2fdf3e94c139ea1a18e47fc17a30e8d977f99d95d697a1f7"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdutf-9.0.0/LICENSE-APACHE",
+        "mode": 420,
+        "bytes": 11330,
+        "sha256": "3d34610fc6b5e1b0bfe4e2f36171c2d62c28ef05cb8d704f5a0073be41a43b3d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/simdutf-9.0.0/LICENSE-MIT",
+        "mode": 420,
+        "bytes": 1059,
+        "sha256": "fc8dbc04e03ad4efc08a647ffe7f995b811a95bc04c0e85a56d5277c6593fa5f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/sqlite-3.53.3/sqlite3.h",
+        "mode": 420,
+        "bytes": 690838,
+        "sha256": "4ff81af4849acabc76fc8349abb926814395072617ca18e08800abf734ab7612"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/uvwasi-0.0.23/LICENSE",
+        "mode": 420,
+        "bytes": 1085,
+        "sha256": "3a94b84af77767e64afdf5fc31d4196810c9717ce2ac2be089f06fec4bfc0e99"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/zstd-1.5.7_1/COPYING",
+        "mode": 420,
+        "bytes": 18091,
+        "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/NodeLicenses/zstd-1.5.7_1/LICENSE",
+        "mode": 420,
+        "bytes": 1549,
+        "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/fort-host.json",
+        "mode": 384,
+        "bytes": 214,
+        "sha256": "f2a45974af232d79d05052f13843f657b918c3de6c324fa821a2fba2813102a8"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/LICENSE",
+        "mode": 420,
+        "bytes": 1068,
+        "sha256": "6282c1daa4cca32c0318128bdb0e734df703808c3636375c66337fcbd5bc9047"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/context.d.ts",
+        "mode": 420,
+        "bytes": 1247,
+        "sha256": "b07b074da24e2d6e1024ca5fe81a0707774362f3c09d51103e8751a8926615c3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/context.js",
+        "mode": 420,
+        "bytes": 481,
+        "sha256": "852713ebf3b9eac774de898ea35b1c01108f23768228c763f58bd3c0c619356f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/skill-bundle.d.ts",
+        "mode": 420,
+        "bytes": 245,
+        "sha256": "dd1efe19385d5ccc4346365d3845347f2566de772d3cce388dc8c5bb2fdc7244"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/skill-bundle.js",
+        "mode": 420,
+        "bytes": 5856,
+        "sha256": "2fc11da73553ec51501950490d634e07ae9d2fcd33ce8b344d7ebfe54383d077"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/v1.d.ts",
+        "mode": 420,
+        "bytes": 12012,
+        "sha256": "56f1a57c24473c9a27fdbb370d371a9d4145e87a2063a5e3d233cff284e14811"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/contracts/v1.js",
+        "mode": 420,
+        "bytes": 38,
+        "sha256": "45703ada199418ffe0bfdc8ded38385eead92410943fdb8a3b65fedb57eab78d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/modules/local-context.d.ts",
+        "mode": 420,
+        "bytes": 352,
+        "sha256": "a41cdd8d3f6a4080b0d24d5ba6d027a8aaa71b180c3bbee12d96be694032c63f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/context/modules/local-context.js",
+        "mode": 420,
+        "bytes": 2621,
+        "sha256": "d3c1e6679022a34901a7cdb22e1e7430a969f2215f4a18711a1ec134fc3eef02"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/LICENSE",
+        "mode": 420,
+        "bytes": 1068,
+        "sha256": "6282c1daa4cca32c0318128bdb0e734df703808c3636375c66337fcbd5bc9047"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/account.d.ts",
+        "mode": 420,
+        "bytes": 451,
+        "sha256": "18803c788ec0eb1519364331acc34161069e7d761a625d71f891066f66fa8e41"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/account.js",
+        "mode": 420,
+        "bytes": 2345,
+        "sha256": "1d1d960a530f9bf38ff073101ff1fa9f4c99e39840d48895d4c940644a6ada6b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/attempt.d.ts",
+        "mode": 420,
+        "bytes": 196,
+        "sha256": "db8ae13d7a890e15cd4823eb3abd63326b9ae53cc1af953bde5a799002427c5e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/attempt.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/context.d.ts",
+        "mode": 420,
+        "bytes": 1247,
+        "sha256": "b07b074da24e2d6e1024ca5fe81a0707774362f3c09d51103e8751a8926615c3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/context.js",
+        "mode": 420,
+        "bytes": 481,
+        "sha256": "852713ebf3b9eac774de898ea35b1c01108f23768228c763f58bd3c0c619356f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/executor.d.ts",
+        "mode": 420,
+        "bytes": 971,
+        "sha256": "a2139a2b658ac19f647f3f40f799bb0c18dd865ef9d7e8c98a0882cca8399f7a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/executor.js",
+        "mode": 420,
+        "bytes": 714,
+        "sha256": "6734e0286e1d71476b04030910a8a16d76455277e2a4291f8abb6eb00117cd1b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/owner-recovery.d.ts",
+        "mode": 420,
+        "bytes": 123,
+        "sha256": "867c105b8ef2071be6ab4338f78ed4e3ed39f5aca6f1d1b87311af2b16f7eff3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/owner-recovery.js",
+        "mode": 420,
+        "bytes": 240,
+        "sha256": "3ecfe98c6a5b2814af112a2b207ee3cd13fefdc06a675753772080d5a65fbd64"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/owner-setup.d.ts",
+        "mode": 420,
+        "bytes": 704,
+        "sha256": "48d5de6e54a8813188a18975a7b753b2e7de6368da91a95dae85fd0010566fec"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/owner-setup.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/secure-network.d.ts",
+        "mode": 420,
+        "bytes": 1237,
+        "sha256": "9c4be5c05a89741f1c63dcac4f1c1d1d2d44bd8b6fd20675d6bc9db43b3b8942"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/secure-network.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/skill-bundle.d.ts",
+        "mode": 420,
+        "bytes": 245,
+        "sha256": "dd1efe19385d5ccc4346365d3845347f2566de772d3cce388dc8c5bb2fdc7244"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/skill-bundle.js",
+        "mode": 420,
+        "bytes": 5856,
+        "sha256": "2fc11da73553ec51501950490d634e07ae9d2fcd33ce8b344d7ebfe54383d077"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/v1.d.ts",
+        "mode": 420,
+        "bytes": 12012,
+        "sha256": "56f1a57c24473c9a27fdbb370d371a9d4145e87a2063a5e3d233cff284e14811"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/contracts/v1.js",
+        "mode": 420,
+        "bytes": 38,
+        "sha256": "45703ada199418ffe0bfdc8ded38385eead92410943fdb8a3b65fedb57eab78d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/history-maintenance.d.ts",
+        "mode": 420,
+        "bytes": 254,
+        "sha256": "ca7f0c412beb1f3fa7c59d46e8ac4264a1a0b2ffab97368f0b224a8bfa147578"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/history-maintenance.js",
+        "mode": 420,
+        "bytes": 3422,
+        "sha256": "876984af3d6a9bba38ae6bc1a25f8b9fbe08f975863940005a064001715dd538"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/network-control.d.ts",
+        "mode": 420,
+        "bytes": 396,
+        "sha256": "dc918f2e657fad66445200cfa4cb4ba7a68e217d08bea2bb0ae220ab6bd23bf1"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/network-control.js",
+        "mode": 420,
+        "bytes": 8031,
+        "sha256": "4f75bb501157fc544c556c5b16b0fa3acb60385d167c175720b93989b86be646"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/owned-core.d.ts",
+        "mode": 420,
+        "bytes": 625,
+        "sha256": "f8cd362fa233cfa5ee4c77119cdba4d5fffe2dcecb828b9f8e22cd6cfd7ab9d0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/owned-core.js",
+        "mode": 420,
+        "bytes": 3019,
+        "sha256": "66bb1aabaf923f535dd8ca426348280e36763bf703bcd6039a28e61058ce1dee"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/private-channel.d.ts",
+        "mode": 420,
+        "bytes": 1201,
+        "sha256": "390239b86046bda0da606e67d1cf6c21fb2aa70962b89537c0f4997964647ac2"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/private-channel.js",
+        "mode": 420,
+        "bytes": 15502,
+        "sha256": "837e6f4ea55397437881dbf16bcf13f0eff0f68efdde3e4e3e5d2129805f804b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/secure-network.d.ts",
+        "mode": 420,
+        "bytes": 720,
+        "sha256": "7ecc139d5067ea39e8c645dfd2a74bce208b89616004d7b71e51f038d954a4c7"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/host/secure-network.js",
+        "mode": 420,
+        "bytes": 12693,
+        "sha256": "b97151f989ad3899bc883ead7a2159e50cda35da0c20886dfd2abca65dacef61"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/manifest.json",
+        "mode": 420,
+        "bytes": 7344,
+        "sha256": "5f4b1bf0798f33283e83f0d0b2c97372bc5ad8f5ef76f9744bb1d3de7d7a9d53"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/package.json",
+        "mode": 420,
+        "bytes": 874,
+        "sha256": "a8bb467d741f702be6c5342742eeb8d16a0ec125a54be6089f4b77f8324af080"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/runner/chat-runtime.d.ts",
+        "mode": 420,
+        "bytes": 1213,
+        "sha256": "1088e254842d17af31f8880121b9774997473e55c4602310bb744ce0fa5eb3ae"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/runner/chat-runtime.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/account-sign-in.d.ts",
+        "mode": 420,
+        "bytes": 1144,
+        "sha256": "0786f83052f01c90c32ea77d1b0787391a706e971679b07fa00c3701edee2f5f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/account-sign-in.js",
+        "mode": 420,
+        "bytes": 8873,
+        "sha256": "b8480622da7d6921031bd230e97056d83585a9782fa0fa4cf352b4ef817430b8"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/companion-pairing.d.ts",
+        "mode": 420,
+        "bytes": 997,
+        "sha256": "3a83a299f0bd777019e1f9f731a54d670d756b7ef21e78b3b17ca2427ba47e38"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/companion-pairing.js",
+        "mode": 420,
+        "bytes": 10528,
+        "sha256": "f4eeac1a2e35204116ae694602be759188bf6be2badc5c090c89cf236db5f79c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/delete-history.d.ts",
+        "mode": 420,
+        "bytes": 422,
+        "sha256": "aa5279581b1a7253d6986e52c68078bb01dbc0948aeda68b1f4b1ebcbb73b989"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/delete-history.js",
+        "mode": 420,
+        "bytes": 9833,
+        "sha256": "139c35da6831f45f55c52be52592df087850ef3b9ca25d78d8a8148f724b0e4d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/openai.d.ts",
+        "mode": 420,
+        "bytes": 2627,
+        "sha256": "6aaec240564a0a859a2d95f95d43f266f96654c32158281bdf6dec1c2644238f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/openai.js",
+        "mode": 420,
+        "bytes": 139265,
+        "sha256": "609eb740af3c6fb3e680e56d1111d0ef6833c90cba076fbb3b790ac688007dfe"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/private-socket.d.ts",
+        "mode": 420,
+        "bytes": 424,
+        "sha256": "4c4d9f961b61860ce3d9e0f28bc91b215577d4d35bc841cd6fa4e77a5cf09a7b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/private-socket.js",
+        "mode": 420,
+        "bytes": 4517,
+        "sha256": "1814c1390ffc416e1d66705721245516f2e02e9df1022fc146a34bce2bf7d4ca"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/routine.d.ts",
+        "mode": 420,
+        "bytes": 955,
+        "sha256": "0fc30099f1b672123816573cbada89445fa87bd5881aeaacf11f26b3c96f5286"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/routine.js",
+        "mode": 420,
+        "bytes": 9540,
+        "sha256": "aa53c53ada347aacb0baa976dad5c6d7c1b207b48fe5235c666295947bc60c22"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/schedule.d.ts",
+        "mode": 420,
+        "bytes": 394,
+        "sha256": "30a5a85c0aa38fe4ee442f4688264e7c67382be676bcbc96f7deb5ecc12d8b66"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/core/service/schedule.js",
+        "mode": 420,
+        "bytes": 6093,
+        "sha256": "a6368115058cfb096dd2e8830c7a864cc149aa81d5bd0ca9405bcc2103338cea"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/LICENSE",
+        "mode": 420,
+        "bytes": 1068,
+        "sha256": "6282c1daa4cca32c0318128bdb0e734df703808c3636375c66337fcbd5bc9047"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/account.d.ts",
+        "mode": 420,
+        "bytes": 451,
+        "sha256": "18803c788ec0eb1519364331acc34161069e7d761a625d71f891066f66fa8e41"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/account.js",
+        "mode": 420,
+        "bytes": 2345,
+        "sha256": "1d1d960a530f9bf38ff073101ff1fa9f4c99e39840d48895d4c940644a6ada6b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/attempt.d.ts",
+        "mode": 420,
+        "bytes": 196,
+        "sha256": "db8ae13d7a890e15cd4823eb3abd63326b9ae53cc1af953bde5a799002427c5e"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/attempt.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/context.d.ts",
+        "mode": 420,
+        "bytes": 1247,
+        "sha256": "b07b074da24e2d6e1024ca5fe81a0707774362f3c09d51103e8751a8926615c3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/context.js",
+        "mode": 420,
+        "bytes": 481,
+        "sha256": "852713ebf3b9eac774de898ea35b1c01108f23768228c763f58bd3c0c619356f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/executor.d.ts",
+        "mode": 420,
+        "bytes": 971,
+        "sha256": "a2139a2b658ac19f647f3f40f799bb0c18dd865ef9d7e8c98a0882cca8399f7a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/executor.js",
+        "mode": 420,
+        "bytes": 714,
+        "sha256": "6734e0286e1d71476b04030910a8a16d76455277e2a4291f8abb6eb00117cd1b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/runtime.d.ts",
+        "mode": 420,
+        "bytes": 1078,
+        "sha256": "1ebfff02c55a4a1599799b721d8e35fc37b98e086218fd75d3795f3f884925bf"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/runtime.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/skill-bundle.d.ts",
+        "mode": 420,
+        "bytes": 245,
+        "sha256": "dd1efe19385d5ccc4346365d3845347f2566de772d3cce388dc8c5bb2fdc7244"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/skill-bundle.js",
+        "mode": 420,
+        "bytes": 5856,
+        "sha256": "2fc11da73553ec51501950490d634e07ae9d2fcd33ce8b344d7ebfe54383d077"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/v1.d.ts",
+        "mode": 420,
+        "bytes": 12012,
+        "sha256": "56f1a57c24473c9a27fdbb370d371a9d4145e87a2063a5e3d233cff284e14811"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/contracts/v1.js",
+        "mode": 420,
+        "bytes": 38,
+        "sha256": "45703ada199418ffe0bfdc8ded38385eead92410943fdb8a3b65fedb57eab78d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/manifest.json",
+        "mode": 420,
+        "bytes": 8327,
+        "sha256": "81f7ef7a369a36ba9dae3844f9b0070e7b563c496eead230e4a1f16dabbe2fb4"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/node-openssl.cnf",
+        "mode": 384,
+        "bytes": 36,
+        "sha256": "2a6d8cb6caa8c7b2d4108003bdea984a22bc70cdd0fded2e969c58d91d56f2d3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/package.json",
+        "mode": 420,
+        "bytes": 315,
+        "sha256": "fe24d3e4ccd194437c3ac5c46da0233543791d24d5be8eefe92c7b038e142745"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/chat-runtime.d.ts",
+        "mode": 420,
+        "bytes": 1213,
+        "sha256": "1088e254842d17af31f8880121b9774997473e55c4602310bb744ce0fa5eb3ae"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/chat-runtime.js",
+        "mode": 420,
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-account.d.ts",
+        "mode": 420,
+        "bytes": 748,
+        "sha256": "713871348decb68cdb771b6ce3c12e1df57afc3a89a5cb3a1d30aa7112634fb5"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-account.js",
+        "mode": 420,
+        "bytes": 6889,
+        "sha256": "eb38f7e82ac315fbcb7c92e8dea9133b5b230d0d983a8ee0084a8eff40ab1b47"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-chat.d.ts",
+        "mode": 420,
+        "bytes": 1504,
+        "sha256": "b7eacf3a5f449fba7edc3c9a2e107dafbe26ebd3c0f2c2115a1082ce4ac619f0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-chat.js",
+        "mode": 420,
+        "bytes": 19168,
+        "sha256": "68cd070c88eeb18cb3184be847d83b6b1603bfa8224e17567a57a22cf17572f1"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-controls.d.ts",
+        "mode": 420,
+        "bytes": 1557,
+        "sha256": "fb47fef5d75a070ee8f3db273695d91611fd744be1b31d7c3c1a2f9e969bbcf5"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-controls.js",
+        "mode": 420,
+        "bytes": 7948,
+        "sha256": "e6fee8d1eb057707616868e989ab689cc93311b04652f1318a6025cae5033ef0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-descriptor.d.ts",
+        "mode": 420,
+        "bytes": 116,
+        "sha256": "b8c9aaa93f35033a827fe8395e2d016c1154a0015f0d59ba3dc788a8e424926b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-descriptor.js",
+        "mode": 420,
+        "bytes": 222,
+        "sha256": "2d260459fe7b05861244838ef60a560c04aebaa9ec269eea8dc12ee251fd867a"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-executor.d.ts",
+        "mode": 420,
+        "bytes": 1224,
+        "sha256": "796fee00608967bf88101fd116c8b5a79d626794b56f5eb23bfe7e0684c2db3f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-executor.js",
+        "mode": 420,
+        "bytes": 4636,
+        "sha256": "1171550087c34ef046742b8b28ac077bd63766bdc05f0988e06f3f5613318cd8"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-permissions.d.ts",
+        "mode": 420,
+        "bytes": 462,
+        "sha256": "cba0f02ac7a0c5d31fd8cc22487be785554ee15baf8c5410c1fec90442be007c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-permissions.js",
+        "mode": 420,
+        "bytes": 2455,
+        "sha256": "266d28ff98cb58d8aa4f7a66ce5a2b1865e4b30bfd391c9ddcd47f9993f9116f"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-rpc.d.ts",
+        "mode": 420,
+        "bytes": 878,
+        "sha256": "94e9813b662ec7df90d7f8a0f13631e2508ac4d0016fb5c8952618eee53b12f1"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex-rpc.js",
+        "mode": 420,
+        "bytes": 4809,
+        "sha256": "ff6542fe941505bf733e6b107708413b0137ce2262f206bcad04ca3e26198eac"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex.d.ts",
+        "mode": 420,
+        "bytes": 1085,
+        "sha256": "6629eb9ff60c243050b05037deebc2517d54f61df221458e263ec0d1bceca0b0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/codex.js",
+        "mode": 420,
+        "bytes": 14141,
+        "sha256": "65609df8619dbff75ccdc780de206070b2003ebcabf372b6c2d1041b5b5042c4"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-account-wire.d.ts",
+        "mode": 420,
+        "bytes": 999,
+        "sha256": "5880468b48cdc5a6393b531767c85b972cf240cd803e93e0557bb5a10b274888"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-account-wire.js",
+        "mode": 420,
+        "bytes": 3211,
+        "sha256": "1051591f885e06a3830074c8426c1adb9581b64903700437bbeec3b2bed27c0d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-process.d.ts",
+        "mode": 420,
+        "bytes": 1617,
+        "sha256": "91b82976ed6f4ed94a4910bcb74b7d41366fc810ae26ce01409426f9907d34d7"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-process.js",
+        "mode": 420,
+        "bytes": 16949,
+        "sha256": "f637917815b29496ed1b49d2390a6e0fba7334932690988ad639bc6df0be1fab"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-wire.d.ts",
+        "mode": 420,
+        "bytes": 1546,
+        "sha256": "eac78cead495f52a2a247b43d56e5cb45bc1f2efcaf081c97f834c4271da428d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-wire.js",
+        "mode": 420,
+        "bytes": 14008,
+        "sha256": "f68808e37d3e005afdfe012b27db08422f06d25407fa23368e9f51db4fa9e46d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-worker.d.ts",
+        "mode": 420,
+        "bytes": 802,
+        "sha256": "5b8bfdc36feddd2b2f432acd8e2fee4ae05639e6e60abb7f7abbcb30608b5c34"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/executor-worker.js",
+        "mode": 420,
+        "bytes": 8982,
+        "sha256": "2645ce845c718a5eb1585c0198ba3b01e0dc5597f83204507bb45286a4ee03c6"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/guarded-codex-process.d.ts",
+        "mode": 420,
+        "bytes": 528,
+        "sha256": "fd379e3391deaca28513e5c0c05d2638369c2def988c9201bc777b241f6502c2"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/guarded-codex-process.js",
+        "mode": 420,
+        "bytes": 1749,
+        "sha256": "9068b0913ececce505239476c3065da593342cd42ce3959707bbc9a4d90d3dca"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/owned-process.d.ts",
+        "mode": 420,
+        "bytes": 1216,
+        "sha256": "079ca18338b68cb279901e89bd23df435b1d6f1039a44a0d66e6a32e1d48c568"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/owned-process.js",
+        "mode": 420,
+        "bytes": 4636,
+        "sha256": "2bc385e16c80caa270410726f43795982efceb6805cf368c86fa25efb70ab6d0"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/private-codex-plan.d.ts",
+        "mode": 420,
+        "bytes": 501,
+        "sha256": "6a04b79db387c8dc84358023cc657c2423882a51eb2345b69c9273886e216db5"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/private-codex-plan.js",
+        "mode": 420,
+        "bytes": 3087,
+        "sha256": "c02834e319d333a7f1e6545a662d0105997f15aa023c2b1c400eb8c135f9704b"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/startup-diagnostic.d.ts",
+        "mode": 420,
+        "bytes": 1998,
+        "sha256": "959c3d3d8a4c10c9207a7a097fbe51009fa75177edf5530f664f9f1f15848990"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/executor/runner/startup-diagnostic.js",
+        "mode": 420,
+        "bytes": 2010,
+        "sha256": "a333e467795ba668fcd7619d6ac5d11bf76668d4c69794756de7ac91127670bd"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/history-maintenance.mjs",
+        "mode": 420,
+        "bytes": 680,
+        "sha256": "3d4d5ae9355ccf50dc576a2194dcb77d003234296012d8c6ef472a6edffe0a84"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/main.mjs",
+        "mode": 420,
+        "bytes": 1178,
+        "sha256": "2a01fa891390912643c6b89559a61f71a3501fd39538cf569eeddc951e580b97"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/manifest.json",
+        "mode": 420,
+        "bytes": 18621,
+        "sha256": "da5b28e63ebb8fc1b2b41b99fda5d5f0f2a3e363b5848dd1873e86aa7f45c22d"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/node-openssl.cnf",
+        "mode": 384,
+        "bytes": 36,
+        "sha256": "2a6d8cb6caa8c7b2d4108003bdea984a22bc70cdd0fded2e969c58d91d56f2d3"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/host/package.json",
+        "mode": 420,
+        "bytes": 117,
+        "sha256": "56ccf6593848b94394a4e7aa237c3a601b9a2b2962ecc0a369801303ccb53f9c"
+      },
+      {
+        "path": "Contents/Helpers/FortHost.app/Contents/Resources/node-source-manifest.json",
+        "mode": 420,
+        "bytes": 17163,
+        "sha256": "0fe874c5ddb903feddb65d33c8f2bfa9d4b9a296b692c89189bc9c36d19d7b0a"
+      },
+      {
+        "path": "Contents/Info.plist",
+        "mode": 420,
+        "bytes": 1455,
+        "sha256": "cbb370030437a87b7d905c708e051fee8345628738837289beea552f6093dcf9"
+      },
+      {
+        "path": "Contents/Library/LaunchAgents/io.fort.spec058.fixture.mac.host.plist",
+        "mode": 384,
+        "bytes": 464,
+        "sha256": "a5cd816c891cacc093151f9b9b57005973e2300a814f60c4670de30cdf9e02ae"
+      },
+      {
+        "path": "Contents/MacOS/FortMac",
+        "mode": 493,
+        "bytes": 15548424,
+        "sha256": "30529786014632a940bc3fe283d863314a9fb088c27da2240760e7679dd767ec"
+      },
+      {
+        "path": "Contents/PkgInfo",
+        "mode": 420,
+        "bytes": 8,
+        "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+      },
+      {
+        "path": "Contents/Resources/AppIcon.icns",
+        "mode": 420,
+        "bytes": 146191,
+        "sha256": "09dcd74bc2e45f006b7e732342438f833969da7eb085f14832be9305b81165e4"
+      },
+      {
+        "path": "Contents/Resources/Assets.car",
+        "mode": 420,
+        "bytes": 2849848,
+        "sha256": "8fc470cf457bb2761df1d1738eaf5174ac11c076718010b33cbd145c865e6569"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist",
+        "mode": 420,
+        "bytes": 1128,
+        "sha256": "860c6da00e818dbadcebb07749eaee97e907cbcff98ad34f5ed39fd132e8d8b4"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png",
+        "mode": 420,
+        "bytes": 985,
+        "sha256": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe"
+      },
+      {
+        "path": "Contents/Resources/fort-host.json",
+        "mode": 384,
+        "bytes": 214,
+        "sha256": "f2a45974af232d79d05052f13843f657b918c3de6c324fa821a2fba2813102a8"
+      }
+    ]
+  },
+  "validation": {
+    "projectRegeneration": "XcodeGen 2.45.4 byte-for-byte match",
+    "imageInspection": "Original iOS/Mac master images and decoded compiled macOS icon visually inspected; all seven source images match declared sizes and have no alpha.",
+    "script": {
+      "path": "/tmp/fort059-release-branding-check.py",
+      "sha256": "aa5e3210ef133e684b9f28525eb81567808d42ba2550b71b1369d8aa90c929d5"
+    },
+    "priorArtifacts": "Preserved; new output directories only.",
+    "limits": [
+      "Unsigned, unlaunched build/resource evidence only.",
+      "No installed-provider, App Group, physical-device or TestFlight acceptance.",
+      "Build durations are one observation per scheme, not a benchmark or p95.",
+      "Runtime suites not repeated because their source is unchanged."
+    ]
+  }
+}

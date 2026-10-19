@@ -17,7 +17,7 @@ settings:
     "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
     "DEVELOPMENT_TEAM[sdk=iphonesimulator*]": ""
     GENERATE_INFOPLIST_FILE: YES
-    INFOPLIST_KEY_CFBundleDisplayName: Fort Fixture
+    INFOPLIST_KEY_CFBundleDisplayName: Fort
     INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 targets:
@@ -43,6 +43,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.ios
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -56,6 +57,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.mac
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_APP_SANDBOX: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
   FortQA:
@@ -67,6 +69,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.fort.qa.firstwave.20261017
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_NAME: FortQA
         INFOPLIST_KEY_CFBundleDisplayName: Fort QA First Wave
         ENABLE_APP_SANDBOX: YES

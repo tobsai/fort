@@ -1,5 +1,16 @@
 # Fort delivery through TestFlight
 
+October 19 release preparation: ordinary native builds now display Fort and contain
+the existing Fort icon; QA labels remain explicit. Fresh unsigned Mac/helper/QA/iOS
+builds and inert assembly passed [asset checks](evidence/2026-10-17-node-foundation/release-assets.md).
+[Local submission drafts](release/SUBMISSION-DRAFT.md) are not published metadata.
+The [current Apple record](APPLE-HOST-ACTIVATION.md#apple-access-reconciled-and-minimum-mac-provisioning-request)
+confirms authenticated team access, Program License Agreement confirmation, active
+Free Apps terms and existing Fort iOS record 6786748810. The missing Mac provisioning
+request is explicit. No signing, profile creation, upload or activation occurred.
+Privacy/required-reason API and bundled-runtime inventory, final contact/URL decisions,
+signed installed acceptance and TestFlight delivery remain open.
+
 Current read-only checkpoint, October 19, source 81938a4: the normal Keychain context
 lists an existing Apple Distribution identity for team T3JB5MYZ93, expiring May 25,
 2027, plus an existing Apple Development identity through September 29, 2027. All
