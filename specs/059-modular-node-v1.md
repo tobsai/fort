@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 0de25efeee8f0d783c366c22fe6a60c51f98292e1ba9418c395a602c27d223ee
+Reviewed content SHA256: 6a2744fcc0cfa51684eb163928072ca7b2daa47f3d041809542fc5cc79aa04f1
 
 ### Vendor independence
 Status: planned
@@ -3279,7 +3279,14 @@ manifest/profile/signature/children. Then run the same read-only signed sandbox 
 against repaired code, plus full client inspection negative controls. Rebuild native
 artifacts, preserve original failed/cleanup copies, and record evidence in
 helper-self-inspection.md with ledgers/review. Rollback restores the old inspector;
-the consumed live test does not authorize a replacement activation.
+the original deadline remains binding. The coordinator clarified at 19:41 UTC
+(source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8) that targeted fixes and retries
+with unchanged scope/risk remain authorized inside that window; a changed hash
+alone does not require a new approval. At 19:41:18 only 104 seconds remained before
+the cleanup reserve, so the candidate stayed inactive. This is an authority-record
+correction, not a product or permission change. All four architecture principles
+and the previously measured evidence are unchanged. Continued live work needs
+enough authorized time without resetting the original deadline.
 
 ## Implementation paths
 

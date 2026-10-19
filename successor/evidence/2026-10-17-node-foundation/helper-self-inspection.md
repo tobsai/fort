@@ -1,7 +1,7 @@
 # Helper self-inspection repair
 
 Spec 059 / decision 059. October 19, 2026. Base
-4ca08324a851b37cfab0dcc89bba105ac755649b. The approved installed test is consumed;
+4ca08324a851b37cfab0dcc89bba105ac755649b. The first installed attempt ended after cleanup;
 its [failure and confirmed cleanup](installed-host-test.md) remain separate evidence.
 No registration, pairing or provider activation occurred during this repair.
 
@@ -69,11 +69,17 @@ build samples, not performance benchmarks. Broad portable tests were not repeate
 The candidate remains uninstalled and unlaunched. The installed cleanup-only app
 remains stopped at /Users/tobiasgunn/Applications/Fort.app with report
 9e401469e60006e14f063718be077c4aed14f0719c13e3b7d145a2c68b215453. Its registration,
-owned processes and host/provider storage are absent. Nothing reset the consumed
+owned processes and host/provider storage are absent. Nothing reset the original
 19:18 test clock, generated credentials, signed into ChatGPT or uploaded the G2 CSR.
 
-Another live test needs a new bounded grant for this exact candidate. Personal
-ChatGPT remains the owner's selection. The normal sign-in/account UI must establish
+The coordinator clarified at 19:41 UTC in source thread
+01a0f307-3940-7333-96b0-a3b0b854e0e8 that existing approval covers targeted fixes
+and retries when scope/risk are unchanged. The changed build hash alone is not an
+approval gate. At 19:41:18, 104 seconds remained before the 19:43:02 cleanup reserve
+and 404 seconds before the original 19:48:02 deadline. That was insufficient for
+installation, connection, personal-account sign-in and safe testing, so no retry
+was activated. Further execution needs enough authorized time; do not silently
+reset the original deadline. Personal ChatGPT remains the owner's selection. The normal sign-in/account UI must establish
 that identity; no company workspace, ambient credential import or model fallback.
 Real helper startup/XPC, provider controls, Astra discovery/replies/cancellation,
 paired Stop/Resume/removal, TestFlight and physical acceptance remain open.

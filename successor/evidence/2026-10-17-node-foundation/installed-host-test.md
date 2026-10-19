@@ -24,11 +24,14 @@ The client quit normally; scoped launchctl bootout stopped the exact failed job.
 Fort still reported enabled registration afterward. A loaded-job absence check alone
 would therefore have been insufficient cleanup evidence.
 
-The bounded test ended at 19:29:26 UTC, before the 19:43:02 cleanup reserve and
+The first attempt and its cleanup ended at 19:29:26 UTC, before the 19:43:02 cleanup reserve and
 19:48:02 deadline. Zero provider sign-ins, zero model requests, zero completed
 pairings. The no-default-expiry pairing policy did not change. Personal ChatGPT,
 Astra discovery, effective provider controls, replies, cancellation, Stop/Resume
-and conversation replay remain untested. This consumed test is not replay authority.
+and conversation replay remain untested. The coordinator subsequently confirmed that same-scope retries are allowed within
+the original window. A changed hash alone does not require another approval. At
+19:41:18 only 104 seconds remained before the cleanup reserve, so the repaired
+candidate stayed inactive. No deadline or request allowance was reset.
 
 ## Cleanup repair and installed proof
 

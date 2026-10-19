@@ -8,8 +8,11 @@ inspection. A signed sandboxed read-only probe passes, 133 affected native tests
 pass with 11 optional skips, and Mac/helper/iPhone Simulator builds pass. The
 [new exact 206-file candidate](evidence/2026-10-17-node-foundation/helper-self-inspection.md)
 is uninstalled/unlaunched; all 30 signatures and full-package inspection pass.
-The installed cleanup app remains stopped and unregistered. A new bounded live
-approval is needed for this changed candidate; the consumed test is not reset.
+The installed cleanup app remains stopped and unregistered. The existing approval
+covers same-scope targeted repairs/retries through 19:48:02 UTC; a changed hash alone
+is not a new approval gate. At 19:41:18 only 104 seconds remained before the reserved
+cleanup period, so no retry was activated. A continuation needs enough authorized
+time, with the original deadline preserved.
 Personal ChatGPT remains selected, with identity verification still required at
 normal sign-in. Provider, paired lifecycle, TestFlight and physical gates are open.
 G2 CSR upload remains separate and held.
@@ -24,7 +27,7 @@ SMAppService; reopening confirmed notRegistered, and final process/job/storage
 absence passed at 19:29:26 UTC. The app remains installed and stopped.
 [Evidence and exact artifact pins](evidence/2026-10-17-node-foundation/installed-host-test.md).
 Helper sandbox inspection needs repair. Real-provider and paired lifecycle acceptance
-remain open; this consumed 30-minute test is not replay authority. G2 upload is
+remain open; no retry can reset the original 30-minute deadline. G2 upload is
 separate and still held. Earlier unapproved/unlaunched statements below are historical.
 
 

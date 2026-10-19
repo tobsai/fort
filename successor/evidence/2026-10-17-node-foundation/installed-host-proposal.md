@@ -2,13 +2,16 @@
 
 The attempted candidate below is historical. The [repaired replacement](helper-self-inspection.md)
 now pins report b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae
-and remains uninstalled/unlaunched. Any new live test must use an explicit fresh
-bounded grant and that exact artifact. The owner has already selected personal
+and remains uninstalled/unlaunched. Existing approval covers same-scope targeted
+repairs and retries within the original window ending 19:48:02 UTC. The changed
+hash alone does not require renewed approval. No retry was activated at 19:41:18
+because only 104 seconds remained before the cleanup reserve. Further execution
+needs enough authorized time; do not reset the deadline silently. The owner has already selected personal
 ChatGPT; normal UI verification of that identity remains required.
 
 
 **Historical proposal, approved and attempted; cleanup complete.** October 19, 2026.
-See [the consumed test outcome](installed-host-test.md). It stopped before pairing
+See [the attempted test outcome](installed-host-test.md). It stopped before pairing
 and provider sign-in; no allowance or clock may be reset. The details below preserve
 the original approval scope. Spec 059 / decision 059.
 The existing development provisioning approval is fulfilled. This proposal is the
