@@ -1,145 +1,101 @@
 What this repo does: Fort is a single-owner native messenger with a modular Node
-core and optional official runtimes. This review traces one owner's account
-selection through native controls, durable acceptance, replay and an owned executor.
+core and optional official runtimes. This continuation checks Mac package readiness
+and the existing account-selection UI; no shared-hosting load or new feature applies.
 
 Reviewer: Codex primary implementation agent, October 19, 2026. Base
-`28dfa3b6111ac8a1656e064ac5ce93f75d0bf94a`. Scoped semantic review using the pinned
-Ponytail skill and whole-repository baseline; not an independent-reviewer claim.
+`81938a49ffaf55bc39c09b1ef9a045a3e5e8bbe4`. Scoped semantic Ponytail review against the
+pinned read-only skill and preserved baseline; no independent-reviewer claim.
 
-Read the changed contracts, account service, admission/dequeue callers, protocol
-adapter, bounded worker channels, native parsing/actions, fixtures and evidence.
-Checked owner/epoch/revision authorization, copy/validation boundaries, durable
-selection, prior-work pinning, cancellation, restart and re-pairing. Traced model
-and turn checks through the actual guarded synthetic process chain and compiled
-host journey. Checked unchanged sandbox/entitlement and package gates. No code is
-declared unused and no unrelated abstraction/removal is proposed.
+Reviewed the exact package inventory and unchanged app/helper configuration, current
+MacHostBundle signature/profile guards, project settings, AccountSignInView and its
+model/client/decoder, the temporary QA responder's limited routes, normal-context
+certificate/profile metadata, Apple primary documentation, observed accessibility
+states/screenshots and the updated evidence/acceptance notes. The production view,
+model, client, decoder and pairing view in the QA source copy are byte-identical to
+the base. No product source, dependency, signing setting or permission changed.
 
 ## Must fix before installed acceptance
 
-1. **The exact live account and signed installation remain unverified.**
-   - What this is: The implementation is tested with authored account responses,
-     disposable storage/processes, fresh unsigned native builds and an inert package.
-   - Problem: It does not establish that the owner's real account returns the
-     required optional/experimental identity fields, or that the final installed
-     app/provider/cleanup journey works. No profiles or final signature exist here.
-   - Fix: Resolve the pending secure Apple handoff, exact profiles/signature and
-     owner account/workspace/model; review the completed artifact/grants, then run
-     authorized installed launch/chat/restart/reconnect and removal acceptance.
-   - If we skip it: Fixture and build evidence could be misreported as delivery.
-   - Disposition: Open external acceptance gate. No credentials, account lookup,
-     agreement acceptance, startup or outbound grant occurred in this slice.
+1. **The package has no matching Mac provisioning profiles.**
+   - What this is: The exact current client/helper use an App Group and named XPC.
+     Normal-context metadata lists valid development/distribution identities.
+   - Problem: All 91 local profile files decoded, but zero macOS profiles for the
+     selected team authorize this package or the proposed release pair/group. Both
+     current bundles remain unsigned, with no embedded profiles.
+   - Fix: Complete the existing secure Apple handoff, verify/reuse exact app/group
+     records and compatible remote profiles, and approve only confirmed missing
+     provisioning before preparing the final signed artifact. G2 repair is separate.
+   - If we skip it: Certificate presence or a synthetic UI could be mistaken for a
+     working installed App Group/host or TestFlight delivery.
+   - Disposition: Open external gate. No new development key is indicated by this
+     inventory; actual private-key use, profile/export signing and release remain
+     untested. No credentials, legal acceptance or activation occurred.
 
-## Fixed findings
+2. **Cold-window launch remains unverified.**
+   - What this is: The exact ad-hoc synthetic QA process launched without a window;
+     a normal reopen action displayed the intended account controls.
+   - Problem: Successful reopened-window accessibility and selection do not prove
+     first launch of this QA app or the final signed installation.
+   - Fix: Keep that limitation in acceptance and inspect the completed signed app's
+     cold launch before signoff. This observation does not establish a production
+     source cause or justify a speculative window/lifecycle change.
+   - If we skip it: The Mac demo could be called launchable based only on reopen.
+   - Disposition: Open installed-acceptance item. Reopened synthetic reported →
+     selected controls passed; exact QA normal termination and absence were proven.
 
-2. **A ChatGPT account type could stand in for the selected identity.**
-   - What this is: Sign-in previously returned only a kind, and preflight checked
-     account type before model/thread creation.
-   - Problem: The public protocol tests completed turns with missing or different
-     selected account/workspace; the service could not persist or compare a choice.
-   - Fix: Carry bounded nonsecret identity through the existing adapter, require
-     explicit primary selection, persist it, pin accepted work and compare it before
-     dequeue, discovery and provider dispatch/replacement. Native status says what
-     is reported versus selected. Missing identity refuses work without fallback.
-   - If we skip it: Work and provider acceptance could use a different account.
-   - Disposition: Fixed in source and public synthetic tests, including restart,
-     stale/foreign/companion refusal, changed workspace, independent provider shape,
-     exact executor transport and re-pairing invalidation. Live proof stays finding 1.
+Verdict: Independent assembly, metadata and synthetic account-selection checks are
+complete for this bounded continuation. Matching Mac profiles/records are the next
+external dependency; no further independent packaging or existing UI check was found.
+No production feature, credential, provider access or startup was added.
 
-3. **Historical fixtures assumed implicit selection.**
-   - What this is: Prior runtime and bundled-host journeys proceeded from signed-in
-     type directly to model discovery or dispatch.
-   - Problem: New refusals exposed a waiting fixture and a native journey with
-     three issues. A cancellation race expected the obsolete kind-only result.
-   - Fix: Current service/native fixtures select through public controls; retired
-     MVP preflight now has an explicit refusal/cleanup assertion. Update the race
-     expectation to the exact nonsecret identity. No production bypass was added.
-   - If we skip it: Regression suites hang or mistake an intended refusal for a bug.
-   - Disposition: Fixed; final portable/native/guarded suites pass. Also fixed the
-     intermediate nested selection transaction and the test's held-work assumption.
-
-Verdict: The selected-account source gap is closed using the existing adapter and
-operation record. Exact real-account, installed UI and TestFlight acceptance remain
-open. There is no live-sign-in prerequisite for this completed source slice.
-
-Not checked: Real credentials/accounts, final Apple profiles/signatures, installed
-accessibility/screenshots/provider behavior, remote grant revocation, phone UI,
-archive/upload/TestFlight or provider teardown. No global code/dependency removal
-is claimed. CoreSimulator remains incompatible; no component upgrade was attempted.
-The prior provider-file cleanup and separate host/computer sandbox boundaries remain
-unchanged. No pairing expiry or product turn/time limit was introduced.
+Not checked: Remote Apple records/role/agreement state, private-key use, final signed
+profiles/App Group/XPC, actual account/model/provider, production cold launch,
+installed cleanup, Simulator UI, archive/upload/TestFlight or provider teardown.
+The previous complete test suites were not rerun for a documentation/evidence slice.
+No global dead-code or dependency-removal claim is made. All historical evidence,
+unrelated work and prior artifact bytes remain preserved.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "28dfa3b6111ac8a1656e064ac5ce93f75d0bf94a",
+  "reviewedCommit": "81938a49ffaf55bc39c09b1ef9a045a3e5e8bbe4",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Nonsecret selected provider identity through existing account operation, executor, admission/dequeue and native controls; synthetic restart and fresh inert package",
+  "scope": "Existing signing/provisioning metadata, unchanged Mac package, temporary synthetic account-selection UI, acceptance/evidence notes and screenshots",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Observed failing public account selection and missing/wrong-account protocol tests before implementation.",
-    "Final portable: 1326 passed / 16 skips; strict TypeScript passed; full native: 328 passed / 16 skips, zero issues; guarded executor: 19 passed / 2 skips.",
-    "Exact unsigned package refusal: 1 passed. Fresh unsigned Mac/helper/iPhone builds and 200 output / 198 input inventories verified.",
-    "Isolated five warmups/twenty selection transactions: p95 2.221708 ms below 5 ms; provider time excluded."
+    "21 Mac assembly tests passed with zero skips/failures; exact 200-file output and 198-input inventory matched.",
+    "Normal-context metadata: four valid signing identities; 91/91 profile files decoded, 50 UUIDs, zero compatible Mac profiles. Restricted-context false absence/decode failures are recorded.",
+    "Fresh ad-hoc synthetic QA build and strict signature/entitlements passed. Actual AX reported-to-selected action and both visually inspected screenshots passed; normal termination and zero exact QA apps confirmed.",
+    "First QA launch had no window; normal reopen worked. Initial cache/layout build failures were resolved. No production cold-launch pass is claimed.",
+    "Full and implementation spec gates and whitespace check passed before staged review. Earlier portable/native/guarded suites were not repeated for unchanged source."
   ],
   "exceptions": [
-    "Synthetic accounts only. No real credential file, account read, sign-in, Apple/legal mutation, entitlement change, startup registration or installed/release acceptance.",
-    "Required optional/experimental provider identity fields must be available in an authorized real session; absence stays fail-closed."
+    "No credential contents, key use, profile/account mutation, agreement acceptance, host/provider activation or installed/release claim. Temporary QA uses only authored in-process identity.",
+    "Profile inventory covers the two standard local cache directories; remote records and current secure Apple session were not accessed."
   ],
   "findings": [
     {
       "id": "1",
-      "detail": "Exact real account/workspace/model, signed installed UI/provider/removal and TestFlight acceptance remain unrun.",
+      "detail": "Exact package lacks matching Mac profiles and final signatures; existing development/distribution identities do not establish installed or TestFlight readiness.",
       "disposition": "open"
     },
     {
       "id": "2",
-      "detail": "Explicit owner selection, durable identity pin and fresh runtime comparison now reject missing or changed account evidence; public synthetic proof passes.",
-      "disposition": "fixed"
-    },
-    {
-      "id": "3",
-      "detail": "Current fixtures now select through public controls; retired packet preflight refuses without a pin; final regression suites pass.",
-      "disposition": "fixed"
+      "detail": "Synthetic first launch produced no window; reopen worked. Final installed cold launch and actual provider acceptance remain unverified.",
+      "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "4d5ffbd2814dcfe8b58f3cbf249b9d4adbbdfd18e34271a5750db8d94a574102",
-    "successor/APPLE-HOST-ACTIVATION.md": "00ddaeee3da64180e28c3f49aaa1f0288e2b36dff4fb83826c58dff8d089f9d0",
-    "successor/V1-ACCEPTANCE.md": "772318007ff205c126591cc90640583d6ca835167dc40a99480740977768dc7b",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignIn.swift": "efed027806be07cd00c50d5063f8e9b8414637410da1ce14f4da0abe1bff9a9a",
-    "successor/apple/FortKit/Sources/FortKit/AccountSignInView.swift": "0ed1c79a3083d36307e1a07a6d12fd6da9e7d1105e3b55a9a0406a4302deddce",
-    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "0308cf5b02afa5bc2e8d642e65a304f302f6fa553e98fa18961e3067013cb829",
-    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "81793604064b6a777fc6ecf2b534b0ed02f49ffbba2e849d704482783947bcdd",
-    "successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift": "6d586b4b3c65f573ea72a266c84810b531e69afd95f7ccbad81e328d17ff9955",
-    "successor/apple/FortKit/Tests/FortKitTests/MacHostJourneyTests.swift": "5436755300fac7c3215a6e8a848514e83eff377233aab026f79a3d1fbdac3d92",
-    "successor/contracts/account.ts": "87750b355e716be3b52d842d281e126516c9b6968f6738ac5ab40f05b3790c38",
-    "successor/contracts/v1.ts": "dd1c40150a64f8c9fc09752cac6cc9d8affd4c5a04f0101fa03221140807d47f",
-    "successor/evidence/2026-10-17-node-foundation/account-correlation.md": "957940baeccf04db0f3513df030926a47663b86a72e19b999491f5dd8761e42d",
-    "successor/prototype/mvp-session.test.ts": "d0801fa80017cb8a21f422c711f860c7087a8531c8714264a62ab0c027c85763",
-    "successor/runner/chat-runtime.ts": "c8a811e171fd03e305196de657829f0d5edf1da2526de6fe2eac51636cdefe31",
-    "successor/runner/codex-account.test.ts": "0d4937c4fa35e28ebbf7d4980296cc00032c26c0269b0e382f98acbaab495697",
-    "successor/runner/codex-account.ts": "a82bdbcbe09069d86bf206d1c7cd87eeb60ccd67373725c056c57b3e1bdf664f",
-    "successor/runner/codex-chat.test.ts": "a6459cc4eef3ee4b473888c9330d6606260535671852042b688448bd2942484a",
-    "successor/runner/codex-chat.ts": "8e89d437c9681b6fd179406d71fd702c1ea594e057f8296e954812fe956b92df",
-    "successor/runner/codex-executor.test.ts": "d058669388e75fbc3ff138a38f684ea7817cd4c43c3efe7161301d2e1240d029",
-    "successor/runner/codex-preflight-fixture.ts": "96d4338bb5b8a3d17e2cdacd968c5fcc457a52f292abae6fac1d96b8dee1e585",
-    "successor/runner/codex-startup-contract.test.ts": "40c19abf3e869ddc87a693d6d5f2b42f753fad124df6032d4e51ab74683e013c",
-    "successor/runner/executor-account.test.ts": "5b297c0539255a36e11b207cd009544d75de79ea944889b935a80d1e63b2af62",
-    "successor/runner/executor-models.test.ts": "3bccbc4e38aff3b7059005bb5717f0a2327a1fe953d9ee16cccc1152b825dc91",
-    "successor/runner/executor-process.ts": "623101aeae47c480348302465f29b2e2bd56e24631e6ff6fd2839feac2f60ee1",
-    "successor/runner/executor-wire.ts": "6a4cc290d3eb36a001886f6e52e9b671b58854505d04a87d501dc2f03add61ae",
-    "successor/runner/executor-worker.ts": "bf61b83bbe37e09425f4cf4925a616e3314981235775f18a01a9a154cf4ff33f",
-    "successor/runner/fixtures/codex-0.157.1-startup.json": "0c6f9f5344670f46d43568453e3cc8ab3e4c12831c809e64107f1f294bea5848",
-    "successor/runner/fixtures/codex-executor-runtime.mjs": "b05d12ed071da608f59e3fc0384ec2ec9bbd9816dd25978ed059189bdbef8b06",
-    "successor/runner/fixtures/executor-account-worker.mjs": "0842ecdd2f9f0e1487621fdc54b8b662088899ae19932606e40602343ec568dd",
-    "successor/runner/owned-process-fixture.mjs": "d3fca277264d5e6623d9c629bf50966a21e50848f3ed27a3dc78a57c70e7ab16",
-    "successor/service/account-sign-in.test.ts": "ab7baff67c4dab921f4648daceccbac934532192e2be56e8e47232a1ddfbd83f",
-    "successor/service/account-sign-in.ts": "04c6b7bc3c37b92e71cf369ef8e4cadeb800025fc88ff014b6fce6a7d5ab69bf",
-    "successor/service/openai.test.ts": "74924c3bd9da508e97e9ebfd4535a0c12855ff8d5156d2bff71f007c2ae57559",
-    "successor/service/openai.ts": "7f0dbbe850c62212d3935b9d12b05632169db4f6b47e192dfd68e5d84065e180"
+    "specs/059-modular-node-v1.md": "5318bb53fd1cd7600b4dc3b4d618b292ca478f28cf606628b1a36a46e500f91e",
+    "successor/APPLE-HOST-ACTIVATION.md": "e6a1daa8da4a970b56456f956bf04646d84543fd0f7d38cb3145f4377bb254f3",
+    "successor/V1-ACCEPTANCE.md": "d046d0d1ee90dc52bc40f24b78adf49fa7c264a3320e79d00e0a922c87539397",
+    "successor/TESTFLIGHT-DELIVERY-20261017.md": "d5cdaba03a02407983ff565fcc2245c314e4a092e7a326d60a8ca894501d2c4c",
+    "successor/evidence/2026-10-17-node-foundation/mac-review-package.md": "ed1118e858855f61035f92907a1b67ba6fc924fa5e2b5654cbe41aad4a7c6c1d",
+    "successor/evidence/2026-10-17-node-foundation/account-selection-reported.png": "67b1b848bcca5728cb6c3cf8f4f399a9db8f5dc0f9eb275da8ba0fc90dd2e986",
+    "successor/evidence/2026-10-17-node-foundation/account-selection-selected.png": "20b2709d0da827be64e09c15fa2ab4f8bc2b90649b092136ee50f3d24f558780"
   }
 }
 ```

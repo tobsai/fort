@@ -1,5 +1,148 @@
 # Inert Mac review package — October 18, 2026
 
+## Signing and selected-account UI readiness — source 81938a4
+
+October 19, 2026. Source `81938a49ffaf55bc39c09b1ef9a045a3e5e8bbe4`,
+branch `codex/fort-openai-rebuild-20261016`. This follows the explicit instruction
+to finish independent Mac packaging/UI checks and inspect existing nonsecret signing
+metadata. Production source, project settings and the current review package are
+unchanged. The temporary QA responder described below is not a product change.
+
+### Exact inert package
+
+`/private/tmp/fort059-account-correlation-review-20261019/Fort.app` remains unsigned
+and unlaunched. Reverification matched **200 files / 404,454,902 bytes**, every
+output hash/mode/length, exact membership and all **198 input hashes/modes**.
+Report SHA256 remains
+`f28747be6e5fb4ff8ba1088d7c8fc8e74582008d72b0804271a990e5ce7fb12d`.
+There are zero embedded profiles. Strict `codesign --verify --strict` returned
+`code object is not signed at all` for both app and helper, as expected. The
+LaunchAgent plist still contains only Label, BundleProgram and MachServices.
+No launch/startup request was made for this package.
+
+The separate current-source Mac assembly suite passed **21/21, zero skips/failures**
+in 5.331 seconds, using the preserved Node bundle and exact Codex binary as input
+bytes; the provider was not executed. Command:
+
+```sh
+FORT_TEST_CODEX=/opt/homebrew/Caskroom/codex/0.157.1/bin/codex FORT_TEST_NODE_BUNDLE=/tmp/fort059-assembly-node-input /opt/homebrew/opt/node@26/bin/node --test successor/packaging/mac-application.test.ts
+```
+
+Log: `/tmp/fort059-signing-readiness-packaging-20261019.log`.
+Inventory summary: `/tmp/fort059-signing-readiness-package-20261019.json`.
+The prior 1,326 portable / 328 native / 19 guarded passes remain the source
+verification at 81938a4; those complete suites were not repeated for these notes.
+
+### Existing signing and provisioning metadata
+
+Normal-context `security find-identity -v -p codesigning` reports four valid
+identities. Certificate metadata was filtered to subject/team, issuer, validity
+and SHA-1 fingerprint. No private key, password or provider credential was read. Decoded device lists
+and certificate bytes were neither output nor retained; no signing identity was
+used to sign anything in this slice.
+
+| Existing identity | Fingerprint | Expiry UTC | Meaning |
+| --- | --- | --- | --- |
+| Apple Development: Tobias Gunn, team T3JB5MYZ93 | `58F40D1AB480565B89109B853235AC3A7B2E7AD1` | 2027-09-29 20:26:26 | Candidate for a local development build once matching Mac profiles are available |
+| Apple Distribution: Maple Tree Enterprises LLC, team T3JB5MYZ93 | `F7D83FE9BDCE8D61D47A810B612DFE39302ECA32` | 2027-05-25 00:32:52 | Candidate for App Store Connect signing; profile/export/upload acceptance remains unverified |
+| Developer ID Application, same team | `BD4AFBD1CE2E7FAF1298638AF291EF6377524D7F` | 2027-02-01 22:12:15 | Previous Sub-CA issuer, not G2; outside-Store distribution path |
+| Developer ID Application, same team | `A30AA59E86481C457B5A4F6C61D9CB4E1F43508C` | 2027-02-01 22:12:15 | Previous Sub-CA issuer, not G2; outside-Store distribution path |
+
+All **91 local profile files decoded, representing 50 unique UUIDs**, across
+`~/Library/MobileDevice/Provisioning Profiles` and
+`~/Library/Developer/Xcode/UserData/Provisioning Profiles`. There are **zero macOS
+profiles for team T3JB5MYZ93**, and no matching client/helper/group combination for
+either the exact engineering identifiers or proposed release identifiers. The three
+Fort profiles are the historical iOS app/Watch/Watch widget, expire May 25, 2027,
+and have no App Groups. They cannot authorize this Mac package. Local absence does
+not establish remote absence. Redacted metadata:
+`/tmp/fort059-signing-readiness-metadata-20261019.json`.
+
+The initial restricted-context identity listing returned zero, and restricted CMS
+reads failed with certificate-import parameter errors. Approved normal-context
+metadata reads returned the results above. Neither restriction was interpreted as
+missing assets. No keychain unlock, export/import, trust change or permission change
+was performed. The queried team certificate metadata contains no Mac Installer
+Distribution certificate; actual App Store export/installer signing remains unrun.
+
+Both Mac programs need matching App Group entitlements/profiles for their named XPC
+boundary; changing the signature alone cannot satisfy it. See Apple's
+[DTS guidance](https://developer.apple.com/forums/thread/835003). The existing
+Apple Development certificate means no new development key is currently indicated
+by this inventory. Actual key use and its macOS prompt remain untested.
+
+The two Developer ID issuer OUs are `Apple Certification Authority`, matching Apple's
+[previous-Sub-CA replacement guidance](https://developer.apple.com/help/account/certificates/replace-developer-id-certificates).
+The already approved G2 action remains separate and unexecuted; do not renew its
+approval or treat it as a prerequisite for development or TestFlight signing.
+Apple distinguishes [development, App Store and Developer ID certificate purposes](https://developer.apple.com/help/account/certificates/certificates-overview/).
+TestFlight needs the verified App Store Connect record and corresponding Mac
+[distribution profile](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/),
+then archive/upload/processing/tester acceptance. G2 does not supply those records.
+
+### Actual synthetic account-selection UI
+
+Built and ran only
+`/tmp/fort059-selected-account-ui-build-20261019/Build/Products/Debug/FortQA.app`,
+identifier `io.fort.qa.accountselection.20261019`, with explicit `--qa-account`
+and session `37c69fad-4dce-4c70-b394-e7ee4f0deec5`. A temporary copy of the tracked
+Apple sources at `/tmp/fort059-selected-account-ui-source-20261019` changes only
+DEBUG AccountSignInFixture.swift: its in-process responder starts with the authored
+identity `owner@example.invalid` / `synthetic-workspace` and accepts only the exact
+synthetic selection request. The production view, model, client, decoder and pairing
+view bytes match 81938a4. No tracked product source changed.
+
+Strict ad-hoc signature verification passed. The only entitlements are App Sandbox
+and debug get-task-allow: no App Group, network or real signing identity. The existing
+fixture uses temporary storage, in-memory synthetic credentials and no host/provider
+process. Twelve-file QA inventory:
+`/tmp/fort059-selected-account-ui-inventory-20261019.json`, SHA256
+`e0aa5be2107e96b97dd971b82d4ca05c36d75c9421a0cfc45f69f06314e02762`.
+
+Actual accessibility inspection of exact PID 46267/window 2734 verified the fixture
+label, reported account/workspace and explicit selection button. An AX press on
+`provider-account-select` succeeded; subsequent inspection confirmed selected status,
+retained exact identity and removal of the selection button. Both screenshots were
+visually inspected: [reported](account-selection-reported.png),
+[selected](account-selection-selected.png). No sign-in link, pairing/startup, stop,
+disconnect, removal or history control was used. Normal termination was followed by
+an independent normal-context check confirming **zero** apps with the exact QA ID.
+
+Limits: first launch produced a process without a window; ordinary reopen displayed
+it. AX permission was already granted and unchanged. Cold-window launch is not a
+pass. The first build failed on restricted Xcode cache writes; the permitted-context
+retry exposed omitted copied test directories; restoring the tracked test layout
+fixed resolution, and the final build passed. CoreSimulator's existing version
+mismatch remains; no component upgrade was performed. These QA results do not prove
+production cold launch, signed App Group/XPC, real account selection or TestFlight.
+AX logs: `/tmp/fort059-selected-account-ui-{reported,selected}-20261019.log`.
+Final build log: `/tmp/fort059-selected-account-ui-build-20261019-final.log`.
+
+### Smallest next external step
+
+No further independently executable packaging or existing UI check was identified
+for this bounded Mac-demo continuation. No speculative product feature was added.
+The precise current dependency is verified Mac app/helper/group records and matching
+profiles, not an absent development certificate.
+
+The coordinator's last recorded secure Apple sign-in handoff for `tobias@mtree.io`
+remains pending; this slice did not inspect or alter that session. Finish that secure
+handoff, then use the existing authorized account to verify team/role, reusable
+`io.mtree.fort.mac`, helper `io.mtree.fort.mac.host`, group `group.io.mtree.fort.mac`,
+and existing profiles. These remain proposals, not adopted release IDs. Reuse
+compatible remote profiles if present. If absent, the smallest consolidated
+provisioning proposal is only the confirmed missing client/helper/group registrations
+and associations, plus matching Mac development profiles for the existing development
+identity and test Mac. Do not add a key, API credential, account role or agreement to
+that scope; an actual legal blocker needs its own reviewed approval.
+
+After those facts are available, prepare the exact signed package and inspect its
+profiles/entitlements/hashes. Only then present the separately required installed
+host/network/provider/startup scope. Helper outbound networking is still disabled;
+agent-host and computer-tool boundaries remain distinct. Installed cold launch,
+account/model confirmation, chat/restart/reconnect/cleanup and TestFlight remain
+unrun. No premature activation approval is requested for the unsigned package.
+
 ## Mac demo readiness — source 1f3cda5
 
 October 19, 2026. Current source:

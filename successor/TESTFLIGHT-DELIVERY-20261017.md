@@ -1,5 +1,17 @@
 # Fort delivery through TestFlight
 
+Current read-only checkpoint, October 19, source 81938a4: the normal Keychain context
+lists an existing Apple Distribution identity for team T3JB5MYZ93, expiring May 25,
+2027, plus an existing Apple Development identity through September 29, 2027. All
+91 local provisioning profiles decoded; none targets macOS for this team or grants
+the exact Mac client/helper group. The two Developer ID identities use the previous
+Sub-CA and expire February 1, 2027; their separately approved G2 replacement is an
+outside-Store path and does not resolve TestFlight provisioning. App Store export/
+installer signing is unrun; no Mac Installer Distribution certificate was found in
+the queried team certificate metadata. [Exact evidence and smallest next action](evidence/2026-10-17-node-foundation/mac-review-package.md#signing-and-selected-account-ui-readiness--source-81938a4).
+The later implemented host/account source and synthetic UI supersede older source-gap
+statements below, while archive/upload/installed TestFlight gates remain open.
+
 Current Node-foundation continuation: [Apple host activation gate](APPLE-HOST-ACTIVATION.md)
 records verified/proposed identities, missing profiles, the smallest account check
 and conditional provisioning/startup actions. Those actions remain unperformed;

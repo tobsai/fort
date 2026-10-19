@@ -1,5 +1,30 @@
 # Apple host activation gate
 
+## Current signing and UI check — source 81938a4
+
+October 19, 2026. [Exact metadata, package checks and synthetic UI evidence](evidence/2026-10-17-node-foundation/mac-review-package.md#signing-and-selected-account-ui-readiness--source-81938a4)
+confirm four existing valid signing identities, including Apple Development through
+September 29, 2027 and Apple Distribution through May 25, 2027 for team T3JB5MYZ93.
+All 91 local profiles decoded (50 unique UUIDs); none authorizes a Mac client/helper
+App Group for this team. The three historical Fort profiles are iOS-family only.
+Matching Mac profiles/verified remote records are the immediate dependency. Creating
+another development key is not indicated by this inventory. G2 Developer ID repair
+remains separately approved/unexecuted and does not unblock TestFlight provisioning.
+
+All 21 assembly checks passed; the unchanged 200-file review app and 198 inputs
+matched their hashes. It remains unsigned, unprovisioned and unlaunched. The new
+account-selection UI passed actual accessibility/screenshots in a separate ad-hoc,
+synthetic-only QA app with unchanged production views; that app is now stopped.
+First launch had no window and required ordinary reopen, so cold launch is unverified.
+
+The smallest next user action is the existing secure Apple sign-in handoff, followed
+by read-only verification/reuse of the exact Mac IDs, App Group and matching profiles.
+Only confirmed missing records/profile associations should enter a consolidated
+provisioning approval. No new credential, legal acceptance or activation is implied.
+Final signing/installed-provider/TestFlight acceptance still requires the completed
+artifact and exact grants. No independent packaging or existing UI check remains
+identified for this bounded continuation; no product feature was added.
+
 ## Current account correlation implementation — after 28dfa3b
 
 October 19, 2026. [Account correlation evidence](evidence/2026-10-17-node-foundation/account-correlation.md)

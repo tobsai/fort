@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 5659349be23f3eae57383fea3158bcd836da084b429150c2f81e95307bb6c571
+Reviewed content SHA256: 966531a07d102218bc11f77a9a00d712f9c7445eacff830548a050c5ea4d0f56
 
 ### Vendor independence
 Status: planned
@@ -2984,7 +2984,20 @@ Evidence: successor/evidence/2026-10-17-node-foundation/account-correlation.md r
 builds/package and isolated selection p95 2.221708 ms below 5 ms. Account correlation
 is verified with fixtures; real account and signed installed acceptance stay open.
 
+Read-only continuation at source 81938a4 verified the existing signing/profile
+metadata and unchanged package, with 21 assembly checks passed. A temporary DEBUG
+responder exercised unchanged production account-selection views through actual
+accessibility/screenshots; no product behavior or dependency changed. Cold launch
+required ordinary reopen and remains unverified. The package still lacks matching
+Mac profiles; development and TestFlight signing are separate from G2 Developer ID.
+The existing vendor/modularity/performance/removal review remains applicable: no new
+runtime, stored authority, permission, startup or measured production path is added.
+Evidence is in mac-review-package.md and the two account-selection screenshots below.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/account-selection-reported.png`
+- `successor/evidence/2026-10-17-node-foundation/account-selection-selected.png`
 
 - `successor/prototype/mvp-session.test.ts`
 
