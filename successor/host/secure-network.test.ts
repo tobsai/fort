@@ -51,6 +51,52 @@ test('explicit TLS transport retains core enrollment authentication and revocati
   await network.close();await assert.rejects(call(network.url,'/v1/agents',authenticated));
 });
 
+test('transport lifetime observes cancellation without initiating shutdown and permits exact port reuse',async t=>{
+  const options=await upstreamFixture(t,(_request,response)=>response.end('{}'));
+  const signal=new AbortController(),network=await openSecureNetwork({...options,signal:signal.signal});
+  t.after(()=>network.close());
+  let completed=false;
+  const observed=network.closed.then(()=>{completed=true;});
+  assert.equal((await call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'})).status,200);
+  assert.equal(completed,false);
+  signal.abort();await observed;assert.equal(completed,true);
+  await assert.rejects(call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'}));
+  const replacement=await openSecureNetwork({...options,port:Number(new URL(network.url).port)});
+  t.after(()=>replacement.close());
+  assert.equal((await call(replacement.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'})).status,200);
+});
+
+test('a server error closes the observable transport without an explicit stop',async t=>{
+  const options=await upstreamFixture(t,(_request,response)=>response.end('{}'));
+  let listener:Server|undefined;
+  const listen=Server.prototype.listen;
+  const intercepted=t.mock.method(Server.prototype,'listen',function(this:Server,...args:Parameters<Server['listen']>){
+    listener=this;return Reflect.apply(listen,this,args);
+  });
+  const network=await openSecureNetwork(options);t.after(()=>network.close());
+  intercepted.mock.restore();assert.ok(listener);
+  listener.emit('error',new Error('Synthetic server boundary failure'));
+  await network.closed;
+  await assert.rejects(call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'}));
+});
+
+test('unconfirmed transport shutdown rejects every observer and cannot later report success',{timeout:8000},async t=>{
+  const options=await upstreamFixture(t,(_request,response)=>response.end('{}'));
+  const network=await openSecureNetwork(options);
+  const close=Server.prototype.close;
+  const intercepted=t.mock.method(Server.prototype,'close',function(this:Server){return close.call(this);});
+  t.after(()=>intercepted.mock.restore());
+  const observed=assert.rejects(network.closed,{message:'Secure network transport could not be verified'});
+  const started=performance.now(),stopping=network.close();
+  assert.equal(stopping,network.closed);
+  await assert.rejects(stopping,{message:'Secure network transport could not be verified'});
+  await observed;assert.ok(performance.now()-started<6500);
+  intercepted.mock.restore();
+  await assert.rejects(network.close(),{message:'Secure network transport could not be verified'});
+  const replacement=await openSecureNetwork({...options,port:Number(new URL(network.url).port)});
+  t.after(()=>replacement.close());
+});
+
 test('secure transport refuses unselected or mismatched bind, TLS and socket identities before listening',async t=>{
   const f=await fixture(t);
   const overrides:Partial<SecureNetworkOptions>[]=[
@@ -129,7 +175,9 @@ test('stop aborts active upstream work, closes idle TLS connections and is idemp
   const pending=call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'});
   const rejected=assert.rejects(pending);
   await received.promise;
-  const started=performance.now();await Promise.all([network.close(),network.close()]);
+  const started=performance.now(),stopping=network.close();
+  assert.equal(stopping,network.closed);assert.equal(network.close(),stopping);
+  await Promise.all([stopping,network.closed]);
   await rejected;await upstreamClosed.promise;
   assert.ok(performance.now()-started<1000);
   await assert.rejects(call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'}));
@@ -205,4 +253,23 @@ test('twenty isolated warm TLS journeys meet the transport budget',{skip:!proces
   const sorted=[...samples].sort((a,b)=>a-b),p95=sorted[18];
   await writeFile(destination,JSON.stringify({node:process.version,platform:process.platform,architecture:process.arch,responseBytes:1024,warmups:5,samplesMs:samples,p50Ms:sorted[9],p95Ms:p95,maximumMs:sorted[19],closeMs},null,2)+'\n',{flag:'wx'});
   assert.ok(p95<100);assert.ok(closeMs<5000);
+});
+
+test('twenty isolated transport lifetimes meet the shutdown observation budget',{skip:!process.env.FORT_SECURE_NETWORK_LIFETIME_BENCHMARK},async t=>{
+  const destination=process.env.FORT_SECURE_NETWORK_LIFETIME_BENCHMARK;assert.ok(destination);
+  const options=await upstreamFixture(t,(_request,response)=>response.end('{}'));
+  const samples:number[]=[];
+  for(let index=0;index<25;index++) {
+    const started=performance.now(),signal=new AbortController();
+    const network=await openSecureNetwork({...options,signal:signal.signal});
+    const port=Number(new URL(network.url).port);
+    assert.equal((await call(network.url,'/v1/agents',{'X-Fort-Installation-Id':'fixture'})).status,200);
+    signal.abort();await network.closed;
+    const replacement=await openSecureNetwork({...options,port});
+    await replacement.close();await replacement.closed;
+    if(index>=5)samples.push(performance.now()-started);
+  }
+  const sorted=[...samples].sort((a,b)=>a-b),p95=sorted[18];
+  await writeFile(destination,JSON.stringify({node:process.version,platform:process.platform,architecture:process.arch,warmups:5,samplesMs:samples,p50Ms:sorted[9],p95Ms:p95,maximumMs:sorted[19]},null,2)+'\n',{flag:'wx'});
+  assert.ok(p95<100);
 });

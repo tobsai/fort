@@ -1,117 +1,108 @@
 What this repo does: Fort is a single-owner native messenger with a modular Node
-service and optional runtimes. This review assumes one primary Mac and one phone,
-with no shared hosting. The imported donor stays quarantined.
+core and optional runtime integrations. This review assumes one Mac and one phone,
+with explicitly selected local transport and no shared hosting.
 
-Reviewer: Codex primary implementation agent, October 18, 2026. Base:
-`75d072a083169495730d423f598d2b2616cc4058`. This is a scoped semantic review,
-not an independent-reviewer claim. The whole-tree baseline remains preserved.
+Reviewer: Codex primary implementation agent, October 19, 2026. Base:
+`ddccfeb58dfed0c13b2859c3cd5f3813b770bb70`. This is a scoped semantic review,
+not an independent-reviewer claim. The whole-repository baseline is preserved.
 
-Read the exact new Swift values, FortClient callers, shared identifier validation,
-all new tests, spec revision and evidence. Compared the three request/response shapes
-with contracts/v1.ts and service/companion-pairing.ts, and checked the existing HTTP
-routes and authority boundary. Traced the recording transport and no-retry behavior.
-Existing phone preparation still uses the same identifier algorithm. No new storage,
-credential generation, listener, SDK, package, timer or lifecycle worker is added.
-No code was declared unused; the new client entry points are the reviewed prerequisite
-for the next Mac control slice. The pinned Ponytail skill was applied as text only.
+Read the complete optional secure transport and its tests, core artifact builder
+and declaration/export tests, owned-core/private-channel lifecycle, changed spec,
+ledger and evidence. Traced abort during bind, successful bind, caller cancellation,
+server error, concurrent explicit close, request teardown and cleanup timeout.
+The new result shares the existing stop operation and preserves its error result.
+There is no new dependency, controller, authority path, configuration store or restart.
+No code was declared unused. Applied the pinned Ponytail skill as text only.
 
 ## Must fix before v1 acceptance
 
-1. **Ordinary Mac pairing management is not composed yet.**
-   - What this is: Native public contracts now exist for overview, invitation and
-     exact phone revocation, matching the service's primary-host endpoints.
-   - Problem: No ordinary Mac control invokes them yet, and its optional secure
-     listener is still uncomposed. These methods alone do not pair installed devices.
-   - Fix: Add explicit Mac controls and reviewed listener lifecycle, retaining exact
-     identity, lost-response behavior and required external authority.
+1. **Mac companion controls and listener ownership are still uncomposed.**
+   - What this is: The native management contracts and optional TLS transport exist.
+   - Problem: The ordinary Mac still cannot start and manage an installed phone's
+     verified endpoint and invitation through those contracts.
+   - Fix: Compose explicit host lifecycle/status and Mac controls, retaining exact
+     identity, lost-response handling and required external grants.
    - If we skip it: The owner cannot complete ordinary two-device setup.
-   - Disposition: Open in the v1 ledger; continue implementation, without activation.
+   - Disposition: Open in the v1 ledger. This slice provides shutdown observation only.
 
-2. **Real installed and Apple delivery gates remain unverified.**
-   - What this is: Contract fixtures, full native tests and unsigned build evidence.
-   - Problem: These do not prove actual Keychain/TLS/trust, network/startup permission,
-     provider behavior, physical devices or TestFlight. Prior QA cold-window/alert
-     interaction limits also remain recorded at their original revision.
-   - Fix: Verify exact authorized installed artifacts and provider journeys through
-     the required Apple/device gates; do not substitute fixtures or reuse old grants.
-   - If we skip it: A source import or engineering build could be called a delivered v1.
-   - Disposition: Open. Pending certificate approval remains unconsumed.
+2. **Installed and Apple delivery evidence is incomplete.**
+   - What this is: Local source, compiled artifacts and synthetic transport results.
+   - Problem: They do not verify actual TLS/trust, Keychain, permissions, provider
+     operation, physical devices or TestFlight. Apple certificate creation is approved
+     separately but currently requires the owner's direct Apple sign-in.
+   - Fix: Complete the exact authorized installed and Apple gates. Preserve existing
+     certificates and keep the signing key local when the G2 flow can proceed.
+   - If we skip it: Engineering evidence could be mistaken for a delivered v1.
+   - Disposition: Open. Xcode's system-component install prompt remains untouched;
+     no new certificate/key was created, installed, exported or revoked.
 
 ## Fixed during this slice
 
-3. **Permissive values could misstate the selected companion.**
-   - What this is: The first native overview/invitation implementation decoded plain
-     strings and ignored state fields it did not understand.
-   - Problem: Wrong/extra fields, impossible dates, invalid IDs, an inactive phone
-     without expiry, or a phone claiming the primary ID could be accepted. Invalid
-     request identifiers and codes also reached the injected transport.
-   - Fix: Require exact overview/invitation keys, validated state values, matching
-     installation/host/invitation, and the existing exact phone revocation proof.
-     Validate input before I/O and reuse the phone identifier/token predicates.
-   - If we skip it: Future controls can display an unverified identity or send a
-     request that should have been rejected locally.
-   - Disposition: Fixed. The 21 observed red issues now pass, with valid states,
-     UTF-8 name boundaries, exact methods/auth/body, lost-response and no-retry controls.
+3. **Asynchronous transport shutdown was invisible to its caller.**
+   - What this is: Abort and server errors already close the optional TLS listener.
+   - Problem: The returned handle exposed only URL and close, so a caller that had
+     not initiated shutdown could keep presenting the endpoint as available.
+   - Fix: Expose one readonly completion promise shared by every close path. Preserve
+     pending, confirmed and rejected outcomes; an expired cleanup deadline stays failed.
+   - If we skip it: Future Mac status controls can continue to show a stopped endpoint.
+   - Disposition: Fixed through public lifetime tests using real disposable sockets,
+     exact-port reuse and Node server-boundary failure injection.
 
-Verdict: Commit the verified native contract boundary, then compose Mac controls.
-This is source/build progress, not installed-product or v1 acceptance.
+Verdict: The optional transport now exposes its bounded shutdown result. Continue
+with owning-host and Mac composition; this commit is not installed-product signoff.
 
-Not checked: actual invitation/revocation against a real host; credential, TLS/trust,
-LAN or startup activation; real provider accounts; physical devices; ordinary UI or
-simulator execution; signed archives, upload, Apple processing and TestFlight;
-remote CI and provider closure. The service/provider implementation was not changed
-or re-audited in full. Native full suite: 317 passed, 15 optional skips, zero failures.
-All 11 focused functions and the p95 0.354 ms isolated contract budget passed.
-Fresh unsigned Mac/iPhone builds and Release compilation passed. No ordinary app
-was launched; prior exact QA screenshots remain tied to their original build.
-See [evidence](../../../successor/evidence/2026-10-17-node-foundation/native-companion-management.md).
+Not checked: Native UI/builds and guarded Mac/signed suites were not repeated;
+previous native evidence remains revision-bound. No production listener, credential,
+trust or startup activation, actual provider/physical acceptance, archive, upload,
+Apple processing, TestFlight, remote CI or provider cleanup ran. Full portable tests
+and strict TypeScript passed; two affected timing budgets and the fresh compiled
+artifact were verified. The source review did not re-audit every service/provider.
+See [evidence](../../../successor/evidence/2026-10-17-node-foundation/secure-network-lifecycle.md).
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "75d072a083169495730d423f598d2b2616cc4058",
+  "reviewedCommit": "ddccfeb58dfed0c13b2859c3cd5f3813b770bb70",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Native primary-host companion management contracts, exact public client requests/receipts, shared identifier checks and evidence; one Mac and one phone",
+  "scope": "Observable lifetime of the optional secure transport, cancellation/server-error/close semantics, compiled output and evidence; one owner and explicit local fixture listeners",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "317 native functions passed, 15 optional skips, zero failures (332 reported).",
-    "11 focused functions passed including parameterized identity/state/input/date/UTF-8 cases and isolated budget; 21 red issues observed before correction.",
-    "20 synthetic serial three-request journeys after five warmups: p50 0.350 ms, p95 0.354 ms, maximum 0.356 ms under 100 ms.",
-    "Fresh unsigned Mac/iPhone Simulator and Release builds passed; exact file inventories recorded.",
-    "Actual provider, credential, TLS/trust, listener, device and TestFlight checks unrun; no ordinary app launched."
+    "Observed missing public lifetime failure before implementation; four focused lifecycle cases passed, including missing shutdown acknowledgment.",
+    "Full portable suite: 1,278 passed, 13 skips, zero failures; strict TypeScript passed.",
+    "20 isolated samples after five warmups: TLS request p95 2.774 ms and open/abort/closed/port-reuse p95 3.718 ms, each below 100 ms.",
+    "Fresh compiled core: 42 files and 251,959 bytes independently verified against manifest; emitted public lifetime declaration inspected.",
+    "Native/guarded Mac/signed/UI/provider/LAN/physical/TestFlight checks were not rerun for this transport-only slice."
   ],
   "exceptions": [
-    "This bounded contract slice precedes ordinary Mac controls and listener composition.",
-    "Portable service checks and UI screenshots were not repeated for these Swift contract-only changes; earlier evidence stays tied to its revision."
+    "No new ordinary host composition is claimed; the optional entry remains disabled by default.",
+    "12 opt-in budgets and one unavailable alternate-loopback-source check skipped in full portable run; both affected budgets ran separately."
   ],
   "findings": [
     {
-      "id": "PHONE-MAC-COMPOSITION",
-      "detail": "Mac invitation/revocation controls and secure listener lifecycle remain uncomposed.",
-      "disposition": "open"
-    },
-    {
-      "id": "PHONE-INSTALLED-ACCEPTANCE",
-      "detail": "Exact external authority, real device/provider and Apple delivery gates remain unverified; prior cold-window/alert limits retained.",
-      "disposition": "open"
-    },
-    {
-      "id": "COMPANION-MANAGEMENT-BOUNDARY",
-      "detail": "Strict states and identity receipts, valid canonical dates/names and pre-I/O input checks fix the observed permissive boundary.",
+      "id": "SECURE-TRANSPORT-LIFETIME",
+      "detail": "A caller could not observe shutdown triggered by abort or server error. The shared public completion now reports confirmed or unconfirmed shutdown without starting/restarting a listener.",
       "disposition": "fixed"
+    },
+    {
+      "id": "PHONE-MAC-COMPOSITION",
+      "detail": "Mac invitation/revocation controls and owning secure listener lifecycle remain uncomposed.",
+      "disposition": "open"
+    },
+    {
+      "id": "INSTALLED-APPLE-ACCEPTANCE",
+      "detail": "Actual TLS/trust, credential/network/startup/provider, physical and TestFlight gates remain open. Separately approved G2 certificate creation waits for direct owner Apple authentication.",
+      "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "95c2824a8efedc90cc435943760c154fb181874c9fc8c4ce8f363830c8a4e303",
-    "successor/V1-ACCEPTANCE.md": "20d48e74eddca777a43b97fa073af2ae3513bce3e374f44746808b3b171078cb",
-    "successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift": "9534735bc68f2c78d890b569cbda8e58623a05ec6047bd2292105beacd6ddb27",
-    "successor/apple/FortKit/Sources/FortKit/CompanionSetup.swift": "dcc5435cb802777827f3161116e0c4f78f1f64c93d341df1c628ebb1d81f7968",
-    "successor/apple/FortKit/Sources/FortKit/FortClient.swift": "fcd58ee976737effb760ba79349a7b1030dea39f639f70f262880227cd606135",
-    "successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift": "e3a17b6d65d974846f9b98cb5e383355f343fa82b2cd1f1bca839aaf08ee5114",
-    "successor/evidence/2026-10-17-node-foundation/native-companion-management.md": "b8390be1081e6616fff6a7a0db63cb374ad6d15c50b7f3b32e6cf39b32eb55c6"
+    "specs/059-modular-node-v1.md": "15d82fb3ee910cd7731f769a23dede211af6d6a3e715c3ca3f43ad8d57ca19f8",
+    "successor/V1-ACCEPTANCE.md": "8a9222fa77130b0858b7c0e00486e42f05c7bbce80b585f4a13e6a984fde5bb3",
+    "successor/evidence/2026-10-17-node-foundation/secure-network-lifecycle.md": "b93c893b5933b48896a8b48f54b65dcc9182987566c84b06f29f34863dab76ab",
+    "successor/host/secure-network.test.ts": "49534431e6014a2dc58420d12cc7b8203ce97f32231d81864a96bd9269bf8173",
+    "successor/host/secure-network.ts": "2aef8fea70fe20330629368ad9557a4a1218955e59427f02c204edfd51711bd9"
   }
 }
 ```

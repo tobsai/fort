@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8e112f24075699737c7c90d8f3e93beea231f1c6ef042009e60bc53aada268ad
+Reviewed content SHA256: 33805a3cac1e682656bb40099b854afecfe12eac9f880f7f9a85a361b4544850
 
 ### Vendor independence
 Status: planned
@@ -2702,7 +2702,48 @@ successor/evidence/2026-10-17-node-foundation/native-companion-management.md (ne
 Reuse unchanged-scope decision 059; no external activation or credential authority
 is inferred. Rollback removes only the unused new client entry points and values.
 
+### Observable secure transport shutdown
+
+Continue unchanged-scope decision 059 from ddccfeb. Before composing Mac invitation
+controls, make the optional secure transport's lifetime observable through its
+existing public openSecureNetwork result. Add a readonly closed Promise<void> that
+stays pending while serving, fulfills only when shutdown is confirmed, and rejects
+when cleanup cannot be confirmed within the existing five-second deadline. Explicit
+close, AbortSignal cancellation and server errors use that same completion. Repeated
+close calls retain the same result. A rejected shutdown is never reported as success,
+and observing lifetime never starts, restarts or replaces a listener.
+
+Vendor independence: the contract uses promises and standard HTTPS, without provider
+or hosted service dependencies. Modularity: extend the existing optional transport;
+keep core authorization and all private owner operations unchanged. Speed: retain
+the 20-request TLS p95 budget below 100 ms and the five-second shutdown deadline;
+measure 20 isolated open/abort/closed/port-reuse cycles after five warmups with p95
+below 100 ms, using one disposable local TLS identity and a synthetic private socket.
+Exclude identity generation, actual LAN, provider and user time. Installation/removal:
+import stays inert, only explicit local test listeners run, no production identity,
+trust, network permission, startup registration or account is added. Confirming a
+listener's shutdown does not establish whole-host removal or revoke device access.
+
+Test first at openSecureNetwork with real loopback TLS and a disposable core socket:
+completion is pending while requests succeed, cancellation signals completion without
+an explicit close call, later requests fail and the exact port can be rebound.
+Verify concurrent/idempotent explicit close and unconfirmed shutdown through bounded
+server-boundary fault injection. Run the affected transport and compiled-artifact
+checks, full portable regressions, strict TypeScript compilation and isolated budgets.
+Native source/UI and provider/installed/TestFlight acceptance are unchanged and are
+not rerun or claimed here. No new controller or automatic listener composition is
+introduced; Mac lifecycle/status composition remains the next independent slice.
+
+Exact files: this spec; successor/host/secure-network.ts and secure-network.test.ts;
+successor/V1-ACCEPTANCE.md; docs/architecture/reviews/ponytail/current.md; and
+successor/evidence/2026-10-17-node-foundation/secure-network-lifecycle.md (new).
+The tradeoff is an observable existing lifetime before adding control UI. Revisit
+once the owning host composes this optional entry. Rollback removes the added
+observation contract before any production consumer depends on it, preserving the
+existing explicit shutdown behavior. No external-action approval is inferred.
+
 ## Implementation paths
+- `successor/evidence/2026-10-17-node-foundation/secure-network-lifecycle.md`
 - `successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift`
 - `successor/evidence/2026-10-17-node-foundation/native-companion-management.md`

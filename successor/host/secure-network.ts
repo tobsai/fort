@@ -51,7 +51,7 @@ function headers(input:IncomingMessage,authority:string) {
   if(input.method==='POST' && (length===undefined || input.headers['content-type']!=='application/json'))throw failure();
   return {'Content-Type':'application/json','X-Fort-Installation-Id':installation,...(authorization?{Authorization:authorization}:{})};
 }
-export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{url:string;close():Promise<void>}> {
+export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{readonly url:string;readonly closed:Promise<void>;close():Promise<void>}> {
   const {bindAddress,prefixLength,port,serverName,signal}=options,endpoint={...options.endpoint};
   signal?.throwIfAborted();
   const address=ipv4(bindAddress),loopback=bindAddress==='127.0.0.1';
@@ -82,16 +82,19 @@ export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{u
   verify();
   const server=createServer({key:privateKey,cert:certificate,minVersion:'TLSv1.3',maxHeaderSize:16*1024,handshakeTimeout:5000});
   const sockets=new Set<Socket>(),controllers=new Set<AbortController>(),lifecycle=new AbortController();
+  const completion=Promise.withResolvers<void>();
+  void completion.promise.catch(()=>{});
   let authority='',closing:Promise<void>|undefined;
   const close=()=>{
     if(closing)return closing;
-    closing=new Promise<void>((resolve,reject)=>{
-      const timer=setTimeout(()=>reject(failure()),5000);
+    closing=completion.promise;
+    const timer=setTimeout(()=>completion.reject(failure()),5000);
+    try {
       lifecycle.abort();
       for(const controller of controllers)controller.abort();
-      server.close(error=>{clearTimeout(timer);signal?.removeEventListener('abort',aborted);if(error && (!('code' in error) || error.code!=='ERR_SERVER_NOT_RUNNING'))reject(failure());else resolve();});
+      server.close(error=>{clearTimeout(timer);signal?.removeEventListener('abort',aborted);if(error && (!('code' in error) || error.code!=='ERR_SERVER_NOT_RUNNING'))completion.reject(failure());else completion.resolve();});
       for(const connection of sockets)connection.destroy();
-    });
+    }catch{clearTimeout(timer);completion.reject(failure());}
     return closing;
   };
   const aborted=()=>{void close().catch(()=>{});};
@@ -144,6 +147,6 @@ export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{u
     const bound=server.address();if(!bound || typeof bound==='string' || bound.address!==bindAddress)throw failure();
     authority=serverName+':'+bound.port;
     server.on('error',aborted);
-    return {url:'https://'+authority,close};
+    return {url:'https://'+authority,closed:completion.promise,close};
   }catch{await close();throw failure();}
 }
