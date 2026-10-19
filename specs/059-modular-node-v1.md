@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 6a2744fcc0cfa51684eb163928072ca7b2daa47f3d041809542fc5cc79aa04f1
+Reviewed content SHA256: 9ebfc1e90639fefcba4f63472eaf321a47160716a339ef2927b768658eaae744
 
 ### Vendor independence
 Status: planned
@@ -3287,6 +3287,31 @@ the cleanup reserve, so the candidate stayed inactive. This is an authority-reco
 correction, not a product or permission change. All four architecture principles
 and the previously measured evidence are unchanged. Continued live work needs
 enough authorized time without resetting the original deadline.
+
+## Extended installed-test time and activation-review hold
+
+The owner extended this test as long as needed on October 19 at 23:43:54 UTC
+(Sentinel_15479ff398d081918411da08295352de). Preserve the original clock as
+historical evidence. The original six-request total, personal ChatGPT selection,
+exact Astra discovery, unchanged permissions and required cleanup are retained;
+no prompts have been sent. This is a time-authority update, not new product scope.
+
+The self-inspection candidate was verified and installed, but automatic approval
+review rejected the exact persistent Enable action before execution. Reconsideration
+using the recorded October 19 test approval was also rejected because the review
+does not accept those records as trusted authorization over the original import-only
+startup prohibition. No workaround or activation occurred. Explicit confirmation
+of the concrete test was requested. Normal Quit and exact job/process/storage/
+credential-path absence passed; installed files still match. G2 remains held.
+
+All four principles are unaffected by this evidence-only update: provider identity
+and modular boundaries are unchanged, no runtime performance claim or new dependency
+is introduced, and the installed artifact remains inert with verified absence.
+Only this spec, the three current ledgers, existing installed test/proposal/repair
+notes and the current review change. Preserve earlier reports and clocks. No product
+tests rerun; installed provenance, signatures, UI status, normal Quit and absence are
+the acceptance evidence for this checkpoint. Rollback retains all historical source
+and artifact copies. Full installed host/provider/lifecycle acceptance remains open.
 
 ## Implementation paths
 

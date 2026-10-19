@@ -8,6 +8,46 @@ proposal was Sentinel_1d0357e845108191bda2c580952409d5. No G2 upload approval fo
 The subsequent [self-inspection repair](helper-self-inspection.md) has source and
 read-only sandbox evidence. It does not turn this failed live test into a pass.
 
+## Extended-time continuation
+
+At 23:43:54 UTC the owner said “Extend these as long as needed as a rule going
+forward” (Sentinel_15479ff398d081918411da08295352de), in response to extending
+this installed test. The original time record is preserved, not reset. Personal
+ChatGPT, gpt-6-astra only if reported, six synthetic prompts total, unchanged
+permissions and verified cleanup remain the bounded scope. G2 upload is separate.
+
+The self-inspection candidate was verified again: all 206 files/modes/sizes/hashes,
+all 30 strict signatures and public signing leaf fingerprints, exact entitlements,
+strict nested signature and native full-package inspection passed. Report SHA256
+b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae;
+payload SHA256 aac1011e317607d5b56a293ffdd237ffbe7ad16b328eb894e1676b015cda024f.
+It was installed at /Users/tobiasgunn/Applications/Fort.app. The prior cleanup
+app was preserved at /tmp/fort059-installed-cleanup-preserved-20261019.app.
+The installed setup UI reported the host not enabled and Connect disabled.
+
+Automatic approval review rejected the exact Enable local host action before
+execution. Its reason: persistent startup conflicts with the original import-only
+prohibition, and extending time alone is insufficient. Reconsideration after
+checking the prior proposal, approval references and same-scope retry record was
+also rejected: the review treats those files/assistant claims as untrusted evidence.
+The source-thread read returned no turns, so it did not independently recover the
+original human approval. This record does not override the rejection. No workaround,
+registration, pairing, credential creation or provider authentication occurred.
+The owner was asked for an explicit confirmation of the concrete installed test.
+
+Normal client Quit passed. At 23:49:32 UTC, independent launchctl exit 113 and
+process/path checks confirmed no exact host job or owned process, no FortHost
+storage or provider credential path, and only the zero-byte mode-0600 setup lock
+in native storage. Installed files still match all 206 manifest records. No token
+was generated; Keychain contents were not read. Zero of six prompts have been used.
+No provider authentication handoff has been reached. Full startup/XPC, account/model
+controls, replies, cancellation and paired lifecycle remain unrun after the repair.
+
+Continuation authority, exact action/result, redacted AX and final absence records
+are under /tmp/fort059-attended-resume-20261019. No product source changed or
+behavioral tests reran for this evidence-only checkpoint. Existing native test/build
+results in the linked repair and original outcome remain historical proof with their stated limits.
+
 ## Outcome
 
 The original candidate was verified against report SHA256

@@ -5,6 +5,12 @@ Spec 059 / decision 059. October 19, 2026. Base
 its [failure and confirmed cleanup](installed-host-test.md) remain separate evidence.
 No registration, pairing or provider activation occurred during this repair.
 
+The later [extended-time continuation](installed-host-test.md#extended-time-continuation)
+installed this exact candidate after repeat verification. Automatic approval review
+blocked activation; the client quit normally and exact absence checks passed.
+The owner extended the test duration, so time is no longer the blocker. The
+uninstalled/old-deadline statements below describe the repair checkpoint.
+
 ## Cause and change
 
 MacHostProgram called the full enclosing-app inspector from the sandboxed helper.

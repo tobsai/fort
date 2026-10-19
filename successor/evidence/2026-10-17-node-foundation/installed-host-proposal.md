@@ -1,14 +1,17 @@
 # Exact installed Mac host/provider test proposal
 
-The attempted candidate below is historical. The [repaired replacement](helper-self-inspection.md)
-now pins report b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae
-and remains uninstalled/unlaunched. Existing approval covers same-scope targeted
-repairs and retries within the original window ending 19:48:02 UTC. The changed
-hash alone does not require renewed approval. No retry was activated at 19:41:18
-because only 104 seconds remained before the cleanup reserve. Further execution
-needs enough authorized time; do not reset the deadline silently. The owner has already selected personal
-ChatGPT; normal UI verification of that identity remains required.
-
+The repaired candidate pinned by report
+b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae is now installed
+and stopped. The owner extended testing time as needed at 23:43:54 UTC
+(Sentinel_15479ff398d081918411da08295352de); the original deadline below is
+historical. The same six-prompt total, personal ChatGPT selection, unchanged
+permissions and cleanup apply. A changed hash alone is not a new approval gate.
+Automatic approval review nevertheless rejected startup activation before execution,
+including reconsideration using the recorded prior approval. It requires explicit
+trusted confirmation of persistent activation. No registration, pairing or sign-in
+occurred; exact absence and normal Quit passed. See the
+[continuation evidence](installed-host-test.md#extended-time-continuation).
+No G2 upload approval follows.
 
 **Historical proposal, approved and attempted; cleanup complete.** October 19, 2026.
 See [the attempted test outcome](installed-host-test.md). It stopped before pairing

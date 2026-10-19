@@ -1,5 +1,28 @@
 # Fort v1 acceptance ledger
 
+## Repaired candidate installed; activation rejected by automatic review
+
+October 19, 23:49 UTC: the owner extended test time as needed in
+Sentinel_15479ff398d081918411da08295352de (23:43:54 UTC). The old clock remains
+historical evidence; duration is no longer the blocker. Personal ChatGPT, Astra
+only if reported, six synthetic prompts total, unchanged permissions and verified
+cleanup remain the scope. The original attempt used zero prompts.
+
+The repaired candidate is now installed at /Users/tobiasgunn/Applications/Fort.app.
+All 206 file records, all 30 signatures/public certificate fingerprints, exact
+entitlements and native full-package inspection passed again. The old cleanup
+app was preserved. Automatic approval review rejected Enable local host before
+execution, then rejected reconsideration using the earlier approval records:
+it treats those records as untrusted and recognizes the original startup
+prohibition. No workaround was attempted; an explicit confirmation was requested.
+The client quit normally. At 23:49:32 UTC the exact job, owned processes, host
+storage and provider credential path were absent; native storage held only its
+empty setup lock. Zero pairings, sign-ins or prompts occurred. The application
+remains installed and stopped. [Exact continuation evidence](evidence/2026-10-17-node-foundation/installed-host-test.md#extended-time-continuation).
+
+Host/provider/paired lifecycle and TestFlight acceptance remain open. G2 CSR upload
+is separately held. Earlier uninstalled/deadline statements below are historical.
+
 ## Helper inspection repaired; replacement candidate inert
 
 October 19: the helper now validates its own signed bundle without reading its
