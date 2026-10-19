@@ -99,11 +99,16 @@ test('the compiled core runs independent runtime contracts with provider impleme
   assert.ok(files.includes('service/openai.js') && files.includes('service/openai.d.ts'));
   assert.ok(files.includes('contracts/attempt.d.ts'));
   assert.ok(files.includes('host/secure-network.js') && files.includes('host/secure-network.d.ts'));
+  assert.ok(files.includes('host/network-control.js') && files.includes('host/network-control.d.ts') && files.includes('contracts/secure-network.d.ts'));
   assert.ok(!files.includes('host/network-test-identity.js'));
   const packageInfo = JSON.parse(await readFile(join(artifact, 'package.json'), 'utf8'));
   assert.equal(packageInfo.exports['./secure-network'].import, './host/secure-network.js');
+  assert.equal(packageInfo.exports['./network-control'].import, './host/network-control.js');
   const inert = spawnSync(process.execPath, ['--permission', `--allow-fs-read=${artifact}`, '--input-type=module', '-e', 'const transport = await import(process.argv[1]); if (typeof transport.openSecureNetwork !== "function") process.exit(2);', join(artifact, 'host/secure-network.js')], { env: {}, encoding: 'utf8', timeout: 5000 });
   assert.equal(inert.status, 0, inert.stderr);
+  const inertControl = spawnSync(process.execPath, ['--permission', `--allow-fs-read=${artifact}`, '--input-type=module', '-e', 'const {createSecureNetworkControl}=await import(process.argv[1]); const control=createSecureNetworkControl({endpoint:{kind:"privateSocket",directory:"/nonexistent",name:"core.sock"},authorize:()=>true}); const status=await control.execute({operation:"inspect",owner:{installationId:"fixture",deviceId:"owner"}}); if(status.generation!==0 || status.listener.state!=="stopped")process.exit(2); await control.close();', join(artifact,'host/network-control.js')], {env:{},encoding:'utf8',timeout:5000});
+  assert.equal(inertControl.status,0,inertControl.stderr);
+
   assert.ok(!files.some(file => /codex|prototype|node_modules|foundation|contracts\/runtime|modules\/|skill-context/.test(file)));
   assert.match(await readFile(join(artifact, 'LICENSE'), 'utf8'), /Copyright \(c\) 2026 Tobias Gunn/);
   const manifest = JSON.parse(await readFile(join(artifact, 'manifest.json'), 'utf8'));

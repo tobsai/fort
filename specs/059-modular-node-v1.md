@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 33805a3cac1e682656bb40099b854afecfe12eac9f880f7f9a85a361b4544850
+Reviewed content SHA256: 60c1c2e8b25131bf38d58fe5daef88d2702b5d74dc5d0bdd313ff99c99976ccd
 
 ### Vendor independence
 Status: planned
@@ -2742,7 +2742,73 @@ once the owning host composes this optional entry. Rollback removes the added
 observation contract before any production consumer depends on it, preserving the
 existing explicit shutdown behavior. No external-action approval is inferred.
 
+### Explicit secure listener control
+
+Continue unchanged-scope decision 059 from fc32c96. Prepare the optional owning-host
+controller before private-channel/native composition. Its public execute command
+supports inspect, start and stop for an exact installation and primary device.
+Construction requires an explicit synchronous owner authorization callback; absence,
+false or a nonboolean result denies access before bind. No HTTP route gains this
+authority. The later signed private-host adapter must supply the actual owner check.
+This slice tests the controller with injected authorization only and does not claim
+that production composition or owner authentication has been completed.
+
+Each new controller has a fresh session ID and starts stopped. Start names that
+session and the observed generation; successful admission advances the generation
+once. Exact retries of the most recent start return its current result without a
+second listener. Changed retry configuration and stale sessions/generations fail.
+Stop names the exact admitted generation, including an opening listener; a delayed
+stop cannot affect its replacement. Failed opening reports whether listener cleanup
+was confirmed. Unconfirmed cleanup blocks another start for that controller. Close
+is final and idempotent, aborts an opening listener, waits for owned cleanup and
+refuses later operations. Unexpected listener closure changes visible state.
+
+Commands use a small Fort JSON contract with bounded exact IDs, integers and canonical
+base64 certificate/key bytes. Parse once at the controller boundary, reject extra or
+contradictory fields, copy input values before awaiting, and keep TLS material in
+memory only. Status contains scope/session/generation and a discriminated listener
+state; only active state includes its verified HTTPS URL. No credentials or raw
+errors appear in status. Existing low-level TLS/subnet/socket checks remain mandatory.
+No automatic restore, retry, replacement, certificate generation, discovery, trust
+change, tunnel or default listener is introduced.
+
+Vendor independence: Node built-ins and Fort-owned JSON, with no provider/control
+plane dependency. Modularity: a separate optional controller entry and type-only
+contract; service and ordinary host imports remain independent in this slice.
+Speed: 20 isolated inspect/start/exact-retry/request/stop journeys after five warmups
+must have p95 below 100 ms, excluding identity generation/provider/user time; existing
+five-second shutdown deadline is retained. Installation/removal: explicit constructor
+and start only, final close on owner shutdown; no actual production credential,
+network entitlement, startup registration or Apple account change. Source preparation
+does not grant authority to activate the installed listener.
+
+Test first through the public controller with real disposable loopback TLS/private
+sockets: inert inspection, exact start/retry/stop, stale and foreign scope, changed
+retry payload, mutation isolation, stop during bind, unexpected close, confirmed
+opening failure, unconfirmed cleanup and final shutdown. Verify opening-error cleanup
+classification independently at openSecureNetwork. Compile the optional export and
+prove inert import without network permission; retain core/provider-independent
+journeys. Run full portable regressions, strict TypeScript and isolated budgets.
+The tradeoff is process-local control without automatic restoration; later native
+controls must inspect a new host session and ask for an explicit new start. This
+avoids persisting TLS keys or replaying network activation after a crash.
+
+Exact files: this spec; successor/contracts/secure-network.ts (new);
+successor/host/network-control.ts and network-control.test.ts (new);
+successor/host/secure-network.ts and secure-network.test.ts;
+successor/packaging/core-artifact.ts and core-artifact.test.ts;
+successor/tsconfig.core.json; successor/V1-ACCEPTANCE.md;
+docs/architecture/reviews/ponytail/current.md; and
+successor/evidence/2026-10-17-node-foundation/network-control.md (new).
+Rollback removes the uncomposed controller/export before production use and retains
+the existing optional transport. Mac private-channel/UI composition follows next;
+real TLS trust, listener/startup permission, provider and TestFlight gates stay open.
+
 ## Implementation paths
+- `successor/contracts/secure-network.ts`
+- `successor/host/network-control.ts`
+- `successor/host/network-control.test.ts`
+- `successor/evidence/2026-10-17-node-foundation/network-control.md`
 - `successor/evidence/2026-10-17-node-foundation/secure-network-lifecycle.md`
 - `successor/apple/FortKit/Sources/FortKit/CompanionManagement.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionManagementTests.swift`

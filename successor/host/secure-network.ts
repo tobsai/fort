@@ -51,7 +51,19 @@ function headers(input:IncomingMessage,authority:string) {
   if(input.method==='POST' && (length===undefined || input.headers['content-type']!=='application/json'))throw failure();
   return {'Content-Type':'application/json','X-Fort-Installation-Id':installation,...(authorization?{Authorization:authorization}:{})};
 }
-export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{readonly url:string;readonly closed:Promise<void>;close():Promise<void>}> {
+type SecureNetwork = {readonly url:string;readonly closed:Promise<void>;close():Promise<void>};
+export class SecureNetworkOpenError extends Error {
+  readonly cleanupConfirmed:boolean;
+  constructor(cleanupConfirmed:boolean){super('Secure network transport could not be verified');this.cleanupConfirmed=cleanupConfirmed;}
+}
+class ShutdownUnconfirmed extends Error {
+  constructor(){super('Secure network transport could not be verified');}
+}
+export async function openSecureNetwork(options:SecureNetworkOptions):Promise<SecureNetwork> {
+  try {return await startSecureNetwork(options);}
+  catch(error){throw new SecureNetworkOpenError(!(error instanceof ShutdownUnconfirmed));}
+}
+async function startSecureNetwork(options:SecureNetworkOptions):Promise<SecureNetwork> {
   const {bindAddress,prefixLength,port,serverName,signal}=options,endpoint={...options.endpoint};
   signal?.throwIfAborted();
   const address=ipv4(bindAddress),loopback=bindAddress==='127.0.0.1';
@@ -88,13 +100,13 @@ export async function openSecureNetwork(options:SecureNetworkOptions):Promise<{r
   const close=()=>{
     if(closing)return closing;
     closing=completion.promise;
-    const timer=setTimeout(()=>completion.reject(failure()),5000);
+    const timer=setTimeout(()=>completion.reject(new ShutdownUnconfirmed()),5000);
     try {
       lifecycle.abort();
       for(const controller of controllers)controller.abort();
-      server.close(error=>{clearTimeout(timer);signal?.removeEventListener('abort',aborted);if(error && (!('code' in error) || error.code!=='ERR_SERVER_NOT_RUNNING'))completion.reject(failure());else completion.resolve();});
+      server.close(error=>{clearTimeout(timer);signal?.removeEventListener('abort',aborted);if(error && (!('code' in error) || error.code!=='ERR_SERVER_NOT_RUNNING'))completion.reject(new ShutdownUnconfirmed());else completion.resolve();});
       for(const connection of sockets)connection.destroy();
-    }catch{clearTimeout(timer);completion.reject(failure());}
+    }catch{clearTimeout(timer);completion.reject(new ShutdownUnconfirmed());}
     return closing;
   };
   const aborted=()=>{void close().catch(()=>{});};

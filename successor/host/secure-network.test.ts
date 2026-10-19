@@ -113,6 +113,30 @@ test('secure transport refuses unselected or mismatched bind, TLS and socket ide
   const network=await openSecureNetwork(f.options);await network.close();
 });
 
+test('opening errors distinguish confirmed cleanup without returning input details',async t=>{
+  const f=await fixture(t);
+  await assert.rejects(openSecureNetwork({...f.options,serverName:'wrong.invalid'}),error=>{
+    assert.ok(error instanceof Error && 'cleanupConfirmed' in error);
+    assert.equal(error.cleanupConfirmed,true);assert.ok(!error.message.includes('wrong.invalid'));return true;
+  });
+  const network=await openSecureNetwork(f.options);t.after(()=>network.close());
+  await assert.rejects(openSecureNetwork({...f.options,port:Number(new URL(network.url).port)}),error=>{
+    assert.ok(error instanceof Error && 'cleanupConfirmed' in error);assert.equal(error.cleanupConfirmed,true);return true;
+  });
+});
+
+test('failed opening with a missing cleanup acknowledgment is explicitly unconfirmed',{timeout:8000},async t=>{
+  const f=await fixture(t),close=Server.prototype.close;
+  const listen=t.mock.method(Server.prototype,'listen',()=>{throw new Error('Synthetic bind failure');});
+  const closeFault=t.mock.method(Server.prototype,'close',function(this:Server){return close.call(this);});
+  try {
+    await assert.rejects(openSecureNetwork(f.options),error=>{
+      assert.ok(error instanceof Error && 'cleanupConfirmed' in error);assert.equal(error.cleanupConfirmed,false);
+      assert.equal(error.message,'Secure network transport could not be verified');return true;
+    });
+  }finally{listen.mock.restore();closeFault.mock.restore();}
+});
+
 test('an expired, future or mismatched TLS identity cannot activate the transport',async t=>{
   const f=await fixture(t),other=networkTestIdentity();
   await assert.rejects(openSecureNetwork({...f.options,privateKey:other.privateKey}));
