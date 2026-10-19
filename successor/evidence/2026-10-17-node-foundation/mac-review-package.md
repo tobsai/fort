@@ -1,5 +1,95 @@
 # Inert Mac review package — October 18, 2026
 
+## Mac demo readiness — source 1f3cda5
+
+October 19, 2026. Current source:
+`1f3cda5dc473b4960c397b4a9a20915d2a262d64`, branch
+`codex/fort-openai-rebuild-20261016`, under decision 059 and Spec 059.
+The latest owner steering prioritizes installed Mac launch, actual-provider chat,
+restart and reconnect, then TestFlight, before further phone UI. This section
+supersedes checkpoint-specific next-work lists below; their history is retained.
+
+The current review artifact is
+`/private/tmp/fort059-mac-demo-review-20261019/Fort.app`.
+It is **unsigned, unlaunched and not a working installed demo**. It contains fresh
+Release Mac client/helper binaries, fresh compiled host resources, the preserved
+self-contained Node closure/guardian, and exact Codex 0.157.1 with retained legal
+payload. The source Mac provider-account controls and guarded host composition are
+implemented; actual account/host activation and provider behavior remain unverified.
+Optional phone networking is available in source but the ordinary bootstrap does
+not enable it, and phone UI does not block this Mac demo milestone.
+
+Verified results:
+
+- Full portable suite at this source: **1,308 passed, 15 skips, zero failures**;
+  strict TypeScript passed. See [owner-network evidence](owner-network.md).
+- Fresh host resources at `/tmp/fort059-mac-demo-host-resources-20261019`:
+  **112 manifest payload files, 113 including manifest, 484,231 total bytes**.
+  Each size/hash and exact membership matched independently. Manifest SHA256:
+  `2e7463a21456f569a243de770a1f77bee75a5babbdeee6449b8cce672bfff1a5`.
+- Full serial native suite against those exact resources: **317 passed, 15 skipped,
+  332 reported**, 53.081 seconds. Skips are 13 opt-in budgets and two retained
+  package/signature probes without their optional inputs. The package probe was
+  then supplied this exact new artifact and passed separately. The retained signed
+  probe was not repeated. `/tmp/fort059-mac-demo-native.log` and
+  `/tmp/fort059-mac-demo-package-inspection.log`.
+- Fresh unsigned Release Mac client and helper builds passed in
+  `/tmp/fort059-mac-demo-build-20261019`. No source setting, entitlement, identity or
+  signing configuration was changed. Xcode performed ordinary LaunchServices build
+  metadata registration; no SMAppService startup registration or product launch ran.
+  Logs `/tmp/fort059-mac-demo-client-build.log` and
+  `/tmp/fort059-mac-demo-helper-build.log`.
+- Assembled **200 files / 404,145,780 bytes**, independently verified every output
+  hash/mode/length, exact output membership and all **198 input hashes/modes**.
+  **Zero embedded profiles.** Package report SHA256:
+  `0ef15409b282973c248dce875f307214c61ba1b4c4b79a83e0c6987b4d4e50e2`.
+  Report `/tmp/fort059-mac-demo-review-20261019/package-report.json`; assembly log
+  `/tmp/fort059-mac-demo-assembly.log`. All prior artifacts remain intact.
+- Actual public `MacHostBundle.inspect` refuses this unsigned artifact. An explicitly
+  synthetic signature reader reaches the real missing-profile refusal. This proves
+  the preflight gate, not a valid signature/profile or installed operation.
+
+The exact review identities remain `io.fort.spec058.fixture.mac`, helper
+`io.fort.spec058.fixture.mac.host`, engineering group
+`group.io.fort.spec058.fixture.mac`, team `T3JB5MYZ93`. They were not adopted as
+release IDs, provisioned or represented as registered records.
+
+Minimum next actions, in dependency order:
+
+1. Complete the selected `tobias@mtree.io` Apple sign-in through secure 1Password/UI
+   and any device verification. Verify its role and the exact current team, app,
+   helper and group records. The earlier Admin session verified the team but did
+   not allow Developer ID Application creation. It was signed out without adding
+   browser trust. On the selected account's password step, secure Autofill remained
+   unconfirmed and Apple kept Sign In disabled; the owner handoff is pending.
+2. Reuse verified existing app/helper/group records and compatible profiles. If
+   absent, present only the exact missing registrations/group associations and
+   development profiles for approval. The proposed release set remains
+   `io.mtree.fort.mac`, `io.mtree.fort.mac.host`, `group.io.mtree.fort.mac`, pending
+   remote verification. No replacement identity or access grant is inferred.
+3. Prepare the final signed/profiled package with exact entitlement inspection.
+   Actual provider operation needs the helper's separately approved outbound
+   network capability (currently disabled), a scoped new Fort provider session,
+   and an explicit per-user host startup grant. Present activation only after the
+   exact signed artifact and cleanup path are reviewable. No owner credential is
+   copied from another installation; agent-host and computer-tool permissions stay
+   separate. The selected official runtime is the bundled Codex 0.157.1.
+4. Execute installed native launch/pair/sign-in/chat/quit/relaunch/reconnect/stop
+   acceptance through the real provider, recording exact build, accessibility,
+   screenshots and cleanup. Then prepare the verified Mac App Store/TestFlight
+   identity, archive/upload, Apple processing and tester availability separately.
+   Physical iPhone acceptance remains required for full v1 after the Mac milestone.
+
+G2 Developer ID Application creation is already approved for team T3JB5MYZ93, with
+its key retained on this Mac and existing certificates preserved. It has not been
+performed and is not a TestFlight prerequisite. Apple's updated Program License
+Agreement remains unaccepted; provide its verified link and request separate owner
+approval if that action is needed. No new key/CSR/certificate, provisioning, trust
+change, provider sign-in, startup activation, archive or upload occurred here.
+No actual provider/LAN/physical acceptance or new installed-product screenshot is
+claimed. Safari inspection is Apple workflow evidence, not Fort UI acceptance.
+
+
 ## Native account checkpoint
 
 Current native source: a522d2a plus the reviewed native-account slice. New inert bundle:

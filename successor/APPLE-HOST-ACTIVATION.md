@@ -1,5 +1,43 @@
 # Apple host activation gate
 
+## Current Mac demo handoff — October 19, 2026
+
+Current source `1f3cda5dc473b4960c397b4a9a20915d2a262d64`; prioritize installed
+Mac launch/actual-provider chat/restart/reconnect, then TestFlight, ahead of phone UI.
+[Fresh exact package and checks](evidence/2026-10-17-node-foundation/mac-review-package.md#mac-demo-readiness--source-1f3cda5)
+record 1,308 portable passes, 317 native passes, fresh Release client/helper builds
+and a 200-file unsigned review app. No embedded profile, startup activation or
+actual provider session exists for that package. Public signature inspection refuses
+it; the synthetic signature check reaches the missing-profile gate.
+
+Read-only Apple access previously confirmed Maple Tree Enterprises LLC, team
+`T3JB5MYZ93`, role Admin, with Account Holder Tobias Gunn. Developer ID Application
+creation was disabled. The owner selected `tobias@mtree.io` in source message
+`Sentinel_abde69899a008191b033d31fb1194848` (October 19, 00:38:56 UTC), relayed by the
+parent. The existing Admin browser session was signed out using ordinary Sign out,
+without Trust and sign out. The selected account identifier was verified exactly.
+The existing unlocked 1Password item was selected and secure Autofill invoked, but
+Apple's password-step Sign In remains disabled. The secure sign-in/device-verification
+handoff is pending. No password was read, revealed, copied or transmitted by tools.
+The selected account's current role is **not yet verified**.
+
+The separate approved G2 Developer ID Application action remains pending, preserving
+all existing certificates and keeping its private key on the signing Mac. No key,
+CSR or certificate has been created/installed/exported/revoked. The earlier account
+banner reports an updated Program License Agreement; it remains unaccepted and needs
+its verified link plus separate approval before acceptance. Xcode's system-component
+Install prompt remains untouched. G2 direct distribution is separate from TestFlight.
+
+Next: finish secure Apple sign-in, verify the exact existing Mac app/helper/group
+records, then request only any confirmed missing provisioning changes. The proposed
+release IDs below remain unadopted until that lookup. After signing/provisioning,
+present exact helper outbound-network, provider session and per-user startup scope
+for approval before installed execution. Existing certificate approval does not
+authorize those grants. The current helper still has outbound networking disabled.
+The source provider-account/native controls are implemented; the older "not
+implemented" statements below describe their historical checkpoints only.
+
+
 October 18, 2026: **not provisioned, registered or activated**. Governing design:
 [Spec 059](../specs/059-modular-node-v1.md) and its
 [owner decision](../docs/architecture/decisions/059-node-foundation.md).
