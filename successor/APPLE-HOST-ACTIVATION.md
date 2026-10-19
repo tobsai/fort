@@ -1,5 +1,119 @@
 # Apple host activation gate
 
+## Consolidated Mac demo grant review — source 7d528ba
+
+October 19, 2026. Read-only trace of the packaged host, official-runtime account
+flow, native startup and removal at `7d528baeb176d7827f60a7fa61fedb9c620b853c`.
+This is an approval description for the coordinator to complete with verified
+identities and artifact evidence. **It is not an approval or an activation request.**
+The secure Apple/1Password handoff remains pending and was left undisturbed.
+
+### Identities that must be resolved before asking
+
+- Apple organization: **Maple Tree Enterprises LLC**, team **T3JB5MYZ93**.
+  Selected Apple login: **tobias@mtree.io**; its current authenticated role is
+  unverified. The earlier Admin session and named Account Holder do not prove this
+  selected session's authority. Existing G2 certificate approval remains valid;
+  the Program License Agreement remains unapproved.
+- Intended Mac app/helper/group: **io.mtree.fort.mac**,
+  **io.mtree.fort.mac.host**, **group.io.mtree.fort.mac** are proposals pending
+  read-only record lookup. They are not the current engineering artifact's IDs.
+  Reuse compatible existing records; request only verified missing registrations,
+  group associations and matching profiles. No account role change is needed in
+  the proposed scope. G2 Developer ID work and TestFlight distribution are separate.
+- Provider: the bundled official **Codex 0.157.1**, source
+  **36650394c5b38c2990ccf2a3457165ca3e9d9726**, provider `codex`, host `local-codex`,
+  using an owner-selected existing **ChatGPT subscription**. The ChatGPT account
+  email/workspace and exact model are **not yet established for this new grant**.
+  The Apple email is not evidence of the ChatGPT identity. Do not reuse consumed
+  demo grants or infer a model from historical sessions. The owner must identify
+  the intended account, verify it in the official authorization UI, and select
+  the exact available model before any chat turn.
+- The final signed app's installation path, signatures, profiles, entitlement
+  inventory and package digest must replace the current unsigned review-artifact
+  reference in the actual approval. Public inspection checks profile presence,
+  with `presentUnverified` evidence; profile contents, purpose, expiry, team and
+  group agreement require separate inspection. No installation path is approved
+  by this note.
+
+### Minimum host and provider scope
+
+| Grant | Concrete action and scope | Persistence / reversal |
+| --- | --- | --- |
+| Local host and App Group | Run the verified Fort client and its nested `Contents/Helpers/FortHost.app` as the current Mac user. Both use their own App Sandbox and the single verified Fort App Group. Node, guardian and Codex inherit that helper sandbox; no root daemon. | App Group storage and client cache survive quit/restart. Remove only the exact Fort installation through its verified lifecycle path; retain history by default. |
+| Per-user background registration | One explicit `SMAppService.agent(plistName: "io.mtree.fort.mac.host.plist").register()` for the verified installation, if these proposed IDs are adopted. Honor any macOS `requiresApproval` prompt. | Registration persists until unregister. The packaged plist has only Label, BundleProgram and MachServices: no RunAtLoad or KeepAlive. It permits on-demand launch through `group.io.mtree.fort.mac.fort.host`; quit of the client does not revoke registration or prove the helper stopped. |
+| Provider outbound access | Add `com.apple.security.network.client` to the exact standalone helper, currently disabled, then rebuild/sign/review that artifact. Permit the bundled runtime's official ChatGPT device authorization, model discovery and selected text requests. | This is an outbound-network entitlement, not a domain allowlist. The launch plan pins normal OpenAI routing and rejects endpoint overrides. Expected service paths include `auth.openai.com` and `chatgpt.com`; the actual runtime's network behavior still needs inspection. Remove the grant by stopping/unregistering and removing or replacing the exact signed app. |
+| Fort-owned provider sign-in | Start one explicit device-code flow from Fort and have the owner authorize the named ChatGPT account at `https://auth.openai.com/codex/device`. No automatic browser opening or callback listener. Use no API key and copy no credential from another installation. | The official runtime writes its credential into Fort's private `Runtime/state/auth.json` and may refresh its session during later authorized use. It survives process restart. Canceling a sign-in attempt does not revoke a login that already completed. Provider credential removal is a separate unresolved operation below. |
+| Primary local pairing and demo | Create the primary device token in this app's Keychain namespace; authorize only native launch, plain-text chat, quit/relaunch, explicit runtime stop/resume and reconnect to the same installation. A proposed attended acceptance limit is 30 minutes and at most six short text turns, followed by confirmed shutdown/unregistration; this is a proposed operator limit, not a built-in expiry. | Pairing has no expiry by default. It therefore needs explicit revocation at cleanup. A disconnect/re-pair check requires new explicit local pairing while preserving history; it does not authorize another provider account or another device. |
+
+The minimal Mac path uses signed Mach XPC, a private pipe and a private Unix socket
+`<App Group>/FortHost/core.sock`. The ordinary bootstrap omits optional network
+control: no TCP/LAN listener, phone pairing, cloud tunnel or shared hosting is needed.
+No incoming-network entitlement is requested. No routines or schedules need to be
+created for this acceptance journey.
+
+The agent host and computer-tool policy are different boundaries. The helper's
+App Sandbox plus its explicit outbound entitlement contain the host and inherited
+processes. Codex's `fort_candidate_b_no_files` profile separately denies computer-tool
+filesystem access and disables tool networking. Shell, browser/computer tools,
+plugins, hooks, MCP, cloud skills, remote control, telemetry and upstream auto-update
+are disabled and checked. No workspace/file picker, Full Disk Access, Accessibility,
+screen capture, microphone or sensitive-account grant is part of this proposal.
+The source controls and earlier synthetic probes do not prove confinement of the
+final signed provider session; inspect that exact installation after approval.
+
+### Stored data and removal limits
+
+Host storage resolves through Apple's URL for the verified group, then `FortHost`.
+The private ledger is `openai-candidate-b.sqlite` with its SQLite sidecars. Runtime
+directories are `Runtime/home`, `Runtime/state`, `Runtime/workspace` and `Runtime/tmp`,
+each checked as private owner directories. Codex uses only these selected HOME,
+CODEX_HOME and TMPDIR values with a restricted environment. The normal client uses
+its system Application Support directory's `FortCandidateB` child for connection
+metadata, pending work and cached history. Actual sandbox-resolved paths must be
+recorded at installation; do not guess an unsandboxed user-library path.
+
+The primary token is stored as a this-device-only Keychain generic password under
+service `Fort.Spec058.Device`, account `<installationID>/<deviceID>`. Its name is a
+historical internal namespace, not a license to adopt another installation's token.
+Evidence records identifiers and credential classes only, never token or auth-file
+contents. Provider requests transmit the owner-selected conversation/context; local
+uninstall cannot undo delivery or promise deletion from the provider's systems.
+
+The source removal path confirms exact owner revocation, runtime disposal,
+SMAppService unregistration and helper exit before deleting the local pairing
+credential. It then prepares the exact app URL for removal. Unconfirmed steps keep
+the recovery journal and block a success claim. History stays unless separately
+confirmed deletion is chosen.
+
+**Two review limits must remain visible:**
+
+1. `codex-account.ts` and `codex-chat.ts` verify the account **type** is ChatGPT;
+   they do not expose or pin an email/account/workspace ID. Native sign-in status
+   therefore cannot independently prove that the selected human account is the one
+   authenticated. Before use, verify the exact account in the official device
+   authorization UI and establish how that identity will be correlated with the
+   private session. No credential inspection is authorized as a shortcut.
+2. The native removal callback deletes the **Fort pairing token**, not
+   `Runtime/state/auth.json`. No current production `account/logout` operation or
+   provider-credential cleanup was found. Host/client history deletion also keeps
+   runtime sessions. Therefore full credential-free uninstall is **not implemented
+   or proven**. Before a cleanup-complete demo is approved, prepare and test the
+   smallest exact private-session sign-out/local credential-removal action with
+   confirmed process absence and history preservation. State separately any provider
+   grant that needs revocation; never claim remote revocation from local deletion.
+
+The next concrete approval must include the resolved Apple/app/group/profile and
+ChatGPT identities, signed artifact/path, the proposed attended limits, the outbound
+host entitlement, primary token/provider-session persistence, per-user registration
+and its exact tested cleanup. The current facts do not yet support that complete
+approval. The security/credential/persistent-access requirement is explicit in
+[CLAUDE.md](../CLAUDE.md): "Mandatory per-action security, credential/persistent-access
+approvals, legal agreements and destructive-action authority remain necessary."
+This turn made no provider/Apple mutation, credential access, entitlement change,
+registration, app launch, legal acceptance or fresh runtime test. Source review is
+the new evidence; prior passing tests and unsigned package checks are unchanged.
+
 ## Current Mac demo handoff — October 19, 2026
 
 Current source `1f3cda5dc473b4960c397b4a9a20915d2a262d64`; prioritize installed
