@@ -8,7 +8,7 @@ export type NetworkCommand =
   | Readonly<{operation:'start';owner:NetworkOwner;sessionId:string;generation:number;configuration:NetworkConfiguration}>
   | Readonly<{operation:'stop';owner:NetworkOwner;sessionId:string;generation:number}>;
 export type NetworkListenerState =
-  | Readonly<{state:'stopped';cause:'initial'|'requested'|'startFailed'|'interrupted'}>
+  | Readonly<{state:'stopped';cause:'initial'|'requested'|'startFailed'|'interrupted'|'ownerUnavailable'}>
   | Readonly<{state:'starting'|'stopping'|'unconfirmed'}>
   | Readonly<{state:'active';url:string}>;
 export type NetworkStatus = Readonly<{
@@ -16,5 +16,6 @@ export type NetworkStatus = Readonly<{
 }>;
 export type SecureNetworkControl = {
   execute(command:unknown):Promise<NetworkStatus>;
+  reconcileOwner():Promise<void>;
   close():Promise<void>;
 };

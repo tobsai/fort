@@ -202,3 +202,17 @@ test('twenty isolated owner listener control journeys meet the budget',{skip:!pr
   await writeFile(destination,JSON.stringify({node:process.version,platform:process.platform,architecture:process.arch,warmups:5,samplesMs:samples,p50Ms:sorted[9],p95Ms:sorted[18],maximumMs:sorted[19]},null,2)+'\n',{flag:'wx'});
   assert.ok(sorted[18]<100);
 });
+
+
+test('owner reconciliation closes admitted work and retains the explicit generation',async t=>{
+  let allowed=true;const f=await fixture(t,(_owner,operation)=>operation!=='start'||allowed);
+  const initial=await f.control.execute({operation:'inspect',owner});
+  const start={operation:'start',owner,sessionId:initial.sessionId,generation:0,configuration:f.configuration};
+  const active=await f.control.execute(start);allowed=false;await f.control.reconcileOwner();
+  const stopped=await f.control.execute({operation:'inspect',owner});
+  assert.deepEqual(stopped.listener,{state:'stopped',cause:'ownerUnavailable'});assert.equal(stopped.generation,1);
+  if(active.listener.state!=='active')throw new Error('Missing active fixture listener');
+  await assert.rejects(call(active.listener.url));await assert.rejects(f.control.execute({...start,generation:1}));
+  allowed=true;assert.deepEqual(await f.control.execute(start),stopped);
+  assert.equal((await f.control.execute({...start,generation:1})).listener.state,'active');
+});

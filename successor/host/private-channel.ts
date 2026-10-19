@@ -4,6 +4,7 @@ import type { Readable, Writable } from 'node:stream';
 import type { ServiceEndpoint } from '../service/openai.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
+import type {SecureNetworkControl} from '../contracts/secure-network.ts';
 
 type PrivateEndpoint = Extract<ServiceEndpoint, { kind: 'privateSocket' }>;
 type NativeRequest = { path: string; method: 'GET' | 'POST'; installationID: string; token?: string; body?: Buffer; timeout: number };
@@ -12,7 +13,8 @@ type RecoveryProof = { installationId: string; deviceId: string; runtimeStopped:
 type SetupRequest = { operation: 'begin'; timeout: number }
   | ({ operation: 'complete'; timeout: number } & OwnerSetupRequest)
   | ({ operation: 'cancel'; timeout: number } & OwnerSetupIdentity);
-type ChannelWork = { kind: 'http'; request: NativeRequest } | { kind: 'recovery'; request: RecoveryRequest } | { kind: 'setup'; request: SetupRequest };
+type NetworkRequest = {command:unknown;timeout:number};
+type ChannelWork = { kind: 'http'; request: NativeRequest } | { kind: 'recovery'; request: RecoveryRequest } | { kind: 'setup'; request: SetupRequest } | {kind:'network';request:NetworkRequest};
 const inputLimit = 2 * 1024 * 1024, bodyLimit = 8 * 1024 * 1024;
 const protocolError = () => new Error('Private channel protocol or lifecycle was not confirmed');
 function object(value: unknown): Record<string, unknown> {
@@ -23,6 +25,11 @@ function header(value: unknown): value is string { return typeof value === 'stri
 function identifier(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[^A-Za-z0-9_-]/.test(value); }
 function deadline(value: unknown): value is number { return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 30; }
 function expiry(value: unknown): value is string { return typeof value === 'string' && value.length === 24 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value; }
+function decodeNetwork(value:unknown):NetworkRequest {
+  const input=object(value);
+  if(Object.keys(input).length!==2 || Object.keys(input).some(key=>!['command','timeout'].includes(key)) || !deadline(input.timeout))throw protocolError();
+  return {command:input.command,timeout:input.timeout};
+}
 function decodeRecovery(value: unknown): RecoveryRequest {
   const input = object(value);
   if (Object.keys(input).some(key => !['installationID', 'deviceID', 'timeout'].includes(key))
@@ -103,6 +110,7 @@ function forward(socket: string, input: NativeRequest, signal: AbortSignal): Pro
 
 export async function servePrivateChannel(options: {
   endpoint: PrivateEndpoint; input: Readable; output: Writable; signal?: AbortSignal;
+  networkControl?: SecureNetworkControl;
   ownerRecovery?: (identity: { installationId: string; deviceId: string }) => Promise<RecoveryProof>;
   ownerSetup?: {
     begin: () => OwnerSetupState | Promise<OwnerSetupState>;
@@ -111,6 +119,8 @@ export async function servePrivateChannel(options: {
   };
 }): Promise<void> {
   const endpoint = { ...options.endpoint }, { input, output, signal, ownerRecovery } = options;
+  const networkControl=options.networkControl?.execute.bind(options.networkControl);
+  const closeNetwork=options.networkControl?.close.bind(options.networkControl);
   const ownerSetup = options.ownerSetup && { ...options.ownerSetup };
   if (endpoint.kind !== 'privateSocket' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}\.sock$/.test(endpoint.name)
     || realpathSync(endpoint.directory) !== realpathSync(process.cwd())) throw protocolError();
@@ -140,6 +150,10 @@ export async function servePrivateChannel(options: {
     try {
       controller.signal.throwIfAborted();
       if (work.kind === 'http') response = await forward(endpoint.name, work.request, controller.signal);
+      else if(work.kind==='network') {
+        if(!networkControl)throw protocolError();
+        response={status:200,body:Buffer.from(JSON.stringify(await networkControl(work.request.command))).toString('base64')};
+      }
       else if (work.kind === 'recovery') {
         if (!ownerRecovery) throw protocolError();
         const { installationID, deviceID } = work.request;
@@ -193,6 +207,7 @@ export async function servePrivateChannel(options: {
         if (frame.id <= lastID || active.size >= 8) throw protocolError();
         let work: ChannelWork;
         if (frame.kind === 'request') work = { kind: 'http', request: decodeRequest(frame.request) };
+        else if(frame.kind==='networkControl' && networkControl)work={kind:'network',request:decodeNetwork(frame.network)};
         else if (frame.kind === 'ownerRecovery' && ownerRecovery) work = { kind: 'recovery', request: decodeRecovery(frame.recovery) };
         else if (frame.kind === 'ownerSetup' && ownerSetup) work = { kind: 'setup', request: decodeSetup(frame.setup) };
         else throw protocolError();
@@ -209,7 +224,8 @@ export async function servePrivateChannel(options: {
   finally {
     closing = true;
     for (const controller of active.values()) controller.abort();
-    await Promise.allSettled(workers);
+    const outcomes=await Promise.allSettled([Promise.resolve().then(()=>closeNetwork?.()),...workers]);
+    if(outcomes.some(outcome=>outcome.status==='rejected'))failure=protocolError();
     input.off('error', onFailure); output.off('error', onFailure); signal?.removeEventListener('abort', onAbort);
   }
   if (failure) throw failure;

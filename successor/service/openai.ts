@@ -132,7 +132,14 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+  const ownerAccessChanged=options.ownerAccessChanged;
+  if(ownerAccessChanged!==undefined && typeof ownerAccessChanged!=='function')throw new Error('Select an explicit owner access notification');
+  let ownerAccessWake=()=>{},ownerWakeQueued=false;
+  const queueOwnerAccess=()=>{
+    if(!ownerAccessChanged || ownerWakeQueued)return;
+    ownerWakeQueued=true;queueMicrotask(()=>{ownerWakeQueued=false;ownerAccessWake();});
+  };
   const attemptTimeoutMs = options.attemptTimeoutMs ?? 120_000;
   if (!Number.isSafeInteger(attemptTimeoutMs) || attemptTimeoutMs < 50 || attemptTimeoutMs > 120_000) throw new Error('Use a bounded execution deadline');
   const provider = structuredClone(options.provider);
@@ -234,7 +241,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const transaction = <T>(operation: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
-    try { const result = operation(); db.exec('COMMIT'); return result; }
+    try { const result = operation(); db.exec('COMMIT'); queueOwnerAccess(); return result; }
     catch (error) { db.exec('ROLLBACK'); throw error; }
   };
   const acceptanceTransaction=<T>(operation:()=>T):T=>{
@@ -1187,7 +1194,24 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     transaction(() => saveOwnerSetup({ version: 1, setupId: canceledSetup.setupId, expires: canceledSetup.expires, state: 'canceled', deviceId: identity.deviceId, outcome: 'revoked' }));
     return { ...identity, outcome: 'revoked', runtimeStopped: true };
   };
-  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules,
+  const localOwnerAccess = (identity: {installationId:string;deviceId:string}): 'active' | 'inactive' | 'foreign' => {
+    if(closed || !ownerPairingPolicy || identity.installationId!==installation.installationId || identity.deviceId!==ownerControl?.deviceId)return 'foreign';
+    const device=db.prepare('SELECT expires FROM devices WHERE id=?').get(identity.deviceId);
+    return device && (device.expires===0 || Number(device.expires)>now()) && ownerControl.intent==='running' && !dispatchStopped && !stopCommandActive && !starting ? 'active' : 'inactive';
+  };
+  let ownerAccessTimer:ReturnType<typeof setTimeout>|undefined,lastOwnerAccess='';
+  ownerAccessWake=()=>{
+    if(!ownerAccessChanged)return;
+    clearTimeout(ownerAccessTimer);ownerAccessTimer=undefined;
+    const device=closed || !ownerControl ? undefined : db.prepare('SELECT expires FROM devices WHERE id=?').get(ownerControl.deviceId);
+    const access=ownerControl?localOwnerAccess({installationId:installation.installationId,deviceId:ownerControl.deviceId}):'foreign';
+    const state=JSON.stringify([access,ownerControl?.deviceId,device?.expires]);
+    if(access==='active' && device && Number(device.expires)>now()) {
+      ownerAccessTimer=setTimeout(()=>ownerAccessWake(),Math.min(2_147_483_647,Number(device.expires)-now()));ownerAccessTimer.unref();
+    }
+    if(state!==lastOwnerAccess){lastOwnerAccess=state;ownerAccessChanged();}
+  };
+  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess,
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
       if (identity.installationId !== installation.installationId) throw new OwnerRecoveryIdentityRejected('installation');
       const deviceId = id(identity.deviceId);
@@ -1258,10 +1282,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       dispatchStopped = false;
     }
     runScheduleClock(true);queueMicrotask(wake);
-    } finally { starting = false; }
+    } finally { starting = false; queueOwnerAccess(); }
   }, close({ preserveSessionCredential=false }: { preserveSessionCredential?: boolean } = {}): Promise<void> {
     if (closing) return closing;
-    closed = true; clearTimeout(scheduleTimer); active?.abort();
+    closed = true; clearTimeout(scheduleTimer); active?.abort(); ownerAccessWake();
     if (credentialDeadline!==undefined && !preserveSessionCredential) transaction(()=>{
       db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run();
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();

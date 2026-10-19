@@ -55,13 +55,13 @@ export function createSecureNetworkControl(options:{
   if(typeof authorize!=='function')throw failure();
   let generation=0,phase:Phase={state:'stopped',cause:'initial'},closed=false;
   let lastStart:{generation:number;fingerprint:string;owner:NetworkOwner}|undefined,closing:Promise<void>|undefined;
-  const permitted=(input:NetworkCommand)=>{try{return authorize({...input.owner},input.operation)===true;}catch{return false;}};
+  const permitted=(owner:NetworkOwner,operation:NetworkCommand['operation'])=>{try{return authorize({...owner},operation)===true;}catch{return false;}};
   const snapshot=(owner:NetworkOwner):NetworkStatus=>{
     const listener:NetworkListenerState=phase.state==='active'?{state:'active',url:phase.network.url}
       :phase.state==='stopped'?{state:'stopped',cause:phase.cause}:{state:phase.state};
     return {owner:{...owner},sessionId,generation,listener};
   };
-  const stop=(cause:'requested'|'startFailed'='requested'):Promise<void>=>{
+  const stop=(cause:'requested'|'startFailed'|'ownerUnavailable'='requested'):Promise<void>=>{
     if(phase.state==='stopping')return phase.completion;
     if(phase.state==='stopped')return Promise.resolve();
     if(phase.state==='unconfirmed')return Promise.reject(failure());
@@ -82,7 +82,7 @@ export function createSecureNetworkControl(options:{
     async execute(value:unknown):Promise<NetworkStatus> {
       if(closed)throw failure();
       const input=command(value);
-      if(!permitted(input))throw failure();
+      if(!permitted(input.owner,input.operation))throw failure();
       if(phase.state!=='stopped' && lastStart && (lastStart.owner.installationId!==input.owner.installationId || lastStart.owner.deviceId!==input.owner.deviceId))throw failure();
       if(input.operation==='inspect')return snapshot(input.owner);
       if(input.sessionId!==sessionId)throw failure();
@@ -107,10 +107,14 @@ export function createSecureNetworkControl(options:{
           void network.closed.then(()=>{
             if(phase.state==='active' && phase.network===network)phase={state:'stopped',cause:'interrupted'};
           },()=>{if(phase.state==='active' && phase.network===network)phase={state:'unconfirmed'};});
-          if(!permitted(input))await stop('startFailed').catch(()=>{});
+          if(!permitted(input.owner,input.operation))await stop('startFailed').catch(()=>{});
         }
       }catch(error){if(phase.state==='starting' && phase.opening===opening)phase=error instanceof SecureNetworkOpenError && error.cleanupConfirmed?{state:'stopped',cause:'startFailed'}:{state:'unconfirmed'};}
       await settled();return snapshot(input.owner);
+    },
+    reconcileOwner():Promise<void> {
+      if(closing)return closing;
+      return lastStart && !permitted(lastStart.owner,'start') ? stop('ownerUnavailable') : Promise.resolve();
     },
     close():Promise<void> {
       if(closing)return closing;

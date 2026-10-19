@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 60c1c2e8b25131bf38d58fe5daef88d2702b5d74dc5d0bdd313ff99c99976ccd
+Reviewed content SHA256: e5dcb50eace801c4d8ea5fdb017642e0efa5542a3bc2ffc1464adf58a08d11b3
 
 ### Vendor independence
 Status: planned
@@ -2804,7 +2804,66 @@ Rollback removes the uncomposed controller/export before production use and reta
 the existing optional transport. Mac private-channel/UI composition follows next;
 real TLS trust, listener/startup permission, provider and TestFlight gates stay open.
 
+### Private owning-host listener composition
+
+Continue decision 059 from f012d7f. Add an opt-in `network: 'explicit'` owned-host
+composition. Omission leaves the private listener-control frame unsupported and
+creates no network controller. Even when composed, startup remains stopped and
+requires an explicit bounded command; ordinary bootstrap will not enable this
+option until the native path is separately composed. No new HTTP control route.
+
+The service exposes a trusted local owner-access projection: active, inactive or
+foreign for exact installation and latest primary device. Active requires the
+unexpired current device, running owner intent and an available host. Inspect and
+cleanup may use the latest inactive primary identity; a companion, foreign or old
+primary cannot control the listener. A coalesced post-commit notification observes
+owner-access changes and one expiry deadline, with no idle polling. It carries no
+credentials. The controller rechecks its captured owner and closes on lost active
+access without enabling a replacement. Unconfirmed cleanup stays blocked. The
+owning host closes the listener before its private socket/runtime, attempts both
+cleanups even if one fails, and reports failure without losing either obligation.
+
+A `networkControl` private frame contains a bounded timeout and unknown JSON
+command. Parse command semantics once in the controller. Existing private framing,
+eight-operation admission, size and cancellation limits apply. Timeout/cancellation
+removes the reply, not an admitted listener intent; an exact command retry or
+inspection resolves it. The controller still owns bounded opening/closing work.
+Channel failure/EOF ends its owner and awaits listener cleanup. Signed native XPC
+composition, production entitlements and user activation remain later gates.
+
+Vendor independence: Fort JSON and local owner projection have no provider SDK,
+cloud identity or storage export dependency. Modularity: optional host composition;
+the service imports no transport implementation and only reports local authority.
+Speed: 20 isolated private-pipe inspect/start/retry/request/stop cycles after five
+warmups must have p95 below 100 ms, excluding process startup, key generation and
+provider time. At most one unreferenced owner-expiry timer; no polling. Installation
+and removal: no startup/network permission, production TLS key, trust or account
+activation; all fixture processes and sockets must be absent after shutdown.
+The tradeoff is a private owner projection and change notification in the existing
+service, avoiding a second bearer-token bypass route or duplicate owner database.
+
+Test-first acceptance: service exact-primary/companion/expired/stopped/removed
+projection and expiry notifications; public controller reconciliation; private
+owned-core inspect/start/TLS authentication/retry/stop, stop/disconnect/expiry loss,
+changed owner, canceled/lost reply, EOF and failed runtime cleanup. Verify missing
+composition, malformed/oversized/private-only commands, fresh session on restart,
+compiled-only behavior, strict TS, full portable regression and isolated budget.
+Callback notifications are wakeups; current service state is authoritative. No
+source or fixture result establishes installed signed-host, provider or TestFlight
+acceptance. Rollback removes optional host composition before native adoption and
+retains the previously tested inert controller.
+
+Exact files: this spec; successor/service/openai.ts and owner-access.test.ts (new);
+successor/host/network-control.ts and network-control.test.ts;
+successor/host/owned-core.ts and owned-core.test.ts;
+successor/host/private-channel.ts; successor/host/fixtures/owned-core.mjs;
+successor/contracts/secure-network.ts; successor/V1-ACCEPTANCE.md;
+docs/architecture/reviews/ponytail/current.md; and
+successor/evidence/2026-10-17-node-foundation/owner-network.md (new).
+
 ## Implementation paths
+- `successor/evidence/2026-10-17-node-foundation/owner-network.md`
+- `successor/service/owner-access.test.ts`
 - `successor/contracts/secure-network.ts`
 - `successor/host/network-control.ts`
 - `successor/host/network-control.test.ts`

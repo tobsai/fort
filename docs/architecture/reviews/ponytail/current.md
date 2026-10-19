@@ -1,111 +1,121 @@
 What this repo does: Fort is a single-owner native messenger with a modular Node
-core and optional runtime integrations. This review assumes one Mac and one phone,
-with explicit local listener activation and no shared hosting.
+core and optional runtime integrations. This review assumes one Mac, one optional
+phone and bounded private commands; it does not cover shared hosting.
 
 Reviewer: Codex primary implementation agent, October 19, 2026. Base:
-`fc32c964fd817eccbdf8e0537b744f8af59e178b`. This is a scoped semantic review,
-not an independent-reviewer claim. The whole-repository baseline is preserved.
-Applied the pinned Ponytail skill as text only.
+`f012d7ffac745b5026924717eb83f9b569a07786`. Scoped semantic review, not an
+independent-reviewer claim; whole-repository baseline preserved. Applied the pinned
+Ponytail skill as read-only text.
 
-Read the controller, contract, complete low-level transport and affected tests;
-reviewed emitted export/declaration requirements, the private channel and owned-core
-callers, service owner-control transitions, spec, ledger and evidence. Traced
-session/generation replay, asynchronous bind/stop/close races, changed ownership,
-authority loss during bind, mutation isolation, malformed input, private-socket
-identity and missing cleanup acknowledgment. No code was declared unused. The
-controller is exported but ordinary host composition remains absent in this slice.
+Read the changed controller/contracts, complete owned-core/private-channel lifetimes,
+fixture and tests, service transaction/primary pairing/expiry/stop/recovery/close
+paths, and artifact import/removal behavior. Reviewed command admission, authority
+loss, asynchronous cleanup, secret retention, source-option mutation and compiled
+output. No unused-code claim. No new dependency or production default was added.
 
 ## Must fix before v1 acceptance
 
-1. **Actual owner and Mac controls still need composition.**
-   - What this is: An optional listener controller with injected authorization.
-   - Problem: Ordinary Mac operation has no private control transport or UI, and
-     the controller alone does not close on later service-owner revocation.
-   - Fix: Bind control to the current primary owner through the signed private
-     host, close on authority loss/host shutdown, then compose Mac controls.
-   - If we skip it: Two-device setup is unavailable and an integration could
-     incorrectly retain a listener after its owner grant ends.
-   - Disposition: Open in the v1 ledger; no production control is enabled here.
+1. **Installed Mac and delivery proof is incomplete.**
+   - What this is: Source, fixture and compiled core behavior, with earlier unsigned
+     native engineering packages and synthetic UI evidence.
+   - Problem: Actual signed/profiled host activation, provider chat, restart and
+     reconnect have not passed on the installed product; TestFlight remains open.
+   - Fix: Prioritize that exact Mac package and authorized real-provider journey,
+     followed by TestFlight and physical acceptance. Keep phone UI after the demo.
+   - If we skip it: Passing fixtures would be mistaken for a usable delivered app.
+   - Disposition: Open in the v1 ledger. Apple sign-in/G2, provisioning, permissions
+     and startup/provider grants retain separate exact authority.
 
-2. **Installed and Apple delivery proof remains incomplete.**
-   - What this is: Source, compiled artifact and disposable transport evidence.
-   - Problem: It does not prove production TLS trust, permissions, provider
-     operation, physical clients or TestFlight. Apple currently authenticates an
-     Admin, with Account Holder selection and an updated agreement unresolved.
-   - Fix: Continue code and exact package preparation; complete each authorized
-     installed/Apple gate without inventing access or accepting the agreement.
-   - If we skip it: Engineering evidence could be mistaken for delivered v1.
-   - Disposition: Open; no key/certificate, credential, trust or startup mutation.
+2. **Phone management still lacks native listener UI.**
+   - What this is: Optional private Node listener control and existing companion contracts.
+   - Problem: The ordinary native client has no wired listener command/invitation UI.
+   - Fix: Compose signed native controls after the Mac demo gate, then verify trust,
+     explicit activation and real phone behavior.
+   - If we skip it: Ordinary two-device setup remains unavailable.
+   - Disposition: Open; ordinary bootstrap does not opt into networking.
 
-## Fixed during this slice
+## Fixed during review
 
-3. **Failed opening did not distinguish confirmed cleanup.**
-   - What this is: A rejected optional listener opening.
-   - Problem: A plain error could not tell the controller whether replacement was
-     safe; treating every failure identically either blocked recovery or hid risk.
-   - Fix: Return a typed, redacted cleanup outcome. Preserve unconfirmed shutdown
-     as a blocked state and test both actual bind failure and missing acknowledgment.
-   - If we skip it: Explicit listener recovery cannot safely choose a new attempt.
-   - Disposition: Fixed; confirmed opening failure/cancellation, different-owner
-     adoption and authorization lost during opening have public regression tests.
+3. **EOF could wait forever for a listener opening.**
+   - What this is: Private-channel shutdown originally waited for command workers.
+   - Problem: A missing bind acknowledgment left the start worker pending before
+     the outer owner could close its listener; the fixture required forced cleanup.
+   - Fix: Start controller close before awaiting workers, retaining cleanup errors.
+   - If we skip it: Host exit can remain blocked behind its own listener worker.
+   - Disposition: Fixed through a public withheld-acknowledgment regression.
 
-Verdict: The optional controller is bounded and inert until explicit use. Continue
-with actual owner/private-host composition; this is not installed-product signoff.
+4. **Disabled networking depended on its implementation and mutable selection.**
+   - What this is: Optional owned-host network composition.
+   - Problem: Static imports broke an ordinary host with transport files removed;
+     rereading a mutable options object could enable networking during startup.
+   - Fix: Capture selection before awaiting and import only on explicit composition.
+   - If we skip it: Disabling/removing the module is ineffective or unstable.
+   - Disposition: Both observed failures fixed; compiled removal and mutation tests pass.
 
-Not checked: Swift/native UI/builds, guarded Mac/signed suites, actual provider,
-production LAN/TLS/trust, startup activation, physical acceptance, archive, upload,
-Apple processing, TestFlight, remote CI and provider cleanup. No whole service or
-provider re-audit is claimed. Full portable regressions, strict TS, isolated budget
-and exact compiled inventory passed. See [evidence](../../../successor/evidence/2026-10-17-node-foundation/network-control.md).
+Verdict: Private owner composition is verified with synthetic processes and sockets.
+Continue installed Mac/provider readiness; no production networking is enabled.
+
+Not checked: Native UI/builds, guarded Mac/signed suites, real provider, production
+TLS/trust/network/startup, physical clients, archive/upload/Apple processing,
+TestFlight, remote CI and provider cleanup. No full provider/service re-audit is
+claimed. Full portable regressions, strict TS, isolated budget and exact core
+inventory passed. [Evidence](../../../successor/evidence/2026-10-17-node-foundation/owner-network.md).
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "fc32c964fd817eccbdf8e0537b744f8af59e178b",
+  "reviewedCommit": "f012d7ffac745b5026924717eb83f9b569a07786",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Optional explicit listener control, cleanup classification, authority and replay boundaries, compiled artifact and evidence; no ordinary host activation",
+  "scope": "Opt-in private owning-host listener composition, primary authority/expiry/recovery, framing/cleanup and compiled removal; synthetic single-owner scope",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Observed public controller and compiled export reds; 12 controller behaviors and three compiled/cleanup cases passed.",
-    "Full portable: 1292 passed, 14 explicit skips, zero failed; strict TypeScript passed.",
-    "Twenty isolated journeys after five warmups: p95 3.841 ms under 100 ms.",
-    "All 46 payload hashes/sizes in fresh 47-file core verified; inert import requires no network permission."
+    "Public private-host control, expiry notification and controller reconciliation reds observed and fixed.",
+    "1308 portable passed, 15 explicit skips, zero failures; strict TypeScript passed.",
+    "EOF stalled opening, optional implementation removal and caller option mutation reproduced then fixed; compiled-only authentication and shutdown passed.",
+    "20 isolated cycles after five warmups: p95 7.133 ms under 100 ms.",
+    "Fresh core: 46 payload hashes verified, 47 exact files including manifest."
   ],
   "exceptions": [
-    "No native, guarded Mac, signed, production provider/LAN/trust, physical, Apple or TestFlight acceptance was run."
+    "Native/guarded/signed/installed/provider/Apple/TestFlight checks were not repeated or performed for this Node slice."
   ],
   "findings": [
     {
       "id": "1",
-      "detail": "Actual primary owner, authority-loss cleanup, private host and Mac UI composition remain.",
+      "detail": "Installed Mac/provider and TestFlight gates remain open and are the next priority.",
       "disposition": "open"
     },
     {
       "id": "2",
-      "detail": "Installed/provider/Apple/TestFlight acceptance remains open.",
+      "detail": "Native phone listener/invitation UI remains after Mac demo priority.",
       "disposition": "open"
     },
     {
       "id": "3",
-      "detail": "Opening errors now distinguish confirmed from unconfirmed cleanup; authority and lifecycle regressions fixed.",
+      "detail": "Private EOF now initiates listener cleanup before waiting for workers.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "4",
+      "detail": "Captured selection and lazy import preserve inert and removable optional networking.",
       "disposition": "fixed"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "7e1c68234575c9170aeaf6b1593a9fdba98a1496a777cfd1074c3f46da325188",
-    "successor/contracts/secure-network.ts": "76cb7c0c9c573dc254321decbcc2beb88124ce0d758ff1a4049b7dd8b61c29a4",
-    "successor/host/network-control.ts": "84bbe28847c95884a11b555474d022f548e8f5dc1446365bec235214e127dec7",
-    "successor/host/network-control.test.ts": "fec8572ab5e64ce5533a1efec36b97f38a278703647f12f63914ce6596f11045",
-    "successor/host/secure-network.ts": "90dede0180288deba3f11b137bb497beed83f72163823e2063cee9ed067578ed",
-    "successor/host/secure-network.test.ts": "fcafc7d653d688b594034c667901c9772d847676bce21d225805f36ad8754bdc",
-    "successor/packaging/core-artifact.ts": "5186c7c4a2a66c6dbaa96b2b2fba45f63ba640fb3bacfd3428d05ec0bab7647c",
-    "successor/packaging/core-artifact.test.ts": "186ab9baafb949d8fe54bd296c1a1b44cb2b56639c9b7dadd59a78261bf77fbd",
-    "successor/tsconfig.core.json": "be24095c77591b1d69152ddaeef1c0cddfba38616a7e6a975051c5526c994e9f",
-    "successor/V1-ACCEPTANCE.md": "669884b6bef35ba21589f36596b744cf528a3c2afecf97d0b83c54403cc95b64",
-    "successor/evidence/2026-10-17-node-foundation/network-control.md": "fd5b84e4accbb583074390fe5a04b482f1af49839d684a5eeb0a3400496c677a"
+    "specs/059-modular-node-v1.md": "ed0775347cbfce2dc8ac7aa9ded32e23d35bf4f09583c632e2dab1d709a7b528",
+    "successor/contracts/secure-network.ts": "d5ba6db5dc585fc0036f9c3e79445909744fc6233b486ed6b4072f026259371a",
+    "successor/host/network-control.ts": "1c22616b4a9f3345be181fd484389f42ee9088f4b94fda298b9462782bc194ea",
+    "successor/host/network-control.test.ts": "5da1e337957eb77ae90e8b0678eadde6db8085083a752e4978adae8ec3322a4b",
+    "successor/host/owned-core.ts": "304ccf610e3a0861afac450357666e9b98861b6c302903e4d979eaa32d6897cb",
+    "successor/host/owned-core.test.ts": "97649dc15360a04386e8082075507fe4ae08040229028ea33ebb45c055aa4264",
+    "successor/host/private-channel.ts": "4a8075cb962fab83b19013de36aa1f5372e56d901309464b1938d6a0e77ce047",
+    "successor/host/fixtures/owned-core.mjs": "6ed490c58cfd90ed3e722082aae2e805e1e9dabad4e2783b2138dbad6714b45a",
+    "successor/service/openai.ts": "13b7c831ef0ee0369df69e68d420869e411fd148bad412c2567ce47224e6a93d",
+    "successor/service/owner-access.test.ts": "f237b99b129b9d9d599d099fba8d1938574832c5f7ea12804bb976600e190e93",
+    "successor/V1-ACCEPTANCE.md": "26e5b04630f825460d8e5c1a7888b2c88eed918719f69eadb30961820289d09d",
+    "successor/evidence/2026-10-17-node-foundation/owner-network.md": "8ddfa20983efbe029fd3de1e5401814199c3a9a3a3129eb0b0004b3351813265"
   }
 }
 ```
