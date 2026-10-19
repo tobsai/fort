@@ -49,12 +49,8 @@ public struct MacHostBundle: Sendable {
     static func inspect(applicationURL: URL, signature: (URL,String,String) throws -> MacHostCodeSignature) throws -> Self {
         try directory(applicationURL)
         let data = try read(applicationURL.appendingPathComponent(manifestPath),limit:8192)
-        let fields = try JSONDecoder().decode([String:String].self,from:data)
-        guard Set(fields.keys) == ["format","clientIdentifier","serviceIdentifier","signingTeam","appGroup"], fields["format"] == "1",
-              let client = fields["clientIdentifier"], let service = fields["serviceIdentifier"],
-              let team = fields["signingTeam"], let group = fields["appGroup"], client != service else { throw MacHostBundleError.configuration }
-        _ = try macPeerRequirement(identifier:client,signingTeam:team)
-        let endpoint = try MacAgentEndpoint(serviceIdentifier:service,signingTeam:team,appGroup:group)
+        let (client,endpoint) = try configuration(data)
+        let service = endpoint.serviceIdentifier, team = endpoint.signingTeam, group = endpoint.appGroup
         let helper = applicationURL.appendingPathComponent(helperPath,isDirectory:true)
         try directory(helper)
         guard try read(helper.appendingPathComponent(manifestPath),limit:8192) == data else { throw MacHostBundleError.configuration }
@@ -74,6 +70,30 @@ public struct MacHostBundle: Sendable {
             catch { throw MacHostBundleError.profiles }
         }
         return Self(applicationURL:applicationURL,helperURL:helper,endpoint:endpoint,clientIdentifier:client)
+    }
+
+    private static func configuration(_ data: Data) throws -> (String,MacAgentEndpoint) {
+        let fields = try JSONDecoder().decode([String:String].self,from:data)
+        guard Set(fields.keys) == ["format","clientIdentifier","serviceIdentifier","signingTeam","appGroup"], fields["format"] == "1",
+              let client = fields["clientIdentifier"], let service = fields["serviceIdentifier"],
+              let team = fields["signingTeam"], let group = fields["appGroup"], client != service else { throw MacHostBundleError.configuration }
+        _ = try macPeerRequirement(identifier:client,signingTeam:team)
+        return (client,try MacAgentEndpoint(serviceIdentifier:service,signingTeam:team,appGroup:group))
+    }
+
+    static func inspectHelper(helperURL: URL, signature: (URL,String,String) throws -> MacHostCodeSignature) throws -> Self {
+        try directory(helperURL)
+        let app = helperURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        guard app.appendingPathComponent(helperPath,isDirectory:true) == helperURL else { throw MacHostBundleError.configuration }
+        let (client,endpoint) = try configuration(read(helperURL.appendingPathComponent(manifestPath),limit:8192))
+        let signed = try signature(helperURL,endpoint.serviceIdentifier,endpoint.signingTeam)
+        guard signed.appSandbox, !signed.inheritsSandbox, signed.applicationGroups == [endpoint.appGroup] else { throw MacHostBundleError.entitlements }
+        do { try withFile(helperURL.appendingPathComponent("Contents/embedded.provisionprofile"),limit:1_048_576) { _, _ in } }
+        catch { throw MacHostBundleError.profiles }
+        try withFile(helperURL.appendingPathComponent("Contents/MacOS/FortHost"),limit:Int.max) { _, info in
+            guard info.st_mode & 0o111 != 0 else { throw MacHostBundleError.unsafeFile }
+        }
+        return Self(applicationURL:app,helperURL:helperURL,endpoint:endpoint,clientIdentifier:client)
     }
 
     static func codeSignature(at url: URL, identifier: String, team: String) throws -> MacHostCodeSignature {

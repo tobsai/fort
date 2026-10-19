@@ -1,5 +1,20 @@
 # Fort v1 acceptance ledger
 
+## Helper inspection repaired; replacement candidate inert
+
+October 19: the helper now validates its own signed bundle without reading its
+sandbox-inaccessible enclosing client files. The client retains full-package
+inspection. A signed sandboxed read-only probe passes, 133 affected native tests
+pass with 11 optional skips, and Mac/helper/iPhone Simulator builds pass. The
+[new exact 206-file candidate](evidence/2026-10-17-node-foundation/helper-self-inspection.md)
+is uninstalled/unlaunched; all 30 signatures and full-package inspection pass.
+The installed cleanup app remains stopped and unregistered. A new bounded live
+approval is needed for this changed candidate; the consumed test is not reset.
+Personal ChatGPT remains selected, with identity verification still required at
+normal sign-in. Provider, paired lifecycle, TestFlight and physical gates are open.
+G2 CSR upload remains separate and held.
+
+
 ## Approved test stopped before pairing, cleanup confirmed
 
 October 19: the approved exact installed candidate registered its helper, but helper

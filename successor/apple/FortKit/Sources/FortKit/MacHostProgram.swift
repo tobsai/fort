@@ -19,8 +19,7 @@ public struct MacHostProgram: Sendable {
     }
 
     static func inspect(helperURL: URL, signature: (URL,String,String) throws -> MacHostCodeSignature) throws -> Self {
-        let app = helperURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let bundle = try MacHostBundle.inspect(applicationURL:app,signature:signature)
+        let bundle = try MacHostBundle.inspectHelper(helperURL:helperURL,signature:signature)
         guard bundle.helperURL == helperURL else { throw MacHostBundleError.configuration }
         let node = helperURL.appendingPathComponent("Contents/MacOS/node")
         let guardian = helperURL.appendingPathComponent("Contents/MacOS/FortProcessGuardian")

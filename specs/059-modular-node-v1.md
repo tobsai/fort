@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 7801c3f61cd9386ecbd9c5d16f8ba19303cb1fe7ac46d3aaefec51dd333a24d6
+Reviewed content SHA256: 0de25efeee8f0d783c366c22fe6a60c51f98292e1ba9418c395a602c27d223ee
 
 ### Vendor independence
 Status: planned
@@ -3247,7 +3247,43 @@ the original signed candidate/report and do not continue provider testing on new
 bytes without assessing their scope. Rollback restores source while retaining all
 activation and cleanup evidence. Installed helper startup remains a separate defect.
 
+## Helper startup inspection inside its sandbox
+
+The October 19 canonical-path signed read-only probe reproduces unsafeFile at
+MacHostProgram.inspect. It can open its own signed manifest/profile/runtime, but
+opening the enclosing client manifest/startup plist/profile returns EPERM. The
+client's full inspection passed before registration. This identifies a boundary
+error in host startup, not authorization to widen filesystem entitlements.
+
+Under decision 059 and the routine-repair delegation, separate helper self-inspection
+from full client-side package inspection. MacHostBundle.swift parses the same strict
+manifest shape for both paths. The helper validates its exact expected layout, own
+signature/team/group/profile and every child signature/sandbox as before. Its signed
+manifest supplies the exact permitted client identity for existing XPC peer checks.
+The client still verifies both bundles, matching manifests, provisioning presence
+and exact LaunchAgent before enabling. History maintenance retains its preceding
+full client bundle check and exact program identity comparison.
+
+Vendor independence: the optional provider adapter and contracts are unchanged.
+Modularity: checks belong to the process that can inspect the corresponding files;
+no cross-sandbox reads or new service abstraction. Speed: inspect only required
+owned resources at startup; run focused validation and fresh builds, not a runtime
+performance claim. Installation/removal: no new entitlements, startup registration,
+credential, listener, visibility or provider action. Keep the installed cleanup
+client stopped; prepare any new runtime candidate inert and repin its source/files.
+
+Exact source/test paths are MacHostBundle.swift, MacHostProgram.swift and
+MacHostProgramTests.swift in successor/apple/FortKit. First require helper inspection
+to succeed with enclosing client files absent while still rejecting malformed own
+manifest/profile/signature/children. Then run the same read-only signed sandbox probe
+against repaired code, plus full client inspection negative controls. Rebuild native
+artifacts, preserve original failed/cleanup copies, and record evidence in
+helper-self-inspection.md with ledgers/review. Rollback restores the old inspector;
+the consumed live test does not authorize a replacement activation.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/helper-self-inspection.md`
 
 - `successor/evidence/2026-10-17-node-foundation/installed-host-test.md`
 - `successor/evidence/2026-10-17-node-foundation/installed-host-test-cleanup.png`

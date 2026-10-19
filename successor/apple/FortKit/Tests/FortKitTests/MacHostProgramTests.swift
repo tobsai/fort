@@ -21,6 +21,23 @@ private func programSignature(_ fixture: HostBundleFixture, identifier: String) 
     return fixture.signature
 }
 
+@Test func hostProgramInspectsOnlyItsOwnSignedResources() throws {
+    let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
+    _ = try programFiles(fixture)
+    for file in [fixture.manifest,fixture.launchAgent,fixture.app.appendingPathComponent("Contents/embedded.provisionprofile")] {
+        try FileManager.default.removeItem(at:file)
+    }
+    var inspected: [URL] = []
+    let result = try MacHostProgram.inspect(helperURL:fixture.helper) { url,identifier,team in
+        #expect(team == fixture.endpoint.signingTeam)
+        inspected.append(url)
+        return programSignature(fixture,identifier:identifier)
+    }
+    #expect(result.bundle.endpoint == fixture.endpoint)
+    #expect(result.bundle.clientIdentifier == "io.fort.fixture")
+    #expect(inspected.allSatisfy { $0 == fixture.helper || $0.path.hasPrefix(fixture.helper.path + "/") })
+}
+
 @Test func hostProgramPinsItsOwnNestedBundleAndFixedChildCodeRequirements() throws {
     let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
     let files = try programFiles(fixture)
@@ -30,11 +47,32 @@ private func programSignature(_ fixture: HostBundleFixture, identifier: String) 
     }
     #expect(result.bundle.helperURL == fixture.helper && result.bundle.applicationURL == fixture.app)
     #expect(result.executable == files[0] && result.guardian == files[1] && result.bootstrap == files[2] && result.historyMaintenance == files[5])
-    try #require(checks.count == 5)
-    #expect(result.codex == files[3] && checks[4].0 == files[3] && checks[4].1 == fixture.endpoint.serviceIdentifier + ".codex")
-    #expect(checks[2].0 == files[0] && checks[2].1 == fixture.endpoint.serviceIdentifier + ".node")
-    #expect(checks[3].0 == files[1] && checks[3].1 == fixture.endpoint.serviceIdentifier + ".guardian")
+    try #require(checks.count == 4)
+    #expect(result.codex == files[3] && checks[3].0 == files[3] && checks[3].1 == fixture.endpoint.serviceIdentifier + ".codex")
+    #expect(checks[1].0 == files[0] && checks[1].1 == fixture.endpoint.serviceIdentifier + ".node")
+    #expect(checks[2].0 == files[1] && checks[2].1 == fixture.endpoint.serviceIdentifier + ".guardian")
     #expect(checks.allSatisfy { $0.2 == fixture.endpoint.signingTeam })
+}
+
+@Test(arguments:["manifest","profile","sandbox","inheritance","group","signature","layout"])
+func hostProgramRejectsInvalidOwnBundle(_ variant: String) throws {
+    let fixture = try HostBundleFixture(); defer { try? fixture.remove() }
+    _ = try programFiles(fixture)
+    if variant == "manifest" { try Data("{}".utf8).write(to:fixture.helperManifest) }
+    if variant == "profile" { try FileManager.default.removeItem(at:fixture.helper.appendingPathComponent("Contents/embedded.provisionprofile")) }
+    var helper = fixture.helper
+    if variant == "layout" {
+        helper = fixture.helper.deletingLastPathComponent().appendingPathComponent("Foreign.app",isDirectory:true)
+        try FileManager.default.moveItem(at:fixture.helper,to:helper)
+    }
+    #expect(throws:(any Error).self) {
+        try MacHostProgram.inspect(helperURL:helper) { _,identifier,_ in
+            guard identifier == fixture.endpoint.serviceIdentifier else { return programSignature(fixture,identifier:identifier) }
+            if variant == "signature" { throw MacHostBundleError.signature }
+            return MacHostCodeSignature(appSandbox:variant != "sandbox",inheritsSandbox:variant == "inheritance",
+                applicationGroups:variant == "group" ? ["group.foreign"] : [fixture.endpoint.appGroup])
+        }
+    }
 }
 
 @Test(arguments:["node","guardian","codex"], ["sandbox", "inheritance", "group", "extra-key", "missing-key", "signature"])

@@ -1,5 +1,12 @@
 # Exact installed Mac host/provider test proposal
 
+The attempted candidate below is historical. The [repaired replacement](helper-self-inspection.md)
+now pins report b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae
+and remains uninstalled/unlaunched. Any new live test must use an explicit fresh
+bounded grant and that exact artifact. The owner has already selected personal
+ChatGPT; normal UI verification of that identity remains required.
+
+
 **Historical proposal, approved and attempted; cleanup complete.** October 19, 2026.
 See [the consumed test outcome](installed-host-test.md). It stopped before pairing
 and provider sign-in; no allowance or clock may be reset. The details below preserve

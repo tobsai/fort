@@ -5,6 +5,9 @@ The owner approved the exact one-time test in Sentinel_5ca1f5e4bb788191b7a2470b8
 and selected personal ChatGPT in Sentinel_4d576ff6134481919bb4eaaa71450b8c. The
 proposal was Sentinel_1d0357e845108191bda2c580952409d5. No G2 upload approval follows.
 
+The subsequent [self-inspection repair](helper-self-inspection.md) has source and
+read-only sandbox evidence. It does not turn this failed live test into a pass.
+
 ## Outcome
 
 The original candidate was verified against report SHA256
