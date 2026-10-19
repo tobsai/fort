@@ -1,9 +1,11 @@
+import type { AccountIdentity, AccountSignInResult } from '../contracts/v1.ts';
+import { parseAccountIdentity } from '../contracts/account.ts';
 import { isAbsolute, normalize } from 'node:path';
 import { CodexConnection, object } from './codex-rpc.ts';
 import { verifyRuntimeControls } from './codex-controls.ts';
 
 export type CodexDeviceChallenge = { loginId: string; verificationURL: string; userCode: string };
-export type CodexSignInResult = { kind: 'signedIn' | 'canceled' | 'failed' | 'unconfirmed' };
+export type CodexSignInResult = AccountSignInResult;
 type SignInOptions = {
   connection: CodexConnection; workspace: string; runtimeVersion: '0.157.1';
   signal: AbortSignal; timeoutMs: number; onChallenge: (challenge: CodexDeviceChallenge) => void;
@@ -23,12 +25,13 @@ function parseChallenge(value: unknown): CodexDeviceChallenge {
   return { loginId: row.loginId, verificationURL: row.verificationUrl, userCode: row.userCode };
 }
 
-async function signedIn(connection: CodexConnection, signal: AbortSignal): Promise<boolean> {
+export async function readCodexAccount(connection: CodexConnection, signal: AbortSignal): Promise<AccountIdentity | null> {
   const row = object(await connection.request('account/read', { refreshToken: false }, signal));
   if (connection.isClosed || row.requiresOpenaiAuth !== true) throw new Error('Unsupported account');
-  if (row.account === null) return false;
-  if (object(row.account).type !== 'chatgpt') throw new Error('Unsupported account');
-  return true;
+  if (row.account === null) return null;
+  const account = object(row.account), routing = object(row.workspaceRouting);
+  if (account.type !== 'chatgpt' || typeof account.email !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(account.email)) throw new Error('Unsupported account');
+  return parseAccountIdentity({ accountId: routing.chatgptAccountId, userLabel: account.email });
 }
 
 function waitForCompletion(ready: Promise<Completion | 'closed'>, signal: AbortSignal): Promise<Completion | 'closed' | 'aborted'> {
@@ -81,7 +84,8 @@ export async function signInCodexAccount(options: SignInOptions): Promise<CodexS
       capabilities: { experimentalApi: true, requestAttestation: false } }, signal);
     connection.notify('initialized', {});
     await verifyRuntimeControls(connection, workspace, signal);
-    if (await signedIn(connection, signal)) return { kind: 'signedIn' };
+    const existing = await readCodexAccount(connection, signal);
+    if (existing) return { kind: 'signedIn', account: existing };
     loginStarted = true;
     challenge = parseChallenge(await connection.request('account/login/start', { type: 'chatgptDeviceCode' }, signal));
     if (connection.isClosed || (completion && completion.loginId !== challenge.loginId)) return { kind: 'unconfirmed' };
@@ -92,12 +96,13 @@ export async function signInCodexAccount(options: SignInOptions): Promise<CodexS
       const cleanup = AbortSignal.timeout(3000);
       const receipt = object(await connection.request('account/login/cancel', { loginId: challenge.loginId }, cleanup));
       if (receipt.status !== 'canceled' && receipt.status !== 'notFound') return { kind: 'unconfirmed' };
-      if (await signedIn(connection, cleanup)) return { kind: 'signedIn' };
+      const existing = await readCodexAccount(connection, cleanup);
+      if (existing) return { kind: 'signedIn', account: existing };
       return { kind: receipt.status === 'canceled' ? 'canceled' : 'unconfirmed' };
     }
     if (observed.loginId !== challenge.loginId || connection.isClosed) return { kind: 'unconfirmed' };
-    const authenticated = await signedIn(connection, signal);
-    if (authenticated) return { kind: 'signedIn' };
+    const authenticated = await readCodexAccount(connection, signal);
+    if (authenticated) return { kind: 'signedIn', account: authenticated };
     return { kind: observed.success ? 'unconfirmed' : 'failed' };
   } catch { return { kind: 'unconfirmed' }; }
   finally {

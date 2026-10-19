@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 61e7c24953f3ba1262bdd8532b717e3d7150e77cdc9a5831454d554d1672e754
+Reviewed content SHA256: 5659349be23f3eae57383fea3158bcd836da084b429150c2f81e95307bb6c571
 
 ### Vendor independence
 Status: planned
@@ -2928,7 +2928,74 @@ Rollback is a scoped source revert with old evidence preserved; do not restore
 credentials or reactivate a host. Actual account correlation, local cleanup on the
 signed installation, provider grant revocation and TestFlight remain separate gates.
 
+### Selected provider account correlation — October 19, 2026
+
+Refine the existing sign-in adapter/service/native path under decision 059 and the
+coordinator's explicit fixture-only correlation instruction. Carry a bounded
+nonsecret Fort AccountIdentity (`accountId`, `userLabel`) from the pinned provider
+protocol. For Codex 0.157.1 this maps experimental workspaceRouting.chatgptAccountId
+and account.email, respectively. Missing/invalid fields cannot establish identity.
+Do not inspect credentials or perform a real account read; refreshToken:false can
+still cause network discovery/auth recovery. No session-list RPC is assumed.
+
+After a completed sign-in operation, show the reported identity and require the
+primary owner to explicitly select that exact operation/revision/epoch/identity.
+Keep selection in the existing account operation record. Status reads never select.
+Restart retains the choice; starting another sign-in or changing the owner epoch
+invalidates it. Confirmation retries are idempotent. There is no pairing expiry or
+new product usage limit. A possible bounded attended test is verification only.
+
+Pin the selected identity into each accepted turn configuration and executor model
+request. Require it before discovery/dispatch for the account-capable owned host;
+compare the pinned choice with current owner selection before dequeue and with
+fresh supported provider evidence before model discovery or thread creation.
+Missing or changed identity refuses work without substitution. Preserve old history
+and legacy outcome records without promoting them to selected accounts.
+
+Vendor independence: the two-field value and owner confirmation are Fort-owned;
+Codex field names and protocol parsing remain in its removable adapter. No new
+SDK, storage engine or provider is added. Modularity: reuse account operation,
+ledger, configuration digest and bounded executor wire; no identity service or
+credential parser. Speed: target p95 below 5 ms for synthetic identity parsing and
+selection with five warmups/twenty isolated samples; provider network latency is
+excluded. Install/removal: only nonsecret selection is persisted with existing
+metadata, no new credential/grant/startup/entitlement. Existing removal and retained
+history policy remains. Exact signed/provider acceptance stays separate.
+
+Acceptance: public HTTP selection/retry/foreign-owner/changed-identity/restart
+journeys; protocol fixtures for missing/null/malformed email or workspace and
+mismatch before model/thread/turn calls; executor digest/transport; native explicit
+selection/status and stale-scope refusal. Run relevant suites, typecheck, fresh
+unsigned package and semantic Ponytail review. Rollback reverts this slice; old
+records stay readable but cannot count as account selection. Real account matching,
+Apple provisioning, installed screenshots/accessibility and TestFlight remain open.
+
+Update the two current owned-process service fixtures to select an account through
+the public owner flow. Update MacHostJourneyTests.swift to select through the same
+compiled host/client protocol before discovery, preserve selection across restart,
+and require fresh selection after owner re-pairing. The retired MVP packet must refuse unselected preflight and
+confirm owned-child cleanup; it gains no new activation path.
+
+Exact slice files are the existing contract, service, executor, Codex and native
+account files/tests listed below plus account-correlation.md, acceptance/activation
+notes and current review. This changes no external authority or architecture.
+Evidence: successor/evidence/2026-10-17-node-foundation/account-correlation.md records
+1,326 portable and 328 native passes, 19 guarded executor passes, fresh unsigned
+builds/package and isolated selection p95 2.221708 ms below 5 ms. Account correlation
+is verified with fixtures; real account and signed installed acceptance stay open.
+
 ## Implementation paths
+
+- `successor/prototype/mvp-session.test.ts`
+
+- `successor/runner/owned-process-fixture.mjs`
+
+- `successor/evidence/2026-10-17-node-foundation/account-correlation.md`
+
+
+- `successor/runner/fixtures/codex-0.157.1-startup.json`
+
+- `successor/runner/codex-preflight-fixture.ts`
 
 - `successor/evidence/2026-10-17-node-foundation/provider-session-removal.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-network.md`

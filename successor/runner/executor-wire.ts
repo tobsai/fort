@@ -1,7 +1,8 @@
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, type ExecutionDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef } from '../contracts/context.ts';
 import { parseSkillBundle } from '../contracts/skill-bundle.ts';
-import type { Binding, ModelCatalog, ModelOption } from '../contracts/v1.ts';
+import { parseAccountIdentity } from '../contracts/account.ts';
+import type { Binding, ModelCatalog, ModelOption, AccountIdentity } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult } from './chat-runtime.ts';
 
 export type ExecutorBinding = Pick<Binding, 'provider' | 'runtimeVersion' | 'hostId'>;
@@ -10,7 +11,7 @@ export const DISPATCH_FRAME_BYTES = EXECUTION_LIMITS.inputBytes + 16_384;
 export const MODEL_FRAME_BYTES = 4096;
 export const MODEL_EVIDENCE_BYTES = 1_048_576;
 export type ExecutorModelRequest = {
-  protocolVersion: 1; kind: 'models'; requestId: string; binding: ExecutorBinding; deadline: number; requestDigest: string;
+  account?: AccountIdentity; protocolVersion: 1; kind: 'models'; requestId: string; binding: ExecutorBinding; deadline: number; requestDigest: string;
 };
 
 function reject(): never { throw new Error('Executor input was not confirmed'); }
@@ -71,7 +72,8 @@ function skill(value: unknown) {
   if (v.previousRevisionId !== undefined) text(v.previousRevisionId);
 }
 function configuration(value: unknown, conversationId: unknown) {
-  const v = object(value, ['agentId', 'agentName', 'bindingRevisionId', 'selectedModel', 'instructions', 'skills', 'memory', 'contextModule']);
+  const v = object(value, ['agentId', 'agentName', 'bindingRevisionId', 'selectedModel', 'instructions', 'skills', 'memory', 'contextModule', 'account']);
+  if (v.account !== undefined) parseAccountIdentity(v.account);
   strings(v, ['agentId', 'agentName', 'bindingRevisionId', 'selectedModel']); text(v.instructions, 65_536, true);
   for (const item of list(v.skills, 64)) skill(item);
   if (v.memory !== undefined) memory(v.memory, conversationId);
@@ -118,7 +120,8 @@ export function validateExecutorBinding(value: ExecutorBinding): void {
 }
 
 export function parseExecutorModelRequest(value: unknown, selected: ExecutorBinding): ExecutorModelRequest {
-  const v = object(value, ['protocolVersion', 'kind', 'requestId', 'binding', 'deadline', 'requestDigest']);
+  const v = object(value, ['protocolVersion', 'kind', 'requestId', 'binding', 'deadline', 'requestDigest', 'account']);
+  const account = v.account === undefined ? undefined : parseAccountIdentity(v.account);
   const binding = object(v.binding, ['provider', 'runtimeVersion', 'hostId']);
   strings(binding, ['provider', 'runtimeVersion', 'hostId']);
   const requestId = v.requestId; text(requestId, 128);
@@ -128,7 +131,7 @@ export function parseExecutorModelRequest(value: unknown, selected: ExecutorBind
     || binding.provider !== selected.provider || binding.runtimeVersion !== selected.runtimeVersion || binding.hostId !== selected.hostId
     || typeof v.deadline !== 'number' || !Number.isSafeInteger(v.deadline) || v.deadline <= Date.now() || v.deadline > Date.now() + 5000
     || executionDigest(body) !== requestDigest || Buffer.byteLength(JSON.stringify(value)) > MODEL_FRAME_BYTES) reject();
-  return immutable({ protocolVersion: 1, kind: 'models', requestId, binding: { ...selected }, deadline: v.deadline, requestDigest });
+  return immutable({ ...(account ? { account } : {}), protocolVersion: 1, kind: 'models', requestId, binding: { ...selected }, deadline: v.deadline, requestDigest });
 }
 
 export function validateExecutorModelCancel(value: unknown, request: ExecutorModelRequest): void {

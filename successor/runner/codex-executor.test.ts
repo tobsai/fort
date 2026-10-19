@@ -1,3 +1,4 @@
+import { syntheticAccountIdentity } from './codex-preflight-fixture.ts';
 import { before, after, test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -20,7 +21,7 @@ before(() => {
 after(() => rmSync(root, { recursive: true, force: true }));
 function command() {
   const input: ChatInput = { context: { kind: 'empty' }, attempt: { runId: 'run', attemptId: 'attempt', generation: 1, bindingRevisionId: 'binding', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model' },
-    runId: 'run', requestId: 'request', conversationId: 'conversation', configuration: { agentId: 'agent', agentName: 'Fixture', bindingRevisionId: 'binding', selectedModel: 'fixture-exact-model', instructions: '', skills: [] },
+    runId: 'run', requestId: 'request', conversationId: 'conversation', configuration: { account: syntheticAccountIdentity, agentId: 'agent', agentName: 'Fixture', bindingRevisionId: 'binding', selectedModel: 'fixture-exact-model', instructions: '', skills: [] },
     history: [], text: '  synthetic exact cedar 🌲\n' };
   const dispatch = sealDispatch({ protocolVersion: 1, installationId: 'installation', recoveryEpoch: 'epoch',
     binding: { bindingRevisionId: 'binding', provider: 'codex', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model', hostId: 'fixture-host', enabled: true }, attempt: input.attempt,
@@ -71,7 +72,7 @@ test('the guarded Codex adapter completes through the real worker protocol and l
 test('guarded Codex model discovery returns exact models without a thread or turn and leaves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
   const h = setup(t, 'catalog');
   assert.ok(h.runtime.models);
-  const catalog = await h.runtime.models(new AbortController().signal);
+  const catalog = await h.runtime.models(new AbortController().signal, syntheticAccountIdentity);
   assert.equal(catalog.provider, 'codex'); assert.equal(catalog.state, 'ready');
   assert.deepEqual(catalog.models, [
     { id: 'fixture-exact-model', name: 'Text fixture', availability: 'available' },
@@ -88,7 +89,7 @@ test('guarded Codex model discovery returns exact models without a thread or tur
 test('guarded model discovery refuses unsafe configuration and a foreign account before listing models', { skip: process.platform !== 'darwin' }, async t => {
   for (const scenario of ['unsafe-config', 'foreign-account']) await t.test(scenario, async t => {
     const h = setup(t, scenario); assert.ok(h.runtime.models);
-    const catalog = await h.runtime.models(new AbortController().signal);
+    const catalog = await h.runtime.models(new AbortController().signal, syntheticAccountIdentity);
     assert.equal(catalog.state, 'error'); assert.deepEqual(catalog.models, []);
     const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     assert.ok(methods.every(value => !['model/list', 'thread/start', 'turn/start', 'account/login/start'].includes(value.method)));
@@ -102,7 +103,7 @@ test('guarded account sign-in forwards a validated challenge without a chat turn
   const h = setup(t, 'account-success'), shown: unknown[] = [];
   assert.ok(h.runtime.signIn);
   const result = await h.runtime.signIn({ durationMs: 5000, onChallenge: value => { shown.push(value); } }, new AbortController().signal);
-  assert.deepEqual(result, { kind: 'signedIn' });
+  assert.deepEqual(result, { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.deepEqual(shown, [{ kind: 'deviceCode', verificationURL: 'https://auth.openai.com/codex/device', userCode: 'FORT-TEST' }]);
   const methods = readFileSync(join(h.directory, 'methods.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
   assert.deepEqual(methods.filter(value => value.method === 'account/login/start'), [{ method: 'account/login/start', loginType: 'chatgptDeviceCode' }]);
@@ -116,7 +117,7 @@ test('guarded account cancellation retains a completed account race and disposes
     const h = setup(t, scenario), abort = new AbortController();
     assert.ok(h.runtime.signIn);
     const result = await h.runtime.signIn({ durationMs: 5000, onChallenge: () => abort.abort() }, abort.signal);
-    assert.deepEqual(result, { kind: scenario === 'account-race' ? 'signedIn' : 'canceled' });
+    assert.deepEqual(result, scenario === 'account-race' ? { kind: 'signedIn', account: syntheticAccountIdentity } : { kind: 'canceled' });
     assert.equal(h.runtime.lastExit?.forced, false); assert.equal(h.runtime.lastExit?.groupAbsent, true);
     allAbsent(h.directory);
   });
@@ -124,7 +125,7 @@ test('guarded account cancellation retains a completed account race and disposes
 
 test('canceling guarded model discovery disposes its runtime and leaves both groups absent', { skip: process.platform !== 'darwin' }, async t => {
   const h = setup(t, 'catalog-cancel'), controller = new AbortController(); assert.ok(h.runtime.models);
-  const pending = h.runtime.models(controller.signal);
+  const pending = h.runtime.models(controller.signal, syntheticAccountIdentity);
   assert.ok(await until(() => existsSync(join(h.directory, 'model-list-started')), 4000));
   controller.abort(); const result = await pending;
   assert.notEqual(result.state, 'ready'); assert.deepEqual(result.models, []);
@@ -138,7 +139,7 @@ test('guarded execution and model discovery share one active worker', { skip: pr
   const executing = h.runtime.execute(input, controller.signal, dispatch);
   assert.ok(await until(() => existsSync(join(h.directory, 'turn-started')), 4000));
   const before = readFileSync(join(h.directory, 'worker.json'), 'utf8'); assert.ok(h.runtime.models);
-  assert.equal((await h.runtime.models(new AbortController().signal)).state, 'unavailable');
+  assert.equal((await h.runtime.models(new AbortController().signal, syntheticAccountIdentity)).state, 'unavailable');
   assert.equal(readFileSync(join(h.directory, 'worker.json'), 'utf8'), before);
   controller.abort(); assert.equal((await executing).kind, 'canceled'); allAbsent(h.directory);
 });
@@ -239,7 +240,7 @@ test('the full synthetic Codex catalog journey meets its isolated budget', { ski
   const samples: number[] = [];
   for (let index = 0; index < 20; index++) {
     const h = setup(t, 'catalog'), started = performance.now(); assert.ok(h.runtime.models);
-    const result = await h.runtime.models(new AbortController().signal);
+    const result = await h.runtime.models(new AbortController().signal, syntheticAccountIdentity);
     await h.runtime.dispose(); assert.equal(result.state, 'ready'); assert.equal(result.models.length, 2);
     assert.equal(h.runtime.lastExit?.forced, false); allAbsent(h.directory);
     samples.push(performance.now() - started);

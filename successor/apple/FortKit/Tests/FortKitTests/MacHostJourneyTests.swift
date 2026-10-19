@@ -101,6 +101,21 @@ import Testing
         let client = FortClient(installationID:setup.installationID,token:setup.deviceToken,transport:first.core)
         let initial = try await client.installation()
         #expect(initial.runtime?.hostId == "local-codex")
+        func selectFixtureAccount(_ selectedClient: FortClient) async throws {
+            let before = try await selectedClient.accountSignInStatus()
+            #expect(!before.accountSelected)
+            let request = AccountSignInRequest(operationId:UUID().uuidString,expectedRevision:before.revision,recoveryEpoch:initial.recoveryEpoch,expiresAt:Int64(Date().timeIntervalSince1970 * 1000) + 30000)
+            var status = try await selectedClient.startAccountSignIn(request)
+            for _ in 0..<400 where status.finishedResult == nil {
+                try await Task.sleep(for:.milliseconds(10)); status = try await selectedClient.accountSignInStatus()
+            }
+            let account = try #require(status.reportedAccount), operation = try #require(status.operation)
+            #expect(account.accountId == "workspace-fixture" && account.userLabel == "owner@fixture.invalid" && !status.accountSelected)
+            let confirmed = try await selectedClient.selectAccount(operation,account:account,recoveryEpoch:initial.recoveryEpoch)
+            #expect(confirmed.accountSelected && confirmed.reportedAccount == account)
+        }
+        #expect(try await !client.models().canSelect("fixture-exact-model"))
+        try await selectFixtureAccount(client)
         #expect(try await client.models().canSelect("fixture-exact-model"))
         let agent = try await client.saveAgent(nil,name:"Synthetic native Home",model:"fixture-exact-model",instructions:"Preserve exact text.")
         let memory = try await client.saveMemory(conversationID:agent.homeConversationId,memory:nil,text:"Synthetic context only.",recoveryEpoch:initial.recoveryEpoch)
@@ -135,6 +150,7 @@ import Testing
         #expect(try await restored.snapshot(conversationID:agent.homeConversationId).messages == snapshot.messages)
         #expect(try await restored.runtimeReadiness().state == "stopped")
         await #expect(throws:ClientError.self) { try await restored.submit(pending) }
+        #expect(try await restored.accountSignInStatus().accountSelected)
         phase = "fresh-core explicit resume"
         #expect(try await restored.restartRuntime(recoveryEpoch:installation.recoveryEpoch).state == "ready")
         #expect(try await reopened.core.beginOwnerSetup(timeout:3) == .paired(paired))
@@ -161,6 +177,8 @@ import Testing
         let repaired = FortClient(installationID:replacement.installationID,token:replacement.deviceToken,transport:reopened.core)
         #expect(try await repaired.snapshot(conversationID:agent.homeConversationId).messages == snapshot.messages)
         await #expect(throws:(any Error).self) { try await restored.installation() }
+        #expect(try await !repaired.accountSignInStatus().accountSelected)
+        try await selectFixtureAccount(repaired)
         phase = "send after new pairing"
         let afterPairing = PendingSubmission(requestID:"synthetic-native-repaired-turn",conversationID:agent.homeConversationId,bindingRevision:agent.binding.bindingRevisionId,recoveryEpoch:installation.recoveryEpoch,text:exact,createdAt:Date(),recipientAgentID:agent.agentId,skills:[],memoryRevisionId:memory.revisionId)
         _ = try await repaired.submit(afterPairing)

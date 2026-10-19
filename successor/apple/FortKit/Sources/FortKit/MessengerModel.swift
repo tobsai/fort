@@ -127,6 +127,8 @@ import Observation
         case .starting: accountSignInMessage = "Waiting for the runtime’s sign-in instructions."
         case .challenge: accountSignInMessage = "Open the verification page and enter this code before it expires."
         case .canceling: accountSignInMessage = "Cancellation is awaiting confirmation."
+        case .identified(_,_,let selected):
+            accountSignInMessage = selected ? "This account is selected. The runtime must match it before models or messages are requested." : "The runtime reported this account. Select it only if it matches the account and workspace you intended."
         case .finished(_,let result):
             switch result {
             case .signedIn: accountSignInMessage = "The runtime reports signed in; the account identity is not verified. Confirm the intended account before use."
@@ -147,6 +149,19 @@ import Observation
             let result = try await client.accountSignInStatus()
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
+    }
+    public func selectReportedAccount() async {
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped,
+              let status = accountSignInStatus, let operation = status.operation, let account = status.reportedAccount, !status.accountSelected else { return }
+        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let generation = accountStatusGeneration
+        do {
+            let (client,connection,selected) = try accountScope()
+            guard try storage.accountSignInIntent(for:connection) == nil else { throw ClientError.invalidResponse }
+            let result = try await client.selectAccount(operation,account:account,recoveryEpoch:selected.recoveryEpoch)
+            guard result.operation == operation, result.reportedAccount == account, result.accountSelected else { throw ClientError.invalidResponse }
+            try acceptAccountStatus(result,connection:connection,installation:selected,intent:nil,generation:generation)
+        } catch { accountSignInStatus = nil; accountSignInMessage = "Account selection is unconfirmed. Check status before selecting again." }
     }
     public func startAccountSignIn() async {
         guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }

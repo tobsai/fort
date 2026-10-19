@@ -5,12 +5,12 @@ import { PassThrough, Writable } from 'node:stream';
 import { CodexConnection } from './codex-rpc.ts';
 import { CodexChat } from './codex-chat.ts';
 import type { ChatInput } from './chat-runtime.ts';
-import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts';
+import { syntheticConfig, syntheticFeatures, syntheticAccount, syntheticAccountIdentity } from './codex-preflight-fixture.ts';
 import {parseSkillBundle} from '../contracts/skill-bundle.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
-const input: Omit<ChatInput, "context"> = { attempt:{runId:'run-1',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'}, runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
-function transport(options: { catalogModels?:unknown[]; model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
+const input: Omit<ChatInput, "context"> = { attempt:{runId:'run-1',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'}, runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ account: syntheticAccountIdentity, agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
+function transport(options: { account?: unknown; catalogModels?:unknown[]; model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -31,7 +31,7 @@ function transport(options: { catalogModels?:unknown[]; model?: string; tool?: b
           const pages = options.mcpPages ?? [[]], page = Number(frame.params.cursor ?? 0);
           result({ data:pages[page] ?? [],nextCursor:options.cycleCursor ? '0' : page+1<pages.length ? String(page+1) : null }); break;
         }
-        case 'account/read': result({ account:{ type:'chatgpt' }, requiresOpenaiAuth:true }); break;
+        case 'account/read': result(options.account ?? syntheticAccount()); break;
         case 'model/list': result({ data:options.catalogModels ?? [{ id:options.model ?? 'gpt-6-astra',model:options.model ?? 'gpt-6-astra' }], nextCursor:null }); break;
         case 'permissionProfile/list': result({data:[{id:'fort_candidate_b_no_files',description:null,allowed:true}],nextCursor:null});break;
         case 'thread/start': result({ thread:{ id:'thread', ephemeral:true }, model:options.wrongModel ? 'other' : frame.params.model, modelProvider:'openai', cwd:frame.params.cwd, approvalPolicy:'untrusted', approvalsReviewer:'user',activePermissionProfile:{id:'fort_candidate_b_no_files',extends:null},runtimeWorkspaceRoots:[],sandbox:{ type:'readOnly', networkAccess:false }, instructionSources:[] }); options.afterThread?.(); break;
@@ -127,7 +127,7 @@ test('no-turn preflight reports only the exact failed check, never provider payl
   ] as const){
     const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
     let failure:unknown;
-    try{await runtime.preflight(new AbortController().signal);}catch(error){failure=error;}
+    try{await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity);}catch(error){failure=error;}
     await runtime.dispose();
     assert.deepEqual(redactedStartupFailure(failure,{stage:'session',check:'runtime-preflight'}),expected);
     assert.equal(JSON.stringify(failure).includes('synthetic-secret-must-not-report'),false);
@@ -174,7 +174,7 @@ test('MCP inventory is checked through the final page before a thread or turn is
 test('explicit no-turn preflight and later dispatch share one initialized connection', async () => {
   const fixture=transport();
   const runtime=new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
-  assert.deepEqual(await runtime.preflight(new AbortController().signal),{ model:'gpt-6-astra',runtimeVersion:'0.157.1' });
+  assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{ model:'gpt-6-astra',runtimeVersion:'0.157.1' });
   assert.equal(fixture.calls.some(c => ['thread/start','turn/start'].includes(c.method ?? '')),false);
   assert.equal((await runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
   assert.equal(fixture.calls.filter(c => c.method === 'initialize').length,1);
@@ -223,7 +223,7 @@ test('Codex 0.157.1 canonical inventory confirms disabled memory and images with
   const features=syntheticFeatures().filter(feature=>!['memory_tool','imagegenext'].includes(feature.name));
   const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
   try{
-    assert.deepEqual(await runtime.preflight(new AbortController().signal),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});
+    assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});
     assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')),false);
     assert.equal((await runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     assert.equal(fixture.calls.some(call=>call.method==='experimentalFeature/list'&&call.params?.threadId==='thread'),true);
@@ -244,7 +244,7 @@ for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image
       if(mode==='duplicate')features.push({name:canonical,enabled:false});
       const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
       let failure:unknown;
-      try{await runtime.preflight(new AbortController().signal);}catch(error){failure=error;}
+      try{await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity);}catch(error){failure=error;}
       finally{await runtime.dispose();}
       const check=mode==='nonboolean'||mode==='duplicate'?'inventory':mode==='alias-enabled'?alias:canonical;
       assert.deepEqual(redactedStartupFailure(failure,{stage:'session',check:'runtime-preflight'}),{stage:'features',check});
@@ -325,6 +325,7 @@ for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime dispos
     const output=new PassThrough();const input=new Writable({write(_bytes,_encoding,done){startedPreflight();done();}});
     const connection=new CodexConnection({input,output,close:()=>{input.destroy();output.destroy();}});replacements.push(connection);return connection;
   }}});
+  await assert.rejects(runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity));
   const restart=runtime.restart(new AbortController().signal);void restart.catch(()=>{});
   try{
     if(phase==='new-preflight'){releaseOld();await paused;}
@@ -339,7 +340,7 @@ for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime dispos
 test('model catalog uses exact runtime slugs without dispatch, login or silent default substitution',async()=>{
  const fixture=transport({catalogModels:[{id:'display-id',model:'exact-text-model',displayName:'Text model',inputModalities:['text']},{id:'audio',model:'exact-audio-model',inputModalities:['audio']}]});
  const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
- const catalog=await runtime.models(new AbortController().signal);assert.equal(catalog.state,'ready');
+ const catalog=await runtime.models(new AbortController().signal, syntheticAccountIdentity);assert.equal(catalog.state,'ready');
  assert.deepEqual(catalog.models.map(model=>[model.id,model.availability]),[['exact-text-model','available'],['exact-audio-model','unavailable']]);
  assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')||call.method?.includes('login')),false);
  assert.equal(fixture.calls.find(call=>call.method==='model/list')?.params?.includeHidden,false);
@@ -348,5 +349,34 @@ test('model catalog uses exact runtime slugs without dispatch, login or silent d
 for(const issue of ['duplicate','invalid','failure'] as const)test(`model discovery fails safely: ${issue}`,async()=>{
  const fixture=transport(issue==='failure'?{rejectMethod:'model/list'}:{catalogModels:issue==='duplicate'?[{model:'same'},{model:'same'}]:[{id:'display-only'}]});
  const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
- const catalog=await runtime.models(new AbortController().signal);assert.equal(catalog.state,'error');assert.deepEqual(catalog.models,[]);assert.equal(JSON.stringify(catalog).includes('synthetic-secret'),false);await runtime.dispose();
+ const catalog=await runtime.models(new AbortController().signal, syntheticAccountIdentity);assert.equal(catalog.state,'error');assert.deepEqual(catalog.models,[]);assert.equal(JSON.stringify(catalog).includes('synthetic-secret'),false);await runtime.dispose();
 });
+
+for (const account of [undefined, { ...syntheticAccountIdentity, accountId: 'another-workspace' }, { ...syntheticAccountIdentity, userLabel: 'other@fixture.invalid' }]) {
+  test('Codex refuses a missing or mismatched selected identity before model or thread dispatch ' + JSON.stringify(account), async () => {
+    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+    const result = await runtime.execute(contextInput({ ...input, configuration: { ...input.configuration, account } }), new AbortController().signal);
+    assert.equal(result.kind, 'notStarted');
+    assert.equal(f.calls.some(c => ['model/list', 'thread/start', 'turn/start'].includes(c.method ?? '')), false);
+    await runtime.dispose();
+  });
+}
+
+test('account change after catalog discovery blocks the next turn before thread creation', async () => {
+  const options: { account: unknown } = { account: syntheticAccount() }, f = transport(options);
+  const runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+  assert.equal((await runtime.models(new AbortController().signal, syntheticAccountIdentity)).state, 'ready');
+  options.account = { ...syntheticAccount(), workspaceRouting: { ...syntheticAccount().workspaceRouting, chatgptAccountId: 'different-workspace' } };
+  assert.equal((await runtime.execute(contextInput(input), new AbortController().signal)).kind, 'notStarted');
+  assert.equal(f.calls.filter(c => c.method === 'model/list').length, 1);
+  assert.equal(f.calls.some(c => ['thread/start', 'turn/start'].includes(c.method ?? '')), false);
+  await runtime.dispose();
+});
+for (const account of [null, {}, { ...syntheticAccountIdentity, accountId: 'another' }])
+  test('catalog discovery requires the exact selected account ' + JSON.stringify(account), async () => {
+    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+    // Deliberately cross the untyped capability boundary with invalid evidence.
+    const catalog = await Reflect.apply(runtime.models, runtime, [new AbortController().signal, account]);
+    assert.equal(catalog.state, 'error'); assert.equal(f.calls.some(c => c.method === 'model/list'), false);
+    await runtime.dispose();
+  });

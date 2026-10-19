@@ -1,4 +1,4 @@
-import type { AccountChallenge, AccountSignInResult } from './v1.ts';
+import type { AccountChallenge, AccountSignInResult, AccountIdentity } from './v1.ts';
 function reject(): never { throw new Error('Account executor evidence was not confirmed'); }
 function object(value: unknown, keys: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) reject();
@@ -17,8 +17,20 @@ export function parseAccountChallenge(value: unknown): AccountChallenge {
   return { kind: 'deviceCode', verificationURL: row.verificationURL, userCode: row.userCode };
 }
 
+export function parseAccountIdentity(value: unknown): AccountIdentity {
+  const row = object(value, ['accountId', 'userLabel']);
+  if (typeof row.accountId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/.test(row.accountId)
+      || typeof row.userLabel !== 'string' || !row.userLabel.isWellFormed() || !row.userLabel.trim()
+      || row.userLabel !== row.userLabel.trim() || Buffer.byteLength(row.userLabel) > 320
+      || /[\p{Cc}\p{Cf}]/u.test(row.userLabel)) reject();
+  return { accountId: row.accountId, userLabel: row.userLabel };
+}
+export function sameAccount(left: AccountIdentity | undefined, right: AccountIdentity | undefined): boolean {
+  return left !== undefined && right !== undefined && left.accountId === right.accountId && left.userLabel === right.userLabel;
+}
 export function parseAccountSignInResult(value: unknown): AccountSignInResult {
-  const row = object(value, ['kind']);
-  if (row.kind === 'signedIn' || row.kind === 'canceled' || row.kind === 'failed' || row.kind === 'unconfirmed') return { kind: row.kind };
+  const row = object(value, ['kind', 'account']);
+  if (row.kind === 'signedIn') return { kind: row.kind, ...(row.account === undefined ? {} : { account: parseAccountIdentity(row.account) }) };
+  if (row.account === undefined && (row.kind === 'canceled' || row.kind === 'failed' || row.kind === 'unconfirmed')) return { kind: row.kind };
   return reject();
 }

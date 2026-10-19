@@ -1495,11 +1495,15 @@
   "account": {
     "account": {
       "type": "chatgpt",
-      "email": "synthetic@example.invalid",
+      "email": "owner@fixture.invalid",
       "planType": "plus"
     },
     "requiresOpenaiAuth": true,
-    "workspaceRouting": null
+    "workspaceRouting": {
+      "chatgptAccountId": "workspace-fixture",
+      "backendOrigin": "https://chatgpt.com",
+      "accountRoutingOverride": null
+    }
   },
   "models": [
     {

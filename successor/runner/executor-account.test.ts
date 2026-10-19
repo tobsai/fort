@@ -153,3 +153,10 @@ test('account process journeys meet their isolated budget', { skip: !process.env
   assert.ok(result.p95 !== undefined && result.p95 < result.budgetMs);
   writeFileSync(process.env.FORT_OWNED_ACCOUNT_BENCHMARK!, JSON.stringify(result) + '\n', { flag: 'wx', mode: 0o600 });
 });
+
+test('account identity crosses the owned executor without provider-shaped core fields', async t => {
+  const h = setup(t, 'identity'); assert.ok(h.runtime.signIn);
+  assert.deepEqual(await h.runtime.signIn({ durationMs: 1000, onChallenge: () => assert.fail('No login expected') }, new AbortController().signal),
+    { kind: 'signedIn', account: { accountId: 'independent-tenant', userLabel: 'Independent fixture owner' } });
+  assert.equal(h.runtime.lastExit?.groupAbsent, true);
+});

@@ -1,10 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { AccountChallenge, AccountSignInResult, AccountSignInStatus } from '../contracts/v1.ts';
-import { parseAccountChallenge, parseAccountSignInResult } from '../contracts/account.ts';
+import { parseAccountChallenge, parseAccountSignInResult, parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 
 type Attempt = { revision: number; operationId: string; deviceId: string; recoveryEpoch: string; expiresAt: number }
-  & ({ state: 'active' | 'canceling' } | { state: 'finished'; result: AccountSignInResult });
+  & ({ state: 'active' | 'canceling' } | { state: 'finished'; result: AccountSignInResult; selected?: boolean });
 type AccountWork = { controller: AbortController; task: Promise<void>; challenge?: AccountChallenge };
 type Scope = { deviceId: string; recoveryEpoch: string; running: boolean };
 type Options = { runtime: ChatRuntime | undefined; now(): number; scope(): Scope | undefined;
@@ -31,10 +31,14 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
   }); current = record; };
   const stored = db.prepare("SELECT data FROM metadata WHERE key='accountSignIn'").get();
   if (stored) {
-    const row = fields(JSON.parse(String(stored.data)), ['revision', 'operationId', 'deviceId', 'recoveryEpoch', 'expiresAt', 'state', 'result']);
+    const row = fields(JSON.parse(String(stored.data)), ['revision', 'operationId', 'deviceId', 'recoveryEpoch', 'expiresAt', 'state', 'result', 'selected']);
     const identity = { revision: integer(row.revision, 1), operationId: id(row.operationId), deviceId: id(row.deviceId), recoveryEpoch: id(row.recoveryEpoch), expiresAt: integer(row.expiresAt, 1) };
-    if (row.state === 'finished') current = { ...identity, state: 'finished', result: parseAccountSignInResult(row.result) };
-    else if ((row.state === 'active' || row.state === 'canceling') && !Object.hasOwn(row, 'result')) save({ ...identity, state: 'finished', result: { kind: 'unconfirmed' } });
+    if (row.state === 'finished') {
+      const result = parseAccountSignInResult(row.result);
+      if (row.selected !== undefined && (typeof row.selected !== 'boolean' || result.kind !== 'signedIn' || !result.account)) reject();
+      current = { ...identity, state: 'finished', result, ...(row.selected === true ? { selected: true } : {}) };
+    }
+    else if ((row.state === 'active' || row.state === 'canceling') && !Object.hasOwn(row, 'result') && !Object.hasOwn(row, 'selected')) save({ ...identity, state: 'finished', result: { kind: 'unconfirmed' } });
     else reject();
   }
   function authorize(deviceId: string): Scope {
@@ -47,7 +51,8 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     if (!signIn) return { state: 'unavailable', revision };
     if (!current || current.deviceId !== deviceId || current.recoveryEpoch !== scope.recoveryEpoch) return { state: 'idle', revision };
     const identity = { revision, operationId: current.operationId, expiresAt: current.expiresAt };
-    if (current.state === 'finished') return { ...identity, state: 'finished', result: { ...current.result } };
+    if (current.state === 'finished') return { ...identity, state: 'finished', result: parseAccountSignInResult(current.result),
+      ...(current.result.kind === 'signedIn' && current.result.account ? { selected: current.selected === true } : {}) };
     if (current.state === 'canceling' || active?.controller.signal.aborted || options.now() >= current.expiresAt) return { ...identity, state: 'canceling' };
     return active?.challenge ? { ...identity, state: 'challenge', challenge: { ...active.challenge } } : { ...identity, state: 'starting' };
   }
@@ -97,6 +102,22 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     if (current.operationId !== row.operationId || current.revision !== row.revision) reject();
     return status(deviceId);
   }
-  return { status, start, cancel, get busy() { return active !== undefined; },
+  function selected() {
+    const scope = options.scope();
+    return scope && current?.deviceId === scope.deviceId && current.recoveryEpoch === scope.recoveryEpoch
+      && current.state === 'finished' && current.selected && current.result.kind === 'signedIn' && current.result.account
+      ? { ...current.result.account } : undefined;
+  }
+  function select(deviceId: string, value: unknown): AccountSignInStatus {
+    const scope = authorize(deviceId), row = fields(value, ['operationId', 'revision', 'recoveryEpoch', 'account']);
+    let account;
+    try { account = parseAccountIdentity(row.account); } catch { reject(400); }
+    if (!scope.running || active || !current || current.state !== 'finished' || current.result.kind !== 'signedIn'
+        || current.deviceId !== deviceId || current.recoveryEpoch !== scope.recoveryEpoch || id(row.recoveryEpoch) !== scope.recoveryEpoch
+        || id(row.operationId) !== current.operationId || integer(row.revision, 1) !== current.revision || !sameAccount(account, current.result.account)) reject();
+    if (!current.selected) save({ ...current, selected: true });
+    return status(deviceId);
+  }
+  return { status, start, cancel, select, selected, get busy() { return active !== undefined; },
     async stop() { const operation = active; if (operation) { operation.controller.abort(); await operation.task; } } };
 }

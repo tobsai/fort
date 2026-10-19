@@ -107,7 +107,7 @@ test('MVP shutdown closes a stalled HTTP body instead of spending its cleanup re
   finally{socket.destroy();await closing;}
 });
 
-test('the dedicated runtime factory uses owned children and shares one restart budget between HTTP and service controls',async t=>{
+test('the retired dedicated runtime packet refuses unselected account preflight and reaps its owned child',async t=>{
   const {createMvpRuntime}=await import('./mvp-runtime.ts');
   const {launchOwnedProcess}=await import('../runner/owned-process.ts');
   const {fileURLToPath}=await import('node:url');
@@ -117,24 +117,10 @@ test('the dedicated runtime factory uses owned children and shares one restart b
     assert.equal(plan.executable,'/opt/homebrew/Caskroom/codex/0.157.1/bin/codex');assert.ok(plan.deadlineMs+4_000<=300_000);assert.deepEqual(Object.keys(plan.env).sort(),['HOME','LANG','PATH','TMPDIR','TZ']);
     const child=launchOwnedProcess({...plan,executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'}});children.push(child);return child;
   })});
-  const session=await packet.start();t.after(()=>session.abort());
-  const pairing=JSON.parse(await readFile(session.pairingFile,'utf8'));
-  const response=await fetch(session.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...pairing,deviceName:'Synthetic owned-runtime client'})});
-  const device=await response.json() as {deviceToken:string};
-  const headers={'Content-Type':'application/json',Authorization:`Bearer ${device.deviceToken}`,'X-Fort-Installation-Id':session.installationId};
-  const api=async<T>(path:string,body?:unknown)=>{const r=await fetch(session.baseURL+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,body:await r.json() as T};};
-  const installation=(await api<Installation>('/v1/installation')).body;
-  assert.ok(installation.capabilities?.includes('runtimeRecovery'));
-  await children[0]!.dispose();assert.equal(children[0]!.cleanupConfirmed,true);
-  assert.equal((await api<{canRestart:boolean}>('/v1/runtime')).body.canRestart,true);
-  assert.equal((await api('/v1/runtime/restart',{recoveryEpoch:'wrong'})).status,409);assert.equal(children.length,1);
-  assert.equal((await api('/v1/runtime/restart',{recoveryEpoch:installation.recoveryEpoch})).status,200);assert.equal(children.length,2);
-  await assert.rejects(()=>session.restartService(),/restart/);
-  const agent=(await api<Agent>('/v1/agents',{name:'Writer',model:'gpt-6-astra',instructions:'Reply briefly using supplied context.'})).body;
-  const accepted=await api<Acceptance>(`/v1/conversations/${agent.homeConversationId}/messages`,{requestId:'after-explicit-restart',recoveryEpoch:installation.recoveryEpoch,bindingRevisionId:agent.binding.bindingRevisionId,recipientAgentId:agent.agentId,text:MVP_PROMPTS[1][0],skills:[]});assert.equal(accepted.status,201);
-  for(let i=0;i<100&&session.status().runs[0]?.state!=='completed';i++)await new Promise(resolve=>setTimeout(resolve,5));
-  assert.equal(session.status().runs[0]?.state,'completed');
-  const finished=await session.finish();assert.equal(finished.phase,'finished');assert.equal(finished.launches,2);assert.equal(finished.restarts,1);assert.equal(finished.receipts.length,1);assert.equal(children.every(child=>child.cleanupConfirmed),true);
+  await assert.rejects(packet.start());
+  assert.equal(children.length, 1);
+  assert.equal(children[0]?.cleanupConfirmed, true);
+
 });
 
 test('exactly three distinct sessions can be consumed and a later session requires prior cleanup',async t=>{

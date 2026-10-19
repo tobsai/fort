@@ -1,4 +1,4 @@
-import type { RuntimeReadiness, ModelCatalog, ModelOption, AccountSignInOptions, AccountSignInResult } from '../contracts/v1.ts';
+import type { RuntimeReadiness, ModelCatalog, ModelOption, AccountSignInOptions, AccountSignInResult, AccountIdentity } from '../contracts/v1.ts';
 import { randomUUID } from 'node:crypto';
 import { executionDigest } from '../contracts/executor.ts';
 import { isAbsolute, normalize } from 'node:path';
@@ -8,12 +8,14 @@ import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { readRuntimePages, verifyRuntimeControls } from './codex-controls.ts';
 import {StartupCheckError,redactedStartupFailure,type StartupDiagnostic} from './startup-diagnostic.ts';
 import {CODEX_PERMISSION_PROFILE,verifyPermissionSelection} from './codex-permissions.ts';
-import { signInCodexAccount } from './codex-account.ts';
+import { parseAccountIdentity, sameAccount } from '../contracts/account.ts';
+import { readCodexAccount, signInCodexAccount } from './codex-account.ts';
 
 type CodexChatOptions={ connection:CodexConnection; workspace:string; runtimeVersion:string; replacement?:{ maximumConnections:number; deadline:number; now?:()=>number; connect:()=>CodexConnection } };
 export class CodexChat implements ChatRuntime {
   private readonly options: CodexChatOptions;
   private initialized = false;
+  private selectedAccount: AccountIdentity | undefined;
   private busy = false;
   private disposed = false;
   private readonly stopping = new AbortController();
@@ -72,24 +74,24 @@ export class CodexChat implements ChatRuntime {
       this.connectionsUsed++;
       this.options.connection=replacement.connect();created=true;this.initialized=false;
       signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');
-      await this.preflight(signal);signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');
+      await this.preflight(signal, undefined, this.selectedAccount);signal.throwIfAborted();if(this.disposed)throw new Error('Runtime stopped during replacement');
       this.detail='Replacement verified. Earlier requests were not retried.';
     } catch(error){
       if(created){try{await this.options.connection.dispose();}catch{this.recoveryBlocked=true;this.detail='Replacement cleanup is unconfirmed.';throw new Error('Replacement cleanup was not confirmed');}}
       throw error;
     } finally {removeAbort();this.busy=false;}
   }
-  async models(signal:AbortSignal):Promise<ModelCatalog> {
+  async models(signal:AbortSignal, selectedAccount?: AccountIdentity):Promise<ModelCatalog> {
     if(this.disposed||this.options.connection.isClosed||this.busy)return {provider:'codex',state:'unavailable',models:[],detail:'Model discovery is unavailable while the runtime is stopped or busy.'};
     const {connection,workspace}=this.options;
     try {
+      const selected = parseAccountIdentity(selectedAccount);
       if(!this.initialized){
         await connection.request('initialize',{clientInfo:{name:'fort_candidate_b',title:'Fort',version:'0.1.0'},capabilities:{experimentalApi:true,requestAttestation:false}},signal);
         connection.notify('initialized',{});this.initialized=true;
       }
       await verifyRuntimeControls(connection,workspace,signal);
-      const account=object(await connection.request('account/read',{refreshToken:false},signal));
-      if(object(account.account).type!=='chatgpt'||account.requiresOpenaiAuth!==true)throw new Error('Existing account unavailable');
+      if (!sameAccount(selected, await readCodexAccount(connection, signal) ?? undefined)) throw new Error('Selected account unavailable');
       const rows=await readRuntimePages(connection,'model/list',{includeHidden:false},signal),seen=new Set<string>(),models:ModelOption[]=[];
       for(const value of rows){
         const row=object(value),id=row.model;
@@ -102,18 +104,19 @@ export class CodexChat implements ChatRuntime {
       return {provider:'codex',state:'ready',models,checkedAt:new Date().toISOString()};
     }catch{return {provider:'codex',state:'error',models:[],detail:'Could not verify models from the connected Codex runtime. Your selection has not changed.'};}
   }
-  async preflight(signal: AbortSignal, model = 'gpt-6-astra'): Promise<{ model:string; runtimeVersion:string }> {
+  async preflight(signal: AbortSignal, model = 'gpt-6-astra', selectedAccount?: AccountIdentity): Promise<{ model:string; runtimeVersion:string }> {
     const { connection,workspace,runtimeVersion }=this.options;
-    let checkpoint:StartupDiagnostic={stage:'protocol',check:'initialize'};
+    let checkpoint:StartupDiagnostic={stage:'account',check:'chatgpt'};
     try {
+      this.selectedAccount = parseAccountIdentity(selectedAccount);
+      checkpoint={stage:'protocol',check:'initialize'};
       if (!this.initialized) {
         await connection.request('initialize',{ clientInfo:{ name:'fort_candidate_b',title:'Fort',version:'0.1.0' },capabilities:{ experimentalApi:true,requestAttestation:false } },signal);
         connection.notify('initialized',{}); this.initialized=true;
       }
       await verifyRuntimeControls(connection,workspace,signal);
       checkpoint={stage:'protocol',check:'account/read'};
-      const account=object(await connection.request('account/read',{ refreshToken:false },signal));
-      if (object(account.account).type!=='chatgpt' || account.requiresOpenaiAuth!==true) throw new StartupCheckError({stage:'account',check:'chatgpt'});
+      if (!sameAccount(this.selectedAccount, await readCodexAccount(connection, signal) ?? undefined)) throw new StartupCheckError({stage:'account',check:'chatgpt'});
       checkpoint={stage:'protocol',check:'model/list'};
       const models=await readRuntimePages(connection,'model/list',{},signal);
       if (!models.some(value => object(value).model===model)) throw new StartupCheckError({stage:'model',check:'availability'});
@@ -143,7 +146,7 @@ export class CodexChat implements ChatRuntime {
     this.busy = true;
     const { connection, workspace } = this.options;
     try {
-      await this.preflight(signal,input.configuration.selectedModel);
+      await this.preflight(signal,input.configuration.selectedModel,input.configuration.account);
       const started = object(await connection.request('thread/start', { model:input.configuration.selectedModel, modelProvider:'openai', cwd:workspace, approvalPolicy:'untrusted', approvalsReviewer:'user', permissions:CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots:[], ephemeral:true, environments:[], dynamicTools:[], selectedCapabilityRoots:[], developerInstructions }, signal));
       const thread = object(started.thread);
       verifyPermissionSelection(started.activePermissionProfile);

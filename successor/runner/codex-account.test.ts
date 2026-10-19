@@ -4,13 +4,13 @@ import { PassThrough, Writable } from 'node:stream';
 import { writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { CodexConnection } from './codex-rpc.ts';
-import { syntheticConfig, syntheticFeatures } from './codex-preflight-fixture.ts';
+import { syntheticConfig, syntheticFeatures, syntheticAccount, syntheticAccountIdentity } from './codex-preflight-fixture.ts';
 import { signInCodexAccount, type CodexDeviceChallenge } from './codex-account.ts';
 
 const loginId = 'e5b96847-e3c1-48b5-ab3d-5ec8ee92878f';
 const challenge = { type: 'chatgptDeviceCode', loginId, verificationUrl: 'https://auth.openai.com/codex/device', userCode: 'TEST-ONLY' };
 function fixture(options: {
-  early?: boolean; account?: unknown; requiresAuth?: boolean; config?: unknown; challenge?: unknown;
+  early?: boolean; account?: unknown; routing?: unknown; requiresAuth?: boolean; config?: unknown; challenge?: unknown;
   cancelStatus?: unknown; cancelCompletes?: boolean; silent?: string; cleanupFailure?: boolean; unsolicited?: boolean;
   requestAfterAccountRead?: number;
 } = {}) {
@@ -19,7 +19,7 @@ function fixture(options: {
   let account: unknown = options.account ?? null, closed = 0, accountReads = 0;
   const emit = (value: unknown) => output.write(JSON.stringify(value) + '\n');
   const complete = (success = true, id = loginId, saveAccount = success) => {
-    if (saveAccount) account = { type: 'chatgpt', email: 'synthetic-private-account', planType: 'synthetic' };
+    if (saveAccount) account = syntheticAccount().account;
     emit({ method: 'account/login/completed', params: { loginId: id, success, error: success ? null : 'synthetic-private-error' } });
   };
   const input = new Writable({ write(chunk, _encoding, done) {
@@ -34,7 +34,7 @@ function fixture(options: {
         case 'experimentalFeature/list': reply({ data: syntheticFeatures(), nextCursor: null }); break;
         case 'mcpServerStatus/list': reply({ data: [], nextCursor: null }); break;
         case 'account/read':
-          reply({ account, requiresOpenaiAuth: options.requiresAuth ?? true });
+          reply({ workspaceRouting: options.routing === undefined ? syntheticAccount().workspaceRouting : options.routing, account, requiresOpenaiAuth: options.requiresAuth ?? true });
           if (++accountReads === options.requestAfterAccountRead) emit({ id: 'forbidden', method: 'item/tool/call', params: {} });
           break;
         case 'account/login/start': if (options.early) complete(); reply(options.challenge ?? challenge); break;
@@ -54,7 +54,7 @@ test('explicit device sign-in validates the challenge, confirms the account and 
   assert.equal(f.calls.length, 0);
   const result = await signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1',
     signal: new AbortController().signal, timeoutMs: 1000, onChallenge: value => { seen.push(value); f.complete(); } });
-  assert.deepEqual(result, { kind: 'signedIn' });
+  assert.deepEqual(result, { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.deepEqual(seen, [{ loginId, verificationURL: challenge.verificationUrl, userCode: challenge.userCode }]);
   assert.deepEqual(f.calls.filter(call => call.method === 'account/login/start').map(call => call.params), [{ type: 'chatgptDeviceCode' }]);
   assert.deepEqual(f.calls.filter(call => call.method === 'account/read').map(call => call.params), [{ refreshToken: false }, { refreshToken: false }]);
@@ -67,9 +67,9 @@ function start(f: ReturnType<typeof fixture>, onChallenge: (value: CodexDeviceCh
   return signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1', signal, timeoutMs, onChallenge });
 }
 
-test('an existing ChatGPT account is retained without another login or account details in the result', async () => {
-  const f = fixture({ account: { type: 'chatgpt', email: 'synthetic-private-account' } });
-  assert.deepEqual(await start(f, () => assert.fail('No challenge expected')), { kind: 'signedIn' });
+test('an existing ChatGPT account is retained without another login and reports only its nonsecret identity', async () => {
+  const f = fixture({ account: syntheticAccount().account });
+  assert.deepEqual(await start(f, () => assert.fail('No challenge expected')), { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.equal(f.calls.some(call => call.method?.includes('login')), false);
   assert.equal(f.closed, 1);
 });
@@ -107,7 +107,7 @@ for (const changed of [
 
 test('completion arriving before the login reply is correlated and account-checked', async () => {
   const f = fixture({ early: true });
-  assert.deepEqual(await start(f, () => {}), { kind: 'signedIn' });
+  assert.deepEqual(await start(f, () => {}), { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.equal(f.calls.filter(call => call.method === 'account/read').length, 2);
 });
 
@@ -127,7 +127,7 @@ test('foreign completion is refused; identical duplicate completion is harmless'
   const foreign = fixture();
   assert.deepEqual(await start(foreign, () => foreign.complete(true, 'b1772565-580e-4b0d-9d37-bf3d375a5ae8')), { kind: 'unconfirmed' });
   const duplicate = fixture();
-  assert.deepEqual(await start(duplicate, () => { duplicate.complete(); duplicate.complete(); }), { kind: 'signedIn' });
+  assert.deepEqual(await start(duplicate, () => { duplicate.complete(); duplicate.complete(); }), { kind: 'signedIn', account: syntheticAccountIdentity });
   const conflicting = fixture();
   assert.deepEqual(await start(conflicting, () => { conflicting.complete(); conflicting.complete(false); }), { kind: 'unconfirmed' });
 });
@@ -156,7 +156,7 @@ for (const status of ['canceled', 'notFound', 'unknown']) test(`cancel receipt $
 
 test('cancellation racing completed login reports the retained account instead of claiming sign-out', async () => {
   const f = fixture({ cancelStatus: 'notFound', cancelCompletes: true }), abort = new AbortController();
-  assert.deepEqual(await start(f, () => abort.abort(), abort.signal), { kind: 'signedIn' });
+  assert.deepEqual(await start(f, () => abort.abort(), abort.signal), { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.equal(f.calls.some(call => call.method === 'account/logout'), false);
 });
 
@@ -214,7 +214,7 @@ test('one connection cannot start competing sign-in attempts or mutate the captu
   await shown.promise;
   await assert.rejects(start(f), /already in use/);
   assert.equal(f.closed, 0); f.complete();
-  assert.deepEqual(await first, { kind: 'signedIn' });
+  assert.deepEqual(await first, { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.equal(f.calls.filter(call => call.method === 'account/login/start').length, 1);
 });
 
@@ -224,14 +224,14 @@ test('account protocol retains the original callback when its options are later 
     signal: new AbortController().signal, timeoutMs: 1000, onChallenge: () => { shown++; f.complete(); } };
   const pending = signInCodexAccount(options);
   options.onChallenge = () => { throw new Error('Changed callback must not receive the code'); };
-  assert.deepEqual(await pending, { kind: 'signedIn' }); assert.equal(shown, 1);
+  assert.deepEqual(await pending, { kind: 'signedIn', account: syntheticAccountIdentity }); assert.equal(shown, 1);
 });
 
 test('device sign-in synthetic protocol budget', { skip: !process.env.FORT_ACCOUNT_BENCHMARK }, async () => {
   const samples: number[] = [];
   for (let i = 0; i < 25; i++) {
     const f = fixture(), before = performance.now();
-    assert.deepEqual(await start(f), { kind: 'signedIn' });
+    assert.deepEqual(await start(f), { kind: 'signedIn', account: syntheticAccountIdentity });
     const elapsed = performance.now() - before;
     if (i >= 5) samples.push(elapsed);
     assert.equal(f.closed, 1);
@@ -241,3 +241,14 @@ test('device sign-in synthetic protocol budget', { skip: !process.env.FORT_ACCOU
   assert.ok(result.p95 !== undefined && result.p95 < result.budgetMs);
   writeFileSync(process.env.FORT_ACCOUNT_BENCHMARK!, JSON.stringify(result) + '\n', { flag: 'wx', mode: 0o600 });
 });
+
+for (const account of [{ type: 'chatgpt', email: null }, { type: 'chatgpt' }, { type: 'chatgpt', email: 'unsafe\n@fixture.invalid' }])
+  test('missing or invalid reported email cannot establish account identity ' + JSON.stringify(account), async () => {
+    const f = fixture({ account }); assert.deepEqual(await start(f), { kind: 'unconfirmed' });
+    assert.equal(f.calls.some(c => c.method === 'account/login/start'), false);
+  });
+for (const routing of [null, {}, { chatgptAccountId: null }, { chatgptAccountId: '' }, { chatgptAccountId: 'unsafe/account' }])
+  test('missing or invalid workspace cannot establish account identity ' + JSON.stringify(routing), async () => {
+    const f = fixture({ account: syntheticAccount().account, routing }); assert.deepEqual(await start(f), { kind: 'unconfirmed' });
+    assert.equal(f.calls.some(c => c.method === 'account/login/start'), false);
+  });

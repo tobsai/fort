@@ -7,15 +7,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { createApplication } from './openai.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { Agent, RuntimeDescriptor } from '../contracts/v1.ts';
-type Reply = { state?: string; operationId?: string; revision?: number; challenge?: { userCode: string }; result?: { kind: string } };
+type Reply = { state?: string; operationId?: string; revision?: number; challenge?: { userCode: string }; selected?: boolean; result?: { kind: string; account?: { accountId: string; userLabel: string } } };
 
 async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChallenge' | 'badResult' | 'unsupported' | 'failCleanup' | 'busyCatalog' | 'lyingReadiness' = 'pending') {
   const directory = await realpath(await mkdtemp('/tmp/fort059-owner-account-'));
   const catalogStarted = Promise.withResolvers<void>(), catalogDone = Promise.withResolvers<void>();
   let restarts = 0;
-  let starts = 0, executions = 0, catalogs = 0, cleanupFails = behavior === 'failCleanup', finish: ((value: { kind: 'signedIn' | 'canceled' }) => void) | undefined;
+  let starts = 0, executions = 0, catalogs = 0, cleanupFails = behavior === 'failCleanup', finish: ((value: { kind: 'signedIn' | 'canceled'; account?: { accountId: string; userLabel: string } }) => void) | undefined;
   const runtime: ChatRuntime = { execute: async () => { executions++; return { kind: 'notStarted', message: 'Synthetic' }; },
-    models: async () => { catalogs++; catalogStarted.resolve(); if (behavior === 'busyCatalog') await catalogDone.promise; return { provider: 'independent-account', state: 'unavailable', models: [], detail: 'Synthetic' }; },
+    models: async (_signal, account) => { assert.deepEqual(account, selectedAccount); catalogs++; catalogStarted.resolve(); if (behavior === 'busyCatalog') await catalogDone.promise; return { provider: 'independent-account', state: 'unavailable', models: [], detail: 'Synthetic' }; },
     dispose: async () => { catalogDone.resolve(); finish?.({ kind: 'canceled' }); if (cleanupFails) throw new Error('Synthetic cleanup failure'); },
     async signIn(options, signal) {
       starts++;
@@ -39,7 +39,7 @@ async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChalle
   }
   return { directory, api, host, runtime, catalogStarted: catalogStarted.promise, releaseCatalog: () => catalogDone.resolve(), get restarts() { return restarts; }, get service() { return service; }, get starts() { return starts; }, get executions() { return executions; }, get catalogs() { return catalogs; }, cleanupSucceeds() { cleanupFails = false; },
     request(revision = 0) { return { operationId: randomUUID(), expectedRevision: revision, recoveryEpoch: service.installation.recoveryEpoch, expiresAt: Date.now() + 30_000 }; },
-    finish() { finish?.({ kind: 'signedIn' }); }, async reopen() { await service.close(); service = createApplication(options); await service.start(); } };
+    finish(account?: { accountId: string; userLabel: string }) { finish?.({ kind: 'signedIn', ...(account ? { account } : {}) }); }, async reopen() { await service.close(); service = createApplication(options); await service.start(); } };
 }
 
 test('primary owner explicitly starts, reconciles and cancels one account attempt without persisting its code', async t => {
@@ -87,6 +87,7 @@ test('companion cannot observe or operate the primary account challenge', async 
   assert.equal((await h.api('/v1/devices/join', phone)).status, 201);
   const request = h.request(); await h.api('/v1/account/sign-in/start', request);
   for (const [path, body] of [['/v1/account/sign-in', undefined], ['/v1/account/sign-in/start', request],
+    ['/v1/account/sign-in/select', { operationId: request.operationId, revision: 1, recoveryEpoch: request.recoveryEpoch, account: selectedAccount }],
     ['/v1/account/sign-in/cancel', { operationId: request.operationId, revision: 1, recoveryEpoch: request.recoveryEpoch }]] as const) {
     const reply = await h.api(path, body, phone.deviceToken); assert.equal(reply.status, 403);
     assert.doesNotMatch(JSON.stringify(reply), /ONLY-IN-MEMORY|device.fixture/);
@@ -99,7 +100,7 @@ test('pending account work excludes dispatch and catalog calls without relying o
   assert.equal((await h.api('/v1/models')).body.state, 'unavailable'); assert.equal(h.catalogs, 0);
   const agent = (await h.api<Agent>('/v1/agents', { name: 'Synthetic agent', model: 'exact', instructions: 'Synthetic' })).body;
   assert.equal((await h.api('/v1/conversations/' + agent.homeConversationId + '/messages', { requestId: randomUUID(), text: 'Synthetic queue', recipientAgentId: agent.agentId,
-    bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] })).status, 201);
+    bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] })).status, 409);
   assert.equal(await h.service.dispatchNext(), false); assert.equal(h.executions, 0);
 });
 
@@ -146,9 +147,12 @@ test('missing capability is explicit and status does not start account work', as
 });
 
 test('account start cannot overlap an already running catalog request', async t => {
-  const h = await fixture(t, 'busyCatalog'), catalog = h.api('/v1/models');
+  const h = await fixture(t, 'busyCatalog'), first = h.request();
+  await h.api('/v1/account/sign-in/start', first); h.finish(selectedAccount); await h.api('/v1/account/sign-in');
+  await h.api('/v1/account/sign-in/select', { operationId: first.operationId, revision: 1, recoveryEpoch: first.recoveryEpoch, account: selectedAccount });
+  const catalog = h.api('/v1/models');
   await h.catalogStarted;
-  try { assert.equal((await h.api('/v1/account/sign-in/start', h.request())).status, 409); assert.equal(h.starts, 0); }
+  try { assert.equal((await h.api('/v1/account/sign-in/start', h.request(1))).status, 409); assert.equal(h.starts, 1); }
   finally { h.releaseCatalog(); await catalog; }
 });
 
@@ -169,4 +173,52 @@ test('owner account HTTP journeys meet their isolated budget', { skip: !process.
   }
   samples.sort((a, b) => a - b); const result = { samples, warmups: 5, p50: samples[9], p95: samples[18], maximum: samples[19], budgetMs: 100 };
   assert.ok(result.p95 < 100); await writeFile(process.env.FORT_OWNER_ACCOUNT_BENCHMARK!, JSON.stringify(result) + '\n', { flag: 'wx', mode: 0o600 });
+});
+
+const selectedAccount = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
+test('owner explicitly selects the reported account and restart retains the exact choice', async t => {
+  const h = await fixture(t), request = h.request();
+  await h.api('/v1/account/sign-in/start', request); h.finish(selectedAccount);
+  const reported = await h.api('/v1/account/sign-in');
+  assert.deepEqual(reported.body.result?.account, selectedAccount);
+  assert.equal(reported.body.selected, false);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  const confirmation = { operationId: request.operationId, revision: 1, recoveryEpoch: request.recoveryEpoch, account: selectedAccount };
+  for (const change of [{ revision: 2 }, { recoveryEpoch: 'foreign' }, { account: { ...selectedAccount, accountId: 'foreign' } }])
+    assert.equal((await h.api('/v1/account/sign-in/select', { ...confirmation, ...change })).status, 409);
+  const selected = await h.api('/v1/account/sign-in/select', confirmation);
+  assert.equal(selected.status, 200); assert.equal(selected.body.selected, true);
+  assert.equal((await h.api('/v1/account/sign-in/select', confirmation)).body.selected, true);
+  await h.reopen();
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+  await h.api('/v1/account/sign-in/start', h.request(1));
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+});
+
+test('a queued turn pins the selected identity and refuses a later account choice', async t => {
+  const h = await fixture(t), first = h.request();
+  await h.api('/v1/account/sign-in/start', first); h.finish(selectedAccount); await h.api('/v1/account/sign-in');
+  await h.api('/v1/account/sign-in/select', { operationId: first.operationId, revision: 1, recoveryEpoch: first.recoveryEpoch, account: selectedAccount });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Synthetic agent', model: 'exact', instructions: 'Synthetic' })).body;
+  const receipt = await h.api<{ run: { configuration: { account: unknown } } }>('/v1/conversations/' + agent.homeConversationId + '/messages', {
+    requestId: randomUUID(), text: 'Synthetic pending', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId,
+    recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
+  assert.equal(receipt.status, 201); assert.deepEqual(receipt.body.run.configuration.account, selectedAccount);
+  const next = h.request(1), changed = { ...selectedAccount, accountId: 'new-workspace' };
+  await h.api('/v1/account/sign-in/start', next); h.finish(changed); await h.api('/v1/account/sign-in');
+  await h.api('/v1/account/sign-in/select', { operationId: next.operationId, revision: 2, recoveryEpoch: next.recoveryEpoch, account: changed });
+  assert.equal(await h.service.dispatchNext(), true); assert.equal(h.executions, 0);
+});
+
+test('account selection meets its isolated local budget', { skip: !process.env.FORT_ACCOUNT_SELECTION_BENCHMARK }, async t => {
+  const h = await fixture(t), samples: number[] = [];
+  for (let i = 0; i < 25; i++) {
+    const request = h.request(i); await h.api('/v1/account/sign-in/start', request); h.finish(selectedAccount); await h.api('/v1/account/sign-in');
+    const before = performance.now();
+    assert.equal((await h.api('/v1/account/sign-in/select', { operationId: request.operationId, revision: i + 1, recoveryEpoch: request.recoveryEpoch, account: selectedAccount })).body.selected, true);
+    if (i >= 5) samples.push(performance.now() - before);
+  }
+  samples.sort((a,b) => a-b); const result = { warmups: 5, samples, p50: samples[9], p95: samples[18], maximum: samples[19], budgetMs: 5 };
+  assert.ok(result.p95 < 5); await writeFile(process.env.FORT_ACCOUNT_SELECTION_BENCHMARK!, JSON.stringify(result) + '\n', { flag: 'wx', mode: 0o600 });
 });

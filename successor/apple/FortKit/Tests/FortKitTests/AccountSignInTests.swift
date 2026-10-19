@@ -41,6 +41,17 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
             if holdStart { await withCheckedContinuation { held = $0 } }
             if lostStarts > 0 { lostStarts -= 1; throw URLError(.networkConnectionLost) }
             body = current
+        case "/v1/account/sign-in/select":
+            let data = try #require(request.body), input = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
+            requestBodies.append(data)
+            var reply = try #require(JSONSerialization.jsonObject(with:Data(current.utf8)) as? [String:Any])
+            let result = try #require(reply["result"] as? [String:Any])
+            #expect(input["operationId"] as? String == reply["operationId"] as? String)
+            #expect(input["revision"] as? Int == reply["revision"] as? Int)
+            #expect(input["recoveryEpoch"] as? String == "epoch")
+            #expect(NSDictionary(dictionary:try #require(input["account"] as? [String:Any])) == NSDictionary(dictionary:try #require(result["account"] as? [String:Any])))
+            reply["selected"] = true
+            current = String(decoding:try JSONSerialization.data(withJSONObject:reply),as:UTF8.self); body = current
         case "/v1/account/sign-in/cancel":
             let data = try #require(request.body), input = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
             var reply = try #require(JSONSerialization.jsonObject(with:Data(current.utf8)) as? [String:Any])
@@ -75,6 +86,29 @@ private final class AccountCredentials: DeviceCredentials {
         try MessengerModel(storage:storage,session:.shared,ownerEndpoint:connection.endpoint,ownerSetupControl:transport,connectionTransport:{ [transport] _ in transport })
     }
     func close() { try? FileManager.default.removeItem(at:directory) }
+}
+
+@Test @MainActor func nativeAccountSelectionIsExplicitAndStatusRestoresWithoutSelectingAgain() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    let model = try fixture.model(); await model.restore()
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":false}"#)
+    await model.refreshAccountSignIn()
+    #expect(model.accountSignInStatus?.reportedAccount?.userLabel == "owner@fixture.invalid")
+    #expect(model.accountSignInStatus?.accountSelected == false)
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == true)
+    #expect(model.accountSignInMessage.contains("must match"))
+    let restored = try fixture.model(); await restored.restore(); await restored.refreshAccountSignIn()
+    #expect(restored.accountSignInStatus?.accountSelected == true)
+    #expect(await fixture.transport.paths.filter { $0 == "/v1/account/sign-in/select" }.count == 1)
+}
+
+@Test func nativeAccountIdentityDecoderRefusesMissingMalformedOrSecretFields() throws {
+    for account in [#"{"accountId":"workspace"}"#, #"{"accountId":"workspace","userLabel":null}"#, #"{"accountId":"","userLabel":"owner@fixture.invalid"}"#, #"{"accountId":"workspace","userLabel":"owner\n@fixture.invalid"}"#, #"{"accountId":"workspace","userLabel":"owner@fixture.invalid","token":"synthetic"}"#] {
+        let text = #"{"state":"finished","revision":1,"operationId":"synthetic","expiresAt":1900000000000,"result":{"kind":"signedIn","account":\#(account)},"selected":true}"#
+        #expect(throws: Error.self) { try JSONDecoder().decode(AccountSignInStatus.self,from:Data(text.utf8)) }
+    }
 }
 
 @Test @MainActor func nativeAccountSignedInExplicitlyLeavesIdentityUnverified() async throws {

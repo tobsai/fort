@@ -15,6 +15,7 @@ import { PrivateSocketLease } from './private-socket.ts';
 import type { OwnerSetupCancellation, OwnerSetupIdentity, OwnerSetupReceipt, OwnerSetupRequest, OwnerSetupState } from '../contracts/owner-setup.ts';
 import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 import { companionPairing, CompanionPairingError } from './companion-pairing.ts';
+import { parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 import { accountSignIn, AccountSignInError } from './account-sign-in.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
@@ -83,7 +84,7 @@ function decodeMemory(value:unknown):ConversationMemory {
 function decodeConfiguration(value: unknown): TurnConfiguration {
   const v = record(value);
   if (!Array.isArray(v.skills)) throw new Error('Invalid stored skills');
-  return { agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill),...(v.memory===undefined?{}:{memory:decodeMemory(v.memory)}),...(v.contextModule===undefined?{}:{contextModule:parseContextModuleRef(v.contextModule)}) };
+  return { ...(v.account === undefined ? {} : { account: parseAccountIdentity(v.account) }), agentId: id(v.agentId), agentName: text(v.agentName, 'name'), bindingRevisionId: id(v.bindingRevisionId), selectedModel: text(v.selectedModel, 'model'), instructions: text(v.instructions, 'instructions'), skills: v.skills.map(decodeSkill),...(v.memory===undefined?{}:{memory:decodeMemory(v.memory)}),...(v.contextModule===undefined?{}:{contextModule:parseContextModuleRef(v.contextModule)}) };
 }
 function decodeMessage(value: unknown): Message {
   const v = record(value);
@@ -364,7 +365,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration:requestedConfiguration,routine}=command;
-    const configuration = requiresContext(requestedConfiguration) && contextRef && !requestedConfiguration.contextModule ? { ...requestedConfiguration, contextModule: contextRef } : requestedConfiguration;
+    const account = accounts.selected();
+    if (ownerPairingPolicy && options.runtime?.signIn && !account) fail(409, 'accountSelectionRequired', 'Select the reported provider account on the owning Mac before sending.');
+    const pinnedConfiguration = { ...requestedConfiguration, ...(account ? { account } : {}) };
+    const configuration = requiresContext(pinnedConfiguration) && contextRef && !pinnedConfiguration.contextModule ? { ...pinnedConfiguration, contextModule: contextRef } : pinnedConfiguration;
     const unavailable = unsupportedContext(configuration);
     if (unavailable) fail(409, 'capabilityUnavailable', unavailable);
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
@@ -525,7 +529,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       ORDER BY o.position LIMIT 1`).get();
     const queued = nextRow ? decodeRun(json(nextRow)) : undefined;
     if (!queued?.configuration) return false;
-    const contextFailure = unsupportedContext(queued.configuration);
+    const contextFailure = ownerPairingPolicy && options.runtime?.signIn && !sameAccount(queued.configuration.account, accounts.selected())
+      ? 'The selected provider account changed or is unconfirmed. Nothing was sent. Review a new submission.' : unsupportedContext(queued.configuration);
     if (contextFailure) {
       transaction(() => { put('runs', queued.runId, { ...queued, state: 'failed', statusDetail: contextFailure,
         ...(queued.routine ? { routine: stopRoutine(queued.routine, 'failed', contextFailure) } : {}) }); append(queued.conversationId, 'runStopped', queued.runId); });
@@ -769,6 +774,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result=accounts.status(authenticate(request));
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/start'){
           const body=await readBody(request); result=accounts.start(authenticate(request),body);
+        } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/select'){
+          const body = await readBody(request); result = accounts.select(authenticate(request), body);
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/cancel'){
           const body=await readBody(request),deviceId=authenticate(request);
           result=await accounts.cancel(deviceId,body);
@@ -836,11 +843,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result={runtimeStopped:true,revoked};
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if(dispatchStopped || accounts.busy)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
+          if (ownerPairingPolicy && options.runtime?.signIn && !accounts.selected()) result = { provider: provider.provider, state: 'unavailable', models: [], detail: 'Select the reported provider account on the owning Mac before discovering models.' };
+          else if(dispatchStopped || accounts.busy)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
           else if(!provider.capabilities.includes('modelCatalog') || !options.runtime?.models)result={provider:provider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
           else try{
             runtimeOperations++;
-            const catalog=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]));
+            const catalog=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]), accounts.selected());
             if(catalog.provider!==provider.provider)throw new Error('Model catalog identity mismatch');
             result=catalog;
           }

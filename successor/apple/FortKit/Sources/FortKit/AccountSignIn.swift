@@ -31,21 +31,45 @@ public struct AccountDeviceCode: Decodable, Equatable, Sendable {
         verificationURL = url; userCode = code
     }
 }
+public struct AccountIdentity: Codable, Equatable, Sendable {
+    public let accountId: String, userLabel: String
+    private enum CodingKeys: String, CodingKey { case accountId, userLabel }
+    public init(from decoder: Decoder) throws {
+        try accountKeys(decoder,["accountId","userLabel"])
+        let values = try decoder.container(keyedBy:CodingKeys.self)
+        accountId = try values.decode(String.self,forKey:.accountId); userLabel = try values.decode(String.self,forKey:.userLabel)
+        guard !accountId.isEmpty, accountId.utf8.count <= 256,
+              accountId.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || [45,95,46,58].contains($0) }),
+              !userLabel.isEmpty, userLabel.utf8.count <= 320, userLabel.trimmingCharacters(in:.whitespacesAndNewlines) == userLabel,
+              !userLabel.unicodeScalars.contains(where:{ $0.properties.generalCategory == .control || $0.properties.generalCategory == .format })
+        else { throw ClientError.invalidResponse }
+    }
+}
 public struct AccountOperation: Equatable, Sendable {
     public let revision: Int, operationID: String, expiresAt: Int64
 }
 public enum AccountSignInResult: String, Decodable, Sendable { case signedIn, canceled, failed, unconfirmed }
 public enum AccountSignInStatus: Decodable, Equatable, Sendable {
-    case idle(Int), unavailable(Int), starting(AccountOperation), challenge(AccountOperation,AccountDeviceCode), canceling(AccountOperation), finished(AccountOperation,AccountSignInResult)
-    public var revision: Int { switch self { case .idle(let value), .unavailable(let value): value; case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_): value.revision } }
-    public var operation: AccountOperation? { switch self { case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_): value; default: nil } }
+    case idle(Int), unavailable(Int), starting(AccountOperation), challenge(AccountOperation,AccountDeviceCode), canceling(AccountOperation), finished(AccountOperation,AccountSignInResult), identified(AccountOperation,AccountIdentity,Bool)
+    public var revision: Int { switch self { case .idle(let value), .unavailable(let value): value; case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_), .identified(let value,_,_): value.revision } }
+    public var operation: AccountOperation? { switch self { case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_), .identified(let value,_,_): value; default: nil } }
     public var challenge: AccountDeviceCode? { if case .challenge(_,let value) = self { value } else { nil } }
-    public var finishedResult: AccountSignInResult? { if case .finished(_,let value) = self { value } else { nil } }
+    public var finishedResult: AccountSignInResult? { switch self { case .finished(_,let value): value; case .identified: .signedIn; default: nil } }
+    public var reportedAccount: AccountIdentity? { if case .identified(_,let value,_) = self { value } else { nil } }
+    public var accountSelected: Bool { if case .identified(_,_,let selected) = self { selected } else { false } }
     public var isActive: Bool { operation != nil && finishedResult == nil }
-    private enum CodingKeys: String, CodingKey { case state, revision, operationId, expiresAt, challenge, result }
-    private struct Result: Decodable { let kind: AccountSignInResult
-        private enum CodingKeys: String, CodingKey { case kind }
-        init(from decoder: Decoder) throws { try accountKeys(decoder,["kind"]); let values = try decoder.container(keyedBy:CodingKeys.self); kind = try values.decode(AccountSignInResult.self,forKey:.kind) }
+    private enum CodingKeys: String, CodingKey { case state, revision, operationId, expiresAt, challenge, result, selected }
+    private struct Result: Decodable {
+        let kind: AccountSignInResult, account: AccountIdentity?
+        private enum CodingKeys: String, CodingKey { case kind, account }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy:CodingKeys.self)
+            kind = try values.decode(AccountSignInResult.self,forKey:.kind)
+            if values.contains(.account) {
+                guard kind == .signedIn else { throw ClientError.invalidResponse }
+                try accountKeys(decoder,["kind","account"]); account = try values.decode(AccountIdentity.self,forKey:.account)
+            } else { try accountKeys(decoder,["kind"]); account = nil }
+        }
     }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self), state = try values.decode(String.self,forKey:.state), revision = try values.decode(Int.self,forKey:.revision)
@@ -58,7 +82,12 @@ public enum AccountSignInStatus: Decodable, Equatable, Sendable {
         case "starting": try accountKeys(decoder,keys); self = .starting(operation)
         case "canceling": try accountKeys(decoder,keys); self = .canceling(operation)
         case "challenge": try accountKeys(decoder,keys.union(["challenge"])); self = .challenge(operation,try values.decode(AccountDeviceCode.self,forKey:.challenge))
-        case "finished": try accountKeys(decoder,keys.union(["result"])); self = .finished(operation,try values.decode(Result.self,forKey:.result).kind)
+        case "finished":
+            let result = try values.decode(Result.self,forKey:.result)
+            if let account = result.account {
+                try accountKeys(decoder,keys.union(["result","selected"]))
+                self = .identified(operation,account,try values.decode(Bool.self,forKey:.selected))
+            } else { try accountKeys(decoder,keys.union(["result"])); self = .finished(operation,result.kind) }
         default: throw ClientError.invalidResponse
         }
     }

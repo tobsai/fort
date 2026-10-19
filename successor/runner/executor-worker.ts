@@ -74,7 +74,7 @@ export function serveExecutorWorker({ input, output, binding, createRuntime, cre
         create: () => createDiscovery(accepted, controller.signal),
         execute: async runtime => {
           if (!runtime.models) throw new Error('Model discovery is not supported');
-          return runtime.models(controller.signal);
+          return runtime.models(controller.signal, accepted.account);
         },
         terminal: result => ({ protocolVersion: 1, kind: 'catalog', sequence: 1,
           requestId: accepted.requestId, requestDigest: accepted.requestDigest, result: parseExecutorModelCatalog(result, selected.provider) }),

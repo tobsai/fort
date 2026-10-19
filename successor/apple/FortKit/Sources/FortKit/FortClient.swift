@@ -34,6 +34,10 @@ public struct FortClient: Sendable {
         struct Body: Encodable { let operationId: String; let revision: Int; let recoveryEpoch: String }
         return try await send("v1/account/sign-in/cancel",method:.post,body:Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch))
     }
+    public func selectAccount(_ operation: AccountOperation, account: AccountIdentity, recoveryEpoch: String) async throws -> AccountSignInStatus {
+        struct Body: Encodable { let operationId: String; let revision: Int; let recoveryEpoch: String; let account: AccountIdentity }
+        return try await send("v1/account/sign-in/select",method:.post,body:Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch,account:account))
+    }
     public func pairing() async throws -> PairingStatus { try await get("v1/pairing") }
     public func setPairingExpiry(days: Int?) async throws -> PairingStatus {
         let body: [String:Any] = ["expiresAfterDays":days.map { $0 as Any } ?? NSNull()]

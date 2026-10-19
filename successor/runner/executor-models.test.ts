@@ -18,8 +18,8 @@ const binding = { provider: 'catalog-fixture', runtimeVersion: 'fixture-1', host
 const catalog: ModelCatalog = { provider: binding.provider, state: 'ready', checkedAt: '2026-10-18T00:00:00.000Z',
   models: [{ id: 'exact-text', name: 'Text model', availability: 'available' },
     { id: 'exact-audio', name: 'Audio model', availability: 'unavailable', detail: 'Text input unavailable.' }] };
-function request() {
-  const body = { protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding: { ...binding }, deadline: Date.now() + 5000 };
+function request(account?: { accountId: string; userLabel: string }) {
+  const body = { ...(account ? { account } : {}), protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding: { ...binding }, deadline: Date.now() + 5000 };
   return { ...body, requestDigest: executionDigest(body) };
 }
 
@@ -31,12 +31,12 @@ test('the owned worker returns the exact catalog only after runtime disposal and
     createDiscovery() {
       return {
         async execute() { throw new Error('Discovery must not start a turn'); },
-        async models() { events.push('models'); return catalog; },
+        async models(_signal, account) { assert.deepEqual(account, { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' }); events.push('models'); return catalog; },
         async dispose() { events.push('disposed'); },
       };
     },
   });
-  const command = request(); input.write(JSON.stringify(command) + '\n');
+  const command = request({ accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' }); input.write(JSON.stringify(command) + '\n');
   await done;
   assert.deepEqual(events, ['models', 'disposed', 'output']);
   assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString()), { protocolVersion: 1, kind: 'catalog', sequence: 1,

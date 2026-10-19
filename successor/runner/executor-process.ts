@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, sealDispatch, type ExecutionDispatch } from '../contracts/executor.ts';
-import type { ModelCatalog, RuntimeReadiness, AccountSignInOptions, AccountSignInResult } from '../contracts/v1.ts';
+import { parseAccountIdentity } from '../contracts/account.ts';
+import type { ModelCatalog, RuntimeReadiness, AccountSignInOptions, AccountSignInResult, AccountIdentity } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { MODEL_EVIDENCE_BYTES, parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from './executor-wire.ts';
 import { ACCOUNT_EVIDENCE_BYTES, parseExecutorAccountFrame, type ExecutorAccountRequest } from './executor-account-wire.ts';
@@ -63,7 +64,7 @@ export class ExecutorProcess implements ChatRuntime {
   private stopped = false;
   private blocked = false;
   private report: ExitReport | undefined;
-  readonly models?: (signal: AbortSignal) => Promise<ModelCatalog>;
+  readonly models?: (signal: AbortSignal, account?: AccountIdentity) => Promise<ModelCatalog>;
   readonly signIn?: (options: AccountSignInOptions, signal: AbortSignal) => Promise<AccountSignInResult>;
 
   constructor(options: ProcessOptions) {
@@ -76,7 +77,7 @@ export class ExecutorProcess implements ChatRuntime {
     if (options.discovery) {
       validateExecutorBinding(options.discovery);
       const binding = Object.freeze({ ...options.discovery });
-      this.models = signal => this.discover(binding, signal);
+      this.models = (signal, account) => this.discover(binding, signal, account);
     }
     if (options.signIn) {
       validateExecutorBinding(options.signIn);
@@ -119,9 +120,9 @@ export class ExecutorProcess implements ChatRuntime {
     });
   }
 
-  private async discover(binding: ExecutorBinding, signal: AbortSignal): Promise<ModelCatalog> {
+  private async discover(binding: ExecutorBinding, signal: AbortSignal, account?: AccountIdentity): Promise<ModelCatalog> {
     if (this.stopped || this.blocked || this.active || signal.aborted) return { provider: binding.provider, state: 'unavailable', models: [], detail: 'Model discovery is stopped, busy, blocked or canceled. Your selection has not changed.' };
-    const body = { protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding, deadline: Date.now() + 5000 } as const;
+    const body = { ...(account ? { account: parseAccountIdentity(account) } : {}), protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding, deadline: Date.now() + 5000 } as const;
     const request: ExecutorModelRequest = { ...body, requestDigest: executionDigest(body) };
     return this.exchange(signal, { request, deadline: request.deadline, evidenceBytes: MODEL_EVIDENCE_BYTES,
       cancel: { protocolVersion: 1, kind: 'cancelModels', requestId: request.requestId, requestDigest: request.requestDigest },

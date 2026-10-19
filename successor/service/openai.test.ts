@@ -1,5 +1,6 @@
 import { LOCAL_CONTEXT } from '../modules/local-context.ts';
-import { createHash } from 'node:crypto';
+import { syntheticAccountIdentity } from '../runner/codex-preflight-fixture.ts';
+import { createHash, randomUUID, randomBytes } from 'node:crypto';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 import { DatabaseSync } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
@@ -20,14 +21,27 @@ async function setup(t: TestContext, options: Partial<Omit<Parameters<typeof cre
   let service = createApplication({ context: LOCAL_CONTEXT, provider: CODEX_RUNTIME, dataDirectory: directory, ...options });
   await service.start();
   t.after(async () => { await service.close(); await rm(directory, { recursive: true, force: true }); });
-  const enrollment = service.issueEnrollment();
-  const response = await fetch(service.baseURL + '/v1/devices/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...enrollment, deviceName: 'Synthetic test device' }) });
-  assert.equal(response.status, 201);
-  const device = await response.json() as { deviceToken: string };
+  let device: { deviceToken: string };
+  if (options.ownerPairingPolicy) {
+    const setup = service.beginOwnerSetup(); assert.equal(setup.kind, 'available');
+    if (setup.kind !== 'available') throw new Error('Synthetic setup missing');
+    const primary = { deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') };
+    await service.completeOwnerSetup({ ...primary, installationId: setup.installationId, setupId: setup.setupId }); device = primary;
+  } else {
+    const enrollment = service.issueEnrollment();
+    const response = await fetch(service.baseURL + '/v1/devices/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...enrollment, deviceName: 'Synthetic test device' }) });
+    assert.equal(response.status, 201); device = await response.json() as { deviceToken: string };
+  }
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${device.deviceToken}`, 'X-Fort-Installation-Id': service.installation.installationId };
   async function api<T>(path: string, body?: unknown) {
     const response = await fetch(service.baseURL + path, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() as T };
+  }
+  if (options.ownerPairingPolicy) {
+    const operationId = randomUUID(), recoveryEpoch = service.installation.recoveryEpoch;
+    await api('/v1/account/sign-in/start', { operationId, recoveryEpoch, expectedRevision: 0, expiresAt: Date.now() + 30000 });
+    await api('/v1/account/sign-in');
+    assert.equal((await api('/v1/account/sign-in/select', { operationId, recoveryEpoch, revision: 1, account: syntheticAccountIdentity })).status, 200);
   }
   async function reenroll() {
     const response=await fetch(service.baseURL+'/v1/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...service.issueEnrollment(),deviceName:'Fresh synthetic test device'})});
@@ -267,7 +281,8 @@ test('explicit authenticated runtime replacement recovers a new queued turn with
   const launch=()=>{const child=launchOwnedProcess({executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],cwd:workspace,env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'},deadlineMs:15_000,terminationGraceMs:50,killGraceMs:500});processes.push(child);return child.connection;};
   t.after(async()=>{for(const child of processes)await child.dispose();});
   const runtime=new CodexChat({connection:launch(),workspace,runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:Date.now()+20_000,connect:()=>{assert.equal(processes[0]?.cleanupConfirmed,true);return launch();}}});
-  const h=await setup(t,{runtime});let agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'unavailable-exact-model',instructions:'Reply.'})).body;
+  runtime.signIn = async () => ({ kind: 'signedIn', account: syntheticAccountIdentity });
+  const h=await setup(t,{runtime, ownerPairingPolicy: { expiresAfterDays: null }});let agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'unavailable-exact-model',instructions:'Reply.'})).body;
   const epoch=h.service.installation.recoveryEpoch,path=`/v1/conversations/${agent.homeConversationId}`;
   const send=(requestId:string)=>h.api(path+'/messages',{requestId,text:'Synthetic '+requestId,recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:epoch,skills:[]});
   await send('rejected-model');await h.service.dispatchNext();
@@ -1202,7 +1217,8 @@ test('active service shutdown confirms owned child exit and leaves no late reply
   const entered = new Promise<void>(resolve => { started=resolve; });
   owned.connection.subscribe({ frame:bytes => { const frame=JSON.parse(Buffer.from(bytes).toString()); if(frame.result?.turn?.status==='inProgress')started(); },closed:()=>{} });
   const runtime = new CodexChat({ connection:owned.connection,workspace,runtimeVersion:'0.157.1' });
-  const h = await setup(t,{ runtime });
+  runtime.signIn = async () => ({ kind: 'signedIn', account: syntheticAccountIdentity });
+  const h = await setup(t,{ runtime, ownerPairingPolicy: { expiresAfterDays: null } });
   const agent = (await h.api<Agent>('/v1/agents',{ name:'Writer',model:'gpt-6-astra',instructions:'Reply.' })).body;
   await h.api(`/v1/conversations/${agent.homeConversationId}/messages`,{ requestId:'active-shutdown',text:'Synthetic active turn',recipientAgentId:agent.agentId,bindingRevisionId:agent.binding.bindingRevisionId,recoveryEpoch:h.service.installation.recoveryEpoch,skills:[] });
   const turn = h.service.dispatchNext(); await entered;

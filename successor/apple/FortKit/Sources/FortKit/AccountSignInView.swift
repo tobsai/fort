@@ -6,6 +6,15 @@ struct AccountSignInView: View {
         Section("Provider account") {
             Text(model.runtimeName).font(.headline)
             Text(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
+            if let status = model.accountSignInStatus, let account = status.reportedAccount {
+                Text(account.userLabel).textSelection(.enabled).accessibilityIdentifier("provider-account-label")
+                Text("Workspace: \(account.accountId)").font(.caption).textSelection(.enabled)
+                if !status.accountSelected {
+                    Button("Use this account and workspace") { Task { await model.selectReportedAccount() } }
+                        .disabled(model.accountSignInBusy || model.lifecycleBusy || model.isBusy)
+                        .accessibilityIdentifier("provider-account-select")
+                }
+            }
             if let status = model.accountSignInStatus, let operation = status.operation, let challenge = status.challenge {
                 TimelineView(.periodic(from:.now,by:1)) { context in
                     if Int64(context.date.timeIntervalSince1970 * 1000) < operation.expiresAt {

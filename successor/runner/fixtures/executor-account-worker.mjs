@@ -41,6 +41,7 @@ try {
     createSignIn: () => ({
       execute: async () => { throw new Error('No chat operation'); },
       async signIn(options, signal) {
+        if (scenario === 'identity') return { kind: 'signedIn', account: { accountId: 'independent-tenant', userLabel: 'Independent fixture owner' } };
         if (scenario === 'existing') return { kind: 'signedIn' };
         options.onChallenge({ kind: 'deviceCode', verificationURL: 'https://device.fixture.invalid/verify', userCode: 'FORT-TEST' });
         if (scenario === 'pending') {

@@ -1,5 +1,38 @@
 # Apple host activation gate
 
+## Current account correlation implementation — after 28dfa3b
+
+October 19, 2026. [Account correlation evidence](evidence/2026-10-17-node-foundation/account-correlation.md)
+closes the nonsecret selected-account source gap. The existing adapter carries
+reported account label/workspace ID; native controls require explicit primary-owner
+selection. The ledger retains it across restart and pins accepted turns. The executor
+and Codex adapter reject missing/changed identity before discovery or dispatch.
+All account evidence is synthetic; no real credentials or account lookup occurred.
+Earlier unresolved-source statements below are historical. Real-account and exact
+signed-installation verification remain required.
+
+1,326 portable and 328 native tests passed; 16 skips in each suite. The guarded
+executor passed 19 tests with two opt-in skips; exact package refusal and isolated
+selection p95 2.222 ms passed separately. Fresh unsigned Mac/helper/iPhone builds
+and the 200-file package are verified. Current inert app:
+`/private/tmp/fort059-account-correlation-review-20261019/Fort.app`, report SHA256
+`f28747be6e5fb4ff8ba1088d7c8fc8e74582008d72b0804271a990e5ce7fb12d`.
+No profiles, activation, new entitlement or release identity adoption occurred.
+Do not seek activation approval for this unsigned artifact.
+
+The thirty-minute/six-turn suggestion below describes only a possible bounded
+verification session. It imposes no product restriction or pairing expiry.
+The actual consolidated approval still needs the final signed artifact/path,
+verified identities/profiles and real ChatGPT account/workspace/model. Nonsecret
+identity pins remain in private metadata and retained turn history; local credential
+cleanup does not erase that history or revoke provider-side grants.
+
+Apple's public [Program License Agreement PDF](https://developer.apple.com/support/downloads/terms/apple-developer-program/Apple-Developer-Program-License-Agreement-English.pdf)
+was read without acceptance: LYL260, October 13, 2026. Its correspondence to the
+pending authenticated-account agreement is unverified. The existing G2 approval
+remains valid, the secure Apple handoff remains pending and legal acceptance is
+unapproved. Ordinary source/test work remains authorized.
+
 ## Current cleanup implementation — after 41b650a
 
 October 19, 2026. [Provider-session removal evidence](evidence/2026-10-17-node-foundation/provider-session-removal.md)

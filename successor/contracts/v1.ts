@@ -1,6 +1,7 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
 export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string };
-export type AccountSignInResult = { kind: 'signedIn' | 'canceled' | 'failed' | 'unconfirmed' };
+export type AccountIdentity = { accountId: string; userLabel: string };
+export type AccountSignInResult = { kind: 'signedIn'; account?: AccountIdentity } | { kind: 'canceled' | 'failed' | 'unconfirmed' };
 export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void };
 export type AccountSignInRequest = { operationId: string; expectedRevision: number; recoveryEpoch: string; expiresAt: number };
 export type AccountSignInCancellation = { operationId: string; revision: number; recoveryEpoch: string };
@@ -9,7 +10,7 @@ export type AccountSignInStatus = { revision: number } & (
   | ({ operationId: string; expiresAt: number } & (
     | { state: 'starting' | 'canceling' }
     | { state: 'challenge'; challenge: AccountChallenge }
-    | { state: 'finished'; result: AccountSignInResult }
+    | { state: 'finished'; result: AccountSignInResult; selected?: boolean }
   ))
 );
 export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
@@ -42,7 +43,7 @@ export type SkillBundle = { schemaVersion: 1; name: string; version: string; sou
 export type SkillReview = { state: 'reviewRequired' | 'enabled' | 'disabled'; digest: string };
 export type InstructionSkill = SkillReference & { name: string; instructions: string } & ({ bundle?: never; review?: never } | { bundle: SkillBundle; review: SkillReview; previousRevisionId?: string });
 export type Conversation = { conversationId: string; name: string; kind: 'home' | 'shared'; participantAgentIds: string[] };
-export type TurnConfiguration = { agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[]; memory?: ConversationMemory; contextModule?: import('./context.ts').ContextModuleRef };
+export type TurnConfiguration = { account?: AccountIdentity; agentId: string; agentName: string; bindingRevisionId: string; selectedModel: string; instructions: string; skills: InstructionSkill[]; memory?: ConversationMemory; contextModule?: import('./context.ts').ContextModuleRef };
 
 export type RoutineValue = string | number | boolean;
 export type RoutineInput = { name: string; type: 'text' | 'number' | 'boolean'; required: boolean };

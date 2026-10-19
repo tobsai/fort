@@ -1,3 +1,4 @@
+import { syntheticAccountIdentity } from './codex-preflight-fixture.ts';
 import { contextInput } from './fixtures/context-input.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +12,7 @@ import {redactedStartupFailure} from './startup-diagnostic.ts';
 const pinned=JSON.parse(readFileSync(new URL('./fixtures/codex-0.157.1-startup.json',import.meta.url),'utf8'));
 type Frame={id?:unknown;method?:string;params:Record<string,unknown>};
 type Mutate=(method:string,response:Record<string,unknown>,request:Frame)=>void;
-const input: Omit<ChatInput, "context"> ={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
+const input: Omit<ChatInput, "context"> ={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{account:syntheticAccountIdentity,agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
 
 function fixture(mutate:Mutate=()=>{}) {
   const calls:Frame[]=[], output=new PassThrough();
@@ -122,7 +123,7 @@ for(const [path,unsafe] of requiredConfig)for(const mode of ['missing','changed'
   test(`config ${path} ${mode} stops before discovery and dispatch`,async()=>{
     const f=fixture((method,response)=>{if(method==='config/read')setPath(object(response.config),path,mode==='missing'?undefined:unsafe);});
     try{
-      await assert.rejects(f.runtime.preflight(new AbortController().signal),error=>{
+      await assert.rejects(f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),error=>{
         assert.deepEqual(redactedStartupFailure(error,{stage:'session',check:'runtime-preflight'}),{stage:'config',check:path});return true;
       });
       assert.equal(f.calls.some(call=>['experimentalFeature/list','mcpServerStatus/list','thread/start','turn/start'].includes(call.method??'')),false);
@@ -151,7 +152,7 @@ for(const name of [...disabledFeatures,'skip_host_skill_discovery','unified_exec
 }
 test('a managed false unified_exec remains compatible with shell_tool false',async()=>{
   const f=fixture((method,response)=>{if(method==='experimentalFeature/list')response.data=(response.data as Record<string,unknown>[]).map(row=>row.name==='unified_exec'?{...row,enabled:false}:row);});
-  try{assert.deepEqual(await f.runtime.preflight(new AbortController().signal),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});}
+  try{assert.deepEqual(await f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});}
   finally{await f.runtime.dispose();}
 });
 
@@ -193,7 +194,7 @@ test('exact model on a later page is found without selecting the first catalog e
     if(method==='model/list'&&request.params.cursor===null){response.data=[{...pinned.models[0],model:'other'}];response.nextCursor='1';}
     else if(method==='model/list')response.data=pinned.models;
   });
-  try{assert.equal((await f.runtime.preflight(new AbortController().signal)).model,'gpt-6-astra');}
+  try{assert.equal((await f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity)).model,'gpt-6-astra');}
   finally{await f.runtime.dispose();}
 });
 for(const account of [{account:null,requiresOpenaiAuth:true},{account:{type:'apiKey'},requiresOpenaiAuth:true},{account:{type:'chatgpt'},requiresOpenaiAuth:false},{account:{type:'chatgpt'}},{}]){
@@ -288,7 +289,7 @@ test('permission denial reports only the allowlisted checkpoint, not the profile
     if(method==='config/read')setPath(object(response.config),'permissions.fort_candidate_b_no_files.extends','synthetic-private-marker');
   });
   try{
-    await assert.rejects(f.runtime.preflight(new AbortController().signal),error=>{
+    await assert.rejects(f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),error=>{
       assert.deepEqual(redactedStartupFailure(error,{stage:'session',check:'runtime-preflight'}),{stage:'permissions',check:'declaration'});
       assert.equal(JSON.stringify(error).includes('synthetic-private-marker'),false);return true;
     });

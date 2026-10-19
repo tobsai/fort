@@ -2,7 +2,7 @@ import { createInterface } from 'node:readline';
 import { writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { syntheticConfig, syntheticFeatures } from '../codex-preflight-fixture.ts';
+import { syntheticConfig, syntheticFeatures, syntheticAccount } from '../codex-preflight-fixture.ts';
 
 const [scenario, directory] = process.argv.slice(2);
 const watchdog = setTimeout(() => process.exit(2), 20_000); watchdog.unref();
@@ -31,7 +31,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   } else if (method === 'permissionProfile/list') reply(id, { data: [{ id: 'fort_candidate_b_no_files', allowed: true }], nextCursor: null });
   else if (method === 'experimentalFeature/list') reply(id, { data: syntheticFeatures(), nextCursor: null });
   else if (method === 'mcpServerStatus/list') reply(id, { data: [], nextCursor: null });
-  else if (method === 'account/read') reply(id, { account: accountAuthenticated ? { type: scenario === 'foreign-account' ? 'apiKey' : 'chatgpt' } : null, requiresOpenaiAuth: true });
+  else if (method === 'account/read') reply(id, { ...syntheticAccount(), account: accountAuthenticated ? { ...syntheticAccount().account, type: scenario === 'foreign-account' ? 'apiKey' : 'chatgpt' } : null });
   else if (method === 'account/login/start' && scenario.startsWith('account-')) {
     if (params.type !== 'chatgptDeviceCode') process.exit(3);
     reply(id, { type: 'chatgptDeviceCode', loginId: accountLoginId, verificationUrl: 'https://auth.openai.com/codex/device', userCode: 'FORT-TEST' });
