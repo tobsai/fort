@@ -1,112 +1,109 @@
 What this repo does: Fort is a single-owner native AI messenger with a Node core
-and optional official runtimes. This scoped review covers approved Mac development
-provisioning, the resulting inert signed artifact and evidence updates. It assumes
-the existing one-owner workload; no product architecture or runtime code changed.
+and optional official runtimes. This review covers release evidence for the existing
+one-owner design, not new behavior or shared hosting.
 
 Reviewer: Codex primary implementation agent, October 19, 2026. Base
-`60b144706a4f58852a8a5634c12a2ba758b54f0e`. Semantic review uses the pinned Ponytail
-skill and preserved baseline; this is not an independent-reviewer claim.
+`ce3f2936a645a9bc528caf6bec98dd7f33a73a10`. Used the pinned Ponytail skill and
+preserved whole-tree baseline. This is not an independent-reviewer claim.
 
-Read the actual source-backed approval, portal confirmations and downloaded-profile
-metadata; traced the assembly input/hash guards, native bundle/program signature and
-entitlement checks, helper bootstrap and separate activation boundary. Reviewed
-all staged documentation and the actual build/signing commands/results. Exact team,
-app/group IDs, one existing certificate and one registered Mac match the approval.
-All original source/artifacts and unrelated Apple records remain preserved. No
-private key was read/exported, new key created or existing certificate revoked.
+Reviewed all eight changed evidence/spec/draft files and the actual 31-object
+inventory. Traced native file imports, private cache/setup/removal, App Group and
+bundle metadata checks, Mac shutdown timers and runtime configuration validation.
+Compared the focused test results, package hashes, current Apple page, CSR public
+metadata and preserved signing identities. The revised spec adds only declared
+evidence paths and reuses the existing release-preparation design authority.
 
 ## Must fix before installed or release acceptance
 
-1. **Installed host/provider operation is still unverified.**
-   - What this is: Code signatures and profile metadata permit the next exact
-     runtime test; they do not establish effective App Group or named XPC access.
-   - Problem: The package has never run. Its helper still has no outgoing-network
-     entitlement, so this artifact must not be represented as provider-ready.
-   - Fix: Prepare the concrete separate installed/network/provider scope against
-     these exact identities and artifact, then run the approved native lifecycle,
-     account/provider, accessibility and screenshot checks.
-   - If we skip it: A signed development app could be mistaken for a working or
-     accepted installed product.
-   - Disposition: Open. No startup registration, provider login or app launch ran.
+1. **A signed package still lacks installed proof.**
+   - What this is: The existing Mac artifact has valid development signatures.
+   - Problem: It has not run; its helper lacks outgoing-network entitlement.
+   - Fix: Resolve the concrete installed/network/provider scope, then test actual
+     App Group/XPC, UI, lifecycle and provider behavior on the exact artifact.
+   - If we skip it: Signing could be mistaken for working or delivered Fort.
+   - Disposition: Open; no new execution grant inferred from this evidence.
 
-2. **Submission/runtime disclosures and TestFlight proof remain open.**
-   - What this is: The shipped payload needs accurate privacy/API/encryption
-     declarations and final Apple distribution/physical acceptance.
-   - Problem: Development profiles and local signing do not answer those questions
-     or make a build available to testers. The privacy inventory remains partial.
-   - Fix: Finish the independent source/payload review and owner contact/URL and
-     compliance decisions, then the separate distribution and installed gates.
-   - If we skip it: The release record would claim unverified compliance or delivery.
-   - Disposition: Open; the local submission draft and previous evidence remain.
+2. **Runtime privacy declarations cannot yet be chosen from this inventory.**
+   - What this is: Thirty-one binary objects and their native callers were inspected.
+   - Problem: Runtime file/disk/clock imports and separate preferences signals have
+     unresolved reachable uses; no artifact contains a privacy manifest.
+   - Fix: Resolve exact SDK uses/platform responsibilities, add supported manifest
+     entries and inspect the archive report alongside actual provider data flows.
+   - If we skip it: Empty declarations or broad privacy claims would lack evidence.
+   - Disposition: Open. The completed static inventory narrows the remaining audit;
+     407 synthetic control passes do not prove provider retention or compliance.
 
-## Fixed in this slice
+## Blocked external continuation
 
-3. **The exact Mac package lacked registered identities and provisioning.**
-   - What this is: Both client and helper need their own profile and code identity
-     with the same explicitly approved App Group.
-   - Problem: Prior artifacts were unsigned and had no compatible profile.
-   - Fix: After the exact owner approval, create only the missing two IDs/group and
-     two development profiles, then build/sign a separate unchanged-source package.
-   - If we skip it: The native bundle verifier rejects the package before setup.
-   - Disposition: Fixed for local development signing. Profile/certificate/device
-     checks, 30 exact signing certificates, strict nested verification, 206 file
-     hashes, exact entitlements and the real native bundle inspector pass.
+3. **The G2 request is local and its upload is unapproved by the execution gate.**
+   - What this is: Apple Assistant generated one local RSA-2048 key/public CSR.
+   - Problem: Automatic approval review rejected sending its public key/identity
+     metadata to Apple because the specific disclosure authorization was unverified.
+   - Fix: Await the precise supported approval, reuse the CSR/key, then verify the
+     issued leaf's G2 issuer, team, key match, expiry and paired signing identity.
+   - If we skip it: A duplicate key, unauthorized upload or false completion claim
+     could result. No G2 leaf has been issued, installed or used.
+   - Disposition: Open. Picker canceled; portal confirms no selected file. Existing
+     four signing identities remain. No private-key export or certificate revocation.
 
-Verdict: Approved provisioning and inert development signing are complete. Actual
-installed operation and release acceptance remain open. No source fix was needed
-for the probe's /private/tmp alias refusal or corrected codesign option syntax.
+Verdict: Static inventory and local-CSR evidence are accurate and reviewable.
+Installed acceptance, complete privacy decisions and the blocked G2 upload remain
+open. The signed package and product source are unchanged.
 
-Not checked: Effective OS profile acceptance, real App Group/XPC, service activation,
-provider login/messages, installed UI/accessibility/screenshots, physical devices,
-archive/upload/processing/tester access, complete SDK privacy audit or remote CI.
-Full runtime suites were not repeated for unchanged code. G2 was not executed.
+Not checked: All reachable upstream runtime/dependency privacy paths, actual
+provider retention or traffic, installed App Group/XPC/provider/UI, physical iPhone,
+archive privacy report, distribution upload/processing/tester access or remote CI.
+One optional timing test was skipped; existing complete suites/builds were not
+repeated. No privacy manifest or compliance answer was fabricated.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "60b144706a4f58852a8a5634c12a2ba758b54f0e",
+  "reviewedCommit": "ce3f2936a645a9bc528caf6bec98dd7f33a73a10",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Approved Apple Mac identifiers/group/development profiles, unchanged-source inert signed package, exact signature/profile/entitlement validation and evidence-only handoff updates",
+  "scope": "Static native/runtime privacy inventory, focused control verification, separate approved local G2 CSR and unperformed-upload evidence, release handoffs; no product source changes",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Fresh unchanged FortMac and FortHost Release builds passed under explicit approved ID overrides, 53.339 and 3.367 seconds. No benchmark claim.",
-    "Both downloaded profiles match exact OSX/team/app ID/shared group, existing certificate fingerprint and only the registered Mac. Original public certificate independently matched local identity.",
-    "Unsigned strict signature gate failed as expected; signed strict nested and 30 all-architecture code signatures passed. All 30 extracted public leaf certificates match the exact approved fingerprint. All 206 output hashes/modes/sizes and client/helper/child entitlements verified.",
-    "Existing public MacHostBundle.inspect passed with 49 byte-identical FortKit library files. Initial /private/tmp spelling failed its path check; correct Foundation-normalized /tmp spelling passed with unchanged product source. No app/helper/runtime launch.",
-    "Signed Fort name and compiled icon checks passed. Existing runtime/fixture suites were not repeated for unchanged source. Full spec structural gate passed; exact staged spec/review/diff gates required before commit."
+    "All 31 actual Mach-O objects enumerated, hashed and read with nm -u; all exited zero. Independent second hash/size/source reconciliation passed; zero privacy manifests in both artifacts. Exact C symbol matching replaces false-positive substring scratch results.",
+    "407 existing private-launch/startup-control synthetic tests passed, zero failed, one optional timing-budget test skipped. No installed app or real provider runtime executed.",
+    "Apple Assistant local RSA-2048 CSR signature verified; public CSR/SPKI hashes recorded. Four existing signing identities remain. Portal G2 selection/no-file/disabled-Continue confirmed after canceled picker. No G2 leaf created or installed.",
+    "Full spec and accepted implementation gates passed; exact staged spec/review and diff checks required before commit. Full runtime suites/builds not repeated for unchanged product source."
   ],
   "exceptions": [
-    "No new certificate/key, key export, credential read, agreement acceptance, unrelated record mutation, provider or startup activation, app installation or publication. Raw profiles/public certificate downloads remain outside Git.",
-    "Mac app records are cross-platform in Apple UI; generated profiles are OSX. Apple supplies profile wildcard allowances, but app signatures request only the exact approved group. Non-editable default In-App Purchase checkbox does not create a purchase product.",
-    "Source and signing evidence do not prove actual OS profile eligibility, App Group/XPC access, provider functionality, privacy compliance or TestFlight delivery. G2 remains separately approved and unexecuted."
+    "Review is scoped implementation-agent semantic review, not independent reviewer signoff. Prior whole-tree baseline is preserved. No SDK-wide privacy audit, uploaded archive report or legal/compliance determination claimed.",
+    "Automatic approval review rejected public CSR upload for unverified disclosure authorization. No workaround/retry; source-thread lookup returned no turns, precise user input is pending. A local key/CSR exists, not a paired G2 certificate.",
+    "The auxiliary AppleScript lookup triggered a new automation permission prompt; the lookup was stopped and permission declined. No additional automation permission granted, private key exported, trust changed, certificate revoked or Xcode component installed.",
+    "Signed development app remains unchanged and unlaunched. No provider, startup, app installation, TestFlight or publication operation occurred."
   ],
   "findings": [
     {
       "id": "1",
-      "detail": "Actual signed installed App Group/XPC/provider/UI acceptance remains unrun. The helper intentionally retains no network entitlement; request the concrete separate installed/network/provider scope before activation.",
+      "detail": "The signed app is unlaunched and the helper has no outgoing-network entitlement. Effective App Group/XPC, installed UI/provider behavior and TestFlight acceptance remain open under their separate action-specific gates.",
       "disposition": "open"
     },
     {
       "id": "2",
-      "detail": "Privacy/runtime inventory, contact/URL and export declarations plus TestFlight distribution/processing/physical acceptance remain open. Development signing does not close them.",
+      "detail": "The completed static inventory finds file/disk/clock imports and no privacy manifests. Exact runtime uses, native platform/manifest responsibilities, provider retention and final privacy/encryption/contact/URL declarations remain open; symbol presence is insufficient to choose reasons.",
       "disposition": "open"
     },
     {
       "id": "3",
-      "detail": "Missing Mac development provisioning and unsigned-package gap closed under exact owner approval; both profiles and signed identities/entitlements are independently verified.",
-      "disposition": "fixed"
+      "detail": "The local G2 key/CSR is created, but upload was rejected by automatic approval review for unverified disclosure authorization. Canceling the picker and recording a precise pending approval prevents a false completion claim or duplicate key/certificate.",
+      "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "fe3f2c905d1641df8b288b16d76229b93974bec75275d0b46dc7d7f576445c76",
-    "successor/APPLE-HOST-ACTIVATION.md": "62180bda677b4353b4ff5fde6b6d6fee2885ab9b860f2cd6f79184d18274b590",
-    "successor/TESTFLIGHT-DELIVERY-20261017.md": "f3fcc66715e317d9f91d46b21b275d61a32d6a8956bc5296da968e1f7990c78f",
-    "successor/V1-ACCEPTANCE.md": "485bf6165350f21ad4609f176ed72c346f0039bc8f637b3c4020afe77c087ea9",
-    "successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.md": "105e002b2311629b756e3c59af1b393ae0b8156d062d795e3ae27fe78598c0fc",
-    "successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.json": "d1304c7a3c1119161f5780070c873a3397806a02ca47f24b960bce01aab379ef"
+    "specs/059-modular-node-v1.md": "b332be6b299ccc9a3bd7df50f5f5496d9f63fe41cb1b87362fd7ed40bcdeec3d",
+    "successor/APPLE-HOST-ACTIVATION.md": "ada5f7a2af283469021e217580121fecbb9a3015a916e2183c727439d2b3d29a",
+    "successor/TESTFLIGHT-DELIVERY-20261017.md": "d628c135a7035177efd04968ddcfc108dd19d80a6409a3a9c440481dcf222ab7",
+    "successor/V1-ACCEPTANCE.md": "c74a20b753614d5c41ac2f7cabeec8329a30bb3709bab78007d868040f995ea5",
+    "successor/release/SUBMISSION-DRAFT.md": "1e51bf2f6eeda7891c6de6ce539773767f6155e069a57a40b7a9c0dc71836624",
+    "successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md": "d46df362a93ae86b292d5570e5f25e3931f1d8eb552d863c95d6396232b5faf8",
+    "successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.json": "ca0caf47661065556e5629e95452694c9d3a59e260e69e0eaf66d3c9162d7eef",
+    "successor/evidence/2026-10-17-node-foundation/g2-certificate.md": "0816529c0c6be0c7bbf327b414b2c7059fe2b71598a95b81b91b94289677bb33"
   }
 }
 ```

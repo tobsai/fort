@@ -2,8 +2,9 @@
 
 Local preparation under [Spec 059](../../specs/059-modular-node-v1.md), October 19,
 2026. Nothing here has been entered into App Store Connect, submitted or published.
-The branded builds are unsigned engineering artifacts. Installed provider behavior,
-physical devices and TestFlight delivery have not passed acceptance.
+The current Mac development package is signed but unlaunched; the iPhone device
+build is unsigned. Installed provider behavior, physical devices and TestFlight
+delivery have not passed acceptance.
 
 ## App and beta text
 
@@ -76,13 +77,20 @@ beyond servicing the request. Local storage alone does not justify a blanket
 | Analytics and tracking | No Fort analytics SDK or tracking service was added by this release work | Review the complete shipped Node/Codex dependency payload and provider practices before answering final labels |
 | Retention and deletion | Ordinary disconnect/removal keeps history; deletion is a separate choice | Final installed removal/recovery, backup behavior and external-provider retention |
 
-No `PrivacyInfo.xcprivacy` is present in the current native targets. A complete
-required-reason API and bundled-runtime manifest inventory remains open.
-`MacCoreProcessTransport.swift` uses system uptime for elapsed shutdown checks;
-file/storage code also needs review against Apple's current required-reason list.
-Do not add an empty manifest or select reasons solely to silence an upload warning.
-Use [Apple's manifest documentation](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files)
-for that source and final-binary audit. No manifest claim was changed in this slice.
+The [static source and payload inventory](../evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md)
+now covers all 30 signed Mac Mach-O objects and the unsigned iPhone binary. All
+31 undefined-symbol reads passed; neither artifact contains a privacy manifest.
+Native file-metadata checks and Mac shutdown timers have traced callers. Node,
+SQLite, libuv, OpenSSL and Codex imports still need exact use/manifest review.
+CFPreferences signals are tracked separately from Apple's listed UserDefaults API.
+
+This completes the bounded static inventory, not the complete runtime privacy audit.
+Candidate reasons and platform-scope limits are in the evidence; none was submitted
+or encoded in a manifest. Existing synthetic runtime-control checks passed 407 tests
+with one optional budget skip. They support the specific telemetry/update opt-outs,
+not provider retention or a blanket Data Not Collected answer. Do not add an empty
+manifest or choose reasons solely to silence an upload warning. Inspect accurate
+manifest placement and the final archive report after remaining uses are resolved.
 
 ## Encryption and agreements
 

@@ -1,5 +1,21 @@
 # Apple host activation gate
 
+## G2 CSR local; upload approval review remains open
+
+October 19 continuation: the separately approved G2 workflow created one local
+2048-bit RSA CSR through Apple Certificate Assistant. Its signature verifies; the
+private key was not read or exported. Automatic approval review rejected uploading
+the public CSR because it could not verify authorization for that specific identity/
+public-key disclosure to Apple. The file picker was canceled and the portal still
+shows no file selected. A precise user approval request is pending; do not retry
+through a workaround. No G2 leaf was created or installed, and the four existing
+signing identities remain. [Exact hashes, scope and failure](evidence/2026-10-17-node-foundation/g2-certificate.md).
+
+The signed development package below remains unchanged and unlaunched. The separate
+[static privacy inventory](evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md)
+covers all 31 Mac/iPhone binary objects; complete runtime disclosures, installed
+App Group/XPC/provider behavior and TestFlight acceptance remain open.
+
 ## Approved provisioning completed; signed package remains unlaunched
 
 October 19, 2026. The owner approved the exact consolidated scope at 17:41:48 UTC,
@@ -26,8 +42,9 @@ The next action-specific gate is installed operation and any required host-netwo
 provider access, using the exact reviewed signed package and explicitly selected
 account. This provisioning approval did not add those grants. Do not infer runtime
 access from a signature, profile allowance or the successful read-only inspector.
-TestFlight distribution remains separate. G2 replacement remains separately
-approved and unexecuted; it is not a development/TestFlight prerequisite.
+TestFlight distribution remains separate. G2 replacement is separately approved;
+the later local-CSR/upload-review status is recorded above. It is not a
+development/TestFlight prerequisite.
 
 The earlier request and inventories below are preserved as historical checkpoints;
 this section supersedes their missing-profile/signing status.

@@ -1,5 +1,17 @@
 # Fort delivery through TestFlight
 
+October 19 static-privacy checkpoint: all 30 signed Mac binary objects and the
+unsigned iPhone binary were hashed and inspected; 31 symbol reads passed and no
+privacy manifest is present. Native callers and remaining runtime/platform decisions
+are recorded in the [inventory](evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md).
+Focused synthetic telemetry/update checks passed 407 tests with one optional budget
+skip. No privacy label, encryption exemption or remote submission changed.
+
+The separate [G2 continuation](evidence/2026-10-17-node-foundation/g2-certificate.md)
+created a local CSR, but its upload was rejected by automatic approval review and
+is awaiting a precise user approval. No G2 certificate was issued/installed; this
+does not change development signing or close any TestFlight gate.
+
 October 19 signed-development checkpoint: the approved two Mac IDs, shared group
 and two development profiles are created and verified. The new unlaunched signed
 package passes all 30 code-signature checks, 206-file inventory and Fort native

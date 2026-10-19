@@ -1,0 +1,621 @@
+{
+  "format": 1,
+  "scope": "Static candidate inventory only. No app/runtime execution, privacy classification or compliance certification. C symbol matches are exact after leading underscore and Darwin suffix normalization. CFPreferences/mach_continuous_time/Swift names are separate review signals, not an assertion that Apple lists each as a required-reason API. Negative symbol results do not prove absence of indirect/dynamic access.",
+  "productSourceCommit": "60b144706a4f58852a8a5634c12a2ba758b54f0e",
+  "inventoryBaseCommit": "ce3f2936a645a9bc528caf6bec98dd7f33a73a10",
+  "artifacts": {
+    "mac": "/tmp/fort059-development-signed-20261019/Fort.app",
+    "ios": "/tmp/fort059-release-assets-build-ios/Build/Products/Release-iphoneos/FortiOS.app"
+  },
+  "macSignedReportSHA256": "20ed08cc2df56549234a63f09c3da9b1854cc05a08958cbdf18301cdaa03b559",
+  "privacyManifests": {
+    "mac": [],
+    "ios": []
+  },
+  "matchDefinitions": {
+    "fileMetadata": [
+      "fgetattrlist",
+      "fstat",
+      "fstatat",
+      "getattrlist",
+      "getattrlistat",
+      "getattrlistbulk",
+      "lstat",
+      "stat"
+    ],
+    "bootTime": [
+      "mach_absolute_time"
+    ],
+    "diskSpace": [
+      "fgetattrlist",
+      "fstatfs",
+      "fstatvfs",
+      "getattrlist",
+      "getattrlistat",
+      "statfs",
+      "statvfs"
+    ],
+    "additionalReviewSignals": [
+      "CFPreferencesAppSynchronize",
+      "CFPreferencesAppValueIsForced",
+      "CFPreferencesCopyAppValue",
+      "mach_continuous_time"
+    ]
+  },
+  "nativeSourceCandidates": [
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/LocalChatImages.swift",
+      "sha256": "456f859df7633ac54cd2574cbe77ccaaac052d4c20d09e41c3a8017f21c3786f",
+      "lines": [
+        50
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacAgentStorage.swift",
+      "sha256": "fef3c70adc9a8b4a6c8730556d92d94df91419f86c133ebd8c2164f9195108e6",
+      "lines": [
+        145,
+        150,
+        156,
+        166,
+        184
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacCoreHost.swift",
+      "sha256": "6cd67e1fe546f1a0a02931a6176372a167228957aabf8b0deed0fd394a580d60",
+      "lines": [
+        97
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift",
+      "sha256": "34227b4bdebfe6f5eda3d2cd03b465f0529d212593d3fefa27f1ff86849e9c4a",
+      "lines": [
+        186,
+        366,
+        379
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/MacHostBundle.swift",
+      "sha256": "ab497ab66d6df701b3d7c2f3b2a59294346df3de4ce6294ee5247567b570fc32",
+      "lines": [
+        116,
+        124,
+        132
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/OwnerSetupFiles.swift",
+      "sha256": "e083a150da889eaa1f79155082c4909f4f981b396eb27fc21a91f2f586e35132",
+      "lines": [
+        24,
+        36,
+        52
+      ]
+    },
+    {
+      "path": "successor/apple/FortKit/Sources/FortKit/SavedHistoryRemoval.swift",
+      "sha256": "22091e5bddaf6c3e98d8fb47ab14d434a88a73ccbf4172be90b8bb42d7307dcb",
+      "lines": [
+        24,
+        31,
+        39,
+        94
+      ]
+    }
+  ],
+  "machO": [
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libada.3.4.4.dylib",
+      "sha256": "246fa8ebfaf4a2de26212d1718a36ff3e42a009bcd8e68314e43e9778d3cb62a",
+      "bytes": 613504,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlicommon.1.2.0.dylib",
+      "sha256": "10397a2caa3dc1a2040b75fca44d31c2cc1877977ea57675c50341d7272d1943",
+      "bytes": 167520,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlidec.1.2.0.dylib",
+      "sha256": "ccc0de25b7bbd712ebd6c5cc59b0c117ec81baf509db42215456e451fc9f80e8",
+      "bytes": 87984,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlienc.1.2.0.dylib",
+      "sha256": "9780ae88abc1ce2874e09ce360d910c70ab8bf7c1883c3ec8f3ffffd61b12831",
+      "bytes": 653584,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcares.2.19.7.dylib",
+      "sha256": "ff181df64683497eb775f8f2760407d40ce95dc9bd8287dff7b66a36de6c6b79",
+      "bytes": 244080,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcrypto.3.dylib",
+      "sha256": "c42884ed6b28dea34598f73f3f9a73ddab560ad8e5d7aa091b6c472ec1c2fa12",
+      "bytes": 4846272,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libffi.8.dylib",
+      "sha256": "2b8fce7fbd0a8fecf4bf48566a54cc5c0e7aa174ce1ee3e60f8083639e92d500",
+      "bytes": 138032,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libhdr_histogram.6.3.3.dylib",
+      "sha256": "6384f7c16475edd1a9e13e8d2e0c2c981f12cb98f7d910a82184bce8e63fca3e",
+      "bytes": 75856,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicudata.78.3.dylib",
+      "sha256": "bd7b17214f94b45aae03345a5a06ae5258064a54fc6646c52e5e686a3d68dfd4",
+      "bytes": 33195376,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicui18n.78.3.dylib",
+      "sha256": "9ecc23c3117ea70c55fdf57191422518c3e5ebfd1b19752e0ceb84a585fec1ce",
+      "bytes": 3168528,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicuuc.78.3.dylib",
+      "sha256": "4f80a8b483c42e9294d37399a5a5d6fd42172e01ffc782c321098b01957b3270",
+      "bytes": 1866848,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libllhttp.9.4.2.dylib",
+      "sha256": "0263d0b7b3db668c79ebea3445fd7184de4b1850e2f5ac169a6fc56f43149e54",
+      "bytes": 95472,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libmerve.1.2.2.dylib",
+      "sha256": "7f66f160c5ba086c6c1ece71192f23f4d5ec322114dab3fde45004f42d3e8924",
+      "bytes": 95584,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnbytes.dylib",
+      "sha256": "87240081768a6f36870f1ff6f4daef0246700e5c4ffb75d3932be3ea577ab644",
+      "bytes": 53136,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp2.14.dylib",
+      "sha256": "80598e9c8c49abc6d764a8f456342abae7f8d7d83b0a36f6723bffa151c5ea29",
+      "bytes": 201440,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp3.9.8.0.dylib",
+      "sha256": "d91472cd1614ae4eba382aed0e05589c331e7bcea131df7218f4dcd5e35975d3",
+      "bytes": 201088,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libngtcp2.16.dylib",
+      "sha256": "7e85e7da59ee6e67598fc75512a1f0fa10d3d153cdb004e34dc93b7d8b71656d",
+      "bytes": 366256,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnode.147.dylib",
+      "sha256": "b2b0910a10f996b40822cbd39ea90c4fd227828cac097b973179772619767353",
+      "bytes": 74695072,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_stat"
+        ],
+        "bootTime": [
+          "_mach_absolute_time"
+        ],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdjson.33.0.0.dylib",
+      "sha256": "94630065f579be43a992e440dc7e5b7ed2def8d0875507ca587f8418a4bfc0c1",
+      "bytes": 112960,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdutf.34.0.0.dylib",
+      "sha256": "a88c5e0584bb94a2e99fcf40de297299d786b334ab23423b04f1a4cfaeb0ccf4",
+      "bytes": 239024,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsqlite3.3.53.3.dylib",
+      "sha256": "94896efb31edca3733a6f6f37bde70d8936ef276e4bdff2f062a5391f61dc91b",
+      "bytes": 1287136,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_lstat",
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [
+          "_fstatfs",
+          "_statfs"
+        ],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libssl.3.dylib",
+      "sha256": "8394a3ee40e6e3cafd5a12f902148a0de16d3b77143472ea5f6fc2cf8c4df16e",
+      "bytes": 885232,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuv.1.0.0.dylib",
+      "sha256": "02d0c642e72a44777b4818d85264023cff8a34137a3496f51a50303131f19f79",
+      "bytes": 206560,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_lstat",
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [
+          "_statfs"
+        ],
+        "additionalReviewSignals": [
+          "_mach_continuous_time"
+        ]
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuvwasi.dylib",
+      "sha256": "4a32b31f12b03246413f15c3f98d4893b5beaa8e764ecd4b00ca7ae41317b46e",
+      "bytes": 83424,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libzstd.1.5.7.dylib",
+      "sha256": "89c399dff487d05651281d7485e5f15a6c0c552183fd89f2ab5f2af1f5394a37",
+      "bytes": 649904,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortHost",
+      "sha256": "35722344489552adf946fa09e0bd980b5a1489498dc604760ce666a6c9e810e2",
+      "bytes": 15594992,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_fstatat",
+          "_lstat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortProcessGuardian",
+      "sha256": "7c67fcbf7f217302ac322112f83d708caaa366af69c39d49018521c1a1b02bba",
+      "bytes": 80496,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/codex",
+      "sha256": "21443a611213d261ff1730f867695735d2300f525f0c7ccc254e3e466ce971fa",
+      "bytes": 236840784,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_fstatat",
+          "_lstat",
+          "_stat"
+        ],
+        "bootTime": [],
+        "diskSpace": [
+          "_fstatfs",
+          "_statfs",
+          "_statvfs"
+        ],
+        "additionalReviewSignals": [
+          "_CFPreferencesAppSynchronize",
+          "_CFPreferencesAppValueIsForced",
+          "_CFPreferencesCopyAppValue"
+        ]
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/node",
+      "sha256": "3fa6afecb6066b5a64d97854c3a92f2824c9fd6698f33e6f8f81dd950e97ebfe",
+      "bytes": 68768,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "mac",
+      "path": "Contents/MacOS/FortMac",
+      "sha256": "e2b99669bb39602756126a2feabbd67b09177806c280ee249a4eb1ce9ea2408d",
+      "bytes": 15621648,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_fstatat",
+          "_lstat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    },
+    {
+      "bundle": "ios",
+      "path": "FortiOS",
+      "sha256": "47169d74f85035cb4954ec15ff810c07430dc11c6f89e351bea79b1a80500e85",
+      "bytes": 6250864,
+      "nmExit": 0,
+      "matches": {
+        "fileMetadata": [
+          "_fstat",
+          "_lstat"
+        ],
+        "bootTime": [],
+        "diskSpace": [],
+        "additionalReviewSignals": []
+      },
+      "additionalSwiftNameCandidates": []
+    }
+  ],
+  "validation": {
+    "undefinedSymbolReads": {
+      "passed": 31,
+      "failed": 0
+    },
+    "focusedSyntheticTests": {
+      "command": "/opt/homebrew/opt/node@26/bin/node --test runner/private-codex-plan.test.ts runner/codex-startup-contract.test.ts",
+      "cwd": "successor",
+      "passed": 407,
+      "failed": 0,
+      "skipped": 1,
+      "skipReason": "optional 20-sample metadata budget measurement",
+      "log": "/tmp/fort059-privacy-control-tests.log"
+    },
+    "productProcessesLaunched": false,
+    "privacyManifestAdded": false,
+    "remoteDeclarationSubmitted": false
+  },
+  "appleReference": {
+    "url": "https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype",
+    "retrieved": "2026-10-19",
+    "localJSONSHA256": "0d7433b45081771a4d1d886e1b753746d678e158f8705a159db6979bc46ecae9"
+  }
+}

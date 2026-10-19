@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 45a804f7a4c2093d8b8e345e647682ec00b937c5d10e6c3ee2951b69ccb0b02f
+Reviewed content SHA256: 9b7d38984173697c96941e92187cc74d8922872d1e4ea04d66aeea619dde47e6
 
 ### Vendor independence
 Status: planned
@@ -3084,7 +3084,47 @@ A probe path-alias refusal was resolved by using Foundation's normalized /tmp
 spelling; no product source change was needed. Actual App Group/XPC, helper network,
 provider, installed UI and TestFlight gates remain open.
 
+## Static privacy inventory and G2 continuation evidence
+
+Under the existing decision 059 release-preparation scope, inventory required-reason
+API candidates in native source and the exact signed Mac/unsigned iPhone artifacts.
+Record the separate, already approved Developer ID Application G2 continuation and
+any execution-policy refusal without claiming completion or replaying a denied action.
+The coordinator supplied the October 18 23:51:54 UTC approval reference
+Sentinel_1757ba0eab18819187f679639d1d3dd5 following request
+Sentinel_351c5023315081918f3b0c001153fde4. It covers the exact team's replacement
+certificate with its private key on this Mac, preserving existing certificates.
+The current upload-review refusal remains binding until resolved through the
+supported approval path; this document cannot override it.
+
+Vendor independence: inventory the optional runtime separately from Fort's native
+code and Apple declarations; no provider dependency or billing choice changes.
+Modularity: distinguish app/helper, bundled libraries and optional executor imports;
+symbol matches are candidates, not evidence that a code path ran or that a reason
+applies. The host and computer-tool sandbox remain separate. Speed: this is static
+inspection of existing bytes with no runtime or startup benchmark and no product
+performance change. Installation/removal: preserve every prior app, profile and
+certificate; keep the public CSR outside Git and never export the private key.
+No installed launch, network/provider grant, startup activation, app upload or
+TestFlight delivery is part of this evidence refinement.
+
+Acceptance: enumerate and hash all 30 Mac/one iPhone Mach-O files and any bundled
+privacy manifests; read undefined symbols with exact C-name matching and separate
+indirect Swift/preferences signals; trace native callers and record unresolved
+runtime uses/platform applicability. Verify the existing telemetry/update controls
+with their focused synthetic behavior tests. Do not add an empty manifest, claim
+Data Not Collected or choose an encryption exemption from incomplete evidence.
+Record local CSR verification, public-key fingerprint, preserved signing identities
+and the exact unperformed upload/certificate steps. Update the submission draft,
+activation/delivery/v1 records and scoped Ponytail review. Rollback retains earlier
+evidence in Git; no certificate revocation, private-key deletion or remote cleanup
+is implied. Existing owner/contact/compliance and installed acceptance gates remain.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md`
+- `successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.json`
+- `successor/evidence/2026-10-17-node-foundation/g2-certificate.md`
 
 - `successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.md`
 - `successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.json`
