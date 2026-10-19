@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9b7d38984173697c96941e92187cc74d8922872d1e4ea04d66aeea619dde47e6
+Reviewed content SHA256: 8075fc2882ec642f29d12d7367ade0326c0ba36dfe5073ed3b445db31fcce87e
 
 ### Vendor independence
 Status: planned
@@ -3120,7 +3120,58 @@ activation/delivery/v1 records and scoped Ponytail review. Rollback retains earl
 evidence in Git; no certificate revocation, private-key deletion or remote cleanup
 is implied. Existing owner/contact/compliance and installed acceptance gates remain.
 
+## Fresh installed host registration — October 19, 2026
+
+Continue decision 059's ordinary bug-fix and inert artifact preparation authority.
+A bounded client-only launch from ~/Applications/Fort.app verified the signed
+bundle, then macOS returned notFound for its never-registered LaunchAgent. The
+service log parsed the exact plist but reported no registration record. Apple's
+DTS explanation at https://developer.apple.com/forums/thread/719862 establishes
+that notFound can mean an unseen service; the matching LaunchAgent interpretation
+here is supported by the local log, not a claim that every notFound means success.
+
+Vendor independence: the change is limited to the existing Apple startup adapter;
+provider contracts and identity/model selection remain unchanged. Modularity:
+retain raw OS status and separate exact bundle verification from registration.
+Only an explicit Enable action may register a verified package from notRegistered
+or notFound. Inspection never registers; only enabled permits pairing. Unknown,
+unsupported, invalid or changed packages remain blocked. Removal still cannot
+claim absence from notFound. Host and computer-tool sandbox remain distinct.
+Speed: this adds one existing-state branch with no new process, dependency or
+polling. Record focused test/build duration; no runtime benchmark is inferred.
+Installation/removal: resolve the first-install dead end without silent startup
+activation. Preserve the earlier signed artifact and task-owned installed copy.
+Prepare a separately hashed, inert provider-test candidate with the exact proposed
+helper outgoing-network entitlement; do not launch that helper or candidate before
+its action-specific approval. The client-only regression check uses a separate
+signed candidate retaining the original helper entitlements. No credentials,
+provider traffic, CSR upload or registration is authorized by this refinement.
+
+Acceptance: red then green tests at MacHostStartup/MacHostControl prove explicit
+registration from notFound, requiresApproval still blocks pairing, unchanged OS
+states, failed registration confirmation and package revalidation. Rebuild/sign
+and inspect the client-only artifact through accessibility/screenshot: Enable is
+available, Connect is disabled and the exact service is absent. Inspect every
+candidate file/signature/profile/entitlement. Produce one reviewable installed
+host/provider proposal naming artifact hashes, service persistence/removal,
+account/model selection, data transmitted/retained and bounded cleanup. Actual
+registration, XPC, provider and cleanup behavior remain unrun pending approval.
+
+Exact implementation paths: the existing MacHostStartup.swift, MacHostControl.swift
+and their matching FortKitTests files; OwnerSetupView.swift (use verified controller
+eligibility rather than duplicate an OS-status condition), OwnerSetupModelTests.swift;
+this spec; APPLE-HOST-ACTIVATION.md,
+V1-ACCEPTANCE.md, TESTFLIGHT-DELIVERY-20261017.md, the scoped Ponytail review and
+new installed-host-preflight.md / installed-host-proposal.md evidence below.
+Rollback retains previous source and signed packages; do not delete user history,
+Apple records, credentials or unrelated installations.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/installed-host-enable.png`
+
+- `successor/evidence/2026-10-17-node-foundation/installed-host-preflight.md`
+- `successor/evidence/2026-10-17-node-foundation/installed-host-proposal.md`
 
 - `successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.md`
 - `successor/evidence/2026-10-17-node-foundation/privacy-runtime-inventory.json`

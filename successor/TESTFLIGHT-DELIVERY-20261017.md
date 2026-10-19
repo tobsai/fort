@@ -1,5 +1,27 @@
 # Fort delivery through TestFlight
 
+## Installed client preflight — October 19, 2026
+
+The exact task-installed development client now shows Enable for a verified fresh
+host whose OS status is notFound; Connect remains disabled. Three source files and
+three native test files cover the startup/controller/view correction. The focused run finished with
+66 passing functions, zero failures and two optional timing skips; fresh Release builds, all 206
+file checks and all 30 signatures passed for each final candidate. Installed AX and
+screenshot passed without Enable/Connect/sign-in. Normal unpaired Quit did not exit;
+exact-process cleanup was needed, so quit/reopen remains open. The client is stopped,
+service absent and host storage uncreated. The installed helper still lacks network.
+
+A separately signed **uninstalled/unlaunched** provider-test candidate with proposed
+helper outgoing-network entitlement is pinned in the [consolidated authorization
+proposal](evidence/2026-10-17-node-foundation/installed-host-proposal.md), including
+account/model choice, persistence, transmitted/retained data and bounded cleanup.
+[Full preflight evidence](evidence/2026-10-17-node-foundation/installed-host-preflight.md).
+Do not activate it or configure credentials before that action-specific approval.
+G2 CSR upload remains held pending the parent's exact disclosure approval; no retry
+or new certificate occurred. Older “unlaunched client” statements below describe
+previous checkpoints. Host/provider/removal/TestFlight acceptance remains unrun.
+
+
 October 19 static-privacy checkpoint: all 30 signed Mac binary objects and the
 unsigned iPhone binary were hashed and inspected; 31 symbol reads passed and no
 privacy manifest is present. Native callers and remaining runtime/platform decisions

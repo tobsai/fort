@@ -58,6 +58,22 @@ private actor HostControlBackend: MacHostStartupBackend {
     #expect(await fixture.backend.registrations == 1)
 }
 
+@Test @MainActor func hostControlOffersExplicitRegistrationForAVerifiedUnseenHost() async throws {
+    let fixture = HostControlFixture(), control = fixture.control()
+    await fixture.backend.setStatus(.notFound)
+    await fixture.backend.setRegistrationResult(.requiresApproval)
+    await control.inspect()
+    #expect(control.status == .notFound && control.canEnable && !control.canPair)
+    #expect(await fixture.backend.registrations == 0)
+    await control.enable()
+    #expect(fixture.inspections == 2)
+    #expect(control.status == .requiresApproval && !control.canEnable && !control.canPair)
+    #expect(await fixture.backend.registrations == 1)
+    await fixture.backend.setStatus(.enabled)
+    await control.inspect()
+    #expect(control.canPair && !control.canEnable)
+}
+
 @Test @MainActor func hostControlPublicConstructionOnlyTargetsItsRunningApp() {
     let control = MacHostControl()
     #expect(control.applicationURL == Bundle.main.bundleURL)
@@ -75,9 +91,10 @@ private actor HostControlBackend: MacHostStartupBackend {
     #expect(await fixture.backend.inspections == 0)
 }
 
-@Test(arguments:["signature", "identity", "application"]) @MainActor
-func hostControlRechecksThePackageBeforeRegistration(_ change: String) async throws {
+@Test(arguments:["signature", "identity", "application"], [MacHostStartupStatus.notRegistered,.notFound]) @MainActor
+func hostControlRechecksThePackageBeforeRegistration(_ change: String, _ state: MacHostStartupStatus) async throws {
     let fixture = HostControlFixture(), control = fixture.control()
+    await fixture.backend.setStatus(state)
     await control.inspect()
     if change == "signature" { fixture.invalidSignature = true }
     if change == "identity" { fixture.changedIdentity = true }
@@ -89,7 +106,7 @@ func hostControlRechecksThePackageBeforeRegistration(_ change: String) async thr
     #expect(await fixture.backend.registrations == 0)
 }
 
-@Test(arguments:[MacHostStartupStatus.enabled,.requiresApproval,.notFound,.unsupported,.unknown]) @MainActor
+@Test(arguments:[MacHostStartupStatus.enabled,.requiresApproval,.unsupported,.unknown]) @MainActor
 func hostControlKeepsOSStatesDistinctWithoutRegistering(_ state: MacHostStartupStatus) async throws {
     let fixture = HostControlFixture(), control = fixture.control()
     await fixture.backend.setStatus(state)

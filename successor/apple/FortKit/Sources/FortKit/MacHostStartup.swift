@@ -75,8 +75,8 @@ private actor SystemMacHostStartup: MacHostStartupBackend {
         try Task.checkCancellation()
         switch status {
         case .enabled,.requiresApproval: return status
-        case .notRegistered: break
-        case .unknown,.notFound,.unsupported: throw MacHostStartupError.unavailable
+        case .notRegistered,.notFound: break
+        case .unknown,.unsupported: throw MacHostStartupError.unavailable
         }
         do { try await backend.register() } catch {}
         status = await backend.status()

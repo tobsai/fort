@@ -13,7 +13,7 @@ struct MacHostControlView: View {
                     .disabled(!model.canPrepareLocalReinstall).accessibilityIdentifier("local-host-prepare-reinstall")
                 Text("Keeps saved conversations. You’ll enable the local host and connect this Mac separately afterward.").font(.caption)
             }
-            if host.status == .notRegistered {
+            if host.canEnable {
                 Button("Enable local host") { Task { await model.enableLocalHost() } }
                     .disabled(!model.canEnableLocalHost).accessibilityIdentifier("local-host-enable")
             }

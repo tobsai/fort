@@ -11,7 +11,7 @@ import Observation
     private var failure: String?
     private let inspectBundle: @MainActor (URL) async throws -> MacHostBundle
     private let makeStartup: @MainActor (MacAgentEndpoint) throws -> MacHostStartup
-    public var canEnable: Bool { !isBusy && endpoint != nil && status == .notRegistered }
+    public var canEnable: Bool { !isBusy && endpoint != nil && (status == .notRegistered || status == .notFound) }
     public var canPair: Bool { !isBusy && endpoint != nil && status == .enabled }
     public var message: String {
         if let failure { return failure }
@@ -20,7 +20,7 @@ import Observation
         case .notRegistered: return "The local host is not enabled. Enable it to let macOS start it for this app."
         case .enabled: return "Local host startup is enabled. Connect this Mac separately to verify pairing and runtime access."
         case .requiresApproval: return "macOS requires approval. Allow Fort in System Settings, then check its status again."
-        case .notFound: return "macOS could not find this app's local host. Install a complete Fort build before enabling it."
+        case .notFound: return "macOS has no startup record for this verified local host. Enable it to register this app’s host."
         case .unsupported: return "This macOS startup state is not supported. No startup change was confirmed."
         }
     }

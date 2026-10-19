@@ -386,11 +386,13 @@ private actor SetupHostBackend: MacHostStartupBackend {
     },makeStartup:{ try MacHostStartup(endpoint:$0,backend:self.backend) })
 }
 
-@Test @MainActor func ownerSetupModelRequiresFreshEnabledHostBeforeCreatingCredential() async throws {
+@Test(arguments:[MacHostStartupStatus.notRegistered,.notFound]) @MainActor
+func ownerSetupModelRequiresFreshEnabledHostBeforeCreatingCredential(_ initial: MacHostStartupStatus) async throws {
     let root = setupModelDirectory(); defer { try? FileManager.default.removeItem(at:root) }
     let fixture = SetupHostFixture(), credentials = SetupModelCredentials(), setup = SetupModelControl(), transport = SetupModelTransport()
     let storage = try DeviceStorage(directory:root,credentials:credentials)
     let model = try MessengerModel(storage:storage,session:.shared,ownerEndpoint:.macAgent(fixture.endpoint),ownerSetupControl:setup,connectionTransport:{ _ in transport },localHost:fixture.host)
+    await fixture.backend.setStatus(initial)
     await model.restore()
     #expect(!model.canCompleteOwnerSetup && model.canEnableLocalHost)
     await model.completeOwnerSetup()

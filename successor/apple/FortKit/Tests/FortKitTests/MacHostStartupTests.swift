@@ -63,6 +63,30 @@ private let startupEndpoint = try! MacAgentEndpoint(serviceIdentifier:"io.fort.s
     #expect(await backend.removals == 0)
 }
 
+@Test(arguments:[MacHostStartupStatus.enabled,.requiresApproval]) @MainActor
+func macHostStartupRegistersAnUnseenServiceOnlyOnExplicitAction(_ result: MacHostStartupStatus) async throws {
+    let backend = StartupBackend(), startup = try MacHostStartup(endpoint:startupEndpoint,backend:backend)
+    await backend.setStatus(.notFound)
+    await backend.setRegistrationResult(result)
+    #expect(try await startup.inspect() == .notFound)
+    #expect(await backend.registrations == 0)
+    await #expect(throws:MacHostStartupError.self) { try await startup.disable() }
+    #expect(await backend.removals == 0)
+    #expect(try await startup.enable() == result)
+    #expect(try await startup.enable() == result)
+    #expect(await backend.registrations == 1)
+}
+
+@Test @MainActor func macHostStartupDoesNotConfirmAnUnseenServiceWhenRegistrationFails() async throws {
+    let backend = StartupBackend(), startup = try MacHostStartup(endpoint:startupEndpoint,backend:backend)
+    await backend.setStatus(.notFound)
+    await backend.failRegistration("before")
+    await #expect(throws:MacHostStartupError.self) { try await startup.enable() }
+    #expect(startup.status == .notFound && startup.operation == .idle)
+    #expect(await backend.registrations == 1)
+    #expect(await backend.removals == 0)
+}
+
 @Test @MainActor func macHostStartupWaitsForUnregistrationCompletionAndRejectsOverlappingActions() async throws {
     let backend = StartupBackend(), startup = try MacHostStartup(endpoint:startupEndpoint,backend:backend)
     #expect(try await startup.enable() == .enabled)
@@ -98,7 +122,7 @@ private let startupEndpoint = try! MacAgentEndpoint(serviceIdentifier:"io.fort.s
     #expect(await backend.removals == 1)
 }
 
-@Test(arguments:[MacHostStartupStatus.notFound,.unsupported,.unknown]) @MainActor
+@Test(arguments:[MacHostStartupStatus.unsupported,.unknown]) @MainActor
 func macHostStartupRefusesUnavailableStatesWithoutMutation(state: MacHostStartupStatus) async throws {
     let backend = StartupBackend(), startup = try MacHostStartup(endpoint:startupEndpoint,backend:backend)
     await backend.setStatus(state)
