@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2cf6e64d2f4b646e554869110b36cca87e5ec2c111dfb7b7ca66bb9fcd6f4866
+Reviewed content SHA256: 45a804f7a4c2093d8b8e345e647682ec00b937c5d10e6c3ee2951b69ccb0b02f
 
 ### Vendor independence
 Status: planned
@@ -3041,7 +3041,53 @@ record and device, supplied Program License Agreement acceptance, active Free Ap
 terms and missing proposed Mac provisioning. No account mutation or new authority
 is inferred. APPLE-HOST-ACTIVATION.md records the exact separate approval scope.
 
+## Approved Mac development provisioning and inert signed package
+
+The owner approved the consolidated Apple provisioning scope on October 19, 2026
+at 17:41:48 UTC, message Sentinel_0027f013f6888191af17a943d64b6802, answering the
+exact request Sentinel_d35153d258108191af6a5a13a439515b at 17:38 UTC. The coordinator
+relayed both references. Scope is team T3JB5MYZ93, explicit IDs io.mtree.fort.mac
+and io.mtree.fort.mac.host, shared group group.io.mtree.fort.mac, and two Mac
+development profiles using the existing development certificate and registered Mac.
+Reuse matching records; preserve all unrelated identifiers, profiles and certificates.
+This is new action-specific provisioning authority under unchanged decision 059.
+
+Vendor independence: Apple development signing is the already selected native
+platform dependency; no AI/runtime dependency or provider/account selection changes.
+Modularity: app/helper retain independent sandbox/group declarations; Node, guardian
+and Codex retain exactly sandbox plus inheritance. Sign the existing runtime closure
+without changing source or adding host/network/file capabilities. The agent-host and
+computer-tool sandbox remain distinct. Speed: reuse the existing <=120-second native
+build target and record actual build duration/package size; no startup or provider
+performance claim follows from signing. Installation/removal: embed the two exact
+profiles in a new inert package, verify all signatures/identities/entitlements and
+input/output hashes, and preserve earlier artifacts. No startup registration,
+credential creation, provider launch, installed operation or TestFlight upload is
+included. The helper keeps its existing no-outgoing-network configuration.
+
+Acceptance: the unsigned package must fail the real signature gate; the new package
+must pass strict nested signature checks with the exact approved certificate, each
+profile's team/app/device/group/expiry checks, the existing native bundle inspection,
+and exact child entitlement checks. Profile allowance wildcards are not signed app
+grants: request only the one approved App Group in each app. Do not infer effective
+App Group access or provider functionality without separately authorized execution.
+Record the source, commands, profiles and final hashes in mac-development-provisioning
+Markdown/JSON evidence and carry installed/provider/TestFlight gates forward. Rollback
+is retaining the previous source/artifacts; revocation or deletion of Apple records
+would require separate authority and is not an automatic rollback operation.
+
+Observed result: both approved profiles and exact registered identifiers are
+verified. The new signed, unlaunched package passes 30 individual signatures with
+the approved certificate, strict nested verification, 206 file hashes/modes,
+exact app/child entitlements and the existing native read-only bundle inspector.
+A probe path-alias refusal was resolved by using Foundation's normalized /tmp
+spelling; no product source change was needed. Actual App Group/XPC, helper network,
+provider, installed UI and TestFlight gates remain open.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.md`
+- `successor/evidence/2026-10-17-node-foundation/mac-development-provisioning.json`
 
 - `successor/apple/Apps/Assets.xcassets/Contents.json`
 - `successor/apple/Apps/Assets.xcassets/AppIcon.appiconset/Contents.json`

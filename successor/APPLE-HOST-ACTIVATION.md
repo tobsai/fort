@@ -1,5 +1,38 @@
 # Apple host activation gate
 
+## Approved provisioning completed; signed package remains unlaunched
+
+October 19, 2026. The owner approved the exact consolidated scope at 17:41:48 UTC,
+message `Sentinel_0027f013f6888191af17a943d64b6802`, answering request
+`Sentinel_d35153d258108191af6a5a13a439515b` at 17:38 UTC. The coordinator supplied
+both references. Do not request that provisioning approval again.
+
+Both exact Mac App IDs and `group.io.mtree.fort.mac` are now registered, with only
+the two approved app associations. Both development profiles were generated and
+downloaded, then checked against the exact existing certificate, team, app IDs and
+single registered Mac. The existing Fort iOS record and unrelated records remain.
+[Complete provisioning and signing evidence](evidence/2026-10-17-node-foundation/mac-development-provisioning.md).
+
+Current signed development artifact:
+`/tmp/fort059-development-signed-20261019/Fort.app`.
+Its report SHA-256 is
+`20ed08cc2df56549234a63f09c3da9b1854cc05a08958cbdf18301cdaa03b559`.
+All 206 files, 30 code signatures, strict nested verification, exact child/app
+entitlements, profiles and Fort's native read-only bundle inspector passed.
+The helper retains no outgoing-network entitlement. Neither app nor helper has
+been launched; no service was registered and no provider credential was created.
+
+The next action-specific gate is installed operation and any required host-network/
+provider access, using the exact reviewed signed package and explicitly selected
+account. This provisioning approval did not add those grants. Do not infer runtime
+access from a signature, profile allowance or the successful read-only inspector.
+TestFlight distribution remains separate. G2 replacement remains separately
+approved and unexecuted; it is not a development/TestFlight prerequisite.
+
+The earlier request and inventories below are preserved as historical checkpoints;
+this section supersedes their missing-profile/signing status.
+
+
 ## Apple access reconciled and minimum Mac provisioning request
 
 October 19, 2026, after the owner's 17:14 UTC "Updated" message. The existing

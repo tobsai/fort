@@ -1,5 +1,14 @@
 # Fort delivery through TestFlight
 
+October 19 signed-development checkpoint: the approved two Mac IDs, shared group
+and two development profiles are created and verified. The new unlaunched signed
+package passes all 30 code-signature checks, 206-file inventory and Fort native
+bundle inspection. [Exact artifact, authority and limits](evidence/2026-10-17-node-foundation/mac-development-provisioning.md).
+No installed host/provider activity or TestFlight operation occurred. The helper
+retains no outgoing-network entitlement. Distribution profiles, archive/upload,
+processing, tester access and physical acceptance remain separate gates. Earlier
+missing-profile/signing statements below describe historical checkpoints.
+
 October 19 release preparation: ordinary native builds now display Fort and contain
 the existing Fort icon; QA labels remain explicit. Fresh unsigned Mac/helper/QA/iOS
 builds and inert assembly passed [asset checks](evidence/2026-10-17-node-foundation/release-assets.md).

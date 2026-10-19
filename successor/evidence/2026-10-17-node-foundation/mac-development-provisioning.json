@@ -1,0 +1,404 @@
+{
+  "format": 1,
+  "date": "2026-10-19",
+  "sourceCommit": "60b144706a4f58852a8a5634c12a2ba758b54f0e",
+  "authority": {
+    "thread": "01a0f307-3940-7333-96b0-a3b0b854e0e8",
+    "request": "Sentinel_d35153d258108191af6a5a13a439515b",
+    "approval": "Sentinel_0027f013f6888191af17a943d64b6802",
+    "approvedAt": "2026-10-19T17:41:48Z",
+    "scope": "Two exact Mac IDs, one shared App Group, two development profiles using existing certificate and registered Mac; local signed build. No provider login or service activation."
+  },
+  "registeredIdentifiers": {
+    "client": {
+      "identifier": "io.mtree.fort.mac",
+      "portalId": "W52255PZQS"
+    },
+    "helper": {
+      "identifier": "io.mtree.fort.mac.host",
+      "portalId": "9UDXQ2ZK4T"
+    },
+    "appGroup": "group.io.mtree.fort.mac"
+  },
+  "profiles": [
+    {
+      "Name": "Fort Mac Development 20261019",
+      "UUID": "baa209da-ae30-4a3f-9be3-c43ab5abb071",
+      "TeamIdentifier": [
+        "T3JB5MYZ93"
+      ],
+      "Platform": [
+        "OSX"
+      ],
+      "CreationDate": "2026-10-19 17:53:55",
+      "ExpirationDate": "2027-10-19 17:53:55",
+      "ProvisionedDevices": [
+        "00006001-000429402202801E"
+      ],
+      "Entitlements": {
+        "com.apple.security.application-groups": [
+          "group.io.mtree.fort.mac",
+          "T3JB5MYZ93.*"
+        ],
+        "com.apple.application-identifier": "T3JB5MYZ93.io.mtree.fort.mac",
+        "keychain-access-groups": [
+          "T3JB5MYZ93.*"
+        ],
+        "com.apple.developer.team-identifier": "T3JB5MYZ93"
+      },
+      "certificatesSHA1": [
+        "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+      ],
+      "profileSHA256": "86631614b180da0ecea36e1ca196924f718047bdbf53a1c935b5edc8dc8a650b"
+    },
+    {
+      "Name": "Fort Host Development 20261019",
+      "UUID": "fb9d5710-2b88-47fe-9001-a5556b9ead6b",
+      "TeamIdentifier": [
+        "T3JB5MYZ93"
+      ],
+      "Platform": [
+        "OSX"
+      ],
+      "CreationDate": "2026-10-19 17:54:59",
+      "ExpirationDate": "2027-10-19 17:54:59",
+      "ProvisionedDevices": [
+        "00006001-000429402202801E"
+      ],
+      "Entitlements": {
+        "com.apple.security.application-groups": [
+          "group.io.mtree.fort.mac",
+          "T3JB5MYZ93.*"
+        ],
+        "com.apple.application-identifier": "T3JB5MYZ93.io.mtree.fort.mac.host",
+        "keychain-access-groups": [
+          "T3JB5MYZ93.*"
+        ],
+        "com.apple.developer.team-identifier": "T3JB5MYZ93"
+      },
+      "certificatesSHA1": [
+        "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+      ],
+      "profileSHA256": "aad6bb64783e5725057f4dc4fd95dc9c0abdaf874de3a3ed9c369ce55972c415"
+    }
+  ],
+  "builds": [
+    {
+      "scheme": "FortMac",
+      "identifier": "io.mtree.fort.mac",
+      "seconds": 53.339,
+      "exitCode": 0,
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortMac",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/fort059-development-native-build-20261019",
+        "CODE_SIGNING_ALLOWED=NO",
+        "PRODUCT_BUNDLE_IDENTIFIER=io.mtree.fort.mac",
+        "build"
+      ],
+      "log": "/tmp/fort059-development-FortMac.log"
+    },
+    {
+      "scheme": "FortHost",
+      "identifier": "io.mtree.fort.mac.host",
+      "seconds": 3.367,
+      "exitCode": 0,
+      "command": [
+        "/usr/bin/xcodebuild",
+        "-project",
+        "/Users/tobiasgunn/dev/fort/.local/worktrees/fort-openai-rebuild-20261016/successor/apple/FortSpec058.xcodeproj",
+        "-scheme",
+        "FortHost",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/fort059-development-native-build-20261019",
+        "CODE_SIGNING_ALLOWED=NO",
+        "PRODUCT_BUNDLE_IDENTIFIER=io.mtree.fort.mac.host",
+        "build"
+      ],
+      "log": "/tmp/fort059-development-FortHost.log"
+    }
+  ],
+  "artifact": {
+    "path": "/tmp/fort059-development-signed-20261019/Fort.app",
+    "status": "signed-unlaunched-development",
+    "files": 206,
+    "bytes": 406325058,
+    "reportPath": "/tmp/fort059-development-signed-20261019/signed-package-report.json",
+    "reportSHA256": "20ed08cc2df56549234a63f09c3da9b1854cc05a08958cbdf18301cdaa03b559",
+    "unsignedReportSHA256": "e0abe2ecca1b4c2e8d8249da61b4bee93e2d84e6f4001d3bf70af3a71e83f63e"
+  },
+  "entitlements": {
+    "client": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.application-groups": [
+        "group.io.mtree.fort.mac"
+      ],
+      "com.apple.application-identifier": "T3JB5MYZ93.io.mtree.fort.mac",
+      "com.apple.developer.team-identifier": "T3JB5MYZ93",
+      "com.apple.security.network.client": true
+    },
+    "helper": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.application-groups": [
+        "group.io.mtree.fort.mac"
+      ],
+      "com.apple.application-identifier": "T3JB5MYZ93.io.mtree.fort.mac.host",
+      "com.apple.developer.team-identifier": "T3JB5MYZ93"
+    },
+    "children": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.inherit": true
+    }
+  },
+  "signatures": [
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libada.3.4.4.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libada.3.4.4.dylib",
+      "CDHash": "d67f7cf030749a882c2eb07c1be21fde39954d00",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlicommon.1.2.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libbrotlicommon.1.2.0.dylib",
+      "CDHash": "45a5c799c375262960e3c8e21e72ad03b9b2576b",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlidec.1.2.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libbrotlidec.1.2.0.dylib",
+      "CDHash": "cd38c7b4876b3c502d137fb522435c2136bc2c52",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libbrotlienc.1.2.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libbrotlienc.1.2.0.dylib",
+      "CDHash": "e5169b8c8a1115c7c730bf33f1908bd9aded0917",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcares.2.19.7.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libcares.2.19.7.dylib",
+      "CDHash": "4dcb172a58578e6aa7ef68456b8645d70fe3cdaf",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libcrypto.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libcrypto.3.dylib",
+      "CDHash": "481b8b72a1765c1ea5c438ea1b67f5f5c1878aa6",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libffi.8.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libffi.8.dylib",
+      "CDHash": "1371691fc82bd842b3f62e060ce551b459d7287d",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libhdr_histogram.6.3.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libhdr_histogram.6.3.3.dylib",
+      "CDHash": "aebf551d5b39b72557c7b763b48c0912b2b2a79d",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicudata.78.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libicudata.78.3.dylib",
+      "CDHash": "d0dcb6997b081617284f660493a707fa566a17d4",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicui18n.78.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libicui18n.78.3.dylib",
+      "CDHash": "b76b01c8ee3d213eb0f7a3eb357aba6bbb3b5e30",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libicuuc.78.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libicuuc.78.3.dylib",
+      "CDHash": "fc659c9118fa46bbde2a85df420b946a86ff5e44",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libllhttp.9.4.2.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libllhttp.9.4.2.dylib",
+      "CDHash": "bb216c98f65d1018d1534352e2966d4790627de8",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libmerve.1.2.2.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libmerve.1.2.2.dylib",
+      "CDHash": "06050be091c8c71aaae578bac9e667a3a0a9d155",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnbytes.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libnbytes.dylib",
+      "CDHash": "c61bcbb5a4c69263771a9f1161ec77eeebb42864",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp2.14.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libnghttp2.14.dylib",
+      "CDHash": "d434b1e41795c44d5418e04b5ca0fd1ab05c047b",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnghttp3.9.8.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libnghttp3.9.8.0.dylib",
+      "CDHash": "95e7fe250ea1abf6ac1adadfb5c8f80a4dc5c731",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libngtcp2.16.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libngtcp2.16.dylib",
+      "CDHash": "38f707ef68319de36f2555135ade3ab3c4c69c7c",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libnode.147.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libnode.147.dylib",
+      "CDHash": "0406852616c972f400f189f93ae67ab01673dfe2",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdjson.33.0.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libsimdjson.33.0.0.dylib",
+      "CDHash": "b28cb5e825e6f817e4df42f3302f2b6286de2ec9",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsimdutf.34.0.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libsimdutf.34.0.0.dylib",
+      "CDHash": "5092ba9df83ca846fca217f86a5b70c83e1bced6",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libsqlite3.3.53.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libsqlite3.3.53.3.dylib",
+      "CDHash": "39988dce3f156528513bba8dae34e12a19218e94",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libssl.3.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libssl.3.dylib",
+      "CDHash": "3c9f20969eb291172eb0472e18a8228a6291e9b1",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuv.1.0.0.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libuv.1.0.0.dylib",
+      "CDHash": "9a5fac2acb6b2ff56c655c4244ec9089fb51bcd4",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libuvwasi.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libuvwasi.dylib",
+      "CDHash": "1f46b40461ff3c0bd1f9a3ceea10e0e717dab06c",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/Frameworks/libzstd.1.5.7.dylib",
+      "identifier": "io.mtree.fort.mac.host.library.libzstd.1.5.7.dylib",
+      "CDHash": "41c2ff0c2eb56575fe54fd4f89300ad73c5748a6",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortHost",
+      "identifier": "io.mtree.fort.mac.host",
+      "CDHash": "dd2d6f53815aaef163fecb52ff7b0ef97e95ed10",
+      "architectures": "app bundle with Mach-O universal (x86_64 arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/FortProcessGuardian",
+      "identifier": "io.mtree.fort.mac.host.guardian",
+      "CDHash": "3d56688d57798a10c051943a0bb21e086f661a50",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/codex",
+      "identifier": "io.mtree.fort.mac.host.codex",
+      "CDHash": "56886a78ecd0baa71371e6e67f9d5038337903d7",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/Helpers/FortHost.app/Contents/MacOS/node",
+      "identifier": "io.mtree.fort.mac.host.node",
+      "CDHash": "f7da8666b57fc1c9d18b5641c117e0ca6485ae05",
+      "architectures": "Mach-O thin (arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    },
+    {
+      "path": "Contents/MacOS/FortMac",
+      "identifier": "io.mtree.fort.mac",
+      "CDHash": "e94af7fdc8d382de705e538420de71b0d561c6e0",
+      "architectures": "app bundle with Mach-O universal (x86_64 arm64)",
+      "leafCertificateSHA1": "58F40D1AB480565B89109B853235AC3A7B2E7AD1"
+    }
+  ],
+  "checks": {
+    "unsignedSignatureGate": "expected failure: codesign exit 1, code object is not signed at all",
+    "strictNestedSignatures": "passed",
+    "individualMachOSignaturesAndTeam": "30 passed; every extracted public leaf certificate matches exact approved SHA-1",
+    "outputBytesModesHashes": "206 passed",
+    "profileMetadata": "both exact team, OSX, app ID, one certificate and one Mac; explicit shared group authorized",
+    "nativeBundleInspection": "passed using Foundation-normalized /tmp path",
+    "initialNativeInspection": "unsafeFile for /private/tmp spelling, resolved by correct probe path; no product code change",
+    "displayNameAndCompiledIcon": "passed",
+    "allProductSourcesUnchanged": true,
+    "certificateExtractionCommandCorrection": "Initial optional-argument form failed; --extract-certificates=prefix succeeded; package unchanged."
+  },
+  "unrun": [
+    "Installed foreground UI/accessibility/screenshots",
+    "Actual App Group container and named XPC",
+    "Startup registration or helper execution",
+    "Provider account login, model discovery or message",
+    "Physical iPhone/Mac TestFlight installation",
+    "Archive, upload, processing and tester availability"
+  ],
+  "limits": [
+    "Development profiles are not App Store distribution profiles.",
+    "Profile allowance includes Apple-added team wildcards; neither signed app requests a wildcard App Group.",
+    "Helper has no outgoing-network entitlement; provider execution needs separate authority and a concrete reviewed package.",
+    "Profile metadata and strict signature success do not prove OS acceptance or final distribution compliance.",
+    "No new keys/certificates, existing-profile replacement, agreement acceptance, provider cleanup, launch or startup activation occurred."
+  ]
+}
