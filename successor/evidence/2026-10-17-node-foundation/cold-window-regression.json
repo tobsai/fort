@@ -1,0 +1,1028 @@
+{
+  "format": 1,
+  "date": "2026-10-19",
+  "sourceCommit": "c906b00f4f3876f344d77d0ccf506bb3f686367c",
+  "classification": "Synthetic launch-argument artifact reproduced; no production lifecycle source defect established.",
+  "appPath": "/tmp/fort059-cold-window-final-build-20261019/Build/Products/Debug/FortQA.app",
+  "bundleIdentifier": "io.fort.qa.accountselection.20261019",
+  "platform": {
+    "macOS": "27.2",
+    "build": "26B5112a",
+    "xcode": "27.1",
+    "xcodeBuild": "27A9275"
+  },
+  "signature": {
+    "kind": "ad-hoc",
+    "strictVerification": "passed",
+    "entitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.get-task-allow": true
+    }
+  },
+  "sourceCopy": {
+    "path": "/tmp/fort059-selected-account-ui-source-20261019",
+    "trackedAppleFiles": 109,
+    "missingFiles": 0,
+    "changedFiles": [
+      "FortKit/Sources/FortKit/AccountSignInFixture.swift"
+    ],
+    "change": "Authored in-process reported-account responder only; app/view/model/client/decoder unchanged. All temporary app instrumentation removed.",
+    "appSourceSHA256": "637211d8a5a678597146d664c5a2a06c44931c86fd15bf5a2a50a2a6c4b98b03",
+    "fixtureSHA256": "0da2363a8e025744d86c9cb7348201ea5a252fd91fe371788567acbccb3d13d5"
+  },
+  "artifact": {
+    "fileCount": 12,
+    "bytes": 11547588,
+    "inventory": [
+      {
+        "path": "Contents/Info.plist",
+        "mode": "0o644",
+        "bytes": 1366,
+        "sha256": "6c23e5337413b61e55470cf920364630e8320d018429301819d6ece1b07d4cd2"
+      },
+      {
+        "path": "Contents/MacOS/FortQA",
+        "mode": "0o755",
+        "bytes": 40704,
+        "sha256": "04c9547866266c33ff769a97c777ceab513d10473282331b480a0f788f8a062c"
+      },
+      {
+        "path": "Contents/MacOS/FortQA.debug.dylib",
+        "mode": "0o755",
+        "bytes": 11479328,
+        "sha256": "202996ba293de3fa7f24f2afad30d7eafaa431da0f783d1e28b57043608a0135"
+      },
+      {
+        "path": "Contents/MacOS/__preview.dylib",
+        "mode": "0o755",
+        "bytes": 16800,
+        "sha256": "0cb86653cd9761a1892c59c9e58b9ee612d47e990c7119406f0b15321444b22a"
+      },
+      {
+        "path": "Contents/PkgInfo",
+        "mode": "0o644",
+        "bytes": 8,
+        "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/Info.plist",
+        "mode": "0o644",
+        "bytes": 1139,
+        "sha256": "ac31c801b5af26d1db5849e1bc5ba5d4fe7e7f1b350ec6afe4bd052fd9623cca"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/Resources/qa-sample.png",
+        "mode": "0o644",
+        "bytes": 985,
+        "sha256": "be5b6e5085faf5052cb4956160f0c43624ff62e92fd32fe27c2b81f0defff3fe"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeDirectory",
+        "mode": "0o644",
+        "bytes": 213,
+        "sha256": "017989a944f2dfc059a849729660b66fde96065359aebd57caa47d8a0ea55fd8"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeRequirements",
+        "mode": "0o644",
+        "bytes": 12,
+        "sha256": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeResources",
+        "mode": "0o644",
+        "bytes": 2448,
+        "sha256": "febbfec249c6ec91c1cfa3c7700053545b8e9bd61c6c5b878d611d07e982c2fa"
+      },
+      {
+        "path": "Contents/Resources/FortKit_FortKit.bundle/Contents/_CodeSignature/CodeSignature",
+        "mode": "0o644",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "Contents/_CodeSignature/CodeResources",
+        "mode": "0o644",
+        "bytes": 4585,
+        "sha256": "3b751e8fdb4e8eee923f5194ac159ec19662e7646fd7ea38a50eee2f84e832a1"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "mode": "cold",
+      "command": "open -n APP --args --qa-account --qa-session UUID",
+      "expected": "missing window, recovery on reopen",
+      "trials": [
+        {
+          "trial": 1,
+          "mode": "cold",
+          "coldWindow": false,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 113.554
+            },
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 317.064
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 571.561
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 790.445
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 1019.156
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 1247.017
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 1476.913
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 1719.113
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 1949.714
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 2169.11
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 2399.228
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 2629.565
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 2855.183
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 3082.871
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 3314.615
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 3550.306
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 3767.364
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 3984.875
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 4210.773
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 4428.718
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 4658.238
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 4881.72
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 5092.43
+            }
+          ],
+          "reopenAfterFailure": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49372,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3007
+              ],
+              "windowCount": 1,
+              "elapsedMs": 154.891
+            }
+          ],
+          "absentAfter": true
+        }
+      ]
+    },
+    {
+      "mode": "account-value-reopen",
+      "command": "open -a APP --args --qa-account YES --qa-session UUID; exact AX close; open -a APP",
+      "expected": "cold window and exact cleanup; reopen window when requested",
+      "trials": [
+        {
+          "trial": 1,
+          "mode": "account-value-reopen",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49424,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 104.459
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49424,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3017
+              ],
+              "windowCount": 1,
+              "elapsedMs": 351.76
+            }
+          ],
+          "close": {
+            "closeResult": 0,
+            "pid": 49424
+          },
+          "closedState": {
+            "active": true,
+            "axResult": 0,
+            "axTrusted": true,
+            "exact": true,
+            "finishedLaunching": true,
+            "hidden": false,
+            "pid": 49424,
+            "policy": 0,
+            "running": 1,
+            "visibleWindowCount": 0,
+            "visibleWindowIDs": [],
+            "windowCount": 0
+          },
+          "reopened": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49424,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3018
+              ],
+              "windowCount": 1,
+              "elapsedMs": 165.047
+            }
+          ],
+          "absentAfter": true
+        },
+        {
+          "trial": 2,
+          "mode": "account-value-reopen",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49440,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 103.499
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49440,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3028
+              ],
+              "windowCount": 1,
+              "elapsedMs": 356.102
+            }
+          ],
+          "close": {
+            "closeResult": 0,
+            "pid": 49440
+          },
+          "closedState": {
+            "active": true,
+            "axResult": 0,
+            "axTrusted": true,
+            "exact": true,
+            "finishedLaunching": true,
+            "hidden": false,
+            "pid": 49440,
+            "policy": 0,
+            "running": 1,
+            "visibleWindowCount": 0,
+            "visibleWindowIDs": [],
+            "windowCount": 0
+          },
+          "reopened": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49440,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3029
+              ],
+              "windowCount": 1,
+              "elapsedMs": 181.751
+            }
+          ],
+          "absentAfter": true
+        },
+        {
+          "trial": 3,
+          "mode": "account-value-reopen",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49461,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 110.858
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49461,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3039
+              ],
+              "windowCount": 1,
+              "elapsedMs": 349.825
+            }
+          ],
+          "close": {
+            "closeResult": 0,
+            "pid": 49461
+          },
+          "closedState": {
+            "active": true,
+            "axResult": 0,
+            "axTrusted": true,
+            "exact": true,
+            "finishedLaunching": true,
+            "hidden": false,
+            "pid": 49461,
+            "policy": 0,
+            "running": 1,
+            "visibleWindowCount": 0,
+            "visibleWindowIDs": [],
+            "windowCount": 0
+          },
+          "reopened": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49461,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3040
+              ],
+              "windowCount": 1,
+              "elapsedMs": 169.404
+            }
+          ],
+          "absentAfter": true
+        },
+        {
+          "trial": 4,
+          "mode": "account-value-reopen",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49476,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 104.191
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49476,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3050
+              ],
+              "windowCount": 1,
+              "elapsedMs": 365.57
+            }
+          ],
+          "close": {
+            "closeResult": 0,
+            "pid": 49476
+          },
+          "closedState": {
+            "active": true,
+            "axResult": 0,
+            "axTrusted": true,
+            "exact": true,
+            "finishedLaunching": true,
+            "hidden": false,
+            "pid": 49476,
+            "policy": 0,
+            "running": 1,
+            "visibleWindowCount": 0,
+            "visibleWindowIDs": [],
+            "windowCount": 0
+          },
+          "reopened": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49476,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3051
+              ],
+              "windowCount": 1,
+              "elapsedMs": 164.24
+            }
+          ],
+          "absentAfter": true
+        },
+        {
+          "trial": 5,
+          "mode": "account-value-reopen",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49492,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 99.295
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49492,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3061
+              ],
+              "windowCount": 1,
+              "elapsedMs": 357.224
+            }
+          ],
+          "close": {
+            "closeResult": 0,
+            "pid": 49492
+          },
+          "closedState": {
+            "active": true,
+            "axResult": 0,
+            "axTrusted": true,
+            "exact": true,
+            "finishedLaunching": true,
+            "hidden": false,
+            "pid": 49492,
+            "policy": 0,
+            "running": 1,
+            "visibleWindowCount": 0,
+            "visibleWindowIDs": [],
+            "windowCount": 0
+          },
+          "reopened": true,
+          "reopenSamples": [
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49492,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3062
+              ],
+              "windowCount": 1,
+              "elapsedMs": 173.342
+            }
+          ],
+          "absentAfter": true
+        }
+      ]
+    },
+    {
+      "mode": "noargs",
+      "command": "open -a APP",
+      "expected": "cold window and exact cleanup; reopen window when requested",
+      "trials": [
+        {
+          "trial": 1,
+          "mode": "noargs",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49508,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 112.237
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49508,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3072
+              ],
+              "windowCount": 1,
+              "elapsedMs": 358.474
+            }
+          ],
+          "absentAfter": true
+        },
+        {
+          "trial": 2,
+          "mode": "noargs",
+          "coldWindow": true,
+          "coldSamples": [
+            {
+              "active": false,
+              "axResult": -25204,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": false,
+              "hidden": false,
+              "pid": 49520,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 0,
+              "visibleWindowIDs": [],
+              "windowCount": 0,
+              "elapsedMs": 97.42
+            },
+            {
+              "active": true,
+              "axResult": 0,
+              "axTrusted": true,
+              "exact": true,
+              "finishedLaunching": true,
+              "hidden": false,
+              "pid": 49520,
+              "policy": 0,
+              "running": 1,
+              "visibleWindowCount": 1,
+              "visibleWindowIDs": [
+                3082
+              ],
+              "windowCount": 1,
+              "elapsedMs": 360.943
+            }
+          ],
+          "absentAfter": true
+        }
+      ]
+    }
+  ],
+  "screenshotCheck": {
+    "coldState": {
+      "active": true,
+      "axResult": 0,
+      "axTrusted": true,
+      "exact": true,
+      "finishedLaunching": true,
+      "hidden": false,
+      "pid": 49568,
+      "policy": 0,
+      "running": 1,
+      "visibleWindowCount": 1,
+      "visibleWindowIDs": [
+        3092
+      ],
+      "windowCount": 1
+    },
+    "screenshot": "/tmp/fort059-cold-window-proof.png",
+    "absentAfter": true,
+    "trackedScreenshot": "successor/evidence/2026-10-17-node-foundation/account-selection-cold.png",
+    "sha256": "3d4fa9dd067dd1c2b447e47afd6f7dd3589724220ea15c735ff40a303451a192",
+    "accessibilityLogSHA256": "6fd5d0684298fdb927f61daf010ff867aea70dafbfde47eb09676edb43c6959d"
+  },
+  "probe": {
+    "method": "Exact bundle ID and resolved app path; independent AX window count plus visible layer-zero CG window for exact PID; five-second observation; normal exact-app termination and independent absence after each trial. Existing AX access only.",
+    "temporaryTools": [
+      {
+        "path": "/tmp/fort059-cold-window-probe.swift",
+        "sha256": "a7423939c8610c617b8944fb92db9964b86c69f35e725fbfb50030e0bc55e0c7"
+      },
+      {
+        "path": "/tmp/fort059-cold-window-check.py",
+        "sha256": "f486a277daa24b66e849f10aa1fb1c9e8086a24d8089fd22b4ea54d3af73cf42"
+      },
+      {
+        "path": "/tmp/fort059-cold-window-capture.py",
+        "sha256": "1043401bb5b91633807232c12a5995f0a439d7b119a6f24d42f87a9cdc4d6cb0"
+      },
+      {
+        "path": "/tmp/fort059-cold-window-ui.swift",
+        "sha256": "7ddac1449d3617d38e17bfe5c9790d63af5ad0049c30dd3625584df1c6e7a131"
+      }
+    ]
+  },
+  "limits": [
+    "Synthetic ad-hoc app only; production review package remains unsigned and unlaunched.",
+    "No live host, provider, credentials, new permission, sign-in or agreement.",
+    "Timing is wall-clock probe visibility after open returns, not a production startup benchmark.",
+    "The underlying AppKit/LaunchServices argument-handling mechanism is unresolved; empirical argument order/value dependency is verified.",
+    "Complete portable/native suites were not rerun for unchanged production source."
+  ]
+}

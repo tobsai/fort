@@ -1,5 +1,21 @@
 # Apple host activation gate
 
+## Synthetic cold-launch diagnosis — source c906b00
+
+October 19, 2026. The earlier windowless QA launch follows the harness argument
+form. With unchanged production app source, explicit `--qa-account YES` followed
+by `--qa-session UUID` passed five cold-launch and close/reopen trials; two ordinary
+no-argument QA launches and a separate cold-launch AX/screenshot check also passed.
+The original argument form still reproduces the failure. All exact QA processes
+were normally stopped and independently confirmed absent. See
+[the diagnosis and exact artifact](evidence/2026-10-17-node-foundation/mac-review-package.md#synthetic-cold-window-diagnosis--source-c906b00).
+
+No production lifecycle fix was warranted by this evidence. The final signed app's
+cold launch, host/provider behavior and TestFlight remain unverified. The production
+review package is still unsigned/unlaunched; Apple sign-in, matching provisioning,
+credentials, entitlements and activation scope are unchanged. No sign-in retry,
+agreement acceptance or new permission occurred.
+
 ## Current signing and UI check — source 81938a4
 
 October 19, 2026. [Exact metadata, package checks and synthetic UI evidence](evidence/2026-10-17-node-foundation/mac-review-package.md#signing-and-selected-account-ui-readiness--source-81938a4)

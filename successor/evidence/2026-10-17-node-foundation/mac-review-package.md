@@ -1,5 +1,85 @@
 # Inert Mac review package — October 18, 2026
 
+## Synthetic cold-window diagnosis — source c906b00
+
+October 19, 2026. The observed windowless launch is reproducible with the synthetic
+harness's argument form. No production lifecycle source defect was established.
+The final source copy restores the exact tracked `Apps/FortApp.swift`; all 109
+tracked Apple files are present, and only the previously described authored
+`AccountSignInFixture.swift` responder differs. No product source changed.
+
+The failing form was `open -n APP --args --qa-account --qa-session UUID`.
+On the original QA artifact, all three trials reached a launched, active regular
+app with zero AX and visible CG windows after five seconds. Ordinary reopen
+displayed a window. Using ordinary `open` or `open -a` also failed with those
+arguments. Waiting twenty seconds did not help. Temporary static-title and
+Messenger-root probes still failed; tagged logging showed zero NSApplication
+windows and no root task until reopen. Every temporary source probe was removed.
+
+Argument isolation found that `--qa-account` alone and `--qa-session UUID` alone
+opened a window. Reordering to `--qa-session UUID --qa-account` passed three trials;
+giving the flag an explicit value also passed three. Foundation's argument-domain
+dump did not distinguish the two valueless orders, so it does not establish the
+deeper AppKit/LaunchServices mechanism. The empirical correction is explicit:
+
+```sh
+/usr/bin/open -a /tmp/fort059-cold-window-final-build-20261019/Build/Products/Debug/FortQA.app --args --qa-account YES --qa-session "$(/usr/bin/uuidgen)"
+```
+
+This launches only the dedicated synthetic QA build, never the unsigned review
+package. The QA branch checks the presence of `--qa-account`; `YES` is the explicit
+launch value, not a new product setting. To reopen a closed QA window, use ordinary
+`open -a` on that exact app without repeating arguments.
+
+### Final unchanged-source regression
+
+Fresh artifact: `/tmp/fort059-cold-window-final-build-20261019/Build/Products/Debug/FortQA.app`,
+ID `io.fort.qa.accountselection.20261019`. Xcode 27.1 (27A9275), macOS 27.2
+(26B5112a). Build and strict ad-hoc signature verification passed. Its only
+entitlements are App Sandbox and debug get-task-allow. The exact 12-file,
+11,547,588-byte inventory, source hashes and raw observation samples are retained in
+[cold-window-regression.json](cold-window-regression.json).
+
+| Check on the final artifact | Result |
+| --- | --- |
+| Original failing arguments, one trial | Reproduced: zero windows at 5,092 ms; reopen recovered at 155 ms |
+| Corrected explicit-value cold launch, five fresh processes/sessions | 5/5 passed; visibility 350–366 ms |
+| Close exact window, prove zero windows, reopen same process | 5/5 passed; visibility 164–182 ms |
+| No-argument synthetic first-wave launch | 2/2 passed; visibility 358–361 ms |
+| Separate corrected cold launch, actual AX and screenshot | Passed; PID 49568/window 3092, exact fixture account/workspace/selection control |
+| Normal stop and independent exact-app absence | Passed after every final trial and screenshot capture |
+
+Each poll verifies the bundle ID and resolved app path before reading AX windows
+and visible layer-zero CG windows for that PID. The timeout is five seconds. Window
+close uses the exact AX close button; termination uses NSRunningApplication's normal
+request. These are observed UI visibility times after `open` returns, not production
+startup benchmarks. Existing accessibility/screenshot permissions were unchanged.
+The [cold-launch screenshot](account-selection-cold.png) was visually inspected and
+shows the authored account `owner@example.invalid` / `synthetic-workspace` with the
+explicit selection control. No sign-in or other product control was activated.
+
+The temporary regression tools remain `/tmp/fort059-cold-window-check.py` and
+`/tmp/fort059-cold-window-probe.swift`; their exact hashes and the capture helper's
+hash are in the result. Run modes were `cold 1` (expected failure),
+`account-value-reopen 5` and `noargs 2` (passed). Build log:
+`/tmp/fort059-cold-window-final-build.log`; AX log: `/tmp/fort059-cold-window-ui.log`.
+The small diagnostic argument-dump initially failed to compile with the old
+`NSArgumentDomain` spelling; using `UserDefaults.argumentDomain` compiled and ran.
+That scratch-tool error changed no app source. The existing unrelated CoreSimulator
+version warning remains; no component or permission was changed.
+
+The earlier QA inventory hash below describes its original build only. Diagnostic
+rebuilds reused that temporary output directory; the final artifact now has the
+separate path and full inventory above. Prior screenshots and evidence are preserved.
+The production review package remains untouched, unsigned and unlaunched.
+
+This closes the observed synthetic harness issue. Final signed installed cold
+launch, App Group/XPC, actual account/provider behavior and TestFlight remain open.
+No live host/provider, credential, startup service, Apple sign-in or agreement was
+used. The agent-host and computer-tool sandbox boundaries remain separate. The
+pending secure Apple handoff and verified provisioning remain the next external
+dependency. Complete portable/native suites were not repeated for unchanged source.
+
 ## Signing and selected-account UI readiness — source 81938a4
 
 October 19, 2026. Source `81938a49ffaf55bc39c09b1ef9a045a3e5e8bbe4`,

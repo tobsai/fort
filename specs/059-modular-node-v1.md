@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 966531a07d102218bc11f77a9a00d712f9c7445eacff830548a050c5ea4d0f56
+Reviewed content SHA256: b21c51f11ec7368f1f87ffb949846b8a93fed81aff26258300f9abdfc131137d
 
 ### Vendor independence
 Status: planned
@@ -2994,7 +2994,21 @@ The existing vendor/modularity/performance/removal review remains applicable: no
 runtime, stored authority, permission, startup or measured production path is added.
 Evidence is in mac-review-package.md and the two account-selection screenshots below.
 
+Follow-up at c906b00 isolated that synthetic cold-window observation to the launch
+arguments. The original form still fails with unchanged app source; explicit
+`--qa-account YES --qa-session UUID` passes five cold-launch and close/reopen trials,
+two no-argument QA launches pass, and a separate cold AX/screenshot check passes.
+All temporary app instrumentation was removed and every exact QA process stopped.
+No production lifecycle source defect was established. This is evidence refinement
+under the existing decision: vendor, module, permission, persistence and removal
+boundaries are unchanged; observed UI timing is not a production speed benchmark.
+The final signed installed launch, provisioning and provider gates remain open.
+See mac-review-package.md, cold-window-regression.json and account-selection-cold.png.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/cold-window-regression.json`
+- `successor/evidence/2026-10-17-node-foundation/account-selection-cold.png`
 
 - `successor/evidence/2026-10-17-node-foundation/account-selection-reported.png`
 - `successor/evidence/2026-10-17-node-foundation/account-selection-selected.png`
