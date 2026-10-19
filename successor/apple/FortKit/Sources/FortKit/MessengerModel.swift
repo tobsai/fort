@@ -129,7 +129,7 @@ import Observation
         case .canceling: accountSignInMessage = "Cancellation is awaiting confirmation."
         case .finished(_,let result):
             switch result {
-            case .signedIn: accountSignInMessage = "This attempt completed sign-in. Account access will be checked again when you send."
+            case .signedIn: accountSignInMessage = "The runtime reports signed in; the account identity is not verified. Confirm the intended account before use."
             case .canceled: accountSignInMessage = "This sign-in attempt was canceled. Existing account access was not revoked."
             case .failed: accountSignInMessage = "This sign-in attempt failed. You can start a new attempt."
             case .unconfirmed: accountSignInMessage = "This attempt’s outcome is unconfirmed. It will not be retried automatically."
@@ -827,7 +827,7 @@ import Observation
             try storage.retireAccountSignInAfterConfirmedDisconnect(connection); accountSignInIntent = nil
             accountSignInStatus = nil; client = nil; connected = false; pairingRemoved = true
             let historyMessage = history == .keep ? "History is kept." : "The confirmed local history was deleted."
-            pairingMessage = "Host shutdown, revocation and startup unregistration are confirmed. Local pairing is removed. \(historyMessage) Remove the Fort app using TestFlight or macOS."
+            pairingMessage = "Host shutdown, revocation and startup unregistration are confirmed. Local pairing and Fort’s saved provider sign-in were removed. \(historyMessage) Provider-side grants and history are unchanged. Remove the Fort app using TestFlight or macOS."
         } catch { pairingMessage = error.localizedDescription }
     }
     public func refresh() async {

@@ -49,7 +49,9 @@ import Observation
             let observed = try await self.inspectBundle(identity.applicationURL)
             guard observed.applicationURL == identity.applicationURL, observed.helperURL == identity.helperURL,
                   observed.endpoint == identity.endpoint, observed.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
-        },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3,historyActions:history)
+        },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3,removeProviderCredential:{
+            try MacAgentStorage.inspectExisting(for:identity.endpoint).removeCodexCredential()
+        },historyActions:history)
     }
     public func inspect() async { await perform(enable:false) }
     public func enable() async {

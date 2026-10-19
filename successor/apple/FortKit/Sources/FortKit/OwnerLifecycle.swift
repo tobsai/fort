@@ -22,8 +22,10 @@ public struct OwnedHostStop: Sendable {
     public let hostStopped: Bool
     public let pairingRevoked: Bool
     public let startupUnregistered: Bool
-    public init(hostStopped: Bool, pairingRevoked: Bool, startupUnregistered: Bool) {
+    public let providerCredentialRemoved: Bool
+    public init(hostStopped: Bool, pairingRevoked: Bool, startupUnregistered: Bool, providerCredentialRemoved: Bool) {
         self.hostStopped = hostStopped; self.pairingRevoked = pairingRevoked; self.startupUnregistered = startupUnregistered
+        self.providerCredentialRemoved = providerCredentialRemoved
     }
 }
 public struct PairingRemovalIntent: Codable, Equatable, Sendable {
@@ -58,11 +60,12 @@ public struct PreparedAppRemoval: Sendable, Equatable {
     public let history: HistoryRemoval
 }
 public enum OwnerLifecycleError: Error, LocalizedError {
-    case stopUnconfirmed, startupUnconfirmed, wrongPairing, unavailable, historyDeletionUnavailable
+    case stopUnconfirmed, startupUnconfirmed, providerCredentialUnconfirmed, wrongPairing, unavailable, historyDeletionUnavailable
     public var errorDescription: String? {
         switch self {
         case .stopUnconfirmed: "Shutdown or revocation was not confirmed. The app and local pairing have been kept for recovery."
         case .startupUnconfirmed: "Startup unregistration was not confirmed. The app and local pairing have been kept for recovery."
+        case .providerCredentialUnconfirmed: "Fort’s local provider credential removal is unconfirmed. The app and pairing are kept for recovery."
         case .wrongPairing: "The saved pairing changed. Reload settings before continuing."
         case .unavailable: "The installed host has not registered a verified removal path."
         case .historyDeletionUnavailable: "This installation keeps history during removal. No removal action was started."
@@ -80,6 +83,7 @@ public enum OwnerLifecycleError: Error, LocalizedError {
         let receipt = try await installation.stopAndRevoke()
         guard receipt.hostStopped, receipt.pairingRevoked else { throw OwnerLifecycleError.stopUnconfirmed }
         guard receipt.startupUnregistered else { throw OwnerLifecycleError.startupUnconfirmed }
+        guard receipt.providerCredentialRemoved else { throw OwnerLifecycleError.providerCredentialUnconfirmed }
         try removeCredential()
         if history == .deleteConfirmed { try installation.removeHistory() }
         return PreparedAppRemoval(appURL:installation.appURL,history:history)

@@ -96,8 +96,9 @@ private struct HostHistoryRemovalRecord: Codable {
     private let exitTimeout: TimeInterval
     private var active = false
     private let historyActions: MacHistoryRemovalActions?
+    private let removeProviderCredential: @MainActor () throws -> Void
 
-    init(connection: DeviceConnection, directory: URL, applicationURL: URL, verifyBundle: @escaping @MainActor () async throws -> Void, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval, historyActions: MacHistoryRemovalActions? = nil) throws {
+    init(connection: DeviceConnection, directory: URL, applicationURL: URL, verifyBundle: @escaping @MainActor () async throws -> Void, startup: MacHostStartup, recover: @escaping @Sendable (MacOwnerRecoveryRequest) async throws -> MacHostRecoveryObservation, exitTimeout: TimeInterval, removeProviderCredential: @escaping @MainActor () throws -> Void, historyActions: MacHistoryRemovalActions? = nil) throws {
         guard case .macAgent(let endpoint) = connection.endpoint, endpoint == startup.endpoint,
               exitTimeout.isFinite, exitTimeout > 0, exitTimeout <= 30 else { throw OwnerLifecycleError.wrongPairing }
         _ = try MacOwnerRecoveryRequest(installationID:connection.installationID,deviceID:connection.deviceID)
@@ -105,6 +106,7 @@ private struct HostHistoryRemovalRecord: Codable {
         appURL = applicationURL; self.verifyBundle = verifyBundle
         self.connection = connection; self.directory = directory; self.startup = startup
         self.recover = recover; self.exitTimeout = exitTimeout; self.historyActions = historyActions
+        self.removeProviderCredential = removeProviderCredential
     }
     private func verifyConnection(_ files: OwnerSetupFiles) throws {
         guard try files.read(.pending) == nil else { throw MacHostRemovalError.setupBlocked }
@@ -296,11 +298,13 @@ private struct HostHistoryRemovalRecord: Codable {
         try await observation.host.waitForExit(timeout:exitTimeout)
         guard try await startup.inspect() == .notRegistered else { throw OwnerLifecycleError.startupUnconfirmed }
         try verifyProgress(files,bytes:saved)
+        try removeProviderCredential()
+        try verifyProgress(files,bytes:saved)
         if !record.isConfirmed {
             let confirmed = try HostRemovalRecord(connection:connection,progress:.confirmed(observation.receipt,observation.host.record))
             try files.write(JSONEncoder().encode(confirmed),to:.hostRemoval)
         }
-        return OwnedHostStop(hostStopped:true,pairingRevoked:true,startupUnregistered:true)
+        return OwnedHostStop(hostStopped:true,pairingRevoked:true,startupUnregistered:true,providerCredentialRemoved:true)
     }
 }
 #endif

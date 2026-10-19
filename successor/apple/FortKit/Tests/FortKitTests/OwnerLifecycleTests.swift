@@ -111,10 +111,11 @@ private final class LifecycleCredentials: DeviceCredentials {
     var stopped = false
     var revoked = true
     var unregistered = true
+    var providerRemoved = true
     var supportsHistoryDeletion = true
     var failHistory = false
     var wrongScope = false
-    func stopAndRevoke() async throws -> OwnedHostStop { operations.append("stop"); return OwnedHostStop(hostStopped:stopped,pairingRevoked:revoked,startupUnregistered:unregistered) }
+    func stopAndRevoke() async throws -> OwnedHostStop { operations.append("stop"); return OwnedHostStop(hostStopped:stopped,pairingRevoked:revoked,startupUnregistered:unregistered,providerCredentialRemoved:providerRemoved) }
     func recoverPairingRemoval(_ connection: DeviceConnection) async throws -> PairingRecoveryProof {
         operations.append("recover")
         let scope = try wrongScope ? DeviceConnection(endpoint:connection.endpoint,installationID:"another-installation",deviceID:connection.deviceID) : connection
@@ -135,6 +136,15 @@ private final class LifecycleCredentials: DeviceCredentials {
     let deleted = try await removal.prepareForRemoval(history:.deleteConfirmed)
     #expect(deleted.appURL == installation.appURL); #expect(deleted.history == .deleteConfirmed)
     #expect(installation.operations == ["stop","credential","history"])
+}
+@Test @MainActor func removalPreparationRequiresProviderCredentialProof() async throws {
+    let installation = RemovalFixture(); installation.stopped = true; installation.providerRemoved = false
+    let removal = OwnerLifecycle(installation:installation,removeCredential:{ installation.operations.append("credential") })
+    await #expect(throws:OwnerLifecycleError.providerCredentialUnconfirmed) { try await removal.prepareForRemoval() }
+    #expect(installation.operations == ["stop"])
+    installation.providerRemoved = true
+    #expect(try await removal.prepareForRemoval().history == .keep)
+    #expect(installation.operations == ["stop","stop","credential"])
 }
 @Test @MainActor func removalPreparationFailsWhenCredentialRemovalFails() async throws {
     let installation = RemovalFixture(); installation.stopped = true

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: e5dcb50eace801c4d8ea5fdb017642e0efa5542a3bc2ffc1464adf58a08d11b3
+Reviewed content SHA256: 61e7c24953f3ba1262bdd8532b717e3d7150e77cdc9a5831454d554d1672e754
 
 ### Vendor independence
 Status: planned
@@ -2861,7 +2861,76 @@ successor/contracts/secure-network.ts; successor/V1-ACCEPTANCE.md;
 docs/architecture/reviews/ponytail/current.md; and
 successor/evidence/2026-10-17-node-foundation/owner-network.md (new).
 
+### Fort-owned provider credential removal
+
+Continue decision 059 under the coordinator's October 19 instruction to fix the
+Ponytail cleanup finding without live access. After exact owner recovery, runtime
+and helper absence and startup unregistration, ordinary Mac removal must delete
+only the bundled Codex file credential at the verified App Group's
+`FortHost/Runtime/state/auth.json`. Do not parse/read its contents, launch Codex,
+call provider logout, access another HOME/account or infer remote revocation.
+The pinned file-store implementation writes/deletes this exact name; Fort forces
+file auth storage and has no account import/switch path. This is local credential
+absence, not complete removal of every runtime cache or provider-side grant.
+
+The existing App Group storage boundary owns descriptor-relative no-follow
+inspection/deletion. Require exact private directories, own regular single-link
+credential with private mode and no extended ACL. Reject unsafe directories/files
+without repair; missing auth is idempotent, but missing runtime directories are an
+unconfirmed storage state. Recheck directory/file identities immediately before
+unlink, fsync the state directory and verify absence afterwards. Revalidate the
+bound App Group root. Preserve all other files, client/host history and recovery
+records. This is not adversarial same-user atomic unlink protection; the owned
+host is stopped and the existing owner-operation lease excludes ordinary races.
+
+Require explicit local-provider-credential proof in the owned removal receipt
+before clearing the device token or handing the app to removal. A failed cleanup
+leaves recovery progress retriable without restarting anything. Recheck cleanup
+on retries, including historical already-confirmed removal journals. Distinguish
+ordinary stop/disconnect from uninstall: only removal clears the provider login.
+Native confirmation/result copy states local credential deletion and retained
+provider history; signed-in status explicitly labels account identity unverified.
+
+The pinned nonsecret `account/read` schema exposes optional email and experimental
+workspaceRouting account ID, but the current Fort result contract omits them.
+Account selection/correlation is still unresolved; do not expose credential
+contents, infer a workspace from email, or imply that refreshToken:false makes
+this read network-free (the pinned implementation can discover routing/recover
+unauthorized auth). No new account lookup or live verification occurs here.
+
+Four-principle review: vendor independence is preserved through a generic local
+credential-removal proof; the Codex filename remains in the Apple composition's
+bounded current-runtime cleanup. Modularity reuses storage/owner lifecycle with
+one required cleanup callback and no dependency, new service or account framework.
+Speed is constant-path metadata/unlink work, no traversal or content reads, no
+idle work; twenty isolated synthetic cleanups after five warmups target p95 <=25 ms.
+Installation/removal becomes honest about local credential absence and remote
+grants. The cost is an explicit new receipt field and fail-closed handling of
+unsafe/missing runtime directories. Do not weaken these checks for malformed data.
+
+Acceptance: first fail a public removal journey with a synthetic auth marker;
+prove it is kept while a helper remains and removed only after shutdown/unregister,
+with retained history and unrelated accounts. Test retry after failure, repeat
+absence, missing directory, symlink/hardlink/FIFO/shared-mode/ACL refusals and
+changed directory identity. The generic removal seam must refuse absent provider
+proof. Test the native unresolved-identity label. Run affected/full native tests,
+unsigned Mac/iPhone compile, spec/review gates and the isolated cleanup budget.
+No real credential, Apple mutation, permission expansion or startup activation.
+
+Exact files: this spec; successor/apple/FortKit/Sources/FortKit/MacAgentStorage.swift,
+MacHostRemoval.swift, MacHostControl.swift, OwnerLifecycle.swift, MessengerModel.swift
+and PairingSettings.swift; successor/apple/FortKit/Tests/FortKitTests/
+MacAgentStorageTests.swift, MacHostRemovalTests.swift, OwnerLifecycleTests.swift and
+AccountSignInTests.swift; successor/APPLE-HOST-ACTIVATION.md;
+successor/V1-ACCEPTANCE.md; docs/architecture/reviews/ponytail/current.md;
+successor/evidence/2026-10-17-node-foundation/provider-session-removal.md.
+Rollback is a scoped source revert with old evidence preserved; do not restore
+credentials or reactivate a host. Actual account correlation, local cleanup on the
+signed installation, provider grant revocation and TestFlight remain separate gates.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/provider-session-removal.md`
 - `successor/evidence/2026-10-17-node-foundation/owner-network.md`
 - `successor/service/owner-access.test.ts`
 - `successor/contracts/secure-network.ts`

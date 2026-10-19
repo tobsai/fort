@@ -77,6 +77,16 @@ private final class AccountCredentials: DeviceCredentials {
     func close() { try? FileManager.default.removeItem(at:directory) }
 }
 
+@Test @MainActor func nativeAccountSignedInExplicitlyLeavesIdentityUnverified() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    let model = try fixture.model(); await model.restore()
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn"}}"#)
+    await model.refreshAccountSignIn()
+    #expect(model.accountSignInStatus?.finishedResult == .signedIn)
+    #expect(model.accountSignInMessage.contains("account identity is not verified"))
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/start"))
+}
+
 @Test @MainActor func nativeAccountStartPersistsItsExactIntentBeforeRequestAndRestoreOnlyReadsStatus() async throws {
     let fixture = try AccountFixture(); defer { fixture.close() }
     let model = try fixture.model(); await model.restore(); await model.refreshPairing()

@@ -1,5 +1,37 @@
 # Apple host activation gate
 
+## Current cleanup implementation — after 41b650a
+
+October 19, 2026. [Provider-session removal evidence](evidence/2026-10-17-node-foundation/provider-session-removal.md)
+now closes the local credential-removal source defect: ordinary uninstall preparation
+requires confirmed host/runtime exit and startup unregistration, then removes only
+Fort's private `Runtime/state/auth.json` using metadata-only no-follow operations.
+A required provider-cleanup receipt precedes device-token cleanup and app handoff.
+Unsafe files/directories are refused; failures remain retriable. History and other
+runtime files are kept. This is local credential absence, not provider-side revocation.
+Only disposable synthetic credentials were used; no real cleanup occurred.
+
+326 native tests passed, 16 skipped; the isolated cleanup budget and exact package
+probe passed separately. Fresh unsigned Mac/helper/iPhone Simulator builds passed.
+The current 200-file review app is
+`/private/tmp/fort059-provider-cleanup-review-20261019/Fort.app`, report SHA256
+`dabd400861db883297722a8a647a383dd0d8af5c138ba5165822c703bea91caf`.
+It is unsigned, unlaunched, contains no profiles and has unchanged engineering IDs
+and outbound-network-disabled helper. Earlier packages and findings stay historical.
+
+**Selected-account correlation remains unresolved.** The supported pinned protocol
+has optional email and experimental workspace account ID, but Fort's current result
+contract does not carry/compare them. Native signed-in status now explicitly labels
+account identity unverified. An account read can perform routing discovery/auth
+recovery despite `refreshToken:false`; no live lookup was attempted. The intended
+ChatGPT identity must not be inferred from Apple login or historical demo grants.
+
+The consolidated proposal below remains preparation only. Its credential-cleanup
+implementation gap is superseded by this source result; actual signed-installation
+cleanup, provider grant revocation, identity correlation and external activation
+approval remain outstanding. Apple sign-in is still awaiting the owner. Existing
+G2 certificate approval remains valid and unexecuted; the agreement is unapproved.
+
 ## Consolidated Mac demo grant review — source 7d528ba
 
 October 19, 2026. Read-only trace of the packaged host, official-runtime account

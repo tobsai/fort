@@ -28,7 +28,7 @@ struct PairingSettingsView: View {
         case .stop: "Stops the connected runtime and pauses new work. Pairing, saved conversations and owner controls remain available. Resume requires an explicit action."
         case .disconnect: model.isCompanionPairing ? "Revokes this phone’s access and removes its Keychain token. The Mac host, accepted work and saved conversations are kept." : "Stops the connected runtime, revokes this Mac and any paired phone, and removes this Mac’s Keychain token. Saved conversations are kept."
         case .forget: model.isCompanionPairing ? "Removes only this phone’s credential. Revocation remains unconfirmed; revoke the phone on its owning Mac. History is kept." : "Removes the credential from this device. It does not confirm that the service revoked access or stopped; local host recovery is still required. History is kept."
-        case .uninstall: "Stops the owned host, unregisters startup and removes pairing. Conversation history is kept. Then remove the Fort app using TestFlight or macOS."
+        case .uninstall: "Stops the owned host, unregisters startup, removes pairing and deletes Fort’s saved provider sign-in from this Mac. Conversation history, provider history and provider-side grants are kept. Then remove the Fort app using TestFlight or macOS."
         case .deleteHistory:
             #if os(macOS)
             "Deletes retained host conversations and this Mac's saved copy for installation \(hostHistoryTarget?.installationID ?? ""). Owner notes, settings, other devices and provider history are kept. This cannot be undone."

@@ -3,12 +3,13 @@ import Foundation
 import Darwin
 
 public enum MacAgentStorageError: Error, LocalizedError {
-    case groupUnavailable, unsafeDirectory, changedDirectory
+    case groupUnavailable, unsafeDirectory, changedDirectory, unsafeCredential
     public var errorDescription: String? {
         switch self {
         case .groupUnavailable: "The exact Fort App Group is unavailable. No alternate storage was selected."
         case .unsafeDirectory: "Fort's host directory could not be verified. Existing files and permissions have been kept."
         case .changedDirectory: "Fort's host directory changed. Reopen the exact installation before starting its host."
+        case .unsafeCredential: "Fort’s local provider credential could not be safely removed. Its state is unconfirmed; keep the app for recovery."
         }
     }
 }
@@ -109,6 +110,53 @@ public struct MacAgentStorage: Sendable {
         return result
     }
 
+    // Caller must confirm owned process absence and startup unregistration first.
+    func removeCodexCredential() throws {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(root) }
+        guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+        let runtime = openat(root,"Runtime",O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard runtime >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(runtime) }
+        let runtimeIdentity = try Self.identity(runtime,privateDirectory:true)
+        let state = openat(runtime,"state",O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard state >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(state) }
+        let stateIdentity = try Self.identity(state,privateDirectory:true)
+        func verifyDirectories() throws {
+            guard try validatedDirectory() == url,
+                  try Self.identity(root,privateDirectory:true) == directoryIdentity,
+                  try Self.identity(runtime,privateDirectory:true) == runtimeIdentity,
+                  try Self.identity(state,privateDirectory:true) == stateIdentity else { throw MacAgentStorageError.changedDirectory }
+            try Self.verifyLink(parent:root,name:"Runtime",expected:runtimeIdentity)
+            try Self.verifyLink(parent:runtime,name:"state",expected:stateIdentity)
+        }
+        try verifyDirectories()
+        let credential = openat(state,"auth.json",O_EVTONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        if credential < 0 && errno == ENOENT {
+            guard fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
+            try verifyDirectories(); return
+        }
+        guard credential >= 0 else { throw MacAgentStorageError.unsafeCredential }
+        defer { Darwin.close(credential) }
+        var info = stat()
+        guard fstat(credential,&info) == 0, info.st_mode & S_IFMT == S_IFREG,
+              info.st_uid == geteuid(), info.st_nlink == 1, info.st_mode & 0o7177 == 0 else { throw MacAgentStorageError.unsafeCredential }
+        try Self.verifyNoACL(credential)
+        try verifyDirectories()
+        var linked = stat()
+        guard fstatat(state,"auth.json",&linked,AT_SYMLINK_NOFOLLOW) == 0,
+              linked.st_dev == info.st_dev, linked.st_ino == info.st_ino, linked.st_mode == info.st_mode,
+              linked.st_uid == info.st_uid, linked.st_nlink == 1,
+              linked.st_ctimespec.tv_sec == info.st_ctimespec.tv_sec,
+              linked.st_ctimespec.tv_nsec == info.st_ctimespec.tv_nsec else { throw MacAgentStorageError.unsafeCredential }
+        guard unlinkat(state,"auth.json",0) == 0, fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
+        guard fstatat(state,"auth.json",&linked,AT_SYMLINK_NOFOLLOW) == -1, errno == ENOENT else { throw MacAgentStorageError.unsafeCredential }
+        try verifyDirectories()
+    }
+
     private static func ioError() -> NSError { NSError(domain:NSPOSIXErrorDomain,code:Int(errno)) }
     private static func snapshot(_ info: stat) -> Identity {
         Identity(device:info.st_dev,inode:info.st_ino,permissions:info.st_mode & 0o7777)
@@ -119,14 +167,17 @@ public struct MacAgentStorage: Sendable {
         let permissions = info.st_mode & 0o7777
         guard info.st_mode & S_IFMT == S_IFDIR, info.st_uid == geteuid(), permissions & 0o700 == 0o700,
               privateDirectory ? permissions == 0o700 : permissions & 0o7022 == 0 else { throw MacAgentStorageError.unsafeDirectory }
+        try verifyNoACL(descriptor)
+        return snapshot(info)
+    }
+    private static func verifyNoACL(_ descriptor: Int32) throws {
         guard let acl = acl_get_fd_np(descriptor,ACL_TYPE_EXTENDED) else {
-            if errno == ENOENT { return snapshot(info) }
+            if errno == ENOENT { return }
             throw ioError()
         }
         defer { acl_free(UnsafeMutableRawPointer(acl)) }
         var entry: acl_entry_t?
         guard acl_get_entry(acl,Int32(ACL_FIRST_ENTRY.rawValue),&entry) == -1, errno == EINVAL else { throw MacAgentStorageError.unsafeDirectory }
-        return snapshot(info)
     }
     private static func verifyLink(parent: Int32, name: String, expected: Identity) throws {
         var info = stat()

@@ -18,6 +18,7 @@ work; the newest rows and linked evidence describe current progress.
 
 | Requirement | Implemented | Tests | Build/package | Installed/provider acceptance | Remaining |
 | --- | --- | --- | --- | --- | --- |
+| Fort-owned provider credential removal | Exact private auth file removed only after host exit/unregister; required proof before device cleanup; retries preserve history; identity remains explicitly unverified | 326 native passed / 16 skips; focused 32 / 1; isolated cleanup p95 0.404 ms; public red failures observed and fixed | Fresh unsigned Mac/helper/iPhone builds; current 200-file review app and 198 inputs independently verified; exact refusal probe passed | Synthetic credentials only; no live account/removal or installed UI | Implementation owner: integrate owner-selected nonsecret account correlation; exact signed cleanup and external/provider/TestFlight acceptance remain. [Evidence](evidence/2026-10-17-node-foundation/provider-session-removal.md) |
 | Minimum Mac activation grant review (7d528ba) | Read-only trace of account, host, networking, storage, registration and removal; no permission change | Source review only; no repeat of prior passed suites | Existing 200-file unsigned review package unchanged | No activation; selected Apple sign-in pending; exact ChatGPT account and final package identities unresolved | Implementation owner must close private-provider-session identity/cleanup evidence; coordinator resolves verified Apple/profile/account facts before presenting consolidated approval. Pairing-token deletion does not remove Codex auth; [concrete scope and limits](APPLE-HOST-ACTIVATION.md#consolidated-mac-demo-grant-review--source-7d528ba) |
 | Current Mac demo package (1f3cda5) | Native provider controls and guarded host composed; ordinary phone networking remains disabled | 1,308 portable / 15 skips; 317 native / 15 skips; strict TS; exact native package refusal passed | Fresh unsigned Release client/helper and 200-file review app; every output and 198 input hashes verified; zero profiles | Unlaunched; real provider/restart/reconnect and TestFlight unrun; secure mtree Apple sign-in handoff pending | Verify Apple records, exact profiles/signing and separately approved network/provider/startup scope, then installed Mac demo and TestFlight; [minimum next actions](evidence/2026-10-17-node-foundation/mac-review-package.md#mac-demo-readiness--source-1f3cda5) |
 | Private owning-host network composition | Opt-in private frame, exact primary authority, expiry/stop/disconnect cleanup, captured selection and cleanup-before-worker-wait | 1,308 portable passed / 15 skips; strict TS; isolated pipe/TLS p95 7.133 ms; removal and shutdown regressions passed | Fresh 47-file core including manifest, exact inventory verified; optional implementations physically removable from ordinary host | Synthetic owner/phone/TLS only; ordinary bootstrap remains disabled; native/provider unrun | Prioritize installed Mac launch/chat/restart/reconnect and TestFlight; phone UI later. Exact signing/profile/network/startup/provider gates remain; [evidence](evidence/2026-10-17-node-foundation/owner-network.md) |
@@ -91,7 +92,7 @@ work; the newest rows and linked evidence describe current progress.
 
 | Platform | Source/tests | Build | Archive | Upload | Apple processed | Tester available | Physical acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mac | Core/native account and host flows have synthetic evidence; exact provider identity/credential cleanup and installed acceptance remain | Current unsigned 200-file Release review package; zero profiles | Unrun | Unrun | Unverified | Unverified | Unrun |
+| Mac | Core/native account, host and local credential cleanup have synthetic evidence; exact provider identity and installed acceptance remain | Current unsigned 200-file Release review package; zero profiles | Unrun | Unrun | Unverified | Unverified | Unrun |
 | iPhone | Foundation migration in progress | Fresh unsigned Simulator client only | Unrun | Unrun | Unverified | Unverified | Unrun |
 
 ## Authority and current blockers
@@ -100,11 +101,12 @@ The [Apple host activation gate](APPLE-HOST-ACTIVATION.md) records the exact cur
 engineering IDs, proposed release/helper/group set, missing local profiles and
 separate read-only account, provisioning and startup steps. Production host activation
 remains unperformed. The [current consolidated grant review](APPLE-HOST-ACTIVATION.md#consolidated-mac-demo-grant-review--source-7d528ba)
-also records an exact-account confirmation gap and provider credentials retained by
-ordinary removal. The implementation owner must close those bounded session/cleanup
-items before claiming a complete reversible demo or v1 uninstall. Apple sign-in,
-record/profile verification and the final approved artifact remain external gates;
-they do not excuse these separate source/acceptance limits.
+recorded an exact-account confirmation gap and retained provider credentials. The
+[new cleanup slice](evidence/2026-10-17-node-foundation/provider-session-removal.md)
+fixes local credential removal in source and synthetic tests. Selected-account
+correlation remains unresolved and is now explicit in native status. Apple sign-in,
+record/profile verification, the final approved artifact and actual signed cleanup
+remain external/installed acceptance gates. No current activation is authorized.
 
 Ordinary coding, tests, routine fixes, CI files and requested delivery work are
 authorized by the source decision. Do not request routine staged approvals.

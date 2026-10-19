@@ -343,4 +343,98 @@ func agentStorageExistingInspectionBudget() throws {
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination),options:.withoutOverwriting)
     #expect(samples.sorted()[18] <= 50)
 }
+
+@Test func agentStorageProviderCleanupPreservesHistoryAndUnrelatedCredentials() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let runtime = try storage.prepareRuntimeDirectory(), auth = runtime.appendingPathComponent("state/auth.json")
+    let retained = [root.appendingPathComponent("auth.json"),runtime.appendingPathComponent("state/history.json"),try storage.validatedDirectory().appendingPathComponent("openai-candidate-b.sqlite")]
+    for file in retained + [auth] {
+        try Data("synthetic private marker; intentionally not JSON".utf8).write(to:file)
+        try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
+    }
+    try storage.removeCodexCredential()
+    #expect(!FileManager.default.fileExists(atPath:auth.path))
+    try storage.removeCodexCredential()
+    for file in retained { #expect(try String(contentsOf:file,encoding:.utf8) == "synthetic private marker; intentionally not JSON") }
+}
+
+@Test(arguments:["symlink","broken-symlink","hardlink","fifo","directory","shared","executable","acl"])
+func agentStorageProviderCleanupRefusesUnsafeCredential(_ fault: String) throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let auth = try storage.prepareRuntimeDirectory().appendingPathComponent("state/auth.json")
+    let other = root.appendingPathComponent("unrelated-auth")
+    try Data("synthetic unrelated account".utf8).write(to:other)
+    try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:other.path)
+    switch fault {
+    case "symlink": try FileManager.default.createSymbolicLink(at:auth,withDestinationURL:other)
+    case "broken-symlink": try FileManager.default.createSymbolicLink(at:auth,withDestinationURL:root.appendingPathComponent("absent"))
+    case "hardlink": try FileManager.default.linkItem(at:other,to:auth)
+    case "fifo": #expect(mkfifo(auth.path,0o600) == 0)
+    case "directory": try FileManager.default.createDirectory(at:auth,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+    default:
+        try Data("synthetic Fort credential".utf8).write(to:auth)
+        #expect(chmod(auth.path,fault == "shared" ? 0o640 : fault == "executable" ? 0o700 : 0o600) == 0)
+        if fault == "acl" { try storageACL(auth,add:true) }
+    }
+    var before = stat(); #expect(lstat(auth.path,&before) == 0)
+    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    var after = stat(); #expect(lstat(auth.path,&after) == 0)
+    #expect(after.st_ino == before.st_ino && after.st_mode == before.st_mode)
+    #expect(try String(contentsOf:other,encoding:.utf8) == "synthetic unrelated account")
+    if fault == "acl" { try storageACL(auth,add:false) }
+}
+
+@Test(arguments:["Runtime","Runtime/state"], ["missing","symlink","shared","acl"])
+func agentStorageProviderCleanupRefusesUnsafeDirectories(_ path: String, _ fault: String) throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let runtime = try storage.prepareRuntimeDirectory(), directory = try storage.validatedDirectory()
+    let auth = runtime.appendingPathComponent("state/auth.json")
+    try Data("synthetic Fort credential".utf8).write(to:auth)
+    #expect(chmod(auth.path,0o600) == 0)
+    let selected = directory.appendingPathComponent(path), retained = root.appendingPathComponent("retained-directory")
+    if fault == "missing" || fault == "symlink" {
+        try FileManager.default.moveItem(at:selected,to:retained)
+        if fault == "symlink" { try FileManager.default.createSymbolicLink(at:selected,withDestinationURL:retained) }
+    } else if fault == "shared" { #expect(chmod(selected.path,0o750) == 0) }
+    else { try storageACL(selected,add:true) }
+    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    let preserved = fault == "missing" || fault == "symlink" ? retained.appendingPathComponent(path == "Runtime" ? "state/auth.json" : "auth.json") : auth
+    #expect(try String(contentsOf:preserved,encoding:.utf8) == "synthetic Fort credential")
+    if fault == "acl" { try storageACL(selected,add:false) }
+}
+
+@Test func agentStorageProviderCleanupRefusesAReplacedHostDirectory() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let directory = try storage.validatedDirectory()
+    _ = try storage.prepareRuntimeDirectory()
+    try FileManager.default.moveItem(at:directory,to:root.appendingPathComponent("retained-host"))
+    let replacement = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let auth = try replacement.prepareRuntimeDirectory().appendingPathComponent("state/auth.json")
+    try Data("synthetic replacement credential".utf8).write(to:auth)
+    #expect(chmod(auth.path,0o600) == 0)
+    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    #expect(try String(contentsOf:auth,encoding:.utf8) == "synthetic replacement credential")
+}
+
+@Test(.enabled(if:ProcessInfo.processInfo.environment["FORT_PROVIDER_CLEANUP_SAMPLES"] != nil))
+func agentStorageProviderCleanupBudget() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
+    let auth = try storage.prepareRuntimeDirectory().appendingPathComponent("state/auth.json")
+    var samples: [Double] = []
+    for index in 0..<25 {
+        try Data("synthetic credential".utf8).write(to:auth); #expect(chmod(auth.path,0o600) == 0)
+        let start = ContinuousClock.now
+        try storage.removeCodexCredential()
+        let elapsed = start.duration(to:.now).components
+        if index >= 5 { samples.append(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15) }
+    }
+    let destination = try #require(ProcessInfo.processInfo.environment["FORT_PROVIDER_CLEANUP_SAMPLES"])
+    try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination),options:.withoutOverwriting)
+    #expect(samples.sorted()[18] <= 25)
+}
 #endif
