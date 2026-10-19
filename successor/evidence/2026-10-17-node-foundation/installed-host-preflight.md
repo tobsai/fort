@@ -1,5 +1,14 @@
 # Installed client preflight and first-registration fix
 
+## Follow-up: normal Quit and Close now pass
+
+The subsequent [setup-sheet repair](installed-setup-quit.md) fixes the Quit issue
+recorded below. Three installed cycles passed six normal Quits, nine setup
+close/reopens and three window close/reopens without activation. It records the
+new exact signed packages; the [proposal](installed-host-proposal.md) is repinned.
+The original checks below remain historical evidence of the earlier artifact.
+
+
 October 19, 2026; Spec 059 / decision 059. Base
 `2f33fbf8a2f0cf67860f7c77f320d09ae35183ae`. This is client-only installed evidence,
 not host, provider, removal or TestFlight acceptance. The coordinator authorized

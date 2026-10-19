@@ -1,5 +1,24 @@
 # Fort v1 acceptance ledger
 
+## Setup Quit and Close repaired — October 19, 2026
+
+The [installed setup repair](evidence/2026-10-17-node-foundation/installed-setup-quit.md)
+closes the ordinary client Quit issue below. A minimal SwiftUI reproduction isolated
+the modal-window termination default. The setup sheet now permits normal Quit and
+has an explicit Close action; durable setup and pairing policy are unchanged. Three
+installed cycles passed six normal Quits, nine setup close/reopens and three window
+close/reopens. Final AX/screenshot and normal cleanup passed. The client is stopped,
+registration absent, host storage uncreated and all installed hashes unchanged.
+
+Release Mac/helper/iPhone Simulator builds and the focused native run passed, with
+66 passing functions and two optional timing skips. Both final packages passed all
+206 file checks and 30 signatures. The [one-time provider-test proposal](evidence/2026-10-17-node-foundation/installed-host-proposal.md)
+now pins the new artifact/report digest. Its 30 minutes/six requests constrain only
+that attended test; pairing still has no default expiry. The provider candidate is
+uninstalled/unlaunched; host/provider and G2 upload approvals remain pending.
+Earlier known-Quit-blocker statements below describe superseded checkpoints.
+
+
 ## Installed client preflight — October 19, 2026
 
 The exact task-installed development client now shows Enable for a verified fresh

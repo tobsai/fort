@@ -35,7 +35,7 @@ public struct MessengerView: View {
             .toolbar {
                 if model.hasWorkspace { Button("Settings",systemImage:"gearshape") { showSettings = true } }
                 if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
-                if !model.isOfflinePreview && !model.isInteractiveFixture { Button("Connection",systemImage:"network") { model.showConnection = true } }
+                if !model.isOfflinePreview && !model.isInteractiveFixture { Button("Connection",systemImage:"network") { model.showConnection = true }.accessibilityIdentifier("connection-open") }
                 if model.hasWorkspace && !model.isInteractiveFixture { Button("Library",systemImage:"books.vertical") { showWorkspace = true } }
             }
         } detail: {
@@ -253,9 +253,17 @@ public struct MessengerView: View {
                 else { fixtureConnectionFields }
                 #endif
                 Text(model.status).font(.callout)
-                if model.installation != nil { Button("Return to conversation") { model.showConnection = false } }
             }.formStyle(.grouped).navigationTitle("Connect to Fort")
+            .toolbar {
+                ToolbarItem(placement:.cancellationAction) {
+                    Button("Close setup") { model.showConnection = false }
+                        .keyboardShortcut(.cancelAction).accessibilityIdentifier("setup-close")
+                }
+            }
         }.frame(minWidth:320,minHeight:440)
+        #if os(macOS)
+        .background(SetupSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
+        #endif
     }
     @ViewBuilder private var fixtureConnectionFields: some View {
         Section("Local installation") {
@@ -268,3 +276,16 @@ public struct MessengerView: View {
         Button("Enroll this device") { Task { await model.enroll() } }.disabled(model.isBusy || model.enrollmentCode.isEmpty || model.expectedInstallation.isEmpty)
     }
 }
+
+#if os(macOS)
+private struct SetupSheetWindow: NSViewRepresentable {
+    final class SheetView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.preventsApplicationTerminationWhenModal = false
+        }
+    }
+    func makeNSView(context: Context) -> SheetView { SheetView() }
+    func updateNSView(_ view: SheetView, context: Context) {}
+}
+#endif

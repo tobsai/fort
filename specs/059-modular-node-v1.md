@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8075fc2882ec642f29d12d7367ade0326c0ba36dfe5073ed3b445db31fcce87e
+Reviewed content SHA256: 98eeb26c08d26d081c705dc93ed40b253915030f00d79c8986f76ebceb9119c3
 
 ### Vendor independence
 Status: planned
@@ -3166,7 +3166,56 @@ new installed-host-preflight.md / installed-host-proposal.md evidence below.
 Rollback retains previous source and signed packages; do not delete user history,
 Apple records, credentials or unrelated installations.
 
+## Setup sheet normal termination and dismissal — October 19, 2026
+
+Continue decision 059's ordinary recoverable-fix authority and the coordinator's
+explicit request to repair Quit without host/provider activation. The installed
+7a071364 client accepts normal Quit but remains alive while setup is open. A minimal
+SwiftUI sheet reproduces this without any Fort model/runtime; closing the sheet
+restores Quit, and setting only NSWindow.preventsApplicationTerminationWhenModal
+false allows Quit with the sheet open. The main-thread sample shows ordinary event
+waiting, not a blocked worker. Apple's SDK and WWDC26 AppKit guidance confirm the
+modal default and opt-out for presentations that need no mandatory intervention.
+
+Vendor independence: this changes only the already-selected native Apple client;
+provider identity/protocols and domain behavior are unaffected. Modularity: apply
+the documented AppKit property to the setup sheet's own window through a small
+private NSViewRepresentable. It supports the existing macOS 14 target; SwiftUI's
+corresponding modifier requires 15.4. Do not override global termination, other
+editor sheets or process exit. Add a Close setup action that only dismisses the
+presentation; durable setup/removal state and credentials remain untouched. Speed:
+no new process, dependency or polling in product code; verify normal client exit
+within five seconds and record builds as samples, not benchmark claims.
+Installation/removal: closing the client is distinct from host stop/unregistration.
+No service enablement, pairing, provider credential, network activation or G2 upload
+is authorized. Pairing remains without default expiry. The pending 30-minute/six-
+request proposal is solely a one-time attended test and must retain that wording.
+
+Acceptance: retain the observed failing installed and minimal repros. Before product
+edits, add an installed accessibility regression runner that targets only the exact
+selected app, invokes normal Quit, Close setup and Connection controls, refuses
+existing processes and reports actual exit/window states. It must never invoke
+Enable/Connect/sign-in or force-kill a process. Run it red on current installed
+bytes, then run repeated cold-launch, sheet-close/reopen and main-window-close/reopen
+cycles on the rebuilt signed client-only artifact. Inspect screenshots and saved
+metadata, verify service/host storage remain absent, and preserve earlier packages.
+Run focused setup/recovery tests, build native targets, validate final signed files/
+profiles/entitlements and refresh the inert provider candidate's exact hashes.
+Host/provider/XPC/removal/TestFlight acceptance remains separate and unrun.
+
+Exact product/test paths: successor/apple/FortKit/Sources/FortKit/MessengerView.swift
+and successor/apple/check-installed-setup.swift. Evidence paths: this spec, the
+current Ponytail review, successor/APPLE-HOST-ACTIVATION.md, V1-ACCEPTANCE.md,
+TESTFLIGHT-DELIVERY-20261017.md and the existing installed-host proposal/preflight,
+plus new installed-setup-quit.md and installed-setup-close.png below. Rollback is
+retaining the previous source and task-owned apps; no unrelated installation,
+history, credential or remote Apple/provider record is removed.
+
 ## Implementation paths
+
+- `successor/apple/check-installed-setup.swift`
+- `successor/evidence/2026-10-17-node-foundation/installed-setup-quit.md`
+- `successor/evidence/2026-10-17-node-foundation/installed-setup-close.png`
 
 - `successor/evidence/2026-10-17-node-foundation/installed-host-enable.png`
 

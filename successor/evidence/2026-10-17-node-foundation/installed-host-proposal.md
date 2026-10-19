@@ -11,19 +11,19 @@ The G2 CSR upload is separate and remains held pending the parent's approval flo
 Install the exact inert candidate at `/Users/tobiasgunn/Applications/Fort.app`,
 preserving the task-owned current copy, then perform one attended Mac-only test:
 
-`/tmp/fort059-provider-proposal-v2-signed-20261019/Fort.app`
+`/tmp/fort059-provider-proposal-quit-signed-20261019/Fort.app`
 
-- 206 files / 406,325,058 bytes / 30 Mach-O objects.
+- 206 files / 406,509,378 bytes / 30 Mach-O objects.
 - `signed-package-report.json` SHA256:
-  `9e2f1cdda9d1b969cc960ca48cf51fbf35282542ba8603e9b9692ba264095778`.
+  `983ccb10307b07256daba171bee084568fc82d0e8c1772d4c3dffec0a7d1e439`.
 - Payload manifest SHA256:
-  `f6025029e974b447ec39e4908d8f5df92a50a1c4250a47090d0c33346e18ceb1`.
-- Source base `2f33fbf8a2f0cf67860f7c77f320d09ae35183ae`; report pins the exact
-  MacHostStartup, MacHostControl and OwnerSetupView source hashes for this slice.
+  `0c0023122c1d57818917559eff2334087e1e5a59a31f7ea03b9ce1cc27aa2ebc`.
+- Source base `7a0713642acb921ae54b98bc5273e98095d8c133`; report pins the exact
+  MessengerView source hash for the setup-sheet Quit/Close correction.
 - Every file/hash/mode, exact embedded profiles/entitlements, all 30 signatures and
   public signing leaf fingerprints, and native bundle inspection passed. This
   candidate has not been installed or launched. Client-only installed evidence
-  belongs to the separately hashed candidate in [preflight](installed-host-preflight.md).
+  belongs to the separately hashed candidate in [Quit/Close evidence](installed-setup-quit.md).
 
 Team Maple Tree Enterprises LLC **T3JB5MYZ93**. Client **io.mtree.fort.mac**,
 helper/LaunchAgent label **io.mtree.fort.mac.host**, App Group
@@ -46,7 +46,7 @@ That tool policy does not sandbox the host's provider communication.
 
 ## Proposed bounded authority
 
-One attended session, **30 minutes from first Enable**, up to **six synthetic plain
+One-time attended test only, **30 minutes from first Enable**, up to **six synthetic plain
 text requests** including a deliberate cancellation, one explicit Stop/Resume work
 cycle and one client quit/reopen attempt. Reserve the final five minutes for cleanup.
 No automatic retry/relaunch loop, alternate account/provider/model, API billing,
@@ -85,10 +85,12 @@ The LaunchAgent definition contains BundleProgram and MachServices, with **no
 RunAtLoad or KeepAlive**. Registration still persists for this login user and lets
 macOS launch the helper on demand/across later logins until it is unregistered;
 closing the client does not revoke that persistence. The actual installed behavior
-and supported removal remain acceptance gates. Ordinary unpaired client Quit failed
-in preflight and required exact-process SIGTERM; do not mark quit/reopen accepted
-until corrected/retested. New or changed signed bytes must be repinned and assessed
-before activation rather than silently treated as the artifact approved here.
+and supported removal remain acceptance gates. The setup-sheet Quit defect is now
+fixed. Three client-only installed cycles
+passed six normal Quits, nine setup close/reopens and three window close/reopens,
+without activation. This is not host/provider lifecycle acceptance. New or changed
+signed bytes must be repinned and assessed before activation rather than silently
+treated as the artifact approved here.
 
 ## Data sent and retained
 
@@ -127,5 +129,6 @@ history and the inert app. I understand the host can connect outward, registrati
 persists until removed, the provider receives the described test context, and local
 cleanup does not revoke remote account grants.”
 
-The parent should present this once with the exact artifact and remaining known
-quit issue. This document and preparation do not themselves grant approval.
+The parent should present this once with the refreshed exact artifact and its
+remaining activation gates. The earlier candidate hashes are superseded for this
+proposal; preserve their evidence. This document does not itself grant approval.
