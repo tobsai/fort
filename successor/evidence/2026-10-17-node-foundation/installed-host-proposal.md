@@ -1,6 +1,9 @@
 # Exact installed Mac host/provider test proposal
 
-**Prepared, not approved or executed.** October 19, 2026. Spec 059 / decision 059.
+**Historical proposal, approved and attempted; cleanup complete.** October 19, 2026.
+See [the consumed test outcome](installed-host-test.md). It stopped before pairing
+and provider sign-in; no allowance or clock may be reset. The details below preserve
+the original approval scope. Spec 059 / decision 059.
 The existing development provisioning approval is fulfilled. This proposal is the
 separate persistent startup, network and provider-credential scope required by
 CLAUDE.md: “Mandatory per-action security, credential/persistent-access approvals”.

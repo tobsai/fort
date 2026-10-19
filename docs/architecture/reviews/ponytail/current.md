@@ -1,103 +1,90 @@
 What this repo does: Fort is a single-owner native messenger with a Node host and
-optional official runtimes. This review covers one unpaired Mac client's setup
-presentation, normal termination and an inactive proposal for a later provider test.
+optional official runtimes. This review covers the first approved installed host
+attempt and a fresh-state cleanup repair, with no provider sign-in or model request.
 
-Reviewer: Codex primary implementation agent, October 19, 2026. Base
-`7a0713642acb921ae54b98bc5273e98095d8c133`. Applied the pinned Ponytail skill and
-preserved whole-tree baseline. This is scoped semantic review by the implementation
-agent, not independent review or v1 signoff. Reviewed the product diff, complete
-installed regression runner, model presentation/restore callers, native setup/
-recovery gates, packaging and all changed spec/evidence/proposal/handoff files.
+Reviewer: Codex primary implementation agent. Reviewed the changed sources and
+callers, owner-setup lock/record behavior, MacAgentStorage validation, SMAppService
+lifecycle, paired removal, focused tests, artifact delta and all changed evidence.
+The whole-tree baseline remains preserved. This is not independent review.
 
 ## Fixed
 
-1. **Setup prevented normal Quit and had no unpaired Close action.**
-   - What this is: SwiftUI presented the connection form as a modal sheet.
-   - Problem: Its window inherited AppKit's termination-blocking default, and the
-     old form only offered dismissal after an installation existed. Normal Quit
-     left the unpaired process alive. A minimal sheet reproduced this independently
-     of Fort's model/runtime; the client main thread was not blocked.
-   - Fix: A private view sets the documented AppKit property only on the setup
-     window, with no global exit override. Close setup changes presentation state
-     only. The maintained installed regression failed first, then three final
-     cycles passed six normal Quits, nine setup close/reopens and three window
-     close/reopens. Actual screenshot/AX confirms available Close/Enable and
-     disabled Connect. No activation action was pressed.
-   - If we skip it: A fresh owner cannot normally leave or quit setup.
-   - Disposition: Fixed for the exact installed client-only artifact on macOS 27.2.
-     The Mac 14 deployment target still compiles; older-OS runtime is untested.
+1. **Fresh failed setup left startup registered without a cleanup control.**
+   The removal controller previously required a completed pairing. The new explicit
+   action holds the existing setup lock, rejects all saved pairing/setup/removal
+   records, rechecks bundle identity and exact host-directory absence, unregisters
+   through SMAppService and verifies absence again. It deletes no state and cannot
+   bypass the existing paired removal flow. Public red/green tests and actual signed
+   installed cleanup, normal Quit/reopen and independent absence checks pass.
 
-## Remaining acceptance gate
+## Must fix
 
-2. **Signed provider bytes still need authorized installed execution.**
-   - What this is: The corrected proposal candidate retains the one proposed helper
-     outgoing-network entitlement and unchanged identities/profiles/child sandbox.
-   - Problem: Signing/client UI checks do not establish actual helper App Group/XPC,
-     provider behavior, host shutdown/unregistration or credential cleanup.
-   - Fix: Use the refreshed exact artifact and one consolidated action-specific
-     grant for the selected account/model, bounded test and scoped cleanup.
-   - If we skip it: A prepared artifact could be mistaken for an accepted live app.
-   - Disposition: Open. Candidate remains uninstalled/unlaunched. G2 upload is held
-     separately. Privacy declarations, TestFlight and physical gates remain open.
+2. **The helper reads outside its own bundle sandbox during startup.**
+   Its program inspector invokes the parent-app inspection path. The canonical
+   signed read-only probe gets EPERM opening the parent manifest/startup/profile,
+   while its own corresponding files are readable. The approved installed Connect
+   failed before storage or pairing. Give helper startup a self-bundle validation
+   path and retain full parent validation in the client; keep exact signatures and
+   child requirements. Without that repair, registration succeeds but chat cannot
+   reach setup. Provider and paired lifecycle acceptance remain unrun.
 
-Verdict: The confirmed setup Quit defect is fixed and verified at its real installed
-interface. Final clients all exited normally; no host/service/credential activation
-occurred. The repinned proposal preserves its one-time 30-minute/six-request scope
-and the product's no-default-expiry pairing policy. No new in-scope defect found.
+Verdict: The consumed test's fresh startup registration was removed and verified.
+The source cleanup gap is fixed. Helper startup still blocks provider acceptance.
 
-Not checked: Real host/provider/XPC/removal, older-macOS runtime, physical iPhone,
-TestFlight, runtime privacy declarations or full portable/native regression suites.
-The focused native run passed 66 functions with two optional timing skips; Mac,
-helper and iPhone Simulator Release builds passed. All 206 files and 30 signatures
-per exact candidate passed. Initial test-only startup/toolbar assumptions were
-corrected and are documented. No final repaired client required force termination.
+Not checked: Provider sign-in/account/model/controls, messages/cancellation/replay,
+paired installed removal, iOS or older-macOS runtime, TestFlight, privacy declaration
+acceptance, and broad portable/native suites. No G2 request was uploaded.
 
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "7a0713642acb921ae54b98bc5273e98095d8c133",
+  "reviewedCommit": "092dc52ea62f979f6d5b935371fd0fe95e28c63e",
   "reviewer": "Codex primary implementation agent",
-  "scope": "Setup-sheet modal termination/Close fix, maintained installed no-activation UI regression, exact signed candidate verification and refreshed one-time authorization proposal",
+  "scope": "Approved installed test outcome; fresh unpaired startup cleanup controller/storage/UI and tests; exact cleanup artifact and current handoff evidence",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
   },
   "tests": [
-    "Actual installed baseline and checked-in runner fail at normal Quit with setup open. Minimal independent SwiftUI sheet reproduces; closing it or applying the documented termination property makes normal Quit succeed. Main thread waits normally.",
-    "Final signed client-only three-cycle run passes six normal Quits in 0.052\u20130.337 seconds, nine setup close/reopens and three same-process window close/reopens. Final AX/screenshot and separate normal Quit pass. No activation or force-kill action in the runner.",
-    "Focused native suite: 66 passing functions, zero failures, two optional timing skips. Release FortMac/FortHost builds pass in 28.651/3.124 seconds; iPhone Simulator Release build passes.",
-    "Both exact final packages pass every 206-file membership/hash/mode/size check, all 30 strict all-architecture signatures and exact approved public certificate fingerprints, profiles/entitlements and native bundle inspection. Independent final process/service/host-storage absence and installed hashes pass.",
-    "Full spec/accepted implementation gates passed before product edits; exact staged spec, review and diff checks required before commit."
+    "Exact original approved report, all 206 files, 30 signatures/public leaf fingerprints, profiles/entitlements and client-side native inspection passed.",
+    "Installed Enable passed; one Connect failed before storage/pairing/sign-in. No provider prompts. Scoped job unload alone left startup registration enabled.",
+    "Public fresh cleanup test first failed, then passed. Configured focused suite passed 83 functions with six optional timing skips and no failures.",
+    "FortMac Release build passed in 31.118 seconds. Signed cleanup candidate changes only client executable, retains exact permissions/runtime bytes, and passes strict nested signing and file checks.",
+    "Actual cleanup confirmation reported notRegistered; normal Quit/reopen retained it. Final normal Quit, exact process/job absence, no host/provider credential path and native lock-only metadata passed at 19:29:26 UTC.",
+    "Canonical-path read-only sandboxed helper probe reproduces EPERM reading enclosing client files while its own files are readable. No runtime/service/provider launch in probes."
   ],
   "exceptions": [
-    "Scoped implementation-agent semantic review, not independent review or v1 signoff. Whole-tree baseline is preserved.",
-    "Initial minimal-fixture compile lacked compiler-plugin sandbox access; supported normal build access passed. The first fixed-package UI check exceeded a five-second launch callback allowance. Startup now allows thirty seconds while Quit retains five. A later check missed Connection in toolbar overflow; the runner now follows that observed menu path. Signed product bytes did not change for these test corrections.",
-    "Baseline failing processes required exact-task SIGTERM cleanup. Every repaired final client used normal Quit, with independent absence checks. Temporary minimal sources/app are stopped and retained in /tmp/fort059-quit-diagnosis.",
-    "No helper/provider/network activation, pairing or credential configuration, G2 upload, trust change, new certificate or remote cleanup occurred. Existing one-time test proposal remains unapproved."
+    "Scoped implementation-agent semantic review, not independent review or v1 signoff. Whole-tree baseline preserved.",
+    "Initial restricted fixture run failed three local IPC cases in two existing test functions; configured normal local IPC execution passed. Restricted code-signing trust verification and diagnostic dSYM build needed supported normal system access.",
+    "The removal confirmation AX call returned -25205 despite completing the action; observed state was reconciled without repeating removal.",
+    "Original 30-minute test ended after cleanup with zero sign-ins and prompts. No grant reset, changed candidate activation, provider cleanup, G2 upload, new identity, visibility change or release."
   ],
   "findings": [
     {
       "id": "1",
-      "detail": "The setup sheet inherited modal termination blocking and lacked an unpaired Close action. The scoped AppKit property and Close presentation action now pass actual installed normal Quit plus repeated setup/window flows without activation.",
+      "detail": "An unpaired failed setup had no normal route to unregister startup. Narrow locked absence checks and the explicit cleanup UI now remove only fresh unused registration; installed reopen/absence proof passed.",
       "disposition": "fixed"
     },
     {
       "id": "2",
-      "detail": "Refreshed exact provider candidate remains uninstalled/unlaunched pending the existing action-specific approval. Actual helper/XPC/provider/removal, privacy declarations, TestFlight and physical acceptance remain open; G2 upload is held separately.",
+      "detail": "The helper inspects enclosing client files that its own sandbox cannot read, causing startup failure before storage/pairing. Repair must preserve signed identities without broadening filesystem privileges. Provider, paired lifecycle, TestFlight and physical acceptance remain open.",
       "disposition": "open"
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "ef4cb06326481c6d9ae1ac578f655e3dfd6dbe2586f5d720fcfd06e4e052bdd4",
-    "successor/apple/FortKit/Sources/FortKit/MessengerView.swift": "145aaeef2d93b24c5f61120d0e5abfe288554d40886e6704425040c3a42a7df4",
-    "successor/apple/check-installed-setup.swift": "24ed423113609d740e06bacd7527c5abb86e200de39f3c8df3c9a0f2c191d43e",
-    "successor/APPLE-HOST-ACTIVATION.md": "e2e62d77a02c20fac02eceab70fa063288db52b4a027b8f88035c1ecf9c4ae54",
-    "successor/V1-ACCEPTANCE.md": "9c3ad74e0e08a89fa5b952b7a8bbf28bd81de4ac6b0e336f622d4196a8c5360b",
-    "successor/TESTFLIGHT-DELIVERY-20261017.md": "8fa9075b5c1b4ec1aa0fcec4d83ca61df9d75602471cda32837bcc4f3c250684",
-    "successor/evidence/2026-10-17-node-foundation/installed-host-proposal.md": "bccad78cd9e6c83dbfc28835adf5ca52230b375952c5be273597972079cc802c",
-    "successor/evidence/2026-10-17-node-foundation/installed-host-preflight.md": "0acba3d860eff77dcb1a5e0e561c9d31dd80f06fcb0dc0d9a71d940aa0c0db26",
-    "successor/evidence/2026-10-17-node-foundation/installed-setup-quit.md": "7d3361da0e913cb929dc698023c7d947e7e80d6e09c401b078380241238948dc",
-    "successor/evidence/2026-10-17-node-foundation/installed-setup-close.png": "13ba362c903d7a45d3c28e3cb94f651f20676d3538beeeb10170d4329a77930e"
+    "specs/059-modular-node-v1.md": "b4907f62d51c049dea2ff320223664c6933301a4d46ba5bb71ab5476189fc85e",
+    "successor/apple/FortKit/Sources/FortKit/MacAgentStorage.swift": "9bc6d9a8f17db7ed8a0d4c0ffcd9c9ace1365ba08889bd87665db6eabfceee56",
+    "successor/apple/FortKit/Sources/FortKit/MacHostControl.swift": "6f107a72769a86aa3b0ecac006cce49e0d0ecef077c2396b928c8d6122acc265",
+    "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "6e19914037345e59a3a70d81888ff04f1c11447c946418982488ecff928d8ac3",
+    "successor/apple/FortKit/Sources/FortKit/OwnerSetupView.swift": "b9667edb2cb40a6d38eec5e8613fa877b73291be2d00d9271f5283a88a30c88a",
+    "successor/apple/FortKit/Tests/FortKitTests/MacAgentStorageTests.swift": "23338daa091d1760d48fe6f963852249f2f6add29b5e4a79b603bf6a2ff047dd",
+    "successor/apple/FortKit/Tests/FortKitTests/MacHostControlTests.swift": "6a8208f3f407c5c9bd2da7aecd18fb510b5b2ca13dcf5205bc15ccdf2a6271f1",
+    "successor/V1-ACCEPTANCE.md": "84b00524429c61d342e4e3ee5f7fe265014baa0abdf27319d5eaa94e4000fac3",
+    "successor/APPLE-HOST-ACTIVATION.md": "c6507e6168ab0e6ff253f5405ff7a80d858e1317f2a9a8fac7272613c21eb084",
+    "successor/TESTFLIGHT-DELIVERY-20261017.md": "5295d3959f1cd1753e4a316b1f43a7014fa05d688f5168e6bd43ec7432610b39",
+    "successor/evidence/2026-10-17-node-foundation/installed-host-proposal.md": "f94a5d68ebb96333ca3e02f6196eff597877fc6abfe56cea00135d20aa503921",
+    "successor/evidence/2026-10-17-node-foundation/installed-host-test.md": "5aedf9b5f7784535fbe9ea55c4a4ca8ce27ce2fc244c49a4ec2f8b1611f80324",
+    "successor/evidence/2026-10-17-node-foundation/installed-host-test-cleanup.png": "f9dc4694e89821350b1aa9a701c31f1aea4b97eadf69b423e73dac5a24ac858b"
   }
 }
 ```

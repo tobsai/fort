@@ -1,5 +1,18 @@
 # Fort v1 acceptance ledger
 
+## Approved test stopped before pairing, cleanup confirmed
+
+October 19: the approved exact installed candidate registered its helper, but helper
+startup failed before host storage, pairing or provider sign-in. Zero prompts were
+sent. A tested client-only cleanup repair removed the unused registration through
+SMAppService; reopening confirmed notRegistered, and final process/job/storage
+absence passed at 19:29:26 UTC. The app remains installed and stopped.
+[Evidence and exact artifact pins](evidence/2026-10-17-node-foundation/installed-host-test.md).
+Helper sandbox inspection needs repair. Real-provider and paired lifecycle acceptance
+remain open; this consumed 30-minute test is not replay authority. G2 upload is
+separate and still held. Earlier unapproved/unlaunched statements below are historical.
+
+
 ## Setup Quit and Close repaired — October 19, 2026
 
 The [installed setup repair](evidence/2026-10-17-node-foundation/installed-setup-quit.md)

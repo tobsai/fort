@@ -8,6 +8,7 @@ import Observation
     public private(set) var isBusy = false
     public private(set) var endpoint: MacAgentEndpoint?
     private var identity: MacHostBundle?
+    private let requireUnprepared: @MainActor (MacAgentEndpoint) throws -> Void
     private var failure: String?
     private let inspectBundle: @MainActor (URL) async throws -> MacHostBundle
     private let makeStartup: @MainActor (MacAgentEndpoint) throws -> MacHostStartup
@@ -29,8 +30,9 @@ import Observation
             makeStartup:{ try MacHostStartup(endpoint:$0) })
     }
     init(applicationURL: URL, inspectBundle: @escaping @MainActor (URL) async throws -> MacHostBundle,
-         makeStartup: @escaping @MainActor (MacAgentEndpoint) throws -> MacHostStartup) {
-        self.applicationURL = applicationURL; self.inspectBundle = inspectBundle; self.makeStartup = makeStartup
+         makeStartup: @escaping @MainActor (MacAgentEndpoint) throws -> MacHostStartup,
+         requireUnprepared: @escaping @MainActor (MacAgentEndpoint) throws -> Void = { try MacAgentStorage.requireUnprepared(for:$0) }) {
+        self.applicationURL = applicationURL; self.inspectBundle = inspectBundle; self.makeStartup = makeStartup; self.requireUnprepared = requireUnprepared
     }
     func removal(connection: DeviceConnection, storage: DeviceStorage) throws -> MacHostRemoval {
         guard let identity, endpoint == identity.endpoint, connection.endpoint == .macAgent(identity.endpoint) else { throw OwnerLifecycleError.wrongPairing }
@@ -52,6 +54,31 @@ import Observation
         },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3,removeProviderCredential:{
             try MacAgentStorage.inspectExisting(for:identity.endpoint).removeCodexCredential()
         },historyActions:history)
+    }
+    public var canDisableUnpaired: Bool { !isBusy && endpoint != nil && (status == .enabled || status == .requiresApproval) }
+    public func disableUnpaired(storageDirectory: URL) async throws {
+        guard canDisableUnpaired, let identity else { throw MacHostStartupError.unavailable }
+        isBusy = true; defer { isBusy = false }
+        let files = try OwnerSetupFiles(directory:storageDirectory); defer { files.close() }
+        func verifyRecords() throws {
+            for record in [OwnerSetupFiles.Record.connection,.pending,.disconnected,.removal,.hostRemoval,.historyRemoval,.accountSignIn,.companionSetup] {
+                guard try files.read(record) == nil else { throw MacHostRemovalError.setupBlocked }
+            }
+        }
+        try verifyRecords()
+        let observed = try await inspectBundle(applicationURL)
+        guard observed.applicationURL == identity.applicationURL, observed.helperURL == identity.helperURL,
+              observed.endpoint == identity.endpoint, observed.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
+        try Task.checkCancellation()
+        try requireUnprepared(identity.endpoint)
+        try verifyRecords()
+        let startup = try makeStartup(identity.endpoint)
+        guard startup.endpoint == identity.endpoint else { throw MacHostBundleError.configuration }
+        status = .unknown
+        status = try await startup.disable()
+        try requireUnprepared(identity.endpoint)
+        try verifyRecords()
+        failure = nil
     }
     public func inspect() async { await perform(enable:false) }
     public func enable() async {

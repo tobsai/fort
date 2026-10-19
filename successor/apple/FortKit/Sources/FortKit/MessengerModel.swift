@@ -432,6 +432,7 @@ import Observation
     }
     public var canInspectLocalHost: Bool { localHost != nil && localHost?.isBusy == false && !ownerSetupBusy && !isBusy && !lifecycleBusy }
     public var canEnableLocalHost: Bool { canInspectLocalHost && localHostSetupReady && localHost?.canEnable == true }
+    public var canDisableUnpairedLocalHost: Bool { canInspectLocalHost && localHostSetupReady && localHost?.canDisableUnpaired == true && client == nil && !connected && pendingOwnerSetup == nil && reinstallConnection == nil }
     public var hasCompletedHostRemoval: Bool { reinstallConnection != nil }
     public var canPrepareLocalReinstall: Bool { canInspectLocalHost && reinstallConnection != nil && localHost?.canEnable == true && client == nil && !connected }
     public func prepareLocalReinstall() async {
@@ -492,6 +493,18 @@ import Observation
         guard canInspectLocalHost, let localHost else { return }
         await localHost.inspect()
         configureLocalHostSetup()
+    }
+    public func disableUnpairedLocalHost() async {
+        guard canDisableUnpairedLocalHost, let localHost else { return }
+        lifecycleBusy = true; defer { lifecycleBusy = false }
+        do {
+            try await localHost.disableUnpaired(storageDirectory:storage.directory)
+            configureLocalHostSetup()
+            ownerSetupMessage = "Startup registration removed. No pairing or host data existed."
+        } catch {
+            ownerSetupMessage = "Startup removal could not be confirmed. Existing setup, credentials and host data have been kept."
+        }
+        status = ownerSetupMessage
     }
     public func enableLocalHost() async {
         guard canEnableLocalHost, let localHost, let endpoint = localHost.endpoint else { return }

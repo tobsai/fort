@@ -13,6 +13,22 @@ private func storageEndpoint() throws -> MacAgentEndpoint {
     try MacAgentEndpoint(serviceIdentifier:"io.fort.synthetic.agent",signingTeam:"AAAAAAAAAA",appGroup:"group.io.fort.synthetic")
 }
 
+
+@Test(arguments:["absent","directory","file","symlink","unavailable-container"])
+func agentStorageUnpreparedProofRequiresExactChildAbsence(_ variant: String) throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let endpoint = try storageEndpoint(), child = root.appendingPathComponent("FortHost")
+    if variant == "directory" { try FileManager.default.createDirectory(at:child,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700]) }
+    if variant == "file" { try Data("keep host state".utf8).write(to:child) }
+    if variant == "symlink" { try FileManager.default.createSymbolicLink(at:child,withDestinationURL:root.appendingPathComponent("absent-target")) }
+    var groups: [String] = []
+    let resolve: (String) throws -> URL? = { groups.append($0); return variant == "unavailable-container" ? nil : root }
+    if variant == "absent" { try MacAgentStorage.requireUnprepared(for:endpoint,resolveContainer:resolve) }
+    else { #expect(throws:(any Error).self) { try MacAgentStorage.requireUnprepared(for:endpoint,resolveContainer:resolve) } }
+    #expect(groups == [endpoint.appGroup])
+    #expect(try FileManager.default.contentsOfDirectory(atPath:root.path) == (["absent","unavailable-container"].contains(variant) ? [] : ["FortHost"]))
+}
+
 @Test func agentStorageInspectionNeverCreatesMissingStorage() throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let endpoint = try storageEndpoint()

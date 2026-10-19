@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 98eeb26c08d26d081c705dc93ed40b253915030f00d79c8986f76ebceb9119c3
+Reviewed content SHA256: 7801c3f61cd9386ecbd9c5d16f8ba19303cb1fe7ac46d3aaefec51dd333a24d6
 
 ### Vendor independence
 Status: planned
@@ -3211,7 +3211,46 @@ plus new installed-setup-quit.md and installed-setup-close.png below. Rollback i
 retaining the previous source and task-owned apps; no unrelated installation,
 history, credential or remote Apple/provider record is removed.
 
+## Fresh installed startup failure and unpaired cleanup
+
+The owner approved one 30-minute installed test on October 19 at 19:13 UTC
+(Sentinel_5ca1f5e4bb788191b7a2470b8b42a9dd), then selected personal ChatGPT
+(Sentinel_4d576ff6134481919bb4eaaa71450b8c). The exact approved report is
+983ccb10307b07256daba171bee084568fc82d0e8c1772d4c3dffec0a7d1e439. The test
+began at 19:18:02 UTC, with cleanup by 19:48:02. Registration succeeded;
+Connect failed before host storage, pairing or sign-in. Scoped launchctl bootout
+removed the failing job; SMAppService still reports its registration enabled.
+No provider test passed. Do not reset the clock or silently activate new bytes.
+
+Under existing routine repair and test-cleanup authority, add an explicit cleanup
+control only when the exact verified host has no durable host directory and the
+client has no pairing, pending setup, disconnect, account or removal records.
+Hold the existing owner-setup file lock through verification and unregistration.
+Recheck the bundle and storage boundary, use SMAppService.unregister, and require
+notRegistered. Existing paired installations retain their durable removal path.
+
+Vendor independence: this repairs an Apple lifecycle adapter without changing
+provider contracts or account selection. Modularity: the storage absence proof
+stays in MacAgentStorage, startup in MacHostControl, and UI in the existing setup
+view/model. Speed: no polling or daemon is added; run focused behavior tests and
+record rebuild duration without calling it a benchmark. Installation/removal:
+the new action removes only the fresh registration, deletes no files or history,
+and refuses existing or unverified state. No permission or entitlement expansion.
+
+Exact source files: MacHostControl.swift, MacAgentStorage.swift, MessengerModel.swift,
+OwnerSetupView.swift and MacHostControlTests.swift / MacAgentStorageTests.swift in
+successor/apple/FortKit's existing source/test directories. Acceptance: first a
+public-controller regression for fresh removal, then refused pending/paired or
+existing-storage states, failed unregistration and identity changes. Rebuild and
+inspect the exact cleanup candidate before its approved removal action; preserve
+the original signed candidate/report and do not continue provider testing on new
+bytes without assessing their scope. Rollback restores source while retaining all
+activation and cleanup evidence. Installed helper startup remains a separate defect.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/installed-host-test.md`
+- `successor/evidence/2026-10-17-node-foundation/installed-host-test-cleanup.png`
 
 - `successor/apple/check-installed-setup.swift`
 - `successor/evidence/2026-10-17-node-foundation/installed-setup-quit.md`

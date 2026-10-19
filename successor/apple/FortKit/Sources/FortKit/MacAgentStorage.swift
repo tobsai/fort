@@ -25,6 +25,23 @@ public struct MacAgentStorage: Sendable {
     private let directoryIdentity: Identity
     private static let child = "FortHost"
 
+    static func requireUnprepared(for endpoint: MacAgentEndpoint) throws {
+        try requireUnprepared(for:endpoint,resolveContainer:FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:))
+    }
+    static func requireUnprepared(for endpoint: MacAgentEndpoint, resolveContainer: (String) throws -> URL?) throws {
+        guard let url = try resolveContainer(endpoint.appGroup), url.isFileURL,
+              url.host == nil || url.host == "", url.path.hasPrefix("/"), !url.path.contains("\0") else { throw MacAgentStorageError.groupUnavailable }
+        let parent = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard parent >= 0 else { throw ioError() }
+        defer { Darwin.close(parent) }
+        let expected = try identity(parent,privateDirectory:false)
+        let canonical = try path(parent)
+        try verifyLink(parent:AT_FDCWD,name:canonical,expected:expected)
+        var info = stat()
+        guard fstatat(parent,child,&info,AT_SYMLINK_NOFOLLOW) == -1, errno == ENOENT else { throw MacHostRemovalError.setupBlocked }
+        try verifyLink(parent:AT_FDCWD,name:canonical,expected:expected)
+    }
+
     public static func prepare(for endpoint: MacAgentEndpoint) throws -> Self {
         try prepare(for:endpoint,resolveContainer:FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:))
     }

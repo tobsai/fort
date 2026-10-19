@@ -4,6 +4,7 @@ import SwiftUI
 struct MacHostControlView: View {
     @Bindable var model: MessengerModel
     @Bindable var host: MacHostControl
+    @State private var removeUnpairedStartup = false
     var body: some View {
         Section("Local host") {
             Text(host.message).font(.callout).accessibilityIdentifier("local-host-status")
@@ -17,9 +18,18 @@ struct MacHostControlView: View {
                 Button("Enable local host") { Task { await model.enableLocalHost() } }
                     .disabled(!model.canEnableLocalHost).accessibilityIdentifier("local-host-enable")
             }
+            if model.canDisableUnpairedLocalHost {
+                Button("Remove unused startup registration…") { removeUnpairedStartup = true }
+                    .accessibilityIdentifier("local-host-remove-unpaired")
+            }
             Button("Check host status") { Task { await model.inspectLocalHost() } }
                 .disabled(!model.canInspectLocalHost).accessibilityIdentifier("local-host-inspect")
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
+        }.alert("Remove unused startup registration?",isPresented:$removeUnpairedStartup) {
+            Button("Cancel",role:.cancel) {}
+            Button("Remove registration",role:.destructive) { Task { await model.disableUnpairedLocalHost() } }
+        } message: {
+            Text("Removes this app’s startup registration only if no pairing or host data exists. Saved files and credentials are kept.")
         }
     }
 }

@@ -7,12 +7,15 @@ private actor HostControlBackend: MacHostStartupBackend {
     var current: MacHostStartupStatus = .notRegistered
     var inspections = 0
     var registrations = 0
+    var unregistrations = 0
+    var removalFails = false
+    func setRemovalFails() { removalFails = true }
     var registrationResult: MacHostStartupStatus = .enabled
     func setStatus(_ value: MacHostStartupStatus) { current = value }
     func setRegistrationResult(_ value: MacHostStartupStatus) { registrationResult = value }
     func status() -> MacHostStartupStatus { inspections += 1; return current }
     func register() { registrations += 1; current = registrationResult }
-    func unregister() { Issue.record("Host controls must not bypass durable removal") }
+    func unregister() { unregistrations += 1; if !removalFails { current = .notRegistered } }
 }
 @MainActor private final class HostControlFixture {
     let app = URL(fileURLWithPath:"/synthetic/Fort.app",isDirectory:true)
@@ -23,6 +26,7 @@ private actor HostControlBackend: MacHostStartupBackend {
     var changedIdentity = false
     var wrongApp = false
     var unavailableStartup = false
+    var hostPrepared = false
     var holdInspection = false
     var waiting: CheckedContinuation<Void,Never>?
     func inspect(_ url: URL) async throws -> MacHostBundle {
@@ -37,8 +41,43 @@ private actor HostControlBackend: MacHostStartupBackend {
         MacHostControl(applicationURL:app,inspectBundle:inspect,makeStartup:{
             if self.unavailableStartup { throw MacHostStartupError.unavailable }
             return try MacHostStartup(endpoint:$0,backend:self.backend)
-        })
+        },requireUnprepared:{ _ in if self.hostPrepared { throw MacAgentStorageError.unsafeDirectory } })
     }
+}
+
+@Test @MainActor func hostControlRemovesFreshRegistrationBeforePairing() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+    defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = HostControlFixture(), control = fixture.control()
+    await fixture.backend.setStatus(.enabled); await control.inspect()
+    try await control.disableUnpaired(storageDirectory:root)
+    #expect(control.status == .notRegistered)
+    #expect(await fixture.backend.unregistrations == 1)
+    #expect(try FileManager.default.contentsOfDirectory(atPath:root.path) == ["owner-setup.lock"])
+}
+
+
+@Test(arguments:["connection.json","owner-setup.json","disconnected.json","pairing-removal.json","host-removal.json","history-removal.json","account-sign-in.json","companion-setup.json","host-data","signature","identity","unregister-failure"])
+@MainActor func hostControlUnpairedRemovalRefusesSavedOrUnconfirmedState(_ variant: String) async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+    defer { try? FileManager.default.removeItem(at:root) }
+    let fixture = HostControlFixture(), control = fixture.control()
+    await fixture.backend.setStatus(.enabled); await control.inspect()
+    if variant.hasSuffix(".json") {
+        let file = root.appendingPathComponent(variant)
+        try Data("preserve existing state".utf8).write(to:file)
+        try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
+    }
+    if variant == "host-data" { fixture.hostPrepared = true }
+    if variant == "signature" { fixture.invalidSignature = true }
+    if variant == "identity" { fixture.changedIdentity = true }
+    if variant == "unregister-failure" { await fixture.backend.setRemovalFails() }
+    await #expect(throws:(any Error).self) { try await control.disableUnpaired(storageDirectory:root) }
+    #expect(await fixture.backend.unregistrations == (variant == "unregister-failure" ? 1 : 0))
+    #expect(control.status != .notRegistered)
+    if variant.hasSuffix(".json") { #expect(try Data(contentsOf:root.appendingPathComponent(variant)) == Data("preserve existing state".utf8)) }
 }
 
 @Test @MainActor func hostControlConstructionAndInspectionNeverRegisterOrPair() async throws {
