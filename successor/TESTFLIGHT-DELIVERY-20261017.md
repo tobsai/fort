@@ -1,5 +1,31 @@
 # Fort delivery through TestFlight
 
+## Host paired; private runtime startup repaired; authentication handed off
+
+October 20: the owner's explicit override in
+Sentinel_cc6a553555a481919adde09325fb740c admitted the previously blocked activation.
+The repaired host started and paired. A fresh private Codex configuration then failed
+before authentication because it declared disabled MCP servers without transports.
+The narrow fix requests an empty MCP map and retains all effective-control checks.
+Two public regressions failed first; 561 focused tests now pass with five optional
+benchmark skips, strict TypeScript checking passes, and the compiled executor passes
+official Codex initialization/control checks in a signed no-network diagnostic.
+
+The replacement report is
+0ab05d939bcbdc7eb1d0905156790a42a1db4375b5bb1ac63d6106cb95d563fc.
+All 206 installed files, 30 signatures, exact entitlements and native bundle inspection
+pass. The previous copy is preserved. The first paired test's normal removal confirmed
+shutdown, revocation, unregistration and credential removal; independent absence
+passed. Settings must be closed before normal Quit; that UI defect remains open.
+
+The replacement connected through Set up Fort again and reached the official device
+challenge. The verification page was opened at 00:06:29 UTC; the owner was asked to
+complete personal ChatGPT verification without sharing the code. Account selection,
+Astra discovery and prompt tests await that interaction. Zero of six prompts used.
+This checkpoint leaves the exact host/pairing active for the authentication handoff;
+final cleanup is pending. G2 remains separately held. [Evidence](evidence/2026-10-17-node-foundation/installed-host-test.md#empty-mcp-repair-and-authentication-handoff).
+Earlier activation-rejection and inactive-app statements below are historical.
+
 ## Repaired candidate installed; activation rejected by automatic review
 
 October 19, 23:49 UTC: the owner extended test time as needed in

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9ebfc1e90639fefcba4f63472eaf321a47160716a339ef2927b768658eaae744
+Reviewed content SHA256: 550a646281ca7807f0283c0eace8300e9ab234a6e981ef10d4800c609158a98e
 
 ### Vendor independence
 Status: planned
@@ -3313,7 +3313,55 @@ tests rerun; installed provenance, signatures, UI status, normal Quit and absenc
 the acceptance evidence for this checkpoint. Rollback retains all historical source
 and artifact copies. Full installed host/provider/lifecycle acceptance remains open.
 
+## Empty private MCP configuration for official Codex startup
+
+The explicit October 19 23:52:20 confirmation
+(Sentinel_cc6a553555a481919adde09325fb740c), responding to the exact startup,
+pairing, personal ChatGPT, six-prompt and cleanup proposal in
+Sentinel_cd9527eaa9a88191bda2e6a8934b1cca, admitted the previously rejected
+activation. The repaired helper started and this Mac paired. One sign-in attempt
+ended unconfirmed before a device challenge. Normal removal confirmed shutdown,
+revocation, unregistration and local credential removal; independent job/process
+and provider-credential-path absence passed at 23:57:29 UTC. History was retained.
+No prompts have been sent. A Settings sheet blocked normal Quit until Back/Done
+closed it; that separate UI defect remains open.
+
+A separate signed no-network diagnostic with fresh empty state reproduces the
+pinned official Codex 0.157.1 error: invalid transport in mcp_servers.spritepipe.
+The private launch creates disabled MCP entries without required transport fields.
+Replacing those incomplete declarations with an empty MCP map permits initialization;
+Fort's old named-server requirements then reject the legitimately empty result.
+No diagnostic requests login, account reads, model discovery or a prompt.
+
+Remove the three named-server declarations from shared requested settings and
+make the private launch explicitly request an empty mcp_servers map. Effective
+configuration must still reject every server that is not explicitly disabled;
+MCP inventory checks continue requiring configured, inert servers in both scopes.
+Historical fixtures with valid disabled definitions remain supported. Do not add
+fake transports, enable a connector, import ambient configuration or weaken tool,
+filesystem, network, account or exact-runtime checks.
+
+Vendor independence: this is inside the optional pinned Codex adapter; core contracts
+are unchanged. Modularity: no MCP dependency is introduced; empty private configuration
+removes accidental named integrations. Speed: no new startup process or polling;
+measure bounded focused tests and the real no-network initialization probe without
+a performance claim. Installation/removal: existing entitlements, credential paths,
+startup lifecycle and cleanup requirements remain; preserve every prior artifact.
+
+Exact product paths: successor/runner/codex-controls.ts and private-codex-plan.ts.
+Tests: codex-startup-contract.test.ts and private-codex-plan.test.ts in the same
+directory. First prove that empty config/inventory passes the public Codex preflight
+seam and that private launch explicitly supplies no server definitions; observe the
+red, then apply the narrow fix. Retain active/unknown-server refusal tests and run
+account/executor regressions, strict typechecking, artifact build and signed no-network
+probe. Repin and verify a replacement before any same-scope installed retry. This
+spec, existing installed test/proposal/helper notes, three ledgers and current review
+carry the evidence. Rollback preserves history, installed copies and old reports.
+Full provider acceptance remains open; G2 upload is excluded.
+
 ## Implementation paths
+
+- `successor/runner/codex-controls.ts`
 
 - `successor/evidence/2026-10-17-node-foundation/helper-self-inspection.md`
 

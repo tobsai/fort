@@ -1,5 +1,14 @@
 # Exact installed Mac host/provider test proposal
 
+The explicit override in Sentinel_cc6a553555a481919adde09325fb740c resolved the
+activation rejection below. Same-scope testing exposed and repaired the private
+MCP startup configuration. The installed replacement is now pinned by report
+0ab05d939bcbdc7eb1d0905156790a42a1db4375b5bb1ac63d6106cb95d563fc, with unchanged
+permissions, personal ChatGPT and six total prompts. The official authentication
+handoff was reached at 00:06:29 UTC on October 20; user verification and subsequent
+acceptance/cleanup are pending. [Current evidence](installed-host-test.md#empty-mcp-repair-and-authentication-handoff).
+Older rejected/inactive status below is historical; G2 remains separately held.
+
 The repaired candidate pinned by report
 b887864ad524a4cd312130b1f55cc2eb7abfec666a19dcaeb50ad29541fbecae is now installed
 and stopped. The owner extended testing time as needed at 23:43:54 UTC

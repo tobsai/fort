@@ -42,7 +42,7 @@ test('the private plan starts only the exact synthetic program with fixed contro
       const separator = setting.indexOf('='); settings.set(setting.slice(0, separator), setting.slice(separator + 1));
     }
     for (const [name, expected] of Object.entries({ 'analytics.enabled': false, check_for_update_on_startup: false,
-      forced_login_method: 'chatgpt', cli_auth_credentials_store: 'file', mcp_oauth_credentials_store: 'file',
+      forced_login_method: 'chatgpt', cli_auth_credentials_store: 'file', mcp_oauth_credentials_store: 'file', mcp_servers: {},
       'otel.exporter': 'none', 'otel.trace_exporter': 'none', 'otel.metrics_exporter': 'none', 'otel.log_user_prompt': false,
       'skills.include_instructions': false, 'cloud.skills.enabled': false, 'orchestrator.mcp.enabled': false,
       default_permissions: 'fort_candidate_b_no_files' })) assert.equal(settings.get(name), JSON.stringify(expected));

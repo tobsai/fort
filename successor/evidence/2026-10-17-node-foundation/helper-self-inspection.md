@@ -1,5 +1,10 @@
 # Helper self-inspection repair
 
+The [later installed continuation](installed-host-test.md#empty-mcp-repair-and-authentication-handoff)
+confirmed this helper startup and pairing repair. A separate private MCP configuration
+fix then reached official authentication. Provider replies and final cleanup remain
+pending at that handoff; prior inert-candidate statements below are historical.
+
 Spec 059 / decision 059. October 19, 2026. Base
 4ca08324a851b37cfab0dcc89bba105ac755649b. The first installed attempt ended after cleanup;
 its [failure and confirmed cleanup](installed-host-test.md) remain separate evidence.

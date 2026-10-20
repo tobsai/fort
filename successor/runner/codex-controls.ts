@@ -5,7 +5,6 @@ import {CODEX_PERMISSION_PROFILE,verifyPermissionDeclaration,verifyPermissionCat
 export const CODEX_SETTINGS = [
   ['analytics.enabled',false],['check_for_update_on_startup',false],['model_provider','openai'],['notify',[]],['web_search','disabled'],['project_doc_max_bytes',0],
   ['skills.include_instructions',false],['skills.bundled.enabled',false],['cloud.skills.enabled',false],['orchestrator.mcp.enabled',false],
-  ['mcp_servers.spritepipe.enabled',false],['mcp_servers.node_repl.enabled',false],['mcp_servers.computer-use.enabled',false],
   ['default_permissions',CODEX_PERMISSION_PROFILE],
 ] as const satisfies ReadonlyArray<readonly [string,string|number|boolean|readonly string[]]>;
 // Requested CLI opt-outs; pinned-runtime observations are checked separately below.

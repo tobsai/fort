@@ -83,6 +83,17 @@ test('named no-files profile permits synthetic text with no legacy sandbox selec
   }finally{await f.runtime.dispose();}
 });
 
+test('an empty MCP configuration and inventory permit the private text-only runtime',async()=>{
+  const f=fixture((method,response)=>{
+    if(method==='config/read')object(response.config).mcp_servers={};
+    if(method==='mcpServerStatus/list')response.data=[];
+  });
+  try{
+    assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
+    assert.equal(f.calls.filter(call=>call.method==='mcpServerStatus/list').length,2);
+  }finally{await f.runtime.dispose();}
+});
+
 test('configured disabled MCP rows are inert globally and in thread scope',async()=>{
   const f=fixture();
   try{
@@ -116,8 +127,7 @@ async function refused(mutate:Mutate,thread=false){
 const requiredConfig=[
   ['analytics.enabled',true],['check_for_update_on_startup',true],['model_provider','other'],['notify',['synthetic-command']],
   ['web_search','live'],['project_doc_max_bytes',1],['skills.include_instructions',true],['skills.bundled.enabled',true],
-  ['cloud.skills.enabled',true],['orchestrator.mcp.enabled',true],['mcp_servers.spritepipe.enabled',true],
-  ['mcp_servers.node_repl.enabled',true],['mcp_servers.computer-use.enabled',true],['default_permissions',':read-only'],
+  ['cloud.skills.enabled',true],['orchestrator.mcp.enabled',true],['default_permissions',':read-only'],
 ] as const;
 for(const [path,unsafe] of requiredConfig)for(const mode of ['missing','changed'] as const){
   test(`config ${path} ${mode} stops before discovery and dispatch`,async()=>{
@@ -129,6 +139,11 @@ for(const [path,unsafe] of requiredConfig)for(const mode of ['missing','changed'
       assert.equal(f.calls.some(call=>['experimentalFeature/list','mcpServerStatus/list','thread/start','turn/start'].includes(call.method??'')),false);
     }finally{await f.runtime.dispose();}
   });
+}
+for(const name of ['spritepipe','node_repl','computer-use','unrecognized'])for(const value of [{enabled:true},{}]){
+  test(`MCP configuration ${name} without explicit disabled state is refused`,()=>refused((method,response)=>{
+    if(method==='config/read')object(response.config).mcp_servers={[name]:value};
+  }));
 }
 for(const [path,value] of [
   ['mcp_servers',{...pinned.config.mcp_servers,ambient:{}}],['model_providers',{openai:{}}],

@@ -31,7 +31,7 @@ export function privateCodexLaunchPlan({ executable, guardian, directory }: Priv
     const current = inspect(path), prior = identities[index];
     if (current.dev !== prior?.dev || current.ino !== prior.ino) throw new Error('Runtime directory changed during inspection');
   }
-  const settings = [...CODEX_SETTINGS, ['forced_login_method', 'chatgpt'], ['cli_auth_credentials_store', 'file'], ['mcp_oauth_credentials_store', 'file'],
+  const settings = [...CODEX_SETTINGS, ['mcp_servers', {}], ['forced_login_method', 'chatgpt'], ['cli_auth_credentials_store', 'file'], ['mcp_oauth_credentials_store', 'file'],
     ['otel.exporter', 'none'], ['otel.trace_exporter', 'none'], ['otel.metrics_exporter', 'none'], ['otel.log_user_prompt', false]] as const;
   const args = Object.freeze(['app-server', '--listen', 'stdio://', ...[...settings.map(([name, value]) => `${name}=${JSON.stringify(value)}`), CODEX_PERMISSION_OVERRIDE].flatMap(value => ['-c', value]),
     '--enable', 'skip_host_skill_discovery', ...CODEX_DISABLED_FEATURES.flatMap(value => ['--disable', value])]);

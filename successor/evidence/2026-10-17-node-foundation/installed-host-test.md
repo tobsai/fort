@@ -8,6 +8,76 @@ proposal was Sentinel_1d0357e845108191bda2c580952409d5. No G2 upload approval fo
 The subsequent [self-inspection repair](helper-self-inspection.md) has source and
 read-only sandbox evidence. It does not turn this failed live test into a pass.
 
+## Empty MCP repair and authentication handoff
+
+The owner explicitly overrode the initial startup prohibition at 23:52:20 UTC
+(Sentinel_cc6a553555a481919adde09325fb740c), responding to the exact test scope in
+Sentinel_cd9527eaa9a88191bda2e6a8934b1cca. The previously blocked action was retried
+once and admitted. Enable succeeded at 23:53:01; helper startup/XPC, Node/guardian
+and this Mac's pairing succeeded. There was no automatic helper restart loop.
+
+One official sign-in attempt ended unconfirmed before presenting a device challenge.
+Read-only metadata found no provider credential file. A separate signed diagnostic
+with no network entitlement and fresh empty state reproduced Codex's invalid-transport
+error for mcp_servers.spritepipe. It never requested account reads, login, discovery
+or prompts. The first diagnostic omitted the guardian's required process-group
+flag; that probe mistake was corrected before diagnosis. A later diagnostic signal
+returned sandbox EPERM after runtime exit; exact process absence was independently
+reconciled. The decisive startup failure was the official configuration parser.
+
+The existing controls created three named disabled MCP entries without transports.
+Removing those incomplete declarations and explicitly requesting an empty private
+MCP map permits startup. Shared attestation still rejects any server not explicitly
+disabled; configured inert rows and both global/thread inventory checks are retained.
+No transport, connector, entitlement, account fallback or tool permission was added.
+The private paths still reject ambient config and protect credential metadata.
+
+The new empty-MCP public runtime test and private-plan assertion both failed first.
+After the fix, 561 focused tests passed with five optional benchmark skips. The
+initial restricted run had 18 local-IPC fixture failures; normal local IPC access
+passed the same suite. Strict TypeScript checking and executor artifact compilation
+passed. Fourteen additional legacy-caller/artifact tests passed with one optional
+benchmark skip; those fixtures never activated a historical provider packet.
+The actual compiled executor passed initialize and effective controls in
+the signed no-network diagnostic with no stderr. This proves startup, not a reply.
+
+Before replacing the app, normal Prepare to remove Fort confirmed host shutdown,
+revocation, startup unregistration and local credential removal. The AX confirmation
+returned -25205 while the UI actually reported success; no action was repeated.
+Normal Quit with Settings open failed; Back/Done then normal Quit succeeded. Exact
+job/process absence and provider-credential-path absence passed at 23:57:29 UTC.
+The retained database and removal receipts were kept. Keychain content was not read;
+the app's completed removal path reported scoped device-token removal. This separate
+Settings-sheet Quit defect still needs a public regression and repair.
+
+The replacement is /tmp/fort059-empty-mcp-signed-20261020/Fort.app, installed at
+/Users/tobiasgunn/Applications/Fort.app. It contains 206 files / 406,612,452 bytes
+and 30 Mach-O objects. Report SHA256
+0ab05d939bcbdc7eb1d0905156790a42a1db4375b5bb1ac63d6106cb95d563fc;
+payload SHA256 f8d34ba0dcd15b49ad8146993e03e6bbb72f81c3972e33fc6eaa72230d55323f.
+Source base is 6c848f7d3f0a352a20acdde14b57831f93f2c1fb; the report pins the two
+changed TypeScript source hashes. Compiled controls/plan/declarations, executor
+manifest and signature seals changed; native executable changes are re-signing.
+All file membership/hash/mode/size checks, all 30 strict signatures/public leaf
+fingerprints, unchanged entitlements, strict nested signature and native bundle
+inspection passed. The old installed copy is preserved at
+/tmp/fort059-installed-self-inspection-preserved-20261020.app.
+
+Set up Fort again retained prior history. Enable succeeded at 00:03:42 UTC; an
+immediate Connect press was refused while the control was disabled, then one later
+press when enabled paired successfully. Toolbar menu Accessibility lookup missed
+an item that the screenshot showed; exact label/process-checked hit-testing opened
+Settings. No authentication action occurred during that navigation.
+
+The repaired app reached the official device challenge, and Open verification page
+succeeded at 00:06:29 UTC. The user was immediately asked to complete personal
+ChatGPT verification and confirm when finished. The code was not read, recorded or
+transmitted. Zero of six model prompts have been sent. At this handoff the exact
+host/pairing are active; final cleanup remains pending. Do not claim authentication,
+account selection, Astra discovery/replies or TestFlight acceptance. G2 is excluded.
+Raw redacted logs, metadata, screenshots before authentication, candidate reports and
+the handoff record remain under /tmp/fort059-attended-resume-20261019.
+
 ## Extended-time continuation
 
 At 23:43:54 UTC the owner said “Extend these as long as needed as a rule going
