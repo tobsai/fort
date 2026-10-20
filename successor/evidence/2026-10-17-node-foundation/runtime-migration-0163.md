@@ -74,3 +74,46 @@ Raw source-test/preflight artifacts: /tmp/fort059-runtime-migration-20261020.
 At this checkpoint the real ledger/app are unchanged, no sign-in/activation occurred,
 and zero of the three prompts were used. Installed/native/provider acceptance,
 effective-model reporting, physical iPhone, TestFlight and G2 remain unrun here.
+
+## Installed update and owner sign-in checkpoint
+
+Source commit d8d76bc3. The signed candidate contains 208 files and 30 Mach-O
+objects. Every file, signature, certificate, entitlement and native bundle check
+passed. Signed report SHA256:
+b0d2151d36d53ca947e5dc79f70a0b156dad1366772b99ef6cdbe4e5f287c623.
+Payload SHA256: 61572624b555b8897f73babf7fbcfce9db1ebc2987d0feeb171802756f1df700.
+Signing uses the existing identity/profiles and unchanged entitlements. Normal
+sandboxed signature verification lacked system trust access; the same read-only
+verification passed with the supported escalation. No permissions were broadened.
+
+A private closed copy of the real ledger passed apply/retry/exact logical rollback
+and repeated rollback. Original schema/rows were restored on that copy. The real
+migration then applied once: one current Agent revised, two prior bindings disabled.
+The complete old installed app and closed ledger were preserved before an atomic
+same-filesystem bundle swap. Independent post-migration comparison confirmed all
+historical rows and all unrelated metadata exactly preserved. Current model stayed
+gpt-6-astra; only runtime version became 0.163.0. Post-migration ledger SHA256:
+2af02c82dd93012983cde2ded7493576c4fd39eda20ebc996624070b575d95a6.
+After subsequent setup writes, do not restore that old backup over current history.
+
+Normal installed setup enabled the local host and connected this Mac. Settings →
+Pairing and local host opened. One initial dialog disappeared between checks and
+Stop state was observed; the initiating actor was not established. Explicit Resume
+succeeded. A bounded observed flow then opened the stop confirmation, verified both
+Cancel/Confirm, pressed Escape and confirmed cancellation with pairing intact.
+Direct AX Cancel returned an unsupported-action diagnostic and is not counted as
+passing. Normal foreground Command-Q with the Pairing sheet open succeeded; reopening
+restored the paired workspace without setup. A screenshot was visually inspected;
+it included dimmed conversation content behind the sheet, so the raw image was
+removed instead of retained as evidence. Menu enumeration was also narrowed to menu
+controls after it included row descriptions. No transcript is copied into this note.
+
+Fort’s normal managed device-code sign-in now displays its challenge; the official
+verification link was opened for the owner. The owner must complete it using the
+same personal ChatGPT account and code visible in Fort. No code/token was copied.
+Zero of three prompts used. Exact 6.1 selection/inference and final cleanup await
+that owner step. The app and local host are currently running/paired for this
+pending flow; startup, pairing and any newly created local provider credential
+must be removed after smoke. Remote grants are not revoked by local cleanup.
+No TestFlight/G2/upload, push or merge occurred. Raw status and durable prompt budget
+are in /tmp/fort059-runtime-migration-20261020/attended-state.json and prompt-budget.json.

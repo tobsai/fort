@@ -1,5 +1,21 @@
 # Apple host activation gate
 
+## Current checkpoint: 0.163.0 installed; normal sign-in awaits owner
+
+Migration source `d8d76bc3` is installed. The 208-file candidate and all 30 signatures,
+unchanged entitlements and native bundle inspection pass. Apply/retry/exact rollback
+passed on a closed real-ledger copy; actual migration preserved every historical
+row and unrelated metadata. App and ledger backups are retained privately. The
+installed model remained Astra pending explicit native selection.
+
+Normal host setup/pairing passed. Observed stop confirmation → Escape Cancel kept
+pairing; foreground Command-Q from Pairing Settings succeeded. Relaunch restored
+the paired workspace. Normal managed device-code sign-in is now awaiting the owner;
+its verification page is open. **0/3 prompts used.** Local startup and pairing remain
+active for this pending step; final cleanup is still required after smoke. Do not
+claim effective 6.1 inference, cleanup, TestFlight or G2 completion. See the
+[installed checkpoint](evidence/2026-10-17-node-foundation/runtime-migration-0163.md).
+
 ## Current checkpoint: explicit runtime migration passes source validation
 
 October 20, after offline runtime commit `3f8ea843`. The owner approved the bounded
