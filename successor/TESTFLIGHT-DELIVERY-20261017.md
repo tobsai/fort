@@ -464,3 +464,11 @@ The existing exact-identity, history and disconnected cleanup constraints remain
 No new live prompt or provider access; the prior prompt budget remains 2/3.
 Source, synthetic UI proof and signed installed checks are recorded separately.
 This does not close TestFlight, effective-model or physical acceptance gates.
+
+Completed: source `310b06a9`, portable 1423 pass/16 skips, native 350 pass/16
+skips, strict typecheck and final Mac builds. The signed update is installed at
+`/Users/tobiasgunn/Applications/Fort.app`; all 208 files and 30 binary signatures
+verified. Exact installed disconnected accessibility/screenshot/normal quit and
+final absence checks pass. Ledger unchanged: 1 Agent, 12 messages, 6 runs; no
+credentials, pairing, startup job or Fort processes. New-source live provider and
+human IME acceptance remain unrun; no remaining live prompt was consumed.

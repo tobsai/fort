@@ -67,8 +67,7 @@ completed, with effective model unreported. Retained history is not replaced.
 
 ## Remaining acceptance
 
-Signed installation and exact installed disconnected checks are recorded below
-when completed. New-source real-provider sign-in/catalog/inference, an actual
+Signed installation and exact installed disconnected checks passed as recorded below. New-source real-provider sign-in/catalog/inference, an actual
 IME session, physical iPhone, TestFlight/G2 and provider-side closure remain unrun.
 This increment neither activates the host nor creates credentials or startup jobs.
 No remote push, merge, deployment, visibility change or provider cleanup occurs.
@@ -86,3 +85,31 @@ Inspected screenshot SHA256 values (local files, synthetic data only):
 - `qa-mismatch-advanced.png`: `c7e5ca1755dc39dcc60c9134dc67998d589de7da9c82d8d8b195dbcefcb3c9f6`.
 - `qa-composer-multiline.png`: `e53ce22e2d01e6eb92d0fd729089f8cb919407e16f7306bca859acfd48fee29c`.
 - `qa-composer-sent.png`: `8fcc878355ab27a6c60a0e27028df5e84c1af32ef416e8de3bc2c08e06902cad`.
+
+## Signed installed result
+
+Source commit: `310b06a936aa8bb4bcbb8ea99e84167a4f0e0b6f`. Installed app:
+`/Users/tobiasgunn/Applications/Fort.app`. Previous verified app is retained at
+`/tmp/fort059-single-account-20261020/previous-installed.app`. The update used an
+atomic bundle swap after checking both payloads and the disconnected state.
+
+The existing signing identity, profiles, entitlements, app IDs, helper, guardian,
+Node and Codex 0.163.0 pins are unchanged. All 208 payload files/modes/hashes and
+30 Mach-O signatures/certificates passed verification; the native bundle inspector
+passed. The exact installed client opened disconnected, showed local host not
+enabled, disabled Send, no provider sign-in and no historical message elements.
+Its screenshot was inspected and normal Command-Q succeeded. All 208 files still
+matched the candidate afterward.
+
+Signed report SHA256: `b9802e94dc45c4554cc23c3998c47cf99bc3d3238845533025b1c0de9d80e89a`.
+Payload SHA256: `fdfeaa5f28d6b0ff953fadba2ded734d8986889a1f85c27b7c7293e6861e8cfe`.
+Installed screenshot SHA256: `2b82d9f5bc49978f28f607d3b11fa4c49a600b0ec062e440082214f23a37c170`.
+
+Final closed-ledger and absence checks: one Agent, 12 messages, six runs retained;
+zero devices, enrollment and outbox rows. No Fort process, startup job, provider
+auth file or client connection remains. Original pre-migration messages/runs are
+unchanged; the complete ledger hash remains
+`e8005f96248cb27d48a74c446ab5f15f22baaf48e468dffc1f9b9ca59e68c561`.
+No new provider request or prompt was made; historical prompt use stays 2/3.
+The installed check is disconnected smoke, not live first-sign-in or inference
+acceptance. No merge, push, deployment, remote visibility change or provider cleanup.
