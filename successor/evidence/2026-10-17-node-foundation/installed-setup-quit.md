@@ -125,3 +125,67 @@ pending. The 30-minute/six-request proposal is a one-time attended test boundary
 it is not a pairing expiry, runtime quota or product limit. The G2 upload remains
 held under the parent's separate approval flow. No upload or certificate issuance
 was attempted during this repair.
+
+## Settings sheet repair, October 20
+
+Source base: 6ffca1e0f3047396e8ae7884b391da55e369044d. The installed paired cleanup
+later exposed a second sheet with the same AppKit default: Quit with Settings open
+left the client running; Back/Done then Quit exited. The October 19 fix above only
+attached its window bridge to Connect to Fort. It did not cover Settings.
+
+FortSettingsView now attaches that same bridge. SetupSheetWindow was renamed to
+internal NonBlockingSheetWindow so the two views share it. The bridge still only
+sets its containing window's preventsApplicationTerminationWhenModal to false when
+attached. It cannot receive clicks or appear in accessibility. No global termination
+override, account cancellation, host stop, persistent write or dependency was added.
+The Settings navigation root keeps the bridge attached while its account page is open.
+
+The new settingsSheetAllowsNormalQuitWithoutChangingDraftOrStoredState test renders
+the real Settings view into a hidden NSWindow. Before the fix it fails because the
+window blocks termination. Afterward it passes, with the draft unchanged, the window
+still invisible and the temporary storage empty. It never orders a window front or
+constructs an owned host/provider connection. This checks the public window behavior;
+it does not invoke Quit on an installed app or prove preservation across process exit.
+
+Validation:
+
+- Observed red: one new test fails at the modal termination assertion. Green: the
+  same test passes after the three-line Settings attachment and bridge rename.
+- The focused settings/setup/removal-model run has 25 passing test functions, no
+  skips and no failures with `swift test --disable-sandbox --no-parallel`. Two
+  earlier parallel runs each have 24 passes and one existing timing failure:
+  ordinaryMacRemovalCompositionMetadataBudget p95 52.55 and 65.75 ms versus its
+  50 ms limit. The first overlaps native builds; the second does not. Its async
+  samples share the main actor with the other tests, including SwiftUI initialization.
+  Sequential p95 is 0.668 ms. No production timing code or test limit was changed;
+  parallel timing reliability remains an open validation concern before broad CI signoff.
+- Fresh unsigned Release FortMac and FortiOS Simulator builds pass. The installed
+  CoreSimulator service/version warning prevents simulator device support in this
+  environment; these are compile results, not simulator/device execution.
+- Full spec, accepted implementation, staged scope/review and whitespace checks pass.
+  No fresh portable suite, helper package/signature checks, installed AX/screenshot,
+  changed-build Quit, real-provider or TestFlight acceptance ran for this Swift view fix.
+
+Commands and raw logs are under /tmp/fort059-settings-quit-20261020: red.log,
+green.log, focused.log, focused-isolated.log, focused-serial.log, mac-build.log,
+ios-build.log and build-artifacts.json. Swift used the existing scratch directory
+/tmp/fort059-host-startup-tests and module cache /tmp/fort059-swift-module-cache.
+The final filter is settingsSheet|agentSettings|modelPicker|avatarMotion|
+providerNeutralCatalog|ownerSetupModel|ordinaryMacModel|ordinaryMacReinstall|
+ordinaryMacRemovalComposition. Each build used CODE_SIGNING_ALLOWED=NO and a fresh
+separate derived-data directory. Produced artifacts are:
+
+- /tmp/fort059-settings-quit-native-build-20261020/Build/Products/Release/FortMac.app;
+  native executable SHA256 4bd16858216b5c89dab930cd8f5ac342f422a0edf95681560492839143b6fd06.
+- /tmp/fort059-settings-quit-ios-build-20261020/Build/Products/Release-iphonesimulator/FortiOS.app;
+  executable SHA256 4c64e3ac859e68a2abcb0f1a282915e51753bf674fdf56767bb29da4f1c17443.
+
+Neither artifact was signed, installed or launched. The installed empty-MCP report
+0ab05d939bcbdc7eb1d0905156790a42a1db4375b5bb1ac63d6106cb95d563fc remains the active
+handoff artifact. Its app, sign-in UI and active host/pairing were left untouched;
+no codes or credentials were inspected or generated. Owner confirmation of personal
+ChatGPT authentication is awaited; zero of six prompts have been sent. Account
+selection, Astra discovery, final cleanup and changed-build installed Quit remain
+pending. A normal client Quit is not host unregistration or credential removal.
+G2 upload is separately held. Earlier stopped/unregistered statements in this file
+are historical observations of their exact earlier builds and test phases.

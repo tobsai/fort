@@ -1,5 +1,25 @@
 # Apple host activation gate
 
+## Settings Quit repaired in source; active sign-in left untouched
+
+October 20: the Settings sheet now reuses the setup sheet's window-local termination
+setting. The earlier fix covered only Connect to Fort. A hidden rendering test of
+the real Settings view failed before this change and passes afterward, preserving
+its unsent draft and empty isolated storage. The 25 focused native tests pass with
+`--no-parallel`; two parallel runs each fail only the existing removal timing budget
+(52.55 and 65.75 ms against 50 ms). Sequential p95 is 0.668 ms. The timing test's
+sensitivity to shared-main-actor scheduling remains a validation limitation; its
+threshold and implementation were not changed. Mac and iPhone Simulator Release
+builds pass. No new artifact was signed, installed or launched.
+
+The installed report remains 0ab05d939bcbdc7eb1d0905156790a42a1db4375b5bb1ac63d6106cb95d563fc;
+this source slice did not touch the app, sign-in UI, active host or pairing. Owner
+confirmation of personal ChatGPT authentication is still awaited. Zero of six
+prompts used; account selection, Astra discovery, provider acceptance and final
+cleanup remain pending. Normal Quit on the changed installed build also remains
+unverified. G2 upload is still separately held. See the
+[Settings repair evidence](evidence/2026-10-17-node-foundation/installed-setup-quit.md#settings-sheet-repair-october-20).
+
 ## Host paired; private runtime startup repaired; authentication handed off
 
 October 20: the owner's explicit override in

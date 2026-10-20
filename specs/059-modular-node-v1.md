@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 550a646281ca7807f0283c0eace8300e9ab234a6e981ef10d4800c609158a98e
+Reviewed content SHA256: 8a7c0a1e8893cf76beabd44e900dd8906f3757d4e4d062bd4c6ee140bedbfd2f
 
 ### Vendor independence
 Status: planned
@@ -3358,6 +3358,42 @@ probe. Repin and verify a replacement before any same-scope installed retry. Thi
 spec, existing installed test/proposal/helper notes, three ledgers and current review
 carry the evidence. Rollback preserves history, installed copies and old reports.
 Full provider acceptance remains open; G2 upload is excluded.
+
+## Normal Quit with Settings open while authentication is pending
+
+During the approved installed test, normal Quit with Settings open left the client
+running. Back/Done closed Settings, and the same normal Quit then exited. The earlier
+setup fix changes only the Connect to Fort sheet's window. Settings is a different
+sheet and retains AppKit's default modal termination restriction. The coordinator
+requested the smallest independent repair while preserving the installed sign-in UI
+and active authentication state. Do not replace, relaunch, quit or navigate that app
+for this source slice; do not generate codes or inspect credentials.
+
+Reuse the existing window-local NSViewRepresentable for Settings and setup, with
+an internal shared name. It only sets preventsApplicationTerminationWhenModal=false
+on its own containing window; it remains inaccessible to clicks/accessibility and
+adds no global exit override. Native termination continues through normal AppKit.
+No sign-in cancellation, account selection, stored data, host lifecycle or service
+shutdown behavior changes. Closing the client still does not unregister its host.
+
+Vendor independence: only the Apple client presentation adapter changes; account
+and runtime contracts are untouched. Modularity: reuse the existing window bridge
+across these two sheets, without a new module or global policy. Speed: one property
+assignment per window attachment; run the focused view test and native builds,
+without claiming a benchmark. Installation/removal: permit normal client Quit but
+do not equate it with host/credential removal. Keep the live installed artifact
+unchanged while the owner can be signing in.
+
+Exact source/test paths: successor/apple/FortKit/Sources/FortKit/MessengerView.swift,
+AgentSettings.swift, and Tests/FortKitTests/AgentSettingsTests.swift. Add a failing
+behavior test that renders the real Settings view in a hidden NSWindow and requires
+it to allow application termination while preserving the draft and empty isolated
+storage. No window is ordered front, no real account/runtime is constructed, and
+no test requests provider work. Then reuse the bridge and require green. Build Mac
+and iPhone Simulator for compatibility. Actual normal Quit on the changed installed
+build remains deferred until authentication/testing can safely pause. This spec,
+existing installed setup/test evidence, current ledgers and review record carry the
+results. Rollback restores source only; live authentication and history stay intact.
 
 ## Implementation paths
 

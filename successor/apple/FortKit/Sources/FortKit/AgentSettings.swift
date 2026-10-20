@@ -49,6 +49,9 @@ struct FortSettingsView: View {
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Done") { dismiss() } } }
         }.frame(minWidth:380,minHeight:480)
+        #if os(macOS)
+        .background(NonBlockingSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
+        #endif
     }
 }
 struct AgentSettingsEditor: View {

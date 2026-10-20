@@ -262,7 +262,7 @@ public struct MessengerView: View {
             }
         }.frame(minWidth:320,minHeight:440)
         #if os(macOS)
-        .background(SetupSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
+        .background(NonBlockingSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
         #endif
     }
     @ViewBuilder private var fixtureConnectionFields: some View {
@@ -278,7 +278,7 @@ public struct MessengerView: View {
 }
 
 #if os(macOS)
-private struct SetupSheetWindow: NSViewRepresentable {
+struct NonBlockingSheetWindow: NSViewRepresentable {
     final class SheetView: NSView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
