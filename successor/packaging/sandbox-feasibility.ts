@@ -11,7 +11,7 @@ const command = (tool: string, args: string[]) => execFileSync(tool, args, { enc
 const plist = (values: string) => `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>${values}</dict></plist>`;
 const xml = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const hash = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
-const codexSHA256 = '27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d';
+const codexSHA256 = '8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31';
 
 async function cleanXPC(executables: string[], knownPids: number[]) {
   const owned = () => command('/bin/ps', ['-axww', '-o', 'pid=,pgid=,comm=']).split('\n').flatMap(line => {
@@ -98,9 +98,9 @@ try {
   const codexRuntime = values['codex-runtime'];
   if ((values.scenario === 'codex-version') !== Boolean(codexRuntime)) throw new Error('Select an exact Codex executable only for the explicit codex-version scenario');
   if (codexRuntime) {
-    if (hash(codexRuntime) !== codexSHA256) throw new Error('The selected Codex executable is not the reviewed 0.157.1 payload');
+    if (hash(codexRuntime) !== codexSHA256) throw new Error('The selected Codex executable is not the reviewed 0.163.0 payload');
     for (const [name, expected] of [['LICENSE', 'd17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc'], ['NOTICE', '9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915']]) {
-      if (hash(join(source, 'vendor/codex-0.157.1', name)) !== expected) throw new Error('Codex attribution does not match its reviewed source');
+      if (hash(join(source, 'vendor/codex-0.163.0', name)) !== expected) throw new Error('Codex attribution does not match its reviewed source');
     }
   }
   const timeoutMs = Number(values['timeout-ms']);
@@ -121,10 +121,10 @@ try {
   if (codexRuntime) {
     copyFileSync(codexRuntime, bundledCodex);
     if (hash(bundledCodex) !== codexSHA256) throw new Error('Codex executable changed during preparation');
-    cpSync(join(source, 'vendor/codex-0.157.1'), join(app, 'Contents/Resources/CodexLicenses'), { recursive: true });
+    cpSync(join(source, 'vendor/codex-0.163.0'), join(app, 'Contents/Resources/CodexLicenses'), { recursive: true });
     command('/usr/bin/codesign', ['--force', '--sign', values.identity, '--timestamp=none', '--options', 'runtime', '--entitlements', childEntitlements, bundledCodex]);
     codexBundledSHA256 = hash(bundledCodex);
-    writeFileSync(join(app, 'Contents/Resources/codex-provenance.json'), JSON.stringify({ source: 'https://github.com/openai/codex', sourceCommit: '36650394c5b38c2990ccf2a3457165ca3e9d9726', sourceSHA256: codexSHA256, bundledSHA256: codexBundledSHA256, purpose: 'Offline version-only packaging probe; no provider or release approval' }, null, 2) + '\n');
+    writeFileSync(join(app, 'Contents/Resources/codex-provenance.json'), JSON.stringify({ source: 'https://github.com/openai/codex', sourceCommit: '83086188ae0614bd882818ff1aa23f3194962012', sourceSHA256: codexSHA256, bundledSHA256: codexBundledSHA256, purpose: 'Offline version-only packaging probe; no provider or release approval' }, null, 2) + '\n');
   }
   const runtime = join(root, 'runtime-staging');
   command(process.execPath, [join(source, 'node-bundle.ts'), '--runtime', values.runtime, '--identity', values.identity, '--destination', runtime]);

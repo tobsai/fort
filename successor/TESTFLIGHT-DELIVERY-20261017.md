@@ -1,5 +1,38 @@
 # Fort delivery through TestFlight
 
+## Current checkpoint: Codex 0.163.0 prepared offline; installation held
+
+October 20, after Quit repair commit `3aba02fd`. The 0.163.0 adapter, startup
+controls and legal/package pins are prepared against source
+`83086188ae0614bd882818ff1aa23f3194962012`. The actual unauthenticated offline
+runtime accepts an empty ephemeral thread with exact `gpt-6.1-sol`; no login or
+inference occurred. Catalog presence does not establish account entitlement.
+Four new opt-outs are enforced in global and thread scope. The diagnostic
+preferences IPC exception is documented and changes no production permission.
+
+Portable: 1,363 pass, 16 skips. Typecheck passes. Compiled Mac executor: 29 pass,
+2 benchmark skips. Assembly: 21 pass. Focused signed offline version/provenance
+and wrong-payload checks: 2 pass. Fresh helper Release build and 202-file package
+readback pass. The review app is unsigned, uninstalled and unlaunched; report SHA256
+`3ecd55ce2c16a6a3b0f23893ceb9ebad454283834984613599c51df631ecfae6`.
+The original notices and covered-source copies are preserved in a new legal payload.
+
+**Installation blocker:** the retained ledger is bound to 0.157.1. A regression
+proves the new runtime is refused while the original exact history/bindings remain
+recoverable. Owner: runtime/core implementation. Next gate: explicit reviewed,
+history-preserving binding migration with recovery/rollback tests, then an exact
+signed package and bounded installed verification scope. Do not reset history,
+rewrite historical versions or silently change pending work to bypass this gate.
+
+The installed Quit-fixed app remains on 0.157.1. At 04:06 UTC all 206 files matched
+its prior signed report; no client, host, offline runtime, startup job, credential
+file or active connection remained. History is retained. No process is stalled.
+The paired installed Quit journey, live 6.1 account/inference, physical iPhone,
+TestFlight and G2 remain separate open gates. No new activation, sign-in, pairing,
+provider turn, upload, push or merge occurred. See [exact evidence, failures and
+remaining scope](evidence/2026-10-17-node-foundation/codex-0163-offline-update.md).
+Older checkpoints below preserve their original observations.
+
 ## Current checkpoint: Pairing navigation Quit repaired
 
 October 20, after source 43bd032. Entering Pairing reset the sheet termination flag;

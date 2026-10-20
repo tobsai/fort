@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 67492e64765f2986bbcae29d4089b7ba8165ae02b569292e543463c03768b7fc
+Reviewed content SHA256: 3e3108bafae77365741264a1408c65e0cdb730d0fc14623d2bc727ab05057269
 
 ### Vendor independence
 Status: planned
@@ -3576,6 +3576,73 @@ signed update. Evidence goes to the existing model-selection-recovery.md and the
 three ledgers/current review. Same-scope repair authority is unchanged. Rollback
 restores the prior client payload; do not reactivate or re-pair the cleaned-up host.
 
+## Offline preparation for Codex 0.163.0
+
+Continue the owner's latest-model request and the coordinator's October 20 offline
+preparation instruction. Pin the official 0.163.0 source
+83086188ae0614bd882818ff1aa23f3194962012 and arm64 macOS binary
+8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31.
+The official archive checksum and source protocol are inspected before execution.
+Do not change the installed runtime, activate the host, sign in, extract credentials
+or send inference. Prepare one reviewable candidate and report exact remaining scope.
+
+The isolated offline probe uses empty HOME/CODEX_HOME/workspace, denies network and
+user-file reads, and retains bounded cleanup. Current upstream requires macOS forced
+preference synchronization; permit only the preferences service after confirming
+both forced Codex preference keys are absent without reading their values. Preserve
+that diagnostic exception explicitly; it is not complete agent-host isolation.
+Never bypass managed requirements or accept invalid-configuration defaults. Read
+configuration, all feature/profile/MCP pages, unauthenticated account and bundled
+catalog; start an empty ephemeral no-files thread without turn/start. Keep the
+computer-tool sandbox separate from host permissions. No production permission change.
+
+Observed 0.163.0 has 175 feature rows, GPT-6.1 Sol in the bundled catalog, unchanged
+no-files permission projection and empty MCP inventories. unified_exec remains a
+forced backend selector; shell_tool=false and empty environments continue to deny
+shell authority. Keep the exact alias checks. Explicitly disable cli_daybreak,
+api_key_model_discovery, api_key_cyber_access_programs and ultrafast_mode. In-app
+Voice/browser annotation flags are desktop capability permissions, not enabled Fort
+modules; Fort exposes no corresponding runtime operation. Bundled model availability
+is not proof of account entitlement or effective inference model.
+
+Update active adapter version checks and the bounded diagnostic check names,
+compiled executor/host manifests and packaging
+pins together, preserving the old legal payload and captured startup fixture. Keep
+consumed prototype packets, approvals, version pins and historical native fixtures
+unchanged; they do not authorize another launch. Public regression first proves the
+reviewed runtime accepts exact 6.1 selection and rejects prior/unreviewed versions.
+Exercise all new control failures and both scopes with the captured offline inventory.
+Bring the compiled executor fixture into the existing explicit-account contract;
+pass its synthetic account for discovery and execution without relaxing production checks.
+Use a synthetic account only in the transport test, explicitly labeled as invented.
+No real account evidence is fabricated from the unauthenticated probe.
+
+The service deliberately rejects reopening an existing ledger under a changed runtime
+identity. Preserve and test that protection, including retained history. This slice
+prepares a fresh-data candidate only; it does not silently rewrite existing bindings,
+models, pending requests or historical messages. An explicit reviewed migration path
+is required before installing this runtime over the retained 0.157.1 installation.
+Report that dependency before any live update request.
+
+Vendor independence: the upgrade stays inside the Codex adapter and packaging;
+Fort contracts/core/native clients retain their provider-neutral interfaces. Modularity:
+no extra service, optional module or account route. Speed: no new per-message scan or
+worker; startup still uses bounded inventories. Run the existing performance budgets
+when applicable, without claiming incidental test time is a benchmark. Installation/
+removal: prepare but do not install the new runtime. Preserve rollback, old attribution,
+history and existing disconnected state. No new credential or persistent access.
+
+The conservative CLI dependency closure contains 1,343 packages. Verify all reused
+registry records by exact version/checksum; collect 19 changed/new registry records,
+exact Git notices and two omitted rage notices from crate VCS commits. Preserve all
+original notices and covered-source copies. The six-file legal payload remains below
+16 MiB. Test compiled packaging, source/version rejection, exact manifests, notices
+and dependency layout using synthetic state. Full portable tests/typecheck and
+relevant package checks precede commit. Native source/build evidence remains at the
+preceding Quit slice unless a native change is made. Rollback is the prior source
+commit; no installed runtime changes occur. Evidence goes to codex-0163-offline-update.md,
+the three ledgers and current semantic review. Exact affected paths are declared below.
+
 ## Implementation paths
 
 - `successor/evidence/2026-10-17-node-foundation/model-selection-recovery.md`
@@ -4101,6 +4168,30 @@ restores the prior client payload; do not reactivate or re-pair the cleaned-up h
 - `docs/architecture/reviews/20261017/source/successor/tsconfig.json`
 - `docs/architecture/reviews/20261017/target-architecture.mmd`
 - `docs/architecture/reviews/20261017/visual-brief.md`
+
+- `successor/runner/fixtures/codex-0.163.0-startup.json`
+
+- `successor/runner/README.md`
+
+- `successor/runner/STARTUP-CONTRACT.md`
+
+- `successor/runner/PERMISSION-PROFILE.md`
+
+- `successor/packaging/vendor/codex-0.163.0/LICENSE`
+
+- `successor/packaging/vendor/codex-0.163.0/NOTICE`
+
+- `successor/packaging/vendor/codex-0.163.0/SOURCE-AVAILABILITY.txt`
+
+- `successor/packaging/vendor/codex-0.163.0/THIRD-PARTY.json`
+
+- `successor/packaging/vendor/codex-0.163.0/THIRD-PARTY-NOTICES.zip`
+
+- `successor/packaging/vendor/codex-0.163.0/THIRD-PARTY-SOURCES.zip`
+
+- `successor/evidence/2026-10-17-node-foundation/codex-0163-offline-update.md`
+
+- `successor/runner/startup-diagnostic.ts`
 
 ## Test criteria
 

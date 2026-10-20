@@ -52,7 +52,7 @@ function fixture(options: {
 test('explicit device sign-in validates the challenge, confirms the account and disposes its connection', async () => {
   const f = fixture(), seen: CodexDeviceChallenge[] = [];
   assert.equal(f.calls.length, 0);
-  const result = await signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1',
+  const result = await signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0',
     signal: new AbortController().signal, timeoutMs: 1000, onChallenge: value => { seen.push(value); f.complete(); } });
   assert.deepEqual(result, { kind: 'signedIn', account: syntheticAccountIdentity });
   assert.deepEqual(seen, [{ loginId, verificationURL: challenge.verificationUrl, userCode: challenge.userCode }]);
@@ -64,7 +64,7 @@ test('explicit device sign-in validates the challenge, confirms the account and 
 });
 
 function start(f: ReturnType<typeof fixture>, onChallenge: (value: CodexDeviceChallenge) => void = () => f.complete(), signal = new AbortController().signal, timeoutMs = 1000) {
-  return signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1', signal, timeoutMs, onChallenge });
+  return signInCodexAccount({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0', signal, timeoutMs, onChallenge });
 }
 
 test('an existing ChatGPT account is retained without another login and reports only its nonsecret identity', async () => {
@@ -220,7 +220,7 @@ test('one connection cannot start competing sign-in attempts or mutate the captu
 
 test('account protocol retains the original callback when its options are later changed', async () => {
   const f = fixture(); let shown = 0;
-  const options: Parameters<typeof signInCodexAccount>[0] = { connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1',
+  const options: Parameters<typeof signInCodexAccount>[0] = { connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0',
     signal: new AbortController().signal, timeoutMs: 1000, onChallenge: () => { shown++; f.complete(); } };
   const pending = signInCodexAccount(options);
   options.onChallenge = () => { throw new Error('Changed callback must not receive the code'); };

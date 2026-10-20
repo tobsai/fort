@@ -8,7 +8,7 @@ export const CODEX_SETTINGS = [
   ['default_permissions',CODEX_PERMISSION_PROFILE],
 ] as const satisfies ReadonlyArray<readonly [string,string|number|boolean|readonly string[]]>;
 // Requested CLI opt-outs; pinned-runtime observations are checked separately below.
-export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use'] as const;
+export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use','cli_daybreak','api_key_model_discovery','api_key_cyber_access_programs','ultrafast_mode'] as const;
 
 export function verifyEffectiveConfig(value: unknown): void {
   const config = object(value);
@@ -69,10 +69,10 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
       states.set(feature.name,feature.enabled);
     }
     const unconfirmed=CODEX_DISABLED_FEATURES.find(name => {
-      // 0.157.1 forces this backend selector on unless managed requirements pin it.
+      // 0.163.0 forces this backend selector on unless managed requirements pin it.
       // Shell authority is blocked by explicit shell_tool:false plus empty environments.
       if (name==='unified_exec') return !states.has(name);
-      // Codex 0.157.1 lists canonical keys, not these accepted input aliases.
+      // Codex 0.163.0 lists canonical keys, not these accepted input aliases.
       const canonical=name==='memory_tool'?'memories':name==='imagegenext'?'image_generation':name;
       return states.get(canonical)!==false || (canonical!==name && states.has(name) && states.get(name)!==false);
     });

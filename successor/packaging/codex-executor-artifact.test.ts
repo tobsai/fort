@@ -11,6 +11,7 @@ test('the optional executor artifact contains complete compiled dependencies and
   const root = realpathSync(mkdtempSync('/tmp/fort059-executor-artifact-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const artifact = join(root, 'executor'), manifest = buildCodexExecutor(artifact);
+  assert.equal(manifest.requires.codex, '0.163.0 supplied separately');
   const files = readdirSync(artifact, { recursive: true, encoding: 'utf8' });
   assert.ok(files.includes('runner/codex-executor.js') && files.includes('runner/codex-executor.d.ts'));
   assert.ok(files.includes('runner/executor-worker.js') && files.includes('runner/codex-chat.js'));
@@ -42,7 +43,7 @@ test('the optional executor artifact contains complete compiled dependencies and
 const config: Parameters<typeof createCodexExecutorProcess>[0] = { executable:'/exact/node', args:[], cwd:'/exact/empty', env:{}, guardian:'/exact/guardian', hostId:'explicit-host' };
 const worker: Parameters<typeof serveCodexExecutor>[0] = { input:process.stdin, output:process.stdout, hostId:'explicit-host', runtime:privateCodexLaunchPlan({ executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian' }) };
 const privateProcess: Parameters<typeof createPrivateCodexExecutorProcess>[0] = { executable:'/exact/codex', directory:'/exact/private', guardian:'/exact/guardian', hostId:'explicit-host' };
-const accountPolicy: Pick<Parameters<typeof signInCodexAccount>[0], 'runtimeVersion' | 'timeoutMs' | 'onChallenge'> = { runtimeVersion:'0.157.1', timeoutMs:60_000, onChallenge: challenge => { const url:string=challenge.verificationURL; void url; } };
+const accountPolicy: Pick<Parameters<typeof signInCodexAccount>[0], 'runtimeVersion' | 'timeoutMs' | 'onChallenge'> = { runtimeVersion:'0.163.0', timeoutMs:60_000, onChallenge: challenge => { const url:string=challenge.verificationURL; void url; } };
 void config; void worker; void privateProcess; void accountPolicy;
 `);
   const compiler = fileURLToPath(new URL('../node_modules/typescript/bin/tsc', import.meta.url));

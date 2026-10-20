@@ -266,7 +266,7 @@ test('runtime dispatch carries the exact durable service attempt and generation'
   assert.deepEqual(calls[0]?.attempt, {
     runId: running.runId, attemptId: running.attemptId, generation: 1,
     bindingRevisionId: running.bindingRevisionId, selectedModel: running.selectedModel,
-    runtimeVersion: '0.157.1'
+    runtimeVersion: '0.163.0'
   });
   assert.equal(completed.runs[0]?.attemptId, calls[0]?.attempt.attemptId);
   await h.api(path + '/messages', command);
@@ -280,7 +280,7 @@ test('explicit authenticated runtime replacement recovers a new queued turn with
   const workspace=fileURLToPath(new URL('../runner',import.meta.url)),processes:ReturnType<typeof launchOwnedProcess>[]=[];
   const launch=()=>{const child=launchOwnedProcess({executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],cwd:workspace,env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'},deadlineMs:15_000,terminationGraceMs:50,killGraceMs:500});processes.push(child);return child.connection;};
   t.after(async()=>{for(const child of processes)await child.dispose();});
-  const runtime=new CodexChat({connection:launch(),workspace,runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:Date.now()+20_000,connect:()=>{assert.equal(processes[0]?.cleanupConfirmed,true);return launch();}}});
+  const runtime=new CodexChat({connection:launch(),workspace,runtimeVersion:'0.163.0',replacement:{maximumConnections:2,deadline:Date.now()+20_000,connect:()=>{assert.equal(processes[0]?.cleanupConfirmed,true);return launch();}}});
   runtime.signIn = async () => ({ kind: 'signedIn', account: syntheticAccountIdentity });
   const h=await setup(t,{runtime, ownerPairingPolicy: { expiresAfterDays: null }});let agent=(await h.api<Agent>('/v1/agents',{name:'Writer',model:'unavailable-exact-model',instructions:'Reply.'})).body;
   const epoch=h.service.installation.recoveryEpoch,path=`/v1/conversations/${agent.homeConversationId}`;
@@ -1216,7 +1216,7 @@ test('active service shutdown confirms owned child exit and leaves no late reply
   let started!: () => void;
   const entered = new Promise<void>(resolve => { started=resolve; });
   owned.connection.subscribe({ frame:bytes => { const frame=JSON.parse(Buffer.from(bytes).toString()); if(frame.result?.turn?.status==='inProgress')started(); },closed:()=>{} });
-  const runtime = new CodexChat({ connection:owned.connection,workspace,runtimeVersion:'0.157.1' });
+  const runtime = new CodexChat({ connection:owned.connection,workspace,runtimeVersion:'0.163.0' });
   runtime.signIn = async () => ({ kind: 'signedIn', account: syntheticAccountIdentity });
   const h = await setup(t,{ runtime, ownerPairingPolicy: { expiresAfterDays: null } });
   const agent = (await h.api<Agent>('/v1/agents',{ name:'Writer',model:'gpt-6-astra',instructions:'Reply.' })).body;
@@ -1230,4 +1230,26 @@ test('active service shutdown confirms owned child exit and leaves no late reply
   assert.equal(snapshot.runs[0]?.state,'outcomeUnknown');
   assert.equal(snapshot.messages.length,1);
   assert.equal(await h.service.dispatchNext(),false);
+});
+
+test('the 0.163.0 candidate refuses an unmigrated 0.157.1 ledger and preserves its exact history and bindings', async t => {
+  const h = await setup(t, { provider: { ...CODEX_RUNTIME, runtimeVersion: '0.157.1' },
+    runtime: { async execute(input) { return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() {} } });
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Retained fixture', model: 'gpt-6-astra', instructions: 'Synthetic.' })).body;
+  const accepted = (await h.api<Acceptance>(`/v1/conversations/${agent.homeConversationId}/messages`, {
+    requestId: 'retained-before-runtime-change', text: 'Retained synthetic history', recipientAgentId: agent.agentId,
+    bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: []
+  })).body;
+  await h.service.dispatchNext();
+  const before = (await h.api<Acceptance>('/v1/requests/retained-before-runtime-change')).body;
+  await h.service.close();
+  assert.equal(CODEX_RUNTIME.runtimeVersion, '0.163.0');
+  assert.throws(() => createApplication({ context: LOCAL_CONTEXT, dataDirectory: h.directory, provider: CODEX_RUNTIME }), /explicit binding migration/);
+  await h.restart();
+  assert.deepEqual((await h.api<{ agents: Agent[] }>('/v1/agents')).body.agents, [agent]);
+  const after = (await h.api<Acceptance>('/v1/requests/retained-before-runtime-change')).body;
+  assert.deepEqual(after.receipt, accepted.receipt);
+  assert.deepEqual(after.snapshot.messages, before.snapshot.messages);
+  assert.deepEqual(after.snapshot.runs, before.snapshot.runs);
+  assert.equal(after.snapshot.runs[0]?.state, 'completed');
 });

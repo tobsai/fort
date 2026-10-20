@@ -8,7 +8,7 @@ export const syntheticConfig = () => ({
 });
 export const syntheticFeatures = () => [
   'apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl',
-  'skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use',
+  'skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use','cli_daybreak','api_key_model_discovery','api_key_cyber_access_programs','ultrafast_mode',
 ].map(name => ({ name,enabled:name==='unified_exec' })).concat([{ name:'skip_host_skill_discovery',enabled:true }]);
 
 export const syntheticAccountIdentity = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };

@@ -1,3 +1,4 @@
+import { syntheticAccountIdentity } from '../runner/codex-preflight-fixture.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync, readFileSync, mkdirSync, writeFileSync, copyFileSync } from 'node:fs';
@@ -33,10 +34,10 @@ process.argv = [process.execPath, import.meta.filename, 'echo', ${JSON.stringify
 await import(${JSON.stringify(pathToFileURL(join(root, 'runtime.mjs')).href)});
 `, { mode: 0o700 });
     }
-    const input: ChatInput = { context: { kind: 'empty' }, attempt: { runId: 'run', attemptId: 'attempt', generation: 1, bindingRevisionId: 'binding', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model' },
-      runId: 'run', requestId: 'request', conversationId: 'conversation', configuration: { agentId: 'agent', agentName: 'Fixture', bindingRevisionId: 'binding', selectedModel: 'fixture-exact-model', instructions: '', skills: [] }, history: [], text: '  compiled synthetic cedar 🌲\n' };
+    const input: ChatInput = { context: { kind: 'empty' }, attempt: { runId: 'run', attemptId: 'attempt', generation: 1, bindingRevisionId: 'binding', runtimeVersion: '0.163.0', selectedModel: 'fixture-exact-model' },
+      runId: 'run', requestId: 'request', conversationId: 'conversation', configuration: { account: syntheticAccountIdentity, agentId: 'agent', agentName: 'Fixture', bindingRevisionId: 'binding', selectedModel: 'fixture-exact-model', instructions: '', skills: [] }, history: [], text: '  compiled synthetic cedar 🌲\n' };
     const dispatch = sealDispatch({ protocolVersion: 1, installationId: 'installation', recoveryEpoch: 'epoch',
-      binding: { bindingRevisionId: 'binding', provider: 'codex', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model', hostId: 'fixture-host', enabled: true }, attempt: input.attempt,
+      binding: { bindingRevisionId: 'binding', provider: 'codex', runtimeVersion: '0.163.0', selectedModel: 'fixture-exact-model', hostId: 'fixture-host', enabled: true }, attempt: input.attempt,
       inputDigest: executionDigest(input), configurationDigest: executionDigest(input.configuration), historyDigest: executionDigest(input.history),
       policy: TEXT_POLICY, policyDigest: executionDigest(TEXT_POLICY), deadline: Date.now() + 10_000, limits: EXECUTION_LIMITS });
     writeFileSync(join(directory, 'command.json'), JSON.stringify({ input, dispatch }), { mode: 0o600 });

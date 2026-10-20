@@ -1,0 +1,2328 @@
+{
+  "config": {
+    "model": null,
+    "review_model": null,
+    "model_context_window": null,
+    "model_auto_compact_token_limit": null,
+    "model_auto_compact_token_limit_scope": null,
+    "model_provider": "openai",
+    "approval_policy": null,
+    "approvals_reviewer": null,
+    "sandbox_mode": null,
+    "sandbox_workspace_write": null,
+    "forced_chatgpt_workspace_id": null,
+    "forced_login_method": "chatgpt",
+    "web_search": "disabled",
+    "tools": null,
+    "instructions": null,
+    "developer_instructions": null,
+    "compact_prompt": null,
+    "model_reasoning_effort": null,
+    "model_reasoning_summary": null,
+    "model_verbosity": null,
+    "service_tier": null,
+    "analytics": {
+      "enabled": false
+    },
+    "apps": null,
+    "browser_use": null,
+    "computer_use": null,
+    "desktop": null,
+    "experimental_realtime_start_instructions": null,
+    "tool_suggest": null,
+    "skills": {
+      "bundled": {
+        "enabled": false
+      },
+      "include_instructions": false
+    },
+    "agents": null,
+    "experimental_realtime_webrtc_call_base_url": null,
+    "experimental_realtime_ws_base_url": null,
+    "sqlite_home": null,
+    "notify": [],
+    "model_post_turn_compact_threshold_percent": null,
+    "cloud": {
+      "skills": {
+        "enabled": false
+      }
+    },
+    "experimental_realtime_ws_model": null,
+    "plugins": {},
+    "check_for_update_on_startup": false,
+    "apps_mcp_product_sku": null,
+    "profile": null,
+    "hide_agent_reasoning": false,
+    "notice": null,
+    "experimental_thread_store_endpoint": null,
+    "experimental_realtime_ws_startup_context": null,
+    "background_terminal_max_timeout": 300000,
+    "experimental_thread_store": null,
+    "permissions": {
+      "fort_candidate_b_no_files": {
+        "description": null,
+        "extends": null,
+        "workspace_roots": null,
+        "filesystem": {
+          "glob_scan_max_depth": null,
+          "/**": "deny"
+        },
+        "network": {
+          "enabled": false,
+          "proxy_url": null,
+          "enable_socks5": null,
+          "socks_url": null,
+          "enable_socks5_udp": null,
+          "allow_upstream_proxy": null,
+          "dangerously_allow_non_loopback_proxy": null,
+          "dangerously_allow_all_unix_sockets": null,
+          "mode": null,
+          "domains": null,
+          "unix_sockets": null,
+          "allow_local_binding": null,
+          "mitm": null
+        }
+      }
+    },
+    "project_doc_max_bytes": 0,
+    "include_environment_context_time": true,
+    "model_catalog_json": null,
+    "hooks": null,
+    "js_repl_node_path": null,
+    "history": {
+      "persistence": "save-all",
+      "max_bytes": null
+    },
+    "experimental_use_unified_exec_tool": null,
+    "profiles": {},
+    "log_dir": null,
+    "feedback": null,
+    "mcp_oauth_callback_port": null,
+    "audio": null,
+    "project_doc_fallback_filenames": [],
+    "suppress_unstable_features_warning": null,
+    "daybreak": null,
+    "include_apps_instructions": true,
+    "marketplaces": {},
+    "mcp_oauth_callback_url": null,
+    "thread_unload_delay_secs": null,
+    "openai_base_url": null,
+    "experimental_compact_prompt_file": null,
+    "goals": null,
+    "auto_review": null,
+    "mcp_enterprise_managed_auth": null,
+    "show_raw_agent_reasoning": null,
+    "memories": null,
+    "default_permissions": "fort_candidate_b_no_files",
+    "tool_output_token_limit": null,
+    "responses_api_metadata": null,
+    "model_instructions_file": null,
+    "otel": {
+      "tool_result": {
+        "max_bytes": 2048
+      },
+      "log_user_prompt": false,
+      "log_agent_responses": null,
+      "log_guardian_assessments": null,
+      "environment": null,
+      "exporter": "none",
+      "trace_exporter": "none",
+      "metrics_exporter": "none",
+      "span_attributes": null,
+      "tracestate": null
+    },
+    "project_root_markers": [
+      ".git"
+    ],
+    "chatgpt_base_url": "https://chatgpt.com/backend-api/",
+    "include_collaboration_mode_instructions": true,
+    "model_providers": {},
+    "mcp_servers": {},
+    "windows": null,
+    "oss_provider": null,
+    "shell_environment_policy": {
+      "inherit": null,
+      "ignore_default_excludes": null,
+      "exclude": null,
+      "set": null,
+      "include_only": null,
+      "filters": null,
+      "experimental_use_profile": null
+    },
+    "js_repl_node_module_dirs": null,
+    "allow_login_shell": true,
+    "include_environment_context": true,
+    "realtime": null,
+    "projects": null,
+    "ghost_snapshot": null,
+    "experimental_realtime_ws_backend_prompt": null,
+    "include_permissions_instructions": true,
+    "personality": null,
+    "allow_symlinked_codex_home": null,
+    "disable_paste_burst": null,
+    "cli_auth_credentials_store": "file",
+    "tui": null,
+    "file_opener": "vscode",
+    "mcp_oauth_credentials_store": "file",
+    "orchestrator": {
+      "skills": null,
+      "mcp": {
+        "enabled": false
+      }
+    },
+    "mcp_optional_startup_grace_ms": null,
+    "features": {
+      "multi_agent_v2": false,
+      "network_proxy": null,
+      "api_key_cyber_access_programs": false,
+      "api_key_model_discovery": false,
+      "apps": false,
+      "browser_use": false,
+      "browser_use_external": false,
+      "browser_use_full_cdp_access": false,
+      "cli_daybreak": false,
+      "computer_use": false,
+      "hooks": false,
+      "image_generation": false,
+      "imagegenext": false,
+      "js_repl": false,
+      "memories": false,
+      "memory_tool": false,
+      "multi_agent": false,
+      "plugin_hooks": false,
+      "plugins": false,
+      "remote_control": false,
+      "remote_models": false,
+      "shell_tool": false,
+      "skill_env_var_dependency_prompt": false,
+      "skill_mcp_dependency_install": false,
+      "skill_search": false,
+      "skip_host_skill_discovery": true,
+      "ultrafast_mode": false,
+      "unified_exec": false,
+      "auth_elicitation": true,
+      "background_paginated_rollout_migration": false,
+      "codex_apps_mcp_2026_07_28": false,
+      "mcp_2026_07_28": false,
+      "mentions_v2": true,
+      "remote_plugin": true,
+      "tool_suggest": true,
+      "windows_sandbox_service": false
+    },
+    "plan_mode_reasoning_effort": null
+  },
+  "features": [
+    {
+      "name": "analytics_plan_history",
+      "stage": "beta",
+      "displayName": "Analytics plan history",
+      "description": "Preview five-hour and weekly allowance history for consumer accounts in /analytics.",
+      "announcement": "",
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "daemon_auto_start",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "transcript_v2",
+      "stage": "deprecated",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "undo",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "shell_tool",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "view_image",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "sleep_tool",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "secret_auth_storage",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "unified_exec",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "unified_exec_tty",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "shell_zsh_fork",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "unified_exec_zsh_fork",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "shell_snapshot",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "login_shell_package_path",
+      "stage": "beta",
+      "displayName": "Bundled tools in login shells",
+      "description": "Keep bundled tools such as ripgrep available when login shell startup resets PATH.",
+      "announcement": "",
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "powershell_shell_version",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "shell_snapshot_v2",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "deferred_executor",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "cwd_relative_turn_diffs",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "js_repl",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "content_item_kinds",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "executed_tool_call_metadata",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "stable_environment_tools",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_tool_search",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_buffered_exec",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_host",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "code_mode_host_grpc",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_prewarm",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_interrupt",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "code_mode_tool_description_first",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "instant_interrupt",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "code_mode_only",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "code_mode_only_strict_3p_tools",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "js_repl_tools_only",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "terminal_resize_reflow",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "web_search_request",
+      "stage": "deprecated",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "web_search_cached",
+      "stage": "deprecated",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "standalone_web_search",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "search_tool",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "codex_git_commit",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "runtime_metrics",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "sqlite",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "memories",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "external_agent_memory_import",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "local_thread_store_compression",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "local_thread_store_shared_compression",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "background_paginated_rollout_migration",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "chronicle",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "apply_patch_freeform",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "apply_patch_streaming_events",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "apply_patch_preserve_line_endings",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "exec_permission_approvals",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "write_stdin_approval",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "hooks",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "request_permissions_tool",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "use_linux_sandbox_bwrap",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "use_legacy_landlock",
+      "stage": "deprecated",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "request_rule",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "experimental_windows_sandbox",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "elevated_windows_sandbox",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "windows_sandbox_service",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "prefer_mxc",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "remote_models",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "api_key_model_discovery",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "cli_daybreak",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "api_key_cyber_access_programs",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "enable_request_compression",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "unbounded_connection_retries",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "network_proxy",
+      "stage": "beta",
+      "displayName": "Network proxy",
+      "description": "Apply network proxy restrictions to sandboxed sessions that already have network access.",
+      "announcement": "NEW: Network proxy can now be enabled from /experimental. Restart Codex after enabling it.",
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "credential_masking",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "worktrees",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "respect_system_proxy",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "system_proxy_fallback",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "multi_agent",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "multi_agent_v2",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "model_catalog_in_context",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "multi_agent_v2_dynamic_tools",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "subagent_default_context_limits",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "defer_mailbox_preemption",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "agent_message_board",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "multi_agent_mode",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "enable_fanout",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "apps",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "psp",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "enable_mcp_apps",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp_2026_07_28",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "codex_apps_mcp_2026_07_28",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp_oauth_refresh_coordination",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "use_xaa",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "apps_mcp_path_override",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "tool_search",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "tool_search_always_defer_mcp_tools",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "deferred_tool_world_state",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "incremental_tools",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "non_prefixed_mcp_tool_names",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "unavailable_dummy_tools",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "tool_suggest",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "recommended_plugins",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "plugins",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "executor_capability_discovery",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "skip_host_skill_discovery",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": false
+    },
+    {
+      "name": "plugin_hooks",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "in_app_browser",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "browser_annotation_api",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "in_app_chat",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "in_app_dictation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "in_app_voice",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "in_app_local_automation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "in_app_updates",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "browser_use",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "browser_use_full_cdp_access",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "browser_use_external",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "computer_use",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "remote_plugin",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "plugin_sharing",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "external_migration",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "image_generation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "omit_app_server_notification_media",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "image_resize_notice",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "unified_image_budget",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "resize_all_images",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "item_ids",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "concurrent_reasoning_summaries",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "output_token_replay",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "skill_mcp_dependency_install",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "skill_search",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "skill_env_var_dependency_prompt",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "mentions_v2",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "steer",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "default_mode_request_user_input",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "send_async_message",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "send_message_to_user_async",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "terminal_visualization_instructions",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_approval",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "guardianv2.thread_context",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_reuse_parent_compaction",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "guardian_root_handoff_context",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_enhanced_node_repl_transcripts",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_node_repl_transcript_images",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_trust_orchestrator_connectors",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_conversation_history_tools",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardianv2",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardianv2_decisions_comparison",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "guardian_ext",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "goals",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "token_budget",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "context_management",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "rollout_budget",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "reasoning_effort_override",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "current_time_reminder",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "nonfatal_clock_read_errors",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "collaboration_modes",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "tool_call_mcp_elicitation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "auth_elicitation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "bedrock_setup_wizard",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "personality",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "artifact",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "fast_mode",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "ultrafast_mode",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": true
+    },
+    {
+      "name": "step_model_switching",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "realtime_conversation",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "remote_control",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "image_detail_original",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "tui_app_server",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "prevent_idle_sleep",
+      "stage": "beta",
+      "displayName": "Prevent sleep while running",
+      "description": "Keep your computer awake while Codex is running a thread.",
+      "announcement": "NEW: Prevent sleep while running is now available in /experimental.",
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "workspace_owner_usage_nudge",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "responses_websockets",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "responses_websockets_v2",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "remote_compaction_v2",
+      "stage": "removed",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "async_compaction",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "compaction_image_budget",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    },
+    {
+      "name": "retain_client_developer_messages",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "retain_client_tool_outputs",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "use_agent_identity",
+      "stage": "underDevelopment",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": false,
+      "defaultEnabled": false
+    },
+    {
+      "name": "workspace_dependencies",
+      "stage": "stable",
+      "displayName": null,
+      "description": null,
+      "announcement": null,
+      "enabled": true,
+      "defaultEnabled": true
+    }
+  ],
+  "profiles": [
+    {
+      "id": ":read-only",
+      "description": null,
+      "allowed": true
+    },
+    {
+      "id": ":workspace",
+      "description": null,
+      "allowed": true
+    },
+    {
+      "id": ":danger-full-access",
+      "description": null,
+      "allowed": true
+    },
+    {
+      "id": "fort_candidate_b_no_files",
+      "description": null,
+      "allowed": true
+    }
+  ],
+  "mcp": [],
+  "models": [
+    {
+      "id": "gpt-6.1-sol",
+      "model": "gpt-6.1-sol",
+      "upgrade": null,
+      "upgradeInfo": null,
+      "availabilityNux": {
+        "message": "Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost."
+      },
+      "displayName": "GPT-6.1-Sol",
+      "description": "Latest workhorse model for coding and everyday work.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "reasoningEffort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "defaultReasoningEffort": "low",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "2x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": true
+    },
+    {
+      "id": "gpt-6-astra",
+      "model": "gpt-6-astra",
+      "upgrade": null,
+      "upgradeInfo": null,
+      "availabilityNux": null,
+      "displayName": "GPT-6-Astra",
+      "description": "Frontier intelligence for the most demanding work.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "reasoningEffort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "defaultReasoningEffort": "low",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "2x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-6-sol",
+      "model": "gpt-6-sol",
+      "upgrade": null,
+      "upgradeInfo": null,
+      "availabilityNux": null,
+      "displayName": "GPT-6-Sol",
+      "description": "Previous generation workhorse model.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "reasoningEffort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "defaultReasoningEffort": "medium",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed"
+        }
+      ],
+      "defaultServiceTier": "priority",
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-6-luna",
+      "model": "gpt-6-luna",
+      "upgrade": null,
+      "upgradeInfo": null,
+      "availabilityNux": null,
+      "displayName": "GPT-6-Luna",
+      "description": "Fast and affordable model for easier tasks.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ],
+      "defaultReasoningEffort": "medium",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed"
+        }
+      ],
+      "defaultServiceTier": "priority",
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "model": "gpt-5.6-sol",
+      "upgrade": "gpt-6-sol",
+      "upgradeInfo": {
+        "model": "gpt-6-sol",
+        "upgradeCopy": null,
+        "modelLink": null,
+        "migrationMarkdown": "Meet GPT-6 Sol\n\nOur latest Sol is more intelligent and more efficient so your usage limits go further. This model is a great daily driver for complex tasks, especially coding.\n",
+        "retirementAt": null
+      },
+      "availabilityNux": null,
+      "displayName": "GPT-5.6-Sol",
+      "description": "Older generation workhorse model.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "reasoningEffort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "defaultReasoningEffort": "low",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "model": "gpt-5.6-terra",
+      "upgrade": "gpt-6-sol",
+      "upgradeInfo": {
+        "model": "gpt-6-sol",
+        "upgradeCopy": null,
+        "modelLink": null,
+        "migrationMarkdown": "Meet GPT-6 Sol\n\nOur latest Sol is more intelligent and more efficient so your usage limits go further. This model is a great daily driver for complex tasks, especially coding.\n",
+        "retirementAt": null
+      },
+      "availabilityNux": null,
+      "displayName": "GPT-5.6-Terra",
+      "description": "Older balanced model for straightforward work.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "reasoningEffort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "defaultReasoningEffort": "medium",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v2",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "upgrade": "gpt-6-luna",
+      "upgradeInfo": {
+        "model": "gpt-6-luna",
+        "upgradeCopy": null,
+        "modelLink": null,
+        "migrationMarkdown": "Meet GPT-6 Luna\n\nOur latest Luna is significantly more efficient, so your usage limits go even further. Reach for it for any job that doesn't require frontier intelligence.\n",
+        "retirementAt": null
+      },
+      "availabilityNux": null,
+      "displayName": "GPT-5.6-Luna",
+      "description": "Older fast and efficient model.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ],
+      "defaultReasoningEffort": "medium",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": "v1",
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.5",
+      "model": "gpt-5.5",
+      "upgrade": "gpt-6-sol",
+      "upgradeInfo": {
+        "model": "gpt-6-sol",
+        "upgradeCopy": null,
+        "modelLink": null,
+        "migrationMarkdown": "Meet GPT-6 Sol\n\nOur latest Sol is more intelligent and more efficient so your usage limits go further. This model is a great daily driver for complex tasks, especially coding.\n",
+        "retirementAt": null
+      },
+      "availabilityNux": null,
+      "displayName": "GPT-5.5",
+      "description": "Legacy coding model.",
+      "modelSpecialty": null,
+      "hidden": false,
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "reasoningEffort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "reasoningEffort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "reasoningEffort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        }
+      ],
+      "defaultReasoningEffort": "medium",
+      "inputModalities": [
+        "text",
+        "image"
+      ],
+      "supportsPersonality": false,
+      "multiAgentVersion": null,
+      "additionalSpeedTiers": [
+        "fast"
+      ],
+      "serviceTiers": [
+        {
+          "id": "priority",
+          "name": "Fast",
+          "description": "1.5x speed, increased usage"
+        }
+      ],
+      "defaultServiceTier": null,
+      "availableAccessPrograms": null,
+      "isDefault": false
+    }
+  ],
+  "threadStart": {
+    "thread": {
+      "id": "synthetic-thread",
+      "ephemeral": true
+    },
+    "model": "gpt-6-astra",
+    "modelProvider": "openai",
+    "serviceTier": null,
+    "disabledPluginIds": [],
+    "cwd": "/synthetic/empty",
+    "runtimeWorkspaceRoots": [],
+    "instructionSources": [],
+    "approvalPolicy": "untrusted",
+    "approvalsReviewer": "user",
+    "sandbox": {
+      "type": "readOnly",
+      "networkAccess": false
+    },
+    "activePermissionProfile": {
+      "id": "fort_candidate_b_no_files",
+      "extends": null
+    },
+    "reasoningEffort": null,
+    "multiAgentMode": "explicitRequestOnly"
+  },
+  "account": {
+    "account": {
+      "type": "chatgpt",
+      "email": "owner@fixture.invalid",
+      "planType": "plus"
+    },
+    "requiresOpenaiAuth": true,
+    "workspaceRouting": {
+      "chatgptAccountId": "workspace-fixture",
+      "backendOrigin": "https://chatgpt.com",
+      "accountRoutingOverride": null
+    }
+  },
+  "provenance": {
+    "runtimeVersion": "0.163.0",
+    "sourceCommit": "83086188ae0614bd882818ff1aa23f3194962012",
+    "capture": "Network-denied empty-home offline runtime; no login or turn.",
+    "normalization": "Synthetic account invented for transport tests. Thread identity and workspace replaced. Default thread model changed to gpt-6-astra for existing tests; real probe selected gpt-6.1-sol.",
+    "actualAccount": "null",
+    "effectiveInferenceModel": "unverified"
+  }
+}

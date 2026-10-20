@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const [scenario, artifact, directory, guardian] = process.argv.slice(2);
 const script = fileURLToPath(import.meta.url);
+const { syntheticAccountIdentity } = await import('./preflight.mjs');
 const { createCodexExecutorProcess, serveCodexExecutor, createPrivateCodexExecutorProcess } = await import(pathToFileURL(join(artifact, 'runner/codex-executor.js')).href);
 
 if (scenario === 'worker') {
@@ -58,7 +59,7 @@ if (scenario === 'worker') {
     assert.equal(runtime.lastExit.groupAbsent, true); observations.push(owned);
   }
   try {
-    const catalog = await runtime.models(new AbortController().signal);
+    const catalog = await runtime.models(new AbortController().signal, syntheticAccountIdentity);
     if (scenario === 'foreign-host' || scenario === 'private-changed' || scenario === 'private-openssl-changed') {
       assert.notEqual(catalog.state, 'ready'); assert.equal(catalog.models.length, 0);
       assert.equal(existsSync(join(directory, 'runtime.json')), false); confirmAbsent(false);

@@ -1,5 +1,33 @@
 # Codex 0.157.1 contract audit — blocked before another live attempt
 
+## Current offline candidate: Codex 0.163.0
+
+October 20 preparation pins source `83086188ae0614bd882818ff1aa23f3194962012`
+and the exact reviewed arm64 binary. The installed runtime remains 0.157.1 and
+its host remains disconnected. See the [offline update evidence](../evidence/2026-10-17-node-foundation/codex-0163-offline-update.md).
+The candidate uses the existing managed ChatGPT device-code integration, with no
+new authentication route or extracted token. No login or inference was performed.
+
+The offline app-server reports 175 features, a bundled `gpt-6.1-sol` catalog entry,
+and the selected no-files/no-network profile in an empty ephemeral thread. That
+catalog is not account-entitlement or effective-inference proof. The current
+adapter checks all four new opt-outs: cli_daybreak, api_key_model_discovery,
+api_key_cyber_access_programs and ultrafast_mode. The upstream unified_exec selector
+remains true despite its opt-out; shell_tool=false and empty environments remain
+the shell authority controls. In-app Voice/browser permissions do not add Fort
+modules or enable a callable operation.
+
+A temporary diagnostic sandbox permits macOS preferences IPC after a presence-only
+check confirms no forced Codex preference keys exist. It denies network and ordinary
+user-file access. This is not complete host isolation and does not change Fort's
+production permissions. Required administrator configuration is never bypassed.
+
+The service refuses changing an existing ledger's runtime identity. An explicit
+history-preserving binding migration is required before installing this candidate
+over retained 0.157.1 data. Historical packets, pins, captured fixtures and legal
+payloads below remain evidence and do not authorize execution.
+
+
 The third Candidate B attempt stopped at `features/unified_exec`, with one consumed
 start and no receipts. This audit makes no runtime/provider call and reads no
 credentials or real user configuration. All three attempt directories and historical

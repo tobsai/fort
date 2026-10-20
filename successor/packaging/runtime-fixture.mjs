@@ -60,7 +60,7 @@ if (scenario === 'codex-version') {
   const result = spawnSync(executable, ['--version'], { cwd: home, env: { HOME: home, CODEX_HOME: configuration, TMPDIR: temporary, PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 5000, killSignal: 'SIGKILL', maxBuffer: 4096 });
   if (result.pid > 1) process.stderr.write(`FORT_PROBE_CODEX ${result.pid}\n`);
   const version = result.stdout?.trim() ?? '';
-  codex = { codexPid: result.pid ?? null, codexVersion: version, codexVersionMs: performance.now() - started, codexVersionConfirmed: result.status === 0 && !result.error && version === 'codex-cli 0.157.1', codexExitCode: result.status, codexSignal: result.signal, codexDiagnostic: result.stderr ?? '', codexSpawnError: result.error?.code ?? null };
+  codex = { codexPid: result.pid ?? null, codexVersion: version, codexVersionMs: performance.now() - started, codexVersionConfirmed: result.status === 0 && !result.error && version === 'codex-cli 0.163.0', codexExitCode: result.status, codexSignal: result.signal, codexDiagnostic: result.stderr ?? '', codexSpawnError: result.error?.code ?? null };
 }
 process.stdout.write(JSON.stringify({ sqlite, outsideReadDenied, outsideWriteDenied, loopbackListenDenied, privateSocketRoundTrip: privateSocket.ready, privateSocketFailure: privateSocket.failure, ...core, ...codex }) + '\n');
 if (sqlite !== 'ready' || !outsideReadDenied || !outsideWriteDenied || !loopbackListenDenied || (scenario === 'codex-version' && !codex.codexVersionConfirmed)) process.exitCode = 1;

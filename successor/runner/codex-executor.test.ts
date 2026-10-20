@@ -20,11 +20,11 @@ before(() => {
 });
 after(() => rmSync(root, { recursive: true, force: true }));
 function command() {
-  const input: ChatInput = { context: { kind: 'empty' }, attempt: { runId: 'run', attemptId: 'attempt', generation: 1, bindingRevisionId: 'binding', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model' },
+  const input: ChatInput = { context: { kind: 'empty' }, attempt: { runId: 'run', attemptId: 'attempt', generation: 1, bindingRevisionId: 'binding', runtimeVersion: '0.163.0', selectedModel: 'fixture-exact-model' },
     runId: 'run', requestId: 'request', conversationId: 'conversation', configuration: { account: syntheticAccountIdentity, agentId: 'agent', agentName: 'Fixture', bindingRevisionId: 'binding', selectedModel: 'fixture-exact-model', instructions: '', skills: [] },
     history: [], text: '  synthetic exact cedar 🌲\n' };
   const dispatch = sealDispatch({ protocolVersion: 1, installationId: 'installation', recoveryEpoch: 'epoch',
-    binding: { bindingRevisionId: 'binding', provider: 'codex', runtimeVersion: '0.157.1', selectedModel: 'fixture-exact-model', hostId: 'fixture-host', enabled: true }, attempt: input.attempt,
+    binding: { bindingRevisionId: 'binding', provider: 'codex', runtimeVersion: '0.163.0', selectedModel: 'fixture-exact-model', hostId: 'fixture-host', enabled: true }, attempt: input.attempt,
     inputDigest: executionDigest(input), configurationDigest: executionDigest(input.configuration), historyDigest: executionDigest(input.history),
     policy: TEXT_POLICY, policyDigest: executionDigest(TEXT_POLICY), deadline: Date.now() + 10_000, limits: EXECUTION_LIMITS });
   return { input, dispatch };

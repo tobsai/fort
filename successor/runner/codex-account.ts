@@ -7,7 +7,7 @@ import { verifyRuntimeControls } from './codex-controls.ts';
 export type CodexDeviceChallenge = { loginId: string; verificationURL: string; userCode: string };
 export type CodexSignInResult = AccountSignInResult;
 type SignInOptions = {
-  connection: CodexConnection; workspace: string; runtimeVersion: '0.157.1';
+  connection: CodexConnection; workspace: string; runtimeVersion: '0.163.0';
   signal: AbortSignal; timeoutMs: number; onChallenge: (challenge: CodexDeviceChallenge) => void;
 };
 
@@ -50,7 +50,7 @@ export async function signInCodexAccount(options: SignInOptions): Promise<CodexS
   let timer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   try {
-    if (options.runtimeVersion !== '0.157.1' || !isAbsolute(workspace) || workspace === '/'
+    if (options.runtimeVersion !== '0.163.0' || !isAbsolute(workspace) || workspace === '/'
         || normalize(workspace) !== workspace || !workspace.isWellFormed() || workspace.includes('\0')
         || !Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 600_000) return { kind: 'unconfirmed' };
     if (options.signal.aborted) return { kind: 'canceled' };

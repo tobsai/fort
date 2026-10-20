@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -10,7 +10,7 @@ const codex = process.env.FORT_TEST_CODEX;
 test('Codex packaging refuses absent, wrong and implicit payloads before creating an artifact', t => {
   const root = mkdtempSync('/tmp/fort059-codex-preflight-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const legal = fileURLToPath(new URL('./vendor/codex-0.157.1/LICENSE', import.meta.url));
+  const legal = fileURLToPath(new URL('./vendor/codex-0.163.0/LICENSE', import.meta.url));
   for (const [name, args] of [
     ['absent', ['--scenario', 'codex-version']],
     ['wrong', ['--scenario', 'codex-version', '--codex-runtime', legal]],
@@ -19,7 +19,7 @@ test('Codex packaging refuses absent, wrong and implicit payloads before creatin
     const destination = join(root, name);
     const result = spawnSync(process.execPath, [fileURLToPath(new URL('./sandbox-feasibility.ts', import.meta.url)), '--runtime', process.execPath, '--identity', '-', '--destination', destination, ...args], { encoding: 'utf8', timeout: 5000 });
     assert.equal(result.status, 1, result.stderr);
-    assert.match(result.stderr, /exact Codex executable|not the reviewed 0\.157\.1 payload/);
+    assert.match(result.stderr, /exact Codex executable|not the reviewed 0\.163\.0 payload/);
     assert.equal(existsSync(destination), false);
   }
 });
@@ -34,8 +34,10 @@ test('the exact Codex executable answers only its version inside the signed priv
   for (const key of ['codexVersionConfirmed', 'codexProcessAbsent', 'codexSourceUnchanged', 'outsideReadDenied', 'outsideWriteDenied', 'loopbackListenDenied', 'ownedProcessesAbsent', 'syntheticContainerAbsent']) {
     assert.ok(key in proof && Reflect.get(proof, key) === true, key + ' was not confirmed');
   }
-  assert.equal('codexVersion' in proof && proof.codexVersion, 'codex-cli 0.157.1');
-  assert.equal('codexSourceSHA256' in proof && proof.codexSourceSHA256, '27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d');
+  assert.equal('codexVersion' in proof && proof.codexVersion, 'codex-cli 0.163.0');
+  assert.equal('codexSourceSHA256' in proof && proof.codexSourceSHA256, '8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31');
+  const provenance = JSON.parse(readFileSync(join(root, 'proof/FortSandboxProbe.app/Contents/Resources/codex-provenance.json'), 'utf8'));
+  assert.equal(provenance.sourceCommit, '83086188ae0614bd882818ff1aa23f3194962012');
   assert.ok('codexVersionMs' in proof && typeof proof.codexVersionMs === 'number' && proof.codexVersionMs > 0 && proof.codexVersionMs < 5000);
   const codexPid = 'codexPid' in proof ? proof.codexPid : undefined;
   assert.ok(typeof codexPid === 'number' && Number.isSafeInteger(codexPid) && codexPid > 1);

@@ -25,7 +25,7 @@ export class CodexChat implements ChatRuntime {
   private connectionsUsed = 1;
   private detail = 'Ready for the exact selected model.';
   constructor(options: CodexChatOptions) {
-    if (options.runtimeVersion !== '0.157.1') throw new Error('Unreviewed runtime version');
+    if (options.runtimeVersion !== '0.163.0') throw new Error('Unreviewed runtime version');
     if (!isAbsolute(options.workspace) || options.workspace === '/' || normalize(options.workspace) !== options.workspace) throw new Error('Use an explicit empty workspace');
     if(options.replacement){const r=options.replacement,now=(r.now??Date.now)();if(!Number.isInteger(r.maximumConnections)||r.maximumConnections<1||r.maximumConnections>3||!Number.isSafeInteger(r.deadline)||r.deadline<=now||r.deadline>now+540_000)throw new Error('Use an explicit bounded replacement budget');}
     this.options = options;
@@ -50,7 +50,7 @@ export class CodexChat implements ChatRuntime {
     this.busy = true;
     try {
       return await signInCodexAccount({ connection: this.options.connection, workspace: this.options.workspace,
-        runtimeVersion: '0.157.1', signal, timeoutMs: durationMs,
+        runtimeVersion: '0.163.0', signal, timeoutMs: durationMs,
         onChallenge: challenge => onChallenge({ kind: 'deviceCode', verificationURL: challenge.verificationURL, userCode: challenge.userCode }) });
     } finally { this.busy = false; this.disposed = true; }
   }

@@ -30,7 +30,7 @@ export function buildHostResources(destination: string) {
       const bytes = readFileSync(join(destination, path));
       return [{ path, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }];
     }).sort((a, b) => a.path.localeCompare(b.path));
-    const manifest = { format: 1, artifact: 'fort-host-resources', requires: { platform: 'macOS', node: '26.5.0 supplied separately', codex: '0.157.1 supplied separately', guardian: 'Fort Mac process guardian supplied separately' }, files };
+    const manifest = { format: 1, artifact: 'fort-host-resources', requires: { platform: 'macOS', node: '26.5.0 supplied separately', codex: '0.163.0 supplied separately', guardian: 'Fort Mac process guardian supplied separately' }, files };
     writeFileSync(join(destination, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
     return manifest;
   } catch (error) {

@@ -9,10 +9,12 @@ import {CodexChat} from './codex-chat.ts';
 import type {ChatInput} from './chat-runtime.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
-const pinned=JSON.parse(readFileSync(new URL('./fixtures/codex-0.157.1-startup.json',import.meta.url),'utf8'));
+const pinned=JSON.parse(readFileSync(new URL('./fixtures/codex-0.163.0-startup.json',import.meta.url),'utf8'));
+// Separate synthetic disabled servers retain malformed-inventory coverage; the real capture has no MCP servers.
+const disabledMcp=JSON.parse(readFileSync(new URL('./fixtures/codex-0.157.1-startup.json',import.meta.url),'utf8'));
 type Frame={id?:unknown;method?:string;params:Record<string,unknown>};
 type Mutate=(method:string,response:Record<string,unknown>,request:Frame)=>void;
-const input: Omit<ChatInput, "context"> ={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{account:syntheticAccountIdentity,agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
+const input: Omit<ChatInput, "context"> ={ attempt:{runId:'audit',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.163.0',selectedModel:'gpt-6-astra'},runId:'audit',requestId:'audit',conversationId:'home',text:'Synthetic sample',history:[],configuration:{account:syntheticAccountIdentity,agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Use supplied context only.',skills:[]}};
 
 function fixture(mutate:Mutate=()=>{}) {
   const calls:Frame[]=[], output=new PassThrough();
@@ -27,9 +29,9 @@ function fixture(mutate:Mutate=()=>{}) {
       let response:Record<string,unknown>;
       switch(frame.method){
         case 'initialize':response={userAgent:'synthetic'};break;
-        case 'config/read':response={config:structuredClone(pinned.config),origins:{},layers:null};break;
+        case 'config/read':response={config:{...structuredClone(pinned.config),mcp_servers:structuredClone(disabledMcp.config.mcp_servers)},origins:{},layers:null};break;
         case 'experimentalFeature/list':response=page(structuredClone(pinned.features));break;
-        case 'mcpServerStatus/list':response=page(structuredClone(pinned.mcp).map((server:Record<string,unknown>)=>({...server,runtimeStatus:frame.params.threadId?'disabled':null})));break;
+        case 'mcpServerStatus/list':response=page(structuredClone(disabledMcp.mcp).map((server:Record<string,unknown>)=>({...server,runtimeStatus:frame.params.threadId?'disabled':null})));break;
         case 'account/read':response=structuredClone(pinned.account);break;
         case 'model/list':response=page(structuredClone(pinned.models));break;
         case 'permissionProfile/list':response=page(structuredClone(pinned.profiles));break;
@@ -50,13 +52,13 @@ function fixture(mutate:Mutate=()=>{}) {
     });done();
   }});
   const connection=new CodexConnection({input:stdin,output,close:()=>{stdin.destroy();output.destroy();}});
-  return {calls,runtime:new CodexChat({connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'})};
+  return {calls,runtime:new CodexChat({connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'})};
 }
 
 test('pinned inventory retains forced unified_exec with shell_tool explicitly disabled, across both pages and scopes',async()=>{
   const f=fixture((method,response)=>{if(method==='mcpServerStatus/list')response.data=[];});
   try{
-    assert.equal(pinned.features.length,150);
+    assert.equal(pinned.features.length,175);
     assert.equal((await f.runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     const pages=f.calls.filter(call=>call.method==='experimentalFeature/list');
     assert.deepEqual(pages.map(call=>call.params.cursor),[null,'100',null,'100']);
@@ -156,7 +158,7 @@ for(const [path,value] of [
   if(method==='config/read')setPath(object(response.config),path,value);
 }));
 
-const disabledFeatures=['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','multi_agent','multi_agent_v2','shell_tool','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use'];
+const disabledFeatures=['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','multi_agent','multi_agent_v2','shell_tool','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use','cli_daybreak','api_key_model_discovery','api_key_cyber_access_programs','ultrafast_mode'];
 for(const name of [...disabledFeatures,'skip_host_skill_discovery','unified_exec'])for(const mode of ['missing','nonboolean','changed'] as const){
   if(name==='unified_exec'&&mode==='changed')continue;
   for(const thread of [false,true])test(`${thread?'thread':'global'} feature ${name} ${mode} cannot be inferred safe`,()=>refused((method,response,request)=>{
@@ -167,7 +169,7 @@ for(const name of [...disabledFeatures,'skip_host_skill_discovery','unified_exec
 }
 test('a managed false unified_exec remains compatible with shell_tool false',async()=>{
   const f=fixture((method,response)=>{if(method==='experimentalFeature/list')response.data=(response.data as Record<string,unknown>[]).map(row=>row.name==='unified_exec'?{...row,enabled:false}:row);});
-  try{assert.deepEqual(await f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});}
+  try{assert.deepEqual(await f.runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.163.0'});}
   finally{await f.runtime.dispose();}
 });
 

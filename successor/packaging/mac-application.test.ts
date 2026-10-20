@@ -47,12 +47,14 @@ test('Mac assembly produces only an inert review bundle and exact local host lay
   for(const notice of sourceManifest.notices) assert.equal(hash(readFileSync(join(helper,'Contents/Resources/NodeLicenses',notice.file.slice('licenses/'.length)))),notice.sha256);
   assert.ok(existsSync(join(helper,'Contents/Resources/host/main.mjs')));
   for (const name of ['THIRD-PARTY-NOTICES.zip','THIRD-PARTY-SOURCES.zip','THIRD-PARTY.json','SOURCE-AVAILABILITY.txt']) {
-    const original=readFileSync(fileURLToPath(new URL('./vendor/codex-0.157.1/'+name,import.meta.url)));
+    const original=readFileSync(fileURLToPath(new URL('./vendor/codex-0.163.0/'+name,import.meta.url)));
     assert.deepEqual(readFileSync(join(helper,'Contents/Resources/CodexLicenses',name)),original);
   }
   assert.equal(existsSync(join(app,'Contents/embedded.provisionprofile')),false);
   const report=JSON.parse(readFileSync(join(f.destination,'package-report.json'),'utf8'));
   assert.equal(report.status,'review-only');assert.equal(report.signed,false);assert.equal(report.started,false);
+  assert.equal(report.codex.sourceCommit,'83086188ae0614bd882818ff1aa23f3194962012');
+  assert.equal(report.codex.sha256,'8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31');
   for (const entry of report.files) assert.equal(hash(readFileSync(join(app,entry.path))),entry.sha256);
   assert.ok(report.remaining.includes('exact signing and provisioning'));
   assert.equal(readFileSync(join(f.root,'client/Contents/MacOS/FortMac'),'utf8'),'inert synthetic code; never execute');
@@ -114,8 +116,8 @@ for (const scenario of ['missing-source','changed-notices','unexpected-legal-fil
     const f=fixture(true);t.after(()=>rmSync(f.root,{recursive:true,force:true}));
     const isolated=join(f.root,'assembler'),entry=join(isolated,'mac-application.ts');
     mkdirSync(isolated,{mode:0o700});writeFileSync(entry,readFileSync(script),{mode:0o600});
-    const legal=join(isolated,'vendor/codex-0.157.1');
-    cpSync(fileURLToPath(new URL('./vendor/codex-0.157.1',import.meta.url)),legal,{recursive:true});
+    const legal=join(isolated,'vendor/codex-0.163.0');
+    cpSync(fileURLToPath(new URL('./vendor/codex-0.163.0',import.meta.url)),legal,{recursive:true});
     if(scenario==='missing-source')rmSync(join(legal,'THIRD-PARTY-SOURCES.zip'));
     else if(scenario==='changed-notices')writeFileSync(join(legal,'THIRD-PARTY-NOTICES.zip'),'changed');
     else writeFileSync(join(legal,'unexpected.txt'),'unreviewed');

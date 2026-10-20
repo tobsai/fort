@@ -9,7 +9,7 @@ import { syntheticConfig, syntheticFeatures, syntheticAccount, syntheticAccountI
 import {parseSkillBundle} from '../contracts/skill-bundle.ts';
 import {redactedStartupFailure} from './startup-diagnostic.ts';
 
-const input: Omit<ChatInput, "context"> = { attempt:{runId:'run-1',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.157.1',selectedModel:'gpt-6-astra'}, runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ account: syntheticAccountIdentity, agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
+const input: Omit<ChatInput, "context"> = { attempt:{runId:'run-1',attemptId:'service-attempt',generation:1,bindingRevisionId:'binding',runtimeVersion:'0.163.0',selectedModel:'gpt-6-astra'}, runId:'run-1', requestId:'request-1', conversationId:'home', text:'What was the sample word?', configuration:{ account: syntheticAccountIdentity, agentId:'writer', agentName:'Writer', bindingRevisionId:'binding', selectedModel:'gpt-6-astra', instructions:'Use only the supplied context.', skills:[{ skillId:'marker', revisionId:'r1', name:'Marker', instructions:'End with [CHECKED].' }] }, history:[{ messageId:'m1', requestId:'earlier', conversationId:'home', role:'user', text:'Remember cedar.', sequence:1, createdAt:'2026-10-16T00:00:00Z', recipientAgentId:'writer', recipientAgentName:'Writer' }] };
 function transport(options: { account?: unknown; catalogModels?:unknown[]; model?: string; tool?: boolean; wrongModel?: boolean; afterThread?: () => void; config?: unknown; mcpPages?: readonly (readonly unknown[])[]; threadMcp?:unknown[]; features?: unknown[]; featurePages?: readonly (readonly unknown[])[]; threadFeatures?:unknown[]; cycleCursor?: boolean; rejectMethod?:string; afterTurn?:()=>void; interruption?:'confirmed'|'disconnect' } = {}) {
   const output = new PassThrough(); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message)+'\n');
@@ -52,7 +52,7 @@ function transport(options: { account?: unknown; catalogModels?:unknown[]; model
 
 test('Codex rejects a dispatch whose service attempt names a different run before provider I/O', async () => {
   const fixture = transport();
-  const runtime = new CodexChat({ connection: fixture.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+  const runtime = new CodexChat({ connection: fixture.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
   try {
     const result = await runtime.execute(contextInput({ ...input, attempt: { ...input.attempt, runId: 'foreign-run' } }), new AbortController().signal);
     assert.equal(result.kind, 'notStarted');
@@ -61,7 +61,7 @@ test('Codex rejects a dispatch whose service attempt names a different run befor
 });
 
 test('synthetic Codex connection preserves selected instructions and conversation context without login or model substitution', async () => {
-  const fixture = transport(); const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.157.1' });
+  const fixture = transport(); const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.163.0' });
   const result = await runtime.execute(contextInput(input), new AbortController().signal);
   assert.deepEqual(result, { kind:'completed', text:'cedar [CHECKED]', effectiveModel:null });
   const start = fixture.calls.find(c => c.method === 'thread/start')!;
@@ -78,14 +78,14 @@ test('synthetic Codex connection preserves selected instructions and conversatio
 });
 
 test('owner conversation memory reaches the exact Codex turn as scoped context without enabling provider memory tools',async()=>{
-  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
   const memory={conversationId:input.conversationId,revisionId:'memory-one',text:'  Owner sample note: cedar.\r\n'};
   const result=await runtime.execute(contextInput({...input,configuration:{...input.configuration,memory}}),new AbortController().signal);assert.equal(result.kind,'completed');
   const turn=fixture.calls.find(call=>call.method==='turn/start');assert.match(JSON.stringify(turn?.params?.input),/Owner sample note/);
   const payload=turn?.params?.input as {text:string}[];assert.deepEqual(JSON.parse(payload[0]!.text).conversationMemory,memory);
   assert.equal(String(fixture.calls.find(call=>call.method==='thread/start')?.params?.developerInstructions).includes(memory.text),false);
   assert.equal(fixture.calls.some(call=>call.method?.startsWith('memory/')),false);await runtime.dispose();
-  const foreign=transport(),blocked=new CodexChat({connection:foreign.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const foreign=transport(),blocked=new CodexChat({connection:foreign.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
   assert.equal((await blocked.execute(contextInput({...input,configuration:{...input.configuration,memory:{...memory,conversationId:'another-home'}}}),new AbortController().signal)).kind,'notStarted');
   assert.equal(foreign.calls.length,0);await blocked.dispose();
 });
@@ -94,7 +94,7 @@ for(const failure of ['unavailable-model','setup-cancel','unknown-turn'] as cons
   const cancellation=new AbortController();
   const first=transport(failure==='unavailable-model'?{model:'unavailable'}:failure==='setup-cancel'?{afterThread:()=>cancellation.abort()}:{afterTurn:()=>cancellation.abort(),interruption:'disconnect'}),second=transport();
   let replacements=0;
-  const runtime=new CodexChat({connection:first.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:10_000,now:()=>0,connect:()=>{assert.equal(first.closed,true);replacements++;return second.connection;}}});
+  const runtime=new CodexChat({connection:first.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0',replacement:{maximumConnections:2,deadline:10_000,now:()=>0,connect:()=>{assert.equal(first.closed,true);replacements++;return second.connection;}}});
   const failed=await runtime.execute(contextInput(input),cancellation.signal);assert.equal(failed.kind,failure==='unknown-turn'?'outcomeUnknown':'notStarted');
   assert.equal(runtime.readiness().state,'restartRequired');assert.equal(runtime.readiness().canRestart,true);assert.equal(replacements,0);
   await runtime.restart(new AbortController().signal);assert.equal(replacements,1);assert.equal(runtime.readiness().state,'ready');
@@ -108,7 +108,7 @@ test('Codex replacement never launches if old transport cleanup is unconfirmed o
     let now=0,launches=0;
     const output=new PassThrough(),stdin=new Writable({write(_chunk,_encoding,done){done();}});
     const connection=new CodexConnection({input:stdin,output,close:async()=>{stdin.destroy();output.destroy();if(blocked==='cleanup')throw new Error('Synthetic cleanup failure');}});
-    const runtime=new CodexChat({connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:1000,now:()=>now,connect:()=>{launches++;return transport().connection;}}});
+    const runtime=new CodexChat({connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0',replacement:{maximumConnections:2,deadline:1000,now:()=>now,connect:()=>{launches++;return transport().connection;}}});
     connection.close();if(blocked==='deadline')now=1001;
     await assert.rejects(runtime.restart(new AbortController().signal));assert.equal(launches,0);
     try{await runtime.dispose();}catch{}
@@ -125,7 +125,7 @@ test('no-turn preflight reports only the exact failed check, never provider payl
     [{mcpPages:[[{name:'synthetic-secret-must-not-report'}]]},{stage:'mcp',check:'inventory'}],
     [{model:'synthetic-secret-must-not-report'},{stage:'model',check:'availability'}],
   ] as const){
-    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
     let failure:unknown;
     try{await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity);}catch(error){failure=error;}
     await runtime.dispose();
@@ -144,7 +144,7 @@ test('ambient servers, missing features, repeated cursors and thread-only MCP ca
     {threadMcp:[{name:'thread-only',tools:{dangerous:{}}}]},
     {config:{...syntheticConfig(),model_providers:{openai:{base_url:'https://unapproved.invalid',env_key:'synthetic'}}}},
   ]) {
-    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const fixture=transport(options),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
     const result=await runtime.execute(contextInput(input),new AbortController().signal);
     assert.equal(result.kind,'notStarted');assert.equal(fixture.calls.some(c=>c.method==='turn/start'),false);
     assert.equal(JSON.stringify(result).includes('synthetic-do-not-report'),false);
@@ -154,7 +154,7 @@ test('ambient servers, missing features, repeated cursors and thread-only MCP ca
 
 test('unconfirmed effective configuration stops before thread creation, MCP discovery or turn dispatch', async () => {
   const fixture = transport({ config:{ model_provider:'unexpected' } });
-  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
+  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0' });
   const result = await runtime.execute(contextInput(input),new AbortController().signal);
   assert.equal(result.kind,'notStarted');
   assert.equal(fixture.calls.some(c => ['thread/start','mcpServerStatus/list','turn/start'].includes(c.method ?? '')),false);
@@ -163,7 +163,7 @@ test('unconfirmed effective configuration stops before thread creation, MCP disc
 
 test('MCP inventory is checked through the final page before a thread or turn is allowed', async () => {
   const fixture = transport({ mcpPages:[[],[{ name:'unapproved',tools:{ dangerous:{} } }]] });
-  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
+  const runtime = new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0' });
   const result = await runtime.execute(contextInput(input),new AbortController().signal);
   assert.equal(result.kind,'notStarted');
   assert.equal(fixture.calls.filter(c => c.method === 'mcpServerStatus/list').length,2);
@@ -173,8 +173,8 @@ test('MCP inventory is checked through the final page before a thread or turn is
 
 test('explicit no-turn preflight and later dispatch share one initialized connection', async () => {
   const fixture=transport();
-  const runtime=new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1' });
-  assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{ model:'gpt-6-astra',runtimeVersion:'0.157.1' });
+  const runtime=new CodexChat({ connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0' });
+  assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{ model:'gpt-6-astra',runtimeVersion:'0.163.0' });
   assert.equal(fixture.calls.some(c => ['thread/start','turn/start'].includes(c.method ?? '')),false);
   assert.equal((await runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
   assert.equal(fixture.calls.filter(c => c.method === 'initialize').length,1);
@@ -188,7 +188,7 @@ test('ambient ChatGPT routing and telemetry exporters cannot bypass the selected
     {...syntheticConfig(),openai_base_url:'https://unapproved.invalid/v1'},
     {...syntheticConfig(),otel:{exporter:{'otlp-http':{endpoint:'https://unapproved.invalid'}}}},
   ]){
-    const fixture=transport({config}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const fixture=transport({config}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
     const result=await runtime.execute(contextInput(input),new AbortController().signal);
     assert.equal(result.kind,'notStarted');assert.equal(fixture.calls.some(c=>c.method==='turn/start'),false);
     await runtime.dispose();
@@ -198,7 +198,7 @@ test('ambient ChatGPT routing and telemetry exporters cannot bypass the selected
 test('cancellation after thread creation but before continuation never dispatches a turn', async () => {
   const abort = new AbortController();
   const fixture = transport({ afterThread:() => abort.abort() });
-  const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.157.1' });
+  const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.163.0' });
   const result = await runtime.execute(contextInput(input),abort.signal);
   assert.equal(fixture.calls.some(c => c.method === 'turn/start'),false);
   assert.equal(result.kind,'notStarted');
@@ -208,7 +208,7 @@ test('cancellation after thread creation but before continuation never dispatche
 test('unavailable exact model, changed thread model, oversized context and tool requests fail without fallback', async () => {
   for (const kind of ['missing','changed','oversized','tool'] as const) {
     const fixture = transport({ model:kind === 'missing' ? 'other' : undefined, wrongModel:kind === 'changed', tool:kind === 'tool' });
-    const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.157.1' });
+    const runtime = new CodexChat({ connection:fixture.connection, workspace:'/synthetic/empty', runtimeVersion:'0.163.0' });
     const result = await runtime.execute(contextInput(kind === 'oversized' ? { ...input, text:'x'.repeat(65_537) } : input), new AbortController().signal);
     assert.notEqual(result.kind, 'completed');
     if (kind !== 'tool') assert.equal(fixture.calls.some(c => c.method === 'turn/start'), false);
@@ -219,11 +219,11 @@ test('unavailable exact model, changed thread model, oversized context and tool 
 });
 
 
-test('Codex 0.157.1 canonical inventory confirms disabled memory and images without legacy alias entries',async()=>{
+test('Codex 0.163.0 canonical inventory confirms disabled memory and images without legacy alias entries',async()=>{
   const features=syntheticFeatures().filter(feature=>!['memory_tool','imagegenext'].includes(feature.name));
-  const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
   try{
-    assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.157.1'});
+    assert.deepEqual(await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity),{model:'gpt-6-astra',runtimeVersion:'0.163.0'});
     assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')),false);
     assert.equal((await runtime.execute(contextInput(input),new AbortController().signal)).kind,'completed');
     assert.equal(fixture.calls.some(call=>call.method==='experimentalFeature/list'&&call.params?.threadId==='thread'),true);
@@ -242,7 +242,7 @@ for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image
       if(mode==='alias-enabled')features.push({name:alias,enabled:true});
       if(mode==='nonboolean')features.push({name:alias,enabled:'false'});
       if(mode==='duplicate')features.push({name:canonical,enabled:false});
-      const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+      const fixture=transport({featurePages:[features.slice(0,7),features.slice(7)]}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
       let failure:unknown;
       try{await runtime.preflight(new AbortController().signal, undefined, syntheticAccountIdentity);}catch(error){failure=error;}
       finally{await runtime.dispose();}
@@ -254,7 +254,7 @@ for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image
   }
   test(`${canonical} is rechecked in thread scope before turn dispatch`,async()=>{
     const fixture=transport({threadFeatures:syntheticFeatures().map(feature=>feature.name===canonical?{...feature,enabled:true}:feature)});
-    const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+    const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
     try{
       assert.equal((await runtime.execute(contextInput(input),new AbortController().signal)).kind,'notStarted');
       assert.equal(fixture.calls.some(call=>call.method==='thread/start'),true);
@@ -265,7 +265,7 @@ for(const [alias,canonical] of [['memory_tool','memories'],['imagegenext','image
 
 for(const interruption of ['confirmed','disconnect'] as const)test(`cancellation requires correlated terminal evidence: ${interruption}`,async()=>{
   const cancellation=new AbortController();
-  const fixture=transport({afterTurn:()=>cancellation.abort(),interruption}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const fixture=transport({afterTurn:()=>cancellation.abort(),interruption}),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
   try{
     const result=await runtime.execute(contextInput(input),cancellation.signal);
     assert.equal(result.kind,interruption==='confirmed'?'canceled':'outcomeUnknown');
@@ -285,7 +285,7 @@ function reviewedBundleInput(kind:'text'|'binary'|'script'|'tools'|'runtime'='te
 }
 
 test('reviewed text bundle reaches Codex with every manifest field and file intact under unchanged no-tool permissions',async()=>{
-  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'}),selected=reviewedBundleInput();
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'}),selected=reviewedBundleInput();
   try{
     const result=await runtime.execute(contextInput(selected),new AbortController().signal);assert.equal(result.kind,'completed');
     const turn=fixture.calls.find(call=>call.method==='turn/start');assert.ok(turn);assert.ok(Array.isArray(turn.params?.input));
@@ -297,12 +297,12 @@ test('reviewed text bundle reaches Codex with every manifest field and file inta
 });
 
 for(const unsupported of ['binary','script','tools','runtime'] as const)test(`no-tool Codex refuses unsupported reviewed bundle content before protocol dispatch: ${unsupported}`,async()=>{
-  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
   try{const result=await runtime.execute(contextInput(reviewedBundleInput(unsupported)),new AbortController().signal);assert.equal(result.kind,'notStarted');assert.deepEqual(fixture.calls,[]);}finally{await runtime.dispose();}
 });
 
 for(const change of ['content','review','identity','size'] as const)test(`bundle dispatch rejects changed or unsupported input before protocol use: ${change}`,async()=>{
-  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'}),selected=reviewedBundleInput();
+  const fixture=transport(),runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'}),selected=reviewedBundleInput();
   const skill=selected.configuration.skills[0];assert.ok(skill?.bundle);
   if(change==='content')skill.bundle.files[1]!.contentBase64=Buffer.from('Changed after review').toString('base64');
   if(change==='review')skill.review.digest='different';
@@ -319,7 +319,7 @@ for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime dispos
   const oldCleanup=new Promise<void>(resolve=>{releaseOld=resolve;}),paused=new Promise<void>(resolve=>{startedPreflight=resolve;});
   const old=new CodexConnection({input:new PassThrough(),output:new PassThrough(),close:()=>oldCleanup});old.close();
   const replacements:CodexConnection[]=[];
-  const runtime=new CodexChat({connection:old,workspace:'/synthetic/empty',runtimeVersion:'0.157.1',replacement:{maximumConnections:2,deadline:Date.now()+10_000,connect:()=>{
+  const runtime=new CodexChat({connection:old,workspace:'/synthetic/empty',runtimeVersion:'0.163.0',replacement:{maximumConnections:2,deadline:Date.now()+10_000,connect:()=>{
     connections++;
     if(phase==='old-cleanup'){const connection=transport().connection;replacements.push(connection);return connection;}
     const output=new PassThrough();const input=new Writable({write(_bytes,_encoding,done){startedPreflight();done();}});
@@ -339,7 +339,7 @@ for(const phase of ['old-cleanup','new-preflight'] as const)test(`runtime dispos
 
 test('model catalog uses exact runtime slugs without dispatch, login or silent default substitution',async()=>{
  const fixture=transport({catalogModels:[{id:'display-id',model:'exact-text-model',displayName:'Text model',inputModalities:['text']},{id:'audio',model:'exact-audio-model',inputModalities:['audio']}]});
- const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+ const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
  const catalog=await runtime.models(new AbortController().signal, syntheticAccountIdentity);assert.equal(catalog.state,'ready');
  assert.deepEqual(catalog.models.map(model=>[model.id,model.availability]),[['exact-text-model','available'],['exact-audio-model','unavailable']]);
  assert.equal(fixture.calls.some(call=>['thread/start','turn/start'].includes(call.method??'')||call.method?.includes('login')),false);
@@ -348,13 +348,13 @@ test('model catalog uses exact runtime slugs without dispatch, login or silent d
 });
 for(const issue of ['duplicate','invalid','failure'] as const)test(`model discovery fails safely: ${issue}`,async()=>{
  const fixture=transport(issue==='failure'?{rejectMethod:'model/list'}:{catalogModels:issue==='duplicate'?[{model:'same'},{model:'same'}]:[{id:'display-only'}]});
- const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.157.1'});
+ const runtime=new CodexChat({connection:fixture.connection,workspace:'/synthetic/empty',runtimeVersion:'0.163.0'});
  const catalog=await runtime.models(new AbortController().signal, syntheticAccountIdentity);assert.equal(catalog.state,'error');assert.deepEqual(catalog.models,[]);assert.equal(JSON.stringify(catalog).includes('synthetic-secret'),false);await runtime.dispose();
 });
 
 for (const account of [undefined, { ...syntheticAccountIdentity, accountId: 'another-workspace' }, { ...syntheticAccountIdentity, userLabel: 'other@fixture.invalid' }]) {
   test('Codex refuses a missing or mismatched selected identity before model or thread dispatch ' + JSON.stringify(account), async () => {
-    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
     const result = await runtime.execute(contextInput({ ...input, configuration: { ...input.configuration, account } }), new AbortController().signal);
     assert.equal(result.kind, 'notStarted');
     assert.equal(f.calls.some(c => ['model/list', 'thread/start', 'turn/start'].includes(c.method ?? '')), false);
@@ -364,7 +364,7 @@ for (const account of [undefined, { ...syntheticAccountIdentity, accountId: 'ano
 
 test('account change after catalog discovery blocks the next turn before thread creation', async () => {
   const options: { account: unknown } = { account: syntheticAccount() }, f = transport(options);
-  const runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+  const runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
   assert.equal((await runtime.models(new AbortController().signal, syntheticAccountIdentity)).state, 'ready');
   options.account = { ...syntheticAccount(), workspaceRouting: { ...syntheticAccount().workspaceRouting, chatgptAccountId: 'different-workspace' } };
   assert.equal((await runtime.execute(contextInput(input), new AbortController().signal)).kind, 'notStarted');
@@ -374,9 +374,38 @@ test('account change after catalog discovery blocks the next turn before thread 
 });
 for (const account of [null, {}, { ...syntheticAccountIdentity, accountId: 'another' }])
   test('catalog discovery requires the exact selected account ' + JSON.stringify(account), async () => {
-    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.157.1' });
+    const f = transport(), runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
     // Deliberately cross the untyped capability boundary with invalid evidence.
     const catalog = await Reflect.apply(runtime.models, runtime, [new AbortController().signal, account]);
     assert.equal(catalog.state, 'error'); assert.equal(f.calls.some(c => c.method === 'model/list'), false);
     await runtime.dispose();
+  });
+
+test('reviewed 0.163.0 uses the exact GPT-6.1 Sol model and refuses other runtime versions', async () => {
+  const f = transport({ model: 'gpt-6.1-sol' });
+  const runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
+  try {
+    const selected = { ...input, attempt: { ...input.attempt, runtimeVersion: '0.163.0', selectedModel: 'gpt-6.1-sol' },
+      configuration: { ...input.configuration, selectedModel: 'gpt-6.1-sol' } };
+    const result = await runtime.execute(contextInput(selected), new AbortController().signal);
+    assert.equal(result.kind, 'completed');
+    for (const call of f.calls.filter(call => call.method === 'thread/start' || call.method === 'turn/start'))
+      assert.equal(call.params?.model, 'gpt-6.1-sol');
+    assert.equal(f.calls.some(call => call.method?.includes('login')), false);
+    for (const runtimeVersion of ['0.157.1', '0.163.1'])
+      assert.throws(() => new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion }), /Unreviewed runtime version/);
+  } finally { await runtime.dispose(); }
+});
+
+for (const feature of ['cli_daybreak', 'api_key_model_discovery', 'api_key_cyber_access_programs', 'ultrafast_mode'])
+  for (const afterThread of [false, true]) test(`0.163.0 refuses enabled ${feature} in ${afterThread ? 'thread' : 'global'} scope before a turn`, async () => {
+    const safe = syntheticFeatures();
+    const unsafe = safe.map(row => row.name === feature ? { ...row, enabled: true } : row);
+    const f = transport(afterThread ? { features: safe, threadFeatures: unsafe } : { features: unsafe });
+    const runtime = new CodexChat({ connection: f.connection, workspace: '/synthetic/empty', runtimeVersion: '0.163.0' });
+    try {
+      const result = await runtime.execute(contextInput({ ...input, attempt: { ...input.attempt, runtimeVersion: '0.163.0' } }), new AbortController().signal);
+      assert.equal(result.kind, 'notStarted');
+      assert.equal(f.calls.some(call => call.method === 'turn/start'), false);
+    } finally { await runtime.dispose(); }
   });

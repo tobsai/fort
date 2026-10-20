@@ -7,14 +7,14 @@ import { parseArgs } from 'node:util';
 
 type Entry = { path: string; source: string; dev: number; ino: number; mode: number; bytes: number; sha256: string };
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-const codexHash = '27ceb5f9b957b43a519efe4eaa3816a0bffb0a531a2c89af18840c0a3c016a7d';
+const codexHash = '8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31';
 const legalHashes: Record<string,string> = {
   "LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
   "NOTICE": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915",
-  "SOURCE-AVAILABILITY.txt": "072ecb9716ccdd0f5a0dc9f27bf5f22225431be5b206da801dcb7d282d914ca3",
-  "THIRD-PARTY-NOTICES.zip": "82fe87e4ffdf2c6061514c10dfed75a2fe0f0537dc808d1ab98fd537bb120227",
-  "THIRD-PARTY-SOURCES.zip": "37f1f6c01311c4a6d3bc30efe81527c563ce2a26f5b7d41ff4b2003658c9ab8f",
-  "THIRD-PARTY.json": "e08eed4f0f065230e18dca896e015e6070efb6c892a9aad98a08478496c28734"
+  "SOURCE-AVAILABILITY.txt": "708a172e4f372adfb96083f2c6543926afa999c48553b1ad67f8c68ce8af0f6e",
+  "THIRD-PARTY-NOTICES.zip": "8d78795a2df49f9dfe484b8ad10a5548077a405771c0f9bb17eaca047409424c",
+  "THIRD-PARTY-SOURCES.zip": "26911dd68215a019b4ffea9252b614039d9b25e27824a09962c596ce02e4463e",
+  "THIRD-PARTY.json": "b1885f0c15aec4dfb6be286a149d0828fe41a1cba130063b2c2095ab8127286c"
 };
 const tool = (path:string, args:string[]) => execFileSync(path,args,{env:{},encoding:'utf8',timeout:20_000,stdio:'pipe'});
 function exactPath(path:string): string {
@@ -144,7 +144,7 @@ try {
   if (codex.sha256!==codexHash || !(codex.mode&0o111) || !(guardian.mode&0o111) || !guardian.bytes || guardian.bytes>8*1024*1024) throw new Error('Invalid exact runtime executable');
   let legal:Entry[];
   try {
-    legal=inventory(fileURLToPath(new URL('./vendor/codex-0.157.1/',import.meta.url)));
+    legal=inventory(fileURLToPath(new URL('./vendor/codex-0.163.0/',import.meta.url)));
     if(legal.length!==Object.keys(legalHashes).length || legal.some(file=>file.sha256!==legalHashes[file.path])) throw new Error('Changed legal payload');
   } catch { throw new Error('Codex attribution is missing, changed or unsafe'); }
   const sources=[configFile,...client,...helper,...host,...node,codex,guardian,...legal];
@@ -173,7 +173,7 @@ try {
     for(const source of sources)bytes(source);
     const files=inventory(app).map(({path,mode,bytes,sha256})=>({path,mode,bytes,sha256}));
     const report={format:1,status:'review-only',signed:false,started:false,configuration:config,remaining:['exact signing and provisioning','authorized installed provider/UI acceptance'],
-      codex:{sourceCommit:'36650394c5b38c2990ccf2a3457165ca3e9d9726',sha256:codexHash,attribution:legal.map(({path,bytes,sha256})=>({path,bytes,sha256})),scope:'Conservative CLI source attribution and covered-source copies; not a target binary SBOM or Apple/provider acceptance'},
+      codex:{sourceCommit:'83086188ae0614bd882818ff1aa23f3194962012',sha256:codexHash,attribution:legal.map(({path,bytes,sha256})=>({path,bytes,sha256})),scope:'Conservative CLI source attribution and covered-source copies; not a target binary SBOM or Apple/provider acceptance'},
       inputs:sources.map(({source,mode,sha256})=>({source,mode,sha256})),files};
     put(join(destination,'package-report.json'),Buffer.from(JSON.stringify(report,null,2)+'\n'));
     process.stdout.write(JSON.stringify({destination:realpathSync(destination),status:report.status,files:files.length,signed:false,started:false})+'\n');

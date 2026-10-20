@@ -1,0 +1,29 @@
+Codex 0.163.0 — third-party notices and source availability
+
+Codex source revision: 83086188ae0614bd882818ff1aa23f3194962012
+Upstream: https://github.com/openai/codex/tree/83086188ae0614bd882818ff1aa23f3194962012
+The original Codex LICENSE and NOTICE are beside this file.
+
+THIRD-PARTY-NOTICES.zip contains collected original third-party notices, package
+metadata, source headers and standard license terms. THIRD-PARTY.json records
+package versions, immutable source references and SHA-256 hashes. Its inventory
+is conservative and includes packages for other targets and development.
+
+THIRD-PARTY-SOURCES.zip contains unmodified source archives for all MPL components
+in that inventory: option-ext 0.2.0, the Symphonia 0.6.0 family, termina 0.3.3
+(included conservatively) and nucleo/nucleo-matcher at
+4253de9faabb4e5c6d81d946a5e35a90f87347ee. Covered source is available under its
+original MPL-2.0 terms. The full MPL text is in licenses/MPL-2.0.txt within that
+archive and at https://www.mozilla.org/MPL/2.0/. Fort does not restrict your rights
+to this covered source. Registry archives match the pinned Cargo.lock checksums;
+the source manifest identifies their original download locations and every file.
+
+No download or account is needed to obtain these source copies: the two archives
+and this notice ship together in Fort.app/Contents/Helpers/FortHost.app/Contents/
+Resources/CodexLicenses/. In Finder, use Show Package Contents on Fort.app, then on
+the nested FortHost.app, and copy the archives from Resources/CodexLicenses. The
+archives also include original sources for the three MIT declaration-only cases
+described in THIRD-PARTY.json. Preserve their original declarations and attribution.
+
+These licenses concern the supplied software, not permission to access an account
+or a hosted service. This bundle makes no provider sign-in or terms agreement.
