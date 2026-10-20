@@ -1,5 +1,22 @@
 # Fort delivery through TestFlight
 
+## Current checkpoint: GPT-6.1 Sol passed; local cleanup confirmed
+
+Two approved synthetic turns completed with selected model gpt-6.1-sol, including
+normal Quit/relaunch between them. Effective model was not independently reported.
+Two of three prompts were used. Startup registration, pairing and local provider
+credentials are absent; no owned host/runtime remains. App/history are retained,
+and every original Message and run is unchanged. Remote grants remain untouched.
+
+The exact-account preference/model-refresh repair passes source verification:
+1,417 portable tests and 345 native tests, each suite with 16 optional skips,
+strict typecheck and Release Mac build. Disconnected packaging follows. It retains one explicit choice within installation/
+recovery/provider/host scope, reuses only fresh exact account/workspace evidence,
+clears stale catalog eligibility, and preserves the Agent selection. No further
+provider access is needed for this update. See the
+[full evidence](evidence/2026-10-17-node-foundation/runtime-migration-0163.md).
+This is local engineering acceptance, not TestFlight, physical iPhone or G2 signoff.
+
 ## Current checkpoint: 0.163.0 installed; normal sign-in awaits owner
 
 Migration source `d8d76bc3` is installed. The 208-file candidate and all 30 signatures,

@@ -16,7 +16,7 @@ public struct ModelCatalog: Codable, Equatable, Sendable {
     public func options(preserving selected: String) -> [ModelOption] {
         var result = state == "ready" ? models : []
         if !selected.isEmpty && !result.contains(where:{$0.id == selected}) {
-            result.append(ModelOption(id:selected,name:selected,availability:"unavailable",detail:state == "ready" ? "Not listed by this runtime." : "Availability has not been verified."))
+            result.append(ModelOption(id:selected,name:selected,availability:state == "ready" ? "unavailable" : "unchecked",detail:state == "ready" ? "Not listed by this runtime." : "Availability has not been verified."))
         }
         return result
     }
@@ -86,13 +86,14 @@ struct AgentSettingsEditor: View {
                 Picker("Model",selection:$form.exactModel) {
                     if form.exactModel.isEmpty { Text("Choose a model").tag("") }
                     ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in
-                        Text(choice.name + (choice.availability == "available" ? "" : " · unavailable")).tag(choice.id).disabled(choice.availability != "available")
+                        Text(choice.name + (choice.availability == "available" ? "" : choice.availability == "unchecked" ? " · not checked" : " · unavailable")).tag(choice.id).disabled(choice.availability != "available")
                     }
                 }
                 if let choice = model.modelCatalog.options(preserving:form.exactModel).first(where:{$0.id == form.exactModel}), let detail = choice.detail { Text(detail).font(.caption) }
                 if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
                 if model.modelCatalog.state == "ready" { Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
-                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(model.loadingModels || model.accountSignInBusy)
+                if let requirement = model.modelAccountRequirement { Text(requirement).font(.caption) }
+                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(!model.canRefreshModels)
             }
             Section("Avatar") {
                 HStack(spacing:18) {

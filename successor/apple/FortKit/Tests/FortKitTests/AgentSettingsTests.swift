@@ -63,6 +63,7 @@ private let legacyAgent = #"{"agentId":"writer","name":"Writer","homeConversatio
     #expect(ready.options(preserving:"retired").last?.availability == "unavailable")
     let failed = ModelCatalog(provider:"codex",state:"error",models:[],detail:"Discovery failed")
     #expect(failed.options(preserving:"retired").map(\.id) == ["retired"])
+    #expect(failed.options(preserving:"retired").last?.availability == "unchecked")
     #expect(!failed.canSelect("retired"))
     #expect(ready.canSelect("listed"))
 }

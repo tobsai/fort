@@ -83,7 +83,11 @@ import Observation
     private var imageStore: LocalChatImageStore { LocalChatImageStore(directory:storage.directory.appendingPathComponent("local-images",isDirectory:true)) }
     public var modelCatalog: ModelCatalog = .unchecked
     public var loadingModels = false
-    public var accountSignInStatus: AccountSignInStatus?
+    public var accountSignInStatus: AccountSignInStatus? {
+        didSet {
+            if oldValue != accountSignInStatus && accountSignInStatus?.accountSelected != true { modelCatalog = .unchecked }
+        }
+    }
     public private(set) var accountSignInBusy = false
     public private(set) var accountSignInMessage = "Sign in explicitly to the selected runtime."
     private var accountSignInIntent: AccountSignInIntent?
@@ -96,6 +100,11 @@ import Observation
         false
         #endif
     }
+    public var modelAccountRequirement: String? {
+        guard canManageProviderAccount, accountSignInStatus?.accountSelected != true else { return nil }
+        return accountSignInStatus?.reportedAccount == nil ? "Sign in to the runtime and confirm your account before checking models." : "Confirm the account and workspace above to check models."
+    }
+    public var canRefreshModels: Bool { !loadingModels && !accountSignInBusy && modelAccountRequirement == nil }
     private func accountScope() throws -> (FortClient, DeviceConnection, Installation) {
         guard canManageProviderAccount, let client, let installation, let connection = try storage.connection(),
               connection.installationID == installation.installationId, pairingStatus?.deviceId == connection.deviceID else { throw ClientError.invalidResponse }
@@ -141,14 +150,17 @@ import Observation
     public func refreshAccountSignIn() async {
         guard !accountSignInBusy, !lifecycleBusy else { return }
         guard canManageProviderAccount else { accountSignInStatus = nil; return }
-        accountSignInBusy = true; defer { accountSignInBusy = false }
+        let previous = accountSignInStatus
+        accountSignInBusy = true
         let generation = accountStatusGeneration
         do {
             let (client,connection,selected) = try accountScope()
             let intent = try storage.accountSignInIntent(for:connection); accountSignInIntent = intent
             let result = try await client.accountSignInStatus()
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
-        } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
+        } catch { accountSignInStatus = nil; modelCatalog = .unchecked; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
+        accountSignInBusy = false
+        if accountSignInStatus?.accountSelected == true && (previous?.accountSelected != true || previous?.operation != accountSignInStatus?.operation) { await refreshModels() }
     }
     public func selectReportedAccount() async {
         guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels,

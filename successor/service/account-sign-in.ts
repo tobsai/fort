@@ -1,13 +1,14 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
-import type { AccountChallenge, AccountSignInResult, AccountSignInStatus } from '../contracts/v1.ts';
+import type { AccountChallenge, AccountIdentity, AccountSignInResult, AccountSignInStatus } from '../contracts/v1.ts';
 import { parseAccountChallenge, parseAccountSignInResult, parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 
 type Attempt = { revision: number; operationId: string; deviceId: string; recoveryEpoch: string; expiresAt: number }
   & ({ state: 'active' | 'canceling' } | { state: 'finished'; result: AccountSignInResult; selected?: boolean });
 type AccountWork = { controller: AbortController; task: Promise<void>; challenge?: AccountChallenge };
 type Scope = { deviceId: string; recoveryEpoch: string; running: boolean };
-type Options = { runtime: ChatRuntime | undefined; now(): number; scope(): Scope | undefined;
+type Choice = { installationId: string; recoveryEpoch: string; provider: string; hostId: string; account: AccountIdentity };
+type Options = { identity: Pick<Choice, 'installationId' | 'provider' | 'hostId'>; runtime: ChatRuntime | undefined; now(): number; scope(): Scope | undefined;
   commit<T>(action: () => T): T; changed(): void; settled(): void };
 export class AccountSignInError extends Error {
   readonly status: number; readonly code: string;
@@ -25,10 +26,12 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
   const runtime = options.runtime, signIn = runtime?.signIn?.bind(runtime);
   let current: Attempt | undefined;
   let active: AccountWork | undefined;
-  const save = (record: Attempt) => { options.commit(() => {
+  let choice: Choice | undefined;
+  const save = (record: Attempt, confirmed?: Choice) => { options.commit(() => {
     db.prepare("INSERT OR REPLACE INTO metadata VALUES ('accountSignIn',?)").run(JSON.stringify(record));
+    if (confirmed) db.prepare("INSERT OR REPLACE INTO metadata VALUES ('accountChoice',?)").run(JSON.stringify(confirmed));
     options.changed();
-  }); current = record; };
+  }); current = record; if (confirmed) choice = confirmed; };
   const stored = db.prepare("SELECT data FROM metadata WHERE key='accountSignIn'").get();
   if (stored) {
     const row = fields(JSON.parse(String(stored.data)), ['revision', 'operationId', 'deviceId', 'recoveryEpoch', 'expiresAt', 'state', 'result', 'selected']);
@@ -40,6 +43,22 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     }
     else if ((row.state === 'active' || row.state === 'canceling') && !Object.hasOwn(row, 'result') && !Object.hasOwn(row, 'selected')) save({ ...identity, state: 'finished', result: { kind: 'unconfirmed' } });
     else reject();
+  }
+  const storedChoice = db.prepare("SELECT data FROM metadata WHERE key='accountChoice'").get();
+  if (storedChoice) {
+    try {
+      const row = fields(JSON.parse(String(storedChoice.data)), ['installationId', 'recoveryEpoch', 'provider', 'hostId', 'account']);
+      choice = { installationId: id(row.installationId), recoveryEpoch: id(row.recoveryEpoch), provider: id(row.provider), hostId: id(row.hostId), account: parseAccountIdentity(row.account) };
+    } catch { choice = undefined; }
+  }
+  function retainLegacyChoice(scope: Scope) {
+    if (!storedChoice && !choice && current?.recoveryEpoch === scope.recoveryEpoch
+        && current.state === 'finished' && current.selected && current.result.kind === 'signedIn' && current.result.account)
+      save(current, { ...options.identity, recoveryEpoch: scope.recoveryEpoch, account: current.result.account });
+  }
+  function matchesChoice(account: AccountIdentity | undefined, recoveryEpoch: string): boolean {
+    return choice !== undefined && choice.installationId === options.identity.installationId && choice.recoveryEpoch === recoveryEpoch
+      && choice.provider === options.identity.provider && choice.hostId === options.identity.hostId && sameAccount(choice.account, account);
   }
   function authorize(deviceId: string): Scope {
     const scope = options.scope();
@@ -66,6 +85,7 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     }
     if (!signIn || !scope.running || active || expectedRevision !== (current?.revision ?? 0) || expectedRevision >= Number.MAX_SAFE_INTEGER
         || expiresAt <= options.now() || expiresAt > options.now() + 115_000) reject();
+    retainLegacyChoice(scope);
     const record: Attempt = { revision: expectedRevision + 1, operationId, deviceId, recoveryEpoch, expiresAt, state: 'active' };
     save(record);
     const operation: AccountWork = { controller: new AbortController(), task: Promise.resolve() };
@@ -84,7 +104,11 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
       finally {
         clearTimeout(timer); operation.challenge = undefined;
         if (active === operation) {
-          save({ ...record, state: 'finished', result }); active = undefined; options.settled();
+          const scope = options.scope();
+          const reuse = !operation.controller.signal.aborted && options.now() < expiresAt && scope?.running
+            && scope.deviceId === deviceId && scope.recoveryEpoch === recoveryEpoch
+            && result.kind === 'signedIn' && matchesChoice(result.account, recoveryEpoch);
+          save({ ...record, state: 'finished', result, ...(reuse ? { selected: true } : {}) }); active = undefined; options.settled();
         }
       }
     });
@@ -115,7 +139,8 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     if (!scope.running || active || !current || current.state !== 'finished' || current.result.kind !== 'signedIn'
         || current.deviceId !== deviceId || current.recoveryEpoch !== scope.recoveryEpoch || id(row.recoveryEpoch) !== scope.recoveryEpoch
         || id(row.operationId) !== current.operationId || integer(row.revision, 1) !== current.revision || !sameAccount(account, current.result.account)) reject();
-    if (!current.selected) save({ ...current, selected: true });
+    if (!current.selected || !matchesChoice(account, scope.recoveryEpoch))
+      save({ ...current, selected: true }, { ...options.identity, recoveryEpoch: scope.recoveryEpoch, account });
     return status(deviceId);
   }
   return { status, start, cancel, select, selected, get busy() { return active !== undefined; },

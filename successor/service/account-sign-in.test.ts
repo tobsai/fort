@@ -9,10 +9,10 @@ import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { Agent, RuntimeDescriptor } from '../contracts/v1.ts';
 type Reply = { state?: string; operationId?: string; revision?: number; challenge?: { userCode: string }; selected?: boolean; result?: { kind: string; account?: { accountId: string; userLabel: string } } };
 
-async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChallenge' | 'badResult' | 'unsupported' | 'failCleanup' | 'busyCatalog' | 'lyingReadiness' = 'pending') {
+async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChallenge' | 'badResult' | 'unsupported' | 'failCleanup' | 'busyCatalog' | 'lyingReadiness' | 'lateAccount' = 'pending') {
   const directory = await realpath(await mkdtemp('/tmp/fort059-owner-account-'));
   const catalogStarted = Promise.withResolvers<void>(), catalogDone = Promise.withResolvers<void>();
-  let restarts = 0;
+  let restarts = 0, offset = 0;
   let starts = 0, executions = 0, catalogs = 0, cleanupFails = behavior === 'failCleanup', finish: ((value: { kind: 'signedIn' | 'canceled'; account?: { accountId: string; userLabel: string } }) => void) | undefined;
   const runtime: ChatRuntime = { execute: async () => { executions++; return { kind: 'notStarted', message: 'Synthetic' }; },
     models: async (_signal, account) => { assert.deepEqual(account, selectedAccount); catalogs++; catalogStarted.resolve(); if (behavior === 'busyCatalog') await catalogDone.promise; return { provider: 'independent-account', state: 'unavailable', models: [], detail: 'Synthetic' }; },
@@ -21,12 +21,12 @@ async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChalle
       starts++;
       if (behavior === 'badResult') return { kind: 'signedIn', token: 'synthetic-private' };
       options.onChallenge({ kind: 'deviceCode', verificationURL: 'https://device.fixture.invalid/verify', userCode: 'ONLY-IN-MEMORY', ...(behavior === 'badChallenge' ? { token: 'synthetic-private' } : {}) });
-      return new Promise(resolve => { finish = resolve; if (signal.aborted) resolve({ kind: 'canceled' }); else signal.addEventListener('abort', () => resolve({ kind: behavior === 'race' ? 'signedIn' : 'canceled' }), { once: true }); });
+      return new Promise(resolve => { finish = resolve; if (signal.aborted) resolve({ kind: 'canceled' }); else signal.addEventListener('abort', () => resolve(behavior === 'lateAccount' ? { kind: 'signedIn', account: selectedAccount } : { kind: behavior === 'race' ? 'signedIn' : 'canceled' }), { once: true }); });
     } };
   if (behavior === 'lyingReadiness') { runtime.readiness = () => ({ state: 'ready', canRestart: true, detail: 'Synthetic' }); runtime.restart = async () => { restarts++; }; }
   if (behavior === 'unsupported') delete runtime.signIn;
   const provider: RuntimeDescriptor = { provider: 'independent-account', name: 'Independent fixture', runtimeVersion: 'fixture-7', hostId: 'fixture-host', session: 'stateless', capabilities: ['plainText', 'modelCatalog'] };
-  const options = { provider, dataDirectory: directory, ownerPairingPolicy: { expiresAfterDays: null }, runtime };
+  const options = { provider, dataDirectory: directory, ownerPairingPolicy: { expiresAfterDays: null }, runtime, now: () => Date.now() + offset };
   let service = createApplication(options); await service.start();
   t.after(async () => { cleanupFails = false; await service.close(); await rm(directory, { recursive: true, force: true }); });
   const host = { deviceId: randomUUID(), deviceToken: randomBytes(32).toString('base64url') };
@@ -37,8 +37,8 @@ async function fixture(t: TestContext, behavior: 'pending' | 'race' | 'badChalle
     const response = await fetch(service.baseURL + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Fort-Installation-Id': service.installation.installationId, Authorization: 'Bearer ' + token }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() as T };
   }
-  return { directory, api, host, runtime, catalogStarted: catalogStarted.promise, releaseCatalog: () => catalogDone.resolve(), get restarts() { return restarts; }, get service() { return service; }, get starts() { return starts; }, get executions() { return executions; }, get catalogs() { return catalogs; }, cleanupSucceeds() { cleanupFails = false; },
-    request(revision = 0) { return { operationId: randomUUID(), expectedRevision: revision, recoveryEpoch: service.installation.recoveryEpoch, expiresAt: Date.now() + 30_000 }; },
+  return { directory, api, host, runtime, advance(ms: number) { offset += ms; }, catalogStarted: catalogStarted.promise, releaseCatalog: () => catalogDone.resolve(), get restarts() { return restarts; }, get service() { return service; }, get starts() { return starts; }, get executions() { return executions; }, get catalogs() { return catalogs; }, cleanupSucceeds() { cleanupFails = false; },
+    request(revision = 0) { return { operationId: randomUUID(), expectedRevision: revision, recoveryEpoch: service.installation.recoveryEpoch, expiresAt: Date.now() + offset + 30_000 }; },
     finish(account?: { accountId: string; userLabel: string }) { finish?.({ kind: 'signedIn', ...(account ? { account } : {}) }); }, async reopen() { await service.close(); service = createApplication(options); await service.start(); } };
 }
 
@@ -221,4 +221,99 @@ test('account selection meets its isolated local budget', { skip: !process.env.F
   }
   samples.sort((a,b) => a-b); const result = { warmups: 5, samples, p50: samples[9], p95: samples[18], maximum: samples[19], budgetMs: 5 };
   assert.ok(result.p95 < 5); await writeFile(process.env.FORT_ACCOUNT_SELECTION_BENCHMARK!, JSON.stringify(result) + '\n', { flag: 'wx', mode: 0o600 });
+});
+
+
+test('fresh exact account reauthentication reuses the last explicit choice across restart', async t => {
+  const h = await fixture(t), first = h.request();
+  await h.api('/v1/account/sign-in/start', first); h.finish(selectedAccount); await h.api('/v1/account/sign-in');
+  await h.api('/v1/account/sign-in/select', { operationId: first.operationId, revision: 1, recoveryEpoch: first.recoveryEpoch, account: selectedAccount });
+  await h.reopen();
+  const next = h.request(1); await h.api('/v1/account/sign-in/start', next);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  h.finish(selectedAccount);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+});
+
+
+async function confirmAccount(h: Awaited<ReturnType<typeof fixture>>, revision = 0, account = selectedAccount) {
+  const request = h.request(revision); await h.api('/v1/account/sign-in/start', request); h.finish(account);
+  await h.api('/v1/account/sign-in');
+  assert.equal((await h.api('/v1/account/sign-in/select', { operationId: request.operationId, revision: revision + 1, recoveryEpoch: request.recoveryEpoch, account })).body.selected, true);
+}
+
+test('reauthentication never implicitly selects changed, missing or ambiguous identities', async t => {
+  const cases = [undefined, { ...selectedAccount, accountId: 'another-workspace' }, { ...selectedAccount, userLabel: 'another@fixture.invalid' },
+    { ...selectedAccount, accounts: [selectedAccount, { ...selectedAccount, accountId: 'another-workspace' }] }];
+  for (const account of cases) await t.test(account === undefined ? 'missing' : 'different or ambiguous', async t => {
+    const h = await fixture(t); await confirmAccount(h);
+    await h.api('/v1/account/sign-in/start', h.request(1)); h.finish(account);
+    assert.notEqual((await h.api('/v1/account/sign-in')).body.selected, true);
+    await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  });
+});
+
+test('an explicit replacement account supersedes the old choice instead of accumulating trusted accounts', async t => {
+  const h = await fixture(t); await confirmAccount(h);
+  const replacement = { ...selectedAccount, accountId: 'another-workspace' };
+  await confirmAccount(h, 1, replacement); await h.reopen();
+  await h.api('/v1/account/sign-in/start', h.request(2)); h.finish(selectedAccount);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, false);
+  await h.api('/v1/account/sign-in/start', h.request(3)); h.finish(replacement);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
+});
+
+test('expired or canceled sign-in completion cannot reuse a remembered identity', async t => {
+  for (const kind of ['expired', 'canceled'] as const) await t.test(kind, async t => {
+    const h = await fixture(t, 'lateAccount'); await confirmAccount(h);
+    const next = h.request(1); await h.api('/v1/account/sign-in/start', next);
+    if (kind === 'expired') { h.advance(40_000); h.finish(selectedAccount); }
+    else await h.api('/v1/account/sign-in/cancel', { operationId: next.operationId, revision: 2, recoveryEpoch: next.recoveryEpoch });
+    assert.equal((await h.api('/v1/account/sign-in')).body.selected, false);
+    await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  });
+});
+
+test('legacy explicit choice is retained but stale or malformed remembered scopes cannot select', async t => {
+  for (const change of ['legacy', 'installationId', 'recoveryEpoch', 'provider', 'hostId', 'malformed'] as const) await t.test(change, async t => {
+    const h = await fixture(t); await confirmAccount(h); await h.service.close();
+    const db = new DatabaseSync(join(h.directory, 'openai-candidate-b.sqlite'));
+    if (change === 'legacy') db.prepare("DELETE FROM metadata WHERE key='accountChoice'").run();
+    else if (change === 'malformed') db.prepare("UPDATE metadata SET data='{}' WHERE key='accountChoice'").run();
+    else db.prepare("UPDATE metadata SET data=json_set(data,?,?) WHERE key='accountChoice'").run('$.' + change, 'different-scope');
+    db.close(); await h.reopen();
+    await h.api('/v1/account/sign-in/start', h.request(1)); h.finish(selectedAccount);
+    assert.equal((await h.api('/v1/account/sign-in')).body.selected, change === 'legacy');
+    await h.api('/v1/models'); assert.equal(h.catalogs, change === 'legacy' ? 1 : 0);
+  });
+});
+
+test('interrupted reauthentication retains the choice but waits for a fresh matching provider result', async t => {
+  const h = await fixture(t); await confirmAccount(h);
+  const next = h.request(1); await h.api('/v1/account/sign-in/start', next); await h.service.close();
+  const db = new DatabaseSync(join(h.directory, 'openai-candidate-b.sqlite'));
+  db.prepare("UPDATE metadata SET data=? WHERE key='accountSignIn'").run(JSON.stringify({ revision: 2, operationId: next.operationId, deviceId: h.host.deviceId,
+    recoveryEpoch: next.recoveryEpoch, expiresAt: next.expiresAt, state: 'active' })); db.close(); await h.reopen();
+  assert.equal((await h.api('/v1/account/sign-in')).body.result?.kind, 'unconfirmed');
+  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  await h.api('/v1/account/sign-in/start', h.request(2)); h.finish(selectedAccount);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+});
+
+
+test('legacy confirmed identity survives explicit owner re-pairing but still requires fresh runtime evidence', async t => {
+  const h = await fixture(t, 'lyingReadiness'); await confirmAccount(h); await h.service.close();
+  const db = new DatabaseSync(join(h.directory, 'openai-candidate-b.sqlite'));
+  db.prepare("DELETE FROM metadata WHERE key='accountChoice'").run(); db.close(); await h.reopen();
+  assert.equal((await h.api('/v1/pairing/disconnect', {})).status, 200);
+  h.host.deviceId = randomUUID(); h.host.deviceToken = randomBytes(32).toString('base64url');
+  const setup = h.service.beginOwnerSetup(); assert.equal(setup.kind, 'available');
+  if (setup.kind !== 'available') throw new Error('Synthetic re-pair missing');
+  await h.service.completeOwnerSetup({ ...h.host, installationId: setup.installationId, setupId: setup.setupId });
+  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  await h.api('/v1/account/sign-in/start', h.request(1)); h.finish(selectedAccount);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
 });

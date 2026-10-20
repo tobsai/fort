@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: fa86d37f1c2e7b40352e3ffdacc9c8620e8039341a652798f52947a06eed0e03
+Reviewed content SHA256: 45f07d2a5749bd5cd3484f79f05003a92c401b1418ded6fda3f5df8f6f1acc3f
 
 ### Vendor independence
 Status: planned
@@ -3711,6 +3711,56 @@ portable/typecheck and relevant package checks precede exact Ponytail review and
 local commit. Native/provider validation remains a separate evidence stage.
 Evidence goes to runtime-migration-0163.md and current ledgers; declare further
 files before any additional model-evidence/native change.
+
+## Reuse exact confirmed accounts and clarify model discovery
+
+The owner reported failed model refresh after managed sign-in on October 20 at
+12:54:39 UTC, then confirmed at 13:02:30 that choosing the workspace fixed it and
+asked at 13:03:05 why that redundant button was required. The coordinator in thread
+01a1572d-841d-76d3-949d-a8dd3328d037 requested reuse of a previously explicit choice
+only when the freshly reported account/workspace matches exactly. Unknown, changed,
+ambiguous or stale identity still requires an explicit understandable choice.
+
+Retain one owner-confirmed account identity in existing private metadata, bound to
+installation/recovery epoch and provider/host. No token or auth state goes into that
+record. Preserve a valid legacy explicit selected record as its initial choice.
+A new managed sign-in may reuse that choice only after a fresh validated signedIn
+result reports the exact account ID and user label within the same scope, while
+that request remains active, unexpired and uncanceled. A mismatch, missing identity,
+multiple/malformed identities, changed scope or stale completion never selects an
+account. A new explicit choice replaces the prior choice atomically. Runtime startup
+still independently verifies the selected account before catalog or inference;
+remembered choice is not proof of authentication. No alternate auth or API billing.
+
+Native status reconciliation triggers fresh model discovery once when a newly
+confirmed/matching account becomes selected, including after re-authentication.
+Do not create a refresh loop or change saved Agent bindings/models. While explicit
+confirmation is still required on the owner Mac, disable Refresh and state the
+prerequisite by the model controls. Preserve the reported account/workspace and its
+confirmation action. A model without a checked catalog says not checked; only a
+model absent from a successful catalog says unavailable. Discard cached catalog
+eligibility when reported account selection becomes unconfirmed. Independent runtimes
+without managed sign-in and companion discovery retain their existing capabilities.
+
+Vendor independence: use Fort identity and managed-account contracts, no vendor
+name. Modularity: extend existing bounded metadata and public status semantics; no
+route, module or dependency. Speed: constant-time identity comparison and one fresh
+catalog on selection transition, no additional per-message work or polling loop.
+Run public service/native regressions and client builds; no new performance claim.
+Installation: update the client and service resources while preserving helper/runtime
+binaries, history, permissions and the approved signed-in account during the reviewed update. Keep the remaining three-prompt budget and
+required final local cleanup. Remembered preference may remain with history, but
+cleanup still removes provider credentials and pairing and revokes no remote grant.
+
+Exact source: successor/service/account-sign-in.ts and account-sign-in.test.ts,
+plus successor/service/openai.ts to pass its already validated installation/runtime identity;
+successor/apple/FortKit/Sources/FortKit/AgentSettings.swift and MessengerModel.swift;
+Tests/FortKitTests/AgentSettingsTests.swift, AccountSignInTests.swift and
+MacHostJourneyTests.swift in that package; this spec, existing runtime-migration evidence, three ledgers and current
+Ponytail report. Public regressions precede fixes for exact-match reuse, mismatch,
+malformed/multiple identities, stale/canceled scopes, crash/restart, explicit new
+choice, native fresh discovery, unchecked-model truth and unchanged existing Agent
+selection. Reinspect installed refresh/6.1 selection separately from inference.
 
 ## Implementation paths
 

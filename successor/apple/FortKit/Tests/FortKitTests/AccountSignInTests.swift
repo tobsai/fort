@@ -3,9 +3,12 @@ import Testing
 @testable import FortKit
 
 #if os(macOS)
+
 private actor AccountTransport: FortTransport, OwnerSetupControl {
     let directory: URL
     var paths: [String] = []
+    private var agentsJSON = #"{"agents":[]}"#
+    func setAgents(_ value: String) { agentsJSON = value }
     var requestBodies: [Data] = []
     var lostStarts = 0, lostCancels = 0, companion = false, holdStart = false, holdSelection = false
     private var held: CheckedContinuation<Void,Never>?
@@ -44,7 +47,8 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
             body = selected
                 ? #"{"provider":"independent-account","state":"ready","models":[{"id":"exact-synthetic","name":"Exact synthetic","availability":"available"}]}"#
                 : #"{"provider":"independent-account","state":"unavailable","models":[],"detail":"Select the reported provider account."}"#
-        case "/v1/agents": body = #"{"agents":[]}"#
+        case "/v1/agents": body = agentsJSON
+        case "/v1/conversations/home/snapshot": body = #"{"installationId":"one","recoveryEpoch":"epoch","conversationId":"home","cursor":0,"messages":[],"runs":[],"lastReadMessageSequence":0}"#
         case "/v1/pairing": body = companion ? #"{"deviceId":"mac","mode":"owner-local","expiresAt":null,"role":"companion"}"# : #"{"deviceId":"mac","mode":"owner-local","expiresAt":null}"#
         case "/v1/account/sign-in": body = current
         case "/v1/account/sign-in/start":
@@ -89,6 +93,69 @@ private final class AccountCredentials: DeviceCredentials {
     func save(_ connection: DeviceConnection, token: String) throws {}
     func token(for connection: DeviceConnection) throws -> String { "synthetic-mac-token" }
     func remove(_ connection: DeviceConnection) throws {}
+}
+
+@Test @MainActor func modelEditorMakesAccountConfirmationRequiredAndPreservesExistingBindingThroughReauthentication() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    let agentJSON = #"{"agentId":"existing","name":"Existing agent","homeConversationId":"home","readiness":"requiresLiveReview","instructions":"Keep this identity.","binding":{"bindingRevisionId":"migrated-binding","provider":"independent-account","runtimeVersion":"fixture-7","selectedModel":"saved-old-exact","hostId":"fixture-host","enabled":true}}"#
+    await fixture.transport.setAgents("{\"agents\":[" + agentJSON + "]}")
+    let status = #"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":false}"#
+    await fixture.transport.setStatus(status)
+    let model = try fixture.model(); await model.restore(); await model.refreshModels()
+    let existing = try #require(model.agents.first)
+    model.draft = "Keep my draft."
+    let before = try Data(contentsOf:fixture.directory.appendingPathComponent("connection.json"))
+    #expect(!model.canRefreshModels)
+    #expect(!model.modelCatalog.canSelect("saved-old-exact"))
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == true)
+    #expect(model.modelCatalog.canSelect("exact-synthetic"))
+    #expect(model.canRefreshModels)
+    #expect(model.agents == [existing] && model.draft == "Keep my draft.")
+    #expect(try Data(contentsOf:fixture.directory.appendingPathComponent("connection.json")) == before)
+    #expect(await fixture.transport.paths.suffix(2) == ["/v1/account/sign-in/select","/v1/models"])
+    await fixture.transport.setStatus(status.replacingOccurrences(of:"synthetic-complete",with:"synthetic-reauth"))
+    await model.refreshAccountSignIn()
+    #expect(!model.canRefreshModels)
+    #expect(!model.modelCatalog.canSelect("exact-synthetic"))
+    #expect(model.modelCatalog.options(preserving:existing.binding.selectedModel).last?.availability == "unchecked")
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == true && model.modelCatalog.canSelect("exact-synthetic"))
+    #expect(model.agents == [existing] && model.draft == "Keep my draft.")
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/start"))
+}
+
+@Test @MainActor func matchedReauthenticationDiscoversOnceWithoutAnotherConfirmation() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    let status = #"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":true}"#
+    await fixture.transport.setStatus(status)
+    let model = try fixture.model(); await model.restore()
+    #expect(model.modelCatalog.canSelect("exact-synthetic"))
+    let before = await fixture.transport.paths.filter { $0 == "/v1/models" }.count
+    await model.refreshAccountSignIn(); await model.refreshAccountSignIn()
+    #expect(await fixture.transport.paths.filter { $0 == "/v1/models" }.count == before)
+    await fixture.transport.setStatus(status.replacingOccurrences(of:"synthetic-complete",with:"synthetic-reauth"))
+    await model.refreshAccountSignIn()
+    #expect(model.modelCatalog.canSelect("exact-synthetic"))
+    #expect(await fixture.transport.paths.filter { $0 == "/v1/models" }.count == before + 1)
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/start"))
+}
+
+@Test @MainActor func unconfirmedReauthenticationClearsPreviouslySelectableModels() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":true}"#)
+    let model = try fixture.model(); await model.restore()
+    #expect(model.modelCatalog.canSelect("exact-synthetic"))
+    await fixture.transport.configure(lostStarts:1)
+    await model.startAccountSignIn()
+    #expect(model.accountSignInStatus == nil && model.hasPendingAccountSignIn)
+    #expect(!model.canRefreshModels)
+    #expect(!model.modelCatalog.canSelect("exact-synthetic"))
 }
 
 @Test @MainActor func modelSelectionLoadsCatalogAfterExplicitAccountConfirmation() async throws {

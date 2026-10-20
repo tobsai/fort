@@ -734,9 +734,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     ? {deviceId:ownerControl.deviceId,expiresAfterDays:ownerPairingPolicy.expiresAfterDays,running:!closed&&!dispatchStopped&&!stopCommandActive&&!starting}:undefined,
     ()=>append('_workspace','pairingChanged',installation.installationId));
   let accounts: ReturnType<typeof accountSignIn>;
-  try { accounts = accountSignIn(db, { runtime: options.runtime, now,
+  try { accounts = accountSignIn(db, { runtime: options.runtime, now, identity: { installationId: installation.installationId, provider: provider.provider, hostId: provider.hostId },
     scope: () => ownerPairingPolicy && ownerControl ? { deviceId: ownerControl.deviceId, recoveryEpoch: installation.recoveryEpoch,
-      running: !closed && !dispatchStopped && !stopCommandActive && !starting && !dispatching && runtimeReadiness().state === 'ready' } : undefined,
+      running: !closed && !dispatchStopped && !stopCommandActive && !starting && !dispatching && runtimeOperations === 0
+        && (!options.runtime?.readiness || options.runtime.readiness().state === 'ready') } : undefined,
     commit: transaction, changed: () => append('_workspace', 'accountChanged', installation.installationId), settled: () => queueMicrotask(wake) }); } catch (error) { db.close(); throw error; }
   const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {

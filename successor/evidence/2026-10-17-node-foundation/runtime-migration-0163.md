@@ -117,3 +117,94 @@ pending flow; startup, pairing and any newly created local provider credential
 must be removed after smoke. Remote grants are not revoked by local cleanup.
 No TestFlight/G2/upload, push or merge occurred. Raw status and durable prompt budget
 are in /tmp/fort059-runtime-migration-20261020/attended-state.json and prompt-budget.json.
+
+
+## Completed GPT-6.1 Sol smoke and local cleanup, October 20
+
+The owner completed managed sign-in and confirmed the reported workspace, then
+selected GPT-6.1 Sol. Accessibility inspection of the installed d8d76bc3 app showed
+GPT-6.1-Sol in the saved picker, the successful connected-runtime catalog message,
+and no pending account-confirmation action. No second sign-in was requested.
+
+Two of the three approved synthetic no-tool prompts were reserved durably before
+sending through the normal composer. Both produced the expected synthetic marker
+and a saved reply. Normal foreground Command-Q/relaunch between them restored the
+existing connection, saved model and first reply without setup or sign-in. The
+closed durable ledger confirms both requested gpt-6.1-sol and completed:
+
+- fdc595ea-5d2a-47b8-bfe0-330af6bb1069, request 78ed22e9-6662-41b7-93ea-3423895bf6f8.
+- 06a47823-c404-4311-8d0d-b9376425e21d, request 05955090-c378-4c79-9d3a-d131ab34d3d0.
+
+Both use binding efc53a69-561f-46bb-bae7-509b8121f31e. Both effectiveModel fields
+remain null and the native transcript says it was not reported. This proves the
+selected-model inference path, not an independent serving-model attestation. The
+third allowance was unused; do not send it merely to exhaust the budget.
+
+The normal Prepare to remove Fort confirmation completed local cleanup. AXPress
+returned unsupported even though the action subsequently completed; reconciliation
+found the dialog gone and the confirmed resulting state. No duplicate cleanup
+was submitted. Independently at 13:25:36 and again 13:28:33 UTC, launchctl returned
+113 for the exact startup job, no helper/guardian/Node/Codex process remained, the
+provider auth file and client connection file were absent, and devices, enrollment
+and outbox tables each contained zero rows. The client app remained open only for
+inspection. Remote grants were not revoked.
+
+The retained ledger contains one Agent, twelve Messages and six completed runs,
+including owner activity outside these two prompts. Every original Message and run
+matches the pre-migration backup byte for byte. The closed ledger SHA256 is
+ e8005f96248cb27d48a74c446ab5f15f22baaf48e468dffc1f9b9ca59e68c561.
+A live readonly SQLite probe could not acquire the exclusive application lock; it
+was deferred. After shutdown, immutable readonly inspection of the checkpointed
+ledger avoided creating sidecars. No credential contents or history bodies were
+read into evidence. Raw bounded receipts are under
+/tmp/fort059-runtime-migration-20261020/sol61-cleanup-result.json and prompt-budget.json.
+
+## Exact-account preference and model refresh repair
+
+The owner reported the redundant workspace-confirmation step at 13:02/13:03 UTC.
+Spec 059 records the same-scope repair: retain one explicit choice bound to the
+installation, recovery epoch, provider and host. A fresh unexpired, uncanceled
+managed result may reuse it only when both account ID and user label match exactly.
+A new explicit choice replaces the old one atomically. A valid legacy confirmation
+can be retained across owner re-pairing within the same installation/recovery scope;
+new pairing alone never authenticates the provider. Catalog and inference retain
+independent runtime account verification. No additional credential store or route
+was introduced.
+
+Public service regressions cover matching reauthentication/restart, changed account
+or workspace, missing/multiple identities, cancellation races, expiry, stale or
+malformed preference scope, interrupted operations, explicit replacement choice,
+and legacy owner re-pairing. The legacy test initially failed false versus true;
+removing the obsolete device comparison from preference retention fixes it while
+current operation authorization still requires the exact newly paired owner.
+
+Native status reconciliation refreshes the catalog once after a newly confirmed
+account, including a matched reauthentication; repeated status polls do not repeat
+discovery. Refresh is disabled with a visible prerequisite while confirmation is
+required. Unchecked saved models say not checked instead of unavailable. Changing
+account confirmation to an unconfirmed state clears cached catalog eligibility,
+including a lost sign-in receipt; a public native red/green test covers that case.
+Saved Agent bindings and drafts remain unchanged.
+
+Validation artifacts: /tmp/fort059-account-refresh-20261020. Final service: 37 pass,
+two optional benchmark skips. Full portable: 1,417 pass, 16 optional skips. Strict
+TypeScript check passes. The earlier full native run passed 344 tests with 16 skips;
+final native/build results are recorded below after the lost-receipt correction.
+Initial native attempts omitted required fixture variables, and the old compiled
+host journey expected redundant confirmation after re-pairing. Correct fixture
+inputs and a behavioral expectation for automatic exact-match reuse corrected
+those failures. The attempted NSHostingView unit accessibility tree was empty, so
+that invalid test approach was removed; native model tests and installed inspection
+remain separate evidence. No production debug logging remains.
+
+The two live turns above used the previously installed migration build. The account
+repair uses synthetic service/native proof and a separately checked disconnected
+installation. No new provider activation or sign-in is authorized by its installation.
+TestFlight, physical iPhone, G2, independent effective-model reporting and remote
+provider closure remain unverified.
+
+Final source verification: full native 345 passed, 16 optional skips; fresh Release
+Mac build passed. Full portable 1,417 passed, 16 optional skips; strict typecheck
+passed. These include the final legacy re-pair and lost-receipt fixes. No additional
+provider prompt or activation was used. Signed packaging and disconnected installed
+checks follow as a separate evidence stage.
