@@ -844,7 +844,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result={runtimeStopped:true,revoked};
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if (ownerPairingPolicy && options.runtime?.signIn && !accounts.selected()) result = { provider: provider.provider, state: 'unavailable', models: [], detail: 'Select the reported provider account on the owning Mac before discovering models.' };
+          if (ownerPairingPolicy && options.runtime?.signIn && !accounts.selected()) result = { provider: provider.provider, state: 'unavailable', models: [], detail: 'Sign in on the owning Mac. If the reported account differs, review Advanced account management before checking models.' };
           else if(dispatchStopped || accounts.busy)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
           else if(!provider.capabilities.includes('modelCatalog') || !options.runtime?.models)result={provider:provider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
           else try{

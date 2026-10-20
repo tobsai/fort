@@ -2,18 +2,15 @@ import SwiftUI
 
 struct AccountSignInView: View {
     @Bindable var model: MessengerModel
+    @State private var showAdvanced = false
+    private var canStart: Bool { !model.hasPendingAccountSignIn && model.accountSignInStatus?.isActive != true }
+    private var blocked: Bool { model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.loadingModels }
     var body: some View {
         Section("Provider account") {
             Text(model.runtimeName).font(.headline)
             Text(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
             if let status = model.accountSignInStatus, let account = status.reportedAccount {
                 Text(account.userLabel).textSelection(.enabled).accessibilityIdentifier("provider-account-label")
-                Text("Workspace: \(account.accountId)").font(.caption).textSelection(.enabled)
-                if !status.accountSelected {
-                    Button("Use this account and workspace") { Task { await model.selectReportedAccount() } }
-                        .disabled(model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.loadingModels)
-                        .accessibilityIdentifier("provider-account-select")
-                }
             }
             if let status = model.accountSignInStatus, let operation = status.operation, let challenge = status.challenge {
                 TimelineView(.periodic(from:.now,by:1)) { context in
@@ -27,10 +24,30 @@ struct AccountSignInView: View {
                     } else { Text("The code has expired. Check status before starting another attempt.").font(.caption) }
                 }
             }
-            if !model.hasPendingAccountSignIn && model.accountSignInStatus?.isActive != true {
-                Button("Sign in to runtime") { Task { await model.startAccountSignIn() } }
-                    .disabled(model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.runtimeReadiness?.state == "stopped")
+            if canStart && model.accountSignInStatus?.reportedAccount == nil {
+                Button("Sign in") { Task { await model.startAccountSignIn() } }
+                    .disabled(blocked || model.runtimeReadiness?.state == "stopped")
                     .accessibilityIdentifier("provider-sign-in")
+            }
+            Button { showAdvanced.toggle() } label: {
+                Label("Advanced account management",systemImage:showAdvanced ? "chevron.down" : "chevron.right")
+            }.buttonStyle(.plain).accessibilityValue(showAdvanced ? "Expanded" : "Collapsed")
+                .accessibilityIdentifier("provider-account-advanced")
+            if showAdvanced {
+                Text("Fort uses one active runtime account. Changing it affects future requests. Saved history is kept, and queued requests never run under a different account.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let status = model.accountSignInStatus, let account = status.reportedAccount {
+                    Text("Workspace: \(account.accountId)").font(.caption).textSelection(.enabled)
+                    if !status.accountSelected {
+                        Button("Use this account for future requests") { Task { await model.selectReportedAccount() } }
+                            .disabled(blocked).accessibilityIdentifier("provider-account-select")
+                    }
+                    if canStart {
+                        Button("Sign in to change account") { Task { await model.startAccountSignIn() } }
+                            .disabled(blocked || model.runtimeReadiness?.state == "stopped")
+                            .accessibilityIdentifier("provider-account-change")
+                    }
+                }
             }
             Button("Check sign-in status") { Task { await model.refreshAccountSignIn() } }
                 .disabled(model.accountSignInBusy).accessibilityIdentifier("provider-sign-in-status")

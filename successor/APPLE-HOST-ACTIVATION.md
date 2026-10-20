@@ -848,3 +848,13 @@ See [storage evidence](evidence/2026-10-17-node-foundation/mac-agent-storage.md)
 [Codex packaging evidence](evidence/2026-10-17-node-foundation/codex-bundle-version.md)
 and the [v1 ledger](V1-ACCEPTANCE.md). Historical specs, unrelated work, consumed
 demo grants and the unresolved full-provider-closure status remain preserved.
+
+## October 20 — single-account and composer increment
+
+The owner requested first-account defaults, advanced-only account management,
+Enter-to-send/Shift-Enter-newline and correction of the inactive image control.
+See [source and verification evidence](evidence/2026-10-17-node-foundation/single-account-composer-20261020.md).
+The existing exact-identity, history and disconnected cleanup constraints remain.
+No new live prompt or provider access; the prior prompt budget remains 2/3.
+Source, synthetic UI proof and signed installed checks are recorded separately.
+This does not close TestFlight, effective-model or physical acceptance gates.

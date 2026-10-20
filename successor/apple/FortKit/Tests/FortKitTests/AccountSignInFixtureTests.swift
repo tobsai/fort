@@ -30,4 +30,25 @@ import Testing
     await #expect(throws:(any Error).self) { try await AccountSignInFixture.make(directory:directory) }
     #expect(!FileManager.default.fileExists(atPath:directory.path))
 }
+@Test @MainActor func accountFixturesCoverFirstExistingMismatchAndProviderAmbiguity() async throws {
+    for scenario in [AccountFixtureScenario.first,.existing,.mismatch,.unverified] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let model = try await AccountSignInFixture.make(directory:directory,scenario:scenario)
+        if scenario == .first { await model.startAccountSignIn() }
+        let expected = scenario == .first || scenario == .existing
+        #expect((model.accountSignInStatus?.accountSelected == true) == expected)
+        #expect(model.modelCatalog.canSelect("fixture-model") == expected)
+        if scenario == .mismatch {
+            #expect(model.modelAccountRequirement?.contains("Advanced account management") == true)
+            await model.selectReportedAccount()
+            #expect(model.accountSignInStatus?.reportedAccount?.accountId == "different-workspace")
+            #expect(model.modelCatalog.canSelect("fixture-model"))
+        }
+        if scenario == .unverified {
+            #expect(model.accountSignInStatus?.reportedAccount == nil)
+            #expect(model.accountSignInMessage.contains("workspace choice"))
+        }
+    }
+}
 #endif

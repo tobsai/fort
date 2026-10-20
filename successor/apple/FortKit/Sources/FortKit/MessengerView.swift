@@ -66,9 +66,11 @@ public struct MessengerView: View {
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }
         .sheet(isPresented:$model.showConnection) { connectionForm }
         .sheet(item:$memoryForm) { ConversationMemoryEditor(model:model,form:$0) }
+        #if !os(macOS)
         .fileImporter(isPresented:$showImageImporter,allowedContentTypes:[.png,.jpeg]) { result in
             if case .success(let url) = result { Task { await model.importLocalImage(url) } }
         }
+        #endif
         .sheet(isPresented:$showSettings) { FortSettingsView(model:model) }
         .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
@@ -212,9 +214,11 @@ public struct MessengerView: View {
     }
     private var messageComposer: some View {
         VStack(alignment:.leading,spacing:8) {
+            #if !os(macOS)
             if !model.isOfflinePreview, model.activeConversationID != nil {
                 Button(model.importingImage ? "Opening image…" : "Show local image",systemImage:"photo") { showImageImporter = true }.font(.caption).disabled(model.importingImage)
             }
+            #endif
             if let conversation = model.selectedConversation, conversation.kind == "shared" {
                 Picker("Recipient",selection:$model.recipientAgentID) {
                     Text("Choose an Agent").tag(Optional<String>.none)
@@ -231,7 +235,12 @@ public struct MessengerView: View {
                 }
             }
                 HStack(alignment:.bottom,spacing:12) {
+                    #if os(macOS)
+                    MessageComposer(text:$model.draft,editable:!model.isOfflinePreview,canSend:model.canSend) { Task { await model.send() } }
+                        .frame(maxWidth:.infinity).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10))
+                    #else
                     TextField("Message your Agent",text:$model.draft,axis:.vertical).autocorrectionDisabled().lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer").disabled(model.isOfflinePreview)
+                    #endif
                     Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
                 }
         }.padding()

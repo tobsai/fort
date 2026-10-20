@@ -61,3 +61,16 @@ be inferred from implementation autonomy. The [v1 checklist](../../../successor/
 tracks implementation, test, build, archive, upload, availability and physical
 acceptance separately. Continue necessary work until v1 passes or only real
 external blockers remain, with a concrete handoff for any blocked action.
+
+## October 20 — first account and composer usability
+
+The owner messages Sentinel_b7cb112f432c8191830ab311ce06c704 and
+Sentinel_7b17481acd5c8191a9c5300d4d37ab8b, relayed by coordinator thread
+01a1572d-841d-76d3-949d-a8dd3328d037, authorize the bounded
+[Spec 059 single-account/composer increment](../../../specs/059-modular-node-v1.md#single-account-default-and-mac-composer-usability--october-20).
+Use the first verified account by default; advanced management retains explicit
+mismatch/replacement controls. Enter sends, Shift-Enter adds a line, IME composition
+is preserved. Remove the unsupported Mac local-image picker while retaining image
+previews. Source, synthetic tests, build and same-scope disconnected installation
+are authorized; provider access, credentials and remaining live prompt are not.
+This is implementation authority, not a claim that acceptance has passed.

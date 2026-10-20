@@ -455,3 +455,13 @@ The original dependency inventory found Node 26 linked to Homebrew libraries.
 The current inert package includes its verified runtime dependency closure; that
 historical source inventory is not an unresolved packaging task. Installed runtime
 operation still needs its exact signed/authorized acceptance.
+
+## October 20 — single-account and composer increment
+
+The owner requested first-account defaults, advanced-only account management,
+Enter-to-send/Shift-Enter-newline and correction of the inactive image control.
+See [source and verification evidence](evidence/2026-10-17-node-foundation/single-account-composer-20261020.md).
+The existing exact-identity, history and disconnected cleanup constraints remain.
+No new live prompt or provider access; the prior prompt budget remains 2/3.
+Source, synthetic UI proof and signed installed checks are recorded separately.
+This does not close TestFlight, effective-model or physical acceptance gates.

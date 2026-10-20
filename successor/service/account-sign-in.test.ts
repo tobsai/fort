@@ -176,13 +176,13 @@ test('owner account HTTP journeys meet their isolated budget', { skip: !process.
 });
 
 const selectedAccount = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
-test('owner explicitly selects the reported account and restart retains the exact choice', async t => {
+test('first verified account becomes the default and restart retains the exact choice', async t => {
   const h = await fixture(t), request = h.request();
   await h.api('/v1/account/sign-in/start', request); h.finish(selectedAccount);
   const reported = await h.api('/v1/account/sign-in');
   assert.deepEqual(reported.body.result?.account, selectedAccount);
-  assert.equal(reported.body.selected, false);
-  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  assert.equal(reported.body.selected, true);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
   const confirmation = { operationId: request.operationId, revision: 1, recoveryEpoch: request.recoveryEpoch, account: selectedAccount };
   for (const change of [{ revision: 2 }, { recoveryEpoch: 'foreign' }, { account: { ...selectedAccount, accountId: 'foreign' } }])
     assert.equal((await h.api('/v1/account/sign-in/select', { ...confirmation, ...change })).status, 409);
@@ -191,9 +191,9 @@ test('owner explicitly selects the reported account and restart retains the exac
   assert.equal((await h.api('/v1/account/sign-in/select', confirmation)).body.selected, true);
   await h.reopen();
   assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
-  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 2);
   await h.api('/v1/account/sign-in/start', h.request(1));
-  await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 2);
 });
 
 test('a queued turn pins the selected identity and refuses a later account choice', async t => {
@@ -316,4 +316,36 @@ test('legacy confirmed identity survives explicit owner re-pairing but still req
   await h.api('/v1/account/sign-in/start', h.request(1)); h.finish(selectedAccount);
   assert.equal((await h.api('/v1/account/sign-in')).body.selected, true);
   await h.api('/v1/models'); assert.equal(h.catalogs, 1);
+});
+
+
+test('retained run history without a remembered identity is never rebound as a first account', async t => {
+  const h = await fixture(t); await confirmAccount(h);
+  const agent = (await h.api<Agent>('/v1/agents', { name: 'Existing agent', model: 'exact', instructions: 'Keep identity' })).body;
+  const accepted = await h.api('/v1/conversations/' + agent.homeConversationId + '/messages', {
+    requestId: randomUUID(), text: 'Synthetic retained history', recipientAgentId: agent.agentId,
+    bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.service.installation.recoveryEpoch, skills: [] });
+  assert.equal(accepted.status, 201);
+  await h.service.close();
+  const db = new DatabaseSync(join(h.directory, 'openai-candidate-b.sqlite'));
+  db.prepare("DELETE FROM metadata WHERE key IN ('accountChoice','accountSignIn')").run(); db.close(); await h.reopen();
+  const changed = { ...selectedAccount, accountId: 'another-workspace' };
+  await h.api('/v1/account/sign-in/start', h.request()); h.finish(changed);
+  assert.equal((await h.api('/v1/account/sign-in')).body.selected, false);
+  await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  assert.deepEqual((await h.api<Agent[]>('/v1/agents')).body, { agents: [agent] });
+});
+
+test('first account requires an unexpired uncanceled unambiguous identity', async t => {
+  for (const kind of ['missing', 'ambiguous', 'expired', 'canceled'] as const) await t.test(kind, async t => {
+    const h = await fixture(t, 'lateAccount'), request = h.request();
+    await h.api('/v1/account/sign-in/start', request);
+    if (kind === 'canceled') await h.api('/v1/account/sign-in/cancel', { operationId: request.operationId, revision: 1, recoveryEpoch: request.recoveryEpoch });
+    else {
+      if (kind === 'expired') h.advance(40_000);
+      h.finish(kind === 'missing' ? undefined : kind === 'ambiguous' ? Object.assign({}, selectedAccount, { accounts: [selectedAccount] }) : selectedAccount);
+    }
+    assert.notEqual((await h.api('/v1/account/sign-in')).body.selected, true);
+    await h.api('/v1/models'); assert.equal(h.catalogs, 0);
+  });
 });

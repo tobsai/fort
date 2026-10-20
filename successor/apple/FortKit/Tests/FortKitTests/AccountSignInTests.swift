@@ -7,6 +7,8 @@ import Testing
 private actor AccountTransport: FortTransport, OwnerSetupControl {
     let directory: URL
     var paths: [String] = []
+    var immediateAccount = false
+    func completeImmediately() { immediateAccount = true }
     private var agentsJSON = #"{"agents":[]}"#
     func setAgents(_ value: String) { agentsJSON = value }
     var requestBodies: [Data] = []
@@ -56,8 +58,12 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
             requestBodies.append(data)
             #expect(FileManager.default.fileExists(atPath:directory.appendingPathComponent("account-sign-in.json").path))
             let input = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
-            let reply: [String:Any] = ["state":"challenge", "revision":(try #require(input["expectedRevision"] as? Int)) + 1, "operationId":try #require(input["operationId"]), "expiresAt":try #require(input["expiresAt"]),
+            var reply: [String:Any] = ["state":"challenge", "revision":(try #require(input["expectedRevision"] as? Int)) + 1, "operationId":try #require(input["operationId"]), "expiresAt":try #require(input["expiresAt"]),
                 "challenge":["kind":"deviceCode","verificationURL":"https://device.fixture.invalid/verify","userCode":"FORT-TEST"]]
+            if immediateAccount {
+                reply.removeValue(forKey:"challenge"); reply["state"] = "finished"; reply["selected"] = true
+                reply["result"] = ["kind":"signedIn","account":["accountId":"first-workspace","userLabel":"first@fixture.invalid"]]
+            }
             current = String(decoding:try JSONSerialization.data(withJSONObject:reply),as:UTF8.self)
             if holdStart { await withCheckedContinuation { held = $0 } }
             if lostStarts > 0 { lostStarts -= 1; throw URLError(.networkConnectionLost) }
@@ -93,6 +99,24 @@ private final class AccountCredentials: DeviceCredentials {
     func save(_ connection: DeviceConnection, token: String) throws {}
     func token(for connection: DeviceConnection) throws -> String { "synthetic-mac-token" }
     func remove(_ connection: DeviceConnection) throws {}
+}
+
+@Test @MainActor func firstAccountDiscoversOnceWhenSignInCompletesImmediatelyOrOnRetry() async throws {
+    for lost in [0,1] {
+        let fixture = try AccountFixture(); defer { fixture.close() }
+        await fixture.transport.enableModels(); await fixture.transport.completeImmediately()
+        await fixture.transport.configure(lostStarts:lost)
+        let model = try fixture.model(); await model.restore()
+        let before = await fixture.transport.paths.filter { $0 == "/v1/models" }.count
+        await model.startAccountSignIn()
+        if lost == 1 { #expect(model.hasPendingAccountSignIn); await model.retryAccountSignIn() }
+        #expect(model.accountSignInStatus?.accountSelected == true)
+        #expect(model.modelCatalog.canSelect("exact-synthetic"))
+        #expect(!model.hasPendingAccountSignIn && !model.accountSignInBusy)
+        await model.refreshAccountSignIn(); await model.refreshAccountSignIn()
+        #expect(await fixture.transport.paths.filter { $0 == "/v1/models" }.count == before + 1)
+        #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
+    }
 }
 
 @Test @MainActor func modelEditorMakesAccountConfirmationRequiredAndPreservesExistingBindingThroughReauthentication() async throws {
@@ -227,7 +251,7 @@ private final class AccountCredentials: DeviceCredentials {
     #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
     await model.selectReportedAccount()
     #expect(model.accountSignInStatus?.accountSelected == true)
-    #expect(model.accountSignInMessage.contains("must match"))
+    #expect(model.accountSignInMessage.contains("Connected."))
     let restored = try fixture.model(); await restored.restore(); await restored.refreshAccountSignIn()
     #expect(restored.accountSignInStatus?.accountSelected == true)
     #expect(await fixture.transport.paths.filter { $0 == "/v1/account/sign-in/select" }.count == 1)
@@ -246,7 +270,7 @@ private final class AccountCredentials: DeviceCredentials {
     await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn"}}"#)
     await model.refreshAccountSignIn()
     #expect(model.accountSignInStatus?.finishedResult == .signedIn)
-    #expect(model.accountSignInMessage.contains("account identity is not verified"))
+    #expect(model.accountSignInMessage.contains("not reported one verified account"))
     #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/start"))
 }
 

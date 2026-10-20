@@ -454,3 +454,13 @@ as TestFlight availability or physical acceptance. The next delivery work is to
 resolve existing app/account metadata and prepare the concrete release configuration,
 while continuing ordinary source and fixture work. This plan authorizes no upload,
 credential creation, agreement acceptance or security change by itself.
+
+## October 20 — single-account and composer increment
+
+The owner requested first-account defaults, advanced-only account management,
+Enter-to-send/Shift-Enter-newline and correction of the inactive image control.
+See [source and verification evidence](evidence/2026-10-17-node-foundation/single-account-composer-20261020.md).
+The existing exact-identity, history and disconnected cleanup constraints remain.
+No new live prompt or provider access; the prior prompt budget remains 2/3.
+Source, synthetic UI proof and signed installed checks are recorded separately.
+This does not close TestFlight, effective-model or physical acceptance gates.

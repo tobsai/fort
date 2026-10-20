@@ -51,10 +51,10 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
       choice = { installationId: id(row.installationId), recoveryEpoch: id(row.recoveryEpoch), provider: id(row.provider), hostId: id(row.hostId), account: parseAccountIdentity(row.account) };
     } catch { choice = undefined; }
   }
-  function retainLegacyChoice(scope: Scope) {
-    if (!storedChoice && !choice && current?.recoveryEpoch === scope.recoveryEpoch
+  function retainLegacyChoice() {
+    if (!storedChoice && !choice && current
         && current.state === 'finished' && current.selected && current.result.kind === 'signedIn' && current.result.account)
-      save(current, { ...options.identity, recoveryEpoch: scope.recoveryEpoch, account: current.result.account });
+      save(current, { ...options.identity, recoveryEpoch: current.recoveryEpoch, account: current.result.account });
   }
   function matchesChoice(account: AccountIdentity | undefined, recoveryEpoch: string): boolean {
     return choice !== undefined && choice.installationId === options.identity.installationId && choice.recoveryEpoch === recoveryEpoch
@@ -85,7 +85,7 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     }
     if (!signIn || !scope.running || active || expectedRevision !== (current?.revision ?? 0) || expectedRevision >= Number.MAX_SAFE_INTEGER
         || expiresAt <= options.now() || expiresAt > options.now() + 115_000) reject();
-    retainLegacyChoice(scope);
+    retainLegacyChoice();
     const record: Attempt = { revision: expectedRevision + 1, operationId, deviceId, recoveryEpoch, expiresAt, state: 'active' };
     save(record);
     const operation: AccountWork = { controller: new AbortController(), task: Promise.resolve() };
@@ -105,10 +105,14 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
         clearTimeout(timer); operation.challenge = undefined;
         if (active === operation) {
           const scope = options.scope();
-          const reuse = !operation.controller.signal.aborted && options.now() < expiresAt && scope?.running
+          const account = result.kind === 'signedIn' ? result.account : undefined;
+          const first = !storedChoice && !choice && !db.prepare("SELECT 1 FROM entities WHERE kind='runs' LIMIT 1").get();
+          const selected = account && !operation.controller.signal.aborted && options.now() < expiresAt && scope?.running
             && scope.deviceId === deviceId && scope.recoveryEpoch === recoveryEpoch
-            && result.kind === 'signedIn' && matchesChoice(result.account, recoveryEpoch);
-          save({ ...record, state: 'finished', result, ...(reuse ? { selected: true } : {}) }); active = undefined; options.settled();
+            && (first || matchesChoice(account, recoveryEpoch));
+          save({ ...record, state: 'finished', result, ...(selected ? { selected: true } : {}) },
+            selected && first ? { ...options.identity, recoveryEpoch, account } : undefined);
+          active = undefined; options.settled();
         }
       }
     });

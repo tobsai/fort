@@ -43,7 +43,10 @@ import FortKit
                         return
                     }
                     if arguments.contains("--qa-account") {
-                        model = try await AccountSignInFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + session,isDirectory:true))
+                        let scenario: AccountFixtureScenario
+                        if let index = arguments.firstIndex(of:"--qa-account-scenario"), arguments.indices.contains(index + 1), let selected = AccountFixtureScenario(rawValue:arguments[index + 1]) { scenario = selected }
+                        else { scenario = .challenge }
+                        model = try await AccountSignInFixture.make(directory:FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + session,isDirectory:true),scenario:scenario)
                         return
                     }
                     #endif

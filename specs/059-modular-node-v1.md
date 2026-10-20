@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 45f07d2a5749bd5cd3484f79f05003a92c401b1418ded6fda3f5df8f6f1acc3f
+Reviewed content SHA256: 37a6d52d73d82da4fd58ce5b265fb8191bc904e93b42b2e6fc0bd372a503d5dc
 
 ### Vendor independence
 Status: planned
@@ -3762,7 +3762,81 @@ malformed/multiple identities, stale/canceled scopes, crash/restart, explicit ne
 choice, native fresh discovery, unchecked-model truth and unchanged existing Agent
 selection. Reinspect installed refresh/6.1 selection separately from inference.
 
+## Single-account default and Mac composer usability — October 20
+
+The owner changed the account flow in message
+Sentinel_b7cb112f432c8191830ab311ce06c704: assume the first selected account and
+hide personal/work and multiple-account management as an advanced feature.
+Message Sentinel_7b17481acd5c8191a9c5300d4d37ab8b at 15:28 UTC additionally asks
+for Enter to send, Shift-Enter for newline, and correction of the inert image
+control. The coordinator relayed both from thread
+01a1572d-841d-76d3-949d-a8dd3328d037 with implementation, disconnected tests and
+same-scope signed local installation authorized. This supersedes the preceding
+section's redundant first-account confirmation requirement, preserving its exact
+identity and mismatch safeguards. No further provider access or live prompt is
+part of this increment; two of the historical three prompts remain consumed.
+
+A first fresh, unexpired, uncanceled, valid single account becomes the scoped
+choice atomically with completion. Do not treat malformed/stale remembered choice
+or existing unbound run history as a new installation. Retain valid legacy selected
+choices; an existing choice must still match account ID, label, provider, host,
+installation and recovery epoch. Unknown/multiple provider identities never select
+implicitly. Genuine workspace ambiguity remains with the official provider flow;
+Fort must not guess a workspace or invent an account option. Changed reported
+identities require explicit Advanced account management action. Keep the existing
+one active runtime account boundary, without creating a multi-account vault.
+Existing Agent settings and historical/queued run account pins remain intact.
+
+Normal native flow shows sign-in and its result, automatically discovering models
+once on a selected-identity transition whether the result arrives immediately or
+through reconciliation. Advanced account management contains workspace detail,
+explicit replacement and another sign-in. Explain that replacing the active
+account affects future requests; queued work remains pinned and is never replayed
+under the replacement. Missing identity stays visibly unresolved, with official
+provider workspace selection required before Fort can check models.
+
+The Mac composer handles Return inside its own native text input: plain Return
+sends once, Shift-Return inserts a newline, marked-text composition commits without
+sending, and empty/disabled input does not send. Preserve text editing, draft
+binding, accessibility, bounded multiline sizing and iOS behavior. The image
+control is a local PNG/JPEG picker, not an attachment. The signed Mac client has
+no user-selected-file entitlement. Remove that inactive picker from the Mac
+composer without adding access; keep existing inline local previews/removal and
+iOS import. Synthetic QA may supply its own sample image.
+
+Vendor independence: Fort account contracts and native text behavior remain
+provider-neutral; no SDK, runtime identity or API billing change. Modularity:
+account state stays in existing metadata and native controls; a small Mac text-input
+adapter owns keyboard behavior; no new package or module framework. Speed: constant
+identity comparisons and one bounded run-existence lookup at sign-in, no history
+scan or per-message query; one catalog refresh per selected transition. Existing
+budgets remain applicable, with no new performance claim. Installation/removal:
+same app identity, entitlements, profiles, runtime and helper; preserve ledger and
+verified disconnected state. Rollback uses the verified prior signed app and never
+replaces retained conversation data.
+
+Acceptance: public service regressions for automatic first choice, existing exact
+reuse, mismatches, malformed/multiple identities, canceled/expired completions,
+legacy/history safeguards and explicit replacement; native model regressions for
+immediate and reconciled discovery and preserved bindings; real AppKit keyboard
+events with synthetic transport for send/newline/IME/empty/disabled/double sends;
+synthetic account/composer accessibility and screenshots including local image
+preview/removal. Run appropriate complete portable/native suites, strict typecheck,
+Release build, signature verification and exact installed disconnected smoke.
+Record actual results separately from unrun real-provider and TestFlight acceptance.
+
+Exact paths: the existing account service and tests, openai.ts wording, native
+AccountSignInView/Fixture, MessengerModel, MessengerView, new MessageComposer and
+its tests, account and MacHostJourney tests, Apps/FortApp.swift fixture selection,
+this spec and decision 059, current Ponytail report, three acceptance ledgers and
+single-account-composer-20261020 evidence. All four principles are reviewed above;
+no unresolved design judgment blocks this explicitly requested bounded change.
+
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/MessageComposer.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MessageComposerTests.swift`
+- `successor/evidence/2026-10-17-node-foundation/single-account-composer-20261020.md`
 
 - `successor/evidence/2026-10-17-node-foundation/model-selection-recovery.md`
 

@@ -89,7 +89,7 @@ import Observation
         }
     }
     public private(set) var accountSignInBusy = false
-    public private(set) var accountSignInMessage = "Sign in explicitly to the selected runtime."
+    public private(set) var accountSignInMessage = "Sign in to connect your account. The first verified account becomes your default."
     private var accountSignInIntent: AccountSignInIntent?
     private var accountStatusGeneration = UUID()
     public var hasPendingAccountSignIn: Bool { accountSignInIntent != nil }
@@ -102,7 +102,7 @@ import Observation
     }
     public var modelAccountRequirement: String? {
         guard canManageProviderAccount, accountSignInStatus?.accountSelected != true else { return nil }
-        return accountSignInStatus?.reportedAccount == nil ? "Sign in to the runtime and confirm your account before checking models." : "Confirm the account and workspace above to check models."
+        return accountSignInStatus?.reportedAccount == nil ? "Sign in to check models. If the provider asks you to choose a workspace, complete that choice there." : "The reported account needs review in Advanced account management before checking models."
     }
     public var canRefreshModels: Bool { !loadingModels && !accountSignInBusy && modelAccountRequirement == nil }
     private func accountScope() throws -> (FortClient, DeviceConnection, Installation) {
@@ -137,10 +137,10 @@ import Observation
         case .challenge: accountSignInMessage = "Open the verification page and enter this code before it expires."
         case .canceling: accountSignInMessage = "Cancellation is awaiting confirmation."
         case .identified(_,_,let selected):
-            accountSignInMessage = selected ? "This account is selected. The runtime must match it before models or messages are requested." : "The runtime reported this account. Select it only if it matches the account and workspace you intended."
+            accountSignInMessage = selected ? "Connected. Models are checked automatically for this account." : "This account could not be matched to your saved choice. Review Advanced account management before using it."
         case .finished(_,let result):
             switch result {
-            case .signedIn: accountSignInMessage = "The runtime reports signed in; the account identity is not verified. Confirm the intended account before use."
+            case .signedIn: accountSignInMessage = "The provider has not reported one verified account. Complete any required workspace choice with the provider, then check sign-in status."
             case .canceled: accountSignInMessage = "This sign-in attempt was canceled. Existing account access was not revoked."
             case .failed: accountSignInMessage = "This sign-in attempt failed. You can start a new attempt."
             case .unconfirmed: accountSignInMessage = "This attempt’s outcome is unconfirmed. It will not be retried automatically."
@@ -178,8 +178,9 @@ import Observation
         if accountSignInStatus?.accountSelected == true { await refreshModels() }
     }
     public func startAccountSignIn() async {
-        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }
-        accountSignInBusy = true; defer { accountSignInBusy = false }
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels else { return }
+        let previous = accountSignInStatus
+        accountSignInBusy = true
         let generation = accountStatusGeneration
         do {
             let (client,connection,selected) = try accountScope()
@@ -193,10 +194,13 @@ import Observation
             let result = try await client.startAccountSignIn(request)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in was not confirmed. Check status before retrying the saved request." }
+        accountSignInBusy = false
+        if accountSignInStatus?.accountSelected == true && (previous?.accountSelected != true || previous?.operation != accountSignInStatus?.operation) { await refreshModels() }
     }
     public func retryAccountSignIn() async {
-        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }
-        accountSignInBusy = true; defer { accountSignInBusy = false }
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels else { return }
+        let previous = accountSignInStatus
+        accountSignInBusy = true
         let generation = accountStatusGeneration
         do {
             let (client,connection,selected) = try accountScope()
@@ -206,6 +210,8 @@ import Observation
             let result = try await client.startAccountSignIn(intent.request)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "The exact saved sign-in request could not be confirmed. Its deadline has not been extended." }
+        accountSignInBusy = false
+        if accountSignInStatus?.accountSelected == true && (previous?.accountSelected != true || previous?.operation != accountSignInStatus?.operation) { await refreshModels() }
     }
     public func cancelAccountSignIn() async {
         guard !accountSignInBusy, !lifecycleBusy else { return }
