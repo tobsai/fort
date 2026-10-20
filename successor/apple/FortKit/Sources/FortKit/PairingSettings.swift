@@ -136,5 +136,8 @@ struct PairingSettingsView: View {
                 }
             }
         } message: { Text(explanation) }
+        #if os(macOS)
+        .background(NonBlockingSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
+        #endif
     }
 }

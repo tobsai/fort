@@ -256,3 +256,75 @@ those outcomes. No push, merge, upload or provider-side grant revocation.
 - alert-quit-red-3.log: `5d53a8cce8ebc1ff9c9b51879d2e048e033278c117379ab05f9a829722704b15`
 - alert-quit-red-4.log: `9661c88ba366ce647b36ed013328050594e4362875c4c74f1c0e5ac5a6a5b348`
 - AgentSettings-alert-diagnostic.swift: `4a3007725cf45f8044ece5cec9369ed05e8213d23a4c7e408541170f1d67d7fa`
+
+
+## Pairing navigation Quit repair, October 20
+
+The faithful fixture changed the diagnosis. A temporary SwiftUI app linked to the
+actual FortKit library rendered MessengerView with AccountSignInFixture, temporary
+storage and no network or real credentials. Ordinary Settings navigation changed
+the same SheetPresentationWindow's preventsApplicationTerminationWhenModal flag
+from false at the root to true on Pairing and local host. Foreground Command-Q
+failed before any confirmation appeared. Back restored false and Quit succeeded.
+The earlier alert-only fixtures did not include this destination transition.
+
+The rendered PairingSettingsView regression failed first because the containing
+window still prevented termination. It now passes with unchanged draft and exact
+synthetic connection bytes. The fix reuses NonBlockingSheetWindow on that destination,
+just as Settings and setup already do. It adds no global termination policy, polling,
+host operation or account access. The temporary real-view app then completed ordinary
+Settings, Pairing, Stop local work, Cancel and foreground Command-Q successfully.
+The alert remained blocking while displayed, and the parent sheet was nonblocking
+after dismissal. Cancel's accessibility call returned -25205, but subsequent window
+inspection confirmed dismissal; it was not blindly repeated.
+
+Validation passed:
+
+- Focused native policy regressions: 2 pass, after the new case failed first.
+- Complete sequential native suite: 342 pass, 16 optional skips, zero failures,
+  358 total in 59.766 seconds.
+- Fresh Mac and iPhone Simulator Release builds.
+- Signed candidate: all 206 file hashes/modes, 30 Mach-O signatures, exact existing
+  certificates/entitlements and native MacHostBundle inspection.
+- Installed client-only update with a complete prior app retained. Only
+  Contents/MacOS/FortMac changed; helper inode, resources, runtime, profiles and
+  permissions stayed unchanged.
+- Exact installed disconnected setup accessibility and screenshot inspection,
+  followed by successful foreground Command-Q with setup still open.
+- Independent final check at 03:40:12 UTC: all 206 installed files match; no owned
+  client/host process, launchd job, provider credential file or active connection.
+  This client-only operation does not remove or rewrite retained history.
+
+The installed disconnected app has no workspace and therefore does not expose the
+Pairing settings route. That exact installed journey remains unrun until an authorized
+pairing; the faithful synthetic real-view flow is the current reproduction and fix
+proof. No host activation, re-pairing, provider prompt or credential extraction occurred.
+Portable tests were not rerun for this Swift-only change; the prior 1,329-pass result
+belongs to 43bd032. Physical iPhone, TestFlight, real 6.1 inference and G2 upload remain
+unrun/held. Codex 0.163.0 preparation is a separate unfinished slice.
+
+Installed candidate report SHA256:
+`5d24d0c8e3595334e2bb0b0becb10b84d698b7516eb25c22f4802de0017b98f8`.
+Payload SHA256:
+`20f874e206208dcdb66045566a19edcdb29f7fca235ad9b5ddd9e97aff857852`.
+Rollback app: `/tmp/fort059-pairing-quit-previous-installed-20261020.app`.
+Raw temporary evidence: `/tmp/fort059-settings-confirmation-20261020/`.
+The before/after fixture apps and their source remain there. Only the fixed fixture
+exited successfully through the Pairing confirmation path. Both are now stopped.
+
+Evidence hashes:
+- pairing-red.log: `d847b5ed0d42ef276ad90b0ed2c725e1e950292b29001ba81a85a1caabe3583f`
+- pairing-green.log: `f4b9b02b7e3a7fa8f5298616ff2f3e9aeb81f23db79eacce3bc57a6c53e823c4`
+- windows-before.log: `17a652ff2b2a778a3f672ef24f154343069e1579967babafcfdda22266e0110a`
+- windows-after.log: `977494ac5a61983e2ded2c35c8425eb5ce43403a36d6e65362b2f94fa9a3a16a`
+- flow-after-cancel.json: `efc6ce2c923e184928c9bfd6ed0640fd10ae4a0fcbfcc9a3525d82baa0165003`
+- quit-after-cancel.json: `5172af53e6e2c94f7d0e9ac893b9c5bee18dd89919db77f98cf66907c6bc2078`
+- native-final.log: `f37f58a36dffb5506a9eb365a49757f3a5667093041375e10165abb43b2c9853`
+- mac-build.log: `b963049317a6f15aac3355e4a4bc1bc7c3f84376730c1ece7cc99d16db65aa28`
+- ios-build.log: `791b541706c1000c4e73147def1ae33a889cff65162c59c9a941e724d8e33891`
+- candidate-verification.json: `494e599342c0a7d4f21be7aec3c2f2183450f2b188f9a6dfeedc5cb89e2e4817`
+- installed-update.json: `bfaf433002884569785080dfad45e69574073742432ab2678a4d1e240696fa4e`
+- installed-disconnected-ax.jsonl: `6facfc1e381f65b63caf4a8fd1eabc39c498b4b66ad632eaa698a259e4d2c529`
+- installed-setup.png: `4cc746359745ecf59f1d6bc0c04132f8f0a45ea691bcd311fe8a390ac6fe46a5`
+- installed-quit.json: `5172af53e6e2c94f7d0e9ac893b9c5bee18dd89919db77f98cf66907c6bc2078`
+- final-disconnected-verification.json: `e818ad2b58bf3b2f8a1e509686502d72431b50e843c7a6293f75639434448bb8`

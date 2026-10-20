@@ -1,5 +1,29 @@
 # Fort v1 acceptance ledger
 
+## Current checkpoint: Pairing navigation Quit repaired
+
+October 20, after source 43bd032. Entering Pairing reset the sheet termination flag;
+confirmation dismissal was not required. The destination now reuses the existing
+window-local policy. A rendered-view regression failed first and now preserves the
+draft and connection. The actual MessengerView/Settings/Pairing/Stop/Cancel flow in
+a temporary synthetic FortKit app permits normal foreground Quit.
+
+Complete native suite: 342 pass, 16 skips. Fresh Mac and iPhone Simulator Release
+builds pass. The installed client-only update changes one executable; all 206 file
+records, 30 signatures, entitlements and native bundle inspection pass. Disconnected
+setup accessibility/screenshot and normal Quit pass. Final 03:40:12 UTC checks confirm
+no owned processes, launchd job, provider credential file or active connection.
+Retained history is untouched. Candidate report SHA256 is
+`5d24d0c8e3595334e2bb0b0becb10b84d698b7516eb25c22f4802de0017b98f8`.
+
+The production Pairing route is unavailable while disconnected, so that installed
+flow remains unrun; the faithful synthetic actual-view flow is the fix evidence.
+No activation, re-pairing, sign-in or prompt occurred. Codex 0.163.0 offline update
+preparation continues separately. 6.1 inference, TestFlight, physical acceptance
+and G2 upload remain unrun/held. See the [repair evidence](evidence/2026-10-17-node-foundation/model-selection-recovery.md#pairing-navigation-quit-repair-october-20).
+Older checkpoints below retain their original observations.
+
+
 ## Model selection repaired; attended smoke test cleaned up
 
 October 20: account confirmation is now available inside the agent editor and

@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 2791fb344771cc3e1a03d27b0559bd27826f514280a4a7a7d2caa2076dd0f201
+Reviewed content SHA256: 67492e64765f2986bbcae29d4089b7ba8165ae02b569292e543463c03768b7fc
 
 ### Vendor independence
 Status: planned
@@ -3546,6 +3546,35 @@ no additional window-policy change is accepted on that evidence. The final clien
 was normally quit after closing Settings, and host/startup/credential absence was
 reconfirmed. The same evidence note assesses a future bundled 0.163.0 runtime
 update; this slice does not replace the runtime or authorize another live session.
+
+## Pairing destination restores the sheet Quit policy
+
+Continue the October 20 full-smoke repair from 43bd032. A temporary app linked to
+actual FortKit uses AccountSignInFixture with no network or real credentials and
+renders the ordinary MessengerView → Settings → Pairing flow. Entering Pairing
+alone changes the existing sheet's preventsApplicationTerminationWhenModal from
+false to true; foreground Command-Q fails. Returning to Settings root restores
+false and normal Quit succeeds. Confirmation dismissal is not required for failure.
+The earlier simpler alert checks omitted this NavigationStack destination transition.
+
+Exact product/test files: successor/apple/FortKit/Sources/FortKit/PairingSettings.swift
+and successor/apple/FortKit/Tests/FortKitTests/AgentSettingsTests.swift. Exercise the
+actual rendered PairingSettingsView in a behavioral native regression, preserving
+the draft and fixture connection. Separately exercise ordinary MessengerView and
+FortSettingsView navigation through accessibility in a temporary app using the same
+in-process synthetic fixture. Require normal Quit after navigation and after Cancel.
+First reproduce failure, then reuse the existing
+window-local NonBlockingSheetWindow on the Pairing destination if that passes.
+Do not change global application termination, other windows or host controls.
+
+Vendor independence: native presentation only. Modularity: reuse the existing
+window bridge; no new product interface. Speed: destination lifecycle work only,
+no polling in production. Installation/removal: verify normal Quit before/after a
+canceled confirmation using the exact candidate, keep the installed host disconnected
+and history intact. Native tests and Mac/iPhone builds precede the client-only
+signed update. Evidence goes to the existing model-selection-recovery.md and the
+three ledgers/current review. Same-scope repair authority is unchanged. Rollback
+restores the prior client payload; do not reactivate or re-pair the cleaned-up host.
 
 ## Implementation paths
 

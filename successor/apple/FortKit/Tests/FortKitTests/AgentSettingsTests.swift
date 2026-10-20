@@ -5,6 +5,24 @@ import Testing
 import AppKit
 import SwiftUI
 
+@Test @MainActor func pairingSettingsAllowsNormalQuitWithoutChangingDraftOrConnection() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("FortAccountQA-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:root) }
+    let model = try await AccountSignInFixture.make(directory:root)
+    model.draft = "Retained synthetic draft"
+    let connectionURL = root.appendingPathComponent("connection.json")
+    let connection = try Data(contentsOf:connectionURL)
+    let window = NSWindow(contentRect:NSRect(x:0,y:0,width:500,height:600),styleMask:[.titled],backing:.buffered,defer:false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    #expect(window.preventsApplicationTerminationWhenModal)
+    let content = NSHostingView(rootView:PairingSettingsView(model:model))
+    window.contentView = content
+    content.layoutSubtreeIfNeeded()
+    #expect(!window.preventsApplicationTerminationWhenModal)
+    #expect(model.draft == "Retained synthetic draft")
+    #expect(try Data(contentsOf:connectionURL) == connection)
+}
 @Test @MainActor func settingsSheetAllowsNormalQuitWithoutChangingDraftOrStoredState() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at:root) }
