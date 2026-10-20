@@ -114,7 +114,10 @@ private struct HostHistoryRemovalRecord: Codable {
         let current = try files.read(.connection).map { try decoder.decode(DeviceConnection.self,from:$0) }
         let disconnected = try files.read(.disconnected).map { try decoder.decode(DeviceConnection.self,from:$0) }
         guard current == connection || (current == nil && disconnected == connection) else { throw OwnerLifecycleError.wrongPairing }
-        if let intent = try files.read(.removal), try decoder.decode(PairingRemovalIntent.self,from:intent).connection != connection { throw OwnerLifecycleError.wrongPairing }
+        if let bytes = try files.read(.removal) {
+            let intent = try decoder.decode(PairingRemovalIntent.self,from:bytes)
+            guard intent.connection == connection || intent.state == .confirmed else { throw OwnerLifecycleError.wrongPairing }
+        }
     }
     private func verifyProgress(_ files: OwnerSetupFiles, bytes: Data) throws {
         try verifyConnection(files)

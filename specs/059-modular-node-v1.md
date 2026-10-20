@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 9a358c65ae75548ff375bdfc72afaee87dc3f2f43317e7750b31e62b6b379c9b
+Reviewed content SHA256: 2791fb344771cc3e1a03d27b0559bd27826f514280a4a7a7d2caa2076dd0f201
 
 ### Vendor independence
 Status: planned
@@ -3437,7 +3437,119 @@ build planner stalls; state that limitation instead of claiming a fresh rebuild.
 Remote CI and installed/provider acceptance remain separate. Rollback changes only
 validation/docs files, without touching product state or the six-prompt count.
 
+## Account confirmation within model selection
+
+At 02:11 UTC on October 20 the owner reported inability to choose a model after
+authenticating. The exact installed editor showed an unset picker and the service's
+account-selection-required explanation. Supported account status reported an
+identified account, not yet selected. Normal explicit selection enabled the real
+catalog; GPT-6-Astra could be selected and saved as gpt-6-astra on the owner's
+existing Lewis Too draft. The two draft fields were retained only in operator
+memory across navigation, restored/compared, saved through the UI, and released.
+No sign-in reset, credential inspection or prompt occurred.
+
+Keep the explicit account/workspace confirmation, and expose the existing
+AccountSignInView inside AgentSettingsEditor when the owning Mac can manage the
+account and it is not selected. Do not navigate away from the editor's form state.
+After confirmed selectReportedAccount, refresh model discovery. Disable/refuse
+selection while a model refresh is in progress so an older blocked catalog reply
+cannot race the automatic post-selection refresh. Conversely, refuse discovery
+while account confirmation is pending, then release the account action before
+refreshing the confirmed catalog. Preserve exact account/model,
+provider checks, saved selections, error handling and companion restrictions.
+No automatic sign-in, account selection, fallback model or expanded runtime access.
+
+Vendor independence: reuse optional account/model capabilities and existing native
+contracts. Modularity: reuse the existing account view and model methods, no new
+module or backend protocol. Speed: one model refresh following explicit successful
+account selection; existing loading guard prevents concurrent refresh. No new timer,
+polling or benchmark claim. Installation/removal: preserve the current authenticated
+host, pairing and history during a client-only update. The helper/runtime/resources,
+profiles and entitlements must match the installed report byte-for-byte; change only
+the signed client executable and its outer signature seal. Preserve a full old copy.
+Use normal client Quit/reopen without host removal or provider sign-in reset, then
+verify exact installed signatures/manifest, UI/model persistence and Settings Quit.
+
+Exact source/test files: successor/apple/FortKit/Sources/FortKit/AgentSettings.swift,
+AccountSignInView.swift, MessengerModel.swift and
+successor/apple/FortKit/Tests/FortKitTests/AccountSignInTests.swift. Add public model
+red/green regressions: discovery stays blocked until explicit account selection,
+selection then refreshes the exact catalog without another navigation/refresh action,
+no login or prompt occurs, selection is refused while discovery is pending, and
+discovery is refused while account confirmation is pending.
+Use synthetic account/model fixtures. Run relevant native tests sequentially and
+fresh Mac/iPhone Simulator builds; distinguish cached and fresh results. Record the
+spec, native model-selection evidence, three ledgers and current Ponytail review.
+The new evidence path is
+successor/evidence/2026-10-17-node-foundation/model-selection-recovery.md.
+
+The user's report authorizes this same-scope repair and installed verification.
+Continue the existing approved personal ChatGPT/Astra workflow, maximum six prompts
+total, currently zero, with final startup/local-credential cleanup and history kept.
+No time extension or repeat fix approval is needed. Provider reply acceptance,
+TestFlight and physical-device gates remain distinct; G2 upload stays held. Rollback
+restores only the old client payload/seal, not credentials, host data or selection.
+
+## Removal after a previous confirmed pairing
+
+The October 20 installed smoke test found cleanup refused before shutdown because
+an older confirmed pairing-removal record remained alongside a new exact current
+connection. The host stayed registered; no cleanup pass is claimed for that attempt.
+Treat a confirmed record for another pairing as completed history, not an active
+removal intent. MacHostRemoval must continue to validate the exact current (or
+exact disconnected) connection, reject pending setup, and reject mismatched
+requested/locally-forgotten removal intents. Recovery, process-exit, startup,
+provider-credential and final local-pairing proofs remain mandatory and scoped to
+the current connection. Do not manually edit installed lifecycle records.
+
+Vendor independence: native lifecycle only; no provider behavior changes.
+Modularity: repair the existing removal boundary, no new endpoint or state type.
+Speed: one existing record decode/state check; no new polling or budget claim.
+Installation/removal: unblock cleanup after confirmed earlier cleanup and re-pairing,
+while keeping history and preserving refusal for unfinished foreign operations.
+
+Exact additional files: successor/apple/FortKit/Sources/FortKit/MacHostRemoval.swift
+and successor/apple/FortKit/Tests/FortKitTests/MacHostRemovalTests.swift. Use a public
+stopAndRevoke regression with each prior intent state and the real removal adapter
+against synthetic startup/recovery. Only confirmed historical intent may proceed;
+active intent refuses before recovery/unregistration, and historical bytes/current
+connection/history remain unchanged. Run full sequential native tests and Mac/iPhone
+builds. Install another client-only repair with identical helper/resources/permissions,
+then complete the existing approved cleanup through the normal UI. Record the first
+refusal, corrected installed result and independent absence proof in the model-selection
+smoke evidence. This is within the requested full smoke test and same-scope repairs.
+
+## Settings Quit after a confirmation alert
+
+The same installed smoke test reproduced nontermination with both the normal menu
+and foreground Command-Q after a Settings confirmation alert. Closing Settings
+then quitting succeeds. The earlier first-presentation test does not cover that
+modal lifecycle. Investigate with a rendered Settings/alert regression before any
+source repair, keeping the change local to the sheet window. Do not force-quit,
+change global application termination policy or alter host lifecycle/permissions.
+
+Exact files: successor/apple/FortKit/Sources/FortKit/MessengerView.swift,
+successor/apple/FortKit/Sources/FortKit/AgentSettings.swift,
+successor/apple/FortKit/Sources/FortKit/PairingSettings.swift and
+successor/apple/FortKit/Tests/FortKitTests/AgentSettingsTests.swift, plus this spec,
+the same smoke evidence/ledgers and current review. Vendor independence and
+modularity: AppKit presentation only, existing window bridge, no provider contract.
+Speed: lifecycle-driven work, no polling timer. Installation/removal: cleanup is
+already independently confirmed; subsequent verification must stay disconnected
+and must not re-enable startup or recreate credentials. A safe canceled local
+confirmation can exercise alert dismissal without deletion. Test the exact installed
+candidate with Command-Q after dismissal and retain failed cases honestly.
+
+The attempted simple alert fixtures passed without source changes and do not
+reproduce the installed failure. Preserve that diagnosis as an open UI finding;
+no additional window-policy change is accepted on that evidence. The final client
+was normally quit after closing Settings, and host/startup/credential absence was
+reconfirmed. The same evidence note assesses a future bundled 0.163.0 runtime
+update; this slice does not replace the runtime or authorize another live session.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/model-selection-recovery.md`
 
 - `successor/evidence/2026-10-17-node-foundation/native-timing-isolation.md`
 

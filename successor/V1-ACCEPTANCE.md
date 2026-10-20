@@ -1,5 +1,42 @@
 # Fort v1 acceptance ledger
 
+## Model selection repaired; attended smoke test cleaned up
+
+October 20: account confirmation is now available inside the agent editor and
+refreshes the exact runtime catalog. Three public regressions cover confirmation
+and both concurrent discovery/selection orderings. A separate cleanup regression
+found an old confirmed pairing record incorrectly blocking removal after re-pairing;
+that case is fixed while unfinished foreign intents still refuse before effects.
+
+Fresh native checks: 341 pass, 16 optional skips, zero failures. Portable suite:
+1,329 pass, 16 skips, zero failures. Mac and iPhone Simulator Release builds pass.
+The exact installed client passed account/model persistence, accessibility and
+screenshot inspection, two synthetic Astra replies, Stop/Resume, history/relaunch
+and normal host-removal cleanup. Three of six prompt slots are accounted for,
+including one additional observed turn whose contents were not inspected.
+Effective provider model is not reported by the completed turn UI.
+
+Final installed report:
+b418cf5fb43b631339a9b1031ab162d3f0e8f774756e39b9352bfb96b50af67f.
+Only the client executable changed; helper/runtime/resources/permissions stayed
+identical and previous packages are retained. At 03:17:18 UTC the client and host
+were closed, startup job/local credential/active connection absent, and history
+retained. The attended session is complete; do not replay activation or sign-in.
+
+Open: Quit after a Settings confirmation can fail until Settings is closed. Simple
+alert fixtures do not reproduce it, so no speculative additional fix is claimed.
+Owner: native UI implementation; gate: reproduce and repair the exact installed
+modal lifecycle, then verify normal Quit. This prevents a full smoke pass.
+
+GPT-6.1-Sol entered the official bundled catalog in Codex 0.159.1. Latest verified
+stable is 0.163.0; Fort still bundles 0.157.1. A coordinated runtime/adapter/package
+update is the next concrete step. Catalog presence is not entitlement proof; keep
+managed credentials inside the official runtime. Offline update preparation is
+within ordinary scope; new live activation/6.1 inference is not covered by the
+completed session. TestFlight, physical iPhone and G2 remain separate open gates.
+See [full results and exact update assessment](evidence/2026-10-17-node-foundation/model-selection-recovery.md).
+Older checkpoints below describe earlier state.
+
 ## Native timing failures isolated; CI scheduling corrected
 
 October 20: repeated controls reproduce the removal timing failure without the new

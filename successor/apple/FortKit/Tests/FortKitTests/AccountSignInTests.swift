@@ -7,16 +7,24 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
     let directory: URL
     var paths: [String] = []
     var requestBodies: [Data] = []
-    var lostStarts = 0, lostCancels = 0, companion = false, holdStart = false
+    var lostStarts = 0, lostCancels = 0, companion = false, holdStart = false, holdSelection = false
     private var held: CheckedContinuation<Void,Never>?
-    func configure(lostStarts: Int = 0, lostCancels: Int = 0, companion: Bool = false, holdStart: Bool = false) {
-        self.lostStarts = lostStarts; self.lostCancels = lostCancels; self.companion = companion; self.holdStart = holdStart
+    private var modelsEnabled = false, holdModels = false, modelsWaiting = false
+    private var heldModels: CheckedContinuation<Void,Never>?
+    func enableModels(hold: Bool = false) { modelsEnabled = true; holdModels = hold }
+    func waitForModels() async throws {
+        for _ in 0..<500 { if modelsWaiting { return }; try await Task.sleep(for:.milliseconds(1)) }
+        throw ClientError.invalidResponse
+    }
+    func releaseModels() { holdModels = false; heldModels?.resume(); heldModels = nil }
+    func configure(lostStarts: Int = 0, lostCancels: Int = 0, companion: Bool = false, holdStart: Bool = false, holdSelection: Bool = false) {
+        self.lostStarts = lostStarts; self.lostCancels = lostCancels; self.companion = companion; self.holdStart = holdStart; self.holdSelection = holdSelection
     }
     func waitUntilHeld() async throws {
         for _ in 0..<500 { if held != nil { return }; try await Task.sleep(for:.milliseconds(1)) }
         throw ClientError.invalidResponse
     }
-    func release() { holdStart = false; held?.resume(); held = nil }
+    func release() { holdStart = false; holdSelection = false; held?.resume(); held = nil }
     func setStatus(_ value: String) { current = value }
     var current = #"{"state":"idle","revision":0}"#
     init(directory: URL) { self.directory = directory }
@@ -26,7 +34,16 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
         paths.append(request.path)
         let body: String
         switch request.path {
-        case "/v1/installation": body = #"{"contractVersion":"1.0","installationId":"one","recoveryEpoch":"epoch","mode":"fixture","serviceName":"Synthetic","capabilities":["ownerPairing","companionPairing","accountSignIn"]}"#
+        case "/v1/installation":
+            body = modelsEnabled
+                ? #"{"contractVersion":"1.0","installationId":"one","recoveryEpoch":"epoch","mode":"fixture","serviceName":"Synthetic","capabilities":["ownerPairing","companionPairing","accountSignIn","modelCatalog"],"runtime":{"provider":"independent-account","name":"Synthetic account runtime","runtimeVersion":"fixture-7","hostId":"fixture-host","session":"stateless","capabilities":["modelCatalog"]}}"#
+                : #"{"contractVersion":"1.0","installationId":"one","recoveryEpoch":"epoch","mode":"fixture","serviceName":"Synthetic","capabilities":["ownerPairing","companionPairing","accountSignIn"]}"#
+        case "/v1/models":
+            let selected = (try JSONSerialization.jsonObject(with:Data(current.utf8)) as? [String:Any])?["selected"] as? Bool == true
+            if holdModels { modelsWaiting = true; await withCheckedContinuation { heldModels = $0 } }
+            body = selected
+                ? #"{"provider":"independent-account","state":"ready","models":[{"id":"exact-synthetic","name":"Exact synthetic","availability":"available"}]}"#
+                : #"{"provider":"independent-account","state":"unavailable","models":[],"detail":"Select the reported provider account."}"#
         case "/v1/agents": body = #"{"agents":[]}"#
         case "/v1/pairing": body = companion ? #"{"deviceId":"mac","mode":"owner-local","expiresAt":null,"role":"companion"}"# : #"{"deviceId":"mac","mode":"owner-local","expiresAt":null}"#
         case "/v1/account/sign-in": body = current
@@ -42,6 +59,7 @@ private actor AccountTransport: FortTransport, OwnerSetupControl {
             if lostStarts > 0 { lostStarts -= 1; throw URLError(.networkConnectionLost) }
             body = current
         case "/v1/account/sign-in/select":
+            if holdSelection { await withCheckedContinuation { held = $0 } }
             let data = try #require(request.body), input = try #require(JSONSerialization.jsonObject(with:data) as? [String:Any])
             requestBodies.append(data)
             var reply = try #require(JSONSerialization.jsonObject(with:Data(current.utf8)) as? [String:Any])
@@ -71,6 +89,50 @@ private final class AccountCredentials: DeviceCredentials {
     func save(_ connection: DeviceConnection, token: String) throws {}
     func token(for connection: DeviceConnection) throws -> String { "synthetic-mac-token" }
     func remove(_ connection: DeviceConnection) throws {}
+}
+
+@Test @MainActor func modelSelectionLoadsCatalogAfterExplicitAccountConfirmation() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":false}"#)
+    let model = try fixture.model(); await model.restore(); await model.refreshModels()
+    #expect(model.accountSignInStatus?.accountSelected == false)
+    #expect(model.modelCatalog.state == "unavailable" && !model.modelCatalog.canSelect("exact-synthetic"))
+    model.draft = "Keep my unsent message."
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == true)
+    #expect(model.modelCatalog.canSelect("exact-synthetic"))
+    #expect(model.modelCatalog.models.map(\.id) == ["exact-synthetic"])
+    #expect(!model.loadingModels && model.draft == "Keep my unsent message.")
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/start"))
+    #expect(await fixture.transport.paths.filter { $0 == "/v1/account/sign-in/select" }.count == 1)
+}
+
+@Test @MainActor func modelSelectionWaitsForDiscoveryBeforeConfirmingAccount() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels(hold:true)
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":false}"#)
+    let model = try fixture.model(); await model.restore()
+    let discovery = Task { await model.refreshModels() }; try await fixture.transport.waitForModels()
+    #expect(model.loadingModels)
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == false)
+    #expect(await !fixture.transport.paths.contains("/v1/account/sign-in/select"))
+    await fixture.transport.releaseModels(); await discovery.value
+    await model.selectReportedAccount()
+    #expect(model.accountSignInStatus?.accountSelected == true && model.modelCatalog.canSelect("exact-synthetic"))
+}
+@Test @MainActor func modelSelectionDefersDiscoveryUntilAccountConfirmationCompletes() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    await fixture.transport.configure(holdSelection:true)
+    await fixture.transport.setStatus(#"{"state":"finished","revision":1,"operationId":"synthetic-complete","expiresAt":1900000000000,"result":{"kind":"signedIn","account":{"accountId":"workspace-fixture","userLabel":"owner@fixture.invalid"}},"selected":false}"#)
+    let model = try fixture.model(); await model.restore()
+    let confirmation = Task { await model.selectReportedAccount() }; try await fixture.transport.waitUntilHeld()
+    await model.refreshModels()
+    #expect(await !fixture.transport.paths.contains("/v1/models"))
+    await fixture.transport.release(); await confirmation.value
+    #expect(model.accountSignInStatus?.accountSelected == true && model.modelCatalog.canSelect("exact-synthetic"))
 }
 @MainActor private final class AccountFixture {
     let directory: URL, storage: DeviceStorage, connection: DeviceConnection, transport: AccountTransport

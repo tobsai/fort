@@ -11,7 +11,7 @@ struct AccountSignInView: View {
                 Text("Workspace: \(account.accountId)").font(.caption).textSelection(.enabled)
                 if !status.accountSelected {
                     Button("Use this account and workspace") { Task { await model.selectReportedAccount() } }
-                        .disabled(model.accountSignInBusy || model.lifecycleBusy || model.isBusy)
+                        .disabled(model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.loadingModels)
                         .accessibilityIdentifier("provider-account-select")
                 }
             }

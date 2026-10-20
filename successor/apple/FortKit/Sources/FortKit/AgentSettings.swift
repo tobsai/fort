@@ -76,6 +76,11 @@ struct AgentSettingsEditor: View {
                 Text("Describe this agent’s role, tone and preferences. Used as instructions for future messages; permissions and earlier turns stay unchanged.").font(.caption).foregroundStyle(.secondary)
                 Text("\(form.instructions.utf8.count) / 16,384 bytes").font(.caption).foregroundStyle(form.instructions.utf8.count > 16_384 ? .red : .secondary)
             }
+            #if os(macOS)
+            if model.canManageProviderAccount && model.accountSignInStatus?.accountSelected != true {
+                AccountSignInView(model:model)
+            }
+            #endif
             Section("Model") {
                 Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.runtimeName).font(.caption)
                 Picker("Model",selection:$form.exactModel) {
@@ -87,7 +92,7 @@ struct AgentSettingsEditor: View {
                 if let choice = model.modelCatalog.options(preserving:form.exactModel).first(where:{$0.id == form.exactModel}), let detail = choice.detail { Text(detail).font(.caption) }
                 if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
                 if model.modelCatalog.state == "ready" { Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
-                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(model.loadingModels)
+                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(model.loadingModels || model.accountSignInBusy)
             }
             Section("Avatar") {
                 HStack(spacing:18) {

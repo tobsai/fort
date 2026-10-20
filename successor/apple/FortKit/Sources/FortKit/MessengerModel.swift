@@ -151,9 +151,9 @@ import Observation
         } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
     }
     public func selectReportedAccount() async {
-        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped,
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels,
               let status = accountSignInStatus, let operation = status.operation, let account = status.reportedAccount, !status.accountSelected else { return }
-        accountSignInBusy = true; defer { accountSignInBusy = false }
+        accountSignInBusy = true
         let generation = accountStatusGeneration
         do {
             let (client,connection,selected) = try accountScope()
@@ -162,6 +162,8 @@ import Observation
             guard result.operation == operation, result.reportedAccount == account, result.accountSelected else { throw ClientError.invalidResponse }
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:nil,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Account selection is unconfirmed. Check status before selecting again." }
+        accountSignInBusy = false
+        if accountSignInStatus?.accountSelected == true { await refreshModels() }
     }
     public func startAccountSignIn() async {
         guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped else { return }
@@ -1042,7 +1044,7 @@ import Observation
         do { try imageStore.remove(image);loadLocalImages(force:true) } catch { status = "The preview could not be removed. The original image file has not changed." }
     }
     public func refreshModels() async {
-        guard !loadingModels else { return }
+        guard !loadingModels, !accountSignInBusy else { return }
         guard installation?.supports("modelCatalog") == true, let client else { modelCatalog = .unchecked; return }
         loadingModels = true; defer { loadingModels = false }
         do {

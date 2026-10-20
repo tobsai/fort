@@ -142,6 +142,37 @@ private final class RemovalChild {
     #expect(await fixture.recovery.calls == 1)
 }
 
+@Test(arguments:[PairingRemovalIntent.State.confirmed,.requested,.locallyForgotten])
+@MainActor func hostRemovalDistinguishesCompletedHistoricalPairingFromUnfinishedRemoval(state: PairingRemovalIntent.State) async throws {
+    let fixture = try RemovalFixture(); defer { fixture.clean() }
+    let prior = try DeviceConnection(endpoint:.macAgent(fixture.endpoint),installationID:"prior-installation",deviceID:"prior-device")
+    let intentURL = fixture.directory.appendingPathComponent("pairing-removal.json")
+    let priorBytes = try JSONEncoder().encode(PairingRemovalIntent(connection:prior,state:state))
+    try priorBytes.write(to:intentURL)
+    try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:intentURL.path)
+    let history = fixture.directory.appendingPathComponent("history-marker")
+    let historyBytes = Data("retained earlier and current conversations".utf8)
+    try historyBytes.write(to:history)
+    var credentialCleanup = false
+    let removal = try fixture.removal(removeProviderCredential:{ credentialCleanup = true })
+    try fixture.child.finish()
+    if state == .confirmed {
+        let result = try await removal.stopAndRevoke()
+        #expect(result.hostStopped && result.pairingRevoked && result.startupUnregistered && result.providerCredentialRemoved)
+        #expect(await fixture.recovery.calls == 1)
+        #expect(await fixture.backend.removals == 1)
+        #expect(credentialCleanup)
+    } else {
+        await #expect(throws:OwnerLifecycleError.wrongPairing) { try await removal.stopAndRevoke() }
+        #expect(await fixture.recovery.calls == 0)
+        #expect(await fixture.backend.removals == 0)
+        #expect(!credentialCleanup)
+    }
+    #expect(try Data(contentsOf:intentURL) == priorBytes)
+    #expect(try Data(contentsOf:history) == historyBytes)
+    #expect(try JSONDecoder().decode(DeviceConnection.self,from:Data(contentsOf:fixture.directory.appendingPathComponent("connection.json"))) == fixture.connection)
+}
+
 @Test @MainActor func hostRemovalProviderCleanupFailureIsRetriableWithoutRestart() async throws {
     let fixture = try RemovalFixture(); defer { fixture.clean() }
     var calls = 0, fail = true
