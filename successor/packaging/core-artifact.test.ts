@@ -133,3 +133,14 @@ test('the compiled core runs independent runtime contracts with provider impleme
   const duplicate = spawnSync(process.execPath, [fileURLToPath(new URL('./core-artifact.ts', import.meta.url)), '--destination', artifact], { encoding: 'utf8', timeout: 30_000 });
   assert.notEqual(duplicate.status, 0);
 });
+
+test('compiled core exports the offline migration command and refuses an incomplete invocation', async t => {
+  const root = await realpath(await mkdtemp('/tmp/fort059-core-migration-package-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'core'); buildCore(destination);
+  const metadata = JSON.parse(await readFile(join(destination, 'package.json'), 'utf8'));
+  assert.equal(metadata.exports['./runtime-migration']?.import, './service/runtime-migration.js');
+  const entry = join(destination, 'service/runtime-migration.js');
+  const result = spawnSync(process.execPath, [entry], { env: {}, encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 1); assert.match(result.stderr, /not confirmed/); assert.equal(result.stdout, '');
+});

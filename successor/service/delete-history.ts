@@ -65,8 +65,9 @@ export function deleteOwnerHistory(request: HistoryDeletion): { recoveryEpoch: s
     transaction = true; verifyFiles();
     if (db.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') refuse();
     const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row => row.name);
-    if (JSON.stringify(tables) !== JSON.stringify(Object.keys(columns).sort()) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view') OR upper(sql) LIKE '%VIRTUAL TABLE%'").get()) refuse();
-    for (const [table, names] of Object.entries(columns)) {
+    const expectedColumns = { ...columns, ...(tables.includes('runtime_migrations') ? { runtime_migrations: ['id', 'data'] } : {}) };
+    if (JSON.stringify(tables) !== JSON.stringify(Object.keys(expectedColumns).sort()) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view') OR upper(sql) LIKE '%VIRTUAL TABLE%'").get()) refuse();
+    for (const [table, names] of Object.entries(expectedColumns)) {
       if (JSON.stringify(db.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name)) !== JSON.stringify(names)) refuse();
     }
     for (const row of db.prepare('SELECT DISTINCT kind FROM entities').iterate()) if (![...history, ...retained].includes(String(row.kind))) refuse();

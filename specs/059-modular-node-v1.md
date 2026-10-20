@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 3e3108bafae77365741264a1408c65e0cdb730d0fc14623d2bc727ab05057269
+Reviewed content SHA256: fa86d37f1c2e7b40352e3ffdacc9c8620e8039341a652798f52947a06eed0e03
 
 ### Vendor independence
 Status: planned
@@ -3643,6 +3643,75 @@ preceding Quit slice unless a native change is made. Rollback is the prior sourc
 commit; no installed runtime changes occur. Evidence goes to codex-0163-offline-update.md,
 the three ledgers and current semantic review. Exact affected paths are declared below.
 
+## Explicit offline runtime migration and attended 0.163.0 verification
+
+The owner approved the coordinator's October 20 04:11:59 UTC proposal at 12:03:35
+UTC in thread 01a1572d-841d-76d3-949d-a8dd3328d037. Scope is a tested history-
+preserving migration, exact signed 0.163.0 installation, the same personal ChatGPT
+account through managed device-code sign-in, and at most three further synthetic
+prompts. Verify exact 6.1 selection and distinguish provider-reported inference
+from catalog/configuration evidence. Verify paired Settings confirmation/Cancel/
+Quit, persistence/recovery and cleanup. Remove test startup, pairing and local
+provider credentials afterward; retain app/history. Local cleanup does not revoke
+remote grants. No new auth route, token extraction, expanded permission, provider
+cleanup, release/upload, push or merge is authorized.
+
+Implement a separate offline public runtime-migration operation. Normal startup
+continues refusing mismatched runtime identities. Require the exact installation,
+recovery epoch, prior owner/device, provider/host, source version, target version
+and operation ID; version migration cannot change provider or host. Require owned
+private canonical ledger paths, unchanged regular files/sidecars, an exclusive
+SQLite transaction, valid known schema and disconnected owner state without active
+devices/enrollment. Refuse any unresolved run/outbox work or enabled schedule.
+Do not silently cancel, replay or retarget work to make migration succeed.
+
+Apply one atomic transaction. Preserve all messages, receipts, runs, historical
+agentBindings, routines, skills, memory and account selection. Create deterministic
+new current binding revisions, retaining each model and enabled state; add disabled
+markers for prior runtime bindings so pinned old routines require explicit review.
+Keep installation/recovery identity and historical records unchanged. Update only
+current agent rows and runtime metadata, plus new binding/disable records and a
+bounded runtime_migrations journal. No account or startup operation is part of this
+API. The journal contains operation metadata and reversible agent-row changes,
+not message bodies or credentials. It remains local and is never emitted as a log.
+
+An exact apply retry returns the recorded result after a lost reply without another
+revision. A rollback transaction restores the source runtime/current agent records
+and removes only that operation's added bindings/disable markers. It requires a
+matching complete logical post-migration ledger digest; any later write refuses
+rollback rather than erasing newer history or account/lifecycle changes. Repeated
+rollback reports notApplied only when the source identity is confirmed and no matching
+journal exists. Remove the completed journal row and drop an empty migration table
+on rollback so the old application sees its original schema. Current history deletion
+accepts the optional reviewed journal table; it contains retained Agent configuration,
+not deleted message history. Crash tests
+kill the CLI immediately before/after COMMIT through a test-only preload, then
+reopen/retry the public operation. No production failure-injection hook is added.
+
+Vendor independence: the maintenance operation uses Fort runtime identity and
+binding records, not a vendor-specific account or protocol. Modularity: it is an
+explicit exported offline command in the core package, absent from ordinary startup
+and native request routing. No new daemon, dependency or client contract. Speed:
+o per-turn cost; one bounded offline scan, at most 256 MiB ledger/sidecars and 1,000
+agents. Measure a synthetic 10,000-message migration against a five-second budget;
+report the local environment and separate this maintenance sample from runtime
+benchmarks. Installation/removal: preserve full app and closed-ledger recovery
+copies before the real migration; require matching candidate/source manifests,
+owned process/startup absence, staged rollback tests and exact signatures before
+installation. After new writes, use a new reviewed reverse migration if needed;
+never restore a stale backup over newer data.
+
+Tests precede implementation at the exported migration/CLI and public service
+interfaces: old history/bindings byte preservation, fresh current revisions and
+unchanged model selection, old-runtime refusal/new-runtime reopen, new submissions,
+retry, rollback, crash recovery, changed-state rollback refusal, wrong identity,
+active process/SQLite lock, nonprivate/symlink/hardlink paths, malformed schema,
+pending work and schedules. Core packaging includes the compiled command. Complete
+portable/typecheck and relevant package checks precede exact Ponytail review and
+local commit. Native/provider validation remains a separate evidence stage.
+Evidence goes to runtime-migration-0163.md and current ledgers; declare further
+files before any additional model-evidence/native change.
+
 ## Implementation paths
 
 - `successor/evidence/2026-10-17-node-foundation/model-selection-recovery.md`
@@ -4192,6 +4261,12 @@ the three ledgers and current semantic review. Exact affected paths are declared
 - `successor/evidence/2026-10-17-node-foundation/codex-0163-offline-update.md`
 
 - `successor/runner/startup-diagnostic.ts`
+
+- `successor/service/runtime-migration.ts`
+
+- `successor/service/runtime-migration.test.ts`
+
+- `successor/evidence/2026-10-17-node-foundation/runtime-migration-0163.md`
 
 ## Test criteria
 

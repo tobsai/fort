@@ -12,6 +12,7 @@
     "host/secure-network.ts",
     "host/network-control.ts",
     "host/owned-core.ts",
-    "host/history-maintenance.ts"
+    "host/history-maintenance.ts",
+    "service/runtime-migration.ts"
   ]
 }

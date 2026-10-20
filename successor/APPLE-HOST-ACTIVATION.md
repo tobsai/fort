@@ -1,5 +1,29 @@
 # Apple host activation gate
 
+## Current checkpoint: explicit runtime migration passes source validation
+
+October 20, after offline runtime commit `3f8ea843`. The owner approved the bounded
+migration/install and three-prompt attended verification at 12:03:35 UTC. The
+separate offline operation preserves history and model selection, creates current
+binding revisions atomically, retries safely, and rolls back only before later
+ledger changes. Normal runtime mismatch refusal remains. History deletion supports
+the retained migration journal. Four process-crash boundaries pass.
+
+Focused migration/history/package: 80 passed, two optional skips. Full portable:
+1,398 passed, 16 skipped; strict typecheck passed. Its first run exposed a temporary
+build-fixture module-setting omission, now fixed and passing. The 10,002-message
+maintenance sample took 55.996 ms; this is one synthetic sample, not production
+performance acceptance. Fresh resources and the 204-file unsigned app are prepared.
+
+Read-only installed checks match all 206 prior files and confirm stopped/disconnected
+state. Retained history has six messages/three completed runs and no pending work.
+The installed app/ledger still use 0.157.1; no real migration, activation, sign-in or
+prompt has happened at this source checkpoint. Next: closed-copy rehearsal, exact
+signatures/install, normal personal-account sign-in, native verification and local
+cleanup. Effective model, physical iPhone, TestFlight and G2 remain separate gates.
+See [migration evidence](evidence/2026-10-17-node-foundation/runtime-migration-0163.md).
+Older checkpoints below retain their observations.
+
 ## Current checkpoint: Codex 0.163.0 prepared offline; installation held
 
 October 20, after Quit repair commit `3aba02fd`. The 0.163.0 adapter, startup

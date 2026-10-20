@@ -37,7 +37,7 @@ for (const file of manifest.files.filter(file => file.path.endsWith('.js'))) {
   const relative = file.path.slice(0, -3) + '.ts', target = join(source, relative);
   mkdirSync(dirname(target), { recursive: true }); copyFileSync(join(root, relative), target);
 }
-for (const name of ['tsconfig.json', 'tsconfig.core.json']) copyFileSync(join(root, name), join(source, name));
+for (const name of ['package.json', 'tsconfig.json', 'tsconfig.core.json']) copyFileSync(join(root, name), join(source, name));
 symlinkSync(join(root, 'node_modules'), join(source, 'node_modules'), 'dir');
 const compileArgs = [join(root, 'node_modules/typescript/bin/tsc'), '-p', join(source, 'tsconfig.core.json'), '--incremental', '--tsBuildInfoFile', join(destination, 'incremental.tsbuildinfo'), '--outDir', join(destination, 'incremental-output')];
 run(process.execPath, compileArgs);
