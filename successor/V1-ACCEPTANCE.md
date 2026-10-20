@@ -1,5 +1,24 @@
 # Fort v1 acceptance ledger
 
+## Current checkpoint: account reuse fix committed and installed disconnected
+
+Source 35882ab7 fixes legacy owner re-pairing and reauthentication without requiring
+another confirmation when fresh account/workspace identity matches the prior explicit
+choice. Changed, missing, ambiguous, stale, expired and canceled results do not reuse
+it. Unconfirmed account state clears cached model eligibility; saved Agent models
+remain unchanged. Source checks pass: 1,417 portable and 345 native tests, each with
+16 optional skips, strict typecheck and Release Mac build.
+
+The 208-file signed app is installed. All 30 binary signatures, native bundle
+inspection, disconnected launch/accessibility/screenshot/normal Quit and final
+file-integrity/absence checks pass. Startup, pairing, credentials and all Fort
+processes remain absent; the complete ledger hash and original history are unchanged.
+Prompt use remains 2/3; the two earlier selected gpt-6.1-sol turns completed, while
+effective serving model remains unreported. No further provider access occurred.
+See [the completed evidence](evidence/2026-10-17-node-foundation/runtime-migration-0163.md).
+No blocker remains for this bounded update. New-source live reauthentication,
+physical iPhone, TestFlight/G2 and remote provider closure are not claimed.
+
 ## Current checkpoint: GPT-6.1 Sol passed; local cleanup confirmed
 
 Two approved synthetic turns completed with selected model gpt-6.1-sol, including

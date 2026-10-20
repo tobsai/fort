@@ -208,3 +208,47 @@ Mac build passed. Full portable 1,417 passed, 16 optional skips; strict typechec
 passed. These include the final legacy re-pair and lost-receipt fixes. No additional
 provider prompt or activation was used. Signed packaging and disconnected installed
 checks follow as a separate evidence stage.
+
+
+## Account repair installed while disconnected
+
+Source commit 35882ab7d0aa1c969550c507080b1fbd3440ffef is now installed at
+/Users/tobiasgunn/Applications/Fort.app. The reviewed package has 208 files,
+418,411,073 bytes and 30 Mach-O binaries. Every file/hash/mode, every binary's
+signature and development certificate, unchanged client/helper/child entitlements,
+unchanged provisioning/configuration and the native MacHostBundle inspector passed.
+The Codex 0.163.0 binary and its attribution remain the exact previously reviewed
+inputs. No dependency, entitlement or provider path was expanded.
+
+Signed report SHA256: 4e8440a0a565825c916423492ae5e24a0b0fed7b9d781c52d60dabe518e6f053.
+Payload manifest SHA256: 99420bffa4082661ee956836e2bf00ed48381caab6e7adcf80a215eb8659d1ff.
+A verified previous app is retained at
+/private/tmp/fort059-account-refresh-20261020/previous-installed.app. Installation
+used an atomic same-filesystem bundle swap after normal client Quit, with startup,
+provider credential, pairing and all Fort processes verified absent. It did not
+run a ledger migration or edit retained data.
+
+The exact installed app passed native bundle inspection, normal launch, accessibility
+inspection, a cropped setup-sheet screenshot and normal Command-Q while setup was
+open. The screenshot shows the host is not enabled and removal was recorded complete.
+Send was disabled, no provider sign-in action appeared, and no message element was
+present in the captured view. The pre-existing duplicated removal-status sentence
+is cosmetic and was not changed in this bounded account-selection slice.
+Screenshot: /tmp/fort059-account-refresh-20261020/installed-disconnected.png,
+SHA256 2f070b98551c1dd52e3acf8868df4c879bdaff559a16808021db7c031e8d031c.
+
+After launch and Quit, all 208 installed files and signatures still matched. At
+13:37:25 UTC there were zero Fort processes, no startup job, no local provider auth
+or client connection file, and zero devices/enrollment/outbox rows. The complete
+closed ledger SHA256 remained e8005f96248cb27d48a74c446ab5f15f22baaf48e468dffc1f9b9ca59e68c561.
+Original history remains unchanged. Prompt use remains 2/3. No new sign-in, provider
+call, activation, upload, push or merge occurred during this update.
+
+Final package/install/UI/absence receipt:
+/tmp/fort059-account-refresh-20261020/installed-final.json.
+The new exact-account reuse behavior has synthetic service/native/compiled-host
+proof; it was deliberately not reauthenticated against a real provider after
+cleanup. This is the requested disconnected update, not new-source provider or
+TestFlight acceptance. No blocker remains for this bounded slice. Independent
+effective-model reporting, physical iPhone, TestFlight/G2 and remote provider closure
+remain separate open gates.
