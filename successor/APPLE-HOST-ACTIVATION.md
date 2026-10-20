@@ -1,5 +1,23 @@
 # Apple host activation gate
 
+## Native timing failures isolated; CI scheduling corrected
+
+October 20: repeated controls reproduce the removal timing failure without the new
+Settings view. The budget passes alone; unrelated concurrent main-actor tests add
+scheduling delay to its elapsed time. The broader parallel suite also has three
+synthetic account coordination timeouts and a host-journey timing failure. With
+explicit --no-parallel, the unchanged full native bundle passes 337 functions with
+16 optional skips and zero failures; the host journey takes 2.09 seconds against
+five seconds. Three focused final-command runs each pass all 25 functions.
+
+The minimal fix adds --no-parallel to the existing CI command and local instructions.
+No product/test code, threshold, assertion or sample count changed. Validation uses
+the existing compiled bundle: a fresh broad build stalled before test execution.
+Remote CI remains unrun. [Exact controls, results and limits](evidence/2026-10-17-node-foundation/native-timing-isolation.md).
+The Settings fix is still awaiting installed verification. The installed sign-in
+UI and active host were untouched; authentication confirmation is awaited, zero of
+six prompts used, and final cleanup remains pending. G2 upload is separately held.
+
 ## Settings Quit repaired in source; active sign-in left untouched
 
 October 20: the Settings sheet now reuses the setup sheet's window-local termination

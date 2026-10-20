@@ -26,6 +26,17 @@ The host-resource builder requires a new absolute destination and never replaces
 an existing artifact. Signed probes, timing budgets, installed UI and actual
 provider checks are separate evidence stages, not implied by these commands.
 
+With those fixture inputs prepared, run native tests sequentially, as CI does:
+
+```sh
+xcrun swift test --package-path successor/apple/FortKit --scratch-path /tmp/fort-swift --no-parallel
+```
+
+Unrelated tests otherwise compete for the main actor and delay fixture coordination
+and elapsed-time checks. This option keeps every test, threshold and assertion;
+explicit concurrency within an individual test still runs.
+See the [repeated controls and limits](evidence/2026-10-17-node-foundation/native-timing-isolation.md).
+
 Before committing or declaring a slice complete, follow the
 [required Ponytail review](../specs/README.md#required-ponytail-review) and staged
 spec/review gates. No remote CI run, TestFlight delivery or installed acceptance

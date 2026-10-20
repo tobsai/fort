@@ -66,7 +66,7 @@ jobs:
           echo "FORT_TEST_GUARDIAN=$RUNNER_TEMP/fort-guardian" >> "$GITHUB_ENV"
           echo "FORT_TEST_CORE_ARTIFACT=$RUNNER_TEMP/fort-host-resources/core" >> "$GITHUB_ENV"
           echo "FORT_TEST_HOST_RESOURCES=$RUNNER_TEMP/fort-host-resources" >> "$GITHUB_ENV"
-      - run: xcrun swift test --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift"
+      - run: xcrun swift test --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift" --no-parallel
       - name: Verify compiled native HTTP journeys
         shell: bash
         run: |

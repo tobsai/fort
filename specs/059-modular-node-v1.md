@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 8a7c0a1e8893cf76beabd44e900dd8906f3757d4e4d062bd4c6ee140bedbfd2f
+Reviewed content SHA256: 9a358c65ae75548ff375bdfc72afaee87dc3f2f43317e7750b31e62b6b379c9b
 
 ### Vendor independence
 Status: planned
@@ -3395,7 +3395,51 @@ build remains deferred until authentication/testing can safely pause. This spec,
 existing installed setup/test evidence, current ledgers and review record carry the
 results. Rollback restores source only; live authentication and history stay intact.
 
+## Isolate native timing and coordination checks from parallel tests
+
+The coordinator requested investigation of parallel timing failures recorded in the
+Settings repair, while preserving the live authentication handoff. Three old-focused
+runs without the new Settings test fail at 84.7–97.2 ms p95 against 50 ms. The
+benchmark alone passes three runs below 0.4 ms; pairing it with Settings also passes.
+The unchanged old-focused set passes three sequential runs below 0.41 ms. The timed
+inspectLocalHost awaits a separate backend actor and resumes on the main actor,
+allowing unrelated tests to add work to its elapsed time. No product regression or
+threshold change is established by these failures.
+
+An initial split invocation isolates that budget successfully, but the broader
+parallel suite still has three account-fixture coordination timeouts and a synthetic
+host journey at 12.62 seconds versus its five-second budget. The same complete
+compiled suite with explicit --no-parallel passes: 337 functions, 16 optional skips,
+zero failures, and a 2.09-second synthetic host journey. Total local run time is
+59.57 seconds. This broader evidence justifies the smaller final fix: add only
+--no-parallel to the existing native quality command and document the same local
+invocation. Do not add a skip, second invocation, retry, optional gate or new harness.
+All tests/parameter cases still run; explicit concurrency inside individual tests
+is unchanged. No production actor boundary or test implementation changes.
+
+Vendor independence: only the existing Swift validation command changes; no runtime
+or account dependency. Modularity: one execution option, no new abstractions or
+process infrastructure. Speed: preserve all numeric sample/budget rules; accept
+sequential native-test scheduling to isolate MainActor and process-load-sensitive
+measurements. The observed full run remains well inside the existing 20-minute job
+budget; a remote-run duration is unverified. Installation/removal: synthetic fixtures
+only, with no actual startup, credentials, host or installed-app actions. The Settings
+fix, active host/pairing and pending user authentication remain untouched.
+
+Exact changes: .github/workflows/fort-quality.yml, successor/README.md, this spec,
+successor/evidence/2026-10-17-node-foundation/native-timing-isolation.md, the three
+existing acceptance/activation/delivery ledgers and current Ponytail review. Preserve
+all red/control results and the rejected narrow split approach as diagnostic evidence.
+Require the actual final workflow selector to pass the 25-function focused set three
+times, plus the complete sequential synthetic native suite. Validate YAML and report
+all unrun/failed checks. Reuse the unchanged compiled test bundle when the local Swift
+build planner stalls; state that limitation instead of claiming a fresh rebuild.
+Remote CI and installed/provider acceptance remain separate. Rollback changes only
+validation/docs files, without touching product state or the six-prompt count.
+
 ## Implementation paths
+
+- `successor/evidence/2026-10-17-node-foundation/native-timing-isolation.md`
 
 - `successor/runner/codex-controls.ts`
 
