@@ -473,3 +473,63 @@ verified. Exact installed disconnected accessibility/screenshot/normal quit and
 final absence checks pass. Ledger unchanged: 1 Agent, 12 messages, 6 runs; no
 credentials, pairing, startup job or Fort processes. New-source live provider and
 human IME acceptance remain unrun; no remaining live prompt was consumed.
+
+## October 21 — authorized publication and local launch
+
+Tobias explicitly requested merge/push and local launch/test instructions in
+`Sentinel_f7dece8fcaa88191be9c1616e6108480` (October 20, 20:07 Central). The verified
+destination is the existing public `https://github.com/tobsai/fort`, default branch
+`main`, initially at `5616faa2541b6ef2377f0ee222ec6aefff8a5feb`. No protection or
+branch rules were reported. The completed branch is a descendant: 261 commits
+ahead and zero behind before this documentation commit. Publication preserves
+history and visibility; it excludes unrelated untracked files and the primary
+checkout's dirty changes. Remote completion and CI results must be verified after
+the push; this preparation record alone does not claim either.
+
+The bounded publication audit inspected all 5,478 new reachable blob versions
+(163,013,176 bytes), four embedded ZIP archives, candidate credential filenames,
+and OCR text from 40 evidence images. The 215 pattern matches were authored test
+fixtures, localization/hash data or authority prose. No live credential or scratch
+credential artifact was identified. The donor's Apache license, NOTICE, third-party
+attribution, pinned provenance and fail-closed quarantine remain preserved. This
+is a targeted publication review, not proof that every line is defect-free. Raw
+audit output is local at `/tmp/fort-publish-20261021/` and is not published.
+
+Fresh checks: both spec gates and 27 spec/review behavioral tests pass. macOS
+verified the installed `/Users/tobiasgunn/Applications/Fort.app` and nested signatures
+with `codesign --verify --deep --strict`; sandboxed trust verification failed first,
+then the approved normal trust-service check passed. Sandboxed Vision OCR failed;
+the approved local read-only audit completed for all 40 images. The committed
+October 20 regression/build/installed results remain historical evidence; their
+original temporary artifacts are no longer present. No fresh full regression,
+app launch, provider request, sign-in, startup activation or credential creation
+was performed for this documentation-only publication step.
+
+Installed product source is documented as `310b06a9`; subsequent source-tree
+changes are evidence/review documentation only. The app is a local engineering
+build, not TestFlight acceptance. To launch the exact installation:
+
+```sh
+open "/Users/tobiasgunn/Applications/Fort.app"
+```
+
+Use **Connection** if setup is closed. After the prior removal, choose **Set up
+Fort again** when offered, **Enable local host**, then **Check host status**. If
+macOS asks, allow Fort in System Settings and check again. Choose **Connect this
+Mac**. If the runtime is stopped, choose **Resume local work**. These are deliberate
+user actions; this publication task does not perform them.
+
+Open **Settings → Pairing and local host → Sign in**, follow **Open verification
+page**, then **Check sign-in status**. Use the original account for retained Agents.
+An unambiguous verified identity is selected automatically; an identity mismatch
+remains blocked and must not be bypassed. In **Settings**, select the existing
+Agent, **Refresh models**, choose the intended available model (for example
+`gpt-6.1-sol` if currently listed), then **Save** and **Done**. Catalog discovery
+does not prove the effective serving model. **Advanced account management** holds
+explicit account changes; it is not required for the ordinary matching-account path.
+
+Type two lines with **Shift-Enter**, then **Enter** to send once. After the reply,
+quit with **Command-Q**, relaunch the same path, select the same Agent and confirm
+the conversation remains. The removed Mac image picker was local preview only;
+it did not attach an image to a provider request. No new live test prompt was
+consumed by the publication work; the previously recorded bounded usage is 2/3.
