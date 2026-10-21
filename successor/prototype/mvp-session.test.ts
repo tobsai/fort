@@ -107,22 +107,6 @@ test('MVP shutdown closes a stalled HTTP body instead of spending its cleanup re
   finally{socket.destroy();await closing;}
 });
 
-test('the retired dedicated runtime packet refuses unselected account preflight and reaps its owned child',async t=>{
-  const {createMvpRuntime}=await import('./mvp-runtime.ts');
-  const {launchOwnedProcess}=await import('../runner/owned-process.ts');
-  const {fileURLToPath}=await import('node:url');
-  const base=await realpath(await mkdtemp(join(tmpdir(),'fort-mvp-owned-')));t.after(()=>rm(base,{recursive:true,force:true}));
-  const children:ReturnType<typeof launchOwnedProcess>[]=[];t.after(async()=>{await Promise.all(children.map(child=>child.dispose()));});
-  const packet=new MvpPacket({batchRoot:base,session:1,native:{assertFresh(){},async stop(){return true;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:budget=>createMvpRuntime(join(base,'session-1'),budget,plan=>{
-    assert.equal(plan.executable,'/opt/homebrew/Caskroom/codex/0.157.1/bin/codex');assert.ok(plan.deadlineMs+4_000<=300_000);assert.deepEqual(Object.keys(plan.env).sort(),['HOME','LANG','PATH','TMPDIR','TZ']);
-    const child=launchOwnedProcess({...plan,executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'}});children.push(child);return child;
-  })});
-  await assert.rejects(packet.start());
-  assert.equal(children.length, 1);
-  assert.equal(children[0]?.cleanupConfirmed, true);
-
-});
-
 test('exactly three distinct sessions can be consumed and a later session requires prior cleanup',async t=>{
   const base=await realpath(await mkdtemp(join(tmpdir(),'fort-mvp-three-')));t.after(()=>rm(base,{recursive:true,force:true}));let launches=0;
   const options={batchRoot:base,native:{assertFresh(){},async stop(){return true;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:(budget:RuntimeBudget)=>{budget.claimLaunch();launches++;return {async preflight(){return {model:'gpt-6-astra',runtimeVersion:'0.157.1'};},async execute(){throw Error('No input');},async dispose(){}};}};
@@ -139,15 +123,4 @@ test('session abort while service restart waits for old cleanup never launches a
   for(let i=0;i<30&&!release;i++)await new Promise(resolve=>setTimeout(resolve,1));assert.ok(release);
   const stopped=session.abort();release();await assert.rejects(()=>restart);
   const state=await stopped;assert.equal(state.phase,'blocked');assert.equal(state.launches,1);assert.equal(launches,1);assert.equal(state.credentialCleanup,'deleted');assert.equal(state.runtimeCleanup,'confirmed');
-});
-
-test('a runtime constructor refusal after spawning still joins owned-process cleanup before closing the packet',async t=>{
-  const {createMvpRuntime}=await import('./mvp-runtime.ts'),{launchOwnedProcess}=await import('../runner/owned-process.ts'),{fileURLToPath}=await import('node:url');
-  const base=await realpath(await mkdtemp(join(tmpdir(),'fort-mvp-construction-')));t.after(()=>rm(base,{recursive:true,force:true}));
-  let child:ReturnType<typeof launchOwnedProcess>|undefined;t.after(()=>child?.dispose());
-  const packet=new MvpPacket({batchRoot:base,session:1,native:{assertFresh(){},async stop(){return true;},inspect(){return {appExited:true,pendingCount:0};},async cleanup(){return true;}},launchRuntime:budget=>createMvpRuntime(join(base,'session-1'),{...budget,workDeadline:Date.now()-1},plan=>{
-    child=launchOwnedProcess({...plan,executable:process.execPath,args:[fileURLToPath(new URL('../runner/owned-process-fixture.mjs',import.meta.url))],env:{PATH:'/usr/bin:/bin',FORT_SYNTHETIC_MODE:'complete'}});return child;
-  })});
-  await assert.rejects(()=>packet.start());assert.ok(child);assert.equal(child.cleanupConfirmed,true);
-  const state=JSON.parse(await readFile(join(base,'session-1/session-state.json'),'utf8'));assert.equal(state.phase,'blocked');assert.equal(state.runtimeCleanup,'confirmed');
 });

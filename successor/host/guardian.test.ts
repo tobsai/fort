@@ -12,7 +12,7 @@ const supervisor = join(build, 'supervisor');
 const guardian = join(build, 'guardian');
 before(() => {
   if (process.platform !== 'darwin') return;
-  const sources = ['FortTransport.swift', 'MacOwnerControl.swift', 'OwnerSetup.swift', 'MacCoreProcessTransport.swift']
+  const sources = ['FortTransport.swift', 'MacOwnerControl.swift', 'OwnerSetup.swift', 'MacHistoryDeletion.swift', 'MacCoreProcessTransport.swift']
     .map(file => join(source, 'apple/FortKit/Sources/FortKit', file));
   const compiled = spawnSync('/usr/bin/xcrun', ['swiftc', ...sources, join(source, 'host/fixtures/core-supervisor.swift'), '-o', supervisor], { encoding: 'utf8', timeout: 60_000 });
   assert.equal(compiled.status, 0, compiled.stderr);

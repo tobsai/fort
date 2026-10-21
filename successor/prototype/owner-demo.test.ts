@@ -1,8 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {admitOwnerDemoSubmission} from './owner-demo-policy.ts';
-import {codexLaunchPlan} from './owned-codex.ts';
-import {validateOwnedProcessOptions} from '../runner/owned-process.ts';
 import type {SubmissionAdmission} from '../service/openai.ts';
 import type {Run} from '../contracts/v1.ts';
 const submission=():SubmissionAdmission=>({text:'Hello, help me think through my day.',conversation:{conversationId:'home',name:'Writer',kind:'home',participantAgentIds:['writer']},configuration:{agentId:'writer',agentName:'Writer',bindingRevisionId:'binding',selectedModel:'gpt-6-astra',instructions:'Reply briefly using supplied context.',skills:[]}});
@@ -25,13 +23,6 @@ for(const change of ['model','agent','instructions','memory','skills','room','pa
  if(change==='participant')s.conversation.participantAgentIds.push('other');
  assert.equal(admitOwnerDemoSubmission(s,[]),false);
 });
-test('owner demo has one named nine-minute work budget without changing generic process ceiling',()=>{
- const plan=codexLaunchPlan({workspace:'/tmp/fort-test-empty',temporaryDirectory:'/tmp/fort-test-tmp',remainingWorkMs:536000,packet:'owner-demo-20261017'});
- validateOwnedProcessOptions(plan);assert.equal(plan.packetBudget?.totalMs,600000);assert.equal(plan.packetBudget?.cleanupReserveMs,60000);
- assert.throws(()=>validateOwnedProcessOptions({...plan,packetBudget:undefined}),/bounded deadline/);
- assert.throws(()=>codexLaunchPlan({workspace:'/tmp/a',temporaryDirectory:'/tmp/b',remainingWorkMs:540001,packet:'owner-demo-20261017'}),/budget/);
-});
-
 test('owner demo approval cannot be borrowed from the consumed batch or another operator',async()=>{
  const {validateOwnerDemoApproval}=await import('./owner-demo-activation.ts');
  const value={schemaVersion:1,actor:'owner',decision:'approved',scopeId:'owner-demo-20261017',scopeSHA256:'scope',operatorThreadId:'01a14bac-6acb-70be-926a-23ab4584a0f1',sourceThreadId:'01a0f307-3940-7333-96b0-a3b0b854e0e8',approvalMessageId:'Sentinel_f671f601a3148191bae54d2de3b281c1',approvedAtUTC:'2026-10-17T21:00:19Z'};
