@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 37a6d52d73d82da4fd58ce5b265fb8191bc904e93b42b2e6fc0bd372a503d5dc
+Reviewed content SHA256: c87806de8421a07b218dbcc8db493a0b0ac546963a018c3b9d981cb45909010f
 
 ### Vendor independence
 Status: planned
@@ -3832,6 +3832,92 @@ this spec and decision 059, current Ponytail report, three acceptance ledgers an
 single-account-composer-20261020 evidence. All four principles are reviewed above;
 no unresolved design judgment blocks this explicitly requested bounded change.
 
+## Fort-held OpenAI plan sign-in credential — October 22
+
+Toby approved this change in message cmsg_01WzifFCZgpREpCjjmswqPPvE5nCgzgzBBYb3Po4jtdvJi
+(2026-10-22 00:38:29 UTC, Fort project chat, relayed by the coordinator to thread
+cmsg_01WzifFCZgpREpCjjmswqPPvHQvT1aNGgCqVLbpfHRRAzj). It answers the explicit
+question "Allow Fort to store the Sign in with ChatGPT token?" with the scoped
+exception option, after the
+[orchestration review](https://claude.ai/artifact/9mgB2Ep926AnvJ5L3wWq5L). Ordinary
+fixture implementation of the slices below is authorized. Real sign-in, the first
+real turn and any credential creation keep their per-action approval.
+
+Spec 058 section 9 says Fort clients and the ledger store no OAuth tokens and that
+provider credentials stay in the provider-owned store. That rule is narrowed for
+exactly one route: OpenAI's "Sign in with ChatGPT" plan usage for open-source,
+locally hosted apps (developers.openai.com/siwc/token-sharing-open-source, preview,
+launched 2026-09-29). That route has no provider-owned store; the app must hold the
+token. Every other provider rule in 058 section 9 is unchanged. In particular there
+is still no Fort-owned Claude OAuth flow, no extraction of a Claude or Codex
+token, no custom client for subscription credentials of any other vendor and no
+silent API-key or billing substitution.
+
+Sign-in uses the provider's browser flow only: OpenID Connect authorization code
+with PKCE S256, `state` and `nonce`, a listener on `127.0.0.1` started before the
+system browser opens, first registration through `dynamic_agent_client` and reuse
+of the issued `client_id` afterwards. Scopes are `openid profile email
+offline_access resource.invoke chatgpt.tokens.use.direct` with resource
+`https://api.openai.com/v1`. Validate the ID token signature, issuer, audience,
+expiry and nonce, and require `chatgpt.tokens.use.direct` among granted scopes
+before any inference. Each Fort host persists one opaque `urn:uuid`
+`ext_agent_host_id` before first sign-in; it is never an email or account ID and
+never treated as a credential. Fort never asks for a password or session cookie
+and never calls ChatGPT `backend-api` endpoints.
+
+Custody: one credential record per issued client ID and verified account `sub`, on
+the executing host only. On the Mac host it is one owner-only regular file
+(`0600`, single link, no extended ACL) in the existing App Group runtime state
+directory, written atomically, read only by the executor that uses it, under the
+same no-follow directory rules as the Codex credential. The record never enters the
+ledger, metadata, events, evidence, logs, clients, a hub or another node. It is
+never derived from or shared with the Codex `auth.json`. Refresh replaces access
+token, expiry, scopes and rotating refresh token together; a failed or expired
+refresh shows sign-in required and never falls back to another account or billing.
+
+Inference: `POST https://api.openai.com/v1/responses` with `store: false`,
+`stream: true`, the bounded history in `input` and Fort instructions in
+`instructions`. Only `response.completed` yields a reply; `response.failed`,
+`response.incomplete`, usage-limit codes and dropped streams are visible failures,
+never retried under other billing. The picker uses `GET /v1/models` entries with
+`visibility: "list"` and pins the exact slug. Existing executor bounds, attempt
+correlation and honest unknown outcomes apply unchanged.
+
+Use is the owner's own: no sharing, pooling, extra accounts or rotation. A routine
+that would use this route in the background needs explicit owner opt-in on that
+routine, as the provider's terms require. Ordinary disconnect/sign-out and Mac
+removal delete the local record and report that provider-side revocation is not
+confirmed. Moving a credential to another machine is out of scope until a reviewed
+runner-node specification exists. Recheck the provider documentation and terms
+before release; if the route changes or ends, mark the capability unavailable.
+
+Vendor independence: adds a second OpenAI path behind the existing runtime
+contract, with plain HTTPS and Node built-ins, and no SDK. The provider literal
+widens to a union; core and clients stay provider-neutral. Modularity: one runner
+adapter plus one credential module, removable with the Codex adapter untouched;
+no core import. Speed: no idle work; per turn, one credential read and at most one
+refresh; adapter overhead excluding network targets p95 <=10 ms over 100 synthetic
+streamed turns. Installation/removal: no new entitlement, startup item or
+dependency; one more local credential file covered by removal proof, with remote
+revocation explicitly unconfirmed.
+
+Acceptance, fixture first: a failing public test for one synthetic sign-in through
+a local fake authorization server, then nonce/state/PKCE/scope/ID-token refusals,
+host-ID persistence, atomic refresh and its failure. Then a synthetic Responses
+stream: completed, failed, incomplete, usage-limit, truncated, oversized and
+cancelled turns, `store`/`stream` request shape and model filtering. Credential
+file mode/link/ACL refusals and removal absence. Strict typecheck and existing
+suites stay green. Real sign-in, a real turn and installed checks are later stages
+that need their own per-action approval and are reported separately.
+
+Exact paths: this spec and decision 059; contracts/runtime.ts, account.ts and
+v1.ts; new runner/openai-plan-account.ts, openai-plan-credential.ts and
+openai-responses.ts with their tests; service/synthetic-runner.ts; the current
+Ponytail report and the v1 ledger. Source paths are under successor/. Native
+sign-in, packaging and removal changes need a later path revision. Rollback
+removes the new adapter and deletes any synthetic credential; no real credential
+is created by this revision.
+
 ## Implementation paths
 
 - `successor/apple/FortKit/Sources/FortKit/MessageComposer.swift`
@@ -4391,6 +4477,14 @@ no unresolved design judgment blocks this explicitly requested bounded change.
 - `successor/service/runtime-migration.test.ts`
 
 - `successor/evidence/2026-10-17-node-foundation/runtime-migration-0163.md`
+
+- `successor/runner/openai-plan-account.ts`
+- `successor/runner/openai-plan-account.test.ts`
+- `successor/runner/openai-plan-credential.ts`
+- `successor/runner/openai-plan-credential.test.ts`
+- `successor/runner/openai-responses.ts`
+- `successor/runner/openai-responses.test.ts`
+- `successor/service/synthetic-runner.ts`
 
 ## Test criteria
 
