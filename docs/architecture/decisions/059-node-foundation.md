@@ -74,3 +74,16 @@ is preserved. Remove the unsupported Mac local-image picker while retaining imag
 previews. Source, synthetic tests, build and same-scope disconnected installation
 are authorized; provider access, credentials and remaining live prompt are not.
 This is implementation authority, not a claim that acceptance has passed.
+
+## October 22 — Fort-held OpenAI plan sign-in credential
+
+Toby's message cmsg_01WzifFCZgpREpCjjmswqPPvE5nCgzgzBBYb3Po4jtdvJi (2026-10-22
+00:38:29 UTC, Fort project chat), relayed by the coordinator to thread
+cmsg_01WzifFCZgpREpCjjmswqPPvHQvT1aNGgCqVLbpfHRRAzj, answers "Allow Fort to store
+the Sign in with ChatGPT token?" with "Yes" for the recommended scoped exception.
+It authorizes the
+[Spec 059 revision](../../../specs/059-modular-node-v1.md#fort-held-openai-plan-sign-in-credential--october-22)
+narrowing Spec 058 section 9 for that one OpenAI route, plus fixture-only
+implementation of its declared slices. Real sign-in, credential creation, real
+turns and installed verification retain per-action approval. Claude and Codex
+credential rules are unchanged. This is design authority, not acceptance evidence.
