@@ -14,7 +14,7 @@ try {
     guardian: fileURLToPath(new URL('../../MacOS/FortProcessGuardian', import.meta.url)),
     directory: join(process.cwd(), 'Runtime'), hostId: CODEX_RUNTIME.hostId,
   });
-  await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime, context: LOCAL_CONTEXT,
+  await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime, context: LOCAL_CONTEXT, network: 'explicit',
     input: process.stdin, output: process.stdout, signal: controller.signal });
 } catch {
   process.stderr.write('Fort host could not start or finish safely.\n');

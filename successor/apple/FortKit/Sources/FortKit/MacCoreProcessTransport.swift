@@ -22,7 +22,7 @@ public struct MacCorePairingRecovery: Decodable, Sendable {
     }
 }
 
-public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, OwnerSetupCancellationControl, Sendable {
+public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, OwnerSetupCancellationControl, MacNetworkControl, Sendable {
     private let state: CoreProcessState
     public let processID: Int32
     private init(_ state: CoreProcessState) { self.state = state; processID = state.pid }
@@ -81,6 +81,14 @@ public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Ow
               receipt.identity == identity else { throw ClientError.invalidResponse }
         return receipt
     }
+    public func controlNetwork(_ request: MacNetworkRequest) async throws -> MacNetworkStatus {
+        try request.validate()
+        let response = try await exchange(.network(request))
+        guard response.status == 200, response.body.count <= 4096,
+              let status = try? JSONDecoder().decode(MacNetworkStatus.self,from:response.body) else { throw ClientError.invalidResponse }
+        try status.validate(for:request)
+        return status
+    }
     public func deleteHistory(_ request: MacHistoryDeletionRequest) async throws -> MacHistoryDeletionReceipt {
         let response = try await exchange(.history(request))
         guard response.status == 200, response.body.count <= 4096 else { throw ClientError.invalidResponse }
@@ -121,13 +129,15 @@ private struct CoreRequestFrame: Encodable {
     let recovery: MacOwnerRecoveryRequest?
     let setup: OwnerSetupCommand?
     let history: MacHistoryDeletionRequest?
+    let network: MacNetworkRequest?
     init(id: Int, command: CoreCommand) {
         self.id = id
         switch command {
-        case .request(let value): kind = "request"; request = value; recovery = nil; setup = nil; history = nil
-        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil; setup = nil; history = nil
-        case .setup(let value): kind = "ownerSetup"; setup = value; recovery = nil; request = nil; history = nil
-        case .history(let value): kind = "historyDeletion"; history = value; setup = nil; recovery = nil; request = nil
+        case .request(let value): kind = "request"; request = value; recovery = nil; setup = nil; history = nil; network = nil
+        case .recovery(let value): kind = "ownerRecovery"; recovery = value; request = nil; setup = nil; history = nil; network = nil
+        case .setup(let value): kind = "ownerSetup"; setup = value; recovery = nil; request = nil; history = nil; network = nil
+        case .history(let value): kind = "historyDeletion"; history = value; setup = nil; recovery = nil; request = nil; network = nil
+        case .network(let value): kind = "networkControl"; network = value; history = nil; setup = nil; recovery = nil; request = nil
         }
     }
 }
@@ -136,8 +146,9 @@ private enum CoreCommand: Sendable {
     case recovery(MacOwnerRecoveryRequest)
     case setup(OwnerSetupCommand)
     case history(MacHistoryDeletionRequest)
+    case network(MacNetworkRequest)
     var timeout: TimeInterval {
-        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout; case .history(let value): value.timeout }
+        switch self { case .request(let value): value.timeout; case .recovery(let value): value.timeout; case .setup(let value): value.timeout; case .history(let value): value.timeout; case .network(let value): value.timeout }
     }
 }
 private struct CoreCancelFrame: Encodable {

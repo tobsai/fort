@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 46c0e7064e552b38dafb5fb0c629c9d2e437566c8d78b6df5704cd34ccdc2833
+Reviewed content SHA256: 8586829cd4f4a0da31d4a05dbdd8d4cb85c6ded1191e64f7a8c8679dd9b8bb68
 
 ### Vendor independence
 Status: planned
@@ -3925,7 +3925,78 @@ already carries the provider as a string, so contracts/runtime.ts and
 service/synthetic-runner.ts belong to the synthetic Codex bridge and need no
 change for this route.
 
+## Phone access over Tailscale and TestFlight iPhone identity — October 23
+
+Toby chose Tailscale for phone-to-Mac pairing in message
+cmsg_01WzifFCZgpREpCjjmswqPPvJBX7hvzCLbWERj7QWLEujF (2026-10-23 00:01:45 UTC,
+Fort project chat, relayed to thread cmsg_01WzifFCZgpREpCjjmswqPPv61Dya51pYobgchbHdndBsx).
+It answers "how should your phone reach the Mac?" between Tailscale (recommended)
+and same-network certificate pinning. On 2026-10-22 he also asked for builds
+through his existing TestFlight app, so the iPhone target signs as `io.mtree.fort`
+with team T3JB5MYZ93 and declares no non-exempt encryption.
+
+This composes the explicit secure listener (sections above) into the native Mac
+app. The bundled host passes `network: 'explicit'`; the listener stays stopped
+until the owner starts it. Its private-subnet rule adds Tailscale's shared range
+100.64.0.0/10 with a prefix of at least 10, so peers anywhere on the tailnet are
+admitted and public addresses are not. TLS uses the certificate and key from
+`tailscale cert` for the Mac's tailnet name: a publicly trusted certificate, so
+the phone keeps ordinary platform trust and no trust profile or pinning is added.
+The sandboxed Mac app cannot run Tailscale, so the owner imports both files once
+through the system file picker (user-selected read-only). The app keeps them in
+its own container, owner-only `0600`, and reads the server name from the
+certificate's DNS subject alternative name. Renewal is a manual re-import for now.
+
+A new XPC operation carries the existing `networkControl` frame from the Mac app
+to the host's core, with the same owner identity, bounded timeout and exact-key
+encoding the core already enforces. Settings gains Phone access: import
+certificate, start/stop listener, invite one phone, revoke it. An invitation is
+one copyable `fort-invite:` text (base64url JSON of the four existing setup
+fields); the phone's setup screen gains Paste invitation, which only fills those
+fields and sends nothing. The join, credential and revocation contracts are
+unchanged. The helper gains `com.apple.security.network.server`.
+
+Vendor independence: Tailscale is an optional transport; the listener binds any
+private address and nothing imports a Tailscale API. Without Tailscale the same
+code serves a LAN address once a trusted certificate exists. Modularity: one
+Swift control type, one XPC operation and one settings view; removing them leaves
+local Mac messaging intact. Speed: no polling; status is read when Settings opens
+or after an action. Installation and removal: one server entitlement on the
+helper and one user-selected read entitlement on the app; the imported files live
+in the app container and are removed with it. The tradeoff is a 90-day manual
+certificate re-import in exchange for zero trust changes on the phone.
+
+Test-first acceptance: Tailscale-range bind reaches the listener while 100.0.0.0/9,
+100.128/10 and 100.63/16 are refused before bind; exact network command keys and
+owner/status validation; Tailscale address selection, certificate DNS name with an
+empty subject, private identity storage and invitation values; invitation link
+round trip and refusal; phone paste fills fields without a request. Strict
+typecheck, portable, macOS and native suites stay green. Installed listener start,
+real pairing and TestFlight installation are later stages reported separately.
+Rollback removes the Phone access view, XPC operation and helper entitlement, and
+restores the private-range rule; existing pairings are revoked from Settings first.
+
+Exact paths: this spec; successor/host/main.mjs, secure-network.ts and its test;
+successor/host/guardian.test.ts; successor/packaging/sandbox-feasibility.ts;
+successor/apple/project.yml and FortSpec058.xcodeproj/project.pbxproj; FortKit
+sources MacNetworkControl.swift, MacPhoneAccess.swift, PhoneAccessView.swift and
+CompanionInvitationLink.swift (new), MacCoreProcessTransport.swift,
+MacCoreHost.swift, MacHostChannel.swift, MacXPCTransport.swift,
+MacAgentService.swift, MessengerModel.swift, PairingSettings.swift and
+CompanionSetupView.swift; tests CompanionInvitationLinkTests.swift,
+MacNetworkControlTests.swift, MacPhoneAccessTests.swift (new) and
+CompanionSetupModelTests.swift. Results are recorded in the PR description
+(decision 061 retired the ledger, evidence notes and Ponytail report).
+
 ## Implementation paths
+
+- `successor/apple/FortKit/Sources/FortKit/CompanionInvitationLink.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacNetworkControl.swift`
+- `successor/apple/FortKit/Sources/FortKit/MacPhoneAccess.swift`
+- `successor/apple/FortKit/Sources/FortKit/PhoneAccessView.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/CompanionInvitationLinkTests.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacNetworkControlTests.swift`
+- `successor/apple/FortKit/Tests/FortKitTests/MacPhoneAccessTests.swift`
 
 - `successor/apple/FortKit/Sources/FortKit/MessageComposer.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MessageComposerTests.swift`

@@ -25,7 +25,8 @@ function ipv4(value:string):number {
 function privateAddress(value:string,prefixLength:number):boolean {
   const parts=value.split('.').map(Number);
   return parts[0]===10 && prefixLength>=8 || parts[0]===172 && parts[1]>=16 && parts[1]<=31 && prefixLength>=12
-    || parts[0]===192 && parts[1]===168 && prefixLength>=16;
+    || parts[0]===192 && parts[1]===168 && prefixLength>=16
+    || parts[0]===100 && parts[1]>=64 && parts[1]<=127 && prefixLength>=10;
 }
 function route(value:string|undefined):string {
   if(!value || value.length>8192 || !value.startsWith('/v1/') || /[\x00-\x20\x7f#\\]/.test(value))throw failure();
