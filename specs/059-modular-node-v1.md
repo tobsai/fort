@@ -22,7 +22,7 @@ denial. No provider cleanup, unrelated project or shared hosting is in scope.
 Review status: accepted
 Review owner: Tobias
 Decision reference: docs/architecture/decisions/059-node-foundation.md; source user messages Sentinel_9d1ca780b6d48191b1e19cdea66dc56e and Sentinel_667fda138e308191a979ce2aad0906f2, 2026-10-17 23:21/23:22 UTC, source thread 01a0f307-3940-7333-96b0-a3b0b854e0e8
-Reviewed content SHA256: 709236012672333f28dea057cd07aea3d0076692821526e4a5b6c5428d04293f
+Reviewed content SHA256: 8586829cd4f4a0da31d4a05dbdd8d4cb85c6ded1191e64f7a8c8679dd9b8bb68
 
 ### Vendor independence
 Status: planned
@@ -3918,6 +3918,13 @@ sign-in, packaging and removal changes need a later path revision. Rollback
 removes the new adapter and deletes any synthetic credential; no real credential
 is created by this revision.
 
+Path refinement, October 22 (unchanged scope): add runner/openai-plan-chat.ts and
+its test, the `ChatRuntime` that reads and refreshes the saved credential, pins the
+selected account to its verified subject and streams one turn. The executor wire
+already carries the provider as a string, so contracts/runtime.ts and
+service/synthetic-runner.ts belong to the synthetic Codex bridge and need no
+change for this route.
+
 ## Phone access over Tailscale and TestFlight iPhone identity — October 23
 
 Toby chose Tailscale for phone-to-Mac pairing in message
@@ -4556,6 +4563,8 @@ successor/evidence/2026-10-17-node-foundation/phone-access-tailscale.md (new).
 - `successor/runner/openai-plan-credential.test.ts`
 - `successor/runner/openai-responses.ts`
 - `successor/runner/openai-responses.test.ts`
+- `successor/runner/openai-plan-chat.ts`
+- `successor/runner/openai-plan-chat.test.ts`
 - `successor/service/synthetic-runner.ts`
 
 ## Test criteria

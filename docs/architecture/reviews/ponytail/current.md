@@ -31,9 +31,9 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
 ```fort-review
 {
   "format": 1,
-  "reviewedCommit": "e93419bdeca9a2dc495e140c187395b8f9822149",
+  "reviewedCommit": "e76b0311379f732f1dd23baec3ebcdcea43016b7",
   "reviewer": "Claude Code (Mac and iPhone build thread)",
-  "scope": "Spec 059 October 23 revision: phone access over Tailscale (secure listener private-range rule, explicit network composition in the bundled host, Swift network-control types and XPC operation, Mac Phone access settings, invitation link and phone paste) plus the TestFlight iPhone signing identity. Whole branch range from 3942516. Single owner; no provider contact.",
+  "scope": "Spec 059 October 23 revision: phone access over Tailscale (secure listener private-range rule, explicit network composition in the bundled host, Swift network-control types and XPC operation, Mac Phone access settings, invitation link and phone paste) plus the TestFlight iPhone signing identity. Whole branch range against main a4152e8 (merged in; the spec merge only adds main's October 22 path note beside this section). Single owner; no provider contact.",
   "skill": {
     "url": "https://github.com/DietrichGebert/ponytail/blob/2a1fe842d078cf66ec7f3e6096a8ca4279c2cad7/skills/ponytail-audit/SKILL.md",
     "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
@@ -77,7 +77,7 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
     }
   ],
   "files": {
-    "specs/059-modular-node-v1.md": "98082547aa43b65fbc8192f86d45cf2ab590a7e7c486b396b40f4006e66da852",
+    "specs/059-modular-node-v1.md": "d0ba0eff457b6f71abca88d2253ae5d276a46709026c4445f943dbad36ef3e4b",
     "successor/V1-ACCEPTANCE.md": "19c601c3e4d87f83a0ff8c94ea899f95454e84ddb25bab5f5cd8ff5f54f52d6e",
     "successor/apple/FortKit/Sources/FortKit/CompanionInvitationLink.swift": "b97648776ed4eb0d7598a0b1f55dabfe60492fa71bdb9c8aa47f26ba6c3abe02",
     "successor/apple/FortKit/Sources/FortKit/CompanionSetupView.swift": "3938f924d476793d6349637d623c7296f2f5e401dfb008f3e543ff8eed4614f1",
