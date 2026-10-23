@@ -1,8 +1,0 @@
-PRESERVED prototype-candidate-b-session file set/state/ledger hashes; starts=1, blocked, receipts=0
-PRESERVED prototype-candidate-b-replacement-20261016 file set/state/ledger hashes; starts=1, blocked, receipts=0
-PRESERVED prototype-candidate-b-third-20261016 file set/state/ledger hashes; starts=1, blocked, receipts=0
-PRESERVED main checkout status baseline
-PRESERVED native app file set/hashes and official runtime binary hash; no execution
-PRESERVED historical evidence, packets, manual entry and native sources
-No persistent settings, OS/network/security configuration, credentials, runtime/provider start or consumed attempt changed
-PASS immutable public source hashes: 81 files

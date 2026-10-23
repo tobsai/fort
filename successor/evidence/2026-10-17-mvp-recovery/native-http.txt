@@ -1,6 +1,0 @@
-PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue
-PASS native and service restart, exact workspace identity, duplicate receipt and fifth synthetic reply
-PASS native unknown outcome holds later work before restart
-PASS native restarted queued cancellation, idempotent explicit closure and retained pending after lost acceptance
-PASS native lost acceptance reconciliation after restart, no duplicate execution and same-Home continuation
-PASS FortClient/PendingStore HTTP conformance: eight synthetic executions, three service restarts, explicit recovery, one discarded acceptance, no duplicate dispatch and empty pending queue

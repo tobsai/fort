@@ -1,12 +1,9 @@
 # Fort architecture constitution
 
-This is the single source of truth for Fort's design principles. It records
-Toby's October 17, 2026 direction: reconsider the architecture through vendor
-independence, modularity, speed, and ease of installation/removal. Tobias then
-adopted the modular redesign with Node/TypeScript core and Swift UI/lifecycle.
-[Spec 059](specs/059-modular-node-v1.md) and its source-backed decision govern
-implementation through v1. Preserve checkpoint
-`e02eb571e66620e407a360584817616074730b55`; the earlier pause is superseded.
+Fort's design principles, set by Toby on October 17, 2026: vendor independent,
+modular, fast, and easy to install and remove. The build is a Node/TypeScript core
+with Swift Mac and iPhone clients. [Spec 059](specs/059-modular-node-v1.md) has the
+long-form history.
 
 ## 1. Vendor independent
 
@@ -56,7 +53,7 @@ required. Choose the smallest boundaries that make removal practical.
 ## 3. Fast
 
 Choose languages and components using measured development and runtime costs.
-Each affected spec sets numeric target budgets and a reproducible comparison
+Set numeric target budgets and a reproducible comparison
 for clean build, incremental build, cold/warm startup and Fort request/event
 processing. A background host also needs idle CPU, memory, wakeup/energy and
 active-load budgets. Measure Fort/framework overhead separately from network
@@ -95,30 +92,11 @@ evidence stages. CI/CD must reproduce tests/packages without requiring private
 accounts for ordinary verification; release credentials belong to an explicitly
 approved delivery stage.
 
-## Apply the principles before implementation
+## Applying the principles
 
-For every new or materially revised requirement/spec, use
-[the spec template](specs/TEMPLATE.md) and [review workflow](specs/README.md).
-Assess all four principles, affected boundaries, dependency/removal impact,
-acceptance test/measurement, evidence, tradeoffs, progress and unresolved judgment.
-An unaffected principle still requires a rationale. Tradeoffs name alternatives,
-user cost, mitigation and the condition for revisiting the decision. Do not
-manufacture approval or measured results to complete a form.
-
-The structural gate validates records and detects changed accepted content.
-It cannot judge architecture, truth of evidence, adequacy of tests, or whether a
-requirement outside `specs/` was omitted. Human review resolves those questions.
-Reuse an actual recorded owner decision for unchanged scope; new contradictions
-require a reviewable proposal. Accepted design may have planned tests, but release
-requires the promised verification. Changes to accepted spec content require
-reassessment and a new matching decision/digest before implementation resumes.
-
-Historical specs and evidence remain preserved, not retroactively compliant.
-Spec 058 remains historical; Spec 059 governs the adopted redesign. Read [the assessment](docs/architecture/reassessment-20261017.md)
-for conflicts and keep/adapt/replace proposals. Earlier Go-only, fixed-provider,
-managed-hosting and broad feature mandates are not current architectural authority.
-Teardown evidence, exact identity, legal attribution, secrets discipline and
-external-action authorization remain applicable; full provider closure is still
-unverified. The constitution alone grants no installation, cleanup or release
-authority; use the current owner's explicit implementation/delivery decision and
-retain mandatory per-action security, credential and legal gates.
+Use these principles as judgment in normal PRs, not as a form to fill in.
+Write a short spec only for billing/provider path, credentials, persistent access
+or destructive changes ([specs/README.md](specs/README.md)). Toby's per-action
+approval still applies to new credentials, persistent grants, legal terms and
+destructive actions. Decision [061](docs/architecture/decisions/061-lean-dev-cycle.md)
+retired the structural spec and review gates on October 23, 2026.
