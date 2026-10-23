@@ -1,2 +1,0 @@
-PASS: all 15 process-scoped -c assignments parse as TOML; exact no-files profile and named default; no legacy sandbox selector.
-No configuration file was applied or user settings read. Standard-library TOML parsing only; not a Rust or OS enforcement test.

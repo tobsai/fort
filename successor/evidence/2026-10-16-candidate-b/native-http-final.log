@@ -1,3 +1,0 @@
-PASS native workspace creation, four synthetic turns, receipts, skills, attribution and empty pending queue
-PASS native and service restart, exact workspace identity, duplicate receipt and fifth synthetic reply
-PASS five synthetic Swift-to-service turns, exact skills/recipient and durable restart context

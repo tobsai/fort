@@ -1,118 +1,60 @@
-# Fort Node foundation
+# Fort
 
-The active implementation follows [Spec 059](../specs/059-modular-node-v1.md):
-a Node/TypeScript core, one local ledger, optional runtime/context modules and
-Swift native clients. Read [AGENTS.md](AGENTS.md) and the
-[v1 acceptance ledger](V1-ACCEPTANCE.md) for current progress and limitations.
-The source import in `foundation/` remains quarantined and is not a runtime dependency.
+A Node/TypeScript core with one local ledger and optional runtime modules, plus
+Swift Mac and iPhone apps in `apple/`. Rules for agents are in [../CLAUDE.md](../CLAUDE.md).
+The donor import in `../foundation/` is quarantined and is not a runtime dependency.
 
-Ordinary verification uses Node 26.5.0 and the pinned development dependencies.
-Inspect package scripts/configuration, then install with lifecycle hooks disabled:
+## Test
+
+Use Node 26.5.0.
 
 ```sh
-npm --prefix successor ci --ignore-scripts --no-audit --no-fund
-npm --prefix successor run test:specs
-npm --prefix successor run test:reviews
-npm --prefix successor run typecheck
-npm --prefix successor test
+make -C successor install   # npm ci with lifecycle scripts disabled
+make -C successor test      # typecheck + portable tests
 ```
 
-On macOS, run `npm --prefix successor run test:macos`. Native tests also need an
-explicit Node binary, compiled synthetic guardian and fresh host resources. The
-exact preparation steps and environment variables are in the
-[native quality job](../.github/workflows/fort-quality.yml). Its resources use an
-authored runtime fixture; no provider sign-in or startup registration is needed.
-The host-resource builder requires a new absolute destination and never replaces
-an existing artifact. Signed probes, timing budgets, installed UI and actual
-provider checks are separate evidence stages, not implied by these commands.
-
-With those fixture inputs prepared, run native tests sequentially, as CI does:
+On a Mac, `make -C successor test-mac` adds the macOS suite. Swift tests need
+synthetic host fixtures first. The exact steps and environment variables are in
+the native job of [the CI workflow](../.github/workflows/fort-quality.yml). Then run:
 
 ```sh
 xcrun swift test --package-path successor/apple/FortKit --scratch-path /tmp/fort-swift --no-parallel
 ```
 
-Unrelated tests otherwise compete for the main actor and delay fixture coordination
-and elapsed-time checks. This option keeps every test, threshold and assertion;
-explicit concurrency within an individual test still runs.
-See the [repeated controls and limits](evidence/2026-10-17-node-foundation/native-timing-isolation.md).
+Keep `--no-parallel`. Otherwise unrelated tests compete for the main actor and
+break timing checks.
 
-Before committing or declaring a slice complete, follow the
-[required Ponytail review](../specs/README.md#required-ponytail-review) and staged
-spec/review gates. No remote CI run, TestFlight delivery or installed acceptance
-is implied by the local source and tests.
-
-## Historical Stage 1 and Spec 058 instructions
-
-The following records describe the earlier prototype. Their subset commands and
-completion claims apply to those historical increments, not current validation.
-
-This is the implemented Stage 1 **fixture increment**: a fresh authenticated
-TypeScript/SQLite service, constrained deterministic fixture worker, FortKit,
-and native SwiftUI iPhone and Mac apps. It does not enable official providers.
-Stage 2 now has a Codex turn codec and an authenticated synthetic runner-to-ledger
-bridge. Only explicit temporary fixture transports exercise it; no official
-runtime is launched and Stage 2's live-provider exit remains open.
-
-- [Implementation decisions and remaining gates](IMPLEMENTATION.md)
-- [HTTP contract and shared fixtures](contracts/README.md)
-- [Service/runner validation and trust boundary](service/README.md)
-- [Initial validation record](evidence/2026-10-12-stage1.md)
-- [Review fixes and historical validation](evidence/2026-10-12-review-followup.md)
-- [Spec 058 acceptance map](evidence/2026-10-12-spec058-matrix.md)
-- [Latest Mac fixture and regression evidence](evidence/2026-10-12-mac-and-contracts.md)
-- [Codex protocol preparation and open boundaries](runner/README.md)
-- [Codex protocol validation](evidence/2026-10-12-codex-protocol.md)
-- [Synthetic bridge, crash and replay evidence](evidence/2026-10-12-synthetic-runner-bridge.md)
-
-The runtime and behavior tests need no dependency installation. Run from this worktree's root:
+## Ship a beta
 
 ```sh
-/opt/homebrew/opt/node@26/bin/node --test successor/service/service.test.ts successor/service/synthetic-runner.test.ts successor/runner/fixture.test.ts successor/runner/codex.test.ts successor/runner/synthetic-transport.test.ts
-swift test --package-path successor/apple/FortKit --scratch-path /tmp/fort058-swift-build
+export FORT_TEAM_ID=… FORT_BUNDLE_ID_IOS=… ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=…
+make -C successor beta                 # iPhone
+make -C successor beta PLATFORM=mac    # Mac (needs FORT_BUNDLE_ID_MAC)
 ```
 
-The checked-in `successor/apple/FortSpec058.xcodeproj` contains `FortiOS` and
-`FortMac` schemes; `project.yml` reproduces it using installed XcodeGen 2.45.4.
-Simulator builds use local ad-hoc signing for Keychain identity. Other default builds
-disable signing. Mac XCTest needs a trusted development identity. This host's
-ad-hoc runner was rejected; the owner-authorized existing Apple Development
-identity subsequently allowed normal launch. Signing was selected per build,
-without changing project defaults or macOS security settings. See the latest
-evidence record for exact identity, artifacts and journey results. The apps show fixture status and require
-explicit enrollment. The local harness API documented in `service/README.md`
-issues short-lived single-use codes; no service starts on login or app launch.
+This archives, signs and uploads to App Store Connect. The build shows up in
+TestFlight once Apple processes it. A beta counts as accepted when Toby has
+used it, not when the upload succeeds.
 
-The compiled `FortNativeCheck` product drives the real HTTP boundary using two
-synthetic native devices, then closes/reopens the service and verifies retry,
-replay and read state. Pass its built executable explicitly:
+The project's default bundle IDs are fixture IDs (`io.fort.spec058.*`) with
+signing turned off, so the script needs the real App Store IDs passed in. Creating
+App Store records, API keys or profiles needs Toby's approval. The Mac archive
+doesn't embed the host resources yet, so Mac betas run without a local host for now.
 
-```sh
-/opt/homebrew/opt/node@26/bin/node successor/apple/native-http-check.ts /tmp/fort058-swift-build/out/Products/Debug/FortNativeCheck
-```
+## v1 checklist
 
-Build paths depend on the installed Swift build system. This script creates and
-cleans its own test data and loopback listener. Do not point fixture tests at
-existing Fort/provider data. A physical iPhone requires a trusted private HTTPS
-endpoint, which this loopback-only increment does not provision.
+Update this list in the PR that changes it.
 
-Strict static checks use the pinned development dependencies in `package-lock.json`;
-install only with reviewed configuration and lifecycle scripts disabled, then run
-`node successor/node_modules/typescript/bin/tsc -p successor/tsconfig.json` with Node
-26.5.0. The runtime never imports these development packages.
+- [x] Chat with a ChatGPT-plan model on the Mac, with history kept across quit and relaunch
+- [x] Pick the model per agent and keep that choice through runtime updates
+- [x] Remove local credentials and the host cleanly, keeping history unless deletion is chosen
+- [ ] Sign in with ChatGPT from inside the app (runtime merged, sign-in flow not composed)
+- [ ] Claude runner using the Claude subscription
+- [ ] Pair the iPhone with the Mac over a private HTTPS endpoint
+- [ ] iPhone build in TestFlight
+- [ ] Mac build in TestFlight
+- [ ] Toby uses both apps for a day on real devices
+- [ ] Simplified UI (Crew, Conversation, Settings)
 
-Additional native checks (pass the built `FortNativeCheck` path explicitly):
-
-```sh
-/opt/homebrew/opt/node@26/bin/node successor/apple/native-http-check.ts /tmp/fort058-swift-build/debug/FortNativeCheck controls
-/opt/homebrew/opt/node@26/bin/node successor/apple/native-redirect-check.ts /tmp/fort058-swift-build/debug/FortNativeCheck
-```
-
-`apple/native-ui-check.ts` accepts a built `.xctestrun`, an Xcode destination and a
-fresh `.xcresult` path (and optional `approval` scenario). It starts a temporary fixture ledger, supplies synthetic
-one-use enrollment to the UI test, and cleans the listener/configuration afterward.
-Recovery checks include an explicit loopback fault proxy, offline restart and a dropped
-acceptance response, then compare exact canonical message counts. The test uses real SwiftUI accessibility controls; DEBUG-only app setup selects a
-unique test storage directory and prefills the enrollment form. It does not bypass
-enrollment, authentication or Keychain. Installed UI results and launch blockers are
-recorded separately from Swift-library HTTP checks.
+History before October 23, 2026 (ledger, evidence, delivery diaries) is archived
+at commit `a4152e8`. See [decision 061](../docs/architecture/decisions/061-lean-dev-cycle.md).
