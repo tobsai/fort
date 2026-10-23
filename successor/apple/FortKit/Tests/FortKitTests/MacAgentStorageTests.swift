@@ -363,23 +363,23 @@ func agentStorageExistingInspectionBudget() throws {
 @Test func agentStorageProviderCleanupPreservesHistoryAndUnrelatedCredentials() throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
-    let runtime = try storage.prepareRuntimeDirectory(), auth = runtime.appendingPathComponent("state/auth.json")
-    let retained = [root.appendingPathComponent("auth.json"),runtime.appendingPathComponent("state/history.json"),try storage.validatedDirectory().appendingPathComponent("openai-candidate-b.sqlite")]
-    for file in retained + [auth] {
+    let runtime = try storage.prepareRuntimeDirectory(), credentials = ["auth.json","openai-plan.json"].map { runtime.appendingPathComponent("state/" + $0) }
+    let retained = [root.appendingPathComponent("auth.json"),runtime.appendingPathComponent("state/history.json"),runtime.appendingPathComponent("state/openai-host-id"),try storage.validatedDirectory().appendingPathComponent("openai-candidate-b.sqlite")]
+    for file in retained + credentials {
         try Data("synthetic private marker; intentionally not JSON".utf8).write(to:file)
         try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
     }
-    try storage.removeCodexCredential()
-    #expect(!FileManager.default.fileExists(atPath:auth.path))
-    try storage.removeCodexCredential()
+    try storage.removeProviderCredentials()
+    for file in credentials { #expect(!FileManager.default.fileExists(atPath:file.path)) }
+    try storage.removeProviderCredentials()
     for file in retained { #expect(try String(contentsOf:file,encoding:.utf8) == "synthetic private marker; intentionally not JSON") }
 }
 
-@Test(arguments:["symlink","broken-symlink","hardlink","fifo","directory","shared","executable","acl"])
-func agentStorageProviderCleanupRefusesUnsafeCredential(_ fault: String) throws {
+@Test(arguments:["auth.json","openai-plan.json"], ["symlink","broken-symlink","hardlink","fifo","directory","shared","executable","acl"])
+func agentStorageProviderCleanupRefusesUnsafeCredential(_ name: String, _ fault: String) throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
-    let auth = try storage.prepareRuntimeDirectory().appendingPathComponent("state/auth.json")
+    let auth = try storage.prepareRuntimeDirectory().appendingPathComponent("state/" + name)
     let other = root.appendingPathComponent("unrelated-auth")
     try Data("synthetic unrelated account".utf8).write(to:other)
     try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:other.path)
@@ -395,7 +395,7 @@ func agentStorageProviderCleanupRefusesUnsafeCredential(_ fault: String) throws 
         if fault == "acl" { try storageACL(auth,add:true) }
     }
     var before = stat(); #expect(lstat(auth.path,&before) == 0)
-    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    #expect(throws:(any Error).self) { try storage.removeProviderCredentials() }
     var after = stat(); #expect(lstat(auth.path,&after) == 0)
     #expect(after.st_ino == before.st_ino && after.st_mode == before.st_mode)
     #expect(try String(contentsOf:other,encoding:.utf8) == "synthetic unrelated account")
@@ -416,7 +416,7 @@ func agentStorageProviderCleanupRefusesUnsafeDirectories(_ path: String, _ fault
         if fault == "symlink" { try FileManager.default.createSymbolicLink(at:selected,withDestinationURL:retained) }
     } else if fault == "shared" { #expect(chmod(selected.path,0o750) == 0) }
     else { try storageACL(selected,add:true) }
-    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    #expect(throws:(any Error).self) { try storage.removeProviderCredentials() }
     let preserved = fault == "missing" || fault == "symlink" ? retained.appendingPathComponent(path == "Runtime" ? "state/auth.json" : "auth.json") : auth
     #expect(try String(contentsOf:preserved,encoding:.utf8) == "synthetic Fort credential")
     if fault == "acl" { try storageACL(selected,add:false) }
@@ -432,7 +432,7 @@ func agentStorageProviderCleanupRefusesUnsafeDirectories(_ path: String, _ fault
     let auth = try replacement.prepareRuntimeDirectory().appendingPathComponent("state/auth.json")
     try Data("synthetic replacement credential".utf8).write(to:auth)
     #expect(chmod(auth.path,0o600) == 0)
-    #expect(throws:(any Error).self) { try storage.removeCodexCredential() }
+    #expect(throws:(any Error).self) { try storage.removeProviderCredentials() }
     #expect(try String(contentsOf:auth,encoding:.utf8) == "synthetic replacement credential")
 }
 
@@ -445,7 +445,7 @@ func agentStorageProviderCleanupBudget() throws {
     for index in 0..<25 {
         try Data("synthetic credential".utf8).write(to:auth); #expect(chmod(auth.path,0o600) == 0)
         let start = ContinuousClock.now
-        try storage.removeCodexCredential()
+        try storage.removeProviderCredentials()
         let elapsed = start.duration(to:.now).components
         if index >= 5 { samples.append(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15) }
     }

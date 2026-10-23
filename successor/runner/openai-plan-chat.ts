@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
-import type { AccountIdentity, ModelCatalog, RuntimeDescriptor, RuntimeReadiness } from '../contracts/v1.ts';
+import type { AccountIdentity, AccountSignInOptions, AccountSignInResult, ModelCatalog, RuntimeDescriptor, RuntimeReadiness } from '../contracts/v1.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
 import { executionDigest } from '../contracts/executor.ts';
 import { sameAccount } from '../contracts/account.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { buildResponsesRequest, parseResponsesModels, ResponsesStream } from './openai-responses.ts';
-import { readPlanCredential, writePlanCredential, type PlanCredential } from './openai-plan-credential.ts';
-import { refreshPlanCredential, SignInRequired, type SigningKeys, type TokenTransport } from './openai-plan-account.ts';
+import { ensureHostId, readPlanCredential, writePlanCredential, type PlanCredential } from './openai-plan-credential.ts';
+import { completeSignIn, discoveredSigningKeys, fetchTokenTransport, listenForCallback, prepareSignIn, refreshPlanCredential, SignInRequired, type SigningKeys, type TokenTransport } from './openai-plan-account.ts';
 
 // ChatGPT plan usage through the plain Responses API, with no Codex runtime (Spec 059, October 22 revision).
 export const OPENAI_PLAN_RUNTIME: RuntimeDescriptor = {
@@ -17,7 +17,7 @@ const API = 'https://api.openai.com/v1';
 const REFRESH_MARGIN_MS = 60_000, MODELS_LIMIT = 1024 * 1024;
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
-type PlanChatOptions = { stateDirectory: string; fetch?: Fetch; tokenTransport: TokenTransport; keys?: SigningKeys; now?: () => number };
+type PlanChatOptions = { stateDirectory: string; fetch?: Fetch; tokenTransport?: TokenTransport; keys?: SigningKeys; now?: () => number };
 
 // Fort's account identity for the plan credential: the verified subject, never the token.
 export function planAccountIdentity(credential: PlanCredential): AccountIdentity {
@@ -29,9 +29,14 @@ export class OpenAIPlanChat implements ChatRuntime {
   private readonly options: PlanChatOptions;
   private readonly fetch: Fetch;
   private readonly now: () => number;
+  private readonly transport: TokenTransport;
+  private readonly keys: SigningKeys;
   private busy = false;
   private disposed = false;
-  constructor(options: PlanChatOptions) { this.options = options; this.fetch = options.fetch ?? fetch; this.now = options.now ?? Date.now; }
+  constructor(options: PlanChatOptions) {
+    this.options = options; this.fetch = options.fetch ?? fetch; this.now = options.now ?? Date.now;
+    this.transport = options.tokenTransport ?? fetchTokenTransport(this.fetch); this.keys = options.keys ?? discoveredSigningKeys(this.fetch);
+  }
 
   readiness(): RuntimeReadiness {
     return { state: this.disposed ? 'stopped' : this.busy ? 'busy' : 'ready', canRestart: false, detail: this.disposed ? 'Runtime stopped.' : 'Ready for the exact selected model.' };
@@ -43,10 +48,32 @@ export class OpenAIPlanChat implements ChatRuntime {
     const saved = await readPlanCredential(this.options.stateDirectory);
     if (!saved || saved.expiresAt - this.now() > REFRESH_MARGIN_MS) return saved;
     try {
-      const refreshed = await refreshPlanCredential({ credential: saved, transport: this.options.tokenTransport, ...(this.options.keys ? { keys: this.options.keys } : {}), now: this.now });
+      const refreshed = await refreshPlanCredential({ credential: saved, transport: this.transport, keys: this.keys, now: this.now });
       await writePlanCredential(this.options.stateDirectory, refreshed);
       return refreshed;
     } catch (error) { if (error instanceof SignInRequired) return undefined; throw error; }
+  }
+
+  // Browser sign-in: one 127.0.0.1 listener for at most durationMs, one authorization link, then the verified credential is saved.
+  async signIn(options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+    if (this.disposed || this.busy) return { kind: 'unconfirmed' };
+    this.busy = true;
+    const finished = new AbortController(), bounded = AbortSignal.any([signal, finished.signal, AbortSignal.timeout(options.durationMs)]);
+    try {
+      const directory = this.options.stateDirectory;
+      const hostId = await ensureHostId(directory);
+      const saved = await readPlanCredential(directory).catch(() => undefined);
+      const listener = await listenForCallback(bounded);
+      const pending = prepareSignIn({ hostId, agentName: 'Fort', redirectURI: listener.redirectURI, ...(saved ? { clientId: saved.clientId } : {}) });
+      options.onChallenge({ kind: 'browserAuthorization', authorizationURL: pending.authorizationURL });
+      const callback = await listener.callback;
+      bounded.throwIfAborted();
+      const credential = await completeSignIn({ pending, callback, transport: this.transport, keys: this.keys, now: this.now });
+      bounded.throwIfAborted();
+      await writePlanCredential(directory, credential);
+      return { kind: 'signedIn', account: planAccountIdentity(credential) };
+    } catch { return signal.aborted ? { kind: 'canceled' } : { kind: 'failed' }; }
+    finally { finished.abort(); this.busy = false; }
   }
 
   async models(signal: AbortSignal, selected?: AccountIdentity): Promise<ModelCatalog> {

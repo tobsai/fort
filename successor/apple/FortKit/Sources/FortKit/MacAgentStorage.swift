@@ -127,8 +127,11 @@ public struct MacAgentStorage: Sendable {
         return result
     }
 
+    // Fort-held provider credentials in the runtime state directory: Codex auth and the ChatGPT plan sign-in.
+    static let providerCredentialNames = ["auth.json","openai-plan.json"]
+
     // Caller must confirm owned process absence and startup unregistration first.
-    func removeCodexCredential() throws {
+    func removeProviderCredentials() throws {
         let url = try validatedDirectory()
         let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard root >= 0 else { throw Self.ioError() }
@@ -151,27 +154,29 @@ public struct MacAgentStorage: Sendable {
             try Self.verifyLink(parent:runtime,name:"state",expected:stateIdentity)
         }
         try verifyDirectories()
-        let credential = openat(state,"auth.json",O_EVTONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
-        if credential < 0 && errno == ENOENT {
-            guard fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
-            try verifyDirectories(); return
+        for name in Self.providerCredentialNames {
+            let credential = openat(state,name,O_EVTONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+            if credential < 0 && errno == ENOENT {
+                guard fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
+                try verifyDirectories(); continue
+            }
+            guard credential >= 0 else { throw MacAgentStorageError.unsafeCredential }
+            defer { Darwin.close(credential) }
+            var info = stat()
+            guard fstat(credential,&info) == 0, info.st_mode & S_IFMT == S_IFREG,
+                  info.st_uid == geteuid(), info.st_nlink == 1, info.st_mode & 0o7177 == 0 else { throw MacAgentStorageError.unsafeCredential }
+            try Self.verifyNoACL(credential)
+            try verifyDirectories()
+            var linked = stat()
+            guard fstatat(state,name,&linked,AT_SYMLINK_NOFOLLOW) == 0,
+                  linked.st_dev == info.st_dev, linked.st_ino == info.st_ino, linked.st_mode == info.st_mode,
+                  linked.st_uid == info.st_uid, linked.st_nlink == 1,
+                  linked.st_ctimespec.tv_sec == info.st_ctimespec.tv_sec,
+                  linked.st_ctimespec.tv_nsec == info.st_ctimespec.tv_nsec else { throw MacAgentStorageError.unsafeCredential }
+            guard unlinkat(state,name,0) == 0, fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
+            guard fstatat(state,name,&linked,AT_SYMLINK_NOFOLLOW) == -1, errno == ENOENT else { throw MacAgentStorageError.unsafeCredential }
+            try verifyDirectories()
         }
-        guard credential >= 0 else { throw MacAgentStorageError.unsafeCredential }
-        defer { Darwin.close(credential) }
-        var info = stat()
-        guard fstat(credential,&info) == 0, info.st_mode & S_IFMT == S_IFREG,
-              info.st_uid == geteuid(), info.st_nlink == 1, info.st_mode & 0o7177 == 0 else { throw MacAgentStorageError.unsafeCredential }
-        try Self.verifyNoACL(credential)
-        try verifyDirectories()
-        var linked = stat()
-        guard fstatat(state,"auth.json",&linked,AT_SYMLINK_NOFOLLOW) == 0,
-              linked.st_dev == info.st_dev, linked.st_ino == info.st_ino, linked.st_mode == info.st_mode,
-              linked.st_uid == info.st_uid, linked.st_nlink == 1,
-              linked.st_ctimespec.tv_sec == info.st_ctimespec.tv_sec,
-              linked.st_ctimespec.tv_nsec == info.st_ctimespec.tv_nsec else { throw MacAgentStorageError.unsafeCredential }
-        guard unlinkat(state,"auth.json",0) == 0, fsync(state) == 0 else { throw MacAgentStorageError.unsafeCredential }
-        guard fstatat(state,"auth.json",&linked,AT_SYMLINK_NOFOLLOW) == -1, errno == ENOENT else { throw MacAgentStorageError.unsafeCredential }
-        try verifyDirectories()
     }
 
     private static func ioError() -> NSError { NSError(domain:NSPOSIXErrorDomain,code:Int(errno)) }

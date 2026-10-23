@@ -52,7 +52,7 @@ import Observation
             guard observed.applicationURL == identity.applicationURL, observed.helperURL == identity.helperURL,
                   observed.endpoint == identity.endpoint, observed.clientIdentifier == identity.clientIdentifier else { throw MacHostBundleError.configuration }
         },startup:startup,recover:MacXPCTransport(agent:identity.endpoint).recoverPairingAndObserveHost,exitTimeout:3,removeProviderCredential:{
-            try MacAgentStorage.inspectExisting(for:identity.endpoint).removeCodexCredential()
+            try MacAgentStorage.inspectExisting(for:identity.endpoint).removeProviderCredentials()
         },historyActions:history)
     }
     public var canDisableUnpaired: Bool { !isBusy && endpoint != nil && (status == .enabled || status == .requiresApproval) }

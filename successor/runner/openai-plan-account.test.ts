@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
-import { prepareSignIn, completeSignIn, refreshPlanCredential, listenForCallback, SignInRequired, PlanUsageNotGranted, type TokenTransport } from './openai-plan-account.ts';
+import { prepareSignIn, completeSignIn, refreshPlanCredential, listenForCallback, discoveredSigningKeys, fetchTokenTransport, SignInRequired, PlanUsageNotGranted, type TokenTransport } from './openai-plan-account.ts';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'key-1', alg: 'RS256', use: 'sig' };
@@ -98,4 +98,30 @@ test('the loopback listener accepts one callback on 127.0.0.1 at /auth/callback 
   const second = await listenForCallback(aborted.signal);
   aborted.abort();
   await assert.rejects(second.callback);
+});
+
+test('signing keys come from the issuer discovery document and stay on the issuer origin', async () => {
+  const requested: string[] = [];
+  const serve = (jwksURI: string) => async (url: string) => {
+    requested.push(url);
+    if (url === 'https://auth.openai.com/.well-known/openid-configuration') return new Response(JSON.stringify({ issuer: 'https://auth.openai.com', jwks_uri: jwksURI }));
+    if (url === jwksURI) return new Response(JSON.stringify({ keys: [jwk, { kty: 'EC', kid: 'ec-1' }] }));
+    return new Response('', { status: 404 });
+  };
+  const keysFound = discoveredSigningKeys(serve('https://auth.openai.com/jwks'));
+  assert.deepEqual(await keysFound('key-1'), jwk);
+  assert.deepEqual(await keysFound('key-1'), jwk);
+  assert.equal(requested.length, 2);
+  assert.equal(await keysFound('ec-1'), undefined);
+  await assert.rejects(discoveredSigningKeys(serve('https://keys.example.invalid/jwks'))('key-1'));
+});
+
+test('the token transport posts one form to the exact token endpoint', async () => {
+  const seen: { url: string; init?: RequestInit }[] = [];
+  const transport = fetchTokenTransport(async (url, init) => { seen.push({ url, ...(init ? { init } : {}) }); return new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }); });
+  assert.deepEqual(await transport.postForm('https://auth.openai.com/api/accounts/oauth/token', new URLSearchParams({ grant_type: 'refresh_token' })), { status: 400, body: { error: 'invalid_grant' } });
+  assert.equal(seen[0]?.init?.method, 'POST'); assert.equal(seen[0]?.init?.body, 'grant_type=refresh_token');
+  assert.equal(new Headers(seen[0]?.init?.headers).get('content-type'), 'application/x-www-form-urlencoded');
+  await assert.rejects(transport.postForm('https://elsewhere.example.invalid/token', new URLSearchParams()));
+  assert.equal(seen.length, 1);
 });

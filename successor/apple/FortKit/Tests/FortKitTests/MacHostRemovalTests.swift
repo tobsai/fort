@@ -130,7 +130,7 @@ private final class RemovalChild {
     try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:auth.path)
     let history = try provider.validatedDirectory().appendingPathComponent("history-marker")
     try Data("preserved synthetic conversation".utf8).write(to:history)
-    let removal = try fixture.removal(removeProviderCredential:{ try provider.removeCodexCredential() })
+    let removal = try fixture.removal(removeProviderCredential:{ try provider.removeProviderCredentials() })
     await #expect(throws:URLError(.timedOut)) { try await removal.stopAndRevoke() }
     #expect(FileManager.default.fileExists(atPath:auth.path))
     try fixture.child.finish()

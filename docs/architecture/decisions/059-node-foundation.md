@@ -87,3 +87,14 @@ narrowing Spec 058 section 9 for that one OpenAI route, plus fixture-only
 implementation of its declared slices. Real sign-in, credential creation, real
 turns and installed verification retain per-action approval. Claude and Codex
 credential rules are unchanged. This is design authority, not acceptance evidence.
+
+## October 23 — ChatGPT sign-in composition
+
+Toby's "Agreed" (message cmsg_01WzifFCZgpREpCjjmswqPPvUmA4gKhfmAu4HkfM4R175j, relayed
+by the coordinator) accepts a loopback listener entitlement for ChatGPT sign-in
+instead of a paste-back flow. The card named the Mac app; provider calls run in the
+Fort Host helper, so the corrected helper scope (network.client and network.server)
+was put to him again and is not yet applied. His "Merge it" (message
+cmsg_01WzifFCZgpREpCjjmswqPPvNgjXPomWxe9WQEEHi57vAh) merged PR #23. The
+[composition revision](../../../specs/059-modular-node-v1.md#fort-held-openai-plan-sign-in-credential--october-22)
+is fixture-only; installation, real sign-in and real turns keep per-action approval.

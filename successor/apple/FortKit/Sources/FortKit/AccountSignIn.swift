@@ -13,22 +13,30 @@ private func accountKeys(_ decoder: Decoder, _ expected: Set<String>) throws {
 private func accountID(_ value: String) -> Bool {
     !value.isEmpty && value.utf8.count <= 128 && value.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }
 }
-public struct AccountDeviceCode: Decodable, Equatable, Sendable {
+// A device code to enter on the provider's page, or (without a code) a provider sign-in page that returns to this Mac.
+public struct AccountChallenge: Decodable, Equatable, Sendable {
     public let verificationURL: URL
-    public let userCode: String
-    private enum CodingKeys: String, CodingKey { case kind, verificationURL, userCode }
+    public let userCode: String?
+    private enum CodingKeys: String, CodingKey { case kind, verificationURL, userCode, authorizationURL }
     public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy:CodingKeys.self), kind = try values.decode(String.self,forKey:.kind)
+        if kind == "browserAuthorization" {
+            try accountKeys(decoder,["kind","authorizationURL"])
+            verificationURL = try Self.link(values.decode(String.self,forKey:.authorizationURL),query:true); userCode = nil; return
+        }
         try accountKeys(decoder,["kind","verificationURL","userCode"])
-        let values = try decoder.container(keyedBy:CodingKeys.self)
-        let raw = try values.decode(String.self,forKey:.verificationURL), code = try values.decode(String.self,forKey:.userCode)
-        guard try values.decode(String.self,forKey:.kind) == "deviceCode", raw.utf8.count <= 2048,
-              !raw.unicodeScalars.contains(where:{ $0.value <= 32 || $0.value == 127 }),
-              let url = URL(string:raw), let parts = URLComponents(string:raw), parts.scheme == "https", parts.host?.isEmpty == false,
-              parts.user == nil, parts.password == nil, parts.port == nil, parts.query == nil, parts.fragment == nil,
-              url.absoluteString == raw, (4...32).contains(code.utf8.count),
+        let code = try values.decode(String.self,forKey:.userCode)
+        guard kind == "deviceCode", (4...32).contains(code.utf8.count),
               code.split(separator:"-",omittingEmptySubsequences:false).allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) } })
         else { throw ClientError.invalidResponse }
-        verificationURL = url; userCode = code
+        verificationURL = try Self.link(values.decode(String.self,forKey:.verificationURL),query:false); userCode = code
+    }
+    private static func link(_ raw: String, query: Bool) throws -> URL {
+        guard raw.utf8.count <= 2048, !raw.unicodeScalars.contains(where:{ $0.value <= 32 || $0.value == 127 }),
+              let url = URL(string:raw), let parts = URLComponents(string:raw), parts.scheme == "https", parts.host?.isEmpty == false,
+              parts.user == nil, parts.password == nil, parts.port == nil, query || parts.query == nil, parts.fragment == nil,
+              url.absoluteString == raw else { throw ClientError.invalidResponse }
+        return url
     }
 }
 public struct AccountIdentity: Codable, Equatable, Sendable {
@@ -50,10 +58,10 @@ public struct AccountOperation: Equatable, Sendable {
 }
 public enum AccountSignInResult: String, Decodable, Sendable { case signedIn, canceled, failed, unconfirmed }
 public enum AccountSignInStatus: Decodable, Equatable, Sendable {
-    case idle(Int), unavailable(Int), starting(AccountOperation), challenge(AccountOperation,AccountDeviceCode), canceling(AccountOperation), finished(AccountOperation,AccountSignInResult), identified(AccountOperation,AccountIdentity,Bool)
+    case idle(Int), unavailable(Int), starting(AccountOperation), challenge(AccountOperation,AccountChallenge), canceling(AccountOperation), finished(AccountOperation,AccountSignInResult), identified(AccountOperation,AccountIdentity,Bool)
     public var revision: Int { switch self { case .idle(let value), .unavailable(let value): value; case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_), .identified(let value,_,_): value.revision } }
     public var operation: AccountOperation? { switch self { case .starting(let value), .challenge(let value,_), .canceling(let value), .finished(let value,_), .identified(let value,_,_): value; default: nil } }
-    public var challenge: AccountDeviceCode? { if case .challenge(_,let value) = self { value } else { nil } }
+    public var challenge: AccountChallenge? { if case .challenge(_,let value) = self { value } else { nil } }
     public var finishedResult: AccountSignInResult? { switch self { case .finished(_,let value): value; case .identified: .signedIn; default: nil } }
     public var reportedAccount: AccountIdentity? { if case .identified(_,let value,_) = self { value } else { nil } }
     public var accountSelected: Bool { if case .identified(_,_,let selected) = self { selected } else { false } }
@@ -81,7 +89,7 @@ public enum AccountSignInStatus: Decodable, Equatable, Sendable {
         switch state {
         case "starting": try accountKeys(decoder,keys); self = .starting(operation)
         case "canceling": try accountKeys(decoder,keys); self = .canceling(operation)
-        case "challenge": try accountKeys(decoder,keys.union(["challenge"])); self = .challenge(operation,try values.decode(AccountDeviceCode.self,forKey:.challenge))
+        case "challenge": try accountKeys(decoder,keys.union(["challenge"])); self = .challenge(operation,try values.decode(AccountChallenge.self,forKey:.challenge))
         case "finished":
             let result = try values.decode(Result.self,forKey:.result)
             if let account = result.account {
