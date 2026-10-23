@@ -20,7 +20,7 @@ public enum MacAgentServiceError: Error, LocalizedError {
     private let delegate: MacHostListener
     init(bundle: MacHostBundle, core: MacCoreHost) throws {
         delegate = try MacHostListener(clientIdentifier:bundle.clientIdentifier,signingTeam:bundle.endpoint.signingTeam,
-            transport:core,ownerControl:core,ownerSetup:core)
+            transport:core,ownerControl:core,ownerSetup:core,networkControl:core)
         listener = NSXPCListener(machServiceName:bundle.endpoint.machServiceName)
         listener.delegate = delegate
     }

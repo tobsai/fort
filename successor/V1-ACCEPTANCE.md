@@ -533,3 +533,15 @@ quit with **Command-Q**, relaunch the same path, select the same Agent and confi
 the conversation remains. The removed Mac image picker was local preview only;
 it did not attach an image to a provider request. No new live test prompt was
 consumed by the publication work; the previously recorded bounded usage is 2/3.
+
+## October 23 — phone access over Tailscale
+
+Toby chose Tailscale for phone-to-Mac pairing (2026-10-23 00:01:45 UTC). The Mac
+app now composes the explicit listener: Settings → Phone access imports the
+`tailscale cert` files, starts/stops the listener on the Mac's 100.64.0.0/10
+address and invites or revokes one phone with a single pasteable invitation. The
+iPhone target signs as `io.mtree.fort` for TestFlight. Source: typecheck, 1,426
+portable, 82 macOS and 375 native tests pass. A patched signed Mac app is installed
+and two iPhone builds are uploaded. Installed listener start, real pairing,
+TestFlight installation and revocation remain unobserved. See
+[evidence](evidence/2026-10-17-node-foundation/phone-access-tailscale.md).
