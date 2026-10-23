@@ -19,8 +19,9 @@ fLm6v6ef9xkYaIAT/FBFCjOWtJTUVnEsAiAoR2uPHQWyn8ixQpErH+urJYwkLzh5
 """.utf8)
 
 @Test func phoneAccessSelectsOnlyATailscaleSharedAddress() {
-    #expect(MacPhoneAccess.tailscaleAddress(in:["127.0.0.1","192.168.1.20","100.111.16.2"]) == "100.111.16.2")
-    #expect(MacPhoneAccess.tailscaleAddress(in:["100.63.255.1","100.128.0.1","10.0.0.2"]) == nil)
+    #expect(MacPhoneAccess.tailscaleAddress(in:[("lo0","127.0.0.1"),("en0","192.168.1.20"),("utun4","100.111.16.2")]) == "100.111.16.2")
+    #expect(MacPhoneAccess.tailscaleAddress(in:[("utun4","100.63.255.1"),("utun5","100.128.0.1"),("en0","10.0.0.2")]) == nil)
+    #expect(MacPhoneAccess.tailscaleAddress(in:[("en0","100.72.4.9"),("pdp_ip0","100.80.1.2")]) == nil)
 }
 
 @Test func phoneAccessReadsTheCertificateDNSNameEvenWithoutASubject() throws {

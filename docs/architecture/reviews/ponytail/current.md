@@ -16,7 +16,8 @@ requires active local owner access; invitation, join and revocation contracts ar
 unchanged, and the pasted invitation only fills fields.
 
 Must fix (resolved): PT-PHONE-1, the shared-helper dependency that broke the
-guardian and sandbox compile lists.
+guardian and sandbox compile lists; PT-PHONE-5, choosing a carrier-grade NAT
+address as if it were Tailscale. The Mac now binds only a utun address.
 
 Should fix (open): PT-PHONE-2 listener restart after host restart, PT-PHONE-3
 certificate expiry visibility and renewal, PT-PHONE-4 reproducible signing of the
@@ -24,13 +25,9 @@ patched Mac package.
 
 Verdict: ready to commit and open a PR for this slice; installed pairing still
 needs the owner's actions on the Mac and iPhone.
-Not checked: installed listener start, a real phone join over Tailscale, TestFlight
-installation, signed packaging suite, native HTTP journeys and UI tests.
-
-```fort-review
-{
+Not checked: installed listener start, a real phone join ove{
   "format": 1,
-  "reviewedCommit": "6fb72652b4be090dabfe2ce58d4452a9799c5fd4",
+  "reviewedCommit": "7c012a3fe7bfe17412f10789a82cf9a42060b7c2",
   "reviewer": "Claude Code (Mac and iPhone build thread)",
   "scope": "Spec 059 October 23 revision: phone access over Tailscale (secure listener private-range rule, explicit network composition in the bundled host, Swift network-control types and XPC operation, Mac Phone access settings, invitation link and phone paste) plus the TestFlight iPhone signing identity. Whole branch range from 3942516. Single owner; no provider contact.",
   "skill": {
@@ -40,6 +37,7 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
   "tests": [
     "Red first: Tailscale-range bind test failed (0 of 2 binds reached the listener), then passed; secure-network suite 18 pass, 3 optional budget skips.",
     "Red first: CompanionInvitationLink tests and the paste-invitation model test failed to compile before implementation, then passed.",
+    "After PT-PHONE-5: phone access tests 3 pass, including tunnel-only address selection; rebuilt FortMac re-signed, codesign --verify --deep --strict passes and the app relaunches.",
     "Strict typecheck passes; portable suite 1442 tests, 1426 pass, 16 skipped, 0 fail (Node 26.5.0, macOS).",
     "macOS suite with synthetic guardian and fresh host resources: 82 pass, 0 fail.",
     "Native FortKit suite --no-parallel with CI fixture variables: 375 pass, 16 optional skips.",
@@ -51,6 +49,11 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
     {
       "id": "PT-PHONE-1",
       "detail": "MacNetworkControl.swift first reused validCompanionIdentifier from CompanionSetup.swift, which broke the guardian and sandbox-feasibility minimal compile lists; it now has its own identifier check and both lists include it.",
+      "disposition": "fixed"
+    },
+    {
+      "id": "PT-PHONE-5",
+      "detail": "Automated security review: any 100.64.0.0/10 address was treated as Tailscale, but carrier-grade NAT uses the same range on Wi-Fi, Ethernet or cellular, which would admit other subscribers as peers. The Mac now picks such an address only on a utun tunnel interface (test covers en0 and pdp_ip0 refusals). The host still accepts the range only for a bind the owner app selects; TLS and bearer authentication remain required.",
       "disposition": "fixed"
     },
     {
@@ -79,7 +82,7 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
     "successor/apple/FortKit/Sources/FortKit/MacCoreProcessTransport.swift": "f3e241c97b86bb38ef0b359c69bf5a5b1517c601c830c66eb08605922febaaef",
     "successor/apple/FortKit/Sources/FortKit/MacHostChannel.swift": "8c816ac3ba08d9b3cea7930904b5d9d936f34dec1ef6e1c44ce54b4f9334d485",
     "successor/apple/FortKit/Sources/FortKit/MacNetworkControl.swift": "bf7e12db17050792ff78885d38612ac29765666acd977ec17533f2532cd7f247",
-    "successor/apple/FortKit/Sources/FortKit/MacPhoneAccess.swift": "ebfb8c7282aaecc39586ae4798c87e007b2953450b02899c56e2e18b445bf4db",
+    "successor/apple/FortKit/Sources/FortKit/MacPhoneAccess.swift": "5c90ae8f6059d15f205e935749b7670bc1f4541cd028c564e786830778ce0e3b",
     "successor/apple/FortKit/Sources/FortKit/MacXPCTransport.swift": "bf084d9652fd3bb620ab3a4698ca3021a4c7a0ef770423d3534e53b71900658f",
     "successor/apple/FortKit/Sources/FortKit/MessengerModel.swift": "c913ae817df89cfc230d7937021593425bd4e4f9bc7348c794079964902c7435",
     "successor/apple/FortKit/Sources/FortKit/PairingSettings.swift": "e28dc52ccfffbdc86f124432940eae1ac3cc6e2127abca1938d5fed918269a7b",
@@ -87,7 +90,7 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
     "successor/apple/FortKit/Tests/FortKitTests/CompanionInvitationLinkTests.swift": "03522f09d525b78671ec8fb520789ca3671d066e837a83a5af29cb111d2c6305",
     "successor/apple/FortKit/Tests/FortKitTests/CompanionSetupModelTests.swift": "8c1ceefd666f5ffc61bddbe7a4b0fb030e5644eba443d839516697f12063332c",
     "successor/apple/FortKit/Tests/FortKitTests/MacNetworkControlTests.swift": "4541a61dbb2a225d7a24b6e317237526b2b056a12765da0a45d9d7a41bca112e",
-    "successor/apple/FortKit/Tests/FortKitTests/MacPhoneAccessTests.swift": "2f51081a0083ecc9889debcd8a5377008489cd4dc80a4f563243c5f7a3037c8c",
+    "successor/apple/FortKit/Tests/FortKitTests/MacPhoneAccessTests.swift": "402b0dff1e4987c0136fea6c119a372b6fab93df44c53159513a00ee4617b86d",
     "successor/apple/FortSpec058.xcodeproj/project.pbxproj": "fac579a4115acd7537a1651c361471a41fc04182334218e1d61f9bea8f2e39aa",
     "successor/apple/project.yml": "eef8ad95859d0e311050308321b37e2a401e782003eba7323359c4fba0c5e086",
     "successor/evidence/2026-10-17-node-foundation/phone-access-tailscale.md": "4d11209d3a59b118da8a7514d947a875b6ae909d14e7569996b4d32c41d4e63e",
@@ -96,6 +99,8 @@ installation, signed packaging suite, native HTTP journeys and UI tests.
     "successor/host/secure-network.test.ts": "8289f09d20e5a3ba038fe07ad887077b51ee6ad21a9da44448b47e81c8165b7b",
     "successor/host/secure-network.ts": "b5b321f9d31ba348bd54aeb18217e05de50436c4a2b2f87369fd933e27e8943e",
     "successor/packaging/sandbox-feasibility.ts": "6d1fb890734f6767f7cb978bb1a76e9ef24020e3a34edce230f14eb97927fecb"
+  }
+}essor/packaging/sandbox-feasibility.ts": "6d1fb890734f6767f7cb978bb1a76e9ef24020e3a34edce230f14eb97927fecb"
   }
 }
 ```
