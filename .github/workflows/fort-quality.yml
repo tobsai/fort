@@ -27,7 +27,9 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if git diff --name-only "$BASE" HEAD | grep -vE '\.md$' | grep -qE '^(successor/|\.github/workflows/)'; then
+          git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
+          # One process, so pipefail can't turn an early grep -q exit into "no changes".
+          if awk '/^(successor\/|\.github\/workflows\/)/ && !/\.md$/ { found = 1 } END { exit !found }' "$RUNNER_TEMP/changed.txt"; then
             echo native=true >> "$GITHUB_OUTPUT"
           else
             echo native=false >> "$GITHUB_OUTPUT"
