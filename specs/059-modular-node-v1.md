@@ -3985,8 +3985,8 @@ MacCoreHost.swift, MacHostChannel.swift, MacXPCTransport.swift,
 MacAgentService.swift, MessengerModel.swift, PairingSettings.swift and
 CompanionSetupView.swift; tests CompanionInvitationLinkTests.swift,
 MacNetworkControlTests.swift, MacPhoneAccessTests.swift (new) and
-CompanionSetupModelTests.swift; the v1 ledger; the current Ponytail report; and
-successor/evidence/2026-10-17-node-foundation/phone-access-tailscale.md (new).
+CompanionSetupModelTests.swift. Results are recorded in the PR description
+(decision 061 retired the ledger, evidence notes and Ponytail report).
 
 ## Implementation paths
 
@@ -3997,7 +3997,6 @@ successor/evidence/2026-10-17-node-foundation/phone-access-tailscale.md (new).
 - `successor/apple/FortKit/Tests/FortKitTests/CompanionInvitationLinkTests.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacNetworkControlTests.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MacPhoneAccessTests.swift`
-- `successor/evidence/2026-10-17-node-foundation/phone-access-tailscale.md`
 
 - `successor/apple/FortKit/Sources/FortKit/MessageComposer.swift`
 - `successor/apple/FortKit/Tests/FortKitTests/MessageComposerTests.swift`

@@ -1,6 +1,0 @@
-{
-  "diagnosticPid": 31558,
-  "source": "PID-filtered local macOS sandbox log, read-only",
-  "observedMessage": "Sandbox: true(31558) deny(1) file-read-data /",
-  "correction": "Allow literal root-directory listing in test wrapper only; Fort profile unchanged"
-}

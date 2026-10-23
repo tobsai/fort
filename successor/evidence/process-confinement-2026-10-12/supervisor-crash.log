@@ -1,9 +1,0 @@
-✔ supervisor SIGKILL leaves uncertainty and requires an outer owner to reap its reported process group (261.819875ms)
-ℹ tests 1
-ℹ suites 0
-ℹ pass 1
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 364.497959
