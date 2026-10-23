@@ -25,9 +25,13 @@ patched Mac package.
 
 Verdict: ready to commit and open a PR for this slice; installed pairing still
 needs the owner's actions on the Mac and iPhone.
-Not checked: installed listener start, a real phone join ove{
+Not checked: installed listener start, a real phone join over Tailscale, TestFlight
+installation, signed packaging suite, native HTTP journeys and UI tests.
+
+```fort-review
+{
   "format": 1,
-  "reviewedCommit": "7c012a3fe7bfe17412f10789a82cf9a42060b7c2",
+  "reviewedCommit": "e93419bdeca9a2dc495e140c187395b8f9822149",
   "reviewer": "Claude Code (Mac and iPhone build thread)",
   "scope": "Spec 059 October 23 revision: phone access over Tailscale (secure listener private-range rule, explicit network composition in the bundled host, Swift network-control types and XPC operation, Mac Phone access settings, invitation link and phone paste) plus the TestFlight iPhone signing identity. Whole branch range from 3942516. Single owner; no provider contact.",
   "skill": {
@@ -99,8 +103,6 @@ Not checked: installed listener start, a real phone join ove{
     "successor/host/secure-network.test.ts": "8289f09d20e5a3ba038fe07ad887077b51ee6ad21a9da44448b47e81c8165b7b",
     "successor/host/secure-network.ts": "b5b321f9d31ba348bd54aeb18217e05de50436c4a2b2f87369fd933e27e8943e",
     "successor/packaging/sandbox-feasibility.ts": "6d1fb890734f6767f7cb978bb1a76e9ef24020e3a34edce230f14eb97927fecb"
-  }
-}essor/packaging/sandbox-feasibility.ts": "6d1fb890734f6767f7cb978bb1a76e9ef24020e3a34edce230f14eb97927fecb"
   }
 }
 ```
