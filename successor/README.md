@@ -50,7 +50,7 @@ Update this list in the PR that changes it.
 - [x] Remove local credentials and the host cleanly, keeping history unless deletion is chosen
 - [ ] Sign in with ChatGPT from inside the app (runtime merged, sign-in flow not composed)
 - [ ] Claude runner using the Claude subscription
-- [ ] Pair the iPhone with the Mac over a private HTTPS endpoint (built over Tailscale in Settings → Phone access; first real pairing not yet done)
+- [ ] Pair the iPhone with the Mac over a private HTTPS endpoint (built over Tailscale in Menu → Devices; first real pairing not yet done)
 - [x] iPhone build in TestFlight (`io.mtree.fort`)
 - [ ] Mac build in TestFlight
 - [ ] Toby uses both apps for a day on real devices

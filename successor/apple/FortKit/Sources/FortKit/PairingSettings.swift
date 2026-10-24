@@ -50,11 +50,8 @@ struct PairingSettingsView: View {
     }
     var body: some View {
         Form {
+            ConnectionSections(model:model)
             #if os(macOS)
-            if model.hasOwnerSetup && (model.pendingOwnerSetup != nil || model.showConnection) { OwnerSetupView(model:model) }
-            #endif
-            #if os(macOS)
-            if model.canManageProviderAccount { AccountSignInView(model:model) }
             if model.canManagePhoneAccess { PhoneAccessView(model:model) }
             #endif
             Section("Pairing") {
@@ -110,7 +107,7 @@ struct PairingSettingsView: View {
             }
             }
             #endif
-        }.formStyle(.grouped).navigationTitle(model.isCompanionPairing ? "Phone pairing" : "Pairing and local host")
+        }.formStyle(.grouped).navigationTitle("Devices")
         .task { await model.refreshPairing(); noExpiry = model.pairingStatus?.expiresAt == nil }
         .alert(title,isPresented:$showConfirmation) {
             Button("Cancel",role:.cancel) {}

@@ -6,15 +6,14 @@ public struct MessengerView: View {
     @State private var uncertainRun: Run?
     @State private var memoryForm: ConversationMemoryForm?
     @State private var showImageImporter = false
-    @State private var showSettings = false
-    @State private var showWorkspace = false
-    @State private var showRoutines = false
+    @State private var showMenu = false
+    @State private var menuTab: PauseTab?
     @AppStorage("fort.showCity") private var showCity = true
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
         Group {
-        if showCity && model.supportsWeeks { CityHUDView(model:model) { showCity = false } } else {
+        if showCity && model.supportsWeeks { CityHUDView(model:model,showMessages:{ showCity = false },openMenu:{ openMenu(nil) }) } else {
         NavigationSplitView {
             List(selection:SwiftUI.Binding(get:{ model.hasWorkspace ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.hasWorkspace { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
                 Section("Your Agents") {
@@ -37,10 +36,9 @@ public struct MessengerView: View {
             .navigationTitle(model.isInteractiveFixture ? "Fort QA · First wave" : "Fort")
             .toolbar {
                 if model.supportsWeeks { Button("City",systemImage:"building.2") { showCity = true }.accessibilityIdentifier("show-city") }
-                if model.hasWorkspace { Button("Settings",systemImage:"gearshape") { showSettings = true } }
-                if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
-                if !model.isOfflinePreview && !model.isInteractiveFixture { Button("Connection",systemImage:"network") { model.showConnection = true }.accessibilityIdentifier("connection-open") }
-                if model.hasWorkspace && !model.isInteractiveFixture { Button("Library",systemImage:"books.vertical") { showWorkspace = true } }
+                if !PauseMenu.make(model.pauseFacts).entries.isEmpty {
+                    Button("Menu",systemImage:"line.3.horizontal") { openMenu(nil) }.keyboardShortcut(",",modifiers:.command).accessibilityIdentifier("pause-menu-open")
+                }
             }
         } detail: {
             VStack(spacing:0) {
@@ -48,7 +46,7 @@ public struct MessengerView: View {
                 #if DEBUG
                 if model.isInteractiveFixture {
                     HStack {
-                        Button("Settings",systemImage:"gearshape") { showSettings = true }.accessibilityIdentifier("qa-open-settings")
+                        Button("Settings",systemImage:"gearshape") { openMenu(.crew) }.accessibilityIdentifier("qa-open-settings")
                         Button("Add sample image",systemImage:"photo") { Task { await model.addFixtureImage() } }.accessibilityIdentifier("qa-add-image")
                         Button("Reload saved fixture",systemImage:"arrow.clockwise") { Task { await model.reloadInteractiveFixture() } }.accessibilityIdentifier("qa-reload")
                     }.padding(.horizontal).padding(.bottom,8)
@@ -77,9 +75,7 @@ public struct MessengerView: View {
             if case .success(let url) = result { Task { await model.importLocalImage(url) } }
         }
         #endif
-        .sheet(isPresented:$showSettings) { FortSettingsView(model:model) }
-        .sheet(isPresented:$showWorkspace) { WorkspaceEditor(model:model) }
-        .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
+        .sheet(isPresented:$showMenu) { PauseMenuView(model:model,tab:menuTab) }
         .task(id:scenePhase) {
             guard !model.isOfflinePreview, scenePhase == .active else { return }
             await model.restore()
@@ -90,6 +86,8 @@ public struct MessengerView: View {
         }
         .onChange(of:model.selectedAgentID) { _,_ in Task { await model.refresh() } }
     }
+
+    private func openMenu(_ tab: PauseTab?) { menuTab = tab; showMenu = true }
 
     private var conversationHeader: some View {
                 VStack(alignment:.leading,spacing:6) {
@@ -253,22 +251,7 @@ public struct MessengerView: View {
     }
     private var connectionForm: some View {
         NavigationStack {
-            Form {
-                #if os(macOS)
-                if let host = model.localHost {
-                    MacHostControlView(model:model,host:host)
-                    if model.hasOwnerSetup { OwnerSetupView(model:model) }
-                    else { Text(model.ownerSetupMessage).font(.callout) }
-                }
-                else if model.hasOwnerSetup { OwnerSetupView(model:model) }
-                else if model.canPrepareCompanion { CompanionSetupView(model:model) }
-                else { fixtureConnectionFields }
-                #else
-                if model.canPrepareCompanion { CompanionSetupView(model:model) }
-                else { fixtureConnectionFields }
-                #endif
-                Text(model.status).font(.callout)
-            }.formStyle(.grouped).navigationTitle("Connect to Fort")
+            Form { ConnectionSections(model:model) }.formStyle(.grouped).navigationTitle("Connect to Fort")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction) {
                     Button("Close setup") { model.showConnection = false }
@@ -279,6 +262,28 @@ public struct MessengerView: View {
         #if os(macOS)
         .background(NonBlockingSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
         #endif
+    }
+}
+
+/// Connecting this device to Fort: the Mac's local host and owner setup, a phone's invitation, or the loopback fixture.
+/// Shown by the first-run setup sheet and at the top of Devices in the pause menu.
+struct ConnectionSections: View {
+    @Bindable var model: MessengerModel
+    var body: some View {
+        #if os(macOS)
+        if let host = model.localHost {
+            MacHostControlView(model:model,host:host)
+            if model.hasOwnerSetup { OwnerSetupView(model:model) }
+            else { Text(model.ownerSetupMessage).font(.callout) }
+        }
+        else if model.hasOwnerSetup { OwnerSetupView(model:model) }
+        else if model.canPrepareCompanion { CompanionSetupView(model:model) }
+        else { fixtureConnectionFields }
+        #else
+        if model.canPrepareCompanion { CompanionSetupView(model:model) }
+        else { fixtureConnectionFields }
+        #endif
+        Text(model.status).font(.callout)
     }
     @ViewBuilder private var fixtureConnectionFields: some View {
         Section("Local installation") {

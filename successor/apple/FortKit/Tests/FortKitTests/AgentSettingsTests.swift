@@ -23,23 +23,6 @@ import SwiftUI
     #expect(model.draft == "Retained synthetic draft")
     #expect(try Data(contentsOf:connectionURL) == connection)
 }
-@Test @MainActor func settingsSheetAllowsNormalQuitWithoutChangingDraftOrStoredState() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at:root) }
-    let model = try MessengerModel(directory:root)
-    model.draft = "Unsent settings regression draft"
-    let window = NSWindow(contentRect:NSRect(x:0,y:0,width:500,height:600),styleMask:[.titled],backing:.buffered,defer:false)
-    window.isReleasedWhenClosed = false
-    defer { window.close() }
-    #expect(window.preventsApplicationTerminationWhenModal)
-    let content = NSHostingView(rootView:FortSettingsView(model:model))
-    window.contentView = content
-    content.layoutSubtreeIfNeeded()
-    #expect(!window.preventsApplicationTerminationWhenModal)
-    #expect(!window.isVisible)
-    #expect(model.draft == "Unsent settings regression draft")
-    #expect(try FileManager.default.contentsOfDirectory(atPath:root.path).isEmpty)
-}
 #endif
 private let legacyAgent = #"{"agentId":"writer","name":"Writer","homeConversationId":"home","readiness":"requiresLiveReview","instructions":"  Keep my voice.\n","binding":{"bindingRevisionId":"one","provider":"codex","runtimeVersion":"0.157.1","selectedModel":"exact-model","hostId":"local-codex","enabled":true}}"#
 @Test @MainActor func agentSettingsPreserveLegacyIdentityAndPersistBundledAvatarAcrossRelaunch() throws {

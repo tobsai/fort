@@ -7,7 +7,7 @@ struct CompanionSetupView: View {
     private var busy: Bool { model.companionSetupBusy || model.lifecycleBusy || model.isBusy }
     var body: some View {
         Section("Connect this phone") {
-            Text("On your Mac, open Settings → Phone access → Invite a phone, copy the invitation, then paste it here.").font(.callout)
+            Text("On your Mac, open Menu → Devices → Invite a phone, copy the invitation, then paste it here.").font(.callout)
             Button("Paste invitation") {
                 #if os(iOS)
                 model.applyCompanionInvitation(UIPasteboard.general.string ?? "")
