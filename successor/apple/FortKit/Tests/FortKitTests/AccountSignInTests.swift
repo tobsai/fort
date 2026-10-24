@@ -119,6 +119,23 @@ private final class AccountCredentials: DeviceCredentials {
     }
 }
 
+// Toby's walkthrough, 2026-10-24: Sign in did nothing when clicked during a background model check.
+@Test @MainActor func signInWaitsForABackgroundModelCheckInsteadOfDroppingTheClick() async throws {
+    let fixture = try AccountFixture(); defer { fixture.close() }
+    await fixture.transport.enableModels()
+    let model = try fixture.model(); await model.restore()
+    await fixture.transport.enableModels(hold:true)
+    let checking = Task { await model.refreshModels() }
+    try await fixture.transport.waitForModels()
+    #expect(model.loadingModels)
+    let signIn = Task { await model.startAccountSignIn() }
+    try await Task.sleep(for:.milliseconds(50))
+    await fixture.transport.releaseModels()
+    await checking.value; await signIn.value
+    #expect(await fixture.transport.paths.contains("/v1/account/sign-in/start"))
+    #expect(model.accountSignInStatus?.challenge?.userCode == "FORT-TEST")
+}
+
 @Test @MainActor func modelEditorMakesAccountConfirmationRequiredAndPreservesExistingBindingThroughReauthentication() async throws {
     let fixture = try AccountFixture(); defer { fixture.close() }
     await fixture.transport.enableModels()

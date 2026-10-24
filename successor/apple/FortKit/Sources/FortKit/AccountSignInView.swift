@@ -4,7 +4,8 @@ struct AccountSignInView: View {
     @Bindable var model: MessengerModel
     @State private var showAdvanced = false
     private var canStart: Bool { !model.hasPendingAccountSignIn && model.accountSignInStatus?.isActive != true }
-    private var blocked: Bool { model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.loadingModels }
+    // Background refreshes don't disable controls (they made the buttons blink); actions wait for them instead.
+    private var blocked: Bool { model.accountSignInBusy || model.lifecycleBusy || (model.isBusy && !model.isRefreshing) }
     var body: some View {
         Section("Provider account") {
             if model.runtimes.count > 1 {
@@ -15,6 +16,10 @@ struct AccountSignInView: View {
             Text(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
             if let status = model.accountSignInStatus, let account = status.reportedAccount {
                 Text(account.userLabel).textSelection(.enabled).accessibilityIdentifier("provider-account-label")
+                if !status.accountSelected {
+                    Button("Use this account") { Task { await model.selectReportedAccount() } }
+                        .disabled(blocked).accessibilityIdentifier("provider-account-select")
+                }
             }
             if let status = model.accountSignInStatus, let operation = status.operation, let challenge = status.challenge {
                 TimelineView(.periodic(from:.now,by:1)) { context in
@@ -44,10 +49,6 @@ struct AccountSignInView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 if let status = model.accountSignInStatus, let account = status.reportedAccount {
                     Text("Workspace: \(account.accountId)").font(.caption).textSelection(.enabled)
-                    if !status.accountSelected {
-                        Button("Use this account for future requests") { Task { await model.selectReportedAccount() } }
-                            .disabled(blocked).accessibilityIdentifier("provider-account-select")
-                    }
                     if canStart {
                         Button("Sign in to change account") { Task { await model.startAccountSignIn() } }
                             .disabled(blocked || model.runtimeReadiness?.state == "stopped")

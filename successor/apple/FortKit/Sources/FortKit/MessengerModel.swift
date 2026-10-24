@@ -183,6 +183,8 @@ import Observation
         if accountSignInStatus?.accountSelected == true && (previous?.accountSelected != true || previous?.operation != accountSignInStatus?.operation) { await refreshModels() }
     }
     public func selectReportedAccount() async {
+        guard !accountSignInBusy, !lifecycleBusy, !hostStopped else { return }
+        await waitForBackgroundWork()
         guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels,
               let status = accountSignInStatus, let operation = status.operation, let account = status.reportedAccount, !status.accountSelected else { return }
         accountSignInBusy = true
@@ -197,8 +199,19 @@ import Observation
         accountSignInBusy = false
         if accountSignInStatus?.accountSelected == true { await refreshModels() }
     }
+    // A background refresh or model check runs every few seconds, so a Sign in click waits it out instead of being dropped.
+    private func waitForBackgroundWork() async {
+        if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
+        for _ in 0..<150 where loadingModels { try? await Task.sleep(for:.milliseconds(100)) }
+    }
+    /// True while a background refresh runs. Controls stay enabled for it, since actions wait for it to finish.
+    public var isRefreshing: Bool { refreshing }
     public func startAccountSignIn() async {
-        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels else { return }
+        guard !accountSignInBusy, !lifecycleBusy, !hostStopped else { return }
+        await waitForBackgroundWork()
+        guard !accountSignInBusy, !lifecycleBusy, !isBusy, !hostStopped, !loadingModels else {
+            accountSignInMessage = "Fort is busy with another step. Try Sign in again in a moment."; return
+        }
         let previous = accountSignInStatus
         accountSignInBusy = true
         let generation = accountStatusGeneration
