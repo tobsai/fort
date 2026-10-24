@@ -129,7 +129,7 @@ test('turning Claude on and off restarts the bundled host by itself, and a Claud
   assert.ok(catalog.models.some((model: { id: string }) => model.id === 'claude-sonnet-5-5'));
 
   // A new Claude Agent replies through Claude, not ChatGPT.
-  const agent = await host.api(owner, '/v1/agents', { name: 'Claude journey', model: 'claude-sonnet-5-5', instructions: 'Synthetic', provider: 'claude-code' });
+  const agent = await host.api(owner, '/v1/agents', { name: 'Claude journey', model: 'claude-sonnet-5-5', instructions: 'Synthetic', provider: 'claude-code' }, 201);
   assert.equal(agent.binding.provider, 'claude-code');
   await host.api(owner, '/v1/conversations/' + agent.homeConversationId + '/messages', { requestId: randomUUID(), text: 'Synthetic journey prompt', recipientAgentId: agent.agentId,
     bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: installed.recoveryEpoch, skills: [] }, 201);
