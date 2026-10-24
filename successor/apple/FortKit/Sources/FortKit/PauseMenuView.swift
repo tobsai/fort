@@ -128,13 +128,15 @@ struct PauseMenuView: View {
     }
 
     private var accounts: some View {
-        Form {
-            #if os(macOS)
-            AccountSignInView(model:model)
-            #endif
-            Section { Text("Fort only uses your own Claude and ChatGPT plans. It never falls back to API billing.").font(.callout).foregroundStyle(.secondary) }
+        ScrollView {
+            VStack(alignment:.leading,spacing:12) {
+                Text("Fort only uses your own Claude and ChatGPT plans. It never falls back to API billing.").font(.callout).foregroundStyle(.secondary)
+                #if os(macOS)
+                AccountSignInPanel(model:model)
+                #endif
+            }.padding(18)
         }
-        .formStyle(.grouped).navigationTitle("Accounts")
+        .navigationTitle("Accounts")
     }
 }
 
@@ -173,6 +175,42 @@ struct PauseRow<Action: View>: View {
         }
         .padding(12).hudFrame()
     }
+}
+
+struct LampView: View {
+    let lamp: StatusLamp
+    var body: some View {
+        Circle().fill(color).frame(width:11,height:11).shadow(color:color.opacity(lamp == .off ? 0 : 0.8),radius:4)
+            .accessibilityLabel(label)
+    }
+    private var color: Color { switch lamp { case .ready: .green; case .waiting: .cyan; case .attention: .red; case .off: .gray } }
+    private var label: String { switch lamp { case .ready: "Ready"; case .waiting: "In progress"; case .attention: "Needs you"; case .off: "Not available" } }
+}
+
+/// Recovery and rarely used controls, tucked under a dashed drawer at the bottom of a tab. Nothing in it is removed, only moved.
+struct WorkshopDrawer<Content: View>: View {
+    @Binding var isExpanded: Bool
+    var forceOpen = false
+    let identifier: String
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        let open = isExpanded || forceOpen
+        VStack(alignment:.leading,spacing:8) {
+            Button { isExpanded.toggle() } label: {
+                Label("WORKSHOP",systemImage:open ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain).disabled(forceOpen)
+            .accessibilityValue(open ? "Expanded" : "Collapsed").accessibilityIdentifier(identifier)
+            if open { content() }
+        }
+        .padding(10).frame(maxWidth:.infinity,alignment:.leading)
+        .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(style:StrokeStyle(lineWidth:1,dash:[5,4])).foregroundStyle(.secondary.opacity(0.6)))
+    }
+}
+
+struct OptionalHUDFrame: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View { if on { content.hudFrame() } else { content } }
 }
 
 extension MessengerModel {
