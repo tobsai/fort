@@ -7,6 +7,21 @@ import Observation
     public var hasWorkspace: Bool { isInteractiveFixture || ["openai", "local"].contains(installation?.mode ?? "") }
     public var runtimeProvider: String? { installation?.runtime?.provider ?? recipient?.binding.provider ?? selectedAgent?.binding.provider ?? agents.first?.binding.provider }
     public var runtimeName: String { installation?.runtime?.name ?? runtimeProvider ?? "No runtime selected" }
+    /// Every runtime the host serves, primary first (Spec 064).
+    public var runtimes: [RuntimeDescriptor] { installation?.runtimes ?? installation?.runtime.map { [$0] } ?? [] }
+    /// The runtime whose sign-in and models are shown; nil is the host's primary runtime.
+    public private(set) var accountProvider: String?
+    public var focusedRuntime: RuntimeDescriptor? { accountProvider.flatMap { name in runtimes.first { $0.provider == name } } ?? installation?.runtime }
+    public var focusedRuntimeName: String { focusedRuntime?.name ?? runtimeName }
+    public var canChangeAccountProvider: Bool { runtimes.count > 1 && !accountSignInBusy && !hasPendingAccountSignIn && !loadingModels }
+    /// Shows the sign-in and models of one runtime. A pending sign-in keeps its own runtime until it settles.
+    public func focusRuntime(_ provider: String?) async {
+        let selected = provider == installation?.runtime?.provider ? nil : provider
+        guard selected != accountProvider, canChangeAccountProvider, selected == nil || runtimes.contains(where:{ $0.provider == selected }) else { return }
+        accountProvider = selected; accountStatusGeneration = UUID(); accountSignInStatus = nil; modelCatalog = .unchecked
+        await refreshAccountSignIn()
+        if canRefreshModels { await refreshModels() }
+    }
     #if DEBUG
     private var interactiveFixture: InteractiveFixtureStore?
     public var fixtureCatalogScenario: FixtureCatalogScenario = .ready
@@ -159,7 +174,9 @@ import Observation
         do {
             let (client,connection,selected) = try accountScope()
             let intent = try storage.accountSignInIntent(for:connection); accountSignInIntent = intent
-            let result = try await client.accountSignInStatus()
+            if let intent, intent.provider != accountProvider { accountProvider = intent.provider }
+            else if intent == nil, let provider = accountProvider, !runtimes.contains(where:{ $0.provider == provider }) { accountProvider = nil }
+            let result = try await client.accountSignInStatus(provider:accountProvider)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; modelCatalog = .unchecked; accountSignInMessage = "Sign-in status is unconfirmed. The saved request is kept for recovery." }
         accountSignInBusy = false
@@ -173,7 +190,7 @@ import Observation
         do {
             let (client,connection,selected) = try accountScope()
             guard try storage.accountSignInIntent(for:connection) == nil else { throw ClientError.invalidResponse }
-            let result = try await client.selectAccount(operation,account:account,recoveryEpoch:selected.recoveryEpoch)
+            let result = try await client.selectAccount(operation,account:account,recoveryEpoch:selected.recoveryEpoch,provider:accountProvider)
             guard result.operation == operation, result.reportedAccount == account, result.accountSelected else { throw ClientError.invalidResponse }
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:nil,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Account selection is unconfirmed. Check status before selecting again." }
@@ -188,13 +205,13 @@ import Observation
         do {
             let (client,connection,selected) = try accountScope()
             guard try storage.accountSignInIntent(for:connection) == nil else { throw ClientError.invalidResponse }
-            let current = try await client.accountSignInStatus()
+            let current = try await client.accountSignInStatus(provider:accountProvider)
             guard generation == accountStatusGeneration, try accountScopeMatches(connection,selected), !current.isActive else { throw ClientError.invalidResponse }
             if case .unavailable = current { throw ClientError.invalidResponse }
             let request = AccountSignInRequest(operationId:UUID().uuidString,expectedRevision:current.revision,recoveryEpoch:selected.recoveryEpoch,expiresAt:Int64(Date().timeIntervalSince1970 * 1000) + 110_000)
-            let intent = AccountSignInIntent(format:1,connection:connection,request:request)
+            let intent = AccountSignInIntent(format:1,connection:connection,request:request,provider:accountProvider)
             try storage.prepareAccountSignIn(intent); accountSignInIntent = intent
-            let result = try await client.startAccountSignIn(request)
+            let result = try await client.startAccountSignIn(request,provider:accountProvider)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Sign-in was not confirmed. Check status before retrying the saved request." }
         accountSignInBusy = false
@@ -209,8 +226,8 @@ import Observation
             let (client,connection,selected) = try accountScope()
             guard let intent = try storage.accountSignInIntent(for:connection), intent.request.recoveryEpoch == selected.recoveryEpoch,
                   intent.request.expiresAt > Int64(Date().timeIntervalSince1970 * 1000) else { throw ClientError.invalidResponse }
-            accountSignInIntent = intent
-            let result = try await client.startAccountSignIn(intent.request)
+            accountSignInIntent = intent; accountProvider = intent.provider
+            let result = try await client.startAccountSignIn(intent.request,provider:intent.provider)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "The exact saved sign-in request could not be confirmed. Its deadline has not been extended." }
         accountSignInBusy = false
@@ -223,15 +240,15 @@ import Observation
         do {
             let (client,connection,selected) = try accountScope()
             var intent = try storage.accountSignInIntent(for:connection)
-            let current = try await client.accountSignInStatus()
+            let current = try await client.accountSignInStatus(provider:accountProvider)
             guard generation == accountStatusGeneration, try accountScopeMatches(connection,selected), let operation = current.operation else { throw ClientError.invalidResponse }
             if let intent { guard intent.request.recoveryEpoch == selected.recoveryEpoch, intent.request.matches(operation) else { throw ClientError.invalidResponse } }
             else {
-                let adopted = AccountSignInIntent(format:1,connection:connection,request:AccountSignInRequest(operationId:operation.operationID,expectedRevision:operation.revision - 1,recoveryEpoch:selected.recoveryEpoch,expiresAt:operation.expiresAt))
+                let adopted = AccountSignInIntent(format:1,connection:connection,request:AccountSignInRequest(operationId:operation.operationID,expectedRevision:operation.revision - 1,recoveryEpoch:selected.recoveryEpoch,expiresAt:operation.expiresAt),provider:accountProvider)
                 try storage.prepareAccountSignIn(adopted); intent = adopted
             }
             accountSignInIntent = intent; accountSignInStatus = nil
-            let result = try await client.cancelAccountSignIn(operation,recoveryEpoch:selected.recoveryEpoch)
+            let result = try await client.cancelAccountSignIn(operation,recoveryEpoch:selected.recoveryEpoch,provider:accountProvider)
             try acceptAccountStatus(result,connection:connection,installation:selected,intent:intent,generation:generation)
         } catch { accountSignInStatus = nil; accountSignInMessage = "Cancellation is unconfirmed. Check status or retry cancellation; account access has not been revoked." }
     }
@@ -242,7 +259,7 @@ import Observation
             let (client,connection,selected) = try accountScope()
             guard let intent = try storage.accountSignInIntent(for:connection), intent.request.recoveryEpoch == selected.recoveryEpoch,
                   intent.request.expiresAt + 5000 <= Int64(Date().timeIntervalSince1970 * 1000) else { throw ClientError.invalidResponse }
-            let current = try await client.accountSignInStatus()
+            let current = try await client.accountSignInStatus(provider:accountProvider)
             guard try accountScopeMatches(connection,selected), !current.isActive, try storage.accountSignInIntent(for:connection) == intent else { throw ClientError.invalidResponse }
             try storage.clearAccountSignIn(intent); accountSignInIntent = nil; accountSignInStatus = current
             accountSignInMessage = "The expired local request was discarded. No login or account revocation was performed."
@@ -1087,15 +1104,15 @@ import Observation
         guard installation?.supports("modelCatalog") == true, let client else { modelCatalog = .unchecked; return }
         loadingModels = true; defer { loadingModels = false }
         do {
-            let catalog = try await client.models()
-            guard catalog.provider == runtimeProvider, ["ready","unavailable","error"].contains(catalog.state), catalog.models.count <= 800, Set(catalog.models.map(\.id)).count == catalog.models.count else { throw ClientError.invalidResponse }
+            let catalog = try await client.models(provider:accountProvider)
+            guard catalog.provider == (focusedRuntime?.provider ?? runtimeProvider), ["ready","unavailable","error"].contains(catalog.state), catalog.models.count <= 800, Set(catalog.models.map(\.id)).count == catalog.models.count else { throw ClientError.invalidResponse }
             modelCatalog = catalog
-        } catch { modelCatalog = ModelCatalog(provider:runtimeProvider ?? "",state:"error",models:[],detail:"Could not check models. Your saved selection has not changed.") }
+        } catch { modelCatalog = ModelCatalog(provider:focusedRuntime?.provider ?? runtimeProvider ?? "",state:"error",models:[],detail:"Could not check models. Your saved selection has not changed.") }
     }
-    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async -> Bool {
+    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil, provider: String? = nil) async -> Bool {
         guard let client = await beginWorkspaceSave() else { return false }
         do {
-            let saved = try await client.saveAgent(agent,name:name,model:model,instructions:instructions,avatar:avatar)
+            let saved = try await client.saveAgent(agent,name:name,model:model,instructions:instructions,avatar:avatar,provider:provider)
             selectedAgentID = saved.id; selectedConversationID = saved.homeConversationId; recipientAgentID = nil
             isBusy = false; await refresh(); workspaceSaving = false; return true
         } catch { status = error.localizedDescription; isBusy = false; workspaceSaving = false; return false }

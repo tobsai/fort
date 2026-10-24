@@ -469,4 +469,16 @@ func agentStorageProviderCleanupBudget() throws {
     #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path).isEmpty)
 }
 
+@Test func agentStorageReadsTheHostsLastStartFailureWithoutFollowingLinks() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:try storageEndpoint(),resolveContainer:{ _ in root })
+    let file = root.appendingPathComponent("FortHost/host-start-failure.txt")
+    #expect(try storage.lastHostStartFailure() == nil)
+    try Data("Installation runtime identity changed; explicit binding migration is required\n".utf8).write(to:file)
+    #expect(try storage.lastHostStartFailure() == "Installation runtime identity changed; explicit binding migration is required")
+    try FileManager.default.removeItem(at:file)
+    try FileManager.default.createSymbolicLink(at:file,withDestinationURL:root.appendingPathComponent("elsewhere"))
+    #expect(throws:(any Error).self) { try storage.lastHostStartFailure() }
+}
+
 #endif

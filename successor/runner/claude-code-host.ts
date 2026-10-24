@@ -5,7 +5,8 @@ import { isAbsolute, join, normalize } from 'node:path';
 import type { RuntimeDescriptor } from '../contracts/v1.ts';
 import { ClaudeCodeChat, claudeCodeLaunch, claudeCodeRuntime, type ClaudeCodeLaunch, type ClaudeCodeProcess } from './claude-code-chat.ts';
 
-// Claude-only host mode (Spec 062). The owner's choice is <data>/ClaudeCode/selection.json, written by the app.
+// Claude Code beside ChatGPT on the Mac host (Specs 062, 064). The owner turns it on in the app, which writes
+// <data>/ClaudeCode/selection.json.
 // Fort runs the owner's installed Claude Code in place, read-only (the helper's one sandbox exception is
 // ~/.local/share/claude/), and never downloads, copies or changes it. The App Sandbox will not launch a
 // binary placed in Fort's own container, so copying is not an option.

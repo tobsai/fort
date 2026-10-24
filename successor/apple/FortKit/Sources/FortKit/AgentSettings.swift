@@ -82,7 +82,14 @@ struct AgentSettingsEditor: View {
             }
             #endif
             Section("Model") {
-                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.runtimeName).font(.caption)
+                // Spec 064: a new Agent picks its provider once; an existing Agent shows the one it keeps.
+                if agent == nil && model.runtimes.count > 1 {
+                    Picker("Provider",selection:SwiftUI.Binding(get:{ model.focusedRuntime?.provider ?? "" },set:{ value in form.exactModel = ""; Task { await model.focusRuntime(value) } })) {
+                        ForEach(model.runtimes,id:\.provider) { runtime in Text(runtime.name).tag(runtime.provider) }
+                    }.disabled(!model.canChangeAccountProvider).accessibilityIdentifier("agent-provider")
+                    Text("An Agent keeps this provider for good. Fort never switches it to another.").font(.caption).foregroundStyle(.secondary)
+                }
+                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
                 Picker("Model",selection:$form.exactModel) {
                     if form.exactModel.isEmpty { Text("Choose a model").tag("") }
                     ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in
@@ -109,7 +116,10 @@ struct AgentSettingsEditor: View {
         }.formStyle(.grouped)
         .navigationTitle(agent?.name ?? "New agent")
         .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { if await form.save(using:model) { dismiss() } } }.disabled(!valid || model.workspaceSaving) } }
-        .task { await model.refreshModels() }
+        .task {
+            if let agent { await model.focusRuntime(agent.binding.provider) }
+            await model.refreshModels()
+        }
     }
 }
 
