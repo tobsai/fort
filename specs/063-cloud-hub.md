@@ -97,6 +97,13 @@ service needs approval.
    status. This step also covers ledger migration (export from the Mac, import on the
    hub, the local copy kept until the owner confirms). It is tested by fixture first.
    A real Railway deploy and a real Mac enrollment come after approval.
+   Built so far: `keepConnected` in `runner/hub-runner.ts` reconnects with capped,
+   jittered backoff, treats 45 seconds of silence as a dead connection, and stops for
+   good when the hub refuses its token. For one Mac the ledger needs no binding
+   rewrite: the Mac enrolls with its existing `hostId` as its runner ID, and the hub
+   runs with `FORT_NODE` set to that value, so `migrateLedger`'s copy is enough.
+   Still to build: the helper launching runner mode, storing the runner token (a new
+   credential on the Mac, so it needs approval first) and the Mac app's status view.
 
 Rejected alternatives:
 - A VPN mesh (Tailscale everywhere): it puts a client on every device.
