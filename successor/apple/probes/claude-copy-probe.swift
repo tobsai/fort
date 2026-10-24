@@ -1,16 +1,19 @@
 // Sandboxed probe: copies the owner's claude binary into this sandbox container, as Fort will,
 // then runs the copy's `--version` and `auth status --json`. No prompt is sent and no token is read.
-// Usage: claude-copy-probe <claude binary>
+// Usage: claude-copy-probe <claude binary> | claude-copy-probe --existing (run a copy placed in the container from outside the sandbox)
 import Foundation
 
-let source = URL(fileURLWithPath:CommandLine.arguments[1]).resolvingSymlinksInPath()
+let existing = CommandLine.arguments[1] == "--existing"
 let home = ProcessInfo.processInfo.environment["HOME"] ?? ""
 let directory = URL(fileURLWithPath:home + "/ClaudeCode"), copy = directory.appendingPathComponent("claude"), temporary = home + "/tmp"
 try? FileManager.default.createDirectory(atPath:temporary,withIntermediateDirectories:true)
-try? FileManager.default.removeItem(at:copy)
-try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
-try Data(contentsOf:source).write(to:copy)
-try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:copy.path)
+if !existing {
+    let source = URL(fileURLWithPath:CommandLine.arguments[1]).resolvingSymlinksInPath()
+    try? FileManager.default.removeItem(at:copy)
+    try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+    try Data(contentsOf:source).write(to:copy)
+    try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:copy.path)
+}
 let quarantine = getxattr(copy.path,"com.apple.quarantine",nil,0,0,0) >= 0
 print("copied bytes:", (try? FileManager.default.attributesOfItem(atPath:copy.path)[.size]) ?? "?", "quarantined:", quarantine)
 
