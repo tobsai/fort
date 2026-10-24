@@ -82,7 +82,7 @@ struct AccountSignInPanel: View {
     }
 
     @ViewBuilder private func actionButton(_ action: AccountPanel.Action?, name: String) -> some View {
-        switch panel.action {
+        switch action {
         case .signIn? where canStart && model.accountSignInStatus?.reportedAccount == nil:
             Button("Sign in to \(name)") { Task { await model.startAccountSignIn() } }
                 .buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black)

@@ -204,7 +204,7 @@ struct WorkshopDrawer<Content: View>: View {
             if open { content() }
         }
         .padding(10).frame(maxWidth:.infinity,alignment:.leading)
-        .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(style:StrokeStyle(lineWidth:1,dash:[5,4])).foregroundStyle(.secondary.opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(style:StrokeStyle(lineWidth:1,dash:[5,4])).foregroundStyle(Color.secondary.opacity(0.6)))
     }
 }
 
