@@ -115,6 +115,10 @@ public struct FortClient: Sendable {
         return try await request(path:path,query:[URLQueryItem(name:"before",value:String(before))],method:.get,data:nil)
     }
     public func receipt(requestID: String) async throws -> Acceptance { try await get("v1/requests/\(try segment(requestID))") }
+    public func weeks() async throws -> [WeekView] {
+        struct Response: Decodable { let weeks: [WeekView] }
+        let response: Response = try await get("v1/weeks"); return response.weeks
+    }
     public func schedules() async throws -> [ScheduleRevision] {
         struct Response: Decodable { let schedules: [ScheduleRevision] }
         let response: Response = try await get("v1/schedules"); return response.schedules
