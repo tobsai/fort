@@ -52,9 +52,20 @@ public enum MacAgentServiceError: Error, LocalizedError {
             arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:Self.hostEnvironment(),guardian:program.guardian) },
             makeListener:makeListener)
     }
-    // Only the sandbox container's temporary directory: Claude Code needs a short private one (Spec 062).
-    static func hostEnvironment(temporary: URL = FileManager.default.temporaryDirectory) -> [String:String] {
-        ["TMPDIR":temporary.standardizedFileURL.path]
+    // Only the sandbox container's temporary directory, and the shorter of its two names. Claude Code's local socket must
+    // fit in 103 bytes, so its private directory under TMPDIR stays within 72 (Spec 062). The system temporary directory
+    // can be too long; the container's own Data/tmp is usually shorter.
+    static func hostEnvironment(temporary: URL = FileManager.default.temporaryDirectory, home: String = NSHomeDirectory()) -> [String:String] {
+        let candidates = [home + "/tmp",temporary.path].compactMap(canonicalDirectory)
+        return ["TMPDIR":candidates.min(by:{ $0.utf8.count < $1.utf8.count }) ?? temporary.standardizedFileURL.path]
+    }
+    private static func canonicalDirectory(_ path: String) -> String? {
+        guard let resolved = realpath(path,nil) else { return nil }
+        defer { free(resolved) }
+        let value = String(cString:resolved)
+        var info = stat()
+        guard lstat(value,&info) == 0, info.st_mode & S_IFMT == S_IFDIR, info.st_uid == geteuid() else { return nil }
+        return value
     }
     init(prepareStorage: @escaping @MainActor () throws -> MacAgentStorage,
          launch: @escaping @MainActor (URL) async throws -> MacCoreHost,
