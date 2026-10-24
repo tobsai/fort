@@ -333,7 +333,7 @@ import Observation
     /// Fills the phone setup fields from a Mac invitation; sends nothing.
     @discardableResult public func applyCompanionInvitation(_ text: String) -> Bool {
         guard pendingCompanionSetup == nil, let link = try? CompanionInvitationLink(text:text) else {
-            companionSetupMessage = "That isn't a Fort invitation. Copy it again from Phone access on your Mac."; return false
+            companionSetupMessage = "That isn't a Fort invitation. Copy it again from Menu → Devices on your Mac."; return false
         }
         companionAddress = link.address.absoluteString; companionInstallationID = link.installationID
         companionInvitationID = link.invitationID; companionInvitationCode = link.code
@@ -1355,7 +1355,7 @@ extension MessengerModel {
             let receipt = try await client.inviteCompanion(invitationID:fresh.id,code:fresh.code)
             phoneInvitation = try CompanionInvitationLink(address:address,installationID:connection.installationID,invitationID:receipt.invitationId,code:fresh.code)
             phonePairing = .invited(invitationID:receipt.invitationId,expiresAt:receipt.expiresAt)
-            phoneAccessMessage = "Copy the invitation, then paste it on your phone under Connect this phone."
+            phoneAccessMessage = "Copy the invitation, then paste it on your phone under Join your Fort."
         } catch { phoneAccessMessage = "The invitation couldn't be created. A phone may already be paired or invited." }
     }
     public func revokePhone(deviceID: String) async {
