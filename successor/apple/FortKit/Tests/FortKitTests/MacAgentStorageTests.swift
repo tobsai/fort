@@ -453,4 +453,20 @@ func agentStorageProviderCleanupBudget() throws {
     try JSONEncoder().encode(samples).write(to:URL(fileURLWithPath:destination),options:.withoutOverwriting)
     #expect(samples.sorted()[18] <= 25)
 }
+
+@Test func agentStorageRecordsTheOwnersClaudeChoiceAndReleasesThePin() throws {
+    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
+    let storage = try MacAgentStorage.prepare(for:try storageEndpoint(),resolveContainer:{ _ in root })
+    let directory = root.appendingPathComponent("FortHost/ClaudeCode")
+    try storage.removeClaudeCode()
+    try storage.selectClaudeCode()
+    #expect(try String(contentsOf:directory.appendingPathComponent("selection.json"),encoding:.utf8) == "{}\n")
+    #expect((try FileManager.default.attributesOfItem(atPath:directory.path)[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+    try Data("{\"version\":\"2.1.299\"}\n".utf8).write(to:directory.appendingPathComponent("pinned.json"))
+    try storage.selectClaudeCode()
+    #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path) == ["selection.json"])
+    try storage.removeClaudeCode()
+    #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path).isEmpty)
+}
+
 #endif
