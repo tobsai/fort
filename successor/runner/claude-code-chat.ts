@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, normalize } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
@@ -15,7 +15,24 @@ export function claudeCodeRuntime(runtimeVersion: string): RuntimeDescriptor {
 }
 
 export type ClaudeCodeLaunch = { executable: string; args: string[]; cwd: string; env: Record<string, string> };
-export type ClaudeCodeProcess = { stdin: Writable; stdout: Readable; kill(): void };
+// `ended` says how the process ended, for the host log when a session dies before it answers.
+export type ClaudeCodeProcess = { stdin: Writable; stdout: Readable; kill(): void; ended?: Promise<string> };
+
+// Claude Code's own error text for the host log: one line, emails and long tokens masked.
+function clean(text: string): string {
+  return text.split('\n')[0]!.replace(/[^\s@]+@[^\s@]+/g, '[email]').replace(/[A-Za-z0-9_+/=-]{32,}/g, '[masked]').replace(/[^\x20-\x7e]/g, ' ').trim().slice(0, 200);
+}
+
+// How a Claude Code process ended, with the first line of its error output. That line is printed before Fort sends
+// anything, so it holds no message text; emails and long tokens are masked anyway.
+export function processEnding(child: ChildProcess): Promise<string> {
+  let error = '';
+  child.stderr?.on('data', (chunk: Buffer) => { if (error.length < 1024) error += chunk.toString('utf8', 0, 1024); });
+  return new Promise(resolve => child.once('close', (code, signal) => {
+    const line = clean(error.split('\n').find(text => text.trim()) ?? '');
+    resolve((signal ? 'signal ' + signal : 'exit ' + code) + (line ? ': ' + line : ''));
+  }));
+}
 type LaunchOptions = { executable: string; workspace: string; home: string; runtimeDirectory: string; model?: string };
 type ChatOptions = Omit<LaunchOptions, 'model'> & {
   runtimeVersion: string;
@@ -156,11 +173,16 @@ class Session {
   private readonly pending = new Map<string, (response: Record<string, unknown> | undefined) => void>();
   private buffer = '';
   private wire = 0;
-  private closed = false;
-  onFrame: (frame: Record<string, unknown>) => void = () => { throw new Error('Unexpected Claude Code output'); };
+  closed = false;
+  // What Claude Code said instead of answering, for the host log: frame kinds and its own error text, never a reply.
+  readonly problems: string[] = [];
+  // Before a turn starts nothing has been sent, so other frames are noted and skipped rather than ending the session.
+  onFrame: (frame: Record<string, unknown>) => void = frame => { this.note('skipped a ' + kind(frame) + ' frame'); };
   onClose: () => void = () => {};
+  readonly ended: Promise<string | undefined>;
   constructor(process: ClaudeCodeProcess) {
     this.process = process;
+    this.ended = process.ended ?? Promise.resolve(undefined);
     process.stdout.on('data', (bytes: Buffer) => this.receive(bytes));
     for (const event of ['end', 'close', 'error']) process.stdout.on(event, () => this.close());
     process.stdin.on('error', () => this.close());
@@ -201,12 +223,19 @@ class Session {
         const frame = record(JSON.parse(line));
         if (frame.type === 'control_response') {
           const response = record(frame.response), settle = typeof response.request_id === 'string' ? this.pending.get(response.request_id) : undefined;
+          if (response.subtype !== 'success') this.note('refused a request: ' + (typeof response.error === 'string' ? clean(response.error) : kind(response)));
           settle?.(response.subtype === 'success' ? record(response.response ?? {}) : undefined);
         } else this.onFrame(frame);
       }
       if (Buffer.byteLength(this.buffer) > MAX_FRAME) throw new Error('Frame limit');
-    } catch { this.close(); }
+    } catch (error) { this.note(failureReason(error)); this.close(); }
   }
+  private note(problem: string) { if (this.problems.length < 3) this.problems.push(problem); }
+}
+
+// A frame's kind from its enum fields only.
+function kind(frame: Record<string, unknown>): string {
+  return [frame.type, frame.subtype].filter((value): value is string => typeof value === 'string' && /^[a-z0-9_]{1,40}$/.test(value)).join('/') || 'unrecognized';
 }
 
 // Turn evidence. Only the final `result`, matching assistant text from the selected model, counts as a reply.
@@ -277,9 +306,9 @@ export class ClaudeCodeChat implements ChatRuntime {
     if (!/^\d+\.\d+\.\d+$/.test(options.runtimeVersion)) throw new Error('Pin an exact Claude Code version');
     this.options = options;
     this.launch = options.launch ?? (plan => {
-      const child = spawn(plan.executable, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['pipe', 'pipe', 'ignore'] });
+      const child = spawn(plan.executable, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['pipe', 'pipe', 'pipe'] });
       child.on('error', () => child.stdout.destroy());
-      return { stdin: child.stdin, stdout: child.stdout, kill: () => { child.kill('SIGTERM'); } };
+      return { stdin: child.stdin, stdout: child.stdout, kill: () => { child.kill('SIGTERM'); }, ended: processEnding(child) };
     });
   }
 
@@ -288,7 +317,11 @@ export class ClaudeCodeChat implements ChatRuntime {
   }
   async dispose(): Promise<void> { this.disposed = true; }
 
-  private failed(step: string, error: unknown) { this.options.report?.('Claude Code ' + step + ' failed: ' + failureReason(error)); }
+  private async failed(step: string, error: unknown, session?: Session) {
+    const ended = session?.closed ? await Promise.race([session.ended, new Promise<undefined>(resolve => setTimeout(resolve, 1000))]) : undefined;
+    const said = [...(session?.problems ?? []), ...(ended ? [ended] : [])];
+    this.options.report?.('Claude Code ' + step + ' failed: ' + failureReason(error) + (said.length ? ' (Claude Code ' + said.join('; ') + ')' : ''));
+  }
 
   private async account(signal: AbortSignal): Promise<AccountIdentity | null> {
     const status = await (this.options.authStatus ?? (signal => readAuthStatus(this.options, signal)))(signal);
@@ -320,7 +353,7 @@ export class ClaudeCodeChat implements ChatRuntime {
       session = this.open();
       const models = checkInitialize(await session.control({ subtype: 'initialize' }, signal), this.options.runtimeVersion, account);
       return { provider, state: 'ready', models, checkedAt: new Date().toISOString() };
-    } catch (error) { this.failed('model check', error); return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
+    } catch (error) { await this.failed('model check', error, session); return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
     finally { session?.close(); this.busy = false; }
   }
 
@@ -343,13 +376,13 @@ export class ClaudeCodeChat implements ChatRuntime {
       const page = loginPage(record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded)).automaticUrl);
       options.onChallenge({ kind: 'browserAuthorization', authorizationURL: page });
       try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
-      catch (error) { if (bounded.aborted) return { kind: 'canceled' }; this.failed('sign-in completion', error); }
+      catch (error) { if (bounded.aborted) return { kind: 'canceled' }; void this.failed('sign-in completion', error); }
       session.close();
       step = 'sign-in account read-back';
       const account = await this.account(AbortSignal.timeout(CONTROL_MS));
       if (!account) this.options.report?.('Claude Code sign-in finished, but Claude reports no signed-in account');
       return account ? { kind: 'signedIn', account } : { kind: 'unconfirmed' };
-    } catch (error) { if (bounded.aborted) return { kind: 'canceled' }; this.failed(step, error); return { kind: 'unconfirmed' }; }
+    } catch (error) { if (bounded.aborted) return { kind: 'canceled' }; await this.failed(step, error, session); return { kind: 'unconfirmed' }; }
     finally { clearTimeout(timer); session?.close(); this.busy = false; }
   }
 
@@ -382,7 +415,7 @@ export class ClaudeCodeChat implements ChatRuntime {
         session = this.open(configuration.selectedModel);
         const models = checkInitialize(await session.control({ subtype: 'initialize', systemPrompt }, signal), this.options.runtimeVersion, account);
         if (!models.some(model => model.id === configuration.selectedModel)) throw new Error('Selected model unavailable');
-      } catch (error) { this.failed('turn preflight', error); return { kind: 'notStarted', message: 'Claude Code preflight was not confirmed. Nothing was sent.' }; }
+      } catch (error) { await this.failed('turn preflight', error, session); return { kind: 'notStarted', message: 'Claude Code preflight was not confirmed. Nothing was sent.' }; }
       if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before runtime dispatch.' };
       return await this.turn(session, configuration.selectedModel, text, signal, dispatch.deadline);
     } finally { session?.close(); this.busy = false; }

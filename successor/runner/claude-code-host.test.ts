@@ -82,6 +82,15 @@ test('the host refuses links, shared or mislabelled binaries, a non-empty worksp
   }
 });
 
+test('a Claude Code session that ends early says how, with its first error line and no account values', async t => {
+  const f = setup(t); mkdirSync(f.temporary, { mode: 0o700 });
+  const crash = join(f.installation, '2.1.310');
+  writeFileSync(crash, `#!${process.execPath}\nprocess.stderr.write('Error: synthetic startup failure for owner@example.com\\nsecond line');\nprocess.exit(3);\n`, { mode: 0o755 });
+  const child = guardedClaudeLaunch(f.guardian)({ executable: crash, args: ['-p'], cwd: f.directory, env: { PATH: '/usr/bin:/bin', TMPDIR: f.temporary } });
+  const ended = await child.ended!;
+  assert.match(ended, /^exit 3: Error: synthetic startup failure for \[email\]$/);
+});
+
 test('every Claude Code session runs under the guardian with the isolated environment, and kill ends its process group', async t => {
   const f = setup(t); mkdirSync(f.temporary, { mode: 0o700 });
   const launch = guardedClaudeLaunch(f.guardian), executable = join(f.installation, '2.1.310');
