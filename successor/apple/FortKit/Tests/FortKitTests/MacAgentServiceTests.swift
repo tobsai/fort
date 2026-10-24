@@ -87,7 +87,7 @@ import Testing
 }
 
 // Spec 062: Claude Code's socket needs a short private directory, so the helper passes the shorter temporary directory.
-@Test func agentServicePassesTheShorterCanonicalTemporaryDirectory() throws {
+@Test @MainActor func agentServicePassesTheShorterCanonicalTemporaryDirectory() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("fort-tmp-" + UUID().uuidString,isDirectory:true)
     let long = root.appendingPathComponent(String(repeating:"long",count:12),isDirectory:true)
     try FileManager.default.createDirectory(at:long,withIntermediateDirectories:true)
