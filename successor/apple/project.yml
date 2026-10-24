@@ -42,7 +42,11 @@ targets:
       - package: FortKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.fort.spec058.fixture.ios
+        PRODUCT_BUNDLE_IDENTIFIER: io.mtree.fort
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: T3JB5MYZ93
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

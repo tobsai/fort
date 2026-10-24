@@ -1,7 +1,0 @@
-PRESERVED prototype-candidate-b-session starts=1 phase=blocked receipts=0; full file set and hashes unchanged
-PRESERVED prototype-candidate-b-replacement-20261016 starts=1 phase=blocked receipts=0; full file set and hashes unchanged
-PRESERVED prototype-candidate-b-third-20261016 starts=1 phase=blocked receipts=0; full file set and hashes unchanged
-PRESERVED main checkout status matches original baseline
-PRESERVED native app file set/hash and official runtime executable hash; neither executed
-PRESERVED historical evidence/packets, native sources, launcher and manual entry
-No SQLite connection, credentials, runtime launch, provider call or settings mutation performed

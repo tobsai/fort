@@ -1,5 +1,0 @@
-(version 1)
-(allow default)
-(deny network*)
-(deny file-read* (regex #"^/.*$"))
-(deny file-write* (regex #"^/.*$"))

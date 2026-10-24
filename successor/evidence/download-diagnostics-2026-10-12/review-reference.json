@@ -1,6 +1,0 @@
-{
-  "path": "reviews/ubuntu-key-28f76cf/REVIEW.md",
-  "sha256": "e4810a4a142414e3094ac4a12b10cda41f6c1040782a37e02f33fc72c1d08284",
-  "review_source": "parent-owned untracked review, read-only",
-  "finding": "Fifteen fresh exports match original pin; historical mismatch unexplained; original pins retained."
-}

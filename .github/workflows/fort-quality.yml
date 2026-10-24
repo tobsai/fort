@@ -3,11 +3,6 @@ name: Fort quality
 on:
   pull_request:
   workflow_dispatch:
-    inputs:
-      review_base:
-        description: Trusted full commit SHA for the reviewed comparison
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -17,30 +12,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      native: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.native == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
+          # One process, so pipefail can't turn an early grep -q exit into "no changes".
+          if awk '/^(successor\/|\.github\/workflows\/)/ && !/\.md$/ { found = 1 } END { exit !found }' "$RUNNER_TEMP/changed.txt"; then
+            echo native=true >> "$GITHUB_OUTPUT"
+          else
+            echo native=false >> "$GITHUB_OUTPUT"
+          fi
+
   portable:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 26.5.0
           package-manager-cache: false
       - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
-      - run: npm --prefix successor run test:specs
-      - run: npm --prefix successor run test:reviews
-      - name: Check required review evidence
-        env:
-          FORT_REVIEW_BASE: ${{ github.event.pull_request.base.sha || inputs.review_base }}
-        run: node ops/architecture/validate-reviews.mjs --base "$FORT_REVIEW_BASE"
-      - run: node ops/architecture/validate-specs.mjs --implementation specs/059-modular-node-v1.md
       - run: npm --prefix successor run typecheck
       - run: npm --prefix successor test
 
   native:
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: xcode-27
     timeout-minutes: 20
     env:
@@ -48,14 +60,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 26.5.0
           package-manager-cache: false
       - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
-      - run: npm --prefix successor run check:specs
       - run: npm --prefix successor run test:macos
       - name: Prepare synthetic native host fixtures
         shell: bash

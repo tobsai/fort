@@ -7,16 +7,18 @@ public final class MacHostListener: NSObject, NSXPCListenerDelegate {
     private let transport: any FortTransport
     private let ownerControl: (any MacOwnerControl)?
     private let ownerSetup: (any OwnerSetupControl)?
-    public init(clientIdentifier: String, signingTeam: String, transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil) throws {
+    private let networkControl: (any MacNetworkControl)?
+    public init(clientIdentifier: String, signingTeam: String, transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil, networkControl: (any MacNetworkControl)? = nil) throws {
         requirement = try macPeerRequirement(identifier:clientIdentifier,signingTeam:signingTeam)
         self.transport = transport
         self.ownerControl = ownerControl
         self.ownerSetup = ownerSetup
+        self.networkControl = networkControl
     }
     public func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         guard connection.effectiveUserIdentifier == geteuid() else { return false }
         connection.setCodeSigningRequirement(requirement)
-        let channel = MacHostChannel(transport:transport,ownerControl:ownerControl,ownerSetup:ownerSetup)
+        let channel = MacHostChannel(transport:transport,ownerControl:ownerControl,ownerSetup:ownerSetup,networkControl:networkControl)
         connection.exportedInterface = NSXPCInterface(with:FortHostChannel.self)
         connection.exportedObject = channel
         connection.interruptionHandler = { channel.cancel() }
@@ -30,12 +32,15 @@ final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
     private let transport: any FortTransport
     private let ownerControl: (any MacOwnerControl)?
     private let ownerSetup: (any OwnerSetupControl)?
+    private let networkControl: (any MacNetworkControl)?
     private let lock = NSLock()
     private var started = false
     private var canceled = false
     private var task: Task<Void,Never>?
     private var reply: ((Data?, NSError?) -> Void)?
-    init(transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil) { self.transport = transport; self.ownerControl = ownerControl; self.ownerSetup = ownerSetup }
+    init(transport: any FortTransport, ownerControl: (any MacOwnerControl)? = nil, ownerSetup: (any OwnerSetupControl)? = nil, networkControl: (any MacNetworkControl)? = nil) {
+        self.transport = transport; self.ownerControl = ownerControl; self.ownerSetup = ownerSetup; self.networkControl = networkControl
+    }
     func exchange(_ bytes: Data, reply: @escaping (Data?, NSError?) -> Void) {
         do {
             guard bytes.count <= 2 * 1024 * 1024 else { throw ClientError.invalidResponse }
@@ -61,6 +66,21 @@ final class MacHostChannel: NSObject, FortHostChannel, @unchecked Sendable {
                 try receipt.validate(for:request)
                 let encoded = try JSONEncoder().encode(receipt)
                 guard encoded.count <= 1024 else { throw ClientError.invalidResponse }
+                return encoded
+            }
+        } catch { reply(nil,error as NSError) }
+    }
+    func controlNetwork(_ bytes: Data, reply: @escaping (Data?, NSError?) -> Void) {
+        do {
+            guard bytes.count <= 192 * 1024 else { throw ClientError.invalidResponse }
+            let request = try JSONDecoder().decode(MacNetworkRequest.self,from:bytes)
+            try request.validate()
+            guard let networkControl else { throw networkControlUnavailable() }
+            try begin(reply:reply) {
+                let status = try await networkControl.controlNetwork(request)
+                try status.validate(for:request)
+                let encoded = try JSONEncoder().encode(status)
+                guard encoded.count <= 4096 else { throw ClientError.invalidResponse }
                 return encoded
             }
         } catch { reply(nil,error as NSError) }

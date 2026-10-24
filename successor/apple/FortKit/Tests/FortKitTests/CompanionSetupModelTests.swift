@@ -212,3 +212,17 @@ func phoneSetupModelSeparatesConfirmedPendingRemovalFromLocalForgetting(forget: 
     #expect(!model.canPrepareCompanion && !model.canSubmitCompanionInvitation)
 }
 #endif
+
+@Test @MainActor func phoneSetupModelFillsExactFieldsFromAPastedInvitationOnly() async throws {
+    let fixture = try PhoneModelFixture(); defer { fixture.close() }
+    let model = fixture.model()
+    model.companionDeviceName = "Synthetic phone"
+    #expect(!model.applyCompanionInvitation("not an invitation"))
+    #expect(model.companionAddress.isEmpty && model.companionInvitationCode.isEmpty)
+    let link = try CompanionInvitationLink(address:URL(string:"https://phone-model.invalid:8443")!,installationID:"phone-host",invitationID:"invite",code:modelPhoneToken(1))
+    #expect(model.applyCompanionInvitation(link.text))
+    #expect(model.companionAddress == "https://phone-model.invalid:8443" && model.companionInstallationID == "phone-host")
+    #expect(model.companionInvitationID == "invite" && model.companionInvitationCode == modelPhoneToken(1))
+    #expect(model.companionDeviceName == "Synthetic phone")
+    #expect(await fixture.transport.requests.isEmpty)
+}

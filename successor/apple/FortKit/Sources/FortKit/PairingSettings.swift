@@ -55,6 +55,7 @@ struct PairingSettingsView: View {
             #endif
             #if os(macOS)
             if model.canManageProviderAccount { AccountSignInView(model:model) }
+            if model.canManagePhoneAccess { PhoneAccessView(model:model) }
             #endif
             Section("Pairing") {
                 if let pairing = model.pairingStatus {

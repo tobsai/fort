@@ -13,7 +13,7 @@ public enum MacCoreHostError: Error, LocalizedError {
     }
 }
 
-public actor MacCoreHost: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
+public actor MacCoreHost: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl, MacNetworkControl {
     private enum RecoveryPhase {
         case revocationRequired
         case cleanupRequired(MacCorePairingRecovery)
@@ -53,6 +53,9 @@ public actor MacCoreHost: FortTransport, MacOwnerControl, OwnerSetupControl, Own
     }
     public func cancelOwnerSetup(_ identity: OwnerSetupIdentity, timeout: TimeInterval) async throws -> OwnerSetupCancellation {
         try requireServing(); return try await core.cancelOwnerSetup(identity,timeout:timeout)
+    }
+    public func controlNetwork(_ request: MacNetworkRequest) async throws -> MacNetworkStatus {
+        try requireServing(); return try await core.controlNetwork(request)
     }
     public func recoverPairing(_ request: MacOwnerRecoveryRequest) async throws -> MacOwnerRecoveryReceipt {
         try request.validate(); try Task.checkCancellation()

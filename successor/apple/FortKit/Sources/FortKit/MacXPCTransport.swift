@@ -12,9 +12,10 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
     func exchange(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
     func recoverPairing(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
     func setupOwner(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
+    func controlNetwork(_ request: Data, reply: @escaping (Data?, NSError?) -> Void)
 }
 
-public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl {
+public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl, OwnerSetupCancellationControl, MacNetworkControl {
     private let destination: MacXPCDestination
     private let requirement: String
     public init(serviceIdentifier: String, signingTeam: String) throws {
@@ -74,6 +75,18 @@ public struct MacXPCTransport: FortTransport, MacOwnerControl, OwnerSetupControl
         guard let receipt = try? JSONDecoder().decode(OwnerSetupCancellation.self,from:data), receipt.identity == identity else { throw ClientError.invalidResponse }
         return receipt
     }
+    public func controlNetwork(_ request: MacNetworkRequest) async throws -> MacNetworkStatus {
+        try Task.checkCancellation(); try request.validate()
+        let encoded = try JSONEncoder().encode(request)
+        guard encoded.count <= 192 * 1024 else { throw ClientError.invalidResponse }
+        let call = XPCRequest(destination:destination,requirement:requirement,timeout:request.timeout,operation:.network,responseLimit:4096)
+        let reply = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { call.start(encoded,continuation:$0) }
+        } onCancel: { call.cancel() }
+        let status = try JSONDecoder().decode(MacNetworkStatus.self,from:reply.data)
+        try status.validate(for:request)
+        return status
+    }
     private func setup(_ command: OwnerSetupCommand) async throws -> Data {
         try Task.checkCancellation(); try command.validate()
         let encoded = try JSONEncoder().encode(command)
@@ -102,7 +115,7 @@ private struct XPCReply: Sendable {
     let effectiveUserID: UInt32
 }
 
-private enum XPCOperation { case exchange, recovery, setup }
+private enum XPCOperation { case exchange, recovery, setup, network }
 private final class XPCRequest: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.XPCRequest")
     private let destination: MacXPCDestination
@@ -142,6 +155,7 @@ private final class XPCRequest: @unchecked Sendable {
             case .exchange: channel.exchange(bytes,reply:reply)
             case .recovery: channel.recoverPairing(bytes,reply:reply)
             case .setup: channel.setupOwner(bytes,reply:reply)
+            case .network: channel.controlNetwork(bytes,reply:reply)
             }
         }
     }

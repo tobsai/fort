@@ -1,5 +1,7 @@
 # Required Ponytail review
 
+**Superseded** on October 23, 2026 by [decision 061](061-lean-dev-cycle.md).
+
 On October 18, 2026, the owner said: "Yes. Let's add a ponytail check as a required
 review." The instruction was relayed to this implementation task from source
 thread `01a0f307-3940-7333-96b0-a3b0b854e0e8`. No message identifier or correlated

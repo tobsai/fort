@@ -43,6 +43,9 @@ import Observation
     public var lastSavedSkill: InstructionSkill?
     public var routines: [RoutineRevision] = []
     public var schedules: [ScheduleRevision] = []
+    public var weeks: [WeekView] = []
+    public var supportsWeeks: Bool { installation?.supports("weeks") == true }
+    public var liveWeek: WeekView? { weeks.first(where:\.isLive) }
     public var selectedConversationID: String?
     public var recipientAgentID: String?
     public var selectedSkillIDs: Set<String> = []
@@ -297,6 +300,15 @@ import Observation
         }
         companionSetupMessage = connected ? "Phone pairing is confirmed." : "Phone pairing was confirmed. The host is currently unavailable; its saved connection is kept."
     }
+    /// Fills the phone setup fields from a Mac invitation; sends nothing.
+    @discardableResult public func applyCompanionInvitation(_ text: String) -> Bool {
+        guard pendingCompanionSetup == nil, let link = try? CompanionInvitationLink(text:text) else {
+            companionSetupMessage = "That isn't a Fort invitation. Copy it again from Phone access on your Mac."; return false
+        }
+        companionAddress = link.address.absoluteString; companionInstallationID = link.installationID
+        companionInvitationID = link.invitationID; companionInvitationCode = link.code
+        return true
+    }
     public func connectCompanion() async {
         guard canPrepareCompanion, !companionSetupBusy, !lifecycleBusy, !isBusy, client == nil, let companionSetup else { return }
         companionSetupBusy = true; defer { companionSetupBusy = false }
@@ -347,6 +359,14 @@ import Observation
         }
     }
     public var pairingStatus: PairingStatus?
+    #if os(macOS)
+    public internal(set) var phoneAccessBusy = false
+    public internal(set) var phoneAccessMessage = "Import this Mac's Tailscale HTTPS certificate to let your phone connect."
+    public internal(set) var phoneServerName: String?
+    public internal(set) var phoneListener: MacNetworkListener?
+    public internal(set) var phonePairing: CompanionPairingState?
+    public internal(set) var phoneInvitation: CompanionInvitationLink?
+    #endif
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
     private var pairingRemoved = false
@@ -385,7 +405,7 @@ import Observation
     private func clearConversationPresentation() {
         showLatestMessages(); snapshot = nil; installation = nil
         pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
-        agents = []; conversations = []; skills = []; routines = []; schedules = []
+        agents = []; conversations = []; skills = []; routines = []; schedules = []; weeks = []
         selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
         lastSavedSkill = nil; draft = ""; eventCursor = nil
     }
@@ -934,8 +954,9 @@ import Observation
                 conversations = try await client.conversations(); skills = try await client.skills()
                 routines = current.supports("routines") ? try await client.routines() : []
                 schedules = current.supports("schedules") ? try await client.schedules() : []
+                weeks = current.supports("weeks") ? try await client.weeks() : []
                 if !conversations.contains(where:{$0.id == selectedConversationID}) { selectedConversationID = selectedAgent?.homeConversationId }
-            } else { conversations = []; skills = []; selectedConversationID = nil }
+            } else { conversations = []; skills = []; weeks = []; selectedConversationID = nil }
             try saveNavigation()
             pending = try pendingStore?.pending() ?? []
             pendingErrors = [:]
@@ -1119,6 +1140,23 @@ import Observation
         guard let client else { throw ClientError.service("offline","Connect to Fort to compare this revision.") }
         return try await client.skillRevision(skillID:skill.id,revisionID:revision)
     }
+    /// Closes the live week, if any, and founds the planned one. A failure after the close leaves no live week; the draft stays on screen to retry.
+    public func foundWeek(_ draft: PlanDraft) async -> Bool {
+        guard supportsWeeks, draft.canFound, let client = await beginWorkspaceSave() else { return false }
+        defer { workspaceSaving = false }
+        do {
+            if let live = liveWeek { _ = try await client.closeWeek(live) }
+            _ = try await client.foundWeek(draft.request)
+            isBusy = false; await refresh(); return true
+        } catch { status = error.localizedDescription; isBusy = false; await refresh(); return false }
+    }
+    /// Your own quests build as planned the moment you tick them; there is no agent to confirm.
+    public func completeQuest(_ item: WeekPlanItem) async -> Bool {
+        guard supportsWeeks, item.owner == .you, item.doneBuildId == nil, let week = liveWeek, week.plan.contains(where:{ $0.itemId == item.itemId }), let client = await beginWorkspaceSave() else { return false }
+        defer { workspaceSaving = false }
+        do { _ = try await client.placeBuild(item,in:week,size:item.size); isBusy = false; await refresh(); return true }
+        catch { status = error.localizedDescription; isBusy = false; await refresh(); return false }
+    }
     public func saveSchedule(_ revision: ScheduleRevision?, definition: ScheduleDefinition) async -> Bool {
         guard installation?.supports("schedules") == true, let client = await beginWorkspaceSave() else { return false }
         do { _ = try await client.saveSchedule(revision,definition:definition); isBusy = false; await refresh(); workspaceSaving = false; return true }
@@ -1211,3 +1249,94 @@ import Observation
         catch { /* Read state will be retried when the message is presented again. */ }
     }
 }
+
+#if os(macOS)
+extension MessengerModel {
+    public var canManagePhoneAccess: Bool { canControlHost && !isOfflinePreview && !isInteractiveFixture && client != nil }
+    public var phoneListenerActive: Bool { if case .active = phoneListener { true } else { false } }
+    private var phoneAccess: MacPhoneAccess { MacPhoneAccess(directory:storage.directory) }
+    private func phoneScope() throws -> (FortClient, DeviceConnection, any MacNetworkControl) {
+        guard canManagePhoneAccess, let client, let connection = try storage.connection(), pairingStatus?.deviceId == connection.deviceID,
+              let control = try (connectionTransport?(connection.endpoint) ?? connection.endpoint.transport(session:session)) as? any MacNetworkControl else { throw OwnerLifecycleError.wrongPairing }
+        return (client,connection,control)
+    }
+    private func phoneOwner(_ connection: DeviceConnection) -> MacNetworkOwner {
+        MacNetworkOwner(installationId:connection.installationID,deviceId:connection.deviceID)
+    }
+    public func importPhoneIdentity(_ urls: [URL]) async {
+        let keys = urls.filter { $0.pathExtension.lowercased() == "key" || $0.lastPathComponent.lowercased().contains("key") }
+        let certificates = urls.filter { !keys.contains($0) }
+        guard keys.count == 1, certificates.count == 1 else { phoneAccessMessage = "Choose both files from `tailscale cert`: the .crt certificate and the .key private key."; return }
+        await importPhoneIdentity(certificate:certificates[0],privateKey:keys[0])
+    }
+    public func importPhoneIdentity(certificate: URL, privateKey: URL) async {
+        guard canManagePhoneAccess, !phoneAccessBusy else { return }
+        phoneAccessBusy = true; defer { phoneAccessBusy = false }
+        func read(_ url: URL) throws -> Data {
+            let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            return try Data(contentsOf:url)
+        }
+        do {
+            try phoneAccess.save(certificate:try read(certificate),privateKey:try read(privateKey))
+            phoneAccessMessage = "Certificate imported."
+            await refreshPhoneAccess()
+        } catch { phoneAccessMessage = "That certificate and key could not be used. Choose the .crt and .key files from `tailscale cert`." }
+    }
+    public func refreshPhoneAccess() async {
+        guard canManagePhoneAccess else { return }
+        do {
+            phoneServerName = try phoneAccess.identity()?.serverName
+            let (client,connection,control) = try phoneScope()
+            phoneListener = try await control.controlNetwork(try MacNetworkRequest(command:.inspect(owner:phoneOwner(connection)))).listener
+            phonePairing = try await client.companionOverview(hostDeviceID:connection.deviceID).pairing
+        } catch { phoneAccessMessage = "Phone access status could not be confirmed." }
+    }
+    public func startPhoneListener() async {
+        guard canManagePhoneAccess, !phoneAccessBusy else { return }
+        phoneAccessBusy = true; defer { phoneAccessBusy = false }
+        do {
+            guard let identity = try phoneAccess.identity() else { phoneAccessMessage = "Import the Tailscale certificate first."; return }
+            guard let address = MacPhoneAccess.currentTailscaleAddress() else { phoneAccessMessage = "Tailscale isn't connected on this Mac. Open Tailscale, then try again."; return }
+            let (_,connection,control) = try phoneScope(), owner = phoneOwner(connection)
+            let current = try await control.controlNetwork(try MacNetworkRequest(command:.inspect(owner:owner)))
+            let configuration = MacNetworkConfiguration(bindAddress:address,prefixLength:MacPhoneAccess.prefixLength,port:MacPhoneAccess.port,
+                serverName:identity.serverName,certificate:identity.certificate,privateKey:identity.privateKey)
+            let status = try await control.controlNetwork(try MacNetworkRequest(command:.start(owner:owner,sessionId:current.sessionId,generation:current.generation,configuration:configuration)))
+            phoneListener = status.listener
+            phoneAccessMessage = phoneListenerActive ? "Your phone can reach this Mac at https://\(identity.serverName):\(MacPhoneAccess.port) over Tailscale." : "The phone listener didn't start. Check the certificate hasn't expired and Tailscale is connected."
+        } catch { phoneAccessMessage = "The phone listener couldn't be started or confirmed." }
+    }
+    public func stopPhoneListener() async {
+        guard canManagePhoneAccess, !phoneAccessBusy else { return }
+        phoneAccessBusy = true; defer { phoneAccessBusy = false }
+        do {
+            let (_,connection,control) = try phoneScope(), owner = phoneOwner(connection)
+            let current = try await control.controlNetwork(try MacNetworkRequest(command:.inspect(owner:owner)))
+            phoneListener = try await control.controlNetwork(try MacNetworkRequest(command:.stop(owner:owner,sessionId:current.sessionId,generation:current.generation))).listener
+            phoneInvitation = nil; phoneAccessMessage = "Phone listener stopped. A paired phone keeps its access for when you start it again."
+        } catch { phoneAccessMessage = "Stopping the phone listener couldn't be confirmed." }
+    }
+    public func invitePhone() async {
+        guard canManagePhoneAccess, !phoneAccessBusy, phoneListenerActive, let serverName = phoneServerName,
+              let address = URL(string:"https://\(serverName):\(MacPhoneAccess.port)") else { return }
+        phoneAccessBusy = true; defer { phoneAccessBusy = false }
+        do {
+            let (client,connection,_) = try phoneScope(), fresh = MacPhoneAccess.newInvitation()
+            let receipt = try await client.inviteCompanion(invitationID:fresh.id,code:fresh.code)
+            phoneInvitation = try CompanionInvitationLink(address:address,installationID:connection.installationID,invitationID:receipt.invitationId,code:fresh.code)
+            phonePairing = .invited(invitationID:receipt.invitationId,expiresAt:receipt.expiresAt)
+            phoneAccessMessage = "Copy the invitation, then paste it on your phone under Connect this phone."
+        } catch { phoneAccessMessage = "The invitation couldn't be created. A phone may already be paired or invited." }
+    }
+    public func revokePhone(deviceID: String) async {
+        guard canManagePhoneAccess, !phoneAccessBusy else { return }
+        phoneAccessBusy = true; defer { phoneAccessBusy = false }
+        do {
+            let (client,_,_) = try phoneScope()
+            _ = try await client.revokeCompanion(deviceID:deviceID)
+            phoneInvitation = nil; phoneAccessMessage = "The phone's access was revoked."
+            await refreshPhoneAccess()
+        } catch { phoneAccessMessage = "Revoking the phone couldn't be confirmed." }
+    }
+}
+#endif

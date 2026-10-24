@@ -149,11 +149,21 @@ test('an expired, future or mismatched TLS identity cannot activate the transpor
 test('a private bind cannot select a subnet containing public addresses before any bind attempt',async t=>{
   const f=await fixture(t);let attempts=0;
   t.mock.method(Server.prototype,'listen',()=>{attempts++;throw new Error('Synthetic listener boundary');});
-  for(const change of [{bindAddress:'192.168.1.2',prefixLength:15},{bindAddress:'172.16.1.2',prefixLength:11}]) {
+  for(const change of [{bindAddress:'192.168.1.2',prefixLength:15},{bindAddress:'172.16.1.2',prefixLength:11},
+    {bindAddress:'100.111.16.2',prefixLength:9},{bindAddress:'100.128.0.2',prefixLength:10},{bindAddress:'100.63.0.2',prefixLength:16}]) {
     await assert.rejects(openSecureNetwork({...f.options,port:4443,...change}));
     assert.equal(attempts,0);
   }
   await assert.rejects(openSecureNetwork(f.options));assert.equal(attempts,1);
+});
+
+test('a Tailscale shared-address bind reaches the listener only within 100.64.0.0/10',async t=>{
+  const f=await fixture(t);let attempts=0;
+  t.mock.method(Server.prototype,'listen',()=>{attempts++;throw new Error('Synthetic listener boundary');});
+  for(const change of [{bindAddress:'100.111.16.2',prefixLength:10},{bindAddress:'100.64.0.2',prefixLength:24}]) {
+    await assert.rejects(openSecureNetwork({...f.options,port:8443,...change}));
+  }
+  assert.equal(attempts,2);
 });
 
 test('TLS trust and selected subnet are enforced independently of bearer authentication',async t=>{
