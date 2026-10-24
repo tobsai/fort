@@ -110,6 +110,12 @@ test('turning Claude on and off restarts the bundled host by itself, and a Claud
   const installed = await host.api(owner, '/v1/installation');
   assert.equal(installed.runtimes[1].runtimeVersion, VERSION);
 
+  // Toby's Mac: Claude finds a credential from an earlier login but no account record in Fort's private HOME.
+  // That needs Sign in, not an error, and Sign in must reach Claude's login page.
+  writeFileSync(join(claude, 'home', 'fake-claude-credential-only'), 'synthetic\n', { mode: 0o600 });
+  const before = await host.api(owner, '/v1/models?provider=claude-code');
+  assert.equal(before.state, 'unavailable', JSON.stringify(before));
+
   // Sign in to Claude: the host shows Claude's own login page, then reports the account once the login completes.
   const signIn = (suffix = '', body?: unknown) => host.api(owner, '/v1/account/sign-in' + suffix + '?provider=claude-code', body);
   assert.equal((await signIn()).state, 'idle');
@@ -117,8 +123,10 @@ test('turning Claude on and off restarts the bundled host by itself, and a Claud
   await signIn('/start', request);
   const challenged = await until(() => signIn(), status => status.state !== 'idle' && status.state !== 'starting', 'sign-in progressed');
   if (challenged.state === 'challenge') assert.match(JSON.stringify(challenged.challenge), /claude\.com\/cai\/oauth\/authorize/);
+  else assert.equal(challenged.state, 'finished', JSON.stringify(challenged));
   const finished = await until(() => signIn(), status => status.state === 'finished', 'sign-in finished');
   assert.equal(finished.result?.kind, 'signedIn', JSON.stringify(finished));
+  assert.ok(existsSync(join(claude, 'home', 'fake-claude-login-shown')), 'Sign in reached Claude\'s own login');
   if (!finished.selected) await signIn('/select', { operationId: request.operationId, revision: finished.revision, recoveryEpoch: installed.recoveryEpoch, account: finished.result.account });
   assert.equal((await signIn()).selected, true);
   // ChatGPT's own sign-in is untouched.
