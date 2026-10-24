@@ -39,8 +39,7 @@ test('the host runs the newest installed version in place and keeps that pin acr
   const f = setup(t), first = host(f);
   assert.deepEqual(first.provider, { provider: 'claude-code', name: 'Claude', runtimeVersion: '2.1.310', hostId: 'local-claude-code', session: 'stateless', capabilities: ['plainText', 'modelCatalog', 'cancel', 'skills', 'memory'] });
   assert.deepEqual(JSON.parse(readFileSync(join(f.directory, 'pinned.json'), 'utf8')), { version: '2.1.310' });
-  assert.equal(first.dataDirectory, join(f.directory, 'data'));
-  for (const path of ['data', 'home', 'workspace']) assert.equal(lstatSync(join(f.directory, path)).mode & 0o777, 0o700, path);
+  for (const path of ['home', 'workspace']) assert.equal(lstatSync(join(f.directory, path)).mode & 0o777, 0o700, path);
   writeFileSync(join(f.installation, '2.1.311'), claudeSource('2.1.311 (Claude Code)\n'), { mode: 0o755 });
   assert.equal(host(f).provider.runtimeVersion, '2.1.310', 'an update does not silently change the runtime');
   rmSync(join(f.installation, '2.1.310'));

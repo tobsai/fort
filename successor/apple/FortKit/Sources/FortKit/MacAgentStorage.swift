@@ -146,7 +146,7 @@ public struct MacAgentStorage: Sendable {
         guard renameat(directory,"selection.json.partial",directory,"selection.json") == 0, fsync(directory) == 0 else { throw Self.ioError() }
     }
 
-    // Returns the helper to its default runtime from its next start. Claude's own sign-in and Fort's Claude history stay.
+    // Returns the helper to its default runtime from its next start. Claude's own sign-in stays.
     func removeClaudeCode() throws {
         let url = try validatedDirectory()
         let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)

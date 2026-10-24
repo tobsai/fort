@@ -108,9 +108,12 @@ test('guardian preserves the exact child exit status and rejects an unavailable 
   }
 });
 
-test('guardian stays within the added warm launch budget over ten equivalent launches', { skip: process.platform !== 'darwin', timeout: 30_000 }, t => {
+// Spec 059 measures warm budgets as a p95 after warmups. Three warmup pairs are discarded, then the p95 of 20 pairs
+// (the 19th smallest added time) must fit, so one slow launch on a shared CI runner is not read as the p95.
+const WARMUP_PAIRS = 3, MEASURED_PAIRS = 20;
+test('guardian stays within the added warm launch budget at p95 over twenty equivalent launches', { skip: process.platform !== 'darwin', timeout: 90_000 }, t => {
   const samples: { baselineMs: number; guardedMs: number }[] = [];
-  for (let index = 0; index < 10; index++) {
+  for (let index = 0; index < WARMUP_PAIRS + MEASURED_PAIRS; index++) {
     const elapsed: number[] = [];
     for (const guard of index % 2 === 0 ? ['unguarded', guardian] : [guardian, 'unguarded']) {
       const directory = mkdtempSync('/tmp/fort059-guardian-launch-');
@@ -123,11 +126,12 @@ test('guardian stays within the added warm launch budget over ten equivalent lau
         assert.ok(absent(readGroup(directory)) && absent(-readGroup(directory)));
       } finally { rmSync(directory, { recursive: true, force: true }); }
     }
-    samples.push({ baselineMs: elapsed[index % 2], guardedMs: elapsed[1 - index % 2] });
+    if (index >= WARMUP_PAIRS) samples.push({ baselineMs: elapsed[index % 2], guardedMs: elapsed[1 - index % 2] });
   }
   const added = samples.map(sample => sample.guardedMs - sample.baselineMs).sort((a, b) => a - b);
-  assert.ok(added[9] <= 100, 'added warm startup p95 exceeds 100 ms');
-  t.diagnostic(JSON.stringify({ samples, addedP95Ms: added[9] }));
+  const p95 = added[Math.ceil(MEASURED_PAIRS * 0.95) - 1];
+  assert.ok(p95 <= 100, 'added warm startup p95 exceeds 100 ms');
+  t.diagnostic(JSON.stringify({ samples, addedP95Ms: p95, addedMaxMs: added.at(-1) }));
 });
 
 test('the parent-exit guard waits without idle polling within its resource budgets', { skip: process.platform !== 'darwin', timeout: 20_000 }, async t => {

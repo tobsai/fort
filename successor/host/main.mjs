@@ -11,15 +11,16 @@ process.once('SIGTERM', stop);
 try {
   if (process.argv.length !== 2) throw new Error('The bundled host accepts no arguments');
   const guardian = fileURLToPath(new URL('../../MacOS/FortProcessGuardian', import.meta.url));
-  // Claude-only mode while the multi-provider service is built: chosen by the owner in the app, with its own ledger (Spec 062).
+  // Claude-only mode while the multi-provider service is built (Spec 062): chosen by the owner in the app. It shares the
+  // host's one ledger and pairing, so the ledger's stored bindings decide which runtime it can serve.
   const claude = selectedClaudeCode(process.cwd());
   const host = claude
     ? createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'claude') })
-    : { dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: createPrivateCodexExecutorProcess({
+    : { provider: CODEX_RUNTIME, runtime: createPrivateCodexExecutorProcess({
       executable: fileURLToPath(new URL('../../MacOS/codex', import.meta.url)), guardian,
       directory: join(process.cwd(), 'Runtime'), hostId: CODEX_RUNTIME.hostId,
     }) };
-  await serveOwnedCore({ dataDirectory: host.dataDirectory, provider: host.provider, runtime: host.runtime, context: LOCAL_CONTEXT, network: 'explicit',
+  await serveOwnedCore({ dataDirectory: process.cwd(), provider: host.provider, runtime: host.runtime, context: LOCAL_CONTEXT, network: 'explicit',
     input: process.stdin, output: process.stdout, signal: controller.signal });
 } catch {
   process.stderr.write('Fort host could not start or finish safely.\n');

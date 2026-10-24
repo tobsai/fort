@@ -49,8 +49,12 @@ public enum MacAgentServiceError: Error, LocalizedError {
             _ = try storage.prepareRuntimeDirectory()
             return storage
         },launch:{ try await MacCoreHost.launch(executable:program.executable,
-            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:[:],guardian:program.guardian) },
+            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:Self.hostEnvironment(),guardian:program.guardian) },
             makeListener:makeListener)
+    }
+    // Only the sandbox container's temporary directory: Claude Code needs a short private one (Spec 062).
+    static func hostEnvironment(temporary: URL = FileManager.default.temporaryDirectory) -> [String:String] {
+        ["TMPDIR":temporary.standardizedFileURL.path]
     }
     init(prepareStorage: @escaping @MainActor () throws -> MacAgentStorage,
          launch: @escaping @MainActor (URL) async throws -> MacCoreHost,
