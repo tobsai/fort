@@ -5,6 +5,7 @@ struct CityHUDView: View {
     @Bindable var model: MessengerModel
     let showMessages: () -> Void
     @State private var talkingTo: String?
+    @State private var planning = false
     init(model: MessengerModel, showMessages: @escaping () -> Void) { self.model = model; self.showMessages = showMessages }
 
     private var currentHUD: CityHUD { CityHUD.make(week:model.liveWeek,agents:model.agents,snapshot:model.displaySnapshot,today:Self.today()) }
@@ -31,6 +32,7 @@ struct CityHUDView: View {
         }
         .background(HUDStyle.ground)
         .environment(\.colorScheme,.dark)
+        .sheet(isPresented:$planning) { PlannerView(model:model) }
     }
 
     private func topBar(_ hud: CityHUD) -> some View {
@@ -43,6 +45,7 @@ struct CityHUDView: View {
             Spacer()
             Label("\(hud.points) pts",systemImage:"diamond.fill").font(.system(.headline,design:.rounded).weight(.bold)).foregroundStyle(HUDStyle.gold)
             if let grade = hud.grade { Text(grade).font(.system(.title3,design:.rounded).weight(.black)).padding(.horizontal,8).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:6)).foregroundStyle(.black).accessibilityLabel("Grade \(grade)") }
+            Button("Plan Week \((model.weeks.first?.number ?? 0) + 1)",systemImage:"map") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands).accessibilityIdentifier("hud-plan")
             Button("Messages",systemImage:"bubble.left.and.bubble.right",action:showMessages).buttonStyle(.bordered).accessibilityIdentifier("hud-messages")
         }
         .padding(.horizontal,16).padding(.vertical,10)
@@ -93,7 +96,7 @@ struct CityHUDView: View {
                 HStack(alignment:.top,spacing:10) {
                     switch order.kind {
                     case .decision: Image(systemName:"diamond").foregroundStyle(.purple)
-                    case .quest: Image(systemName:"square").foregroundStyle(HUDStyle.gold)
+                    case .quest(let item): Button { Task { _ = await model.completeQuest(item) } } label: { Image(systemName:"square") }.buttonStyle(.plain).foregroundStyle(HUDStyle.gold).disabled(model.isBusy).accessibilityLabel("Mark done: \(item.task)").accessibilityIdentifier("hud-quest-\(item.itemId)")
                     }
                     VStack(alignment:.leading,spacing:2) {
                         Text(order.title).font(.callout.weight(.semibold))
@@ -127,7 +130,8 @@ struct CityHUDView: View {
     private var emptyWeek: some View {
         VStack(spacing:8) {
             Text("No week planned yet").font(.system(.title2,design:.rounded).weight(.black))
-            Text("Sunday planning comes in the next update. Until then, the crew is still a message away.").font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text("Pick this week's goals and lay out the blueprint. The city builds itself from what gets done.").font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Button("Plan a week") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands)
         }.padding(20).frame(maxWidth:360).hudFrame()
     }
     private func talk(_ agentID: String) {

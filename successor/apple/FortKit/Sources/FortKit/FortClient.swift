@@ -119,6 +119,15 @@ public struct FortClient: Sendable {
         struct Response: Decodable { let weeks: [WeekView] }
         let response: Response = try await get("v1/weeks"); return response.weeks
     }
+    public func foundWeek(_ request: PlanDraft.Request) async throws -> WeekView { try await send("v1/weeks",method:.post,body:request) }
+    public func closeWeek(_ week: WeekView) async throws -> WeekView {
+        struct Body: Encodable { let expectedRevisionId: String }
+        return try await send("v1/weeks/\(try segment(week.weekId))/close",method:.post,body:Body(expectedRevisionId:week.revisionId))
+    }
+    public func placeBuild(_ item: WeekPlanItem, in week: WeekView, size: WeekSize) async throws -> WeekView {
+        struct Body: Encodable { let expectedRevisionId: String; let itemId: String; let size: WeekSize }
+        return try await send("v1/weeks/\(try segment(week.weekId))/builds",method:.post,body:Body(expectedRevisionId:week.revisionId,itemId:item.itemId,size:size))
+    }
     public func schedules() async throws -> [ScheduleRevision] {
         struct Response: Decodable { let schedules: [ScheduleRevision] }
         let response: Response = try await get("v1/schedules"); return response.schedules
