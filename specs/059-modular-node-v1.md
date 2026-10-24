@@ -3966,6 +3966,12 @@ owned-process sign-in and model list against a local fake issuer, and removal of
 both credential files with unsafe-file refusals. Rollback reverts these paths; no
 real credential exists.
 
+Helper entitlements, October 24: Toby chose "Grant both on the helper" on the
+corrected decision card (2026-10-24 13:10 UTC). Fort Host gains network.client and
+network.server in apple/project.yml and the generated project; Node, guardian and
+Codex still carry exactly sandbox plus inheritance. Installing or launching that
+helper and any real sign-in still need their own approval.
+
 ## Phone access over Tailscale and TestFlight iPhone identity — October 23
 
 Toby chose Tailscale for phone-to-Mac pairing in message
