@@ -2,10 +2,10 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, normalize } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
-import type { AccountIdentity, ModelCatalog, ModelOption, RuntimeDescriptor, RuntimeReadiness } from '../contracts/v1.ts';
+import type { AccountIdentity, AccountSignInOptions, AccountSignInResult, ModelCatalog, ModelOption, RuntimeDescriptor, RuntimeReadiness } from '../contracts/v1.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
 import { executionDigest } from '../contracts/executor.ts';
-import { parseAccountIdentity, sameAccount } from '../contracts/account.ts';
+import { parseAccountChallenge, parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 
 // Claude subscription usage through the official, unmodified Claude Code CLI (Spec 062).
@@ -25,7 +25,7 @@ type ChatOptions = Omit<LaunchOptions, 'model'> & {
 };
 
 const MAX_TEXT = 65_536, MAX_FRAME = 262_144, MAX_WIRE = 1_000_000, CONTROL_MS = 10_000, INTERRUPT_MS = 2_000;
-const SIGN_IN = 'Run `claude auth login` in Terminal to sign in with your Claude subscription.';
+const SIGN_IN = 'Use Sign in to connect your Claude subscription.';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MODEL_ID = /^[A-Za-z0-9_.:\[\]-]{1,128}$/;
 const exactPath = (path: string) => isAbsolute(path) && path !== '/' && normalize(path) === path && path.isWellFormed() && !path.includes('\0');
@@ -82,18 +82,32 @@ function catalog(value: unknown): ModelOption[] {
 export function initializeProblems(value: unknown, runtimeVersion: string, account: AccountIdentity): string[] {
   let row: Record<string, unknown>, signedIn: Record<string, unknown>;
   try { row = record(value); signedIn = record(row.account); } catch { return ['shape']; }
-  const checks: [string, boolean][] = [
-    ['claude_code_version', row.claude_code_version === runtimeVersion], // Signed in with a claude.ai subscription, 2.1.299 sends no tokenSource; other sources name themselves.
+  const problems = [...controlProblems(row, runtimeVersion), ...[
+    // Signed in with a claude.ai subscription, 2.1.299 sends no tokenSource; other sources name themselves.
     ['account.tokenSource', signedIn.tokenSource === undefined || signedIn.tokenSource === 'claude.ai'],
     ['account.subscriptionType', typeof signedIn.subscriptionType === 'string' && signedIn.subscriptionType.length > 0],
     ['account.apiProvider', signedIn.apiProvider === 'firstParty'], ['account.apiKeySource', signedIn.apiKeySource === undefined],
-    ['account.email', signedIn.email === account.userLabel], ['commands', empty(row.commands)], ['current_permission_mode', row.current_permission_mode === 'default'],
+    ['account.email', signedIn.email === account.userLabel],
+  ].filter(([, ok]) => !ok).map(([name]) => name as string)];
+  try { catalog(row.models); } catch { problems.push('models'); }
+  return problems;
+}
+// The runtime and ambient-feature checks, which hold whether or not anyone is signed in.
+function controlProblems(row: Record<string, unknown>, runtimeVersion: string): string[] {
+  const checks: [string, boolean][] = [
+    ['claude_code_version', row.claude_code_version === runtimeVersion], ['commands', empty(row.commands)], ['current_permission_mode', row.current_permission_mode === 'default'],
     ['analytics_disabled', row.analytics_disabled === true], ['remote_control_auto_enable', row.remote_control_auto_enable === false],
     ['remote_control_auto_connect_default', row.remote_control_auto_connect_default === false], ['remote_control_auto_on_by_default', row.remote_control_auto_on_by_default === false],
   ];
-  const problems = checks.filter(([, ok]) => !ok).map(([name]) => name);
-  try { catalog(row.models); } catch { problems.push('models'); }
-  return problems;
+  return checks.filter(([, ok]) => !ok).map(([name]) => name);
+}
+
+// Claude Code's own claude.ai login page. Its redirect returns to the CLI's local listener on this Mac.
+function loginPage(value: unknown): string {
+  const challenge = parseAccountChallenge({ kind: 'browser', verificationURL: value });
+  const url = new URL(challenge.verificationURL);
+  if (!['claude.com', 'claude.ai'].includes(url.hostname) || !/^\/(?:cai\/)?oauth\/authorize$/.test(url.pathname)) throw new Error('Unexpected Claude login page');
+  return challenge.verificationURL;
 }
 function checkInitialize(value: unknown, runtimeVersion: string, account: AccountIdentity): ModelOption[] {
   if (initializeProblems(value, runtimeVersion, account).length) throw new Error('Claude Code controls were not confirmed');
@@ -135,10 +149,10 @@ class Session {
     process.stdin.on('error', () => this.close());
   }
   write(frame: unknown) { if (!this.closed) this.process.stdin.write(JSON.stringify(frame) + '\n'); }
-  control(request: Record<string, unknown>, signal: AbortSignal): Promise<Record<string, unknown>> {
+  control(request: Record<string, unknown>, signal: AbortSignal, timeoutMs = CONTROL_MS): Promise<Record<string, unknown>> {
     const id = randomUUID();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => settle(undefined), CONTROL_MS), abort = () => settle(undefined);
+      const timer = setTimeout(() => settle(undefined), timeoutMs), abort = () => settle(undefined);
       const settle = (response: Record<string, unknown> | undefined) => {
         clearTimeout(timer); signal.removeEventListener('abort', abort); this.pending.delete(id);
         if (response) resolve(response); else reject(new Error('Claude Code control request was not confirmed'));
@@ -286,6 +300,31 @@ export class ClaudeCodeChat implements ChatRuntime {
       return { provider, state: 'ready', models, checkedAt: new Date().toISOString() };
     } catch { return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
     finally { session?.close(); this.busy = false; }
+  }
+
+  // Claude Code runs its own claude.ai login; Fort only shows the page it names and never sees the credential,
+  // which the CLI keeps in its own store. The account is then read back from the runtime, not from the login reply.
+  async signIn(options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+    if (this.disposed || this.busy || !Number.isSafeInteger(options.durationMs) || options.durationMs < 1) return { kind: 'unconfirmed' };
+    if (signal.aborted) return { kind: 'canceled' };
+    this.busy = true;
+    const timeout = new AbortController(), timer = setTimeout(() => timeout.abort(), options.durationMs);
+    const bounded = AbortSignal.any([signal, timeout.signal]);
+    let session: Session | undefined;
+    try {
+      const existing = await this.account(bounded);
+      if (existing) return { kind: 'signedIn', account: existing };
+      session = this.open();
+      if (controlProblems(record(await session.control({ subtype: 'initialize' }, bounded)), this.options.runtimeVersion).length) throw new Error('Claude Code controls were not confirmed');
+      const page = loginPage(record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded)).automaticUrl);
+      options.onChallenge({ kind: 'browser', verificationURL: page });
+      try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
+      catch { if (bounded.aborted) return { kind: 'canceled' }; }
+      session.close();
+      const account = await this.account(AbortSignal.timeout(CONTROL_MS));
+      return account ? { kind: 'signedIn', account } : { kind: 'unconfirmed' };
+    } catch { return bounded.aborted ? { kind: 'canceled' } : { kind: 'unconfirmed' }; }
+    finally { clearTimeout(timer); session?.close(); this.busy = false; }
   }
 
   async execute(input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult> {

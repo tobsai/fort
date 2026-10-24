@@ -1,5 +1,5 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
-export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string };
+export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string } | { kind: 'browser'; verificationURL: string };
 export type AccountIdentity = { accountId: string; userLabel: string };
 export type AccountSignInResult = { kind: 'signedIn'; account?: AccountIdentity } | { kind: 'canceled' | 'failed' | 'unconfirmed' };
 export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void };

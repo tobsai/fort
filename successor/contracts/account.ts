@@ -6,15 +6,17 @@ function object(value: unknown, keys: readonly string[]): Record<string, unknown
   for (const [key, item] of Object.entries(value)) { if (!keys.includes(key)) reject(); fields[key] = item; }
   return fields;
 }
+// A device code to type on any page, or a browser page that completes the provider's own sign-in on this Mac.
 export function parseAccountChallenge(value: unknown): AccountChallenge {
-  const row = object(value, ['kind', 'verificationURL', 'userCode']);
-  if (row.kind !== 'deviceCode' || typeof row.verificationURL !== 'string' || row.verificationURL.length > 2048
-      || !row.verificationURL.isWellFormed() || /[\x00-\x20\x7f]/.test(row.verificationURL)
-      || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
-      || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(row.userCode)) reject();
+  const browser = value && typeof value === 'object' && (value as { kind?: unknown }).kind === 'browser';
+  const row = object(value, browser ? ['kind', 'verificationURL'] : ['kind', 'verificationURL', 'userCode']);
+  if (typeof row.verificationURL !== 'string' || row.verificationURL.length > 2048
+      || !row.verificationURL.isWellFormed() || /[\x00-\x20\x7f]/.test(row.verificationURL)) reject();
+  if (!browser && (row.kind !== 'deviceCode' || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
+      || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(row.userCode))) reject();
   const url = new URL(row.verificationURL);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || url.port || url.href !== row.verificationURL) reject();
-  return { kind: 'deviceCode', verificationURL: row.verificationURL, userCode: row.userCode };
+  if (url.protocol !== 'https:' || url.username || url.password || url.hash || (url.search && !browser) || url.port || url.href !== row.verificationURL) reject();
+  return browser ? { kind: 'browser', verificationURL: row.verificationURL } : { kind: 'deviceCode', verificationURL: row.verificationURL, userCode: row.userCode as string };
 }
 
 export function parseAccountIdentity(value: unknown): AccountIdentity {

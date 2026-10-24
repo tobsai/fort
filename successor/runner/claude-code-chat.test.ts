@@ -13,6 +13,8 @@ const base: Omit<ChatInput, 'context'> = { attempt: { runId: 'run-1', attemptId:
   configuration: { account, agentId: 'writer', agentName: 'Writer', bindingRevisionId: 'binding', selectedModel: MODEL, instructions: 'Use only the supplied context.', skills: [] },
   history: [{ messageId: 'm1', requestId: 'earlier', conversationId: 'home', role: 'user', text: 'Remember cedar.', sequence: 1, createdAt: '2026-10-24T00:00:00Z' }] };
 const dispatch = { deadline: Date.now() + 120_000 } as ExecutionDispatch;
+const signedOutStatus = { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' };
+const LOGIN = 'https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback&state=fixture';
 
 const models = [
   { value: 'default', resolvedModel: 'claude-opus-5-5', displayName: 'Default (recommended)' },
@@ -30,8 +32,10 @@ const result = (text: string, overrides: Record<string, unknown> = {}) => ({ typ
 // rate_limit_event appears in real Claude Code output before the result.
 const reply = (text: string) => [init(), { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(0, 2) } } }, assistant(text), { type: 'rate_limit_event', rate_limit_info: { status: 'allowed' } }, result(text)];
 
-type Script = { initialize?: unknown; onUser?: () => unknown[]; onInterrupt?: () => unknown[]; exitAfterUser?: boolean };
+type Script = { initialize?: unknown; onUser?: () => unknown[]; onInterrupt?: () => unknown[]; exitAfterUser?: boolean;
+  authenticate?: unknown; completion?: 'success' | 'error' | 'never'; onCompletion?: () => void };
 function fixture(script: Script = {}, accountStatus: unknown = status) {
+  const readStatus = typeof accountStatus === 'function' ? accountStatus as () => unknown : () => accountStatus;
   const launches: ClaudeCodeLaunch[] = [], writes: Record<string, unknown>[] = [], statusCalls: number[] = [];
   let killed = 0;
   const launch = (plan: ClaudeCodeLaunch): ClaudeCodeProcess => {
@@ -46,7 +50,14 @@ function fixture(script: Script = {}, accountStatus: unknown = status) {
         queueMicrotask(() => {
           if (frame.type === 'control_request' && frame.request.subtype === 'initialize')
             emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: script.initialize ?? initialize() } }]);
-          else if (frame.type === 'control_request' && frame.request.subtype === 'interrupt') {
+          else if (frame.type === 'control_request' && frame.request.subtype === 'claude_authenticate')
+            emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: script.authenticate ?? { manualUrl: LOGIN.replace('code=true', 'code=manual'), automaticUrl: LOGIN } } }]);
+          else if (frame.type === 'control_request' && frame.request.subtype === 'claude_oauth_wait_for_completion') {
+            if (script.completion === 'never') return;
+            script.onCompletion?.();
+            emit([{ type: 'control_response', response: script.completion === 'error' ? { subtype: 'error', request_id: frame.request_id, error: 'denied' }
+              : { subtype: 'success', request_id: frame.request_id, response: { account: { email: status.email, subscriptionType: 'max' } } } }]);
+          } else if (frame.type === 'control_request' && frame.request.subtype === 'interrupt') {
             emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: {} } }]);
             emit(script.onInterrupt?.() ?? []);
           } else if (frame.type === 'user') { emit(script.onUser?.() ?? reply('cedar')); if (script.exitAfterUser) stdout.end(); }
@@ -56,7 +67,7 @@ function fixture(script: Script = {}, accountStatus: unknown = status) {
     return { stdin, stdout, kill: () => { killed++; stdout.end(); } };
   };
   const runtime = new ClaudeCodeChat({ executable: '/synthetic/bin/claude', workspace: WORKSPACE, home: '/synthetic/home', runtimeDirectory: RUNTIME_DIR, runtimeVersion: VERSION, launch,
-    authStatus: async () => { statusCalls.push(1); return accountStatus; } });
+    authStatus: async () => { statusCalls.push(1); return readStatus(); } });
   return { runtime, launches, writes, statusCalls, get killed() { return killed; } };
 }
 
@@ -167,7 +178,7 @@ test('models come from the signed-in runtime, deduplicated to exact model IDs', 
   assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [['claude-opus-5-5', 'Opus'], [MODEL, 'Sonnet']]);
   assert.equal(f.launches[0]!.args.includes('--model'), false); assert.equal(f.killed, 1);
   const signedOut = await fixture({}, { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' }).runtime.models(new AbortController().signal);
-  assert.equal(signedOut.state, 'unavailable'); assert.match(signedOut.state === 'unavailable' ? signedOut.detail : '', /claude auth login/);
+  assert.equal(signedOut.state, 'unavailable'); assert.match(signedOut.state === 'unavailable' ? signedOut.detail : '', /Sign in/);
   const other = await fixture().runtime.models(new AbortController().signal, { accountId: status.orgId, userLabel: 'someone@example.com' });
   assert.equal(other.state, 'error');
 });
@@ -202,4 +213,52 @@ test('initialize problems are reported by check name, without values', () => {
   assert.deepEqual(initializeProblems(initialize({ analytics_disabled: false, remote_control_auto_on_by_default: undefined, models: 'x' }), VERSION, account),
     ['analytics_disabled', 'remote_control_auto_on_by_default', 'models']);
   assert.deepEqual(initializeProblems(null, VERSION, account), ['shape']);
+});
+
+test('sign-in runs Claude Code\'s own claude.ai login and shows only its browser page', async () => {
+  let signedIn = false;
+  const f = fixture({ onCompletion: () => { signedIn = true; } }, () => signedIn ? status : signedOutStatus), shown: unknown[] = [];
+  const outcome = await f.runtime.signIn({ durationMs: 60_000, onChallenge: challenge => { shown.push(challenge); } }, new AbortController().signal);
+  assert.deepEqual(outcome, { kind: 'signedIn', account });
+  assert.deepEqual(shown, [{ kind: 'browser', verificationURL: LOGIN }]);
+  assert.deepEqual(f.writes.map((frame: any) => frame.request?.subtype), ['initialize', 'claude_authenticate', 'claude_oauth_wait_for_completion']);
+  assert.equal((f.writes[1] as any).request.loginWithClaudeAi, true, 'never a Console or API-key login');
+  assert.equal(f.launches[0]!.args.includes('--model'), false); assert.equal(f.killed, 1);
+  assert.equal(f.statusCalls.length, 2, 'the account is read back from the runtime, not from the login reply');
+});
+
+test('an existing Claude sign-in is reported without starting a login', async () => {
+  const f = fixture();
+  assert.deepEqual(await f.runtime.signIn({ durationMs: 60_000, onChallenge: () => assert.fail('no challenge') }, new AbortController().signal), { kind: 'signedIn', account });
+  assert.equal(f.launches.length, 0);
+});
+
+test('sign-in refuses foreign login pages, drifted runtimes and non-subscription results', async () => {
+  const cases: [string, Script, () => unknown][] = [
+    ['foreign page', { authenticate: { automaticUrl: 'https://example.com/cai/oauth/authorize?x=1', manualUrl: LOGIN } }, () => signedOutStatus],
+    ['plain http', { authenticate: { automaticUrl: LOGIN.replace('https:', 'http:'), manualUrl: LOGIN } }, () => signedOutStatus],
+    ['runtime drifted', { initialize: initialize({ claude_code_version: '2.1.311', account: {} }) }, () => signedOutStatus],
+    ['remote control auto-on', { initialize: initialize({ remote_control_auto_enable: true, account: {} }) }, () => signedOutStatus],
+  ];
+  for (const [name, script, read] of cases) {
+    const f = fixture(script, read), shown: unknown[] = [];
+    assert.deepEqual(await f.runtime.signIn({ durationMs: 60_000, onChallenge: value => { shown.push(value); } }, new AbortController().signal), { kind: 'unconfirmed' }, name);
+    assert.deepEqual(shown, [], name); assert.equal(f.killed, 1, name);
+    assert.ok(!f.writes.some((frame: any) => frame.request?.subtype === 'claude_oauth_wait_for_completion'), name);
+  }
+  let calls = 0;
+  const apiKey = fixture({}, () => ++calls === 1 ? signedOutStatus : { ...status, authMethod: 'api_key' });
+  assert.deepEqual(await apiKey.runtime.signIn({ durationMs: 60_000, onChallenge: () => {} }, new AbortController().signal), { kind: 'unconfirmed' });
+  const denied = fixture({ completion: 'error' }, () => signedOutStatus);
+  assert.deepEqual(await denied.runtime.signIn({ durationMs: 60_000, onChallenge: () => {} }, new AbortController().signal), { kind: 'unconfirmed' });
+});
+
+test('canceling or timing out a pending sign-in stops Claude Code and reports cancellation', async () => {
+  const controller = new AbortController();
+  const f = fixture({ completion: 'never' }, () => signedOutStatus);
+  const outcome = await f.runtime.signIn({ durationMs: 60_000, onChallenge: () => { setTimeout(() => controller.abort(), 10); } }, controller.signal);
+  assert.deepEqual(outcome, { kind: 'canceled' }); assert.equal(f.killed, 1);
+  const slow = fixture({ completion: 'never' }, () => signedOutStatus);
+  assert.deepEqual(await slow.runtime.signIn({ durationMs: 50, onChallenge: () => {} }, new AbortController().signal), { kind: 'canceled' });
+  assert.equal(slow.killed, 1);
 });
