@@ -188,9 +188,9 @@ struct CityMap: View {
             }
         }.accessibilityLabel(week.map { "City for week \($0.number), \($0.builds.count) buildings, \($0.plan.filter { $0.doneBuildId == nil }.count) planned" } ?? "Empty city")
     }
-    struct Block: Equatable { let x: Int; let y: Int; let zone: WeekZone; let size: WeekSize; let planned: Bool }
+    struct Block: Equatable, Sendable { let x: Int; let y: Int; let zone: WeekZone; let size: WeekSize; let planned: Bool }
     /// Each goal gets two rows of lots; builds fill them first, then planned work as ghosts.
-    static func layout(_ week: WeekView) -> [Block] {
+    nonisolated static func layout(_ week: WeekView) -> [Block] {
         week.goals.prefix(5).enumerated().flatMap { index, goal -> [Block] in
             let built = week.builds.filter { $0.goalId == goal.goalId }.map { ($0.size,false) }
             let planned = week.plan.filter { $0.goalId == goal.goalId && $0.doneBuildId == nil }.map { ($0.size,true) }
