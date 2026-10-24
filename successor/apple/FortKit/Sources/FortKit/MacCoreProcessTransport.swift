@@ -104,6 +104,8 @@ public final class MacCoreProcessTransport: FortTransport, OwnerSetupControl, Ow
         } onCancel: { call.cancel(); state.cancel(call) }
     }
     public func close() async throws -> MacCoreStop { try await state.close() }
+    /// Returns once the core has begun to close, whether it was asked to or ended by itself.
+    public func waitUntilEnded() async { await state.waitUntilEnded() }
     deinit { state.stop() }
 }
 
@@ -181,6 +183,7 @@ private final class CoreProcessState: @unchecked Sendable {
     private var nextID = 0
     private var stopped: Result<MacCoreStop, any Error>?
     private var closers: [CheckedContinuation<MacCoreStop, any Error>] = []
+    private var enders: [CheckedContinuation<Void, Never>] = []
     private struct Pending {
         let call: CoreCall
         var continuation: CheckedContinuation<FortResponse, any Error>?
@@ -349,6 +352,11 @@ private final class CoreProcessState: @unchecked Sendable {
         pending.removeValue(forKey:id); call.deadline.cancel(); call.continuation?.resume(with:result)
     }
     func stop() { queue.async { self.beginClose() } }
+    func waitUntilEnded() async {
+        await withCheckedContinuation { continuation in
+            queue.async { if self.closing { continuation.resume() } else { self.enders.append(continuation) } }
+        }
+    }
     func close() async throws -> MacCoreStop {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
@@ -361,6 +369,7 @@ private final class CoreProcessState: @unchecked Sendable {
     private func beginClose() {
         guard !closing else { return }
         closing = true
+        for continuation in enders { continuation.resume() }; enders.removeAll()
         startupDeadline?.cancel(); startupDeadline = nil
         startup?.resume(throwing:URLError(.cannotConnectToHost)); startup = nil
         writeDeadline?.cancel(); writeDeadline = nil

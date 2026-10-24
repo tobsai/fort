@@ -39,6 +39,8 @@ public actor MacCoreHost: FortTransport, MacOwnerControl, OwnerSetupControl, Own
         return MacCoreHost(core:core,directory:directory)
     }
 
+    /// Returns once the core process has begun to close, including when it ended by itself.
+    public nonisolated func waitUntilEnded() async { await core.waitUntilEnded() }
     private func requireServing() throws {
         guard case .serving = state else { throw MacCoreHostError.unavailable }
     }
