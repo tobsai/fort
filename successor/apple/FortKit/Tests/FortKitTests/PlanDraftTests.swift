@@ -39,7 +39,8 @@ private func agent(_ id: String) -> Agent {
 
 @Test func capacityCountsPlannedPointsPerPersonAndFlagsOverbooking() {
     var draft = PlanDraft(previous:nil,today:"2026-10-26",name:"Glass Bay")
-    let goal = try! #require(draft.addGoal(text:"Ship the beta",zone:.code,lead:.agent("pascal")))
+    let added = draft.addGoal(text:"Ship the beta",zone:.code,lead:.agent("pascal"))
+    let goal = try! #require(added)
     draft.addTask(goalID:goal,text:"Adapter",owner:.agent("pascal"),size:.milestone)
     draft.addTask(goalID:goal,text:"Upload",owner:.agent("pascal"),size:.small)
     draft.addTask(goalID:goal,text:"Key",owner:.you,size:.moderate)
@@ -53,20 +54,25 @@ private func agent(_ id: String) -> Agent {
     var draft = PlanDraft(previous:nil,today:"2026-10-26",name:" ")
     #expect(draft.problems == ["Name the city.","Pick at least one goal."])
     draft.name = "Glass Bay"
-    let goal = try #require(draft.addGoal(text:"Ship the beta",zone:.code,lead:.you))
+    let added = draft.addGoal(text:"Ship the beta",zone:.code,lead:.you)
+    let goal = try #require(added)
     #expect(draft.problems == ["Add a task to “Ship the beta”."] && !draft.canFound)
-    let task = try #require(draft.addTask(goalID:goal,text:"Upload",owner:.you,size:.moderate))
+    let planned = draft.addTask(goalID:goal,text:"Upload",owner:.you,size:.moderate)
+    let task = try #require(planned)
     #expect(draft.canFound)
     draft.removeTask(task); draft.removeGoal(goal)
     #expect(draft.goals.isEmpty && draft.tasks.isEmpty && draft.mainGoalID == nil)
-    #expect(draft.addTask(goalID:"missing",text:"x",owner:.you,size:.small) == nil)
-    for index in 0..<PlanDraft.maximumGoals { #expect(draft.addGoal(text:"Goal \(index)",zone:.writing,lead:.you) != nil) }
-    #expect(draft.addGoal(text:"One too many",zone:.writing,lead:.you) == nil)
+    let orphan = draft.addTask(goalID:"missing",text:"x",owner:.you,size:.small)
+    #expect(orphan == nil)
+    for index in 0..<PlanDraft.maximumGoals { let added = draft.addGoal(text:"Goal \(index)",zone:.writing,lead:.you); #expect(added != nil) }
+    let extra = draft.addGoal(text:"One too many",zone:.writing,lead:.you)
+    #expect(extra == nil)
 }
 
 @Test func theFoundingRequestMatchesTheCoreContract() throws {
     var draft = PlanDraft(previous:try week(lastWeek),today:"2026-10-31",name:"  Harbor Point ")
-    let goal = try #require(draft.addGoal(text:"Revise chapter 4",zone:.writing,lead:.agent("lewis")))
+    let added = draft.addGoal(text:"Revise chapter 4",zone:.writing,lead:.agent("lewis"))
+    let goal = try #require(added)
     draft.addTask(goalID:goal,text:" Line edit ",owner:.agent("lewis"),size:.significant)
     let json = try JSONSerialization.jsonObject(with:JSONEncoder().encode(draft.request)) as! [String:Any]
     #expect(Set(json.keys) == ["name","startsOn","goals","plan","mainGoalKey"])
