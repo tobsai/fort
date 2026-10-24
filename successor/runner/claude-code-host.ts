@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSy
 import { userInfo } from 'node:os';
 import { isAbsolute, join, normalize } from 'node:path';
 import type { RuntimeDescriptor } from '../contracts/v1.ts';
-import { ClaudeCodeChat, claudeCodeLaunch, claudeCodeRuntime, type ClaudeCodeLaunch, type ClaudeCodeProcess } from './claude-code-chat.ts';
+import { ClaudeCodeChat, claudeCodeLaunch, claudeCodeRuntime, processEnding, type ClaudeCodeLaunch, type ClaudeCodeProcess } from './claude-code-chat.ts';
 
 // Claude Code beside ChatGPT on the Mac host (Specs 062, 064). The owner turns it on in the app, which writes
 // <data>/ClaudeCode/selection.json.
@@ -69,9 +69,9 @@ function pinnedVersion(directory: string, installation: string): string {
 export function guardedClaudeLaunch(guardian: string): (plan: ClaudeCodeLaunch) => ClaudeCodeProcess {
   if (!exactPath(guardian)) throw new Error('Select an exact guardian');
   return plan => {
-    const child = spawn(guardian, [String(process.pid), plan.executable, ...plan.args], { cwd: plan.cwd, env: plan.env, detached: true, stdio: ['pipe', 'pipe', 'ignore'] });
+    const child = spawn(guardian, [String(process.pid), plan.executable, ...plan.args], { cwd: plan.cwd, env: plan.env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
     child.on('error', () => child.stdout.destroy());
-    return { stdin: child.stdin, stdout: child.stdout, kill: () => {
+    return { stdin: child.stdin, stdout: child.stdout, ended: processEnding(child), kill: () => {
       if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
       try { process.kill(-child.pid, 'SIGTERM'); } catch {}
     } };

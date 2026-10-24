@@ -33,7 +33,7 @@ const result = (text: string, overrides: Record<string, unknown> = {}) => ({ typ
 const reply = (text: string) => [init(), { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(0, 2) } } }, assistant(text), { type: 'rate_limit_event', rate_limit_info: { status: 'allowed' } }, result(text)];
 
 type Script = { initialize?: unknown; onUser?: () => unknown[]; onInterrupt?: () => unknown[]; exitAfterUser?: boolean;
-  authenticate?: unknown; completion?: 'success' | 'error' | 'never'; onCompletion?: () => void };
+  authenticate?: unknown; completion?: 'success' | 'error' | 'never'; onCompletion?: () => void; beforeInitialize?: unknown[]; initializeError?: string };
 function fixture(script: Script = {}, accountStatus: unknown = status) {
   const readStatus = typeof accountStatus === 'function' ? accountStatus as () => unknown : () => accountStatus;
   const launches: ClaudeCodeLaunch[] = [], writes: Record<string, unknown>[] = [], statusCalls: number[] = [];
@@ -49,7 +49,8 @@ function fixture(script: Script = {}, accountStatus: unknown = status) {
         const frame = JSON.parse(buffer.slice(0, end)); buffer = buffer.slice(end + 1); writes.push(frame);
         queueMicrotask(() => {
           if (frame.type === 'control_request' && frame.request.subtype === 'initialize')
-            emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: script.initialize ?? initialize() } }]);
+            emit([...script.beforeInitialize ?? [], { type: 'control_response', response: script.initializeError !== undefined ? { subtype: 'error', request_id: frame.request_id, error: script.initializeError }
+              : { subtype: 'success', request_id: frame.request_id, response: script.initialize ?? initialize() } }]);
           else if (frame.type === 'control_request' && frame.request.subtype === 'claude_authenticate')
             emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: script.authenticate ?? { manualUrl: LOGIN.replace('code=true', 'code=manual'), automaticUrl: LOGIN } } }]);
           else if (frame.type === 'control_request' && frame.request.subtype === 'claude_oauth_wait_for_completion') {
@@ -291,6 +292,28 @@ test('a failed sign-in step is reported by name for the host log, without runtim
   assert.deepEqual(await runtime.signIn({ durationMs: 60_000, onChallenge: () => {} }, new AbortController().signal), { kind: 'unconfirmed' });
   assert.equal(lines.length, 1); assert.match(lines[0]!, /^Claude Code sign-in page failed: /);
   assert.ok(!lines[0]!.includes('example.com'), 'the refused page is not echoed');
+});
+
+test('when Claude Code ends before answering, the host log says how it ended', async () => {
+  const lines: string[] = [];
+  const runtime = new ClaudeCodeChat({ executable: '/synthetic/bin/claude', workspace: WORKSPACE, home: '/synthetic/home', runtimeDirectory: RUNTIME_DIR, runtimeVersion: VERSION,
+    authStatus: async () => signedOutStatus, report: line => lines.push(line),
+    launch: () => { const stdout = new PassThrough(); setImmediate(() => stdout.end()); return { stdin: new PassThrough(), stdout, kill() {}, ended: Promise.resolve('signal SIGTRAP') }; } });
+  assert.deepEqual(await runtime.signIn({ durationMs: 60_000, onChallenge: () => assert.fail('no page') }, new AbortController().signal), { kind: 'unconfirmed' });
+  assert.deepEqual(lines, ['Claude Code sign-in start failed: Claude Code control request was not confirmed (Claude Code signal SIGTRAP)']);
+});
+
+test('a status frame before Claude answers no longer ends sign-in, and a refusal is logged in Claude\'s words without account values', async () => {
+  let signedIn = false;
+  const f = fixture({ onCompletion: () => { signedIn = true; }, beforeInitialize: [{ type: 'system', subtype: 'status', status: 'starting' }, { type: 'auth_status', isAuthenticating: false, output: [] }] },
+    () => signedIn ? status : signedOutStatus), shown: unknown[] = [];
+  assert.deepEqual(await f.runtime.signIn({ durationMs: 60_000, onChallenge: challenge => { shown.push(challenge); } }, new AbortController().signal), { kind: 'signedIn', account });
+  assert.deepEqual(shown, [{ kind: 'browserAuthorization', authorizationURL: LOGIN }]);
+  const lines: string[] = [];
+  const refused = fixture({ initializeError: 'Not logged in as owner@example.com \u00b7 run /login', beforeInitialize: [{ type: 'system', subtype: 'status' }] }, () => signedOutStatus);
+  const runtime = new ClaudeCodeChat({ ...(refused.runtime as any).options, report: (line: string) => lines.push(line) });
+  assert.deepEqual(await runtime.signIn({ durationMs: 60_000, onChallenge: () => assert.fail('no page') }, new AbortController().signal), { kind: 'unconfirmed' });
+  assert.deepEqual(lines, ['Claude Code sign-in start failed: Claude Code control request was not confirmed (Claude Code skipped a system/status frame; refused a request: Not logged in as [email]   run /login)']);
 });
 
 test('canceling or timing out a pending sign-in stops Claude Code and reports cancellation', async () => {
