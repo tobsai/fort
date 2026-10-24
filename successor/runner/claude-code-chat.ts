@@ -104,10 +104,11 @@ function controlProblems(row: Record<string, unknown>, runtimeVersion: string): 
 
 // Claude Code's own claude.ai login page. Its redirect returns to the CLI's local listener on this Mac.
 function loginPage(value: unknown): string {
-  const challenge = parseAccountChallenge({ kind: 'browser', verificationURL: value });
-  const url = new URL(challenge.verificationURL);
+  const challenge = parseAccountChallenge({ kind: 'browserAuthorization', authorizationURL: value });
+  if (challenge.kind !== 'browserAuthorization') throw new Error('Unexpected Claude login page');
+  const url = new URL(challenge.authorizationURL);
   if (!['claude.com', 'claude.ai'].includes(url.hostname) || !/^\/(?:cai\/)?oauth\/authorize$/.test(url.pathname)) throw new Error('Unexpected Claude login page');
-  return challenge.verificationURL;
+  return challenge.authorizationURL;
 }
 function checkInitialize(value: unknown, runtimeVersion: string, account: AccountIdentity): ModelOption[] {
   if (initializeProblems(value, runtimeVersion, account).length) throw new Error('Claude Code controls were not confirmed');
@@ -317,7 +318,7 @@ export class ClaudeCodeChat implements ChatRuntime {
       session = this.open();
       if (controlProblems(record(await session.control({ subtype: 'initialize' }, bounded)), this.options.runtimeVersion).length) throw new Error('Claude Code controls were not confirmed');
       const page = loginPage(record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded)).automaticUrl);
-      options.onChallenge({ kind: 'browser', verificationURL: page });
+      options.onChallenge({ kind: 'browserAuthorization', authorizationURL: page });
       try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
       catch { if (bounded.aborted) return { kind: 'canceled' }; }
       session.close();

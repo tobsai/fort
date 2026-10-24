@@ -220,7 +220,7 @@ test('sign-in runs Claude Code\'s own claude.ai login and shows only its browser
   const f = fixture({ onCompletion: () => { signedIn = true; } }, () => signedIn ? status : signedOutStatus), shown: unknown[] = [];
   const outcome = await f.runtime.signIn({ durationMs: 60_000, onChallenge: challenge => { shown.push(challenge); } }, new AbortController().signal);
   assert.deepEqual(outcome, { kind: 'signedIn', account });
-  assert.deepEqual(shown, [{ kind: 'browser', verificationURL: LOGIN }]);
+  assert.deepEqual(shown, [{ kind: 'browserAuthorization', authorizationURL: LOGIN }]);
   assert.deepEqual(f.writes.map((frame: any) => frame.request?.subtype), ['initialize', 'claude_authenticate', 'claude_oauth_wait_for_completion']);
   assert.equal((f.writes[1] as any).request.loginWithClaudeAi, true, 'never a Console or API-key login');
   assert.equal(f.launches[0]!.args.includes('--model'), false); assert.equal(f.killed, 1);
