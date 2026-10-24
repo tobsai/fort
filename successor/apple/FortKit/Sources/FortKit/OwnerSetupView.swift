@@ -46,7 +46,7 @@ struct MacHostControlView: View {
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
             // Specs 062 and 064: runs your installed Claude Code read-only beside ChatGPT, signed in through Claude's own login.
             Button("Turn on Claude") {
-                do { try host.selectClaudeCode(); providerMessage = "Turning on Claude. The local host restarts by itself in a few seconds. Then sign in to Claude under Settings, Pairing and local host, and pick Claude when you create an Agent."; reconnectAfterRestart(claude:true) }
+                do { try host.selectClaudeCode(); providerMessage = "Turning on Claude. The local host restarts by itself in a few seconds. Then sign in to Claude under Menu, Accounts, and pick Claude when you recruit an agent."; reconnectAfterRestart(claude:true) }
                 catch { providerMessage = "Claude could not be turned on: \(error.localizedDescription)" }
             }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-claude")
             Button("Turn off Claude") {

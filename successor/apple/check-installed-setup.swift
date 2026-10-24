@@ -82,20 +82,15 @@ func control(_ root: AXUIElement, identifier: String, label: String) throws -> A
         try require((attribute(enable,kAXEnabledAttribute) as? NSNumber)?.boolValue == true,"Enable must be available")
         try require((attribute(connect,kAXEnabledAttribute) as? NSNumber)?.boolValue == false,"Connect must remain disabled")
     }
+    // After first-run setup closes, connection controls live under Devices in the pause menu.
     func openConnection(_ app: NSRunningApplication) throws {
-        let elements = descendants(root(app))
-        if let direct = elements.first(where:{ text($0,kAXRoleAttribute) == "AXButton" && text($0,kAXIdentifierAttribute) == "connection-open" }) {
-            try press(direct); return
-        }
-        let overflow = elements.filter { text($0,kAXRoleAttribute) == "AXPopUpButton" && text($0,kAXDescriptionAttribute) == "more toolbar items" }
-        try require(overflow.count == 1,"Expected Connection or the toolbar overflow")
-        try press(overflow[0])
-        var items: [AXUIElement] = []
-        try wait("Connection missing from toolbar overflow") {
-            items = descendants(root(app)).filter { text($0,kAXRoleAttribute) == "AXMenuItem" && text($0,kAXTitleAttribute) == "Connection" }
-            return items.count == 1
-        }
-        try press(items[0])
+        try press(control(root(app),identifier:"pause-menu-open",label:"Menu"))
+        try wait("Pause menu did not open") { sheet(app) }
+        try press(control(root(app),identifier:"pause-tab-devices",label:"DEVICES"))
+    }
+    func closeConnection(_ app: NSRunningApplication) throws {
+        if let resume = try? control(root(app),identifier:"pause-resume",label:"RESUME") { try press(resume) }
+        else { try press(control(root(app),identifier:"setup-close",label:"Close setup")) }
     }
     func quit(_ app: NSRunningApplication, cycle: Int, phase: String) throws {
         guard let raw = attribute(root(app),kAXMenuBarAttribute) else { throw CheckFailure(message:"App menu unavailable") }
@@ -110,13 +105,13 @@ func control(_ root: AXUIElement, identifier: String, label: String) throws -> A
         try quit(cold,cycle:cycle,phase:"quit-with-setup-open")
         let client = try open(newInstance:true); try setup(client)
         for repetition in 1...3 {
-            try press(control(root(client),identifier:"setup-close",label:"Close setup"))
+            try closeConnection(client)
             try wait("Setup did not close") { !sheet(client) }
             try openConnection(client)
             try setup(client)
             emit(["cycle":cycle,"phase":"setup-close-reopen","repetition":repetition,"passed":true])
         }
-        try press(control(root(client),identifier:"setup-close",label:"Close setup"))
+        try closeConnection(client)
         try wait("Setup did not close before window close") { !sheet(client) }
         let openedWindows = windows(client)
         try require(openedWindows.count == 1,"Expected one client window")

@@ -22,38 +22,6 @@ public struct ModelCatalog: Codable, Equatable, Sendable {
     }
     static let unchecked = ModelCatalog(provider:"",state:"unavailable",models:[],detail:"Connect to the local runtime to check models.")
 }
-struct FortSettingsView: View {
-    @Bindable var model: MessengerModel
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            List {
-                #if DEBUG
-                if model.isInteractiveFixture { InteractiveFixtureControls(model:model) }
-                #endif
-                Section("Agents") {
-                    ForEach(model.agents) { agent in
-                        NavigationLink {
-                            AgentSettingsEditor(model:model,agent:agent)
-                        } label: {
-                            HStack(spacing:12) {
-                                AgentAvatarView(avatar:agent.avatar ?? .orbit)
-                                VStack(alignment:.leading) { Text(agent.name); Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary) }
-                            }
-                        }
-                    }
-                    NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: { Label("Add agent",systemImage:"plus") }
-                }
-                NavigationLink { PairingSettingsView(model:model) } label: { Label("Pairing and local host",systemImage:"desktopcomputer") }
-            }
-            .navigationTitle("Settings")
-            .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Done") { dismiss() } } }
-        }.frame(minWidth:380,minHeight:480)
-        #if os(macOS)
-        .background(NonBlockingSheetWindow().allowsHitTesting(false).accessibilityHidden(true))
-        #endif
-    }
-}
 struct AgentSettingsEditor: View {
     @Bindable var model: MessengerModel
     let agent: Agent?
@@ -124,7 +92,7 @@ struct AgentSettingsEditor: View {
 }
 
 #if DEBUG
-private struct InteractiveFixtureControls: View {
+struct InteractiveFixtureControls: View {
     @Bindable var model: MessengerModel
     var body: some View {
         Section("Interactive QA · no provider") {

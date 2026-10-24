@@ -4,9 +4,10 @@ import SwiftUI
 struct CityHUDView: View {
     @Bindable var model: MessengerModel
     let showMessages: () -> Void
+    let openMenu: () -> Void
     @State private var talkingTo: String?
     @State private var planning = false
-    init(model: MessengerModel, showMessages: @escaping () -> Void) { self.model = model; self.showMessages = showMessages }
+    init(model: MessengerModel, showMessages: @escaping () -> Void, openMenu: @escaping () -> Void) { self.model = model; self.showMessages = showMessages; self.openMenu = openMenu }
 
     private var currentHUD: CityHUD { CityHUD.make(week:model.liveWeek,agents:model.agents,snapshot:model.displaySnapshot,today:Self.today()) }
     static func today(_ date: Date = Date()) -> String {
@@ -47,6 +48,9 @@ struct CityHUDView: View {
             if let grade = hud.grade { Text(grade).font(.system(.title3,design:.rounded).weight(.black)).padding(.horizontal,8).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:6)).foregroundStyle(.black).accessibilityLabel("Grade \(grade)") }
             Button("Plan Week \((model.weeks.first?.number ?? 0) + 1)",systemImage:"map") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands).accessibilityIdentifier("hud-plan")
             Button("Messages",systemImage:"bubble.left.and.bubble.right",action:showMessages).buttonStyle(.bordered).accessibilityIdentifier("hud-messages")
+            // Esc pauses, like a game, unless a conversation is open: then Esc closes the conversation first.
+            Button("Menu",systemImage:"line.3.horizontal",action:openMenu).buttonStyle(.bordered).tint(HUDStyle.gold)
+                .keyboardShortcut(talkingTo == nil ? .cancelAction : KeyboardShortcut(",",modifiers:.command)).accessibilityIdentifier("pause-menu-open")
         }
         .padding(.horizontal,16).padding(.vertical,10)
         .background(HUDStyle.panel).overlay(alignment:.bottom) { HUDStyle.gold.frame(height:2) }
@@ -152,14 +156,14 @@ enum HUDStyle {
         switch zone { case .code: Color(red:0.93,green:0.75,blue:0.30); case .money: Color(red:0.36,green:0.60,blue:0.92); case .writing: Color(red:0.42,green:0.75,blue:0.38); case .personal: Color(red:0.25,green:0.72,blue:0.70) }
     }
 }
-private struct HUDFrame: ViewModifier {
+struct HUDFrame: ViewModifier {
     let highlight: Bool
     func body(content: Content) -> some View {
         content.background(HUDStyle.panel,in:RoundedRectangle(cornerRadius:10))
             .overlay(RoundedRectangle(cornerRadius:10).stroke(highlight ? HUDStyle.gold : HUDStyle.gold.opacity(0.45),lineWidth:highlight ? 2 : 1))
     }
 }
-extension View { fileprivate func hudFrame(highlight: Bool = false) -> some View { modifier(HUDFrame(highlight:highlight)) } }
+extension View { func hudFrame(highlight: Bool = false) -> some View { modifier(HUDFrame(highlight:highlight)) } }
 
 /// A flat isometric stand-in for the city: one block per build, faded blocks for planned work. Real sprites replace this in phase 4.
 struct CityMap: View {
