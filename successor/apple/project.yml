@@ -33,7 +33,8 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Fort Host
         INFOPLIST_KEY_LSBackgroundOnly: YES
         ENABLE_APP_SANDBOX: YES
-        ENABLE_OUTGOING_NETWORK_CONNECTIONS: NO
+        ENABLE_INCOMING_NETWORK_CONNECTIONS: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
   FortiOS:
     type: application
     platform: iOS
