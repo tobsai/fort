@@ -14,10 +14,12 @@ export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 
   signal?: AbortSignal;
   start?: 'restore' | 'resume';
   network?: 'explicit';
+  // Called once startup checks have passed, just before the host begins serving its private channel.
+  ready?: () => void;
 };
 
 export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
-  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode } = options;
+  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode, ready } = options;
   if (!runtime || typeof runtime.execute !== 'function' || typeof runtime.dispose !== 'function') throw new Error('Select an explicit owned runtime');
   let service: ReturnType<typeof createApplication> | undefined;
   let network:SecureNetworkControl|undefined;
@@ -42,6 +44,7 @@ export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
         const access=ownedService.localOwnerAccess(owner);return operation==='start'?access==='active':access!=='foreign';
       }});
     }
+    ready?.();
     await servePrivateChannel({ endpoint, input, output, signal, networkControl:network,
       ownerRecovery: service.recoverOwnerPairing,
       ownerSetup: { begin: service.beginOwnerSetup, complete: service.completeOwnerSetup, cancel: service.cancelOwnerSetup } });

@@ -162,6 +162,27 @@ public struct MacAgentStorage: Sendable {
         guard unlinkat(directory,"selection.json",0) == 0 || errno == ENOENT, fsync(directory) == 0 else { throw Self.ioError() }
     }
 
+    // The helper's reason for its last failed start, written by host/main.mjs and removed on its next start. Read-only.
+    static let hostStartFailureName = "host-start-failure.txt"
+    func lastHostStartFailure() throws -> String? {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(root) }
+        guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+        let file = openat(root,Self.hostStartFailureName,O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        if file < 0 && errno == ENOENT { return nil }
+        guard file >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(file) }
+        var info = stat()
+        guard fstat(file,&info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { throw MacAgentStorageError.unsafeDirectory }
+        var buffer = [UInt8](repeating:0,count:512)
+        let count = buffer.withUnsafeMutableBytes { Darwin.read(file,$0.baseAddress,$0.count) }
+        guard count >= 0 else { throw Self.ioError() }
+        let reason = String(decoding:buffer[..<count],as:UTF8.self).trimmingCharacters(in:.whitespacesAndNewlines)
+        return reason.isEmpty ? nil : reason
+    }
+
     private func openClaudeCodeDirectory(create: Bool) throws -> (Int32,Int32) {
         let url = try validatedDirectory()
         let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)

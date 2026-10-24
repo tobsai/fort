@@ -31,7 +31,9 @@ test('host resources compose isolated compiled modules with complete attribution
   assert.ok(!files.some(path => path.endsWith('.ts') && !path.endsWith('.d.ts')));
   const invalid = spawnSync(process.execPath, ['--jitless', '--no-experimental-strip-types', join(destination, 'main.mjs'), '--directory', root], { cwd: root, env: {}, encoding: 'utf8', timeout: 5000 });
   assert.equal(invalid.status, 1); assert.match(invalid.stderr, /Fort host could not start/);
-  assert.deepEqual(readdirSync(root).sort(), ['host', 'preload.cjs']);
+  assert.equal(readFileSync(join(root, 'host-start-failure.txt'), 'utf8'), 'The bundled host accepts no arguments\n');
+  assert.equal(lstatSync(join(root, 'host-start-failure.txt')).mode & 0o777, 0o600);
+  assert.deepEqual(readdirSync(root).sort(), ['host', 'host-start-failure.txt', 'preload.cjs']);
 });
 
 test('host resource assembly refuses existing destinations without touching their contents', t => {

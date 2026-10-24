@@ -65,6 +65,11 @@ import Observation
         guard let identity else { throw MacHostStartupError.unavailable }
         try MacAgentStorage.inspectExisting(for:identity.endpoint).removeClaudeCode()
     }
+    /// The helper's reason for its last failed start, if its most recent start failed.
+    public func lastStartFailure() throws -> String? {
+        guard let identity else { throw MacHostStartupError.unavailable }
+        return try MacAgentStorage.inspectExisting(for:identity.endpoint).lastHostStartFailure()
+    }
     public var canDisableUnpaired: Bool { !isBusy && endpoint != nil && (status == .enabled || status == .requiresApproval) }
     public func disableUnpaired(storageDirectory: URL) async throws {
         guard canDisableUnpaired, let identity else { throw MacHostStartupError.unavailable }

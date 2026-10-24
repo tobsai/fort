@@ -35,12 +35,12 @@ async function fixture(t: TestContext) {
     });
     const ready = Promise.withResolvers<void>(), exited = Promise.withResolvers<{ code: number | null; signal: NodeJS.Signals | null }>();
     const responses = new Map<number, ReturnType<typeof Promise.withResolvers<Record<string, unknown>>>>();
-    let pending = '', diagnostics = '', nextID = 0, executions = 0, disposals = 0, expectedExit = options.expectFailure ? 1 : 0;
+    let pending = '', diagnostics = '', nextID = 0, executions = 0, disposals = 0, serving = 0, expectedExit = options.expectFailure ? 1 : 0;
     child.stdin?.on('error', () => {});
     child.stderr?.on('data', chunk => { diagnostics = (diagnostics + chunk.toString()).slice(-2000); });
     child.once('error', error => ready.reject(error));
     child.once('exit', (code, signal) => exited.resolve({ code, signal }));
-    child.on('message', value => { const message = object(value); if (message.kind === 'executed') executions++; if (message.kind === 'disposed') { disposals++; completedDisposals++; } });
+    child.on('message', value => { const message = object(value); if (message.kind === 'executed') executions++; if (message.kind === 'serving') serving++; if (message.kind === 'disposed') { disposals++; completedDisposals++; } });
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', chunk => {
       pending += chunk;
@@ -69,7 +69,7 @@ async function fixture(t: TestContext) {
       return {id,result:Promise.race([result.promise, exited.promise.then(() => { throw new Error('Owned host exited'); }), delay(8000, undefined, { ref: false }).then(() => { throw new Error('Owned command timed out'); })]).finally(() => responses.delete(id))};
     }
     const command=(kind:string,value:unknown)=>send(kind,value).result;
-    return { close, command, send, cancel(id:number){child.stdin?.write(JSON.stringify({protocolVersion:1,kind:'cancel',id})+'\n');}, readyMs, executions: () => executions, disposals: () => disposals,
+    return { close, command, send, cancel(id:number){child.stdin?.write(JSON.stringify({protocolVersion:1,kind:'cancel',id})+'\n');}, readyMs, executions: () => executions, disposals: () => disposals, serving: () => serving,
       async api(installationID: string, token: string | undefined, path: string, value?: unknown, status = 200) {
         return body(await command('request', { path, installationID, token, method: value === undefined ? 'GET' : 'POST', timeout: 3, body: value === undefined ? undefined : Buffer.from(JSON.stringify(value)).toString('base64') }), status);
       },
@@ -155,6 +155,17 @@ test('failed private socket startup disposes its runtime and preserves the unkno
   const reopened = await local.start();
   assert.equal(body(await reopened.command('ownerSetup', { operation: 'begin', timeout: 3 })).kind, 'available');
   await reopened.close(); assert.equal(local.disposals(), 2);
+});
+
+test('a ledger set up for another runtime refuses to start and says why', async t => {
+  const local = await fixture(t), first = await local.start();
+  const offer = body(await first.command('ownerSetup', { operation: 'begin', timeout: 3 }));
+  const installationId = string(offer.installationId), deviceToken = randomBytes(32).toString('base64url');
+  await first.command('ownerSetup', { operation: 'complete', installationId, setupId: string(offer.setupId), deviceId: 'synthetic-owner', deviceToken, timeout: 3 });
+  await first.api(installationId, deviceToken, '/v1/agents', { name: 'Bound agent', model: 'exact-synthetic', instructions: 'Echo.' }, 201);
+  assert.equal(first.serving(), 1);
+  await first.close();
+  await assert.rejects(local.start({ behavior: 'other-provider', expectFailure: true }), /Installation runtime identity changed/);
 });
 
 test('owned core disposes transferred runtime without mutating rejected storage or pre-aborted startup', async t => {
