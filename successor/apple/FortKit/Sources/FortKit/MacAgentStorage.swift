@@ -127,61 +127,26 @@ public struct MacAgentStorage: Sendable {
         return result
     }
 
-    // The owner's own claude binary, copied byte for byte into the host's ClaudeCode directory (Spec 062).
-    // Its presence selects the helper's Claude-only mode on the next host start; Fort never downloads or changes it.
+    // The owner's choice of Claude Code (Spec 062). The helper runs the installed `claude` in place, read-only, from its
+    // next start; it pins the newest installed version on that start. Choosing again re-pins. Fort never copies the binary:
+    // the App Sandbox will not launch one placed in Fort's container.
     static let claudeCodeDirectory = "ClaudeCode"
-    static let claudeCodeLimit = 512 * 1024 * 1024
 
-    func installClaudeCode(from source: URL) throws {
-        guard source.isFileURL, source.path.hasPrefix("/"), !source.path.contains("\0") else { throw MacAgentStorageError.unsafeDirectory }
-        let input = Darwin.open(source.resolvingSymlinksInPath().path,O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        guard input >= 0 else { throw Self.ioError() }
-        defer { Darwin.close(input) }
-        var info = stat()
-        guard fstat(input,&info) == 0 else { throw Self.ioError() }
-        guard info.st_mode & S_IFMT == S_IFREG, info.st_mode & 0o111 != 0, info.st_size > 0, Int(info.st_size) <= Self.claudeCodeLimit else { throw MacAgentStorageError.unsafeDirectory }
-        let url = try validatedDirectory()
-        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard root >= 0 else { throw Self.ioError() }
-        defer { Darwin.close(root) }
-        guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
-        if mkdirat(root,Self.claudeCodeDirectory,0o700) != 0 && errno != EEXIST { throw Self.ioError() }
-        let directory = openat(root,Self.claudeCodeDirectory,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard directory >= 0 else { throw Self.ioError() }
-        defer { Darwin.close(directory) }
-        let identity = try Self.identity(directory,privateDirectory:true)
-        try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:identity)
-        let partial = "claude.partial"
-        if unlinkat(directory,partial,0) != 0 && errno != ENOENT { throw Self.ioError() }
-        let output = openat(directory,partial,O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,0o700)
+    func selectClaudeCode() throws {
+        let (root, directory) = try openClaudeCodeDirectory(create:true)
+        defer { Darwin.close(directory); Darwin.close(root) }
+        if unlinkat(directory,"pinned.json",0) != 0 && errno != ENOENT { throw Self.ioError() }
+        if unlinkat(directory,"selection.json.partial",0) != 0 && errno != ENOENT { throw Self.ioError() }
+        let output = openat(directory,"selection.json.partial",O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,0o600)
         guard output >= 0 else { throw Self.ioError() }
-        var copied = 0
-        do {
-            defer { Darwin.close(output) }
-            var buffer = [UInt8](repeating:0,count:1 << 20)
-            while true {
-                let count = buffer.withUnsafeMutableBytes { Darwin.read(input,$0.baseAddress,$0.count) }
-                guard count >= 0 else { throw Self.ioError() }
-                if count == 0 { break }
-                copied += count
-                guard copied <= Self.claudeCodeLimit else { throw MacAgentStorageError.unsafeDirectory }
-                var offset = 0
-                while offset < count {
-                    let written = buffer.withUnsafeBytes { Darwin.write(output,$0.baseAddress! + offset,count - offset) }
-                    guard written > 0 else { throw Self.ioError() }
-                    offset += written
-                }
-            }
-            guard copied == Int(info.st_size), fchmod(output,0o700) == 0, fsync(output) == 0 else { throw MacAgentStorageError.unsafeDirectory }
-        } catch {
-            _ = unlinkat(directory,partial,0)
-            throw error
-        }
-        try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:identity)
-        guard renameat(directory,partial,directory,"claude") == 0, fsync(directory) == 0 else { throw Self.ioError() }
+        let bytes = Array("{}\n".utf8)
+        let written = bytes.withUnsafeBytes { Darwin.write(output,$0.baseAddress,$0.count) }
+        let flushed = written == bytes.count && fsync(output) == 0, closed = Darwin.close(output) == 0
+        guard flushed, closed else { _ = unlinkat(directory,"selection.json.partial",0); throw Self.ioError() }
+        guard renameat(directory,"selection.json.partial",directory,"selection.json") == 0, fsync(directory) == 0 else { throw Self.ioError() }
     }
 
-    // Returns the helper to its default runtime on the next start. Claude's own sign-in and Fort's Claude history stay.
+    // Returns the helper to its default runtime from its next start. Claude's own sign-in and Fort's Claude history stay.
     func removeClaudeCode() throws {
         let url = try validatedDirectory()
         let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -194,7 +159,23 @@ public struct MacAgentStorage: Sendable {
         defer { Darwin.close(directory) }
         let identity = try Self.identity(directory,privateDirectory:true)
         try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:identity)
-        guard unlinkat(directory,"claude",0) == 0 || errno == ENOENT, fsync(directory) == 0 else { throw Self.ioError() }
+        guard unlinkat(directory,"selection.json",0) == 0 || errno == ENOENT, fsync(directory) == 0 else { throw Self.ioError() }
+    }
+
+    private func openClaudeCodeDirectory(create: Bool) throws -> (Int32,Int32) {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        do {
+            guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+            if create && mkdirat(root,Self.claudeCodeDirectory,0o700) != 0 && errno != EEXIST { throw Self.ioError() }
+            let directory = openat(root,Self.claudeCodeDirectory,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard directory >= 0 else { throw Self.ioError() }
+            do {
+                try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:try Self.identity(directory,privateDirectory:true))
+                return (root,directory)
+            } catch { Darwin.close(directory); throw error }
+        } catch { Darwin.close(root); throw error }
     }
 
     // Fort-held provider credentials in the runtime state directory: Codex auth and the ChatGPT plan sign-in.

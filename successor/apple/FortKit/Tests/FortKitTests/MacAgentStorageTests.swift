@@ -454,31 +454,19 @@ func agentStorageProviderCleanupBudget() throws {
     #expect(samples.sorted()[18] <= 25)
 }
 
-@Test func agentStorageCopiesTheOwnersClaudeBinaryPrivatelyAndCanRemoveIt() throws {
+@Test func agentStorageRecordsTheOwnersClaudeChoiceAndReleasesThePin() throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let storage = try MacAgentStorage.prepare(for:try storageEndpoint(),resolveContainer:{ _ in root })
-    let source = root.appendingPathComponent("owner-claude"), bytes = Data("#!/bin/sh\necho synthetic\n".utf8)
-    try bytes.write(to:source)
-    try FileManager.default.setAttributes([.posixPermissions:0o755],ofItemAtPath:source.path)
-    try storage.installClaudeCode(from:source)
-    let copy = root.appendingPathComponent("FortHost/ClaudeCode/claude")
-    #expect(try Data(contentsOf:copy) == bytes)
-    #expect((try FileManager.default.attributesOfItem(atPath:copy.path)[.posixPermissions] as? NSNumber)?.intValue == 0o700)
-    #expect((try FileManager.default.attributesOfItem(atPath:copy.deletingLastPathComponent().path)[.posixPermissions] as? NSNumber)?.intValue == 0o700)
-    #expect(try FileManager.default.contentsOfDirectory(atPath:copy.deletingLastPathComponent().path) == ["claude"])
+    let directory = root.appendingPathComponent("FortHost/ClaudeCode")
     try storage.removeClaudeCode()
-    #expect(!FileManager.default.fileExists(atPath:copy.path))
+    try storage.selectClaudeCode()
+    #expect(try String(contentsOf:directory.appendingPathComponent("selection.json"),encoding:.utf8) == "{}\n")
+    #expect((try FileManager.default.attributesOfItem(atPath:directory.path)[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+    try Data("{\"version\":\"2.1.299\"}\n".utf8).write(to:directory.appendingPathComponent("pinned.json"))
+    try storage.selectClaudeCode()
+    #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path) == ["selection.json"])
     try storage.removeClaudeCode()
-}
-
-@Test func agentStorageRefusesAClaudeBinaryThatIsNotAnExecutableFile() throws {
-    let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
-    let storage = try MacAgentStorage.prepare(for:try storageEndpoint(),resolveContainer:{ _ in root })
-    let plain = root.appendingPathComponent("plain"), empty = root.appendingPathComponent("empty")
-    try Data("not executable".utf8).write(to:plain)
-    try Data().write(to:empty); try FileManager.default.setAttributes([.posixPermissions:0o755],ofItemAtPath:empty.path)
-    for source in [plain, empty, root] { #expect(throws:(any Error).self) { try storage.installClaudeCode(from:source) } }
-    #expect(!FileManager.default.fileExists(atPath:root.appendingPathComponent("FortHost/ClaudeCode/claude").path))
+    #expect(try FileManager.default.contentsOfDirectory(atPath:directory.path).isEmpty)
 }
 
 #endif

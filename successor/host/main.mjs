@@ -11,7 +11,7 @@ process.once('SIGTERM', stop);
 try {
   if (process.argv.length !== 2) throw new Error('The bundled host accepts no arguments');
   const guardian = fileURLToPath(new URL('../../MacOS/FortProcessGuardian', import.meta.url));
-  // Claude-only mode while the multi-provider service is built: chosen by the owner's copied binary, with its own ledger.
+  // Claude-only mode while the multi-provider service is built: chosen by the owner in the app, with its own ledger (Spec 062).
   const claude = selectedClaudeCode(process.cwd());
   const host = claude
     ? createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'claude') })

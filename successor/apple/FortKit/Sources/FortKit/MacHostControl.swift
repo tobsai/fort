@@ -55,11 +55,10 @@ import Observation
             try MacAgentStorage.inspectExisting(for:identity.endpoint).removeProviderCredentials()
         },historyActions:history)
     }
-    /// Copies the owner's chosen claude binary into the host's storage; the helper runs Claude-only from its next start.
-    public func installClaudeCode(from source: URL) throws {
+    /// Records the owner's choice to use their installed Claude Code; the helper runs Claude-only from its next start.
+    public func selectClaudeCode() throws {
         guard let identity else { throw MacHostStartupError.unavailable }
-        let scoped = source.startAccessingSecurityScopedResource(); defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        try MacAgentStorage.inspectExisting(for:identity.endpoint).installClaudeCode(from:source)
+        try MacAgentStorage.inspectExisting(for:identity.endpoint).selectClaudeCode()
     }
     /// Returns the helper to its default runtime from its next start.
     public func removeClaudeCode() throws {
