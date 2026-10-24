@@ -370,6 +370,23 @@ private final class AccountCredentials: DeviceCredentials {
     }
 }
 
+@Test func nativeAccountDecoderAcceptsOnlyAnExactBrowserAuthorizationLink() throws {
+    let identity: [String:Any] = ["state":"challenge","revision":1,"operationId":"synthetic","expiresAt":1_900_000_000_000]
+    let link = "https://auth.fixture.invalid/authorize?client_id=c&redirect_uri=http%3A%2F%2F127.0.0.1%3A49152%2Fauth%2Fcallback&state=s"
+    let decoded = try JSONDecoder().decode(AccountSignInStatus.self,from:JSONSerialization.data(withJSONObject:identity.merging(["challenge":["kind":"browserAuthorization","authorizationURL":link]]) { _,new in new }))
+    #expect(decoded.challenge?.verificationURL.absoluteString == link)
+    #expect(decoded.challenge?.userCode == nil)
+    for challenge: [String:Any] in [["kind":"browserAuthorization","authorizationURL":"http://auth.fixture.invalid/authorize?x=1"],
+                                     ["kind":"browserAuthorization","authorizationURL":link + "#hidden"],
+                                     ["kind":"browserAuthorization","authorizationURL":"https://secret@auth.fixture.invalid/authorize?x=1"],
+                                     ["kind":"browserAuthorization","authorizationURL":link,"userCode":"FORT-TEST"],
+                                     ["kind":"browserAuthorization","verificationURL":link],
+                                     ["kind":"deviceCode","authorizationURL":link]] {
+        let value = identity.merging(["challenge":challenge]) { _,new in new }
+        #expect(throws:(any Error).self) { try JSONDecoder().decode(AccountSignInStatus.self,from:JSONSerialization.data(withJSONObject:value)) }
+    }
+}
+
 @Test @MainActor func nativeAccountProtectedIntentRefusesLinksAndCompetingRemoval() async throws {
     for kind in ["symlink","hardlink","removal","companion"] {
         let fixture = try AccountFixture(); defer { fixture.close() }

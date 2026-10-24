@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, readFile } from 'node:fs/promises';
+import { createSign, generateKeyPairSync } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { contextInput } from './fixtures/context-input.ts';
@@ -8,6 +9,7 @@ import type { ChatInput } from './chat-runtime.ts';
 import { OpenAIPlanChat, OPENAI_PLAN_RUNTIME, planAccountIdentity } from './openai-plan-chat.ts';
 import { writePlanCredential, readPlanCredential, type PlanCredential } from './openai-plan-credential.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
+import type { AccountChallenge } from '../contracts/v1.ts';
 
 const now = () => 1_800_000_000_000;
 const credential: PlanCredential = { issuer: 'https://auth.openai.com', subject: 'user-synthetic', clientId: 'oaiapp_synthetic', hostId: 'urn:uuid:00000000-0000-4000-8000-000000000000', idToken: 'id', accessToken: 'access-synthetic', refreshToken: 'refresh-synthetic', expiresAt: now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct', 'offline_access', 'openid'], email: 'owner@example.com' };
@@ -106,4 +108,83 @@ test('the model catalog lists the signed-in account models and refuses a differe
   assert.equal(new Headers(calls[0]!.init.headers).get('authorization'), 'Bearer access-synthetic');
   assert.equal((await runtime.models(new AbortController().signal, { accountId: 'other', userLabel: 'other@example.com' })).state, 'error');
   assert.equal(calls.length, 1);
+});
+
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'key-1', alg: 'RS256', use: 'sig' };
+const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+const signed = (claims: Record<string, unknown>) => { const head = b64({ alg: 'RS256', kid: 'key-1' }) + '.' + b64(claims); return head + '.' + createSign('RSA-SHA256').update(head).sign(privateKey).toString('base64url'); };
+
+async function signInFixture(t: { after(fn: () => unknown): void }, issued: { subject?: string; scope?: string; approve?: boolean } = {}) {
+  const root = await mkdtemp(join(tmpdir(), 'fort-plan-signin-')); t.after(() => rm(root, { recursive: true, force: true }));
+  const state = join(root, 'state'); await mkdir(state, { mode: 0o700 });
+  const forms: URLSearchParams[] = [];
+  let nonce = '';
+  const runtime = new OpenAIPlanChat({ stateDirectory: state, now, keys: async kid => kid === 'key-1' ? jwk : undefined,
+    fetch: async () => { throw new Error('No inference during sign-in'); },
+    tokenTransport: { async postForm(_url, form) { forms.push(form); return { status: 200, body: { access_token: 'access-issued', refresh_token: 'refresh-issued', token_type: 'Bearer', expires_in: 3600,
+      scope: issued.scope ?? 'chatgpt.tokens.use.direct offline_access openid', id_token: signed({ iss: 'https://auth.openai.com', aud: 'oaiapp_issued', sub: issued.subject ?? 'user-synthetic', email: 'owner@example.com', nonce, exp: now() / 1000 + 3600 }) } }; } } });
+  t.after(() => runtime.dispose());
+  const shown: AccountChallenge[] = [];
+  const approve = async (challenge: AccountChallenge) => {
+    shown.push(challenge);
+    if (challenge.kind !== 'browserAuthorization') return;
+    const query = new URL(challenge.authorizationURL).searchParams;
+    nonce = query.get('nonce')!;
+    if (issued.approve === false) return;
+    const back = new URL(query.get('redirect_uri')!);
+    back.search = new URLSearchParams({ code: 'code-synthetic', state: query.get('state')!, client_id: 'oaiapp_issued' }).toString();
+    await fetch(back);
+  };
+  return { runtime, state, forms, shown, approve };
+}
+
+test('sign-in shows one browser authorization, saves the verified credential and names the account', async t => {
+  const f = await signInFixture(t);
+  const result = await f.runtime.signIn({ durationMs: 5000, onChallenge: challenge => { void f.approve(challenge); } }, new AbortController().signal);
+  assert.deepEqual(result, { kind: 'signedIn', account: { accountId: 'user-synthetic', userLabel: 'owner@example.com' } });
+  assert.equal(f.shown.length, 1);
+  const shown = f.shown[0]!;
+  assert.equal(shown.kind, 'browserAuthorization');
+  const query = new URL(shown.kind === 'browserAuthorization' ? shown.authorizationURL : '').searchParams;
+  assert.equal(query.get('client_id'), 'dynamic_agent_client');
+  assert.equal(query.get('agent_name_hint'), 'Fort');
+  assert.equal(query.get('ext_agent_host_id'), (await readFile(join(f.state, 'openai-host-id'), 'utf8')).trim());
+  assert.equal(f.forms[0]?.get('grant_type'), 'authorization_code');
+  const saved = await readPlanCredential(f.state);
+  assert.equal(saved?.accessToken, 'access-issued'); assert.equal(saved?.clientId, 'oaiapp_issued');
+  assert.doesNotMatch(JSON.stringify(result), /access-issued|refresh-issued/);
+});
+
+test('a later sign-in reuses the issued client and host identifier', async t => {
+  const f = await signInFixture(t);
+  await writePlanCredential(f.state, { ...credential, clientId: 'oaiapp_issued' });
+  const before = await readFile(join(f.state, 'openai-host-id'), 'utf8').catch(() => undefined);
+  assert.equal((await f.runtime.signIn({ durationMs: 5000, onChallenge: challenge => { void f.approve(challenge); } }, new AbortController().signal)).kind, 'signedIn');
+  const shown = f.shown[0]!;
+  const query = new URL(shown.kind === 'browserAuthorization' ? shown.authorizationURL : '').searchParams;
+  assert.equal(query.get('client_id'), 'oaiapp_issued');
+  assert.equal(query.has('agent_name_hint'), false);
+  if (before !== undefined) assert.equal(await readFile(join(f.state, 'openai-host-id'), 'utf8'), before);
+});
+
+test('sign-in without plan usage, a canceled wait or a timeout saves nothing', async t => {
+  const refused = await signInFixture(t, { scope: 'openid offline_access' });
+  assert.equal((await refused.runtime.signIn({ durationMs: 5000, onChallenge: challenge => { void refused.approve(challenge); } }, new AbortController().signal)).kind, 'failed');
+  assert.equal(await readPlanCredential(refused.state), undefined);
+  const canceled = await signInFixture(t, { approve: false }), abort = new AbortController();
+  assert.deepEqual(await canceled.runtime.signIn({ durationMs: 5000, onChallenge: () => { abort.abort(); } }, abort.signal), { kind: 'canceled' });
+  assert.equal(await readPlanCredential(canceled.state), undefined);
+  const late = await signInFixture(t, { approve: false });
+  assert.equal((await late.runtime.signIn({ durationMs: 50, onChallenge: challenge => { void late.approve(challenge); } }, new AbortController().signal)).kind, 'failed');
+  assert.equal(late.forms.length, 0);
+});
+
+test('a failed presentation closes the listener, and sign-in is refused after the runtime stops', async t => {
+  const f = await signInFixture(t);
+  let redirect = '';
+  assert.deepEqual(await f.runtime.signIn({ durationMs: 5000, onChallenge: challenge => { redirect = challenge.kind === 'browserAuthorization' ? new URL(challenge.authorizationURL).searchParams.get('redirect_uri')! : ''; throw new Error('Synthetic presentation failed'); } }, new AbortController().signal), { kind: 'failed' });
+  await assert.rejects(fetch(redirect));
+  await f.runtime.dispose();
+  assert.deepEqual(await f.runtime.signIn({ durationMs: 5000, onChallenge: () => assert.fail('No challenge') }, new AbortController().signal), { kind: 'unconfirmed' });
 });

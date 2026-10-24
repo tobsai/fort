@@ -3925,6 +3925,47 @@ already carries the provider as a string, so contracts/runtime.ts and
 service/synthetic-runner.ts belong to the synthetic Codex bridge and need no
 change for this route.
 
+Composition revision, October 23. Sign-in reaches clients as a second challenge
+kind, `browserAuthorization` with one exact `https` authorization link (query
+allowed; no credentials, port or fragment; at most 2048 bytes) beside the
+unchanged `deviceCode`. Clients open that link in the system browser; the
+provider returns to the executor's one-shot `127.0.0.1` listener, which closes on
+callback, cancellation, failure or the sign-in deadline (at most 115 seconds under
+the existing account frame). `OpenAIPlanChat.signIn` persists the host identifier,
+reuses the issued client after first registration, verifies the ID token with
+keys found through the issuer's OpenID discovery document (the key location must
+stay on the issuer origin) and saves the credential only after every check.
+`runner/openai-plan-executor.ts` serves it as an owned executor child with the
+same binding, deadlines and cleanup as Codex. Mac removal deletes
+`openai-plan.json` with the Codex `auth.json` under the same no-follow,
+single-link, owner-only and ACL checks; the opaque host identifier is not a
+credential and is kept.
+
+Entitlement correction: the October 22 text said "no new entitlement" and the
+first decision card named the Mac app. Provider calls actually run in the bundled
+Fort Host helper's process tree (Node, executor and Codex inherit its sandbox),
+and that helper has no network entitlement. Toby agreed on October 23 (message
+cmsg_01WzifFCZgpREpCjjmswqPPvUmA4gKhfmAu4HkfM4R175j) to the loopback listener
+entitlement. The corrected scope, network.client and network.server on Fort Host,
+awaits his answer to the corrected question, and this revision changes no
+entitlement or project setting. Node, guardian
+and Codex keep exactly sandbox plus inheritance. Installing, registering or
+launching a helper with network, real sign-in and a real turn keep their own
+per-action approval and are reported separately.
+
+Composition paths: contracts/account.ts with new account.test.ts and v1.ts;
+runner/openai-plan-account.ts, openai-plan-chat.ts and new
+openai-plan-executor.ts with their tests and the new
+runner/fixtures/openai-plan-executor-worker.mjs; FortKit AccountSignIn.swift,
+AccountSignInView.swift, MessengerModel.swift, MacAgentStorage.swift and
+MacHostControl.swift with AccountSignInTests.swift, MacAgentStorageTests.swift and
+MacHostRemovalTests.swift. Helper entitlements, the host bootstrap and packaged executor selection are later revisions. Acceptance:
+red then green public tests for challenge parsing (core and Swift), synthetic
+browser sign-in, reuse, refusal, cancellation, timeout and listener closure, an
+owned-process sign-in and model list against a local fake issuer, and removal of
+both credential files with unsafe-file refusals. Rollback reverts these paths; no
+real credential exists.
+
 ## Phone access over Tailscale and TestFlight iPhone identity — October 23
 
 Toby chose Tailscale for phone-to-Mac pairing in message
@@ -4564,6 +4605,10 @@ CompanionSetupModelTests.swift. Results are recorded in the PR description
 - `successor/runner/openai-responses.test.ts`
 - `successor/runner/openai-plan-chat.ts`
 - `successor/runner/openai-plan-chat.test.ts`
+- `successor/contracts/account.test.ts`
+- `successor/runner/openai-plan-executor.ts`
+- `successor/runner/openai-plan-executor.test.ts`
+- `successor/runner/fixtures/openai-plan-executor-worker.mjs`
 - `successor/service/synthetic-runner.ts`
 
 ## Test criteria

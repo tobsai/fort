@@ -9,9 +9,12 @@ public struct MessengerView: View {
     @State private var showSettings = false
     @State private var showWorkspace = false
     @State private var showRoutines = false
+    @AppStorage("fort.showCity") private var showCity = true
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
+        Group {
+        if showCity && model.supportsWeeks { CityHUDView(model:model) { showCity = false } } else {
         NavigationSplitView {
             List(selection:SwiftUI.Binding(get:{ model.hasWorkspace ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.hasWorkspace { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
                 Section("Your Agents") {
@@ -33,6 +36,7 @@ public struct MessengerView: View {
             }
             .navigationTitle(model.isInteractiveFixture ? "Fort QA · First wave" : "Fort")
             .toolbar {
+                if model.supportsWeeks { Button("City",systemImage:"building.2") { showCity = true }.accessibilityIdentifier("show-city") }
                 if model.hasWorkspace { Button("Settings",systemImage:"gearshape") { showSettings = true } }
                 if model.supportsRoutines { Button("Routines",systemImage:"list.bullet.rectangle") { showRoutines = true } }
                 if !model.isOfflinePreview && !model.isInteractiveFixture { Button("Connection",systemImage:"network") { model.showConnection = true }.accessibilityIdentifier("connection-open") }
@@ -60,6 +64,8 @@ public struct MessengerView: View {
                 Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy)
             }
             .navigationTitle((model.isInteractiveFixture ? "Fort QA — " : "") + (model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation"))
+        }
+        }
         }
         .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
             Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
