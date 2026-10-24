@@ -43,6 +43,9 @@ import Observation
     public var lastSavedSkill: InstructionSkill?
     public var routines: [RoutineRevision] = []
     public var schedules: [ScheduleRevision] = []
+    public var weeks: [WeekView] = []
+    public var supportsWeeks: Bool { installation?.supports("weeks") == true }
+    public var liveWeek: WeekView? { weeks.first(where:\.isLive) }
     public var selectedConversationID: String?
     public var recipientAgentID: String?
     public var selectedSkillIDs: Set<String> = []
@@ -402,7 +405,7 @@ import Observation
     private func clearConversationPresentation() {
         showLatestMessages(); snapshot = nil; installation = nil
         pendingStore = nil; pending = []; pendingErrors = [:]; localImages = []; loadedImageScope = nil; imageError = nil
-        agents = []; conversations = []; skills = []; routines = []; schedules = []
+        agents = []; conversations = []; skills = []; routines = []; schedules = []; weeks = []
         selectedAgentID = nil; selectedConversationID = nil; recipientAgentID = nil; selectedSkillIDs = []
         lastSavedSkill = nil; draft = ""; eventCursor = nil
     }
@@ -951,8 +954,9 @@ import Observation
                 conversations = try await client.conversations(); skills = try await client.skills()
                 routines = current.supports("routines") ? try await client.routines() : []
                 schedules = current.supports("schedules") ? try await client.schedules() : []
+                weeks = current.supports("weeks") ? try await client.weeks() : []
                 if !conversations.contains(where:{$0.id == selectedConversationID}) { selectedConversationID = selectedAgent?.homeConversationId }
-            } else { conversations = []; skills = []; selectedConversationID = nil }
+            } else { conversations = []; skills = []; weeks = []; selectedConversationID = nil }
             try saveNavigation()
             pending = try pendingStore?.pending() ?? []
             pendingErrors = [:]
@@ -1135,6 +1139,23 @@ import Observation
         guard let revision = skill.previousRevisionId else { return nil }
         guard let client else { throw ClientError.service("offline","Connect to Fort to compare this revision.") }
         return try await client.skillRevision(skillID:skill.id,revisionID:revision)
+    }
+    /// Closes the live week, if any, and founds the planned one. A failure after the close leaves no live week; the draft stays on screen to retry.
+    public func foundWeek(_ draft: PlanDraft) async -> Bool {
+        guard supportsWeeks, draft.canFound, let client = await beginWorkspaceSave() else { return false }
+        defer { workspaceSaving = false }
+        do {
+            if let live = liveWeek { _ = try await client.closeWeek(live) }
+            _ = try await client.foundWeek(draft.request)
+            isBusy = false; await refresh(); return true
+        } catch { status = error.localizedDescription; isBusy = false; await refresh(); return false }
+    }
+    /// Your own quests build as planned the moment you tick them; there is no agent to confirm.
+    public func completeQuest(_ item: WeekPlanItem) async -> Bool {
+        guard supportsWeeks, item.owner == .you, item.doneBuildId == nil, let week = liveWeek, week.plan.contains(where:{ $0.itemId == item.itemId }), let client = await beginWorkspaceSave() else { return false }
+        defer { workspaceSaving = false }
+        do { _ = try await client.placeBuild(item,in:week,size:item.size); isBusy = false; await refresh(); return true }
+        catch { status = error.localizedDescription; isBusy = false; await refresh(); return false }
     }
     public func saveSchedule(_ revision: ScheduleRevision?, definition: ScheduleDefinition) async -> Bool {
         guard installation?.supports("schedules") == true, let client = await beginWorkspaceSave() else { return false }
