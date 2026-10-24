@@ -189,7 +189,7 @@ struct LampView: View {
 
 /// Recovery and rarely used controls, tucked under a dashed drawer at the bottom of a tab. Nothing in it is removed, only moved.
 struct WorkshopDrawer<Content: View>: View {
-    @Binding var isExpanded: Bool
+    @SwiftUI.Binding var isExpanded: Bool
     var forceOpen = false
     let identifier: String
     @ViewBuilder let content: () -> Content
