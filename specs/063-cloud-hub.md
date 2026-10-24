@@ -71,9 +71,13 @@ service needs approval.
    (outcome unknown), reconnect without replay, a foreign lease, an oversized frame
    and a revoked token.
 2. **Enrollment and routing.** Runner slots work like companion pairing: an invite
-   code, a digest-only token and revocation. Bindings gain a `node` field. Tests
-   cover an offline node (visible failure, then the wait window), the wrong node
-   refused, and a revoked runner's pending work becoming unknown.
+   code, a digest-only token and revocation. Bindings already carry `hostId`, which
+   the executor wire checks on both ends, so `hostId` is the node; no new field is
+   needed. Tests cover an offline node (visible failure, then the wait window), the
+   wrong node refused, and a revoked runner's pending work becoming unknown.
+   Built in `service/runner-enrollment.ts` and `routeByNode` in `host/runner-hub.ts`.
+   The wait window is a router option here; the owner-facing setting on the binding
+   arrives with the hub entry point in step 3.
 3. **Headless hub artifact.** `host/cloud-hub.ts` is the Linux entry point: one
    process on `$PORT`, the ledger on `$FORT_DATA`, and plain HTTP behind the proxy. A
    plain Dockerfile with no Railway-specific API keeps the move to any VM a redeploy.

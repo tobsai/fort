@@ -16,25 +16,27 @@ export async function connectToHub(options: RunnerOptions): Promise<void> {
   const response = await fetcher(options.url + '/v1/runner/connect', { method: 'POST', headers: { authorization }, signal: options.signal });
   if (response.status !== 200 || !response.body) { await response.body?.cancel(); throw new Error('The hub refused this runner'); }
   const leases = new Map<string, PassThrough>();
-  const send = (leaseId: string, frame: unknown) => fetcher(options.url + '/v1/runner/frames', { method: 'POST', signal: options.signal,
-    headers: { authorization, 'content-type': 'application/x-ndjson' }, body: JSON.stringify({ leaseId, frame }) + '\n' })
+  const post = (row: object) => fetcher(options.url + '/v1/runner/frames', { method: 'POST', signal: options.signal,
+    headers: { authorization, 'content-type': 'application/x-ndjson' }, body: JSON.stringify(row) + '\n' })
     .then(reply => reply.body?.cancel()).catch(() => {});
 
   function lease(leaseId: string, request: unknown) {
     if (leases.has(leaseId)) return;
     const input = new PassThrough(), output = new PassThrough();
     leases.set(leaseId, input);
-    let pending = '';
+    // Frames for one lease are posted in order, and the final "ended" row only after all of them.
+    let pending = '', sent: Promise<unknown> = Promise.resolve();
+    const send = (row: object) => { sent = sent.then(() => post(row)); };
     output.setEncoding('utf8');
     output.on('data', (text: string) => {
       pending += text;
       for (let newline = pending.indexOf('\n'); newline >= 0; newline = pending.indexOf('\n')) {
         const line = pending.slice(0, newline); pending = pending.slice(newline + 1);
-        try { void send(leaseId, JSON.parse(line)); } catch {}
+        try { send({ leaseId, frame: JSON.parse(line) }); } catch {}
       }
     });
     void serveExecutorWorker({ input, output, binding: options.binding, createRuntime: () => options.createRuntime() })
-      .catch(() => {}).finally(() => leases.delete(leaseId));
+      .catch(() => {}).finally(() => { leases.delete(leaseId); send({ leaseId, ended: true }); });
     input.write(JSON.stringify(request) + '\n');
   }
 

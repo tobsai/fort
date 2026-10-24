@@ -9,7 +9,7 @@ import { terminal, validDispatch } from '../runner/executor-process.ts';
 // evidence for a lease as separate authenticated POSTs to /v1/runner/frames.
 type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number };
 type Connection = { runnerId: string; response: ServerResponse; leases: Set<string>; timer: ReturnType<typeof setInterval> };
-type Lease = { runnerId: string; connection: Connection; receive(frame: unknown): void; lost(): void };
+type Lease = { runnerId: string; connection: Connection; receive(frame: unknown): void; ended(): void; lost(): void };
 
 const FRAMES_BYTES = 1024 * 1024;
 const TOKEN = /^Bearer ([A-Za-z0-9._~-]{1,512})$/;
@@ -19,10 +19,32 @@ export class RunnerHub {
   private readonly options: HubOptions;
   private readonly connections = new Map<string, Connection>();
   private readonly leases = new Map<string, Lease>();
+  private readonly waiters = new Map<string, Set<() => void>>();
   private closed = false;
   constructor(options: HubOptions) { this.options = options; }
 
   online(runnerId: string): boolean { return this.connections.has(runnerId); }
+
+  // Resolves true once the runner is connected, or false when the wait or the signal ends first.
+  async whenOnline(runnerId: string, waitMs: number, signal: AbortSignal): Promise<boolean> {
+    if (this.online(runnerId)) return true;
+    if (waitMs <= 0 || signal.aborted) return false;
+    const done = Promise.withResolvers<boolean>(), waiters = this.waiters.get(runnerId) ?? new Set();
+    const arrived = () => done.resolve(true), gone = () => done.resolve(false), timer = setTimeout(gone, waitMs);
+    this.waiters.set(runnerId, waiters.add(arrived));
+    signal.addEventListener('abort', gone, { once: true });
+    try { return await done.promise; } finally {
+      clearTimeout(timer); signal.removeEventListener('abort', gone);
+      waiters.delete(arrived); if (!waiters.size) this.waiters.delete(runnerId);
+    }
+  }
+
+  // Drops a runner's connection, for example after its enrollment is revoked. Its running leases
+  // become unknown; whether it may reconnect is decided by authenticate().
+  disconnect(runnerId: string): void {
+    const connection = this.connections.get(runnerId);
+    if (connection) this.drop(connection);
+  }
 
   // Returns false for paths outside the runner channel so the caller can route them.
   handle(request: IncomingMessage, response: ServerResponse): boolean {
@@ -59,6 +81,7 @@ export class RunnerHub {
     this.connections.set(runnerId, connection);
     response.once('close', () => this.drop(connection));
     request.resume();
+    for (const arrived of [...this.waiters.get(runnerId) ?? []]) arrived();
   }
 
   private drop(connection: Connection) {
@@ -82,10 +105,10 @@ export class RunnerHub {
       try {
         for (const line of new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)).split('\n')) {
           if (!line) continue;
-          const row = JSON.parse(line) as { leaseId?: unknown; frame?: unknown };
+          const row = JSON.parse(line) as { leaseId?: unknown; frame?: unknown; ended?: unknown };
           const lease = typeof row.leaseId === 'string' ? this.leases.get(row.leaseId) : undefined;
           if (!lease || lease.runnerId !== runnerId) { accepted = false; continue; }
-          lease.receive(row.frame);
+          if (row.ended === true) lease.ended(); else lease.receive(row.frame);
         }
       } catch { response.writeHead(400).end(); return; }
       response.writeHead(accepted ? 204 : 409).end();
@@ -94,6 +117,7 @@ export class RunnerHub {
 
   private async execute(runnerId: string, input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult> {
     if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before dispatch. Nothing was sent.' };
+    if (dispatch.binding.hostId !== runnerId) return { kind: 'notStarted', message: 'This turn is pinned to a different Mac. Nothing was sent.' };
     if (!validDispatch(input, dispatch)) return { kind: 'notStarted', message: 'Execution scope, input, policy or deadline was not confirmed. Nothing was sent.' };
     const connection = this.connections.get(runnerId);
     if (!connection) return { kind: 'notStarted', message: OFFLINE };
@@ -101,6 +125,7 @@ export class RunnerHub {
     const unknown = (message: string) => outcome.resolve({ kind: 'outcomeUnknown', message });
     this.leases.set(leaseId, { runnerId, connection,
       receive: frame => { try { outcome.resolve(terminal(frame, dispatch)); } catch { unknown('The Mac returned evidence that could not be confirmed. Earlier effects remain unknown.'); } },
+      ended: () => unknown('The Mac ended this turn without a confirmed reply. Earlier effects remain unknown.'),
       lost: () => unknown('The Mac disconnected before a reply was confirmed. Earlier effects remain unknown.') });
     connection.leases.add(leaseId);
     const expiry = setTimeout(() => unknown('No confirmed reply arrived before the deadline. Earlier effects remain unknown.'), Math.max(1, dispatch.deadline - Date.now() + 1000));
@@ -115,4 +140,18 @@ export class RunnerHub {
       this.leases.delete(leaseId); connection.leases.delete(leaseId);
     }
   }
+}
+
+// Sends each turn to the runner its binding pins (binding.hostId), never elsewhere. When that Mac is
+// offline the turn is refused at once, or after waiting up to waitMs for it to connect.
+export function routeByNode(hub: RunnerHub, options: { waitMs?: (dispatch: ExecutionDispatch) => number } = {}): ChatRuntime {
+  return {
+    async execute(input, signal, dispatch) {
+      const runnerId = dispatch.binding.hostId;
+      const wait = Math.min(options.waitMs?.(dispatch) ?? 0, dispatch.deadline - Date.now());
+      if (!await hub.whenOnline(runnerId, wait, signal)) return { kind: 'notStarted', message: signal.aborted ? 'Canceled before dispatch. Nothing was sent.' : OFFLINE };
+      return hub.executor(runnerId).execute(input, signal, dispatch);
+    },
+    dispose: async () => {},
+  };
 }
