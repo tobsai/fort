@@ -1,6 +1,7 @@
 # 062: Claude Code subscription runner
 
 **Decision:** Toby approved building on 2026-10-24 ("Go ahead and build the claude runner too", Fort project thread).
+On 2026-10-24 he also chose "sign in once inside Fort" and "Read-only access to Claude's folder" (decision cards in the same thread); see *Mac app composition*.
 
 ## What and why
 
@@ -91,3 +92,33 @@ subscription. The CLI reached a non-subscription credential there, and the runti
 refused it: `models()` returned `error`. The check also showed that a long
 `XDG_RUNTIME_DIR` moves the messaging socket to the shared `/tmp/cc-socks-<uid>`
 directory, which is why the private runtime directory is capped at 72 bytes.
+
+## Mac app composition
+
+Added after the first runs on Toby's Mac.
+
+**Sign-in.** The App Sandbox can't read the Terminal sign-in in the login Keychain.
+`ClaudeCodeChat.signIn` runs Claude Code's own claude.ai login inside Fort's sandbox,
+over stream-json: `claude_authenticate {loginWithClaudeAi: true}`, the CLI's page shown
+as a `browserAuthorization` challenge (only claude.com or claude.ai `…/oauth/authorize`),
+then `claude_oauth_wait_for_completion`. The CLI keeps the resulting credential in its own
+store inside the sandbox. Fort never sees it and reads the account back from
+`claude auth status`. A probe on Toby's Mac confirmed login, a turn and persistence, with
+no Keychain dialog.
+
+**Persistent access.** The Fort Host helper gets one sandbox exception:
+`com.apple.security.temporary-exception.files.home-relative-path.read-only` for
+`/.local/share/claude/`, so it can run the owner's installed `claude` in place. Copying
+was tried first and fails: the sandbox will not launch a binary in Fort's container,
+whether the sandbox wrote it (quarantined), Terminal wrote it, or it is a hard link.
+Apple accepts the exception for TestFlight to the owner's devices, but App Store review
+generally rejects it. Undo: remove `Host/FortHost.entitlements`.
+
+**Host mode.** Claude Code runs beside ChatGPT on the one host ([Spec 064](064-two-providers-one-host.md))
+once the app has written `<host data>/ClaudeCode/selection.json`. On first start it pins the
+newest installed version in `pinned.json`. Later updates don't change the pin, so Claude
+Agents' bindings keep matching. Turning Claude on again re-pins, and Agents bound to the old
+version then stop with a visible message until a binding update exists (not built yet). If the
+pinned version is uninstalled, Claude doesn't start, ChatGPT still does, and the reason is in
+`<host data>/host-start-failure.txt`, which the app shows under Local host because the helper
+discards the host's stderr. Claude has its own private home and empty workspace. Every session runs under `FortProcessGuardian`.

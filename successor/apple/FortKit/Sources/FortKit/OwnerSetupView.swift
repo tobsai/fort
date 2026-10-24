@@ -5,6 +5,21 @@ struct MacHostControlView: View {
     @Bindable var model: MessengerModel
     @Bindable var host: MacHostControl
     @State private var removeUnpairedStartup = false
+    @State private var providerMessage = "ChatGPT is always on. Turn on Claude to add Claude Agents beside your ChatGPT ones."
+    @State private var startFailure: String?
+    private func refreshStartFailure() { startFailure = (try? host.lastStartFailure()) ?? nil }
+    // The host ends itself when the choice changes (Spec 064), and the app's next request starts a fresh one with the new
+    // choice. Refresh until the host reports it, or reports why Claude couldn't start, for up to about 30 seconds.
+    private func reconnectAfterRestart(claude: Bool) {
+        Task {
+            for _ in 0..<15 {
+                try? await Task.sleep(for:.seconds(2))
+                await model.refresh(); refreshStartFailure()
+                let serving = model.installation?.runtimes?.contains(where:{ $0.provider == "claude-code" }) == true
+                if model.connected && (serving == claude || startFailure != nil) { await model.refreshModels(); return }
+            }
+        }
+    }
     var body: some View {
         Section("Local host") {
             Text(host.message).font(.callout).accessibilityIdentifier("local-host-status")
@@ -22,10 +37,25 @@ struct MacHostControlView: View {
                 Button("Remove unused startup registration…") { removeUnpairedStartup = true }
                     .accessibilityIdentifier("local-host-remove-unpaired")
             }
-            Button("Check host status") { Task { await model.inspectLocalHost() } }
+            if let startFailure {
+                Text("The local host reported a problem at its last start: \(startFailure)").font(.callout).foregroundStyle(.red).textSelection(.enabled)
+                    .accessibilityIdentifier("local-host-start-failure")
+            }
+            Button("Check host status") { Task { await model.inspectLocalHost(); refreshStartFailure() } }
                 .disabled(!model.canInspectLocalHost).accessibilityIdentifier("local-host-inspect")
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
-        }.alert("Remove unused startup registration?",isPresented:$removeUnpairedStartup) {
+            // Specs 062 and 064: runs your installed Claude Code read-only beside ChatGPT, signed in through Claude's own login.
+            Button("Turn on Claude") {
+                do { try host.selectClaudeCode(); providerMessage = "Turning on Claude. The local host restarts by itself in a few seconds. Then sign in to Claude under Settings, Pairing and local host, and pick Claude when you create an Agent."; reconnectAfterRestart(claude:true) }
+                catch { providerMessage = "Claude could not be turned on: \(error.localizedDescription)" }
+            }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-claude")
+            Button("Turn off Claude") {
+                do { try host.removeClaudeCode(); providerMessage = "Turning off Claude. The local host restarts by itself in a few seconds. Claude Agents stay saved and won’t run until you turn it on again."; reconnectAfterRestart(claude:false) }
+                catch { providerMessage = "Claude could not be turned off: \(error.localizedDescription)" }
+            }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-chatgpt")
+            Text(providerMessage).font(.caption).accessibilityIdentifier("local-host-provider")
+        }.task { refreshStartFailure() }
+        .alert("Remove unused startup registration?",isPresented:$removeUnpairedStartup) {
             Button("Cancel",role:.cancel) {}
             Button("Remove registration",role:.destructive) { Task { await model.disableUnpairedLocalHost() } }
         } message: {

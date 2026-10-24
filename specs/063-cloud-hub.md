@@ -89,9 +89,10 @@ service needs approval.
    (`/v1/runners`, invitation, revoke) is owner-only; `/v1/runners/join` takes the
    invitation. Configuration: `PORT`, `FORT_DATA`, `FORT_PROVIDER`,
    `FORT_RUNTIME_VERSION`, `FORT_NODE`, `FORT_OFFLINE_WAIT_MS`.
-   Limit: the core pins one runtime identity per ledger, so one hub serves one
-   provider on one Mac. Serving several Macs or providers from one hub changes how
-   bindings pin provider and node, so it gets its own spec revision before it is built.
+   Limit: the hub entry point configures one runtime, so it serves one provider on one
+   Mac. Spec 064 (merged 2026-10-24) lets the core serve extra runtimes, each matched
+   by provider, version and host id, so the next step is to give the hub one runtime per
+   enrolled Mac and provider, all routed through `routeByNode`.
 4. **Mac runner mode.** The helper runs the runner client instead of a local core,
    using the network entitlements added in PR #31. The Mac app shows hub and runner
    status. This step also covers ledger migration (export from the Mac, import on the

@@ -19,7 +19,8 @@ writeFileSync('core-pid.json', JSON.stringify(process.pid), { mode: 0o600 });
 const lifetime = setTimeout(() => abort.abort(), 15_000);
 try {
   const options={ dataDirectory: directory, start, input: process.stdin, output: process.stdout, signal: abort.signal, network: network === 'network' ? 'explicit' : undefined,
-    provider: { provider: 'owned-core-fixture', name: 'Owned core fixture', runtimeVersion: '1', hostId: 'synthetic', session: 'stateless', capabilities: ['plainText'] },
+    ready: () => process.send?.({ kind: 'serving' }),
+    provider: { provider: behavior === 'other-provider' ? 'other-fixture' : 'owned-core-fixture', name: 'Owned core fixture', runtimeVersion: '1', hostId: 'synthetic', session: 'stateless', capabilities: ['plainText'] },
     runtime: behavior === 'missing-runtime' ? undefined : {
       async execute(input) { process.send?.({ kind: 'executed' }); return { kind: 'completed', text: input.text, effectiveModel: null }; },
       async dispose() { process.send?.({ kind: 'disposed' }); if (behavior === 'cleanup-failure') throw new Error('Synthetic dispose failure'); },
@@ -28,5 +29,5 @@ try {
   const serving=serveOwnedCore(options);
   if(behavior==='network-option-mutation')options.network='explicit';
   await serving;
-} catch { process.exitCode = 1; }
+} catch (error) { process.stderr.write(String(error?.message) + '\n'); process.exitCode = 1; }
 finally { clearTimeout(lifetime); process.disconnect?.(); }

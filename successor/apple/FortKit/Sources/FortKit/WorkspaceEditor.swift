@@ -84,7 +84,7 @@ struct WorkspaceEditor: View {
     }
     func save(using model: MessengerModel) async -> Bool {
         switch source {
-        case .agent(let loaded): await model.saveAgent(loaded,name:name,model:exactModel,instructions:instructions,avatar:avatar)
+        case .agent(let loaded): await model.saveAgent(loaded,name:name,model:exactModel,instructions:instructions,avatar:avatar,provider:loaded == nil ? model.focusedRuntime?.provider : nil)
         case .skill(let loaded): await model.saveSkill(loaded,name:name,instructions:instructions)
         }
     }

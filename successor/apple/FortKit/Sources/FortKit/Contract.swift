@@ -17,6 +17,8 @@ public struct Installation: Codable, Equatable, Sendable {
     public let serviceName: String
     public var capabilities: [String]? = nil
     public var runtime: RuntimeDescriptor? = nil
+    /// Every runtime the host serves, primary first (Spec 064). Absent on hosts that serve one.
+    public var runtimes: [RuntimeDescriptor]? = nil
     public var eventCursor: Int? = nil
     public func supports(_ capability: String) -> Bool { supportsCommands && capabilities?.contains(capability) == true }
     public var supportsCommands: Bool { contractVersion == "1.0" && ["fixture", "openai", "local"].contains(mode) }

@@ -120,13 +120,17 @@ public struct AccountSignInRequest: Codable, Equatable, Sendable {
     func matches(_ operation: AccountOperation) -> Bool { operation.operationID == operationId && operation.revision == expectedRevision + 1 && operation.expiresAt == expiresAt }
 }
 struct AccountSignInIntent: Codable, Equatable {
-    let format: Int, connection: DeviceConnection, request: AccountSignInRequest
-    private enum CodingKeys: String, CodingKey { case format, connection, request }
-    init(format: Int, connection: DeviceConnection, request: AccountSignInRequest) { self.format = format; self.connection = connection; self.request = request }
+    // `provider` names a runtime other than the host's primary one (Spec 064); absent means the primary.
+    let format: Int, connection: DeviceConnection, request: AccountSignInRequest, provider: String?
+    private enum CodingKeys: String, CodingKey { case format, connection, request, provider }
+    init(format: Int, connection: DeviceConnection, request: AccountSignInRequest, provider: String? = nil) { self.format = format; self.connection = connection; self.request = request; self.provider = provider }
     init(from decoder: Decoder) throws {
-        try accountKeys(decoder,["format","connection","request"])
+        let keys = Set(try decoder.container(keyedBy:AccountKey.self).allKeys.map(\.stringValue))
+        guard keys == ["format","connection","request"] || keys == ["format","connection","request","provider"] else { throw ClientError.invalidResponse }
         let values = try decoder.container(keyedBy:CodingKeys.self)
         format = try values.decode(Int.self,forKey:.format); connection = try values.decode(DeviceConnection.self,forKey:.connection); request = try values.decode(AccountSignInRequest.self,forKey:.request)
+        provider = try values.decodeIfPresent(String.self,forKey:.provider)
+        if let provider { guard accountID(provider) else { throw ClientError.invalidResponse } }
         guard format == 1 else { throw ClientError.invalidResponse }; try connection.validate()
     }
 }

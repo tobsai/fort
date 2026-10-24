@@ -86,6 +86,21 @@ import Testing
     await fixture.cleanup()
 }
 
+// Spec 064: the core ends itself when the owner turns Claude on or off, and the helper must notice so it can exit.
+@Test @MainActor func agentServiceReportsWhenItsCoreEndsByItself() async throws {
+    let fixture = try AgentServiceFixture(), service = fixture.service()
+    do {
+        try await service.start()
+        let pid = try #require(fixture.pid)
+        let ended = Task { await service.waitUntilCoreEnds(); return true }
+        #expect(kill(pid,SIGTERM) == 0)
+        #expect(await ended.value)
+        _ = try? await service.shutdown()
+        fixture.absent()
+    } catch { await fixture.cleanup(); throw error }
+    await fixture.cleanup()
+}
+
 @Test @MainActor func agentServiceStorageFailureStartsNothingAndShutdownPreventsLaterStart() async throws {
     let fixture = try AgentServiceFixture(); fixture.refuseStorage = true
     let service = fixture.service()

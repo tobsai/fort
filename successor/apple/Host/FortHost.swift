@@ -22,6 +22,10 @@ import FortKit
         defer { source.cancel(); events.continuation.finish() }
         do {
             try await starting.value
+            // When the core ends by itself (the owner turned Claude on or off), this helper exits too. macOS starts a
+            // fresh one on the app's next request, so no Terminal command is needed.
+            let ended = Task { await service.waitUntilCoreEnds(); events.continuation.yield(()) }
+            defer { ended.cancel() }
             for await _ in events.stream { break }
             _ = try await service.shutdown()
         } catch {

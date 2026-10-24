@@ -49,8 +49,12 @@ public enum MacAgentServiceError: Error, LocalizedError {
             _ = try storage.prepareRuntimeDirectory()
             return storage
         },launch:{ try await MacCoreHost.launch(executable:program.executable,
-            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:[:],guardian:program.guardian) },
+            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:Self.hostEnvironment(),guardian:program.guardian) },
             makeListener:makeListener)
+    }
+    // Only the sandbox container's temporary directory: Claude Code needs a short private one (Spec 062).
+    static func hostEnvironment(temporary: URL = FileManager.default.temporaryDirectory) -> [String:String] {
+        ["TMPDIR":temporary.standardizedFileURL.path]
     }
     init(prepareStorage: @escaping @MainActor () throws -> MacAgentStorage,
          launch: @escaping @MainActor (URL) async throws -> MacCoreHost,
@@ -78,6 +82,13 @@ public enum MacAgentServiceError: Error, LocalizedError {
             _ = try await shutdown()
             throw error
         }
+    }
+
+    /// Returns once the started core has ended, by itself or through shutdown, or at once if none was launched. The core
+    /// ends itself when the owner turns Claude on or off (Spec 064), so the helper can exit and macOS can start a new one.
+    public func waitUntilCoreEnds() async {
+        guard let launchTask, let core = try? await launchTask.value else { return }
+        await core.waitUntilEnded()
     }
 
     public func shutdown() async throws -> MacCoreStop {
