@@ -93,6 +93,42 @@ export async function refreshPlanCredential(options: { credential: PlanCredentia
   return { ...credential, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt, scopes: tokens.scopes, ...(tokens.idToken ? { idToken: tokens.idToken } : {}) };
 }
 
+type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+const RESPONSE_LIMIT = 256 * 1024;
+async function bounded(response: Response): Promise<unknown> {
+  const body = await response.text();
+  if (Buffer.byteLength(body) > RESPONSE_LIMIT) throw new Error('The sign-in response is too large');
+  try { return JSON.parse(body); } catch { return undefined; }
+}
+
+// Form POST to the token endpoint. The body is never logged.
+export function fetchTokenTransport(fetcher: Fetch): TokenTransport {
+  return { async postForm(url, form) {
+    if (url !== TOKEN_URL) throw new Error('Unexpected token endpoint');
+    const response = await fetcher(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body: form.toString(), redirect: 'error', signal: AbortSignal.timeout(30_000) });
+    return { status: response.status, body: await bounded(response) };
+  } };
+}
+
+// ID token keys from the issuer's OpenID discovery document. The JWKS location is read from discovery,
+// must stay on the issuer's origin, and is fetched again only for an unknown key ID.
+export function discoveredSigningKeys(fetcher: Fetch): SigningKeys {
+  let cached: webcrypto.JsonWebKey[] | undefined;
+  const load = async () => {
+    const get = async (url: string) => { const response = await fetcher(url, { headers: { accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(30_000) }); if (response.status !== 200) throw new Error('Signing keys are unavailable'); return record(await bounded(response)); };
+    const discovery = await get(`${ISSUER}/.well-known/openid-configuration`);
+    if (discovery.issuer !== ISSUER || typeof discovery.jwks_uri !== 'string' || new URL(discovery.jwks_uri).origin !== ISSUER) throw new Error('Signing keys are unavailable');
+    const keys = (await get(discovery.jwks_uri)).keys;
+    if (!Array.isArray(keys)) throw new Error('Signing keys are unavailable');
+    return keys.map(record).filter(key => key.kty === 'RSA' && (key.use === undefined || key.use === 'sig') && (key.alg === undefined || key.alg === 'RS256')) as webcrypto.JsonWebKey[];
+  };
+  return async kid => {
+    const find = () => cached?.find(key => (key as { kid?: unknown }).kid === kid);
+    if (!find()) cached = await load();
+    return find();
+  };
+}
+
 // One-shot listener on 127.0.0.1. Start it before opening the system browser.
 export async function listenForCallback(signal: AbortSignal): Promise<{ redirectURI: string; callback: Promise<URLSearchParams> }> {
   let settle!: (value: URLSearchParams) => void, reject!: (error: Error) => void;

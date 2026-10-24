@@ -6,15 +6,21 @@ function object(value: unknown, keys: readonly string[]): Record<string, unknown
   for (const [key, item] of Object.entries(value)) { if (!keys.includes(key)) reject(); fields[key] = item; }
   return fields;
 }
+function httpsURL(value: unknown, limit: number, query: boolean): string {
+  if (typeof value !== 'string' || value.length > limit || !value.isWellFormed() || /[\x00-\x20\x7f]/.test(value)) reject();
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.username || url.password || url.hash || (url.search && !query) || url.port || url.href !== value) reject();
+  return value;
+}
 export function parseAccountChallenge(value: unknown): AccountChallenge {
+  if (value && typeof value === 'object' && (value as Record<string, unknown>).kind === 'browserAuthorization') {
+    const row = object(value, ['kind', 'authorizationURL']);
+    return { kind: 'browserAuthorization', authorizationURL: httpsURL(row.authorizationURL, 2048, true) };
+  }
   const row = object(value, ['kind', 'verificationURL', 'userCode']);
-  if (row.kind !== 'deviceCode' || typeof row.verificationURL !== 'string' || row.verificationURL.length > 2048
-      || !row.verificationURL.isWellFormed() || /[\x00-\x20\x7f]/.test(row.verificationURL)
-      || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
+  if (row.kind !== 'deviceCode' || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
       || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(row.userCode)) reject();
-  const url = new URL(row.verificationURL);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || url.port || url.href !== row.verificationURL) reject();
-  return { kind: 'deviceCode', verificationURL: row.verificationURL, userCode: row.userCode };
+  return { kind: 'deviceCode', verificationURL: httpsURL(row.verificationURL, 2048, false), userCode: row.userCode };
 }
 
 export function parseAccountIdentity(value: unknown): AccountIdentity {

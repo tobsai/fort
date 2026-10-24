@@ -137,7 +137,7 @@ import Observation
         case .idle: accountSignInMessage = "No sign-in attempt is active."
         case .unavailable: accountSignInMessage = "This runtime does not offer sign-in here."
         case .starting: accountSignInMessage = "Waiting for the runtime’s sign-in instructions."
-        case .challenge: accountSignInMessage = "Open the verification page and enter this code before it expires."
+        case .challenge(_,let challenge): accountSignInMessage = challenge.userCode == nil ? "Open the sign-in page and approve Fort before it expires. You will return here automatically." : "Open the verification page and enter this code before it expires."
         case .canceling: accountSignInMessage = "Cancellation is awaiting confirmation."
         case .identified(_,_,let selected):
             accountSignInMessage = selected ? "Connected. Models are checked automatically for this account." : "This account could not be matched to your saved choice. Review Advanced account management before using it."
