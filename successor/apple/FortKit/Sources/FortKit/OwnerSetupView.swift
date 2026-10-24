@@ -5,6 +5,7 @@ struct MacHostControlView: View {
     @Bindable var model: MessengerModel
     @Bindable var host: MacHostControl
     @State private var removeUnpairedStartup = false
+    @State private var providerMessage = "Fort uses ChatGPT unless you choose Claude."
     var body: some View {
         Section("Local host") {
             Text(host.message).font(.callout).accessibilityIdentifier("local-host-status")
@@ -25,6 +26,16 @@ struct MacHostControlView: View {
             Button("Check host status") { Task { await model.inspectLocalHost() } }
                 .disabled(!model.canInspectLocalHost).accessibilityIdentifier("local-host-inspect")
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
+            // Spec 062: runs your installed Claude Code read-only, signed in through Claude's own login.
+            Button("Use Claude Code on this Mac") {
+                do { try host.selectClaudeCode(); providerMessage = "Claude is chosen. Fort uses your installed Claude Code from the next host start, then asks you to sign in." }
+                catch { providerMessage = "Claude could not be chosen: \(error.localizedDescription)" }
+            }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-claude")
+            Button("Use ChatGPT") {
+                do { try host.removeClaudeCode(); providerMessage = "ChatGPT is chosen from the next host start. Claude history is kept." }
+                catch { providerMessage = "ChatGPT could not be chosen: \(error.localizedDescription)" }
+            }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-chatgpt")
+            Text(providerMessage).font(.caption).accessibilityIdentifier("local-host-provider")
         }.alert("Remove unused startup registration?",isPresented:$removeUnpairedStartup) {
             Button("Cancel",role:.cancel) {}
             Button("Remove registration",role:.destructive) { Task { await model.disableUnpairedLocalHost() } }
