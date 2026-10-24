@@ -11,7 +11,7 @@ import { ClaudeCodeChat, claudeCodeLaunch, claudeCodeRuntime, type ClaudeCodeLau
 // binary placed in Fort's own container, so copying is not an option.
 export const CLAUDE_CODE_DIRECTORY = 'ClaudeCode';
 type HostOptions = { directory: string; guardian: string; temporary: string; installation?: string };
-export type ClaudeCodeHost = { runtime: ClaudeCodeChat; provider: RuntimeDescriptor; dataDirectory: string };
+export type ClaudeCodeHost = { runtime: ClaudeCodeChat; provider: RuntimeDescriptor };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
 const exactPath = (path: string) => typeof path === 'string' && isAbsolute(path) && path !== '/' && normalize(path) === path && path.isWellFormed() && !path.includes('\0') && Buffer.byteLength(path) <= 4096;
@@ -75,11 +75,10 @@ export function createClaudeCodeHost({ directory, guardian, temporary, installat
   // The owner's own install: a regular file only their account can change, never a link.
   if (!binary.isFile() || binary.uid !== process.getuid() || (binary.mode & 0o022) !== 0 || (binary.mode & 0o100) === 0) throw new Error('The installed Claude Code binary is not owner-only');
   for (const path of [home, workspace, temporary]) ensurePrivate(path);
-  const dataDirectory = ensurePrivate(join(directory, 'data'));
   if (readdirSync(workspace).length !== 0) throw new Error('The Claude Code workspace must be empty');
   const plan = claudeCodeLaunch({ executable, workspace, home, runtimeDirectory: temporary });
   const version = spawnSync(executable, ['--version'], { cwd: workspace, env: plan.env, encoding: 'utf8', timeout: 10_000, maxBuffer: 4096, stdio: ['ignore', 'pipe', 'ignore'] });
   if (version.status !== 0 || !new RegExp(`^${runtimeVersion.replaceAll('.', '\\.')} \\(Claude Code\\)\\n?$`).test(version.stdout)) throw new Error('The installed Claude Code version was not confirmed');
   const runtime = new ClaudeCodeChat({ executable, workspace, home, runtimeDirectory: temporary, runtimeVersion, launch: guardedClaudeLaunch(guardian) });
-  return { runtime, provider: claudeCodeRuntime(runtimeVersion), dataDirectory };
+  return { runtime, provider: claudeCodeRuntime(runtimeVersion) };
 }

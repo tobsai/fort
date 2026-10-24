@@ -28,11 +28,11 @@ struct MacHostControlView: View {
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
             // Spec 062: runs your installed Claude Code read-only, signed in through Claude's own login.
             Button("Use Claude Code on this Mac") {
-                do { try host.selectClaudeCode(); providerMessage = "Claude is chosen. Fort uses your installed Claude Code from the next host start, then asks you to sign in." }
+                do { try host.selectClaudeCode(); providerMessage = "Claude is chosen. Fort uses your installed Claude Code from the next host start, then asks you to sign in. A host that already has ChatGPT agents can’t switch yet." }
                 catch { providerMessage = "Claude could not be chosen: \(error.localizedDescription)" }
             }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-claude")
             Button("Use ChatGPT") {
-                do { try host.removeClaudeCode(); providerMessage = "ChatGPT is chosen from the next host start. Claude history is kept." }
+                do { try host.removeClaudeCode(); providerMessage = "ChatGPT is chosen from the next host start. A host that already has Claude agents can’t switch back yet." }
                 catch { providerMessage = "ChatGPT could not be chosen: \(error.localizedDescription)" }
             }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-chatgpt")
             Text(providerMessage).font(.caption).accessibilityIdentifier("local-host-provider")

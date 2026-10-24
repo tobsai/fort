@@ -118,5 +118,7 @@ generally rejects it. Undo: remove `Host/FortHost.entitlements`.
 the app has written `<host data>/ClaudeCode/selection.json`. On first start it pins the
 newest installed version in `pinned.json`. Later updates don't change the pin, so stored
 bindings keep matching. Choosing Claude again re-pins. If the pinned version is
-uninstalled, the host refuses to start and says so. The mode has its own private ledger,
-home and empty workspace. Every session runs under `FortProcessGuardian`.
+uninstalled, the host refuses to start and says so. The mode shares the host's one ledger
+and pairing (the owned core serves only its working directory), so a ledger that already
+holds bindings for the other runtime refuses to start; per-provider ledgers come with the
+multi-provider service. It has its own private home and empty workspace. Every session runs under `FortProcessGuardian`.
