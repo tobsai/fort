@@ -55,6 +55,17 @@ import Observation
             try MacAgentStorage.inspectExisting(for:identity.endpoint).removeProviderCredentials()
         },historyActions:history)
     }
+    /// Copies the owner's chosen claude binary into the host's storage; the helper runs Claude-only from its next start.
+    public func installClaudeCode(from source: URL) throws {
+        guard let identity else { throw MacHostStartupError.unavailable }
+        let scoped = source.startAccessingSecurityScopedResource(); defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        try MacAgentStorage.inspectExisting(for:identity.endpoint).installClaudeCode(from:source)
+    }
+    /// Returns the helper to its default runtime from its next start.
+    public func removeClaudeCode() throws {
+        guard let identity else { throw MacHostStartupError.unavailable }
+        try MacAgentStorage.inspectExisting(for:identity.endpoint).removeClaudeCode()
+    }
     public var canDisableUnpaired: Bool { !isBusy && endpoint != nil && (status == .enabled || status == .requiresApproval) }
     public func disableUnpaired(storageDirectory: URL) async throws {
         guard canDisableUnpaired, let identity else { throw MacHostStartupError.unavailable }
