@@ -4,11 +4,12 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, type PreparedContext } from '../contracts/context.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
+import { InvalidWeek, WeekConflict, addPlanItem, closeWeek, decodeWeek, foundWeek, placeBuild, viewWeek } from './week.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
 import { InvalidSkillBundle, parseSkillBundle, skillInstructions } from '../contracts/skill-bundle.ts';
 import { PrivateSocketLease } from './private-socket.ts';
@@ -27,7 +28,7 @@ type OwnerSetup = { version: 1; setupId: string; expires: number } & (
   | { state: 'completed' | 'canceling'; deviceId: string }
   | { state: 'canceled'; deviceId: string; outcome: 'notPaired' | 'revoked' }
 );
-type Entity = 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -260,7 +261,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&options.runtime?.signIn?['accountSignIn']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules']};
+  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&options.runtime?.signIn?['accountSignIn']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -269,7 +270,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         ON CONFLICT(run_id) DO UPDATE SET state=excluded.state,attempt_id=excluded.attempt_id,generation=excluded.generation`).run(run.runId,run.conversationId,run.state,run.attemptId,run.attemptGeneration ?? 0);
       else db.prepare('DELETE FROM dispatch_outbox WHERE run_id=?').run(run.runId);
     }
-    if (['agents', 'agentBindings', 'disabledBindings', 'conversations', 'skills', 'skillRevisions', 'routines', 'schedules'].includes(kind)) append('_workspace', 'workspaceChanged', entityId);
+    if (['agents', 'agentBindings', 'disabledBindings', 'conversations', 'skills', 'skillRevisions', 'routines', 'schedules', 'weeks'].includes(kind)) append('_workspace', 'workspaceChanged', entityId);
     return result;
   };
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
@@ -430,6 +431,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if(options.admitSubmission&&!options.admitSubmission({text:inputText,conversation,configuration},list('runs',decodeRun)))fail(403,'sampleNotAuthorized','This routine is outside the active session.');
     return recordSubmission({conversationId:definition.conversationId,requestId,bindingRevisionId:definition.bindingRevisionId,inputText,fingerprint,configuration,routine:startRoutine(routineId,revisionId,definition,inputs)});
   };
+  const agentIds=()=>new Set(list('agents',decodeAgent).map(agent=>agent.agentId));
+  const weeks=()=>list('weeks',decodeWeek).sort((a,b)=>b.number-a.number);
+  const foundNextWeek=(request:IncomingMessage,body:Record<string,unknown>)=>owner(request,()=>{
+    const existing=weeks();if(existing.some(week=>week.state==='live'))fail(409,'weekLive','Close the live week before founding the next one.');
+    const week=foundWeek(body,agentIds(),(existing[0]?.number??0)+1);put('weeks',week.weekId,week);return viewWeek(week);
+  });
+  const changeWeek=(request:IncomingMessage,weekId:string,body:Record<string,unknown>,change:(week:Week)=>Week)=>owner(request,()=>{
+    const week=load('weeks',weekId,decodeWeek);
+    if(body.expectedRevisionId!==week.revisionId)fail(409,'weekChanged','Reload the week before changing it.');
+    if(week.state!=='live')fail(409,'weekClosed','This week is closed.');
+    const next=change(week);put('weeks',next.weekId,next);return viewWeek(next);
+  });
   const saveSchedule=(request:IncomingMessage,body:Record<string,unknown>,scheduleId?:string)=>owner(request,()=>{
     const definition=parseSchedule(body.definition),routine=load('routineRevisions',definition.routineRevisionId,decodeRoutine);
     if(routine.routineId!==definition.routineId)fail(409,'routineChanged','Select the exact saved routine revision.');
@@ -874,6 +887,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             put('routineApprovals',approvalId,decided);put('runs',run.runId,updated);append(run.conversationId,'approvalResolved',approvalId);return {approval:decided,run:updated};
           });queueMicrotask(wake);
         }
+        else if(request.method==='GET'&&url.pathname==='/v1/weeks')result={weeks:weeks().map(viewWeek)};
+        else if(request.method==='POST'&&url.pathname==='/v1/weeks'){result=foundNextWeek(request,await readBody(request));status=201;}
+        else if(request.method==='POST'&&/^\/v1\/weeks\/[^/]+\/(plan|builds|close)$/.test(url.pathname)){
+          const body=await readBody(request),[,,,weekId,action]=url.pathname.split('/'),at=new Date(now()).toISOString();
+          result=changeWeek(request,id(weekId),body,week=>action==='plan'?addPlanItem(week,body,agentIds()):action==='builds'?placeBuild(week,body,agentIds(),at):closeWeek(week,body,at));
+        }
         else if(request.method==='GET'&&url.pathname==='/v1/schedules')result={schedules:list('schedules',decodeSchedule)};
         else if(request.method==='POST'&&url.pathname==='/v1/schedules'){result=saveSchedule(request,await readBody(request));status=201;}
         else if(request.method==='POST'&&/^\/v1\/schedules\/[^/]+$/.test(url.pathname))result=saveSchedule(request,await readBody(request),id(url.pathname.split('/')[3]));
@@ -1089,8 +1108,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       }
       if (request.method === 'POST' && url.pathname.startsWith('/v1/schedules')) armScheduleClock();
     } catch (error) {
-      status = error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? 400 : 500;
-      result = { error: { code: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : 'internalError', message: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine ? error.message : 'Fort could not complete the request.' } };
+      status = error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.status : error instanceof InvalidSkillBundle || error instanceof InvalidRoutine || error instanceof InvalidWeek ? 400 : error instanceof WeekConflict ? 409 : 500;
+      result = { error: { code: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError ? error.code : error instanceof InvalidSkillBundle ? 'invalidSkillBundle' : error instanceof InvalidRoutine ? 'invalidRoutine' : error instanceof InvalidWeek ? 'invalidWeek' : error instanceof WeekConflict ? 'weekConflict' : 'internalError', message: error instanceof APIError || error instanceof CompanionPairingError || error instanceof AccountSignInError || error instanceof InvalidSkillBundle || error instanceof InvalidRoutine || error instanceof InvalidWeek || error instanceof WeekConflict ? error.message : 'Fort could not complete the request.' } };
     }
     response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(result));
   });
