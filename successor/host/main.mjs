@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serveOwnedCore } from './core/host/owned-core.js';
 import { createPrivateCodexExecutorProcess, CODEX_RUNTIME } from './executor/runner/codex-executor.js';
-import { createClaudeCodeHost, selectedClaudeCode } from './executor/runner/claude-code-host.js';
+import { createClaudeCodeHost, selectedClaudeCode, watchClaudeCodeSelection } from './executor/runner/claude-code-host.js';
 import { LOCAL_CONTEXT } from './context/modules/local-context.js';
 
 // The helper discards stderr, so a startup problem leaves its reason here for the app to show. Only errors raised before
@@ -33,6 +33,9 @@ try {
     try { runtimes.push(createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'claude') })); }
     catch (error) { recordFailure(error, 'Claude Code could not start, so only ChatGPT is available: '); }
   }
+  // Turning Claude on or off in the app ends this host cleanly; the helper exits with it, and macOS starts a new one with
+  // the new choice on the app's next request.
+  watchClaudeCodeSelection(process.cwd(), stop);
   await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: codex, runtimes, context: LOCAL_CONTEXT, network: 'explicit',
     input: process.stdin, output: process.stdout, signal: controller.signal, ready: () => { serving = true; } });
 } catch (error) {

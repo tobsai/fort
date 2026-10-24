@@ -22,6 +22,19 @@ export function selectedClaudeCode(dataDirectory: string): string | undefined {
   return lstatSync(join(directory, 'selection.json'), { throwIfNoEntry: false })?.isFile() ? directory : undefined;
 }
 
+// Calls onChange once when the owner turns Claude on or off after the host started, so the host can restart itself and
+// pick up the new choice. Only the selection file's presence is read.
+export function watchClaudeCodeSelection(dataDirectory: string, onChange: () => void, interval = 1000): () => void {
+  const initial = selectedClaudeCode(dataDirectory) !== undefined;
+  const timer = setInterval(() => {
+    let current = initial;
+    try { current = selectedClaudeCode(dataDirectory) !== undefined; } catch {}
+    if (current !== initial) { clearInterval(timer); onChange(); }
+  }, interval);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
 function ensurePrivate(path: string): string {
   if (!lstatSync(path, { throwIfNoEntry: false })) mkdirSync(path, { mode: 0o700 });
   const info = lstatSync(path);

@@ -2,7 +2,7 @@ import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createClaudeCodeHost, guardedClaudeLaunch, selectedClaudeCode, CLAUDE_CODE_DIRECTORY } from './claude-code-host.ts';
+import { createClaudeCodeHost, guardedClaudeLaunch, selectedClaudeCode, watchClaudeCodeSelection, CLAUDE_CODE_DIRECTORY } from './claude-code-host.ts';
 
 // A stand-in for the Mac guardian: records its arguments, then runs the child with the same pipes.
 const guardianSource = `#!${process.execPath}
@@ -33,6 +33,23 @@ test('the Claude-only mode is selected only by the owner\'s choice in the host d
   assert.equal(selectedClaudeCode(f.data), f.directory);
   rmSync(join(f.directory, 'selection.json'));
   assert.equal(selectedClaudeCode(f.data), undefined);
+});
+
+test('the host learns when the owner turns Claude on or off, so it can restart without a Terminal command', async t => {
+  const f = setup(t);
+  const changes: string[] = [];
+  const stop = watchClaudeCodeSelection(f.data, () => changes.push('changed'), 10); t.after(stop);
+  const settle = () => new Promise(resolve => setTimeout(resolve, 60));
+  await settle(); assert.deepEqual(changes, []);
+  rmSync(join(f.directory, 'selection.json')); await settle();
+  assert.deepEqual(changes, ['changed']);
+  // Reported once per change from the state the host started with; the host restarts on the first report.
+  writeFileSync(join(f.directory, 'selection.json'), '{}\n', { mode: 0o600 }); await settle();
+  assert.deepEqual(changes, ['changed']);
+  stop();
+  let unchanged = true;
+  const off = watchClaudeCodeSelection(join(f.root, 'missing'), () => { unchanged = false; }, 10); t.after(off);
+  await settle(); assert.ok(unchanged);
 });
 
 test('the host runs the newest installed version in place and keeps that pin across restarts', t => {

@@ -84,6 +84,13 @@ public enum MacAgentServiceError: Error, LocalizedError {
         }
     }
 
+    /// Returns once the started core has ended, by itself or through shutdown, or at once if none was launched. The core
+    /// ends itself when the owner turns Claude on or off (Spec 064), so the helper can exit and macOS can start a new one.
+    public func waitUntilCoreEnds() async {
+        guard let launchTask, let core = try? await launchTask.value else { return }
+        await core.waitUntilEnded()
+    }
+
     public func shutdown() async throws -> MacCoreStop {
         closing = true
         if let shutdownTask { return try await shutdownTask.value }

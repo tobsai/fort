@@ -23,8 +23,9 @@ that provider for good. Existing ChatGPT Agents don't change.
 - **Ledger.** The existing `runtimeIdentity` row stays the host's primary runtime
   (ChatGPT on the Mac). Additional runtimes are not written to the ledger. A binding
   names its runtime, which is enough.
-- **Undo.** Turning Claude off in the app removes the Claude runtime from the next host
-  start. Claude Agents then fail visibly until it is turned back on. Nothing is deleted.
+- **Undo.** Turning Claude off in the app removes the Claude runtime. The host notices the
+  change, ends cleanly and its helper exits, and macOS starts a fresh one on the app's next
+  request, so no Terminal command is needed. In-flight turns end with that restart. Claude Agents then fail visibly until it is turned back on. Nothing is deleted.
 
 ## Plan
 
