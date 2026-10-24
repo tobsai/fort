@@ -5,7 +5,7 @@ struct MacHostControlView: View {
     @Bindable var model: MessengerModel
     @Bindable var host: MacHostControl
     @State private var removeUnpairedStartup = false
-    @State private var providerMessage = "Fort uses ChatGPT unless you choose Claude."
+    @State private var providerMessage = "ChatGPT is always on. Turn on Claude to add Claude Agents beside your ChatGPT ones."
     @State private var startFailure: String?
     private func refreshStartFailure() { startFailure = (try? host.lastStartFailure()) ?? nil }
     var body: some View {
@@ -26,20 +26,20 @@ struct MacHostControlView: View {
                     .accessibilityIdentifier("local-host-remove-unpaired")
             }
             if let startFailure {
-                Text("The local host’s last start failed: \(startFailure)").font(.callout).foregroundStyle(.red).textSelection(.enabled)
+                Text("The local host reported a problem at its last start: \(startFailure)").font(.callout).foregroundStyle(.red).textSelection(.enabled)
                     .accessibilityIdentifier("local-host-start-failure")
             }
             Button("Check host status") { Task { await model.inspectLocalHost(); refreshStartFailure() } }
                 .disabled(!model.canInspectLocalHost).accessibilityIdentifier("local-host-inspect")
             Text("Enabling lets macOS start Fort’s local host. Pairing and provider access are checked separately.").font(.caption)
-            // Spec 062: runs your installed Claude Code read-only, signed in through Claude's own login.
-            Button("Use Claude Code on this Mac") {
-                do { try host.selectClaudeCode(); providerMessage = "Claude is chosen. Fort uses your installed Claude Code from the next host start, then asks you to sign in. An existing ChatGPT host can’t switch yet." }
-                catch { providerMessage = "Claude could not be chosen: \(error.localizedDescription)" }
+            // Specs 062 and 064: runs your installed Claude Code read-only beside ChatGPT, signed in through Claude's own login.
+            Button("Turn on Claude") {
+                do { try host.selectClaudeCode(); providerMessage = "Claude turns on at the next host start. Then sign in to Claude under Settings, Pairing and local host, and pick Claude when you create an Agent." }
+                catch { providerMessage = "Claude could not be turned on: \(error.localizedDescription)" }
             }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-claude")
-            Button("Use ChatGPT") {
-                do { try host.removeClaudeCode(); providerMessage = "ChatGPT is chosen from the next host start. An existing Claude host can’t switch back yet." }
-                catch { providerMessage = "ChatGPT could not be chosen: \(error.localizedDescription)" }
+            Button("Turn off Claude") {
+                do { try host.removeClaudeCode(); providerMessage = "Claude turns off at the next host start. Claude Agents stay saved and won’t run until you turn it on again." }
+                catch { providerMessage = "Claude could not be turned off: \(error.localizedDescription)" }
             }.disabled(host.isBusy).accessibilityIdentifier("local-host-use-chatgpt")
             Text(providerMessage).font(.caption).accessibilityIdentifier("local-host-provider")
         }.task { refreshStartFailure() }

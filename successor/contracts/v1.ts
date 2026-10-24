@@ -15,7 +15,7 @@ export type AccountSignInStatus = { revision: number } & (
 );
 export type RuntimeCapability = 'plainText' | 'modelCatalog' | 'cancel' | 'skills' | 'memory';
 export type RuntimeDescriptor = { provider: string; name: string; runtimeVersion: string; hostId: string; session: 'stateless' | 'sessionful'; capabilities: RuntimeCapability[] };
-export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor; eventCursor?: number };
+export type Installation = { contractVersion: '1.0'; installationId: string; recoveryEpoch: string; mode: 'fixture' | 'openai' | 'local'; serviceName: 'Fort Fixture' | 'Fort Prototype' | 'Fort'; capabilities?: string[]; runtime?: RuntimeDescriptor; runtimes?: RuntimeDescriptor[]; eventCursor?: number };
 export type Binding = { bindingRevisionId: string; provider: string; runtimeVersion: string; selectedModel: string; hostId: string; enabled: boolean };
 export type AgentAvatar = 'orbit' | 'ember' | 'sprout';
 export type ModelOption = { id:string; name:string; availability:'available'|'unavailable'; detail?:string };

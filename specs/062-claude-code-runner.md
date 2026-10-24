@@ -114,14 +114,11 @@ whether the sandbox wrote it (quarantined), Terminal wrote it, or it is a hard l
 Apple accepts the exception for TestFlight to the owner's devices, but App Store review
 generally rejects it. Undo: remove `Host/FortHost.entitlements`.
 
-**Host mode.** While the multi-provider service is built, the helper is Claude-only when
-the app has written `<host data>/ClaudeCode/selection.json`. On first start it pins the
-newest installed version in `pinned.json`. Later updates don't change the pin, so stored
-bindings keep matching. Choosing Claude again re-pins. If the pinned version is
-uninstalled, the host refuses to start and says so. The mode shares the host's one ledger
-and pairing (the owned core serves only its working directory). The ledger records one
-runtime identity (provider, version, host id) when it is first set up, so any existing
-ChatGPT host refuses to start in Claude mode, with or without agents, and a re-pin to a new
-Claude version refuses the same way. Holding both providers needs the multi-provider service.
-A failed start leaves its reason in `<host data>/host-start-failure.txt`, which the app shows
-under Local host, because the helper discards the host's stderr. It has its own private home and empty workspace. Every session runs under `FortProcessGuardian`.
+**Host mode.** Claude Code runs beside ChatGPT on the one host ([Spec 064](064-two-providers-one-host.md))
+once the app has written `<host data>/ClaudeCode/selection.json`. On first start it pins the
+newest installed version in `pinned.json`. Later updates don't change the pin, so Claude
+Agents' bindings keep matching. Turning Claude on again re-pins, and Agents bound to the old
+version then stop with a visible message until a binding update exists (not built yet). If the
+pinned version is uninstalled, Claude doesn't start, ChatGPT still does, and the reason is in
+`<host data>/host-start-failure.txt`, which the app shows under Local host because the helper
+discards the host's stderr. Claude has its own private home and empty workspace. Every session runs under `FortProcessGuardian`.

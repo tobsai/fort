@@ -3,12 +3,15 @@ import { isAbsolute } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { createApplication } from '../service/openai.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
+import type { RuntimeDescriptor } from '../contracts/v1.ts';
 import { servePrivateChannel } from './private-channel.ts';
 import type {SecureNetworkControl} from '../contracts/secure-network.ts';
 
 type CoreOptions = Parameters<typeof createApplication>[0];
 export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 'context' | 'attemptTimeoutMs' | 'ownerPairingPolicy'> & {
   runtime: ChatRuntime;
+  // Other runtimes this host serves beside the primary (Spec 064).
+  runtimes?: readonly { provider: RuntimeDescriptor; runtime: ChatRuntime }[];
   input: Readable;
   output: Writable;
   signal?: AbortSignal;
@@ -19,7 +22,7 @@ export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 
 };
 
 export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
-  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode, ready } = options;
+  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode, ready, runtimes = [] } = options;
   if (!runtime || typeof runtime.execute !== 'function' || typeof runtime.dispose !== 'function') throw new Error('Select an explicit owned runtime');
   let service: ReturnType<typeof createApplication> | undefined;
   let network:SecureNetworkControl|undefined;
@@ -31,7 +34,7 @@ export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
     const directory = lstatSync(dataDirectory);
     if (!directory.isDirectory() || !process.getuid || directory.uid !== process.getuid() || (directory.mode & 0o077) !== 0
       || realpathSync(dataDirectory) !== realpathSync(process.cwd())) throw new Error('The owned core requires its private ledger working directory');
-    service = createApplication({ dataDirectory, provider, runtime, context, attemptTimeoutMs, autoRun: true,
+    service = createApplication({ dataDirectory, provider, runtime, runtimes, context, attemptTimeoutMs, autoRun: true,
       ...(networkMode==='explicit'?{ownerAccessChanged:()=>{void network?.reconcileOwner().catch(()=>{});}}:{}),
       ownerPairingPolicy: ownerPairingPolicy ?? { expiresAfterDays: null } });
     await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' }, signal, resumeOwnerHost: start === 'resume' });
@@ -50,6 +53,6 @@ export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
       ownerSetup: { begin: service.beginOwnerSetup, complete: service.completeOwnerSetup, cancel: service.cancelOwnerSetup } });
   } finally {
     try {await network?.close();}
-    finally {if (service) await service.close();else await runtime.dispose();}
+    finally {if (service) await service.close();else try { await runtime.dispose(); } finally { await Promise.allSettled(runtimes.map(lane => lane.runtime.dispose())); }}
   }
 }

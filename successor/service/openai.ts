@@ -134,7 +134,7 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
   const ownerAccessChanged=options.ownerAccessChanged;
   if(ownerAccessChanged!==undefined && typeof ownerAccessChanged!=='function')throw new Error('Select an explicit owner access notification');
   let ownerAccessWake=()=>{},ownerWakeQueued=false;
@@ -145,7 +145,17 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const attemptTimeoutMs = options.attemptTimeoutMs ?? 120_000;
   if (!Number.isSafeInteger(attemptTimeoutMs) || attemptTimeoutMs < 50 || attemptTimeoutMs > 120_000) throw new Error('Use a bounded execution deadline');
   const provider = structuredClone(options.provider);
-  if (!provider || !/^[A-Za-z0-9_-]{1,128}$/.test(provider.provider) || !provider.name || !provider.runtimeVersion || !provider.hostId || !provider.capabilities.includes('plainText')) throw new Error('Use an explicit plain-text runtime descriptor');
+  const validDescriptor = (value: RuntimeDescriptor) => Boolean(value && /^[A-Za-z0-9_-]{1,128}$/.test(value.provider) && value.name && value.runtimeVersion && value.hostId && value.capabilities.includes('plainText'));
+  if (!validDescriptor(provider)) throw new Error('Use an explicit plain-text runtime descriptor');
+  // Spec 064: the primary runtime plus any others this host serves. A binding names its runtime by provider, version and
+  // host id, and its turns run only there. The ledger's runtime identity stays the primary's.
+  type Lane = { provider: RuntimeDescriptor; runtime?: ChatRuntime };
+  const lanes: Lane[] = [{ provider, runtime: options.runtime }, ...(options.runtimes ?? []).map(lane => ({ provider: structuredClone(lane.provider), runtime: lane.runtime }))];
+  if (!lanes.every(lane => validDescriptor(lane.provider)) || new Set(lanes.map(lane => lane.provider.provider)).size !== lanes.length) throw new Error('Use distinct explicit plain-text runtime descriptors');
+  const sameRuntime = (binding: { provider: string; runtimeVersion: string; hostId: string }, lane: Lane) =>
+    binding.provider === lane.provider.provider && binding.runtimeVersion === lane.provider.runtimeVersion && binding.hostId === lane.provider.hostId;
+  const laneFor = (binding: { provider: string; runtimeVersion: string; hostId: string }) => lanes.find(lane => sameRuntime(binding, lane));
+  const RUNTIME_ABSENT = 'This Agent\u2019s runtime is not available on this host. Turn it on in the Mac app, then send again. Nothing was sent.';
   const context = options.context;
   if (context && (context.protocolVersion !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(context.id) || !context.version || context.version.length > 128 || typeof context.compile !== 'function')) throw new Error('Select a versioned context compiler');
   const contextRef = context ? immutable(parseContextModuleRef(context)) : undefined;
@@ -202,7 +212,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (!savedRuntime) {
       for (const row of db.prepare("SELECT data FROM entities WHERE kind IN ('agents','agentBindings')").all()) {
         const binding = decodeAgent(json(row)).binding;
-        if (binding.provider !== provider.provider || binding.runtimeVersion !== provider.runtimeVersion || binding.hostId !== provider.hostId) throw new Error('Stored binding runtime identity differs from the selected runtime');
+        if (!laneFor(binding)) throw new Error('Stored binding runtime identity differs from the selected runtime');
       }
       db.prepare("INSERT INTO metadata VALUES ('runtimeIdentity',?)").run(runtimeIdentity);
     }
@@ -261,7 +271,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&options.runtime?.signIn?['accountSignIn']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
+  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -336,6 +346,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if(immediate)for(const approval of list('routineApprovals',decodeRoutineApproval)){if(approval.runId===runId&&approval.state==='pending')put('routineApprovals',approval.approvalId,{...approval,state:'canceled'});}
     put('runs',runId,canceled);append(run.conversationId,'runStopped',runId);return canceled;
   };
+  // The runtime a binding revision names: its saved snapshot, or the Agent whose current binding it is.
+  const laneOf=(bindingRevisionId:string)=>{
+    const row=db.prepare("SELECT data FROM entities WHERE kind='agentBindings' AND id=?").get(bindingRevisionId);
+    const binding=row?decodeAgent(json(row)).binding:list('agents',decodeAgent).find(agent=>agent.binding.bindingRevisionId===bindingRevisionId)?.binding;
+    return binding?laneFor(binding):undefined;
+  };
   const bindingDisabled=(bindingRevisionId:string)=>Boolean(db.prepare("SELECT 1 FROM entities WHERE kind='disabledBindings' AND id=?").get(bindingRevisionId));
   const saveRoutine=(request:IncomingMessage,body:Record<string,unknown>,routineId?:string):RoutineRevision=>{
     const definition=parseRoutineDefinition(body.definition);
@@ -356,9 +372,9 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     const stored=record(json(prior));if(stored.fingerprint!==fingerprint)fail(409,'requestConflict','This request already has different contents.');const receipt=storedReceipt(stored);return acceptance(receipt);
   };
   const requiresContext = (configuration: TurnConfiguration) => Boolean(configuration.skills.length || configuration.memory?.text);
-  const unsupportedContext = (configuration: TurnConfiguration): string | undefined => {
-    if (configuration.skills.length && !provider.capabilities.includes('skills')) return 'The selected runtime does not support skills. Restore support or send without selected skills.';
-    if (configuration.memory?.text && !provider.capabilities.includes('memory')) return 'The selected runtime does not support saved memory. Restore support or explicitly clear the note before sending.';
+  const unsupportedContext = (configuration: TurnConfiguration, runtime: RuntimeDescriptor = provider): string | undefined => {
+    if (configuration.skills.length && !runtime.capabilities.includes('skills')) return 'The selected runtime does not support skills. Restore support or send without selected skills.';
+    if (configuration.memory?.text && !runtime.capabilities.includes('memory')) return 'The selected runtime does not support saved memory. Restore support or explicitly clear the note before sending.';
     if ((configuration.skills.length || configuration.memory?.text) && !context) return 'Context preparation is unavailable. Restore the selected module or explicitly remove the context requirement before sending.';
     if (requiresContext(configuration) && contextFailed) return 'Context preparation failed. Restore the module before sending work that requires it.';
     if (configuration.contextModule && (configuration.contextModule.id !== contextRef?.id || configuration.contextModule.version !== contextRef.version)) return 'The pinned context compiler changed. Review a new submission before running this work.';
@@ -366,11 +382,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const recordSubmission=(command:{conversationId:string;requestId:string;bindingRevisionId:string;inputText:string;fingerprint:string;configuration:TurnConfiguration;routine?:RoutineExecution}):Acceptance=>acceptanceTransaction(()=>{
     const {conversationId,requestId,bindingRevisionId,inputText,fingerprint,configuration:requestedConfiguration,routine}=command;
-    const account = accounts.selected();
-    if (ownerPairingPolicy && options.runtime?.signIn && !account) fail(409, 'accountSelectionRequired', 'Select the reported provider account on the owning Mac before sending.');
+    const lane = laneOf(bindingRevisionId);
+    if (!lane) fail(409, 'runtimeUnavailable', RUNTIME_ABSENT);
+    const account = laneAccounts(lane).selected();
+    if (ownerPairingPolicy && lane.runtime?.signIn && !account) fail(409, 'accountSelectionRequired', 'Select the reported provider account on the owning Mac before sending.');
     const pinnedConfiguration = { ...requestedConfiguration, ...(account ? { account } : {}) };
     const configuration = requiresContext(pinnedConfiguration) && contextRef && !pinnedConfiguration.contextModule ? { ...pinnedConfiguration, contextModule: contextRef } : pinnedConfiguration;
-    const unavailable = unsupportedContext(configuration);
+    const unavailable = unsupportedContext(configuration, lane.provider);
     if (unavailable) fail(409, 'capabilityUnavailable', unavailable);
     if(db.prepare("SELECT 1 FROM entities WHERE kind='requestCancellations' AND id=?").get(requestId))fail(409,'requestCanceled','This request was canceled before acceptance and will not run.');
     if (Number(db.prepare('SELECT count(*) AS count FROM dispatch_outbox').get()?.count) >= 1000) fail(429,'queueFull','This installation has 1000 unresolved turns. Complete, cancel or resolve earlier work before adding another.');
@@ -525,25 +543,27 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
   let runtimeOperations = 0;
-  const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && !accounts.busy && runtimeOperations === 0 && options.runtime
+  const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && !accountsBusy() && runtimeOperations === 0 && options.runtime
     && (runtimeStop === undefined ? (!options.runtime.readiness || options.runtime.readiness().state === 'ready')
       : runtimeStop.state === 'confirmed' && options.runtime.restart && options.runtime.readiness?.().canRestart));
   const canResumeOwner = () => Boolean(ownerPairingPolicy && ownerControl?.intent === 'stop' && canPrepareRuntime());
   const runtimeReadiness=():RuntimeReadiness=>dispatchStopped
     ? {state:'stopped',canRestart:canResumeOwner(),detail:'Local work is stopped. History and owner controls remain available. Resume explicitly or finish disconnect.'}
-    : accounts.busy || runtimeOperations > 0 ? {state:'busy',canRestart:false,detail:'An explicit runtime operation is in progress.'}
+    : accountsBusy() || runtimeOperations > 0 ? {state:'busy',canRestart:false,detail:'An explicit runtime operation is in progress.'}
     : options.runtime?.readiness?.()??{state:options.runtime?'ready':'unavailable',canRestart:false,detail:options.runtime?'Runtime is available.':'No runtime is connected.'};
   let dispatching: Promise<boolean> | undefined; let active: AbortController | undefined; let activeRunId:string|undefined;
   const executeNext = async (): Promise<boolean> => {
-    if (closed || dispatchStopped || accounts.busy || runtimeOperations > 0 || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
+    if (closed || dispatchStopped || accountsBusy() || runtimeOperations > 0 || (options.runtime?.readiness && runtimeReadiness().state!=='ready')) return false;
     const nextRow = db.prepare(`SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id
       WHERE o.state='queued' AND o.held=0 AND NOT EXISTS
         (SELECT 1 FROM dispatch_outbox prior WHERE prior.conversation_id=o.conversation_id AND prior.position<o.position)
       ORDER BY o.position LIMIT 1`).get();
     const queued = nextRow ? decodeRun(json(nextRow)) : undefined;
     if (!queued?.configuration) return false;
-    const contextFailure = ownerPairingPolicy && options.runtime?.signIn && !sameAccount(queued.configuration.account, accounts.selected())
-      ? 'The selected provider account changed or is unconfirmed. Nothing was sent. Review a new submission.' : unsupportedContext(queued.configuration);
+    const lane = laneOf(queued.bindingRevisionId);
+    if (lane?.runtime?.readiness && lane.runtime !== options.runtime && lane.runtime.readiness().state !== 'ready') return false;
+    const contextFailure = !lane ? RUNTIME_ABSENT : ownerPairingPolicy && lane.runtime?.signIn && !sameAccount(queued.configuration.account, laneAccounts(lane).selected())
+      ? 'The selected provider account changed or is unconfirmed. Nothing was sent. Review a new submission.' : unsupportedContext(queued.configuration, lane.provider);
     if (contextFailure) {
       transaction(() => { put('runs', queued.runId, { ...queued, state: 'failed', statusDetail: contextFailure,
         ...(queued.routine ? { routine: stopRoutine(queued.routine, 'failed', contextFailure) } : {}) }); append(queued.conversationId, 'runStopped', queued.runId); });
@@ -567,14 +587,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         put('routineApprovals',approvalId,approval);put('runs',queued.runId,{...queued,state:'waitingForApproval',attemptId,routine:parked,statusDetail:nextStep.prompt});append(queued.conversationId,'approvalRequested',approvalId);
       });return true;
     }
-    if(!options.runtime)return false;
+    if(!lane?.runtime)return false;
+    const runtime = lane.runtime;
     let preparedContext: PreparedContext = { kind: 'empty' };
     if (requiresContext(queued.configuration)) {
       let failure: string | undefined;
       if (!queued.configuration.contextModule || !context || !contextRef) failure = 'This work has no confirmed context compiler pin. Review a new submission before running it.';
       else {
         try {
-          const compiled = context.compile({ provider: provider.provider, conversationId: queued.conversationId, configuration: immutable(queued.configuration) });
+          const compiled = context.compile({ provider: lane.provider.provider, conversationId: queued.conversationId, configuration: immutable(queued.configuration) });
           if (compiled.kind === 'unsupported') failure = compiled.message;
           else preparedContext = { kind: 'prepared', module: contextRef, configurationDigest: executionDigest(queued.configuration), content: compiled };
         } catch { contextFailed = true; failure = 'Context preparation failed. Nothing was sent to the runtime.'; }
@@ -616,7 +637,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     try {
       const result = Buffer.byteLength(JSON.stringify(input)) > EXECUTION_LIMITS.inputBytes
         ? { kind: 'notStarted' as const, message: 'Conversation context exceeds the execution limit. Nothing was sent.' }
-        : await options.runtime.execute(input, active.signal, dispatch);
+        : await runtime.execute(input, active.signal, dispatch);
       transaction(() => {
         const run = load('runs', queued.runId, decodeRun);
         if (run.attemptId !== dispatch.attempt.attemptId || run.attemptGeneration !== dispatch.attempt.generation || (run.state !== 'running' && run.state !== 'cancelRequested')) return;
@@ -746,12 +767,23 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const companions=companionPairing(db,installation.installationId,now,()=>ownerPairingPolicy && ownerControl
     ? {deviceId:ownerControl.deviceId,expiresAfterDays:ownerPairingPolicy.expiresAfterDays,running:!closed&&!dispatchStopped&&!stopCommandActive&&!starting}:undefined,
     ()=>append('_workspace','pairingChanged',installation.installationId));
-  let accounts: ReturnType<typeof accountSignIn>;
-  try { accounts = accountSignIn(db, { runtime: options.runtime, now, identity: { installationId: installation.installationId, provider: provider.provider, hostId: provider.hostId },
+  // One account sign-in and choice per runtime (Spec 064). The primary keeps the original metadata keys.
+  const laneAccountList: ReturnType<typeof accountSignIn>[] = [];
+  try { for (const [index, lane] of lanes.entries()) laneAccountList.push(accountSignIn(db, { runtime: lane.runtime, now, identity: { installationId: installation.installationId, provider: lane.provider.provider, hostId: lane.provider.hostId },
+    ...(index === 0 ? {} : { keys: { attempt: 'accountSignIn:' + lane.provider.provider, choice: 'accountChoice:' + lane.provider.provider } }),
     scope: () => ownerPairingPolicy && ownerControl ? { deviceId: ownerControl.deviceId, recoveryEpoch: installation.recoveryEpoch,
       running: !closed && !dispatchStopped && !stopCommandActive && !starting && !dispatching && runtimeOperations === 0
-        && (!options.runtime?.readiness || options.runtime.readiness().state === 'ready') } : undefined,
-    commit: transaction, changed: () => append('_workspace', 'accountChanged', installation.installationId), settled: () => queueMicrotask(wake) }); } catch (error) { db.close(); throw error; }
+        && (!lane.runtime?.readiness || lane.runtime.readiness().state === 'ready') } : undefined,
+    commit: transaction, changed: () => append('_workspace', 'accountChanged', installation.installationId), settled: () => queueMicrotask(wake) })); } catch (error) { db.close(); throw error; }
+  const laneAccounts = (lane: Lane) => laneAccountList[lanes.indexOf(lane)]!;
+  const accountsBusy = () => laneAccountList.some(item => item.busy);
+  const requestedLane = (url: URL): Lane => {
+    const name = url.searchParams.get('provider');
+    if (name === null) return lanes[0]!;
+    const lane = lanes.find(item => item.provider.provider === name);
+    if (!lane) fail(400, 'runtimeUnavailable', 'That provider is not available on this host.');
+    return lane;
+  };
   const acceptedConnections = new Map<Socket,Promise<void>>();
   const server = createServer(async (request, response) => {
     let status = 200; let result: unknown;
@@ -785,14 +817,14 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       } else {
         authenticate(request);
         if(request.method==='GET' && url.pathname==='/v1/account/sign-in'){
-          result=accounts.status(authenticate(request));
+          result=laneAccounts(requestedLane(url)).status(authenticate(request));
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/start'){
-          const body=await readBody(request); result=accounts.start(authenticate(request),body);
+          const lane=requestedLane(url),body=await readBody(request); result=laneAccounts(lane).start(authenticate(request),body);
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/select'){
-          const body = await readBody(request); result = accounts.select(authenticate(request), body);
+          const lane = requestedLane(url), body = await readBody(request); result = laneAccounts(lane).select(authenticate(request), body);
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/cancel'){
           const body=await readBody(request),deviceId=authenticate(request);
-          result=await accounts.cancel(deviceId,body);
+          result=await laneAccounts(requestedLane(url)).cancel(deviceId,body);
           if(authenticate(request)!==deviceId)fail(401,'unauthorized','The owning Mac pairing changed.');
         } else if(request.method==='POST' && url.pathname==='/v1/pairing/invitation'){
           const body=await readBody(request);result=owner(request,deviceId=>companions.invite(deviceId,body));status=201;
@@ -857,16 +889,17 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result={runtimeStopped:true,revoked};
         }
         else if (request.method === 'GET' && url.pathname === '/v1/models') {
-          if (ownerPairingPolicy && options.runtime?.signIn && !accounts.selected()) result = { provider: provider.provider, state: 'unavailable', models: [], detail: 'Sign in on the owning Mac. If the reported account differs, review Advanced account management before checking models.' };
-          else if(dispatchStopped || accounts.busy)result={provider:provider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
-          else if(!provider.capabilities.includes('modelCatalog') || !options.runtime?.models)result={provider:provider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
+          const lane = requestedLane(url), runtime = lane.runtime, laneProvider = lane.provider, laneAccount = laneAccounts(lane);
+          if (ownerPairingPolicy && runtime?.signIn && !laneAccount.selected()) result = { provider: laneProvider.provider, state: 'unavailable', models: [], detail: 'Sign in on the owning Mac. If the reported account differs, review Advanced account management before checking models.' };
+          else if(dispatchStopped || accountsBusy())result={provider:laneProvider.provider,state:'unavailable',models:[],detail:'The runtime is stopped or busy; model discovery is unavailable.'};
+          else if(!laneProvider.capabilities.includes('modelCatalog') || !runtime?.models)result={provider:laneProvider.provider,state:'unavailable',models:[],detail:'This runtime does not provide model discovery.'};
           else try{
             runtimeOperations++;
-            const catalog=await options.runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]), accounts.selected());
-            if(catalog.provider!==provider.provider)throw new Error('Model catalog identity mismatch');
+            const catalog=await runtime.models(AbortSignal.any([listenerAbort.signal,AbortSignal.timeout(5_000)]), laneAccount.selected());
+            if(catalog.provider!==laneProvider.provider)throw new Error('Model catalog identity mismatch');
             result=catalog;
           }
-          catch{result={provider:provider.provider,state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
+          catch{result={provider:laneProvider.provider,state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
           finally { runtimeOperations--; queueMicrotask(wake); }
         }
         else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
@@ -1085,8 +1118,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         else if (request.method === 'POST' && url.pathname === '/v1/agents') {
           const body = await readBody(request);
           result = owner(request, () => {
+            // The Agent's provider is fixed for good when it is created (Spec 064). The default is the primary runtime.
+            const chosen = body.provider === undefined ? lanes[0]!.provider : lanes.find(lane => lane.provider.provider === body.provider)?.provider;
+            if (!chosen) fail(400, 'runtimeUnavailable', 'That provider is not available on this host.');
             const agent: Agent = { ...avatar(body.avatar),agentId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), homeConversationId: randomUUID(), readiness: 'requiresLiveReview',
-              binding: { bindingRevisionId: randomUUID(), provider: provider.provider, runtimeVersion: provider.runtimeVersion, selectedModel: text(body.model, 'exact model', 128), hostId: provider.hostId, enabled: true } };
+              binding: { bindingRevisionId: randomUUID(), provider: chosen.provider, runtimeVersion: chosen.runtimeVersion, selectedModel: text(body.model, 'exact model', 128), hostId: chosen.hostId, enabled: true } };
             put('agents', agent.agentId, agent);put('agentBindings',agent.binding.bindingRevisionId,agent);
             const home: Conversation = { conversationId: agent.homeConversationId, name: agent.name, kind: 'home', participantAgentIds: [agent.agentId] };
             put('conversations', home.conversationId, home); return agent;
@@ -1140,7 +1176,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const stopRuntime=()=>{
     if(runtimeStop && runtimeStop.state!=='unconfirmed')return runtimeStop.completion;
     const progress:RuntimeStop={state:'pending',completion:Promise.resolve().then(async()=>{
-      const outcomes=await Promise.allSettled([Promise.resolve().then(()=>options.runtime?.dispose()),dispatching,accounts.stop()]);
+      const outcomes=await Promise.allSettled([...lanes.map(lane=>Promise.resolve().then(()=>lane.runtime?.dispose())),dispatching,...laneAccountList.map(item=>item.stop())]);
       if(outcomes.some(outcome=>outcome.status==='rejected'))throw new Error('Runtime shutdown unconfirmed');
       progress.state='confirmed';
     }).catch(error=>{progress.state='unconfirmed';throw error;})};

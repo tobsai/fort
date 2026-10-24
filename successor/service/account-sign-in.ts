@@ -9,7 +9,7 @@ type AccountWork = { controller: AbortController; task: Promise<void>; challenge
 type Scope = { deviceId: string; recoveryEpoch: string; running: boolean };
 type Choice = { installationId: string; recoveryEpoch: string; provider: string; hostId: string; account: AccountIdentity };
 type Options = { identity: Pick<Choice, 'installationId' | 'provider' | 'hostId'>; runtime: ChatRuntime | undefined; now(): number; scope(): Scope | undefined;
-  commit<T>(action: () => T): T; changed(): void; settled(): void };
+  commit<T>(action: () => T): T; changed(): void; settled(): void; keys?: { attempt: string; choice: string } };
 export class AccountSignInError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -24,15 +24,17 @@ function integer(value: unknown, minimum: number): number { if (typeof value !==
 
 export function accountSignIn(db: DatabaseSync, options: Options) {
   const runtime = options.runtime, signIn = runtime?.signIn?.bind(runtime);
+  // Spec 064: each runtime on a host keeps its own attempt and choice. The primary keeps the original keys.
+  const keys = options.keys ?? { attempt: 'accountSignIn', choice: 'accountChoice' };
   let current: Attempt | undefined;
   let active: AccountWork | undefined;
   let choice: Choice | undefined;
   const save = (record: Attempt, confirmed?: Choice) => { options.commit(() => {
-    db.prepare("INSERT OR REPLACE INTO metadata VALUES ('accountSignIn',?)").run(JSON.stringify(record));
-    if (confirmed) db.prepare("INSERT OR REPLACE INTO metadata VALUES ('accountChoice',?)").run(JSON.stringify(confirmed));
+    db.prepare('INSERT OR REPLACE INTO metadata VALUES (?,?)').run(keys.attempt, JSON.stringify(record));
+    if (confirmed) db.prepare('INSERT OR REPLACE INTO metadata VALUES (?,?)').run(keys.choice, JSON.stringify(confirmed));
     options.changed();
   }); current = record; if (confirmed) choice = confirmed; };
-  const stored = db.prepare("SELECT data FROM metadata WHERE key='accountSignIn'").get();
+  const stored = db.prepare('SELECT data FROM metadata WHERE key=?').get(keys.attempt);
   if (stored) {
     const row = fields(JSON.parse(String(stored.data)), ['revision', 'operationId', 'deviceId', 'recoveryEpoch', 'expiresAt', 'state', 'result', 'selected']);
     const identity = { revision: integer(row.revision, 1), operationId: id(row.operationId), deviceId: id(row.deviceId), recoveryEpoch: id(row.recoveryEpoch), expiresAt: integer(row.expiresAt, 1) };
@@ -44,7 +46,7 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     else if ((row.state === 'active' || row.state === 'canceling') && !Object.hasOwn(row, 'result') && !Object.hasOwn(row, 'selected')) save({ ...identity, state: 'finished', result: { kind: 'unconfirmed' } });
     else reject();
   }
-  const storedChoice = db.prepare("SELECT data FROM metadata WHERE key='accountChoice'").get();
+  const storedChoice = db.prepare('SELECT data FROM metadata WHERE key=?').get(keys.choice);
   if (storedChoice) {
     try {
       const row = fields(JSON.parse(String(storedChoice.data)), ['installationId', 'recoveryEpoch', 'provider', 'hostId', 'account']);

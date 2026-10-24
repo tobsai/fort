@@ -55,12 +55,12 @@ import Observation
             try MacAgentStorage.inspectExisting(for:identity.endpoint).removeProviderCredentials()
         },historyActions:history)
     }
-    /// Records the owner's choice to use their installed Claude Code; the helper runs Claude-only from its next start.
+    /// Turns on the owner's installed Claude Code beside ChatGPT from the helper's next start (Spec 064).
     public func selectClaudeCode() throws {
         guard let identity else { throw MacHostStartupError.unavailable }
         try MacAgentStorage.inspectExisting(for:identity.endpoint).selectClaudeCode()
     }
-    /// Returns the helper to its default runtime from its next start.
+    /// Turns Claude Code off from the helper's next start. Claude Agents stay saved.
     public func removeClaudeCode() throws {
         guard let identity else { throw MacHostStartupError.unavailable }
         try MacAgentStorage.inspectExisting(for:identity.endpoint).removeClaudeCode()

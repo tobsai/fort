@@ -7,7 +7,11 @@ struct AccountSignInView: View {
     private var blocked: Bool { model.accountSignInBusy || model.lifecycleBusy || model.isBusy || model.loadingModels }
     var body: some View {
         Section("Provider account") {
-            Text(model.runtimeName).font(.headline)
+            if model.runtimes.count > 1 {
+                Picker("Provider",selection:SwiftUI.Binding(get:{ model.focusedRuntime?.provider ?? "" },set:{ value in Task { await model.focusRuntime(value) } })) {
+                    ForEach(model.runtimes,id:\.provider) { runtime in Text(runtime.name).tag(runtime.provider) }
+                }.disabled(!model.canChangeAccountProvider).accessibilityIdentifier("provider-account-runtime")
+            } else { Text(model.runtimeName).font(.headline) }
             Text(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
             if let status = model.accountSignInStatus, let account = status.reportedAccount {
                 Text(account.userLabel).textSelection(.enabled).accessibilityIdentifier("provider-account-label")

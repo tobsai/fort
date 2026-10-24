@@ -26,17 +26,19 @@ public struct FortClient: Sendable {
     public func agents() async throws -> [Agent] { let result: AgentList = try await get("v1/agents"); return result.agents }
     public func conversations() async throws -> [Conversation] { struct Response: Decodable { let conversations: [Conversation] }; let result: Response = try await get("v1/conversations"); return result.conversations }
     public func skills() async throws -> [InstructionSkill] { struct Response: Decodable { let skills: [InstructionSkill] }; let result: Response = try await get("v1/skills"); return result.skills }
-    public func accountSignInStatus() async throws -> AccountSignInStatus { try await get("v1/account/sign-in") }
-    public func startAccountSignIn(_ intent: AccountSignInRequest) async throws -> AccountSignInStatus {
-        try intent.validate(); return try await send("v1/account/sign-in/start",method:.post,body:intent)
+    // Each runtime on a host has its own sign-in and model list (Spec 064). No provider means the host's primary runtime.
+    private func providerQuery(_ provider: String?) throws -> [URLQueryItem]? { try provider.map { [URLQueryItem(name:"provider",value:try segment($0))] } }
+    public func accountSignInStatus(provider: String? = nil) async throws -> AccountSignInStatus { try await request(path:"v1/account/sign-in",query:try providerQuery(provider),method:.get,data:nil) }
+    public func startAccountSignIn(_ intent: AccountSignInRequest, provider: String? = nil) async throws -> AccountSignInStatus {
+        try intent.validate(); return try await request(path:"v1/account/sign-in/start",query:try providerQuery(provider),method:.post,data:JSONEncoder().encode(intent))
     }
-    public func cancelAccountSignIn(_ operation: AccountOperation, recoveryEpoch: String) async throws -> AccountSignInStatus {
+    public func cancelAccountSignIn(_ operation: AccountOperation, recoveryEpoch: String, provider: String? = nil) async throws -> AccountSignInStatus {
         struct Body: Encodable { let operationId: String; let revision: Int; let recoveryEpoch: String }
-        return try await send("v1/account/sign-in/cancel",method:.post,body:Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch))
+        return try await request(path:"v1/account/sign-in/cancel",query:try providerQuery(provider),method:.post,data:JSONEncoder().encode(Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch)))
     }
-    public func selectAccount(_ operation: AccountOperation, account: AccountIdentity, recoveryEpoch: String) async throws -> AccountSignInStatus {
+    public func selectAccount(_ operation: AccountOperation, account: AccountIdentity, recoveryEpoch: String, provider: String? = nil) async throws -> AccountSignInStatus {
         struct Body: Encodable { let operationId: String; let revision: Int; let recoveryEpoch: String; let account: AccountIdentity }
-        return try await send("v1/account/sign-in/select",method:.post,body:Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch,account:account))
+        return try await request(path:"v1/account/sign-in/select",query:try providerQuery(provider),method:.post,data:JSONEncoder().encode(Body(operationId:operation.operationID,revision:operation.revision,recoveryEpoch:recoveryEpoch,account:account)))
     }
     public func pairing() async throws -> PairingStatus { try await get("v1/pairing") }
     public func setPairingExpiry(days: Int?) async throws -> PairingStatus {
@@ -79,10 +81,11 @@ public struct FortClient: Sendable {
               receipt.revoked, receipt.scope == "companion-only" else { throw OwnerLifecycleError.wrongPairing }
         return receipt
     }
-    public func models() async throws -> ModelCatalog { try await get("v1/models") }
-    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil) async throws -> Agent {
-        struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar? }
-        return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:.post, body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId,avatar:avatar))
+    public func models(provider: String? = nil) async throws -> ModelCatalog { try await request(path:"v1/models",query:try providerQuery(provider),method:.get,data:nil) }
+    /// `provider` applies only to a new Agent; an existing Agent keeps its provider.
+    public func saveAgent(_ agent: Agent?, name: String, model: String, instructions: String, avatar: AgentAvatar? = nil, provider: String? = nil) async throws -> Agent {
+        struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar?; let provider: String? }
+        return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:.post, body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId,avatar:avatar,provider:agent == nil ? provider : nil))
     }
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async throws -> InstructionSkill {
         struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
