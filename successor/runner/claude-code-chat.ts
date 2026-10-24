@@ -213,7 +213,7 @@ class Turn {
       for (const block of message.content) {
         const row = record(block);
         if (row.type === 'thinking' || row.type === 'redacted_thinking') continue;
-        if (row.type !== 'text' || typeof row.text !== 'string' || !row.text.isWellFormed()) { this.unknown('unsupported action'); return; }
+        if (row.type !== 'text' || typeof row.text !== 'string' || !row.text.isWellFormed()) { this.unknown('unsupported content'); return; }
         this.bytes += Buffer.byteLength(row.text);
         if (this.bytes > MAX_TEXT) { this.unknown('output limit'); return; }
         this.texts.push(row.text);
@@ -229,8 +229,10 @@ class Turn {
       this.outcome = { kind: 'completed', text, effectiveModel: null };
       return;
     }
+    // Plan-usage notices carry no reply text and change nothing.
+    if (frame.type === 'rate_limit_event') return;
     // User frames would carry tool results; with no tools there must be none.
-    this.unknown('unsupported action');
+    this.unknown('unsupported ' + (typeof frame.type === 'string' && /^[a-z_]{1,40}$/.test(frame.type) ? frame.type : 'frame'));
   }
 }
 

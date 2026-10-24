@@ -27,7 +27,8 @@ const init = (overrides: Record<string, unknown> = {}) => ({ type: 'system', sub
   permissionMode: 'default', apiKeySource: 'none', claude_code_version: VERSION, messaging_socket_path: RUNTIME_DIR + '/cc-socks/1.sock', ...overrides });
 const assistant = (text: string, overrides: Record<string, unknown> = {}) => ({ type: 'assistant', uuid: 'u-' + text, parent_tool_use_id: null, session_id: 'session-1', message: { id: 'msg-1', role: 'assistant', model: MODEL, content: [{ type: 'text', text }] }, ...overrides });
 const result = (text: string, overrides: Record<string, unknown> = {}) => ({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: 'session-1', permission_denials: [], ...overrides });
-const reply = (text: string) => [init(), { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(0, 2) } } }, assistant(text), result(text)];
+// rate_limit_event appears in real Claude Code output before the result.
+const reply = (text: string) => [init(), { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(0, 2) } } }, assistant(text), { type: 'rate_limit_event', rate_limit_info: { status: 'allowed' } }, result(text)];
 
 type Script = { initialize?: unknown; onUser?: () => unknown[]; onInterrupt?: () => unknown[]; exitAfterUser?: boolean };
 function fixture(script: Script = {}, accountStatus: unknown = status) {
@@ -137,6 +138,7 @@ test('tools, permission prompts, model changes and unconfirmed results never pro
     ['result without assistant text', [init(), result('cedar')], 'outcomeUnknown'],
     ['result text disagrees', [init(), assistant('cedar'), result('pine')], 'outcomeUnknown'],
     ['stream ended', [init(), assistant('cedar')], 'outcomeUnknown'],
+    ['unknown frame', [init(), { type: 'tool_progress' }, assistant('cedar'), result('cedar')], 'outcomeUnknown'],
   ];
   for (const [name, frames, kind] of cases) {
     const f = fixture({ onUser: () => frames, exitAfterUser: name === 'stream ended' });
