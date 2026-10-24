@@ -20,7 +20,7 @@ type LaunchOptions = { executable: string; workspace: string; home: string; runt
 type ChatOptions = Omit<LaunchOptions, 'model'> & {
   runtimeVersion: string;
   launch?: (plan: ClaudeCodeLaunch) => ClaudeCodeProcess;
-  // Result of `claude auth status --json`, run with the same launch environment.
+  // Replaces `claude auth status --json` in tests.
   authStatus?: (signal: AbortSignal) => Promise<unknown>;
 };
 
@@ -84,6 +84,22 @@ function checkInitialize(value: unknown, runtimeVersion: string, account: Accoun
     || signedIn.email !== account.userLabel || !empty(row.commands) || row.current_permission_mode !== 'default' || row.analytics_disabled !== true
     || row.remote_control_auto_enable !== false || row.remote_control_auto_connect_default !== false || row.remote_control_auto_on_by_default !== false) throw new Error('Claude Code controls were not confirmed');
   return catalog(row.models);
+}
+
+// Runs `claude auth status --json` with the same isolated environment as a session. It exits 1 when signed out.
+function readAuthStatus(options: Omit<LaunchOptions, 'model'>, signal: AbortSignal): Promise<unknown> {
+  const plan = claudeCodeLaunch(options);
+  return new Promise((resolve, reject) => {
+    const child = spawn(plan.executable, ['auth', 'status', '--json'], { cwd: plan.cwd, env: plan.env, stdio: ['ignore', 'pipe', 'ignore'], signal, timeout: CONTROL_MS });
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    child.stdout.on('data', (chunk: Buffer) => { bytes += chunk.byteLength; if (bytes > 16_384) child.kill(); else chunks.push(chunk); });
+    child.on('error', reject);
+    child.on('close', code => {
+      if (bytes > 16_384 || (code !== 0 && code !== 1)) { reject(new Error('Claude Code account status was not confirmed')); return; }
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch (error) { reject(error); }
+    });
+  });
 }
 
 type Outcome = ChatResult | undefined;
@@ -226,8 +242,7 @@ export class ClaudeCodeChat implements ChatRuntime {
   async dispose(): Promise<void> { this.disposed = true; }
 
   private async account(signal: AbortSignal): Promise<AccountIdentity | null> {
-    if (!this.options.authStatus) throw new Error('No Claude Code account reader');
-    return parseClaudeAuthStatus(await this.options.authStatus(signal));
+    return parseClaudeAuthStatus(await (this.options.authStatus ?? (signal => readAuthStatus(this.options, signal)))(signal));
   }
 
   private open(model?: string): Session {

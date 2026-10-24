@@ -165,3 +165,28 @@ test('models come from the signed-in runtime, deduplicated to exact model IDs', 
   const other = await fixture().runtime.models(new AbortController().signal, { accountId: status.orgId, userLabel: 'someone@example.com' });
   assert.equal(other.state, 'error');
 });
+
+test('without an injected reader, the account comes from `claude auth status --json` run with the isolated environment', async t => {
+  const { mkdtemp, writeFile, rm, readFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'fcc-')); t.after(() => rm(root, { recursive: true, force: true }));
+  const fake = join(root, 'claude'), seen = join(root, 'seen.json');
+  const saved = process.env.ANTHROPIC_API_KEY; process.env.ANTHROPIC_API_KEY = 'synthetic-key-must-not-pass';
+  t.after(() => { if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved; });
+  const script = (body: string) => writeFile(fake, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ args: process.argv.slice(2), env: process.env }));\n${body}\n`, { mode: 0o755 });
+  const chat = () => new ClaudeCodeChat({ executable: fake, workspace: root, home: root, runtimeDirectory: root, runtimeVersion: VERSION, launch: () => { throw new Error('no session expected'); } });
+
+  await script(`process.stdout.write(JSON.stringify({ loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' })); process.exitCode = 1;`);
+  const signedOut = await chat().models(new AbortController().signal);
+  assert.equal(signedOut.state, 'unavailable');
+  const observed = JSON.parse(await readFile(seen, 'utf8'));
+  assert.deepEqual(observed.args, ['auth', 'status', '--json']);
+  assert.equal(observed.env.ANTHROPIC_API_KEY, undefined); assert.equal(observed.env.HOME, root);
+
+  await script(`process.stdout.write('x'.repeat(100000));`);
+  assert.equal((await chat().models(new AbortController().signal)).state, 'error');
+  await script(`setTimeout(() => {}, 60000);`);
+  const controller = new AbortController(); setTimeout(() => controller.abort(), 200);
+  assert.equal((await chat().models(controller.signal)).state, 'error');
+});
