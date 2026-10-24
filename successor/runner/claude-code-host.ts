@@ -11,7 +11,7 @@ import { ClaudeCodeChat, claudeCodeLaunch, claudeCodeRuntime, type ClaudeCodeLau
 // ~/.local/share/claude/), and never downloads, copies or changes it. The App Sandbox will not launch a
 // binary placed in Fort's own container, so copying is not an option.
 export const CLAUDE_CODE_DIRECTORY = 'ClaudeCode';
-type HostOptions = { directory: string; guardian: string; temporary: string; installation?: string };
+type HostOptions = { directory: string; guardian: string; temporary: string; installation?: string; report?: (line: string) => void };
 export type ClaudeCodeHost = { runtime: ClaudeCodeChat; provider: RuntimeDescriptor };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -78,7 +78,7 @@ export function guardedClaudeLaunch(guardian: string): (plan: ClaudeCodeLaunch) 
   };
 }
 
-export function createClaudeCodeHost({ directory, guardian, temporary, installation = join(userInfo().homedir, '.local/share/claude/versions') }: HostOptions): ClaudeCodeHost {
+export function createClaudeCodeHost({ directory, guardian, temporary, installation = join(userInfo().homedir, '.local/share/claude/versions'), report }: HostOptions): ClaudeCodeHost {
   if (![directory, guardian, temporary, installation].every(exactPath) || !process.getuid) throw new Error('Select exact Claude Code host paths');
   const home = join(directory, 'home'), workspace = join(directory, 'workspace');
   claudeCodeLaunch({ executable: join(installation, '0.0.0'), workspace, home, runtimeDirectory: temporary });
@@ -93,6 +93,6 @@ export function createClaudeCodeHost({ directory, guardian, temporary, installat
   const plan = claudeCodeLaunch({ executable, workspace, home, runtimeDirectory: temporary });
   const version = spawnSync(executable, ['--version'], { cwd: workspace, env: plan.env, encoding: 'utf8', timeout: 10_000, maxBuffer: 4096, stdio: ['ignore', 'pipe', 'ignore'] });
   if (version.status !== 0 || !new RegExp(`^${runtimeVersion.replaceAll('.', '\\.')} \\(Claude Code\\)\\n?$`).test(version.stdout)) throw new Error('The installed Claude Code version was not confirmed');
-  const runtime = new ClaudeCodeChat({ executable, workspace, home, runtimeDirectory: temporary, runtimeVersion, launch: guardedClaudeLaunch(guardian) });
+  const runtime = new ClaudeCodeChat({ executable, workspace, home, runtimeDirectory: temporary, runtimeVersion, launch: guardedClaudeLaunch(guardian), ...(report ? { report } : {}) });
   return { runtime, provider: claudeCodeRuntime(runtimeVersion) };
 }
