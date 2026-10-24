@@ -70,6 +70,7 @@ test('the launch plan uses the official binary with every ambient feature off an
     assert.deepEqual(plan.args.slice(plan.args.indexOf('--setting-sources'), plan.args.indexOf('--setting-sources') + 2), ['--setting-sources', '']);
     assert.deepEqual(plan.args.slice(plan.args.indexOf('--model'), plan.args.indexOf('--model') + 2), ['--model', MODEL]);
     assert.ok(Object.keys(plan.env).every(key => !/^ANTHROPIC_|OAUTH|API_KEY|^AWS_|^GOOGLE_|^CLAUDE_CODE_USE_/.test(key)), Object.keys(plan.env).join(','));
+    assert.equal(plan.env.PATH, '/synthetic/bin:/usr/bin:/bin', 'an npm-installed claude finds node beside it');
     assert.equal(plan.env.HOME, '/synthetic/home'); assert.equal(plan.env.TMPDIR, RUNTIME_DIR); assert.equal(plan.env.XDG_RUNTIME_DIR, RUNTIME_DIR);
     assert.equal(plan.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1'); assert.equal(plan.env.CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK, '1');
     assert.equal(claudeCodeLaunch({ executable: '/synthetic/bin/claude', workspace: WORKSPACE, home: '/synthetic/home', runtimeDirectory: RUNTIME_DIR }).args.includes('--model'), false);

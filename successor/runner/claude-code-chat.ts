@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { isAbsolute, normalize } from 'node:path';
+import { dirname, isAbsolute, normalize } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import type { AccountIdentity, ModelCatalog, ModelOption, RuntimeDescriptor, RuntimeReadiness } from '../contracts/v1.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
@@ -47,7 +47,7 @@ export function claudeCodeLaunch(options: LaunchOptions): ClaudeCodeLaunch {
     '--tools', '', '--strict-mcp-config', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence', '--permission-mode', 'default',
     ...(model ? ['--model', model] : [])];
   // Built from nothing, so no ANTHROPIC_*, OAuth token or cloud-provider variable can leak in.
-  const env: Record<string, string> = { HOME: home, PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8', TMPDIR: runtimeDirectory, XDG_RUNTIME_DIR: runtimeDirectory,
+  const env: Record<string, string> = { HOME: home, PATH: dirname(executable) + ':/usr/bin:/bin', LANG: 'en_US.UTF-8', TMPDIR: runtimeDirectory, XDG_RUNTIME_DIR: runtimeDirectory,
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1', DISABLE_AUTOUPDATER: '1',
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: '1', CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
     CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: '1', CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK: '1', CLAUDE_CODE_DISABLE_FAST_MODE: '1', CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS: '1' };
@@ -87,7 +87,7 @@ function checkInitialize(value: unknown, runtimeVersion: string, account: Accoun
 }
 
 // Runs `claude auth status --json` with the same isolated environment as a session. It exits 1 when signed out.
-function readAuthStatus(options: Omit<LaunchOptions, 'model'>, signal: AbortSignal): Promise<unknown> {
+export function readAuthStatus(options: Omit<LaunchOptions, 'model'>, signal: AbortSignal): Promise<unknown> {
   const plan = claudeCodeLaunch(options);
   return new Promise((resolve, reject) => {
     const child = spawn(plan.executable, ['auth', 'status', '--json'], { cwd: plan.cwd, env: plan.env, stdio: ['ignore', 'pipe', 'ignore'], signal, timeout: CONTROL_MS });
