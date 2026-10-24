@@ -21,7 +21,8 @@ const models = [
 ];
 const initialize = (overrides: Record<string, unknown> = {}) => ({ commands: [], models, claude_code_version: VERSION, current_permission_mode: 'default', analytics_disabled: true,
   remote_control_auto_enable: false, remote_control_auto_connect_default: false, remote_control_auto_on_by_default: false,
-  account: { email: status.email, subscriptionType: 'max', tokenSource: 'claude.ai', apiProvider: 'firstParty' }, ...overrides });
+  // Shape observed from a signed-in Pro account on Claude Code 2.1.299: no tokenSource.
+  account: { email: status.email, organization: 'Owner', subscriptionType: 'pro', apiProvider: 'firstParty' }, ...overrides });
 const init = (overrides: Record<string, unknown> = {}) => ({ type: 'system', subtype: 'init', session_id: 'session-1', cwd: WORKSPACE, model: MODEL, tools: [], mcp_servers: [], slash_commands: [], skills: [],
   permissionMode: 'default', apiKeySource: 'none', claude_code_version: VERSION, messaging_socket_path: RUNTIME_DIR + '/cc-socks/1.sock', ...overrides });
 const assistant = (text: string, overrides: Record<string, unknown> = {}) => ({ type: 'assistant', uuid: 'u-' + text, parent_tool_use_id: null, session_id: 'session-1', message: { id: 'msg-1', role: 'assistant', model: MODEL, content: [{ type: 'text', text }] }, ...overrides });
@@ -106,8 +107,10 @@ test('identity, account and model mismatches stop before any message reaches Cla
     ['other account', {}, { ...status, email: 'someone@example.com' }, base],
     ['signed out', {}, { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' }, base],
     ['runtime drifted', { initialize: initialize({ claude_code_version: '2.1.311' }) }, status, base],
-    ['token from environment', { initialize: initialize({ account: { email: status.email, tokenSource: 'CLAUDE_CODE_OAUTH_TOKEN', apiProvider: 'firstParty' } }) }, status, base],
-    ['API key present', { initialize: initialize({ account: { email: status.email, tokenSource: 'claude.ai', apiKeySource: 'ANTHROPIC_API_KEY', apiProvider: 'firstParty' } }) }, status, base],
+    ['token from environment', { initialize: initialize({ account: { email: status.email, subscriptionType: 'pro', tokenSource: 'CLAUDE_CODE_OAUTH_TOKEN', apiProvider: 'firstParty' } }) }, status, base],
+    ['signed-out token source', { initialize: initialize({ account: { email: status.email, subscriptionType: 'pro', tokenSource: 'none', apiProvider: 'firstParty' } }) }, status, base],
+    ['no subscription', { initialize: initialize({ account: { email: status.email, apiProvider: 'firstParty' } }) }, status, base],
+    ['API key present', { initialize: initialize({ account: { email: status.email, subscriptionType: 'pro', apiKeySource: 'ANTHROPIC_API_KEY', apiProvider: 'firstParty' } }) }, status, base],
     ['model not offered', { initialize: initialize({ models: models.slice(0, 2) }) }, status, base],
     ['ambient command', { initialize: initialize({ commands: [{ name: 'deploy' }] }) }, status, base],
     ['remote control auto-on', { initialize: initialize({ remote_control_auto_enable: true }) }, status, base],

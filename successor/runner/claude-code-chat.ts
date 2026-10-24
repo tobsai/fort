@@ -83,7 +83,9 @@ export function initializeProblems(value: unknown, runtimeVersion: string, accou
   let row: Record<string, unknown>, signedIn: Record<string, unknown>;
   try { row = record(value); signedIn = record(row.account); } catch { return ['shape']; }
   const checks: [string, boolean][] = [
-    ['claude_code_version', row.claude_code_version === runtimeVersion], ['account.tokenSource', signedIn.tokenSource === 'claude.ai'],
+    ['claude_code_version', row.claude_code_version === runtimeVersion], // Signed in with a claude.ai subscription, 2.1.299 sends no tokenSource; other sources name themselves.
+    ['account.tokenSource', signedIn.tokenSource === undefined || signedIn.tokenSource === 'claude.ai'],
+    ['account.subscriptionType', typeof signedIn.subscriptionType === 'string' && signedIn.subscriptionType.length > 0],
     ['account.apiProvider', signedIn.apiProvider === 'firstParty'], ['account.apiKeySource', signedIn.apiKeySource === undefined],
     ['account.email', signedIn.email === account.userLabel], ['commands', empty(row.commands)], ['current_permission_mode', row.current_permission_mode === 'default'],
     ['analytics_disabled', row.analytics_disabled === true], ['remote_control_auto_enable', row.remote_control_auto_enable === false],
