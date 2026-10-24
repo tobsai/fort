@@ -253,6 +253,15 @@ test('sign-in refuses foreign login pages, drifted runtimes and non-subscription
   assert.deepEqual(await denied.runtime.signIn({ durationMs: 60_000, onChallenge: () => {} }, new AbortController().signal), { kind: 'unconfirmed' });
 });
 
+test('a failed sign-in step is reported by name for the host log, without runtime output', async () => {
+  const lines: string[] = [];
+  const f = fixture({ authenticate: { automaticUrl: 'https://example.com/cai/oauth/authorize?x=1', manualUrl: LOGIN } }, () => signedOutStatus);
+  const runtime = new ClaudeCodeChat({ ...(f.runtime as any).options, report: (line: string) => lines.push(line) });
+  assert.deepEqual(await runtime.signIn({ durationMs: 60_000, onChallenge: () => {} }, new AbortController().signal), { kind: 'unconfirmed' });
+  assert.equal(lines.length, 1); assert.match(lines[0]!, /^Claude Code sign-in page failed: /);
+  assert.ok(!lines[0]!.includes('example.com'), 'the refused page is not echoed');
+});
+
 test('canceling or timing out a pending sign-in stops Claude Code and reports cancellation', async () => {
   const controller = new AbortController();
   const f = fixture({ completion: 'never' }, () => signedOutStatus);

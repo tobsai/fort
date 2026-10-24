@@ -22,7 +22,17 @@ type ChatOptions = Omit<LaunchOptions, 'model'> & {
   launch?: (plan: ClaudeCodeLaunch) => ClaudeCodeProcess;
   // Replaces `claude auth status --json` in tests.
   authStatus?: (signal: AbortSignal) => Promise<unknown>;
+  // Receives one line naming the step that failed and Fort's own reason, for the host's diagnostic log. Never a
+  // message body, model output or credential.
+  report?: (line: string) => void;
 };
+
+// Error text from Fort's checks and from process launch only; parse errors could quote runtime output, so they aren't.
+export function failureReason(error: unknown): string {
+  if (error instanceof SyntaxError) return 'unreadable Claude Code output';
+  const text = error instanceof Error ? error.message : 'unknown error';
+  return text.replace(/[^\x20-\x7e]/g, ' ').slice(0, 200);
+}
 
 const MAX_TEXT = 65_536, MAX_FRAME = 262_144, MAX_WIRE = 1_000_000, CONTROL_MS = 10_000, INTERRUPT_MS = 2_000;
 const SIGN_IN = 'Use Sign in to connect your Claude subscription.';
@@ -272,6 +282,8 @@ export class ClaudeCodeChat implements ChatRuntime {
   }
   async dispose(): Promise<void> { this.disposed = true; }
 
+  private failed(step: string, error: unknown) { this.options.report?.('Claude Code ' + step + ' failed: ' + failureReason(error)); }
+
   private async account(signal: AbortSignal): Promise<AccountIdentity | null> {
     return parseClaudeAuthStatus(await (this.options.authStatus ?? (signal => readAuthStatus(this.options, signal)))(signal));
   }
@@ -299,7 +311,7 @@ export class ClaudeCodeChat implements ChatRuntime {
       session = this.open();
       const models = checkInitialize(await session.control({ subtype: 'initialize' }, signal), this.options.runtimeVersion, account);
       return { provider, state: 'ready', models, checkedAt: new Date().toISOString() };
-    } catch { return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
+    } catch (error) { this.failed('model check', error); return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
     finally { session?.close(); this.busy = false; }
   }
 
@@ -311,20 +323,24 @@ export class ClaudeCodeChat implements ChatRuntime {
     this.busy = true;
     const timeout = new AbortController(), timer = setTimeout(() => timeout.abort(), options.durationMs);
     const bounded = AbortSignal.any([signal, timeout.signal]);
-    let session: Session | undefined;
+    let session: Session | undefined, step = 'sign-in account check';
     try {
       const existing = await this.account(bounded);
       if (existing) return { kind: 'signedIn', account: existing };
-      session = this.open();
-      if (controlProblems(record(await session.control({ subtype: 'initialize' }, bounded)), this.options.runtimeVersion).length) throw new Error('Claude Code controls were not confirmed');
+      step = 'sign-in start'; session = this.open();
+      const problems = controlProblems(record(await session.control({ subtype: 'initialize' }, bounded)), this.options.runtimeVersion);
+      if (problems.length) throw new Error('Claude Code controls were not confirmed: ' + problems.join(', '));
+      step = 'sign-in page';
       const page = loginPage(record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded)).automaticUrl);
       options.onChallenge({ kind: 'browserAuthorization', authorizationURL: page });
       try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
-      catch { if (bounded.aborted) return { kind: 'canceled' }; }
+      catch (error) { if (bounded.aborted) return { kind: 'canceled' }; this.failed('sign-in completion', error); }
       session.close();
+      step = 'sign-in account read-back';
       const account = await this.account(AbortSignal.timeout(CONTROL_MS));
+      if (!account) this.options.report?.('Claude Code sign-in finished, but Claude reports no signed-in account');
       return account ? { kind: 'signedIn', account } : { kind: 'unconfirmed' };
-    } catch { return bounded.aborted ? { kind: 'canceled' } : { kind: 'unconfirmed' }; }
+    } catch (error) { if (bounded.aborted) return { kind: 'canceled' }; this.failed(step, error); return { kind: 'unconfirmed' }; }
     finally { clearTimeout(timer); session?.close(); this.busy = false; }
   }
 
@@ -357,7 +373,7 @@ export class ClaudeCodeChat implements ChatRuntime {
         session = this.open(configuration.selectedModel);
         const models = checkInitialize(await session.control({ subtype: 'initialize', systemPrompt }, signal), this.options.runtimeVersion, account);
         if (!models.some(model => model.id === configuration.selectedModel)) throw new Error('Selected model unavailable');
-      } catch { return { kind: 'notStarted', message: 'Claude Code preflight was not confirmed. Nothing was sent.' }; }
+      } catch (error) { this.failed('turn preflight', error); return { kind: 'notStarted', message: 'Claude Code preflight was not confirmed. Nothing was sent.' }; }
       if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before runtime dispatch.' };
       return await this.turn(session, configuration.selectedModel, text, signal, dispatch.deadline);
     } finally { session?.close(); this.busy = false; }

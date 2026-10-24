@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Darwin
+import os
 
 public struct MacCoreStop: Sendable {
     public let exitedCleanly: Bool
@@ -164,6 +165,13 @@ private final class CoreProcessState: @unchecked Sendable {
     private let queue = DispatchQueue(label:"Fort.CoreProcess")
     private let input: Int32
     private let output: Int32
+    // The core's own diagnostic lines (stderr) go to the unified log, so a failure on the owner's Mac can be read with
+    // `log show` instead of being retried by hand. The core writes only Fort's own messages there, never message
+    // bodies or credentials; runtimes' stderr is not passed through. Lines are bounded and printable ASCII only.
+    private static let log = Logger(subsystem:"io.mtree.fort",category:"host")
+    private let errors: Int32
+    private var errorReader: DispatchSourceRead?
+    private var errorLine = Data()
     private var reader: DispatchSourceRead?
     private var writer: DispatchSourceWrite?
     private var monitor: DispatchSourceProcess?
@@ -199,18 +207,19 @@ private final class CoreProcessState: @unchecked Sendable {
         var permissions = stat()
         guard lstat(directory.path,&permissions) == 0, permissions.st_mode & S_IFMT == S_IFDIR,
               permissions.st_uid == geteuid(), permissions.st_mode & 0o077 == 0 else { throw CocoaError(.fileWriteNoPermission) }
-        var incoming = [Int32](repeating:-1,count:2), outgoing = [Int32](repeating:-1,count:2)
+        var incoming = [Int32](repeating:-1,count:2), outgoing = [Int32](repeating:-1,count:2), diagnostic = [Int32](repeating:-1,count:2)
         guard pipe(&incoming) == 0 else { throw Self.posixError() }
         guard pipe(&outgoing) == 0 else { incoming.forEach { Darwin.close($0) }; throw Self.posixError() }
+        guard pipe(&diagnostic) == 0 else { (incoming + outgoing).forEach { Darwin.close($0) }; throw Self.posixError() }
         var keep = false
         defer {
-            Darwin.close(incoming[0]); Darwin.close(outgoing[1])
-            if !keep { Darwin.close(incoming[1]); Darwin.close(outgoing[0]) }
+            Darwin.close(incoming[0]); Darwin.close(outgoing[1]); Darwin.close(diagnostic[1])
+            if !keep { Darwin.close(incoming[1]); Darwin.close(outgoing[0]); Darwin.close(diagnostic[0]) }
         }
-        for descriptor in incoming + outgoing {
+        for descriptor in incoming + outgoing + diagnostic {
             guard fcntl(descriptor,F_SETFD,FD_CLOEXEC) == 0 else { throw Self.posixError() }
         }
-        guard fcntl(incoming[1],F_SETFL,O_NONBLOCK) == 0, fcntl(outgoing[0],F_SETFL,O_NONBLOCK) == 0,
+        guard fcntl(incoming[1],F_SETFL,O_NONBLOCK) == 0, fcntl(outgoing[0],F_SETFL,O_NONBLOCK) == 0, fcntl(diagnostic[0],F_SETFL,O_NONBLOCK) == 0,
               fcntl(incoming[1],F_SETNOSIGPIPE,1) == 0 else { throw Self.posixError() }
         var attributes: posix_spawnattr_t?
         var actions: posix_spawn_file_actions_t?
@@ -224,13 +233,13 @@ private final class CoreProcessState: @unchecked Sendable {
         else { try Self.check(posix_spawn_file_actions_addchdir_np(&actions,directory.path)) }
         try Self.check(posix_spawn_file_actions_adddup2(&actions,incoming[0],STDIN_FILENO))
         try Self.check(posix_spawn_file_actions_adddup2(&actions,outgoing[1],STDOUT_FILENO))
-        try Self.check(posix_spawn_file_actions_addopen(&actions,STDERR_FILENO,"/dev/null",O_WRONLY,0))
+        try Self.check(posix_spawn_file_actions_adddup2(&actions,diagnostic[1],STDERR_FILENO))
         var argv = ([executable.path] + arguments).map { strdup($0) } + [nil]
         var env = environment.sorted(by:{ $0.key < $1.key }).map { strdup($0.key + "=" + $0.value) } + [nil]
         defer { argv.forEach { free($0) }; env.forEach { free($0) } }
         var child: pid_t = 0
         try Self.check(posix_spawn(&child,executable.path,&actions,&attributes,&argv,&env))
-        pid = child; input = incoming[1]; output = outgoing[0]; keep = true
+        pid = child; input = incoming[1]; output = outgoing[0]; errors = diagnostic[0]; keep = true
     }
     private static func posixError() -> NSError { NSError(domain:NSPOSIXErrorDomain,code:Int(errno)) }
     private static func check(_ code: Int32) throws { if code != 0 { throw NSError(domain:NSPOSIXErrorDomain,code:Int(code)) } }
@@ -245,6 +254,10 @@ private final class CoreProcessState: @unchecked Sendable {
                 reader.setEventHandler { self.read() }
                 let output = self.output; reader.setCancelHandler { _ = Darwin.close(output) }
                 self.reader = reader; reader.resume()
+                let errorReader = DispatchSource.makeReadSource(fileDescriptor:self.errors,queue:self.queue)
+                errorReader.setEventHandler { self.readErrors() }
+                let errors = self.errors; errorReader.setCancelHandler { _ = Darwin.close(errors) }
+                self.errorReader = errorReader; errorReader.resume()
                 let writer = DispatchSource.makeWriteSource(fileDescriptor:self.input,queue:self.queue)
                 writer.setEventHandler { self.flush() }
                 let input = self.input; writer.setCancelHandler { _ = Darwin.close(input) }
@@ -352,6 +365,24 @@ private final class CoreProcessState: @unchecked Sendable {
         pending.removeValue(forKey:id); call.deadline.cancel(); call.continuation?.resume(with:result)
     }
     func stop() { queue.async { self.beginClose() } }
+    // Drained until the core closes stderr, so its last words before exiting still reach the log.
+    private func readErrors() {
+        var bytes = [UInt8](repeating:0,count:4096)
+        while true {
+            let count = Darwin.read(errors,&bytes,bytes.count)
+            if count < 0 && errno == EINTR { continue }
+            if count < 0 && errno == EAGAIN { return }
+            if count <= 0 { logError(); errorReader?.cancel(); errorReader = nil; return }
+            for byte in bytes.prefix(count) {
+                if byte == 10 { logError() } else if errorLine.count < 300 { errorLine.append(byte >= 0x20 && byte < 0x7f ? byte : 0x20) }
+            }
+        }
+    }
+    private func logError() {
+        guard !errorLine.isEmpty else { return }
+        let line = String(decoding:errorLine,as:UTF8.self); errorLine.removeAll()
+        Self.log.notice("\(line, privacy: .public)")
+    }
     func waitUntilEnded() async {
         await withCheckedContinuation { continuation in
             queue.async { if self.closing { continuation.resume() } else { self.enders.append(continuation) } }
@@ -378,7 +409,7 @@ private final class CoreProcessState: @unchecked Sendable {
         if pipesInstalled {
             if let writer { if !writing { writer.resume() }; writer.cancel(); self.writer = nil }
             reader?.cancel(); reader = nil
-        } else { Darwin.close(input); Darwin.close(output) }
+        } else { Darwin.close(input); Darwin.close(output); Darwin.close(errors) }
         if monitor == nil && status == nil {
             let monitor = DispatchSource.makeProcessSource(identifier:pid,eventMask:.exit,queue:queue)
             monitor.setEventHandler { self.reap() }; self.monitor = monitor; monitor.resume()
@@ -405,6 +436,7 @@ private final class CoreProcessState: @unchecked Sendable {
     private func finish(_ result: Result<MacCoreStop, any Error>) {
         guard stopped == nil else { return }
         stopped = result; monitor?.cancel(); monitor = nil
+        if errorReader != nil { readErrors(); logError(); errorReader?.cancel(); errorReader = nil }
         for continuation in closers { continuation.resume(with:result) }; closers.removeAll()
     }
 }

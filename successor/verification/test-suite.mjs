@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const special = new Map([
   ['host/guardian.test.ts', 'macos'],
+  ['host/mac-host-journey.macos.test.ts', 'macos'],
   ['prototype/mvp-app.test.ts', 'macos'],
   ['runner/confinement-canary.test.ts', 'macos'],
   ['runner/codex-executor.test.ts', 'macos'],

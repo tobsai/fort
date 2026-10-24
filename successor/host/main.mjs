@@ -13,6 +13,9 @@ function recordFailure(error, prefix = '') {
   const reason = (prefix + (error instanceof Error ? error.message : 'Unknown error')).replace(/[^\x20-\x7e]/g, ' ').slice(0, 300);
   try { writeFileSync(FAILURE + '.partial', reason + '\n', { mode: 0o600 }); renameSync(FAILURE + '.partial', FAILURE); } catch {}
 }
+// Diagnostic lines on stderr: the Mac helper puts them in the unified log (subsystem io.mtree.fort). Only Fort's own
+// lifecycle messages and reasons, never message bodies or credentials.
+const note = line => { try { process.stderr.write('Fort host: ' + line.replace(/[^\x20-\x7e]/g, ' ').slice(0, 280) + '\n'); } catch {} };
 let serving = false;
 const controller = new AbortController();
 const stop = () => controller.abort();
@@ -30,16 +33,22 @@ try {
   const runtimes = [];
   const claude = selectedClaudeCode(process.cwd());
   if (claude) {
-    try { runtimes.push(createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'c') })); }
-    catch (error) { recordFailure(error, 'Claude Code could not start, so only ChatGPT is available: '); }
+    try {
+      const lane = createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'c'), report: note });
+      runtimes.push(lane); note('Claude Code ' + lane.provider.runtimeVersion + ' is on beside ChatGPT');
+    } catch (error) {
+      recordFailure(error, 'Claude Code could not start, so only ChatGPT is available: ');
+      note('Claude Code could not start: ' + (error instanceof Error ? error.message : 'unknown error'));
+    }
   }
   // Turning Claude on or off in the app ends this host cleanly; the helper exits with it, and macOS starts a new one with
   // the new choice on the app's next request.
-  watchClaudeCodeSelection(process.cwd(), stop);
+  watchClaudeCodeSelection(process.cwd(), () => { note('Claude was turned ' + (claude ? 'off' : 'on') + ', restarting'); stop(); });
   await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: codex, runtimes, context: LOCAL_CONTEXT, network: 'explicit',
-    input: process.stdin, output: process.stdout, signal: controller.signal, ready: () => { serving = true; } });
+    input: process.stdin, output: process.stdout, signal: controller.signal, ready: () => { serving = true; note('serving ' + (runtimes.length ? 'ChatGPT and Claude' : 'ChatGPT only')); } });
 } catch (error) {
   process.stderr.write('Fort host could not start or finish safely.\n');
+  note((serving ? 'stopped after an error: ' : 'could not start: ') + (error instanceof Error ? error.message : 'unknown error'));
   if (!serving) recordFailure(error);
   process.exitCode = 1;
 } finally { process.removeListener('SIGTERM', stop); }
