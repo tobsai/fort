@@ -127,6 +127,57 @@ public struct MacAgentStorage: Sendable {
         return result
     }
 
+    // The owner's choice of Claude Code (Spec 062). The helper runs the installed `claude` in place, read-only, from its
+    // next start; it pins the newest installed version on that start. Choosing again re-pins. Fort never copies the binary:
+    // the App Sandbox will not launch one placed in Fort's container.
+    static let claudeCodeDirectory = "ClaudeCode"
+
+    func selectClaudeCode() throws {
+        let (root, directory) = try openClaudeCodeDirectory(create:true)
+        defer { Darwin.close(directory); Darwin.close(root) }
+        if unlinkat(directory,"pinned.json",0) != 0 && errno != ENOENT { throw Self.ioError() }
+        if unlinkat(directory,"selection.json.partial",0) != 0 && errno != ENOENT { throw Self.ioError() }
+        let output = openat(directory,"selection.json.partial",O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,0o600)
+        guard output >= 0 else { throw Self.ioError() }
+        let bytes = Array("{}\n".utf8)
+        let written = bytes.withUnsafeBytes { Darwin.write(output,$0.baseAddress,$0.count) }
+        let flushed = written == bytes.count && fsync(output) == 0, closed = Darwin.close(output) == 0
+        guard flushed, closed else { _ = unlinkat(directory,"selection.json.partial",0); throw Self.ioError() }
+        guard renameat(directory,"selection.json.partial",directory,"selection.json") == 0, fsync(directory) == 0 else { throw Self.ioError() }
+    }
+
+    // Returns the helper to its default runtime from its next start. Claude's own sign-in and Fort's Claude history stay.
+    func removeClaudeCode() throws {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(root) }
+        guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+        let directory = openat(root,Self.claudeCodeDirectory,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        if directory < 0 && errno == ENOENT { return }
+        guard directory >= 0 else { throw Self.ioError() }
+        defer { Darwin.close(directory) }
+        let identity = try Self.identity(directory,privateDirectory:true)
+        try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:identity)
+        guard unlinkat(directory,"selection.json",0) == 0 || errno == ENOENT, fsync(directory) == 0 else { throw Self.ioError() }
+    }
+
+    private func openClaudeCodeDirectory(create: Bool) throws -> (Int32,Int32) {
+        let url = try validatedDirectory()
+        let root = Darwin.open(url.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw Self.ioError() }
+        do {
+            guard try Self.identity(root,privateDirectory:true) == directoryIdentity else { throw MacAgentStorageError.changedDirectory }
+            if create && mkdirat(root,Self.claudeCodeDirectory,0o700) != 0 && errno != EEXIST { throw Self.ioError() }
+            let directory = openat(root,Self.claudeCodeDirectory,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard directory >= 0 else { throw Self.ioError() }
+            do {
+                try Self.verifyLink(parent:root,name:Self.claudeCodeDirectory,expected:try Self.identity(directory,privateDirectory:true))
+                return (root,directory)
+            } catch { Darwin.close(directory); throw error }
+        } catch { Darwin.close(root); throw error }
+    }
+
     // Fort-held provider credentials in the runtime state directory: Codex auth and the ChatGPT plan sign-in.
     static let providerCredentialNames = ["auth.json","openai-plan.json"]
 

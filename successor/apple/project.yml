@@ -35,6 +35,7 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ENABLE_INCOMING_NETWORK_CONNECTIONS: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+        CODE_SIGN_ENTITLEMENTS: Host/FortHost.entitlements
   FortiOS:
     type: application
     platform: iOS
