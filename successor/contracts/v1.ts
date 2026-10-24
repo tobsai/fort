@@ -79,3 +79,12 @@ export type CompanionOverview = { installationId: string; hostDeviceId: string; 
   | { state: 'paired'; deviceId: string; deviceName: string; expiresAt: string | null; active: boolean }
 };
 export type HostStopReceipt = { runtimeStopped: true; revoked: boolean };
+export type WeekZone = 'code' | 'money' | 'writing' | 'personal';
+export type WeekSize = 'small' | 'moderate' | 'significant' | 'milestone';
+export type WeekOwner = { kind: 'you' } | { kind: 'agent'; agentId: string };
+export type WeekGoal = { goalId: string; text: string; zone: WeekZone; lead: WeekOwner; targetPoints: number };
+export type WeekPlanItem = { itemId: string; goalId: string; task: string; owner: WeekOwner; size: WeekSize; unlocks?: string; doneBuildId: string | null };
+export type WeekBuild = { buildId: string; goalId: string; itemId: string | null; task: string; size: WeekSize; by: WeekOwner; placedAt: string; evidence?: string };
+export type Week = { weekId: string; revisionId: string; number: number; name: string; startsOn: string; endsOn: string; state: 'live' | 'closed'; mainGoalId: string | null; goals: WeekGoal[]; plan: WeekPlanItem[]; builds: WeekBuild[]; closedAt?: string };
+export type WeekProgress = { points: number; goals: { goalId: string; points: number; targetPoints: number; met: boolean }[]; goalsMet: number; goalsCounted: number; grade: 'A' | 'B' | 'C' | 'D' | null };
+export type WeekView = Week & { progress: WeekProgress };
