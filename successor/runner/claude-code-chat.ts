@@ -66,11 +66,17 @@ export function claudeCodeLaunch(options: LaunchOptions): ClaudeCodeLaunch {
 }
 
 // Accepts only a Claude subscription sign-in. Console, API-key and cloud-provider sign-ins are refused, not converted.
+// Signed out, or a claude.ai credential with no account record in this HOME, both mean "use Sign in" (null).
+// A refusal names the fields that didn't match and their enum values, never an email or organization.
 export function parseClaudeAuthStatus(value: unknown): AccountIdentity | null {
   const row = record(value);
-  if (row.loggedIn === false && row.authMethod === 'none' && row.apiKeySource === undefined) return null;
-  if (row.loggedIn !== true || row.authMethod !== 'claude.ai' || row.apiProvider !== 'firstParty' || row.apiKeySource !== undefined
-    || typeof row.orgId !== 'string' || !UUID.test(row.orgId) || typeof row.email !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(row.email)) throw new Error('Unsupported Claude sign-in');
+  const shown = (key: string) => key + (typeof row[key] === 'string' && /^[a-z0-9._-]{1,32}$/i.test(row[key]) ? ' ' + row[key] : '');
+  const refused = [...(row.apiKeySource !== undefined ? ['apiKeySource'] : []),
+    ...(row.loggedIn === true && row.authMethod !== 'claude.ai' ? [shown('authMethod')] : []),
+    ...((row.loggedIn === true || row.apiProvider !== undefined) && row.apiProvider !== 'firstParty' ? [shown('apiProvider')] : [])];
+  if (refused.length) throw new Error('Unsupported Claude sign-in: ' + refused.join(', '));
+  if (row.loggedIn !== true) return null;
+  if (typeof row.orgId !== 'string' || !UUID.test(row.orgId) || typeof row.email !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(row.email)) return null;
   return parseAccountIdentity({ accountId: row.orgId, userLabel: row.email });
 }
 
@@ -285,7 +291,10 @@ export class ClaudeCodeChat implements ChatRuntime {
   private failed(step: string, error: unknown) { this.options.report?.('Claude Code ' + step + ' failed: ' + failureReason(error)); }
 
   private async account(signal: AbortSignal): Promise<AccountIdentity | null> {
-    return parseClaudeAuthStatus(await (this.options.authStatus ?? (signal => readAuthStatus(this.options, signal)))(signal));
+    const status = await (this.options.authStatus ?? (signal => readAuthStatus(this.options, signal)))(signal);
+    const account = parseClaudeAuthStatus(status);
+    if (!account && record(status).loggedIn === true) this.options.report?.('Claude Code is signed in without an account record here; Sign in will run Claude\'s login');
+    return account;
   }
 
   private open(model?: string): Session {

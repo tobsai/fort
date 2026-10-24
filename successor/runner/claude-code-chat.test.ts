@@ -95,8 +95,39 @@ test('the launch plan uses the official binary with every ambient feature off an
 test('only a Claude subscription sign-in is an account; Console and API-key sign-ins are refused', () => {
   assert.deepEqual(account, { accountId: status.orgId, userLabel: status.email });
   assert.equal(parseClaudeAuthStatus({ loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' }), null);
-  for (const other of [{ ...status, authMethod: 'api_key' }, { ...status, apiKeySource: 'ANTHROPIC_API_KEY' }, { ...status, apiProvider: 'bedrock' }, { ...status, orgId: 'not a uuid' }])
+  for (const other of [{ ...status, authMethod: 'api_key' }, { ...status, apiKeySource: 'ANTHROPIC_API_KEY' }, { ...status, apiProvider: 'bedrock' }, { ...status, authMethod: 'oauth_token' }])
     assert.throws(() => parseClaudeAuthStatus(other));
+});
+
+// Claude Code 2.1.x prints this when it finds a claude.ai credential but no account record in this HOME, which is
+// what Fort's private HOME holds after an earlier in-sandbox login: the credential is in the Keychain, not the HOME.
+const unidentified = { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', analyticsDisabled: false, projectsDirectory: '/synthetic/home/.claude/projects',
+  configDirectory: '/synthetic/home/.claude', email: null, orgId: null, orgName: null, subscriptionType: null };
+
+test('a signed-out or unidentified Claude sign-in needs Sign in, and a refused one names the field, not its value', () => {
+  assert.equal(parseClaudeAuthStatus(unidentified), null);
+  assert.equal(parseClaudeAuthStatus({ ...status, orgId: 'not a uuid' }), null);
+  assert.equal(parseClaudeAuthStatus({ ...status, email: undefined }), null);
+  assert.equal(parseClaudeAuthStatus({ loggedIn: false, authMethod: 'none', apiProvider: 'firstParty', analyticsDisabled: false, configDirectory: '/synthetic/home/.claude' }), null);
+  assert.equal(parseClaudeAuthStatus({ loggedIn: false, apiProvider: 'firstParty' }), null);
+  assert.throws(() => parseClaudeAuthStatus({ ...status, authMethod: 'oauth_token' }), /authMethod oauth_token/);
+  assert.throws(() => parseClaudeAuthStatus({ ...status, apiProvider: 'bedrock' }), /apiProvider bedrock/);
+  assert.throws(() => parseClaudeAuthStatus({ ...status, apiKeySource: 'ANTHROPIC_API_KEY' }), /apiKeySource/);
+  assert.throws(() => parseClaudeAuthStatus({ ...status, authMethod: 'Bad Value\nwith text' }), (error: Error) => !/Bad Value|\n/.test(error.message));
+  assert.throws(() => parseClaudeAuthStatus({ loggedIn: false, apiKeySource: 'ANTHROPIC_API_KEY' }), /apiKeySource/, 'a key is refused even when signed out');
+});
+
+test('an unidentified Claude sign-in opens Claude\'s login page instead of failing silently', async () => {
+  let signedIn = false;
+  const lines: string[] = [];
+  const f = fixture({ onCompletion: () => { signedIn = true; } }, () => signedIn ? status : unidentified), shown: unknown[] = [];
+  const runtime = new ClaudeCodeChat({ ...(f.runtime as any).options, report: (line: string) => lines.push(line) });
+  assert.deepEqual(await runtime.signIn({ durationMs: 60_000, onChallenge: challenge => { shown.push(challenge); } }, new AbortController().signal), { kind: 'signedIn', account });
+  assert.deepEqual(shown, [{ kind: 'browserAuthorization', authorizationURL: LOGIN }]);
+  assert.ok(lines.some(line => /without an account/.test(line)), lines.join('|'));
+  assert.ok(!lines.some(line => line.includes('example.com') || line.includes('/synthetic/')), 'no account or path values in the log');
+  const models = await fixture({}, unidentified).runtime.models(new AbortController().signal);
+  assert.equal(models.state, 'unavailable', 'models ask for Sign in rather than reporting an error');
 });
 
 test('a turn sends the context with the system prompt off the command line and returns only the confirmed result', async () => {

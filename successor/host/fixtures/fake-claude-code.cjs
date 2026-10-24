@@ -13,11 +13,16 @@ const args = process.argv.slice(2);
 const out = frame => process.stdout.write(JSON.stringify(frame) + '\n');
 
 if (args[0] === '--version') { process.stdout.write(VERSION + ' (Claude Code)\n'); process.exit(0); }
+// The same fields Claude Code 2.1.x prints. With only `fake-claude-credential-only` in HOME it reports what a
+// credential without an account record looks like: signed in, but with no email or organization.
 if (args[0] === 'auth' && args[1] === 'status') {
+  const config = join(process.env.HOME || '/nonexistent', '.claude'), common = { analyticsDisabled: false, projectsDirectory: join(config, 'projects'), configDirectory: config };
+  const credentialOnly = !signedIn() && existsSync(join(process.env.HOME || '/nonexistent', 'fake-claude-credential-only'));
   process.stdout.write(JSON.stringify(signedIn()
-    ? { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', email: EMAIL, orgId: ORG, orgName: 'Owner', subscriptionType: 'max' }
-    : { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' }));
-  process.exit(signedIn() ? 0 : 1);
+    ? { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', ...common, email: EMAIL, orgId: ORG, orgName: 'Owner', subscriptionType: 'max' }
+    : credentialOnly ? { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', ...common, email: null, orgId: null, orgName: null, subscriptionType: null }
+    : { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty', ...common }, null, 2) + '\n');
+  process.exit(signedIn() || credentialOnly ? 0 : 1);
 }
 
 const modelArg = args.indexOf('--model'), model = modelArg >= 0 ? args[modelArg + 1] : 'claude-sonnet-5-5';
@@ -44,7 +49,7 @@ process.stdin.on('data', chunk => {
     const frame = JSON.parse(buffer.slice(0, end)); buffer = buffer.slice(end + 1);
     const subtype = frame.type === 'control_request' ? frame.request.subtype : undefined;
     if (subtype === 'initialize') success(frame.request_id, initialize());
-    else if (subtype === 'claude_authenticate') success(frame.request_id, { manualUrl: LOGIN.replace('code=true', 'code=manual'), automaticUrl: LOGIN });
+    else if (subtype === 'claude_authenticate') writeFileSync(join(process.env.HOME || '/nonexistent', 'fake-claude-login-shown'), 'synthetic\n', { mode: 0o600 }), success(frame.request_id, { manualUrl: LOGIN.replace('code=true', 'code=manual'), automaticUrl: LOGIN });
     else if (subtype === 'claude_oauth_wait_for_completion') setTimeout(() => { writeFileSync(marker, 'synthetic\n', { mode: 0o600 }); success(frame.request_id, { account: { email: EMAIL, subscriptionType: 'max' } }); }, 300);
     else if (subtype === 'interrupt') success(frame.request_id, {});
     else if (frame.type === 'user') for (const reply_ of reply('Synthetic Claude reply')) out(reply_);
