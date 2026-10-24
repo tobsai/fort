@@ -127,8 +127,8 @@ public struct MacAgentStorage: Sendable {
         return result
     }
 
-    // Fort-held provider credentials in the runtime state directory: Codex auth and the ChatGPT plan sign-in.
-    static let providerCredentialNames = ["auth.json","openai-plan.json"]
+    // Fort-held credentials in the runtime state directory: Codex auth, the ChatGPT plan sign-in and the hub runner token.
+    static let providerCredentialNames = ["auth.json","openai-plan.json","hub-runner.json"]
 
     // Caller must confirm owned process absence and startup unregistration first.
     func removeProviderCredentials() throws {

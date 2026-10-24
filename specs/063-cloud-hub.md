@@ -102,8 +102,13 @@ service needs approval.
    good when the hub refuses its token. For one Mac the ledger needs no binding
    rewrite: the Mac enrolls with its existing `hostId` as its runner ID, and the hub
    runs with `FORT_NODE` set to that value, so `migrateLedger`'s copy is enough.
-   Still to build: the helper launching runner mode, storing the runner token (a new
-   credential on the Mac, so it needs approval first) and the Mac app's status view.
+   Runner token: Toby chose on 2026-10-24 to keep it like the ChatGPT sign-in, in an
+   owner-only `hub-runner.json` in the helper's private state directory
+   (`runner/hub-credential.ts`). It is written only after the hub confirms the
+   enrollment. Removing provider credentials on the Mac deletes it too. A revoked
+   runner stops connecting and keeps the file until the owner removes it.
+   Still to build: the helper launching runner mode (bundle entry and packaging) and
+   the Mac app's enrollment and status view. Both need a Mac to test.
 
 Rejected alternatives:
 - A VPN mesh (Tailscale everywhere): it puts a client on every device.

@@ -363,7 +363,7 @@ func agentStorageExistingInspectionBudget() throws {
 @Test func agentStorageProviderCleanupPreservesHistoryAndUnrelatedCredentials() throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
-    let runtime = try storage.prepareRuntimeDirectory(), credentials = ["auth.json","openai-plan.json"].map { runtime.appendingPathComponent("state/" + $0) }
+    let runtime = try storage.prepareRuntimeDirectory(), credentials = ["auth.json","openai-plan.json","hub-runner.json"].map { runtime.appendingPathComponent("state/" + $0) }
     let retained = [root.appendingPathComponent("auth.json"),runtime.appendingPathComponent("state/history.json"),runtime.appendingPathComponent("state/openai-host-id"),try storage.validatedDirectory().appendingPathComponent("openai-candidate-b.sqlite")]
     for file in retained + credentials {
         try Data("synthetic private marker; intentionally not JSON".utf8).write(to:file)
@@ -375,7 +375,7 @@ func agentStorageExistingInspectionBudget() throws {
     for file in retained { #expect(try String(contentsOf:file,encoding:.utf8) == "synthetic private marker; intentionally not JSON") }
 }
 
-@Test(arguments:["auth.json","openai-plan.json"], ["symlink","broken-symlink","hardlink","fifo","directory","shared","executable","acl"])
+@Test(arguments:["auth.json","openai-plan.json","hub-runner.json"], ["symlink","broken-symlink","hardlink","fifo","directory","shared","executable","acl"])
 func agentStorageProviderCleanupRefusesUnsafeCredential(_ name: String, _ fault: String) throws {
     let root = try agentStorageRoot(); defer { try? FileManager.default.removeItem(at:root) }
     let storage = try MacAgentStorage.prepare(for:storageEndpoint(),resolveContainer:{ _ in root })
