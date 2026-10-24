@@ -42,7 +42,7 @@ export function claudeCodeLaunch(options: LaunchOptions): ClaudeCodeLaunch {
   if (![executable, workspace, home, runtimeDirectory].every(exactPath) || (model !== undefined && !MODEL_ID.test(model))) throw new Error('Use exact absolute paths and an exact model ID');
   // Claude Code puts its local messaging socket under XDG_RUNTIME_DIR only when the socket path fits in
   // 103 bytes; otherwise it falls back to a shared /tmp directory. Keep the private directory short enough.
-  if (Buffer.byteLength(runtimeDirectory) > 72) throw new Error('Use a short private runtime directory');
+  if (Buffer.byteLength(runtimeDirectory) > 72) throw new Error('Use a short private runtime directory (' + Buffer.byteLength(runtimeDirectory) + ' bytes; at most 72)');
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--tools', '', '--strict-mcp-config', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence', '--permission-mode', 'default',
     ...(model ? ['--model', model] : [])];

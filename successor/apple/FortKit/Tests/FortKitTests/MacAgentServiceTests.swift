@@ -86,6 +86,19 @@ import Testing
     await fixture.cleanup()
 }
 
+// Spec 062: Claude Code's socket needs a short private directory, so the helper passes the shorter temporary directory.
+@Test func agentServicePassesTheShorterCanonicalTemporaryDirectory() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("fort-tmp-" + UUID().uuidString,isDirectory:true)
+    let long = root.appendingPathComponent(String(repeating:"long",count:12),isDirectory:true)
+    try FileManager.default.createDirectory(at:long,withIntermediateDirectories:true)
+    defer { try? FileManager.default.removeItem(at:root) }
+    let without = try #require(MacAgentService.hostEnvironment(temporary:long,home:root.path)["TMPDIR"])
+    #expect(without.hasSuffix("/" + long.lastPathComponent) && !without.hasPrefix("/var/"))
+    try FileManager.default.createDirectory(at:root.appendingPathComponent("tmp"),withIntermediateDirectories:false)
+    let shorter = try #require(MacAgentService.hostEnvironment(temporary:long,home:root.path)["TMPDIR"])
+    #expect(shorter.hasSuffix("/" + root.lastPathComponent + "/tmp") && shorter.utf8.count < without.utf8.count)
+}
+
 // Spec 064: the core ends itself when the owner turns Claude on or off, and the helper must notice so it can exit.
 @Test @MainActor func agentServiceReportsWhenItsCoreEndsByItself() async throws {
     let fixture = try AgentServiceFixture(), service = fixture.service()

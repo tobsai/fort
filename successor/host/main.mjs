@@ -30,7 +30,7 @@ try {
   const runtimes = [];
   const claude = selectedClaudeCode(process.cwd());
   if (claude) {
-    try { runtimes.push(createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'claude') })); }
+    try { runtimes.push(createClaudeCodeHost({ directory: claude, guardian, temporary: join(process.env.TMPDIR ?? '', 'c') })); }
     catch (error) { recordFailure(error, 'Claude Code could not start, so only ChatGPT is available: '); }
   }
   // Turning Claude on or off in the app ends this host cleanly; the helper exits with it, and macOS starts a new one with
