@@ -1239,7 +1239,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     }
     if(state!==lastOwnerAccess){lastOwnerAccess=state;ownerAccessChanged();}
   };
-  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess,
+  // The owning Mac's device ID when this bearer token is its current credential; for host-only routes outside this service.
+  const ownerDevice = (token: string): string | undefined => {
+    if (closed || !ownerControl || !/^[A-Za-z0-9_-]{43}$/.test(token)) return undefined;
+    const device = db.prepare('SELECT id,expires FROM devices WHERE id=? AND hash=?').get(ownerControl.deviceId, digest(token));
+    return device && (device.expires === 0 || Number(device.expires) > now()) ? ownerControl.deviceId : undefined;
+  };
+  const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess, ownerDevice,
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
       if (identity.installationId !== installation.installationId) throw new OwnerRecoveryIdentityRejected('installation');
       const deviceId = id(identity.deviceId);

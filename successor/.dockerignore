@@ -1,0 +1,12 @@
+**/*.test.ts
+**/*.test.mjs
+**/fixtures
+node_modules
+apple
+evidence
+release
+design
+prototype
+packaging
+verification
+ops

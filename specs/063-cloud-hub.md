@@ -83,6 +83,15 @@ service needs approval.
    plain Dockerfile with no Railway-specific API keeps the move to any VM a redeploy.
    Tests cover start, stop, a restart mid-turn leaving the attempt unknown, and
    refusing to start with a second writer on the same ledger.
+   Built in `host/cloud-hub.ts` and `successor/Dockerfile`. The owner claims a fresh
+   hub with a one-time setup code; the hub's environment holds only its SHA-256
+   (`FORT_SETUP_CODE_SHA256`), so Railway never sees the code. Runner management
+   (`/v1/runners`, invitation, revoke) is owner-only; `/v1/runners/join` takes the
+   invitation. Configuration: `PORT`, `FORT_DATA`, `FORT_PROVIDER`,
+   `FORT_RUNTIME_VERSION`, `FORT_NODE`, `FORT_OFFLINE_WAIT_MS`.
+   Limit: the core pins one runtime identity per ledger, so one hub serves one
+   provider on one Mac. Serving several Macs or providers from one hub changes how
+   bindings pin provider and node, so it gets its own spec revision before it is built.
 4. **Mac runner mode.** The helper runs the runner client instead of a local core,
    using the network entitlements added in PR #31. The Mac app shows hub and runner
    status. This step also covers ledger migration (export from the Mac, import on the
