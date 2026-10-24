@@ -30,7 +30,7 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function terminal(value: unknown, dispatch: ExecutionDispatch): ChatResult {
+export function terminal(value: unknown, dispatch: ExecutionDispatch): ChatResult {
   if (Date.now() >= dispatch.deadline) throw new Error('Expired evidence');
   const frame = object(value);
   if (frame.protocolVersion !== 1 || frame.kind !== 'terminal' || frame.sequence !== 1 || frame.dispatchDigest !== dispatch.dispatchDigest || frame.attemptId !== dispatch.attempt.attemptId || frame.generation !== dispatch.attempt.generation) throw new Error('Uncorrelated evidence');
@@ -44,7 +44,7 @@ function terminal(value: unknown, dispatch: ExecutionDispatch): ChatResult {
   return { kind: result.kind, message: result.message };
 }
 
-function validDispatch(input: ChatInput, dispatch: ExecutionDispatch): boolean {
+export function validDispatch(input: ChatInput, dispatch: ExecutionDispatch): boolean {
   const { dispatchDigest, ...body } = dispatch;
   return dispatch.protocolVersion === 1 && sealDispatch(body).dispatchDigest === dispatchDigest
     && executionDigest(dispatch.policy) === executionDigest(TEXT_POLICY) && dispatch.policyDigest === executionDigest(TEXT_POLICY)
