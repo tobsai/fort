@@ -13,27 +13,20 @@ private func accountKeys(_ decoder: Decoder, _ expected: Set<String>) throws {
 private func accountID(_ value: String) -> Bool {
     !value.isEmpty && value.utf8.count <= 128 && value.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }
 }
-private func deviceCode(_ code: String) -> Bool {
-    (4...32).contains(code.utf8.count) && code.split(separator:"-",omittingEmptySubsequences:false).allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) } })
-}
-/// A device code to type on the verification page, or (no code) a browser page that finishes the provider's own sign-in on the Mac running Fort.
 public struct AccountDeviceCode: Decodable, Equatable, Sendable {
     public let verificationURL: URL
-    public let userCode: String?
-    public var opensInBrowser: Bool { userCode == nil }
+    public let userCode: String
     private enum CodingKeys: String, CodingKey { case kind, verificationURL, userCode }
     public init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy:CodingKeys.self), kind = try values.decode(String.self,forKey:.kind), browser = kind == "browser"
-        try accountKeys(decoder,browser ? ["kind","verificationURL"] : ["kind","verificationURL","userCode"])
-        let raw = try values.decode(String.self,forKey:.verificationURL)
-        var code: String?
-        if !browser { code = try values.decode(String.self,forKey:.userCode) }
-        guard browser || kind == "deviceCode", raw.utf8.count <= 2048,
+        try accountKeys(decoder,["kind","verificationURL","userCode"])
+        let values = try decoder.container(keyedBy:CodingKeys.self)
+        let raw = try values.decode(String.self,forKey:.verificationURL), code = try values.decode(String.self,forKey:.userCode)
+        guard try values.decode(String.self,forKey:.kind) == "deviceCode", raw.utf8.count <= 2048,
               !raw.unicodeScalars.contains(where:{ $0.value <= 32 || $0.value == 127 }),
               let url = URL(string:raw), let parts = URLComponents(string:raw), parts.scheme == "https", parts.host?.isEmpty == false,
-              parts.user == nil, parts.password == nil, parts.port == nil, browser || parts.query == nil, parts.fragment == nil,
-              url.absoluteString == raw,
-              browser || code.map(deviceCode) == true
+              parts.user == nil, parts.password == nil, parts.port == nil, parts.query == nil, parts.fragment == nil,
+              url.absoluteString == raw, (4...32).contains(code.utf8.count),
+              code.split(separator:"-",omittingEmptySubsequences:false).allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) } })
         else { throw ClientError.invalidResponse }
         verificationURL = url; userCode = code
     }

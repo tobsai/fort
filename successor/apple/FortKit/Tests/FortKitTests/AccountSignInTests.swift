@@ -457,19 +457,3 @@ private final class AccountCredentials: DeviceCredentials {
     try JSONSerialization.data(withJSONObject:result,options:.sortedKeys).write(to:URL(fileURLWithPath:path),options:.withoutOverwriting)
 }
 #endif
-
-@Test func nativeAccountDecoderAcceptsABrowserSignInPageOnlyWithoutACode() throws {
-    let identity: [String:Any] = ["state":"challenge","revision":1,"operationId":"synthetic","expiresAt":1_900_000_000_000]
-    let page = "https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&state=fixture"
-    func decode(_ challenge: [String:Any]) throws -> AccountSignInStatus {
-        try JSONDecoder().decode(AccountSignInStatus.self,from:JSONSerialization.data(withJSONObject:identity.merging(["challenge":challenge]) { _,new in new }))
-    }
-    let browser = try #require(try decode(["kind":"browser","verificationURL":page]).challenge)
-    #expect(browser.opensInBrowser && browser.userCode == nil && browser.verificationURL.absoluteString == page)
-    for challenge: [String:Any] in [["kind":"browser","verificationURL":page,"userCode":"FORT-TEST"], ["kind":"browser","verificationURL":"http://claude.com/x?a=1"],
-                                    ["kind":"browser","verificationURL":"https://claude.com/x#hidden"], ["kind":"deviceCode","verificationURL":page,"userCode":"FORT-TEST"],
-                                    ["kind":"deviceCode","verificationURL":"https://device.fixture.invalid/verify"]] {
-        #expect(throws:(any Error).self) { try decode(challenge) }
-    }
-    #expect(try decode(["kind":"deviceCode","verificationURL":"https://device.fixture.invalid/verify","userCode":"FORT-TEST"]).challenge?.opensInBrowser == false)
-}

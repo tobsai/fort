@@ -15,20 +15,10 @@ struct AccountSignInView: View {
             if let status = model.accountSignInStatus, let operation = status.operation, let challenge = status.challenge {
                 TimelineView(.periodic(from:.now,by:1)) { context in
                     if Int64(context.date.timeIntervalSince1970 * 1000) < operation.expiresAt {
-                        if let code = challenge.userCode {
-                            Text(code).font(.system(.title2,design:.monospaced)).textSelection(.enabled)
-                                .accessibilityIdentifier("provider-device-code")
-                            Link("Open verification page",destination:challenge.verificationURL)
-                                .accessibilityIdentifier("provider-verification-page")
-                        } else {
-                            // The provider's page returns to a listener on the Mac running Fort, so it only completes there.
-                            #if os(macOS)
-                            Link("Open sign-in page",destination:challenge.verificationURL)
-                                .accessibilityIdentifier("provider-verification-page")
-                            #else
-                            Text("Finish signing in on the Mac running Fort.").font(.caption)
-                            #endif
-                        }
+                        Text(challenge.userCode).font(.system(.title2,design:.monospaced)).textSelection(.enabled)
+                            .accessibilityIdentifier("provider-device-code")
+                        Link("Open verification page",destination:challenge.verificationURL)
+                            .accessibilityIdentifier("provider-verification-page")
                         Text("Expires at \(Date(timeIntervalSince1970:Double(operation.expiresAt) / 1000).formatted(date:.omitted,time:.standard)).")
                             .font(.caption)
                     } else { Text("The code has expired. Check status before starting another attempt.").font(.caption) }
