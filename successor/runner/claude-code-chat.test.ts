@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import { contextInput } from './fixtures/context-input.ts';
 import type { ChatInput } from './chat-runtime.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
-import { ClaudeCodeChat, claudeCodeLaunch, parseClaudeAuthStatus, type ClaudeCodeLaunch, type ClaudeCodeProcess } from './claude-code-chat.ts';
+import { ClaudeCodeChat, claudeCodeLaunch, initializeProblems, parseClaudeAuthStatus, type ClaudeCodeLaunch, type ClaudeCodeProcess } from './claude-code-chat.ts';
 
 const VERSION = '2.1.310', MODEL = 'claude-sonnet-5-5', WORKSPACE = '/synthetic/empty', RUNTIME_DIR = '/synthetic/private';
 const status = { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', email: 'owner@example.com', orgId: '0f6e7c1a-1111-4222-8333-944445555666', orgName: 'Owner', subscriptionType: 'max' };
@@ -190,4 +190,11 @@ test('without an injected reader, the account comes from `claude auth status --j
   await script(`setTimeout(() => {}, 60000);`);
   const controller = new AbortController(); setTimeout(() => controller.abort(), 200);
   assert.equal((await chat().models(controller.signal)).state, 'error');
+});
+
+test('initialize problems are reported by check name, without values', () => {
+  assert.deepEqual(initializeProblems(initialize(), VERSION, account), []);
+  assert.deepEqual(initializeProblems(initialize({ analytics_disabled: false, remote_control_auto_on_by_default: undefined, models: 'x' }), VERSION, account),
+    ['analytics_disabled', 'remote_control_auto_on_by_default', 'models']);
+  assert.deepEqual(initializeProblems(null, VERSION, account), ['shape']);
 });

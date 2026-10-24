@@ -78,12 +78,24 @@ function catalog(value: unknown): ModelOption[] {
 }
 
 // The initialize response must show this exact runtime, a subscription token, no API key and nothing ambient enabled.
+// Returns the names of failed checks only, never their values, so a report can say what differed.
+export function initializeProblems(value: unknown, runtimeVersion: string, account: AccountIdentity): string[] {
+  let row: Record<string, unknown>, signedIn: Record<string, unknown>;
+  try { row = record(value); signedIn = record(row.account); } catch { return ['shape']; }
+  const checks: [string, boolean][] = [
+    ['claude_code_version', row.claude_code_version === runtimeVersion], ['account.tokenSource', signedIn.tokenSource === 'claude.ai'],
+    ['account.apiProvider', signedIn.apiProvider === 'firstParty'], ['account.apiKeySource', signedIn.apiKeySource === undefined],
+    ['account.email', signedIn.email === account.userLabel], ['commands', empty(row.commands)], ['current_permission_mode', row.current_permission_mode === 'default'],
+    ['analytics_disabled', row.analytics_disabled === true], ['remote_control_auto_enable', row.remote_control_auto_enable === false],
+    ['remote_control_auto_connect_default', row.remote_control_auto_connect_default === false], ['remote_control_auto_on_by_default', row.remote_control_auto_on_by_default === false],
+  ];
+  const problems = checks.filter(([, ok]) => !ok).map(([name]) => name);
+  try { catalog(row.models); } catch { problems.push('models'); }
+  return problems;
+}
 function checkInitialize(value: unknown, runtimeVersion: string, account: AccountIdentity): ModelOption[] {
-  const row = record(value), signedIn = record(row.account);
-  if (row.claude_code_version !== runtimeVersion || signedIn.tokenSource !== 'claude.ai' || signedIn.apiProvider !== 'firstParty' || signedIn.apiKeySource !== undefined
-    || signedIn.email !== account.userLabel || !empty(row.commands) || row.current_permission_mode !== 'default' || row.analytics_disabled !== true
-    || row.remote_control_auto_enable !== false || row.remote_control_auto_connect_default !== false || row.remote_control_auto_on_by_default !== false) throw new Error('Claude Code controls were not confirmed');
-  return catalog(row.models);
+  if (initializeProblems(value, runtimeVersion, account).length) throw new Error('Claude Code controls were not confirmed');
+  return catalog(record(value).models);
 }
 
 // Runs `claude auth status --json` with the same isolated environment as a session. It exits 1 when signed out.
@@ -248,6 +260,12 @@ export class ClaudeCodeChat implements ChatRuntime {
   private open(model?: string): Session {
     const { executable, workspace, home, runtimeDirectory } = this.options;
     return new Session(this.launch(claudeCodeLaunch({ executable, workspace, home, runtimeDirectory, ...(model ? { model } : {}) })));
+  }
+
+  // Raw initialize response for the manual check's report. Not used on the request path.
+  async probe(signal: AbortSignal): Promise<unknown> {
+    const session = this.open();
+    try { return await session.control({ subtype: 'initialize' }, signal); } finally { session.close(); }
   }
 
   async models(signal: AbortSignal, selected?: AccountIdentity): Promise<ModelCatalog> {

@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { ClaudeCodeChat, parseClaudeAuthStatus, readAuthStatus } from './claude-code-chat.ts';
+import { ClaudeCodeChat, initializeProblems, parseClaudeAuthStatus, readAuthStatus } from './claude-code-chat.ts';
 import { contextInput } from './fixtures/context-input.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
 
@@ -32,6 +32,16 @@ try {
     const chat = new ClaudeCodeChat({ ...options, runtimeVersion: version });
     const catalog = await chat.models(AbortSignal.timeout(30_000), account);
     report.models = catalog.state === 'ready' ? catalog.models.map(model => model.id) : catalog.state + ': ' + catalog.detail;
+    if (catalog.state !== 'ready') {
+      try {
+        const raw = await chat.probe(AbortSignal.timeout(30_000)) as Record<string, any>;
+        report.initializeProblems = initializeProblems(raw, version, account);
+        report.initializeShape = { keys: Object.keys(raw).sort(), tokenSource: raw.account?.tokenSource, accountKeys: Object.keys(raw.account ?? {}).sort(),
+          commands: Array.isArray(raw.commands) ? raw.commands.length : typeof raw.commands, permissionMode: raw.current_permission_mode, analyticsDisabled: raw.analytics_disabled,
+          remoteControl: [raw.remote_control_auto_enable, raw.remote_control_auto_connect_default, raw.remote_control_auto_on_by_default],
+          modelKeys: Array.isArray(raw.models) ? Object.keys(raw.models[0] ?? {}).sort() : typeof raw.models };
+      } catch (error) { report.initializeProblems = 'no initialize response: ' + (error instanceof Error ? error.message : 'unknown'); }
+    }
     if (values.prompt && catalog.state === 'ready') {
       const model = values.model ?? catalog.models.find(model => /sonnet/.test(model.id))?.id ?? catalog.models[0]!.id;
       const attempt = { runId: 'check', attemptId: 'check-1', generation: 1, bindingRevisionId: 'check', runtimeVersion: version, selectedModel: model };
