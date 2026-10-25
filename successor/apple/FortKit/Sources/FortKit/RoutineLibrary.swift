@@ -74,8 +74,8 @@ struct RoutineLibrary: View {
                         HStack { Button("Edit") { editing = routine }; Button("Run now") { running = routine }.disabled(!routine.definition.isSupported) }.buttonStyle(.bordered)
                     }
                 }
-                if let error { Text(error).foregroundStyle(.red) }
-                Text(model.status).font(.caption)
+                if let error { CopyableText(error).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption)
             }.navigationTitle("Routines")
             .toolbar { ToolbarItem(placement:.cancellationAction) { Button("Done") { dismiss() } } }
             .fileImporter(isPresented:$importing,allowedContentTypes:[.json]) { result in
@@ -151,7 +151,7 @@ private struct RoutineEditor: View {
                     }.disabled(form.definition.steps.count >= 16)
                     Text("Saving does not run this routine or enable a schedule.").font(.caption)
                     Button("Export routine JSON") { exporting = true }
-                    Text(model.status).font(.caption)
+                    CopyableText(model.status).font(.caption)
                 }
             }.formStyle(.grouped).navigationTitle(form.source == nil ? "New routine" : "Edit routine")
             .toolbar {
@@ -209,8 +209,8 @@ private struct RoutineRunView: View {
                     else { TextField(input.name + (input.required ? " (required)" : " (optional)"),text:SwiftUI.Binding(get:{ values[input.name] ?? "" },set:{ values[input.name] = $0 })) }
                 }
                 ForEach(revision.definition.steps) { step in Text("\(step.name) · \(step.type)") }
-                if let error { Text(error).foregroundStyle(.red) }
-                Text(model.status).font(.caption)
+                if let error { CopyableText(error).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption)
             }.navigationTitle("Run routine")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction) { Button("Cancel") { dismiss() } }

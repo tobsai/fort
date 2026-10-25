@@ -43,7 +43,7 @@ struct WorkspaceEditor: View {
                     if kind == "Skill" { Text("Saving creates a complete private instruction bundle. Review and enable its exact revision before selecting it for a message or routine.").font(.caption) }
                 }
                 if kind == "Skill" { Button("Import and review complete bundles") { showBundles = true } }
-                Text(model.status).font(.caption).foregroundStyle(.secondary)
+                CopyableText(model.status).font(.caption).foregroundStyle(.secondary)
             }.formStyle(.grouped)
             .navigationTitle("Fort workspace")
             .toolbar {
@@ -111,7 +111,7 @@ struct ConversationMemoryEditor: View {
                 Text("Applies to future chat messages. Clearing these notes keeps earlier messages and the memory recorded with accepted turns. Routines keep their saved plan.").font(.caption).foregroundStyle(.secondary)
                 Text("\(form.text.utf8.count) of 8192 bytes").font(.caption)
                 Button("Clear notes") { form.text = "" }.disabled(model.workspaceSaving)
-                Text(model.status).font(.caption)
+                CopyableText(model.status).font(.caption)
             }.formStyle(.grouped)
             .navigationTitle("Conversation memory")
             .toolbar {

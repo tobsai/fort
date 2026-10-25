@@ -15,7 +15,7 @@ const png = portraitPng;
 const portraitFeatures = () => syntheticFeatures().map(feature => feature.name === 'image_generation' ? { ...feature, enabled: true } : feature);
 const request: PortraitRequest = { account: syntheticAccountIdentity, model: 'gpt-6-astra', subject: { name: 'Pascal', instructions: 'You ship Fort\'s code.', note: 'Short dark hair, waistcoat.' } };
 type Item = Record<string, unknown>;
-function transport(options: { items?: Item[]; features?: unknown[]; imageCapability?: boolean; account?: unknown; serverRequest?: boolean; status?: string; models?: Item[]; reply?: string } = {}) {
+function transport(options: { items?: Item[]; features?: unknown[]; imageCapability?: boolean; account?: unknown; serverRequest?: boolean; status?: string; models?: Item[]; reply?: string; raw?: Item[] } = {}) {
   const output = new PassThrough({ highWaterMark: 64 * 1024 }); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message) + '\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -39,6 +39,7 @@ function transport(options: { items?: Item[]; features?: unknown[]; imageCapabil
             emit({ method: 'item/started', params: { threadId: 'thread', turnId: 'turn', item: { ...item, result: '' } } });
             emit({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item } });
           }
+          for (const item of options.raw ?? []) emit({ method: 'rawResponseItem/completed', params: { threadId: 'thread', turnId: 'turn', item } });
           emit({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item: { id: 'reply', type: 'agentMessage', phase: 'final_answer', text: options.reply ?? 'Here is Pascal.' } } });
           emit({ method: 'turn/completed', params: { threadId: 'thread', turn: { id: 'turn', status: options.status ?? 'completed', error: null } } });
           break;
@@ -188,7 +189,18 @@ test('a model Codex won’t give the image tool is refused before any turn, nami
 
 test('when Codex ends without an image, its own short reply says why', async () => {
   const result = await draw(transport({ items: [], reply: 'I don’t have an image\n tool   here.' }));
-  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “I don’t have an image tool here.”' });
+  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “I don’t have an image tool here.” Codex called no tool.' });
+});
+
+test('when the image tool fails before starting, the tool’s own answer is shown', async () => {
+  const fixture = transport({ items: [], reply: 'The tool failed to start.', raw: [
+    { type: 'reasoning', id: 'r', summary: [] },
+    { type: 'function_call', namespace: 'image_gen', name: 'imagegen', arguments: '{"prompt":"x"}', call_id: 'c1' },
+    { type: 'function_call_output', call_id: 'c1', output: 'unsupported call: image_gen.imagegen' },
+  ] });
+  const result = await draw(fixture);
+  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “The tool failed to start.” Codex called image_gen.imagegen, which answered: “unsupported call: image_gen.imagegen”.' });
+  assert.equal(fixture.calls.find(call => call.method === 'thread/start')?.params?.experimentalRawEvents, true);
 });
 
 test('a near-square image is kept, since Codex picks the size itself', async () => {

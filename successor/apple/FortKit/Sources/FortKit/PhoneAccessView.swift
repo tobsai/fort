@@ -31,7 +31,7 @@ struct PhoneAccessView: View {
                 }.accessibilityIdentifier("phone-access-copy")
                 Text("With Universal Clipboard you can paste it straight into Fort on your iPhone. It works once.").font(.caption).foregroundStyle(.secondary)
             }
-            Text(model.phoneAccessMessage).font(.callout).accessibilityIdentifier("phone-access-status")
+            CopyableText(model.phoneAccessMessage,id:"phone-access-status").font(.callout)
         }
         .task { await model.refreshPhoneAccess() }
         .fileImporter(isPresented:$importing,allowedContentTypes:[.data,.x509Certificate],allowsMultipleSelection:true) { result in

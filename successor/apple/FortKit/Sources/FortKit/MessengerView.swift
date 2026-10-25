@@ -99,14 +99,14 @@ public struct MessengerView: View {
                     }
                     if let memory = model.conversationMemory, !memory.text.isEmpty { Text("This conversation has a notebook").font(.caption).foregroundStyle(.secondary) }
                     if let runtime = model.runtimeReadiness {
-                        Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
+                        CopyableText(runtime.detail).font(.caption).foregroundStyle(.secondary)
                         if runtime.state == "restartRequired" && (model.installation?.supports("ownerPairing") != true || model.canControlHost) { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
                         if runtime.state == "stopped" && model.canManagePairing { Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork) }
                     }
                     if let scheduler = model.schedulerStatus, scheduler.state == "fault" {
-                        Text(scheduler.detail ?? "Schedules need attention.").font(.callout).foregroundStyle(.orange).accessibilityIdentifier("scheduler-fault")
+                        CopyableText(scheduler.detail ?? "Schedules need attention.",id:"scheduler-fault").font(.callout).foregroundStyle(.orange)
                     }
-                    Text(model.status).font(.callout).accessibilityIdentifier("connection-status")
+                    CopyableText(model.status,id:"connection-status").font(.callout)
                 }.frame(maxWidth:.infinity,alignment:.leading).padding()
 
     }
@@ -126,7 +126,7 @@ public struct MessengerView: View {
                             Task { await model.loadEarlierMessages() }
                         }.disabled(model.loadingEarlierMessages).accessibilityIdentifier("history-earlier")
                     }
-                    if let error = model.imageError { Text(error).font(.caption).foregroundStyle(.orange) }
+                    if let error = model.imageError { CopyableText(error).font(.caption).foregroundStyle(.orange) }
                     if model.displaySnapshot?.window?.olderBefore == nil {
                         ForEach(model.localImages.filter { $0.afterSequence == 0 }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
                     }
@@ -217,8 +217,8 @@ public struct MessengerView: View {
     private func pendingRow(_ pending: PendingSubmission) -> some View {
         VStack(alignment:.leading,spacing:4) {
             Text(pending.text)
-            if let issue = model.pendingErrors[pending.requestID] { Text(issue).font(.caption).foregroundStyle(.orange) }
-            if let reason = pending.reviewRequired { Text(reason).font(.caption).foregroundStyle(.orange) }
+            if let issue = model.pendingErrors[pending.requestID] { CopyableText(issue).font(.caption).foregroundStyle(.orange) }
+            if let reason = pending.reviewRequired { CopyableText(reason).font(.caption).foregroundStyle(.orange) }
             Text(pending.cancelRequested == true ? "Cancellation saved on this device · confirmation pending" : pending.canRetry(in:model.installation?.recoveryEpoch ?? "") ? "Saved on this device · acceptance not confirmed" : "Review required · automatic retry paused").font(.caption).foregroundStyle(.secondary)
             if pending.cancelRequested != true, model.installation?.supports("requestCancellation") == true, pending.recoveryEpoch == model.installation?.recoveryEpoch {
                 Button("Cancel pending request",role:.destructive) { Task { await model.cancelPending(pending) } }
@@ -283,7 +283,7 @@ struct ConnectionSections: View {
         if let host = model.localHost {
             MacHostControlView(model:model,host:host)
             if model.hasOwnerSetup { OwnerSetupView(model:model) }
-            else { Text(model.ownerSetupMessage).font(.callout) }
+            else { CopyableText(model.ownerSetupMessage).font(.callout) }
         }
         else if model.hasOwnerSetup { OwnerSetupView(model:model) }
         else if model.canPrepareCompanion { CompanionSetupView(model:model) }
@@ -292,7 +292,7 @@ struct ConnectionSections: View {
         if model.canPrepareCompanion { CompanionSetupView(model:model) }
         else { fixtureConnectionFields }
         #endif
-        Text(model.status).font(.callout)
+        CopyableText(model.status).font(.callout)
     }
     @ViewBuilder private var fixtureConnectionFields: some View {
         Section("Local installation") {
