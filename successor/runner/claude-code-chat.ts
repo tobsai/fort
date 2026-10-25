@@ -105,10 +105,18 @@ function catalog(value: unknown): ModelOption[] {
     const row = record(entry);
     if (typeof row.resolvedModel !== 'string' || !MODEL_ID.test(row.resolvedModel) || typeof row.value !== 'string') throw new Error('Invalid model catalog');
     if (row.value === 'default' || models.has(row.resolvedModel)) continue;
-    const name = typeof row.displayName === 'string' && row.displayName.length > 0 && row.displayName.length <= 128 ? row.displayName : row.resolvedModel;
+    const name = versionedName(row.resolvedModel) ?? (typeof row.displayName === 'string' && row.displayName.length > 0 && row.displayName.length <= 128 ? row.displayName : row.resolvedModel);
     models.set(row.resolvedModel, { id: row.resolvedModel, name, availability: 'available' });
   }
   return [...models.values()];
+}
+
+// Claude Code names models by family only ("Opus"); the exact model ID carries the version, e.g. claude-opus-5-5 → "Opus 5.5".
+function versionedName(id: string): string | undefined {
+  const match = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(\[1m\])?$/.exec(id);
+  if (!match) return undefined;
+  const [, family, major, minor, long] = match;
+  return family![0]!.toUpperCase() + family!.slice(1) + ' ' + major + (minor ? '.' + minor : '') + (long ? ' (1M context)' : '');
 }
 
 // The initialize response must show this exact runtime, a subscription token, no API key and nothing ambient enabled.
