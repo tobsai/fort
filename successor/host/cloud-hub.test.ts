@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Acceptance, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
+import type { Acceptance, AccountSignInStatus, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import { connectToHub } from '../runner/hub-runner.ts';
 import { startCloudHub } from './cloud-hub.ts';
@@ -39,11 +39,25 @@ async function fixture(t: TestContext) {
     assert.equal((await call('/v1/runners/join', { ...invitation, runnerId, runnerToken, runnerName: 'Mac mini' }, '')).status, 201);
     return runnerToken;
   }
+  // The Mac reports its signed-in account; the hub pins turns to it once the owner confirms it.
   function runner(token: string, runtime: ChatRuntime) {
-    const stop = new AbortController();
-    void connectToHub({ url: hub.url, token, binding: { provider: provider.provider, runtimeVersion: provider.runtimeVersion, hostId: 'mac-mini' }, createRuntime: () => runtime, signal: stop.signal }).catch(() => {});
+    const stop = new AbortController(), signedIn: ChatRuntime = { ...runtime, signIn: async () => ({ kind: 'signedIn', account: { accountId: 'account', userLabel: 'owner@example.com' } }) };
+    void connectToHub({ url: hub.url, token, binding: { provider: provider.provider, runtimeVersion: provider.runtimeVersion, hostId: 'mac-mini' }, createRuntime: () => signedIn, signal: stop.signal }).catch(() => {});
     t.after(() => stop.abort());
     return stop;
+  }
+  async function online() {
+    for (let index = 0; index < 200 && !(await call<{ runners: { online: boolean }[] }>('/v1/runners')).body.runners[0]?.online; index++) await delay(10);
+  }
+  async function confirmAccount() {
+    const idle = (await call<AccountSignInStatus>('/v1/account/sign-in')).body;
+    assert.equal((await call('/v1/account/sign-in/start', { operationId: randomUUID(), expectedRevision: idle.revision, recoveryEpoch: hub.installation.recoveryEpoch, expiresAt: Date.now() + 60_000 })).status, 200);
+    for (let index = 0; index < 200; index++) {
+      const status = (await call<AccountSignInStatus>('/v1/account/sign-in')).body;
+      if (status.state === 'finished') { assert.ok(status.selected); return; }
+      await delay(10);
+    }
+    assert.fail('The account was not confirmed');
   }
   async function send(text: string) {
     const agent = (await call<Agent>('/v1/agents', { name: 'Remote', model: 'exact-model', instructions: 'Echo.' })).body;
@@ -60,7 +74,7 @@ async function fixture(t: TestContext) {
     }
     assert.fail('The run did not settle');
   }
-  return { call, setup, enroll, runner, send, settled, dataDirectory, open,
+  return { call, setup, enroll, runner, online, confirmAccount, send, settled, dataDirectory, open,
     get hub() { return hub; }, async restart() { await hub.close(); hub = await open(); } };
 }
 const echo = (seen: string[] = []): ChatRuntime => ({ async execute(input) { seen.push(input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() {} });
@@ -77,7 +91,8 @@ test('a turn sent to the hub runs on the enrolled Mac and comes back exact', asy
   const h = await fixture(t), seen: string[] = [];
   await h.setup();
   h.runner(await h.enroll(), echo(seen));
-  for (let index = 0; index < 200 && !(await h.call<{ runners: { online: boolean }[] }>('/v1/runners')).body.runners[0]?.online; index++) await delay(10);
+  await h.online();
+  await h.confirmAccount();
   const requestId = await h.send('exact cedar 🌲');
   assert.equal((await h.settled(requestId)).state, 'completed');
   const snapshot = (await h.call<Acceptance>('/v1/requests/' + requestId)).body.snapshot;
@@ -102,7 +117,11 @@ test('runner management is owner-only and never shows a token', async t => {
 test('an offline Mac fails the turn visibly instead of moving it', async t => {
   const h = await fixture(t);
   await h.setup();
-  await h.enroll();
+  const stop = h.runner(await h.enroll(), echo());
+  await h.online();
+  await h.confirmAccount();
+  stop.abort();
+  for (let index = 0; index < 200 && (await h.call<{ runners: { online: boolean }[] }>('/v1/runners')).body.runners[0]?.online; index++) await delay(10);
   const run = await h.settled(await h.send('nobody home'));
   assert.notEqual(run.state, 'completed');
   assert.match(run.statusDetail ?? '', /not connected/);
@@ -119,6 +138,10 @@ test('a hub restart mid-turn leaves the turn unknown and does not replay it', as
   const h = await fixture(t), seen: string[] = [], started = Promise.withResolvers<void>();
   await h.setup();
   const token = await h.enroll();
+  const first = h.runner(token, echo());
+  await h.online();
+  await h.confirmAccount();
+  first.abort();
   h.runner(token, { async execute(input, signal) { seen.push(input.text); started.resolve(); await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true })); return { kind: 'canceled', message: 'gone' }; }, async dispose() {} });
   const requestId = await h.send('in flight');
   await started.promise;

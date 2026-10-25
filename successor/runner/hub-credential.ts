@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { ChatRuntime } from './chat-runtime.ts';
 import type { ExecutorBinding } from './executor-wire.ts';
-import { keepConnected, type RunnerStatus } from './hub-runner.ts';
+import { keepConnected, type RunnerLane, type RunnerStatus } from './hub-runner.ts';
 import { deletePrivate, privateDirectory, readPrivate, writePrivate } from './private-file.ts';
 
 // The Mac's hub runner token (Spec 063, step 4). Toby chose on 2026-10-24 to keep it like the ChatGPT
@@ -50,10 +50,10 @@ export async function enrollWithHub(options: { stateDirectory: string; hubURL: s
 }
 
 // Runs this Mac as the enrolled runner until the signal ends or the hub refuses the token.
-export async function runAsRunner(options: { stateDirectory: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; signal: AbortSignal; onStatus?(status: RunnerStatus): void; fetch?: Fetch }): Promise<RunnerStatus> {
+export async function runAsRunner(options: { stateDirectory: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; lanes?: RunnerLane[]; signal: AbortSignal; onStatus?(status: RunnerStatus): void; fetch?: Fetch }): Promise<RunnerStatus> {
   const credential = await readHubCredential(options.stateDirectory);
   if (!credential) throw new Error('This Mac is not enrolled with a hub');
-  if (credential.runnerId !== options.binding.hostId) throw new Error('This binding is pinned to a different Mac than the one enrolled');
-  return keepConnected({ url: credential.hubURL, token: credential.token, binding: options.binding, createRuntime: options.createRuntime,
+  if ([options.binding, ...(options.lanes ?? []).map(lane => lane.binding)].some(binding => binding.hostId !== credential.runnerId)) throw new Error('This binding is pinned to a different Mac than the one enrolled');
+  return keepConnected({ url: credential.hubURL, token: credential.token, binding: options.binding, createRuntime: options.createRuntime, ...(options.lanes ? { lanes: options.lanes } : {}),
     signal: options.signal, ...(options.onStatus ? { onStatus: options.onStatus } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) });
 }
