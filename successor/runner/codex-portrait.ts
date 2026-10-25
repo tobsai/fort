@@ -9,7 +9,7 @@ import { CODEX_PERMISSION_PROFILE, verifyPermissionSelection } from './codex-per
 
 // Spec 065: one Codex turn on the ChatGPT plan that returns exactly one generated portrait.
 export const PORTRAIT_FRAME_LIMIT = 8 * 1024 * 1024;
-const MAX_WIRE = 16 * 1024 * 1024, MAX_TEXT = 8192, MAX_NOTE = 500, MAX_ROLE = 2000;
+const MAX_WIRE = 16 * 1024 * 1024, MAX_TEXT = 8192, MAX_NOTE = 500, MAX_ROLE = 2000, MAX_REPLY = 300;
 
 export const PORTRAIT_STYLE = 'Retro-futurist comic book illustration with bold ink outlines, halftone shading and a warm golden-hour palette. '
   + 'Waist-up, facing the viewer, seated in a cosy study with wooden bookshelves. A large round window shows a green, leafy futuristic city skyline. '
@@ -44,6 +44,7 @@ export class PortraitTurn {
   private buffer = '';
   private wireBytes = 0;
   private textBytes = 0;
+  private reply = '';
   private image: { png: Buffer; width: number; height: number } | undefined;
   private imageItem: string | undefined;
   private failure: PortraitResult | undefined;
@@ -143,14 +144,15 @@ export class PortraitTurn {
       if (turn?.status === 'interrupted') { this.finish(output, this.failure ?? { kind: 'canceled', message: 'Stopped. Nothing was saved.' }); return; }
       if (this.failure) { this.finish(output, this.failure); return; }
       if (turn?.status !== 'completed') { this.finish(output, { kind: 'outcomeUnknown', message: 'Codex ended the portrait without confirming it.' }); return; }
-      this.finish(output, this.image ? { kind: 'drawn', ...this.image } : { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait.' });
+      this.finish(output, this.image ? { kind: 'drawn', ...this.image } : { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait.' + (this.reply ? ` It said: “${this.reply}”` : '') });
       return;
     }
     const item = record(params.item);
     if (!item || !id(item.id) || typeof item.type !== 'string') { this.stop(output, 'Codex sent a reply Fort could not read.'); return; }
     if (item.type === 'agentMessage' && method === 'item/completed') {
       this.textBytes += typeof item.text === 'string' ? Buffer.byteLength(item.text) : MAX_TEXT + 1;
-      if (this.textBytes > MAX_TEXT) this.stop(output, 'Codex sent more text than a portrait reply allows.');
+      if (this.textBytes > MAX_TEXT) { this.stop(output, 'Codex sent more text than a portrait reply allows.'); return; }
+      this.reply = (item.text as string).replace(/\s+/g, ' ').trim().slice(0, MAX_REPLY);
       return;
     }
     if (QUIET.includes(item.type)) return;
@@ -178,8 +180,16 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
     await verifyRuntimeControls(connection, workspace, signal, undefined, 'portrait');
     if (!sameAccount(account, await readCodexAccount(connection, signal) ?? undefined)) return { kind: 'notStarted', message: 'The selected ChatGPT account is not signed in. Nothing was drawn.' };
     if (object(await connection.request('modelProvider/capabilities/read', {}, signal)).imageGeneration !== true) return { kind: 'notStarted', message: 'Your ChatGPT sign-in doesn’t offer image generation in Codex. Nothing was drawn.' };
-    const listed = (await readRuntimePages(connection, 'model/list', {}, signal)).map(value => object(value).model).filter((model): model is string => typeof model === 'string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(model));
+    const rows = (await readRuntimePages(connection, 'model/list', {}, signal)).map(value => object(value)).filter(row => typeof row.model === 'string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(row.model));
+    const listed = rows.map(row => row.model as string);
     if (!listed.includes(request.model)) { connection.close(); return { kind: 'notStarted', message: `Codex didn’t list ${request.model} for portraits${listed.length ? ` (it listed ${listed.slice(0, 6).join(', ')})` : ' (it listed no models)'}. Nothing was drawn.` }; }
+    // Codex only offers its image tool to models that take image input.
+    const seesImages = (row: Record<string, unknown>) => !Array.isArray(row.inputModalities) || row.inputModalities.includes('image');
+    if (!seesImages(rows.find(row => row.model === request.model)!)) {
+      connection.close();
+      const usable = rows.filter(seesImages).map(row => row.model as string).slice(0, 6);
+      return { kind: 'notStarted', message: `Codex doesn’t offer its image tool to ${request.model}${usable.length ? `. Pick ${usable.join(', ')} for this agent` : ''}. Nothing was drawn.` };
+    }
     const started = object(await connection.request('thread/start', { model: request.model, modelProvider: 'openai', cwd: workspace, approvalPolicy: 'untrusted', approvalsReviewer: 'user', permissions: CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots: [], ephemeral: true, environments: [], dynamicTools: [], selectedCapabilityRoots: [], developerInstructions: INSTRUCTIONS }, signal));
     const thread = object(started.thread), sandbox = object(started.sandbox);
     verifyPermissionSelection(started.activePermissionProfile);

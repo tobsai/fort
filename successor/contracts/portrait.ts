@@ -15,13 +15,13 @@ export type PortraitResult =
   | { kind: 'outcomeUnknown'; message: string };
 
 
-// Accepts exactly one square PNG within bounds; returns its dimensions.
+// Accepts exactly one PNG within bounds; returns its dimensions. Codex picks the size itself, so near-square shapes are allowed and the apps crop to fit.
 export function decodePortrait(base64: unknown): { png: Buffer; width: number; height: number } {
   if (typeof base64 !== 'string' || base64.length === 0 || base64.length > Math.ceil(PORTRAIT_MAX_BYTES / 3) * 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length % 4 !== 0) throw new Error('Invalid portrait encoding');
   const png = Buffer.from(base64, 'base64');
   if (png.length < 33 || png.length > PORTRAIT_MAX_BYTES || !png.subarray(0, 8).equals(PNG) || png.readUInt32BE(8) !== 13 || png.toString('latin1', 12, 16) !== 'IHDR') throw new Error('Portrait is not a PNG');
   const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
-  if (width !== height || width < 256 || width > 2048) throw new Error('Portrait must be square');
+  if ([width, height].some(side => side < 256 || side > 2048) || Math.max(width, height) > 2 * Math.min(width, height)) throw new Error('Portrait size is out of bounds');
   if (png.subarray(png.length - 12).toString('latin1', 4, 8) !== 'IEND') throw new Error('Portrait is truncated');
   return { png, width, height };
 }

@@ -9,7 +9,7 @@ Toby makes each agent's portrait by hand in Gemini today, and the app only offer
 icons (orbit, ember, sprout). He asked for Fort to "build its own agent images". After this
 change, the agent editor has **Draw portrait**: Fort writes a prompt from the agent's name, its
 instructions and an optional note from Toby, in one fixed house style (the comic look of the
-existing Milton, Pascal and Lewis portraits). It generates one square image on his ChatGPT plan
+existing Milton, Pascal and Lewis portraits). It generates one image (asked for square) on his ChatGPT plan
 and saves it as that agent's portrait. The editor, chat and city then show the portrait in place
 of the stock icon. Redraw replaces it, and Remove goes back to the stock icon.
 
@@ -30,7 +30,7 @@ Claude has no image generation, so this is ChatGPT-only.
   built prompt. If the check fails, nothing is sent.
 - **Credentials.** No change. The portrait run uses the same Codex sign-in and the same pinned
   account as the agent's binding. Claude-bound agents don't get the button.
-- **Data.** Each portrait is one square PNG (256 to 2048 px, at most 5 MB, so it fits the Mac app's 8 MiB host channel), stored in the ledger
+- **Data.** Each portrait is one PNG (each side 256 to 2048 px, no more than 2:1, at most 5 MB, so it fits the Mac app's 8 MiB host channel), stored in the ledger
   as a `portraits` row keyed by agent. Removing a portrait deletes only that row. Codex also keeps
   its own copy under the private runtime's `generated_images/`; Fort leaves that folder alone.
 - **Chat while drawing.** A draw holds the runtime for up to about two minutes. Messages sent
