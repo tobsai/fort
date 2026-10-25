@@ -268,9 +268,11 @@ test('portrait requests with a foreign binding or bad subject never reach the ru
   const account = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
   let created = 0;
   for (const frame of [
-    portraitRequestBody({ ...binding, hostId: 'other-host' }, account, 'exact-model', { name: 'Pascal', instructions: '' }, 'req-1'),
-    portraitRequestBody(binding, account, 'exact-model', { name: ' ', instructions: '' }, 'req-2'),
-    { ...portraitRequestBody(binding, account, 'exact-model', { name: 'Pascal', instructions: '' }, 'req-3'), model: 'other-model' },
+    portraitRequestBody({ ...binding, hostId: 'other-host' }, account, 'exact-model', { subject: { name: 'Pascal', instructions: '' } }, 'req-1'),
+    portraitRequestBody(binding, account, 'exact-model', { subject: { name: ' ', instructions: '' } }, 'req-2'),
+    { ...portraitRequestBody(binding, account, 'exact-model', { subject: { name: 'Pascal', instructions: '' } }, 'req-3'), model: 'other-model' },
+    portraitRequestBody(binding, account, 'exact-model', { prompt: 'x'.repeat(2001) }, 'req-4'),
+    { ...portraitRequestBody(binding, account, 'exact-model', { prompt: 'A lighthouse' }, 'req-5'), subject: { name: 'Pascal', instructions: '' } },
   ]) {
     const input = new PassThrough(), output = new PassThrough();
     const done = serveExecutorWorker({ input, output, binding, createRuntime: () => { throw new Error('no chat'); }, createPortrait: () => { created++; throw new Error('must not create'); } });
@@ -278,4 +280,12 @@ test('portrait requests with a foreign binding or bad subject never reach the ru
     await assert.rejects(done);
   }
   assert.equal(created, 0);
+});
+
+test('an image prompt crosses the executor wire unchanged and alone', async () => {
+  const { portraitRequestBody, parseExecutorPortraitRequest } = await import('./executor-portrait-wire.ts');
+  const account = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
+  const parsed = parseExecutorPortraitRequest(JSON.parse(JSON.stringify(portraitRequestBody(binding, account, 'exact-model', { prompt: 'A lighthouse at dusk, watercolour' }, 'req-6'))), binding);
+  assert.equal(parsed.prompt, 'A lighthouse at dusk, watercolour');
+  assert.equal(parsed.subject, undefined);
 });

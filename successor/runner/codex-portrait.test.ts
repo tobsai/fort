@@ -219,3 +219,32 @@ test('a Free plan is refused before any turn, since Codex withholds its image to
   assert.deepEqual(result, { kind: 'notStarted', message: 'Codex sees this ChatGPT account on the Free plan, where it doesn’t offer image generation. Nothing was drawn.' });
   assert.equal(fixture.calls.some(call => call.method === 'thread/start'), false);
 });
+
+// Spec 066: the same locked-down run draws an image from the owner's own words.
+const imageRequest: PortraitRequest = { account: syntheticAccountIdentity, model: 'gpt-6-astra', prompt: 'A lighthouse at dusk, watercolour, wide' };
+
+test('an image run draws from the owner prompt with the image-artist instructions', async () => {
+  const fixture = transport(), result = await drawPortrait(fixture.connection, '/synthetic/empty', imageRequest, new AbortController().signal);
+  assert.equal(result.kind, 'drawn');
+  const turn = fixture.calls.find(call => call.method === 'turn/start'), thread = fixture.calls.find(call => call.method === 'thread/start');
+  const sent = String((turn?.params?.input as { text: string }[])[0]?.text);
+  assert.match(sent, /A lighthouse at dusk, watercolour, wide/);
+  assert.doesNotMatch(sent, /comic book|crew member/);
+  assert.match(String(thread?.params?.developerInstructions), /image artist/);
+  assert.deepEqual([thread?.params?.environments, thread?.params?.dynamicTools, thread?.params?.ephemeral], [[], [], true]);
+});
+
+test('an image run keeps every portrait refusal and names the image in its messages', async () => {
+  const refused = await drawPortrait(transport({ items: [{ id: 'cmd', type: 'commandExecution', command: 'ls' }] }).connection, '/synthetic/empty', imageRequest, new AbortController().signal);
+  assert.deepEqual(refused.kind === 'failed' && refused.reason, 'refused');
+  const none = await drawPortrait(transport({ items: [] }).connection, '/synthetic/empty', imageRequest, new AbortController().signal);
+  assert.ok(none.kind === 'failed' && none.message.startsWith('Codex finished without drawing an image.'));
+  const fixture = transport({ features: syntheticFeatures() });
+  assert.equal((await drawPortrait(fixture.connection, '/synthetic/empty', imageRequest, new AbortController().signal)).kind, 'notStarted');
+  assert.equal(fixture.calls.some(call => call.method === 'turn/start'), false);
+  for (const prompt of ['', '   ', 'x'.repeat(2001)]) {
+    const empty = transport();
+    assert.equal((await drawPortrait(empty.connection, '/synthetic/empty', { ...imageRequest, prompt }, new AbortController().signal)).kind, 'notStarted');
+    assert.equal(empty.calls.length, 0);
+  }
+});

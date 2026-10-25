@@ -6,7 +6,10 @@ export const PORTRAIT_MAX_BYTES = 5 * 1024 * 1024;
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export type PortraitSubject = { name: string; instructions: string; note?: string };
-export type PortraitRequest = { account: AccountIdentity; model: string; subject: PortraitSubject };
+// Spec 066: the same run also draws a general image from the owner's own words.
+export const IMAGE_PROMPT_BYTES = 2000;
+export type PortraitRequest = { account: AccountIdentity; model: string } & ({ subject: PortraitSubject; prompt?: never } | { prompt: string; subject?: never });
+export const validImagePrompt = (value: unknown): value is string => typeof value === 'string' && value.isWellFormed() && !value.includes('\0') && value.trim().length > 0 && Buffer.byteLength(value) <= IMAGE_PROMPT_BYTES;
 export type PortraitResult =
   | { kind: 'drawn'; png: Buffer; width: number; height: number }
   | { kind: 'notStarted'; message: string }

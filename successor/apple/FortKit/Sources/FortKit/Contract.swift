@@ -129,7 +129,12 @@ public struct Message: Codable, Equatable, Sendable, Identifiable {
     public var agentName: String? = nil
     public var recipientAgentId: String? = nil
     public var recipientAgentName: String? = nil
+    /// Spec 066: a user message that asked for an image, and the Agent's reply that carries it.
+    public var drawsImage: Bool? = nil
+    public var image: MessageImage? = nil
 }
+public struct MessageImage: Codable, Equatable, Sendable { public let imageId: String; public let width: Int; public let height: Int }
+public struct ConversationImage: Codable, Equatable, Sendable { public let imageId: String; public let png: String }
 public struct Run: Codable, Equatable, Sendable, Identifiable {
     public var id: String { runId }
     public let runId: String

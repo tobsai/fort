@@ -20,6 +20,25 @@ struct AgentPortraitView: View {
     }
 }
 
+/// Spec 066: an image Fort drew in a conversation, loaded once per session.
+struct ConversationImageView: View {
+    let model: MessengerModel
+    let image: MessageImage
+    var body: some View {
+        Group {
+            if let bitmap = model.conversationImage(image) {
+                Image(decorative:bitmap,scale:1).resizable().interpolation(.high).scaledToFit()
+                    .frame(maxWidth:480,maxHeight:480).clipShape(RoundedRectangle(cornerRadius:10))
+                    .accessibilityLabel("Image the Agent drew")
+            } else {
+                RoundedRectangle(cornerRadius:10).fill(.quaternary).aspectRatio(CGFloat(image.width) / CGFloat(max(image.height,1)),contentMode:.fit)
+                    .frame(maxWidth:480,maxHeight:480).overlay(ProgressView())
+            }
+        }
+        .task(id:image.imageId) { await model.loadConversationImage(image) }
+    }
+}
+
 enum PortraitDecoder {
     /// Decodes one PNG into a CGImage, or nil for anything else.
     static func image(_ data: Data) -> CGImage? {

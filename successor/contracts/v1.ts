@@ -24,8 +24,11 @@ export type ModelCatalog = {provider:string;state:'ready';models:ModelOption[];c
 export type AgentPortrait = { revision: string; createdAt: string; size: number };
 export type PortraitDraw = { state: 'drawing' | 'failed'; detail: string; updatedAt: string };
 export type PortraitImage = { agentId: string; revision: string; png: string };
+// Spec 066: an image Fort drew in a conversation. The PNG is fetched separately by imageId.
+export type MessageImage = { imageId: string; width: number; height: number };
+export type ConversationImage = { imageId: string; png: string };
 export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string; avatar?: AgentAvatar; portrait?: AgentPortrait; portraitDraw?: PortraitDraw };
-export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string };
+export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string; drawsImage?: true; image?: MessageImage };
 export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; attemptGeneration?: number; configuration?: TurnConfiguration; routine?: RoutineExecution; statusDetail?: string };
 export type ConversationMemory = { conversationId: string; revisionId: string; text: string };
 export type Snapshot = { window?: { before: number | null; olderBefore: number | null }; memory?: ConversationMemory; installationId: string; recoveryEpoch: string; conversationId: string; cursor: number; messages: Message[]; runs: Run[]; approvals: Approval[]; lastReadMessageSequence: number };

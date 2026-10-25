@@ -179,7 +179,7 @@ export class ExecutorProcess implements ChatRuntime {
   private async drawPortrait(binding: ExecutorBinding, input: PortraitRequest, signal: AbortSignal): Promise<PortraitResult> {
     if (this.stopped || this.blocked || this.active || signal.aborted) return { kind: 'notStarted', message: 'The runtime is stopped, busy or canceled. Nothing was drawn.' };
     let request;
-    try { request = portraitRequestBody(binding, input.account, input.model, input.subject, randomUUID()); }
+    try { request = portraitRequestBody(binding, input.account, input.model, input.prompt === undefined ? { subject: input.subject } : { prompt: input.prompt }, randomUUID()); }
     catch { return { kind: 'notStarted', message: 'The portrait request was not valid. Nothing was drawn.' }; }
     return this.exchange(signal, { request, deadline: request.deadline, evidenceBytes: PORTRAIT_EVIDENCE_BYTES,
       cancel: { protocolVersion: 1, kind: 'cancelPortrait', requestId: request.requestId, requestDigest: request.requestDigest },

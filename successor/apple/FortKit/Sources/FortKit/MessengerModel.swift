@@ -1064,6 +1064,7 @@ import Observation
         if activeConversationID == conversationID { snapshot = accepted }
     }
     public func send() async {
+        if let prompt = imagePrompt { await drawImage(prompt); return }
         guard canSend, let agent = recipient, let conversationID = activeConversationID, let installation, let pendingStore else { return }
         showLatestMessages()
         do {
@@ -1106,6 +1107,37 @@ import Observation
         portraitBusy = true; defer { portraitBusy = false }
         do { _ = try await client.drawPortrait(agentID:agent.agentId,note:trimmed.isEmpty ? nil : trimmed); await refresh() }
         catch { status = error.localizedDescription }
+    }
+    // Spec 066: "/image <description>" asks the recipient Agent for one image on the ChatGPT plan.
+    public var supportsImages: Bool { installation?.supports("conversationImages") == true }
+    public var imagePrompt: String? {
+        guard supportsImages, draft.hasPrefix("/image ") else { return nil }
+        let prompt = draft.dropFirst("/image ".count).trimmingCharacters(in:.whitespacesAndNewlines)
+        return prompt.isEmpty || prompt.utf8.count > 2000 ? nil : prompt
+    }
+    public private(set) var imageBusy = false
+    private var conversationImages: [String:CGImage] = [:]
+    private var conversationImageLoads: Set<String> = []
+    func conversationImage(_ image: MessageImage) -> CGImage? { conversationImages[image.imageId] }
+    /// True while Fort is still drawing the image this message asked for.
+    func isDrawingImage(_ message: Message) -> Bool {
+        message.drawsImage == true && displaySnapshot?.messages.contains { $0.requestId == message.requestId && $0.role == "assistant" } != true
+    }
+    public func loadConversationImage(_ image: MessageImage) async {
+        guard conversationImages[image.imageId] == nil, !conversationImageLoads.contains(image.imageId), let client else { return }
+        conversationImageLoads.insert(image.imageId); defer { conversationImageLoads.remove(image.imageId) }
+        guard let data = try? await client.image(id:image.imageId), let bitmap = PortraitDecoder.image(data) else { return }
+        conversationImages[image.imageId] = bitmap
+    }
+    /// One send, one draw on the Agent's ChatGPT plan. Fort never retries it.
+    private func drawImage(_ prompt: String) async {
+        guard canSend, !imageBusy, let agent = recipient, let conversationID = activeConversationID, let client else { return }
+        imageBusy = true; defer { imageBusy = false }
+        showLatestMessages()
+        do {
+            _ = try await client.drawImage(conversationID:conversationID,agentID:agent.agentId,requestID:UUID().uuidString,prompt:prompt)
+            draft = ""; await refresh()
+        } catch { status = error.localizedDescription }
     }
     public func removePortrait(_ agent: Agent) async {
         guard supportsPortraits, !portraitBusy, let client else { return }
