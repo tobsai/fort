@@ -310,6 +310,7 @@ export class ClaudeCodeChat implements ChatRuntime {
   private readonly launch: (plan: ClaudeCodeLaunch) => ClaudeCodeProcess;
   private busy = false;
   private disposed = false;
+  private reportedModels = '';
   constructor(options: ChatOptions) {
     claudeCodeLaunch(options);
     if (!/^\d+\.\d+\.\d+$/.test(options.runtimeVersion)) throw new Error('Pin an exact Claude Code version');
@@ -361,6 +362,9 @@ export class ClaudeCodeChat implements ChatRuntime {
       if (selected && !sameAccount(parseAccountIdentity(selected), account)) throw new Error('Selected account unavailable');
       session = this.open();
       const models = checkInitialize(await session.control({ subtype: 'initialize' }, signal), this.options.runtimeVersion, account);
+      // Model names only, and only when the list changes, so the host log shows what the picker offers.
+      const names = models.map(model => model.name).join(', ');
+      if (names !== this.reportedModels) { this.reportedModels = names; this.options.report?.('Claude Code models: ' + failureReason(new Error(names))); }
       return { provider, state: 'ready', models, checkedAt: new Date().toISOString() };
     } catch (error) { await this.failed('model check', error, session); return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
     finally { session?.close(); this.busy = false; }

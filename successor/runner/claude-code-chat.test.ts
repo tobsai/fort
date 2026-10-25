@@ -221,6 +221,10 @@ test('model names carry the exact version from the model ID, and unrecognized ID
     { value: 'fable', resolvedModel: 'claude-fable-5-1', displayName: 'Fable' }, { value: 'x', resolvedModel: 'claude-experimental', displayName: 'Experimental' }];
   const catalog = await fixture({ initialize: initialize({ models: listed }) }).runtime.models(new AbortController().signal, account);
   assert.deepEqual(catalog.models.map(model => model.name), ['Opus 5.5 (1M context)', 'Haiku 4.5', 'Fable 5.1', 'Experimental']);
+  const lines: string[] = [], f = fixture();
+  const runtime = new ClaudeCodeChat({ ...(f.runtime as any).options, report: (line: string) => lines.push(line) });
+  await runtime.models(new AbortController().signal, account); await runtime.models(new AbortController().signal, account);
+  assert.deepEqual(lines, ['Claude Code models: Opus 5.5, Sonnet 5.5'], 'the host log names what the picker offers, once per change');
 });
 
 test('without an injected reader, the account comes from `claude auth status --json` run with the isolated environment', async t => {
