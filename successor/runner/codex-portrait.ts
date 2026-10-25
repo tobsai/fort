@@ -178,7 +178,8 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
     await verifyRuntimeControls(connection, workspace, signal, undefined, 'portrait');
     if (!sameAccount(account, await readCodexAccount(connection, signal) ?? undefined)) return { kind: 'notStarted', message: 'The selected ChatGPT account is not signed in. Nothing was drawn.' };
     if (object(await connection.request('modelProvider/capabilities/read', {}, signal)).imageGeneration !== true) return { kind: 'notStarted', message: 'Your ChatGPT sign-in doesn’t offer image generation in Codex. Nothing was drawn.' };
-    if (!(await readRuntimePages(connection, 'model/list', {}, signal)).some(value => object(value).model === request.model)) return { kind: 'notStarted', message: 'The agent’s model is not available. Nothing was drawn.' };
+    const listed = (await readRuntimePages(connection, 'model/list', {}, signal)).map(value => object(value).model).filter((model): model is string => typeof model === 'string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(model));
+    if (!listed.includes(request.model)) { connection.close(); return { kind: 'notStarted', message: `Codex didn’t list ${request.model} for portraits${listed.length ? ` (it listed ${listed.slice(0, 6).join(', ')})` : ' (it listed no models)'}. Nothing was drawn.` }; }
     const started = object(await connection.request('thread/start', { model: request.model, modelProvider: 'openai', cwd: workspace, approvalPolicy: 'untrusted', approvalsReviewer: 'user', permissions: CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots: [], ephemeral: true, environments: [], dynamicTools: [], selectedCapabilityRoots: [], developerInstructions: INSTRUCTIONS }, signal));
     const thread = object(started.thread), sandbox = object(started.sandbox);
     verifyPermissionSelection(started.activePermissionProfile);
