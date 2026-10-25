@@ -94,6 +94,13 @@ test('nothing is drawn when the account differs or the plan offers no image gene
   }
 });
 
+test('a model Codex does not list is named in the refusal, with what it did list', async () => {
+  const fixture = transport(), result = await drawPortrait(fixture.connection, '/synthetic/empty', { ...request, model: 'gpt-retired' }, new AbortController().signal);
+  assert.equal(result.kind, 'notStarted');
+  if (result.kind === 'notStarted') assert.equal(result.message, 'Codex didn’t list gpt-retired for portraits (it listed gpt-6-astra). Nothing was drawn.');
+  assert.equal(fixture.calls.some(call => call.method === 'thread/start'), false);
+});
+
 test('any non-image action is refused and interrupted', async () => {
   for (const options of [{ items: [{ id: 'cmd', type: 'commandExecution', command: 'ls' }] }, { serverRequest: true }, { items: [{ id: 'web', type: 'webSearch', query: 'x' }] }]) {
     const fixture = transport(options), result = await draw(fixture);
