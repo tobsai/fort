@@ -48,10 +48,33 @@ async function signIn(state) {
   id.prompt();
 }
 
+// The hub has one public address. A browser that claimed it on an older address carries its
+// credential over in the URL fragment, which never reaches a server, and the new page takes it in.
+const STORE = 'fort.device.v1';
+function arrive() {
+  const moved = /^#move=([A-Za-z0-9_-]+)$/.exec(location.hash)?.[1];
+  if (!moved) return;
+  history.replaceState(null, '', location.pathname);
+  try {
+    const device = JSON.parse(decodeURIComponent(escape(atob(moved.replaceAll('-', '+').replaceAll('_', '/')))));
+    if (device?.installationId && device?.deviceId && device?.deviceToken && !localStorage.getItem(STORE)) localStorage.setItem(STORE, JSON.stringify(device));
+  } catch { /* An unreadable move link changes nothing. */ }
+}
+function moved(publicOrigin) {
+  const saved = localStorage.getItem(STORE);
+  const link = document.createElement('a');
+  link.className = 'button primary';
+  link.href = publicOrigin + '/' + (saved ? '#move=' + btoa(unescape(encodeURIComponent(saved))).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '') : '');
+  link.textContent = 'Open Fort at ' + new URL(publicOrigin).host;
+  card(line('muted', saved ? 'Fort has a new address. This browser’s owner credential moves with you when you open it there.' : 'Fort has a new address.'), link);
+}
+
 try {
+  arrive();
   const state = await session();
+  if (state.publicOrigin && state.publicOrigin !== location.origin) { moved(state.publicOrigin); throw null; }
   if (!state.google || state.signedIn) await import('/app.js');
   else await signIn(state);
 } catch (problem) {
-  card(line('error', problem.message || 'Something went wrong.'));
+  if (problem) card(line('error', problem.message || 'Something went wrong.'));
 }

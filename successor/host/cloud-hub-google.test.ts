@@ -146,6 +146,17 @@ test('without the iOS client, iPhone Google sign-in is off', async t => {
   assert.equal((await h.call('/auth/google/native', { body: { credential: h.idToken({ aud: iosClientId, nonce: await h.nonce() }) } })).status, 404);
 });
 
+test('the page learns the hub’s one public address, with or without the gate', async t => {
+  const h = await fixture(t);
+  assert.equal((await h.call('/auth/session')).body.publicOrigin, origin);
+  const dataDirectory = await mkdtemp(join(tmpdir(), 'fort-cloud-google-'));
+  const plain = await startCloudHub({ dataDirectory, host: '127.0.0.1', port: 0, provider: codex, publicOrigin: origin });
+  t.after(async () => { await plain.close(); await rm(dataDirectory, { recursive: true, force: true }); });
+  const session = await (await fetch(plain.url + '/auth/session')).json() as Record<string, unknown>;
+  assert.deepEqual(session, { google: false, publicOrigin: origin });
+  assert.equal((await fetch(plain.url + '/auth/google', { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: '{}' })).status, 404);
+});
+
 test('the gate needs a public origin and a Google web client ID', async t => {
   const dataDirectory = await mkdtemp(join(tmpdir(), 'fort-cloud-google-'));
   t.after(() => rm(dataDirectory, { recursive: true, force: true }));
