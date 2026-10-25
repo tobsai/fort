@@ -1,7 +1,7 @@
 # 065: Fort draws its own agent portraits
 
-**Decision:** pending. Asked Toby on 2026-10-25 to OK turning on Codex image generation for a
-separate portrait run only, and spending one real test portrait.
+**Decision:** Toby approved on 2026-10-25 ("OK on PR 47", Fort project thread), covering Codex image
+generation for the separate portrait run only and one real test portrait on his Mac.
 
 ## What and why
 
