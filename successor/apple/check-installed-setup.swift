@@ -88,6 +88,10 @@ func control(_ root: AXUIElement, identifier: String, label: String) throws -> A
         try wait("Pause menu did not open") { sheet(app) }
         try press(control(root(app),identifier:"pause-tab-devices",label:"DEVICES"))
     }
+    // Devices opens on its summary rows; the setup controls checked by setup() sit in its Workshop.
+    func devices(_ app: NSRunningApplication) throws {
+        try wait("Devices did not show this Mac") { descendants(root(app)).contains { text($0,kAXIdentifierAttribute) == "devices-row-mac" } }
+    }
     func closeConnection(_ app: NSRunningApplication) throws {
         if let resume = try? control(root(app),identifier:"pause-resume",label:"RESUME") { try press(resume) }
         else { try press(control(root(app),identifier:"setup-close",label:"Close setup")) }
@@ -108,7 +112,7 @@ func control(_ root: AXUIElement, identifier: String, label: String) throws -> A
             try closeConnection(client)
             try wait("Setup did not close") { !sheet(client) }
             try openConnection(client)
-            try setup(client)
+            try devices(client)
             emit(["cycle":cycle,"phase":"setup-close-reopen","repetition":repetition,"passed":true])
         }
         try closeConnection(client)
