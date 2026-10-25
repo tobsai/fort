@@ -73,8 +73,9 @@ export function claudeCodeLaunch(options: LaunchOptions): ClaudeCodeLaunch {
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--tools', '', '--strict-mcp-config', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence', '--permission-mode', 'default',
     ...(model ? ['--model', model] : [])];
-  // Built from nothing, so no ANTHROPIC_*, OAuth token or cloud-provider variable can leak in.
-  const env: Record<string, string> = { HOME: home, PATH: dirname(executable) + ':/usr/bin:/bin', LANG: 'en_US.UTF-8', TMPDIR: runtimeDirectory, XDG_RUNTIME_DIR: runtimeDirectory,
+  // Built from nothing, so no ANTHROPIC_*, OAuth token or cloud-provider variable can leak in. On macOS Claude Code
+  // ignores TMPDIR and uses /tmp/claude-<uid>, which the App Sandbox denies; CLAUDE_CODE_TMPDIR keeps it private.
+  const env: Record<string, string> = { HOME: home, PATH: dirname(executable) + ':/usr/bin:/bin', LANG: 'en_US.UTF-8', TMPDIR: runtimeDirectory, XDG_RUNTIME_DIR: runtimeDirectory, CLAUDE_CODE_TMPDIR: runtimeDirectory,
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1', DISABLE_AUTOUPDATER: '1',
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: '1', CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
     CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: '1', CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK: '1', CLAUDE_CODE_DISABLE_FAST_MODE: '1', CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS: '1' };
