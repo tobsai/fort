@@ -109,7 +109,7 @@ test('removing a portrait deletes it, and a restart mid-draw is reported', async
   const h = await fixture(t);
   await h.api('/v1/agents/' + h.agent.agentId + '/portrait', {});
   await h.settled();
-  const removed = await h.api<Agent>('/v1/agents/' + h.agent.agentId + '/portrait', undefined, 'DELETE');
+  const removed = await h.api<Agent>('/v1/agents/' + h.agent.agentId + '/portrait/remove', {});
   assert.equal(removed.status, 200);
   assert.equal(removed.body.portrait, undefined);
   assert.equal((await h.api('/v1/agents/' + h.agent.agentId + '/portrait')).status, 404);

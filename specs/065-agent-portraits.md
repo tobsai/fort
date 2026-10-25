@@ -30,7 +30,7 @@ Claude has no image generation, so this is ChatGPT-only.
   built prompt. If the check fails, nothing is sent.
 - **Credentials.** No change. The portrait run uses the same Codex sign-in and the same pinned
   account as the agent's binding. Claude-bound agents don't get the button.
-- **Data.** Each portrait is one square PNG (256 to 2048 px, at most 8 MB), stored in the ledger
+- **Data.** Each portrait is one square PNG (256 to 2048 px, at most 5 MB, so it fits the Mac app's 8 MiB host channel), stored in the ledger
   as a `portraits` row keyed by agent. Removing a portrait deletes only that row. Codex also keeps
   its own copy under the private runtime's `generated_images/`; Fort leaves that folder alone.
 - **Chat while drawing.** A draw holds the runtime for up to about two minutes. Messages sent
@@ -44,10 +44,10 @@ Claude has no image generation, so this is ChatGPT-only.
   own frame limit sized for one image. Any other item type (commands, file edits, tool calls)
   ends the turn as refused. `portraitControls` verifies the portrait profile described above.
 - **Executor**: a `portrait` operation on the existing worker wire. The worker launches the same
-  private Codex directories with the portrait profile and a 12 MiB frame limit.
+  private Codex directories with the portrait profile and an 8 MiB frame limit.
 - **Core**: `POST /v1/agents/{id}/portrait` with `{ note? }` returns 202 and draws in the
   background, on the agent's own runtime, model and selected account. `GET` returns
-  `{ revision, png }` (base64), and `DELETE` removes it. `Agent` gains `portrait?: { revision,
+  `{ revision, png }` (base64), and `POST …/portrait/remove` removes it. `Agent` gains `portrait?: { revision,
   createdAt, size }` and `portraitDraw?: { state: drawing | failed, detail }`. One draw at a time.
 - **Apps**: `AgentAvatarView` shows the portrait when there is one. The agent editor gets
   Draw, Redraw and Remove, with a note that a draw uses ChatGPT plan usage.

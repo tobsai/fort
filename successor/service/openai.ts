@@ -1119,9 +1119,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             return { lastReadMessageSequence: sequence };
           });
         }
-        else if (/^\/v1\/agents\/[^/]+\/portrait$/.test(url.pathname) && ['GET', 'POST', 'DELETE'].includes(request.method ?? '')) {
+        else if ((request.method === 'GET' || request.method === 'POST') && /^\/v1\/agents\/[^/]+\/portrait(\/remove)?$/.test(url.pathname)) {
           // Spec 065: one portrait draw at a time, on the Agent's own runtime and signed-in account.
           const agentId = id(url.pathname.split('/')[3]);
+          if (url.pathname.endsWith('/remove') && request.method !== 'POST') fail(404, 'notFound', 'Route was not found.');
           if (request.method === 'GET') {
             authenticate(request);
             const agent = load('agents', agentId, decodeAgent), row = db.prepare("SELECT data FROM entities WHERE kind='portraits' AND id=?").get(agentId);
@@ -1129,7 +1130,9 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             const image = record(json(row));
             if (image.revision !== agent.portrait.revision || typeof image.png !== 'string') fail(404, 'noPortrait', 'This Agent has no portrait.');
             result = { agentId, revision: agent.portrait.revision, png: image.png } satisfies PortraitImage;
-          } else if (request.method === 'DELETE') {
+          } else if (url.pathname.endsWith('/remove')) {
+            const body = await readBody(request);
+            if (Object.keys(body).length) fail(400, 'invalidPortrait', 'This command accepts no fields.');
             result = owner(request, () => {
               const agent = load('agents', agentId, decodeAgent);
               if (agent.portraitDraw?.state === 'drawing') fail(409, 'portraitDrawing', 'Wait for the portrait to finish drawing.');

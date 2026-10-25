@@ -1,7 +1,8 @@
 import type { AccountIdentity } from './v1.ts';
 
 // Spec 065: what a portrait draw asks for and what comes back. Shared by the core and the executor.
-export const PORTRAIT_MAX_BYTES = 8 * 1024 * 1024;
+// Sized so the base64 reply fits the Mac app's 8 MiB host channel.
+export const PORTRAIT_MAX_BYTES = 5 * 1024 * 1024;
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export type PortraitSubject = { name: string; instructions: string; note?: string };
