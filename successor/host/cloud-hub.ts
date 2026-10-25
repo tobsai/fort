@@ -124,10 +124,14 @@ export async function startCloudHub(options: CloudHubOptions) {
     response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...extra }).end(JSON.stringify(value));
   // Google sign-in routes. A browser always names its origin on a POST, so these accept only the hub's own page.
   async function auth(request: IncomingMessage, response: ServerResponse, path: string): Promise<void> {
+    // The page asks first: whether Google guards this hub, and the hub's one public address, so a
+    // browser on an older address can carry its credential over.
+    const where = publicOrigin ? { publicOrigin } : {};
+    if (!google && request.method === 'GET' && path === '/auth/session') return void answer(response, 200, { google: false, ...where });
     if (!google) fail(404, 'notFound', 'Google sign-in is not enabled.');
     if (request.method === 'GET' && path === '/auth/session') {
       const session = signedIn(request);
-      return void answer(response, 200, { google: true, clientId: google.clientId, ...(google.iosClientId ? { iosClientId: google.iosClientId } : {}), nonce: google.nonce(), signedIn: !!session, ...(session ? { email: session.email } : {}) });
+      return void answer(response, 200, { google: true, ...where, clientId: google.clientId, ...(google.iosClientId ? { iosClientId: google.iosClientId } : {}), nonce: google.nonce(), signedIn: !!session, ...(session ? { email: session.email } : {}) });
     }
     // The iPhone app is no browser: it never names an origin, and gets its session value to keep.
     if (request.method === 'POST' && path === '/auth/google/native' && request.headers.origin === undefined && request.headers['sec-fetch-site'] === undefined) {
