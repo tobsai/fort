@@ -23,10 +23,12 @@ function idToken(claims: Record<string, unknown>, key = google.privateKey, kid =
   return body + '.' + sign('RSA-SHA256', Buffer.from(body), key).toString('base64url');
 }
 
-async function fixture(t: TestContext) {
+const iosClientId = '1234-ios.apps.googleusercontent.com';
+
+async function fixture(t: TestContext, extra: { iosClientId?: string } = {}) {
   const dataDirectory = await mkdtemp(join(tmpdir(), 'fort-cloud-google-'));
   const hub = await startCloudHub({ dataDirectory, host: '127.0.0.1', port: 0, provider: codex, setupCodeDigest, publicOrigin: origin,
-    google: { clientId, emails: ['Toby@example.com'], keys: async () => [jwk] } });
+    google: { clientId, emails: ['Toby@example.com'], keys: async () => [jwk], ...extra } });
   t.after(async () => { await hub.close(); await rm(dataDirectory, { recursive: true, force: true }); });
   const owner = { deviceId: randomUUID(), deviceToken: secret() };
   let cookie = '';
@@ -115,6 +117,33 @@ test('paired machines keep their own credentials and never meet the Google gate'
   const phone = await h.call('/v1/agents', { headers: { authorization: 'Bearer ' + secret(), 'x-fort-installation-id': h.hub.installation.installationId } });
   assert.equal(phone.status, 401);
   assert.notEqual(phone.body.error.code, 'signInRequired');
+});
+
+test('with the iOS client configured, a paired iPhone signs in with Google and needs that session too', async t => {
+  const h = await fixture(t, { iosClientId });
+  await h.signIn();
+  assert.equal((await h.browser('/v1/hub/setup', { setupCode, ...h.owner })).status, 201);
+  assert.equal((await h.call('/auth/session')).body.iosClientId, iosClientId);
+  const phone = { authorization: 'Bearer ' + secret(), 'x-fort-installation-id': h.hub.installation.installationId };
+  assert.equal((await h.call('/v1/agents', { headers: phone })).body.error.code, 'signInRequired', 'a device token alone is no longer enough');
+  // The web client's sign-in is no good for the app, and the app's endpoint refuses browsers.
+  assert.equal((await h.call('/auth/google/native', { body: { credential: h.idToken({ nonce: await h.nonce() }) } })).status, 401);
+  assert.equal((await h.call('/auth/google/native', { body: { credential: h.idToken({ aud: iosClientId, nonce: await h.nonce() }) }, headers: { origin } })).status, 403);
+  const signedIn = await h.call('/auth/google/native', { body: { credential: h.idToken({ aud: iosClientId, nonce: await h.nonce() }) } });
+  assert.equal(signedIn.status, 200);
+  assert.equal(signedIn.headers.get('set-cookie'), null);
+  const session = signedIn.body.session as string;
+  const answered = await h.call('/v1/agents', { headers: { ...phone, 'x-fort-session': session } });
+  assert.notEqual(answered.body.error?.code, 'signInRequired', 'with the session the core checks the device token as before');
+  assert.equal((await h.call('/v1/agents', { headers: { ...phone, 'x-fort-session': session + 'x' } })).body.error.code, 'signInRequired');
+  // The Mac's machine paths still need no Google.
+  assert.notEqual((await h.call('/v1/runner/connect', { method: 'POST', headers: { authorization: 'Bearer ' + secret() } })).body?.error?.code, 'signInRequired');
+});
+
+test('without the iOS client, iPhone Google sign-in is off', async t => {
+  const h = await fixture(t);
+  assert.equal((await h.call('/auth/session')).body.iosClientId, undefined);
+  assert.equal((await h.call('/auth/google/native', { body: { credential: h.idToken({ aud: iosClientId, nonce: await h.nonce() }) } })).status, 404);
 });
 
 test('the gate needs a public origin and a Google web client ID', async t => {

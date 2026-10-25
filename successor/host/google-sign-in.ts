@@ -9,6 +9,8 @@ import { createHmac, createPublicKey, randomBytes, timingSafeEqual, verify } fro
 // key lives only on the hub's volume.
 export type GoogleSignInOptions = {
   clientId: string;
+  // The iPhone app's iOS OAuth client ID. When set, paired iPhones sign in with Google too.
+  iosClientId?: string;
   // Verified Google emails allowed in. The first one to sign in is pinned by its Google account ID.
   emails: string[];
   // Google's current signing keys. The default fetches them from Google and caches them.
@@ -48,7 +50,8 @@ function googleKeys(): () => Promise<JsonWebKey[]> {
 
 export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions) {
   const clientId = options.clientId.trim(), emails = options.emails.map(email => email.trim().toLowerCase()).filter(Boolean);
-  if (!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId)) throw new Error('Use a Google OAuth web client ID');
+  const iosClientId = options.iosClientId?.trim() || undefined;
+  if (![clientId, iosClientId ?? clientId].every(id => /^[\w.-]+\.apps\.googleusercontent\.com$/.test(id))) throw new Error('Use a Google OAuth web client ID');
   if (emails.length === 0) throw new Error('Name at least one Google email to let in');
   const sessionMs = (options.sessionHours ?? 24 * 7) * 3_600_000;
   const keys = options.keys ?? googleKeys();
@@ -73,7 +76,7 @@ export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions
     return signed(Date.now().toString(36) + '~' + b64(randomBytes(16)));
   }
 
-  async function verifyIdToken(token: unknown): Promise<{ sub: string; email: string }> {
+  async function verifyIdToken(token: unknown, audience: string): Promise<{ sub: string; email: string }> {
     if (typeof token !== 'string' || token.length > 8192) return deny('Send the Google sign-in credential.');
     const parts = token.split('.');
     if (parts.length !== 3) return deny('That Google sign-in could not be read.');
@@ -83,7 +86,7 @@ export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions
     if (!jwk) return deny('That Google sign-in is not signed by a current Google key.');
     if (!verify('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), createPublicKey({ key: jwk, format: 'jwk' }), Buffer.from(parts[2]!, 'base64url'))) return deny('That Google sign-in’s signature does not match.');
     const now = Date.now() / 1000;
-    if (!ISSUERS.includes(claims.iss as string) || claims.aud !== clientId) return deny('That Google sign-in was not made for this hub.');
+    if (!ISSUERS.includes(claims.iss as string) || claims.aud !== audience) return deny('That Google sign-in was not made for this hub.');
     if (typeof claims.exp !== 'number' || claims.exp + SKEW_S < now || typeof claims.iat !== 'number' || claims.iat - SKEW_S > now) return deny('That Google sign-in has expired. Sign in again.');
     const issued = typeof claims.nonce === 'string' ? opened(claims.nonce) : undefined;
     const at = issued ? parseInt(issued.split('~')[0]!, 36) : NaN;
@@ -96,26 +99,40 @@ export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions
     return { sub: claims.sub, email: claims.email.toLowerCase() };
   }
 
+  const mint = (who: { sub: string; email: string }) => {
+    const session = { ...who, expiresAt: Date.now() + sessionMs };
+    return { session, value: signed(b64(JSON.stringify(session))) };
+  };
+  const read = (raw: string | undefined): GoogleSession | undefined => {
+    const body = raw ? opened(raw) : undefined;
+    if (!body) return undefined;
+    let value: GoogleSession;
+    try { value = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as GoogleSession; } catch { return undefined; }
+    if (typeof value?.expiresAt !== 'number' || value.expiresAt <= Date.now() || !emails.includes(value.email) || value.sub !== pinned()) return undefined;
+    return value;
+  };
+
   return {
     clientId,
+    iosClientId,
     nonce,
     // Checks a posted Google ID token and returns the Set-Cookie value for a new session.
     async signIn(token: unknown): Promise<{ session: GoogleSession; cookie: string }> {
-      const who = await verifyIdToken(token);
-      const session = { ...who, expiresAt: Date.now() + sessionMs };
-      const value = signed(b64(JSON.stringify(session)));
+      const { session, value } = mint(await verifyIdToken(token, clientId));
       return { session, cookie: `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(sessionMs / 1000)}` };
     },
+    // The iPhone's sign-in: the same checks against the iOS client, answered with the session value
+    // itself, which the app keeps in its Keychain and sends as X-Fort-Session.
+    async signInNative(token: unknown): Promise<{ session: GoogleSession; value: string }> {
+      if (!iosClientId) throw new SignInError(404, 'notFound', 'iPhone Google sign-in is not enabled.');
+      return mint(await verifyIdToken(token, iosClientId));
+    },
     signOutCookie: `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`,
-    // The session named by a request's Cookie header, if it is ours, current, and still the owner.
-    session(cookieHeader: string | undefined): GoogleSession | undefined {
-      const raw = cookieHeader?.split(/;\s*/).find(part => part.startsWith(SESSION_COOKIE + '='))?.slice(SESSION_COOKIE.length + 1);
-      const body = raw ? opened(raw) : undefined;
-      if (!body) return undefined;
-      let value: GoogleSession;
-      try { value = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as GoogleSession; } catch { return undefined; }
-      if (typeof value?.expiresAt !== 'number' || value.expiresAt <= Date.now() || !emails.includes(value.email) || value.sub !== pinned()) return undefined;
-      return value;
+    // The session a request carries, as the browser's cookie or the iPhone's header, if it is ours,
+    // current, and still the owner's.
+    session(cookieHeader: string | undefined, nativeHeader?: string | string[]): GoogleSession | undefined {
+      const cookie = cookieHeader?.split(/;\s*/).find(part => part.startsWith(SESSION_COOKIE + '='))?.slice(SESSION_COOKIE.length + 1);
+      return read(cookie) ?? (typeof nativeHeader === 'string' ? read(nativeHeader) : undefined);
     },
   };
 }

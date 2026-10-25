@@ -126,10 +126,16 @@ export async function startCloudHub(options: CloudHubOptions) {
   async function auth(request: IncomingMessage, response: ServerResponse, path: string): Promise<void> {
     if (!google) fail(404, 'notFound', 'Google sign-in is not enabled.');
     if (request.method === 'GET' && path === '/auth/session') {
-      const session = google.session(request.headers.cookie);
-      return void answer(response, 200, { google: true, clientId: google.clientId, nonce: google.nonce(), signedIn: !!session, ...(session ? { email: session.email } : {}) });
+      const session = signedIn(request);
+      return void answer(response, 200, { google: true, clientId: google.clientId, ...(google.iosClientId ? { iosClientId: google.iosClientId } : {}), nonce: google.nonce(), signedIn: !!session, ...(session ? { email: session.email } : {}) });
     }
-    if (request.method !== 'POST' || request.headers.origin !== publicOrigin) fail(403, 'originDenied', 'Sign in from this hub’s own page.');
+    // The iPhone app is no browser: it never names an origin, and gets its session value to keep.
+    if (request.method === 'POST' && path === '/auth/google/native' && request.headers.origin === undefined && request.headers['sec-fetch-site'] === undefined) {
+      const value = await body(request) as { credential?: unknown };
+      const { session, value: token } = await google.signInNative(value?.credential);
+      return void answer(response, 200, { signedIn: true, email: session.email, session: token, expiresAt: new Date(session.expiresAt).toISOString() });
+    }
+    if (request.method !== 'POST' || request.headers.origin !== publicOrigin || path === '/auth/google/native') fail(403, 'originDenied', 'Sign in from this hub’s own page.');
     if (path === '/auth/google') {
       const value = await body(request) as { credential?: unknown };
       const { session, cookie } = await google.signIn(value?.credential);
@@ -139,9 +145,12 @@ export async function startCloudHub(options: CloudHubOptions) {
     fail(404, 'notFound', 'No such sign-in route.');
   }
   // With the Google gate on, anything a browser can reach, and anything the owner's browser credential
-  // can do, needs a Google session. Paired iPhones and Macs keep their own device and runner tokens.
+  // can do, needs a Google session. Paired Macs keep their runner tokens; paired iPhones need Google
+  // too once the iOS client is configured, and keep only their device token until then.
+  const signedIn = (request: IncomingMessage) => google?.session(request.headers.cookie, request.headers['x-fort-session']);
   const needsGoogle = (request: IncomingMessage, path: string): boolean => {
-    if (!google || path.startsWith('/v1/runner/') || MACHINE_PATHS.has(path) || google.session(request.headers.cookie)) return false;
+    if (!google || path.startsWith('/v1/runner/') || MACHINE_PATHS.has(path) || signedIn(request)) return false;
+    if (google.iosClientId) return true;
     if (request.headers.origin !== undefined || request.headers['sec-fetch-site'] !== undefined || request.headers.cookie !== undefined) return true;
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
     return !token || app.ownerDevice(token) !== undefined;
@@ -158,7 +167,7 @@ export async function startCloudHub(options: CloudHubOptions) {
       return;
     }
     const page = request.method === 'GET' || request.method === 'HEAD' ? web.get(path) : undefined;
-    if (page && (!google || PUBLIC_PAGES.has(path) || google.session(request.headers.cookie))) {
+    if (page && (!google || PUBLIC_PAGES.has(path) || signedIn(request))) {
       response.writeHead(200, { ...pageHeaders, 'content-type': page.type, 'content-length': page.data.length }).end(request.method === 'HEAD' ? undefined : page.data); return;
     }
     if (page || needsGoogle(request, path)) {
@@ -242,7 +251,8 @@ if (import.meta.main) {
     ...(env.FORT_PUBLIC_ORIGIN ? { publicOrigin: env.FORT_PUBLIC_ORIGIN } : {}),
     ...(env.FORT_SETUP_CODE_SHA256 ? { setupCodeDigest: env.FORT_SETUP_CODE_SHA256 } : {}),
     // FORT_GOOGLE_CLIENT_ID (a public web client ID) and FORT_OWNER_EMAIL (comma-separated) turn on the Google gate.
-    ...(env.FORT_GOOGLE_CLIENT_ID || env.FORT_OWNER_EMAIL ? { google: { clientId: required('FORT_GOOGLE_CLIENT_ID'), emails: required('FORT_OWNER_EMAIL').split(',') } } : {}),
+    ...(env.FORT_GOOGLE_CLIENT_ID || env.FORT_OWNER_EMAIL ? { google: { clientId: required('FORT_GOOGLE_CLIENT_ID'), emails: required('FORT_OWNER_EMAIL').split(','),
+      ...(env.FORT_GOOGLE_IOS_CLIENT_ID ? { iosClientId: env.FORT_GOOGLE_IOS_CLIENT_ID } : {}) } } : {}),
     offlineWaitMs: Number(env.FORT_OFFLINE_WAIT_MS ?? 0) });
   process.stdout.write(`Fort hub listening on port ${port}\n`);
   const stop = () => { void hub.close().finally(() => process.exit(0)); };

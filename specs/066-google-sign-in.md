@@ -21,9 +21,13 @@ What could go wrong: a wrong email or client ID locks Toby out of the web client
 unsetting the two variables on Railway; nothing else changes. Deleting `google-owner.json` unpins
 the Google account.
 
-Paired machines are unchanged: the Mac runner (runner token, one-time invitation) and the iPhone
-(companion device key) never see the Google prompt. Both are created only from a Google-signed-in
-browser and can be revoked there.
+The Mac runner is unchanged (runner token, one-time invitation created from a Google-signed-in
+browser). The iPhone signs in with Google too (Toby chose this on 2026-10-25): with
+`FORT_GOOGLE_IOS_CLIENT_ID` set, every iPhone call needs a Google session on top of its device key.
+The app signs in through Google's iOS client (no secret, PKCE), posts the ID token to
+`POST /auth/google/native`, keeps the returned session value in its Keychain and sends it as
+`X-Fort-Session`. That endpoint refuses browsers, so the web page never sees a session value.
+Until the iOS variable is set, iPhones keep working on their device key alone.
 
 ## Plan
 
