@@ -128,10 +128,10 @@ export class PortraitTurn {
   private raw(params: Record<string, unknown> | undefined) {
     if (!this.turnId || params?.threadId !== this.input.threadId || params.turnId !== this.turnId) return;
     const item = record(params.item);
-    if (item?.type === 'function_call' && typeof item.name === 'string') {
+    if ((item?.type === 'function_call' || item?.type === 'custom_tool_call') && typeof item.name === 'string') {
       const name = [item.namespace, item.name].filter(part => typeof part === 'string' && part).join('.');
       this.tool = { name: /^[A-Za-z0-9_.:/-]{1,64}$/.test(name) ? name : 'an unnamed tool' };
-    } else if (item?.type === 'function_call_output' && this.tool) {
+    } else if ((item?.type === 'function_call_output' || item?.type === 'custom_tool_call_output') && this.tool) {
       const output = item.output, parts = typeof output === 'string' ? [output]
         : Array.isArray(output) ? output.map(part => record(part)).filter(part => part?.type === 'input_text' || part?.type === 'output_text').map(part => part!.text) : [];
       const answer = parts.filter((part): part is string => typeof part === 'string').join(' ').replace(/\s+/g, ' ').trim();

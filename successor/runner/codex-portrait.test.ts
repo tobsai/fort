@@ -170,7 +170,12 @@ test('the portrait launch plan enables image generation and keeps every other fe
     assert.deepEqual(enabled(args('portrait')), ['skip_host_skill_discovery', 'image_generation']);
     assert.deepEqual(disabled(args('portrait')), [...PORTRAIT_DISABLED_FEATURES]);
     assert.ok(disabled(args('chat')).includes('image_generation'));
-    assert.deepEqual(args('portrait').filter(value => !['--enable', '--disable', 'image_generation', 'imagegenext'].includes(value) && !PORTRAIT_DISABLED_FEATURES.includes(value as never) && value !== 'skip_host_skill_discovery'),
+    // The only other difference: the image tool stays top-level even for code-mode-only models.
+    const override = (list: string[]) => list.flatMap((value, index) => list[index - 1] === '-c' && value.startsWith('features.code_mode.') ? [value] : []);
+    assert.deepEqual(override(args('portrait')), ['features.code_mode.direct_only_tool_namespaces=["image_gen"]']);
+    assert.deepEqual(override(args('chat')), []);
+    const withoutOverride = (list: string[]) => list.filter((value, index) => !override(list).includes(value) && !(value === '-c' && override(list).includes(list[index + 1]!)));
+    assert.deepEqual(withoutOverride(args('portrait')).filter(value => !['--enable', '--disable', 'image_generation', 'imagegenext'].includes(value) && !PORTRAIT_DISABLED_FEATURES.includes(value as never) && value !== 'skip_host_skill_discovery'),
       args('chat').filter(value => !['--enable', '--disable', 'image_generation', 'imagegenext'].includes(value) && !CODEX_DISABLED_FEATURES.includes(value as never) && value !== 'skip_host_skill_discovery'));
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
