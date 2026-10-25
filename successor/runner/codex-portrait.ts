@@ -188,7 +188,7 @@ export class PortraitTurn {
 }
 
 // Runs the whole draw on a portrait-profile connection: controls, account, capability, thread, then one turn.
-export async function drawPortrait(connection: CodexConnection, workspace: string, request: PortraitRequest, signal: AbortSignal, deadlineMs = 180_000): Promise<PortraitResult> {
+export async function drawPortrait(connection: CodexConnection, workspace: string, request: PortraitRequest, signal: AbortSignal, deadlineMs = 100_000): Promise<PortraitResult> {
   let prompt: string;
   try { prompt = portraitPrompt(request.subject); } catch { return { kind: 'notStarted', message: 'The agent name or note can’t be used for a portrait. Nothing was drawn.' }; }
   let threadId: string;
@@ -230,4 +230,19 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
     signal.addEventListener('abort', interrupt, { once: true });
     handle(turn.start());
   });
+}
+
+// The executor's runtime for a portrait operation: it can draw once and never runs chat turns.
+export class CodexPortraitRuntime {
+  private readonly connection: CodexConnection;
+  private readonly workspace: string;
+  private used = false;
+  constructor(options: { connection: CodexConnection; workspace: string }) { this.connection = options.connection; this.workspace = options.workspace; }
+  async execute(): Promise<{ kind: 'notStarted'; message: string }> { return { kind: 'notStarted', message: 'The portrait runtime does not run chat turns. Nothing was sent.' }; }
+  async portrait(request: PortraitRequest, signal: AbortSignal): Promise<PortraitResult> {
+    if (this.used || this.connection.isClosed) return { kind: 'notStarted', message: 'The portrait runtime was already used. Nothing was drawn.' };
+    this.used = true;
+    return drawPortrait(this.connection, this.workspace, request, signal);
+  }
+  dispose(): Promise<void> { return this.connection.dispose(); }
 }

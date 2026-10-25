@@ -1,4 +1,5 @@
 import { serveExecutorWorker } from '../executor-worker.ts';
+import { portraitPng } from './portrait-png.ts';
 
 const scenario = process.argv[2];
 try {
@@ -13,6 +14,15 @@ try {
       async models() { return { provider: 'catalog-fixture', state: 'ready', checkedAt: '2026-10-18T00:00:00.000Z',
         models: [{ id: 'exact-text', name: 'Text model', availability: 'available' },
           { id: 'exact-audio', name: 'Audio model', availability: 'unavailable', detail: 'Text input unavailable.' }] }; },
+      async dispose() {},
+    }),
+    createPortrait: () => ({
+      async execute() { throw new Error('Portraits must not execute chat'); },
+      async portrait(request) {
+        if (scenario === 'portrait-limit') return { kind: 'failed', reason: 'usageLimit', message: 'Plan limit reached.' };
+        const png = portraitPng(1024, true);
+        return request.subject.name === 'Pascal' ? { kind: 'drawn', png, width: 1024, height: 1024 } : { kind: 'failed', reason: 'refused', message: 'Wrong subject.' };
+      },
       async dispose() {},
     }),
   });
