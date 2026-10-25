@@ -8,6 +8,7 @@ import type { RuntimeDescriptor } from '../contracts/v1.ts';
 import { createApplication } from '../service/openai.ts';
 import { RunnerEnrollmentError, runnerEnrollment } from '../service/runner-enrollment.ts';
 import { RunnerHub, routeByNode } from './runner-hub.ts';
+import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
 
 // Headless hub entry point (Spec 063, step 3). One process serves plain HTTP on $PORT behind the
 // host's TLS proxy: the runner channel, runner enrollment, a one-time owner setup, and every other
@@ -22,15 +23,25 @@ export type CloudHubOptions = {
   publicOrigin?: string;
   // SHA-256 (hex) of the owner's one-time setup code. The hub holds only the digest.
   setupCodeDigest?: string;
+  // Puts every browser path behind Google sign-in for the named emails (Spec 066). Needs publicOrigin.
+  google?: GoogleSignInOptions;
   offlineWaitMs?: number;
 };
 
 const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024;
 // The web client: a few static files, served with a policy that allows only this origin's own scripts.
-const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/app.css', ['app.css', 'text/css; charset=utf-8']], ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']]]);
 const WEB_HEADERS = { 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" };
+// With the Google gate, the page may also load Google's sign-in button, which needs the page's origin as referrer.
+const GSI = 'https://accounts.google.com/gsi/';
+const GOOGLE_WEB_HEADERS = { ...WEB_HEADERS, 'referrer-policy': 'strict-origin-when-cross-origin',
+  'content-security-policy': `default-src 'none'; script-src 'self' ${GSI}client; style-src 'self' ${GSI}style; frame-src ${GSI}; img-src 'self' data:; connect-src 'self' ${GSI}; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` };
+// Without a Google session only these pages load: enough to show the sign-in button, nothing of Fort's.
+const PUBLIC_PAGES = new Set(['/', '/signin.js', '/app.css', '/icon.svg', '/manifest.webmanifest']);
+// Machine paths keep their own credentials (runner token, one-time invitation codes) and never see a browser.
+const MACHINE_PATHS = new Set(['/v1/runners/join', '/v1/devices/join', '/v1/pairing/leave']);
 const PASSED = ['authorization', 'content-type', 'content-length', 'x-fort-installation-id'];
 
 class HubError extends Error {
@@ -58,9 +69,12 @@ export async function startCloudHub(options: CloudHubOptions) {
   if (!isAbsolute(dataDirectory)) throw new Error('Use an absolute data directory');
   const publicOrigin = options.publicOrigin === undefined ? undefined : bareOrigin(options.publicOrigin);
   const web = new Map([...WEB].map(([path, [file, type]]) => [path, { type: type!, data: readFileSync(fileURLToPath(new URL('../web/' + file, import.meta.url))) }]));
+  if (options.google && publicOrigin === undefined) throw new Error('Google sign-in needs the hub’s public origin');
   if (options.setupCodeDigest !== undefined && !/^[a-f0-9]{64}$/.test(options.setupCodeDigest)) throw new Error('Use a SHA-256 hex digest for the setup code');
   if (!Number.isSafeInteger(offlineWaitMs) || offlineWaitMs < 0 || offlineWaitMs > 600_000) throw new Error('Use an offline wait of at most ten minutes');
   mkdirSync(dataDirectory, { recursive: true, mode: 0o700 });
+  const google = options.google ? googleSignIn(dataDirectory, options.google) : undefined;
+  const pageHeaders = google ? GOOGLE_WEB_HEADERS : WEB_HEADERS;
   const runners = new RunnerHub({ authenticate: token => enrollment.authenticate(token) });
   const lane = (descriptor: RuntimeDescriptor) => routeByNode(runners, { waitMs: () => offlineWaitMs, binding: descriptor });
   const app = createApplication({ dataDirectory, provider, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
@@ -106,10 +120,51 @@ export async function startCloudHub(options: CloudHubOptions) {
     request.pipe(call);
   }
 
+  const answer = (response: ServerResponse, status: number, value: unknown, extra: Record<string, string> = {}) =>
+    response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...extra }).end(JSON.stringify(value));
+  // Google sign-in routes. A browser always names its origin on a POST, so these accept only the hub's own page.
+  async function auth(request: IncomingMessage, response: ServerResponse, path: string): Promise<void> {
+    if (!google) fail(404, 'notFound', 'Google sign-in is not enabled.');
+    if (request.method === 'GET' && path === '/auth/session') {
+      const session = google.session(request.headers.cookie);
+      return void answer(response, 200, { google: true, clientId: google.clientId, nonce: google.nonce(), signedIn: !!session, ...(session ? { email: session.email } : {}) });
+    }
+    if (request.method !== 'POST' || request.headers.origin !== publicOrigin) fail(403, 'originDenied', 'Sign in from this hub’s own page.');
+    if (path === '/auth/google') {
+      const value = await body(request) as { credential?: unknown };
+      const { session, cookie } = await google.signIn(value?.credential);
+      return void answer(response, 200, { signedIn: true, email: session.email }, { 'set-cookie': cookie });
+    }
+    if (path === '/auth/signout') { request.resume(); return void answer(response, 200, { signedIn: false }, { 'set-cookie': google.signOutCookie }); }
+    fail(404, 'notFound', 'No such sign-in route.');
+  }
+  // With the Google gate on, anything a browser can reach, and anything the owner's browser credential
+  // can do, needs a Google session. Paired iPhones and Macs keep their own device and runner tokens.
+  const needsGoogle = (request: IncomingMessage, path: string): boolean => {
+    if (!google || path.startsWith('/v1/runner/') || MACHINE_PATHS.has(path) || google.session(request.headers.cookie)) return false;
+    if (request.headers.origin !== undefined || request.headers['sec-fetch-site'] !== undefined || request.headers.cookie !== undefined) return true;
+    const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
+    return !token || app.ownerDevice(token) !== undefined;
+  };
+
   const server = createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
     const path = new URL(request.url ?? '/', 'http://hub').pathname;
+    if (path.startsWith('/auth/')) {
+      void auth(request, response, path).catch((error: unknown) => {
+        const known = error instanceof HubError || error instanceof SignInError ? error : undefined;
+        if (!response.headersSent) answer(response, known?.status ?? 500, { error: { code: known?.code ?? 'hubError', message: known?.message ?? 'Sign-in could not be completed.' } }, { connection: 'close' });
+        request.resume();
+      });
+      return;
+    }
     const page = request.method === 'GET' || request.method === 'HEAD' ? web.get(path) : undefined;
-    if (page) { response.writeHead(200, { ...WEB_HEADERS, 'content-type': page.type, 'content-length': page.data.length }).end(request.method === 'HEAD' ? undefined : page.data); return; }
+    if (page && (!google || PUBLIC_PAGES.has(path) || google.session(request.headers.cookie))) {
+      response.writeHead(200, { ...pageHeaders, 'content-type': page.type, 'content-length': page.data.length }).end(request.method === 'HEAD' ? undefined : page.data); return;
+    }
+    if (page || needsGoogle(request, path)) {
+      answer(response, 401, { error: { code: 'signInRequired', message: 'Sign in with Google first.' } }, { connection: 'close' });
+      request.resume(); return;
+    }
     // A browser names its page's origin. Only the hub's own web client may call the API, and the
     // origin is removed before the core sees the request, so the core's own browser refusal still
     // holds for every other origin.
@@ -186,6 +241,8 @@ if (import.meta.main) {
   const hub = await startCloudHub({ dataDirectory: required('FORT_DATA'), port, provider: provider!, runtimes,
     ...(env.FORT_PUBLIC_ORIGIN ? { publicOrigin: env.FORT_PUBLIC_ORIGIN } : {}),
     ...(env.FORT_SETUP_CODE_SHA256 ? { setupCodeDigest: env.FORT_SETUP_CODE_SHA256 } : {}),
+    // FORT_GOOGLE_CLIENT_ID (a public web client ID) and FORT_OWNER_EMAIL (comma-separated) turn on the Google gate.
+    ...(env.FORT_GOOGLE_CLIENT_ID || env.FORT_OWNER_EMAIL ? { google: { clientId: required('FORT_GOOGLE_CLIENT_ID'), emails: required('FORT_OWNER_EMAIL').split(',') } } : {}),
     offlineWaitMs: Number(env.FORT_OFFLINE_WAIT_MS ?? 0) });
   process.stdout.write(`Fort hub listening on port ${port}\n`);
   const stop = () => { void hub.close().finally(() => process.exit(0)); };

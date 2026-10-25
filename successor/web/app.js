@@ -17,6 +17,8 @@ async function api(path, body, { signal } = {}) {
   const response = await fetch(path, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body), signal, cache: 'no-store' });
   const text = await response.text();
   let value; try { value = text ? JSON.parse(text) : {}; } catch { value = {}; }
+  // The Google session ran out: start over at the sign-in page.
+  if (response.status === 401 && value?.error?.code === 'signInRequired') { location.reload(); throw new ApiError(401, 'signInRequired', 'Sign in with Google again.'); }
   if (!response.ok) throw new ApiError(response.status, value?.error?.code ?? 'error', value?.error?.message ?? `The hub answered ${response.status}.`);
   return value;
 }
@@ -237,8 +239,12 @@ function phoneSection() {
 
 function browserSection() {
   return h('section', {}, h('h3', {}, 'This browser'), h('p.muted', {}, 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.'),
-    h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); location.reload(); } } }, 'Forget this browser'));
+    h('button.link', { onclick: () => signOut().then(() => location.reload()) }, 'Sign out of Google'), ' ',
+    h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); signOut().finally(() => location.reload()); } } }, 'Forget this browser'));
 }
+
+// Ends this browser's Google session on the hub, if the hub has the Google gate on.
+const signOut = () => fetch('/auth/signout', { method: 'POST', cache: 'no-store' }).catch(() => {});
 
 // ---------- Live updates ----------
 async function poll() {
