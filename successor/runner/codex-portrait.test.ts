@@ -194,7 +194,7 @@ test('a model Codex won’t give the image tool is refused before any turn, nami
 
 test('when Codex ends without an image, its own short reply says why', async () => {
   const result = await draw(transport({ items: [], reply: 'I don’t have an image\n tool   here.' }));
-  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “I don’t have an image tool here.” Codex called no tool.' });
+  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “I don’t have an image tool here.” Codex called no tool (gpt-6-astra, plus plan).' });
 });
 
 test('when the image tool fails before starting, the tool’s own answer is shown', async () => {
@@ -204,7 +204,7 @@ test('when the image tool fails before starting, the tool’s own answer is show
     { type: 'function_call_output', call_id: 'c1', output: 'unsupported call: image_gen.imagegen' },
   ] });
   const result = await draw(fixture);
-  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “The tool failed to start.” Codex called image_gen.imagegen, which answered: “unsupported call: image_gen.imagegen”.' });
+  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “The tool failed to start.” Codex called image_gen.imagegen, which answered: “unsupported call: image_gen.imagegen” (gpt-6-astra, plus plan).' });
   assert.equal(fixture.calls.find(call => call.method === 'thread/start')?.params?.experimentalRawEvents, true);
 });
 
@@ -212,4 +212,10 @@ test('a near-square image is kept, since Codex picks the size itself', async () 
   const portrait = png(256); portrait.writeUInt32BE(384, 20);
   const result = await draw(transport({ items: [{ id: 'img', type: 'imageGeneration', status: 'completed', result: portrait.toString('base64'), failure: null }] }));
   assert.deepEqual(result.kind === 'drawn' && [result.width, result.height], [256, 384]);
+});
+
+test('a Free plan is refused before any turn, since Codex withholds its image tool there', async () => {
+  const fixture = transport({ account: { ...syntheticAccount(), account: { ...syntheticAccount().account, planType: 'free' } } }), result = await draw(fixture);
+  assert.deepEqual(result, { kind: 'notStarted', message: 'Codex sees this ChatGPT account on the Free plan, where it doesn’t offer image generation. Nothing was drawn.' });
+  assert.equal(fixture.calls.some(call => call.method === 'thread/start'), false);
 });
