@@ -26,10 +26,8 @@ private actor HubTransport: FortTransport {
     #expect(body == ["invitation":"fort-runner:abc"])
 }
 
-#if os(macOS)
 @Test func cloudHubStatusReadsPlainly() {
-    #expect(CloudHubView.describe(HubRunnerStatus(state:"connected")) == "Connected")
-    #expect(CloudHubView.describe(HubRunnerStatus(state:"waiting",retryMs:4000)) == "Offline, retrying in 4s")
-    #expect(CloudHubView.describe(HubRunnerStatus(state:"refused")) == "The hub removed this Mac")
+    #expect(HubRunnerStatus(state:"connected").summary == "Connected")
+    #expect(HubRunnerStatus(state:"waiting",retryMs:4000).summary == "Offline, retrying in 4s")
+    #expect(HubRunnerStatus(state:"refused").summary == "The hub removed this Mac")
 }
-#endif

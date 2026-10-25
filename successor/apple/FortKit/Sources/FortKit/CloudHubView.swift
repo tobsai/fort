@@ -13,7 +13,7 @@ struct CloudHubView: View {
             if let status = model.hubRunner, status.enrolled {
                 LabeledContent("Hub",value:status.hubURL ?? "Unknown")
                 LabeledContent("This Mac",value:status.runnerId ?? "Unknown")
-                LabeledContent("Connection",value:Self.describe(status)).accessibilityIdentifier("cloud-hub-state")
+                LabeledContent("Connection",value:status.summary).accessibilityIdentifier("cloud-hub-state")
                 Button("Disconnect from hub",role:.destructive) { Task { await model.removeHubRunner() } }
                     .disabled(busy).accessibilityIdentifier("cloud-hub-remove")
             } else {
@@ -30,16 +30,6 @@ struct CloudHubView: View {
                 await model.refreshHubRunner()
                 try? await Task.sleep(for:.seconds(5))
             }
-        }
-    }
-    static func describe(_ status: HubRunnerStatus) -> String {
-        switch status.state {
-        case "connected": "Connected"
-        case "connecting": "Connecting…"
-        case "waiting": "Offline, retrying\(status.retryMs.map { " in \(max(1,$0 / 1000))s" } ?? "")"
-        case "refused": "The hub removed this Mac"
-        case "failed": status.detail ?? "Stopped after an error"
-        default: "Stopped"
         }
     }
 }
