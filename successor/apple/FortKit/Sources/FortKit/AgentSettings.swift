@@ -30,59 +30,91 @@ struct AgentSettingsEditor: View {
     init(model: MessengerModel, agent: Agent?) { self.model = model; self.agent = agent; _form = State(initialValue:WorkspaceForm(agent:agent)) }
     private var valid: Bool {
         !form.name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && form.name.utf8.count <= 128 &&
-        !form.instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && form.instructions.utf8.count <= 16_384 &&
+        !form.instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && form.instructions.utf8.count <= AgentSheet.instructionLimit &&
         (model.modelCatalog.canSelect(form.exactModel) || agent?.binding.selectedModel == form.exactModel)
     }
+    @State private var showWorkshop = false
+    private var className: String { agent.map { PauseMenu.className(provider:$0.binding.provider,runtimes:model.runtimes) } ?? model.focusedRuntimeName }
     var body: some View {
         Form {
             #if DEBUG
             if model.isInteractiveFixture { InteractiveFixtureControls(model:model) }
             #endif
-            Section("Identity") {
-                TextField("Name",text:$form.name)
-                TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
-                Text("Describe this agent’s role, tone and preferences. Used as instructions for future messages; permissions and earlier turns stay unchanged.").font(.caption).foregroundStyle(.secondary)
-                Text("\(form.instructions.utf8.count) / 16,384 bytes").font(.caption).foregroundStyle(form.instructions.utf8.count > 16_384 ? .red : .secondary)
-            }
+            Section {
+                HStack(alignment:.center,spacing:16) {
+                    AgentAvatarView(avatar:form.avatar,size:96).padding(6).hudFrame()
+                    VStack(alignment:.leading,spacing:8) {
+                        TextField("Name",text:$form.name).font(.system(.title2,design:.rounded).weight(.black))
+                        HStack(spacing:6) {
+                            Text(className.uppercased()).font(.caption.weight(.heavy))
+                                .padding(.horizontal,6).padding(.vertical,2).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black)
+                            if agent != nil { Image(systemName:"lock.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Class locked") }
+                        }
+                    }
+                }
+                HStack(spacing:12) {
+                    ForEach(AgentAvatar.allCases) { avatar in
+                        Button { form.avatar = avatar } label: {
+                            AgentAvatarView(avatar:avatar,size:40).padding(4)
+                                .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(form.avatar == avatar ? HUDStyle.gold : .clear,lineWidth:2))
+                        }.buttonStyle(.plain).accessibilityLabel(avatar.name + (form.avatar == avatar ? ", selected" : ""))
+                    }
+                }
+            } header: { Text("Portrait") }
             #if os(macOS)
             if model.canManageProviderAccount && model.accountSignInStatus?.accountSelected != true {
                 AccountSignInView(model:model)
             }
             #endif
-            Section("Model") {
+            Section {
                 // Spec 064: a new Agent picks its provider once; an existing Agent shows the one it keeps.
                 if agent == nil && model.runtimes.count > 1 {
-                    Picker("Provider",selection:SwiftUI.Binding(get:{ model.focusedRuntime?.provider ?? "" },set:{ value in form.exactModel = ""; Task { await model.focusRuntime(value) } })) {
+                    Picker("Class",selection:SwiftUI.Binding(get:{ model.focusedRuntime?.provider ?? "" },set:{ value in form.exactModel = ""; Task { await model.focusRuntime(value) } })) {
                         ForEach(model.runtimes,id:\.provider) { runtime in Text(runtime.name).tag(runtime.provider) }
-                    }.disabled(!model.canChangeAccountProvider).accessibilityIdentifier("agent-provider")
-                    Text("An Agent keeps this provider for good. Fort never switches it to another.").font(.caption).foregroundStyle(.secondary)
+                    }.pickerStyle(.segmented).disabled(!model.canChangeAccountProvider).accessibilityIdentifier("agent-provider")
                 }
-                Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
-                Picker("Model",selection:$form.exactModel) {
-                    if form.exactModel.isEmpty { Text("Choose a model").tag("") }
-                    ForEach(model.modelCatalog.options(preserving:form.exactModel)) { choice in
-                        Text(choice.name + (choice.availability == "available" ? "" : choice.availability == "unchecked" ? " · not checked" : " · unavailable")).tag(choice.id).disabled(choice.availability != "available")
+                Text(agent == nil ? "An agent keeps its class for good. Fort never switches it to another." : "Locked to \(className). Fort never switches it to another.").font(.caption).foregroundStyle(.secondary)
+            } header: { Text("Class") }
+            Section {
+                let gear = AgentSheet.gear(model.modelCatalog.options(preserving:form.exactModel))
+                if gear.isEmpty { Text(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
+                ForEach(gear) { item in
+                    Button { form.exactModel = item.id } label: {
+                        HStack(spacing:10) {
+                            Image(systemName:form.exactModel == item.id ? "largecircle.fill.circle" : "circle").foregroundStyle(form.exactModel == item.id ? HUDStyle.gold : .secondary)
+                            VStack(alignment:.leading,spacing:2) {
+                                Text(item.name).font(.body.weight(.semibold))
+                                if let note = item.note { Text(note).font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Spacer(minLength:0)
+                        }.contentShape(Rectangle()).opacity(item.selectable || form.exactModel == item.id ? 1 : 0.5)
                     }
+                    .buttonStyle(.plain).disabled(!item.selectable)
+                    .accessibilityIdentifier("agent-gear-\(item.id)")
+                    .accessibilityAddTraits(form.exactModel == item.id ? .isSelected : [])
                 }
-                if let choice = model.modelCatalog.options(preserving:form.exactModel).first(where:{$0.id == form.exactModel}), let detail = choice.detail { Text(detail).font(.caption) }
-                if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
-                if model.modelCatalog.state == "ready" { Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Listed by the connected runtime. Availability is checked again when you send; Fort never substitutes another model.").font(.caption).foregroundStyle(.secondary) }
                 if let requirement = model.modelAccountRequirement { Text(requirement).font(.caption) }
-                Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(!model.canRefreshModels)
+            } header: { Text("Gear") } footer: {
+                Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Checked again when you send. Fort never swaps in another model.")
             }
-            Section("Avatar") {
-                HStack(spacing:18) {
-                    ForEach(AgentAvatar.allCases) { avatar in
-                        Button { form.avatar = avatar } label: {
-                            VStack { AgentAvatarView(avatar:avatar,size:56); Text(avatar.name).font(.caption); Image(systemName:form.avatar == avatar ? "checkmark.circle.fill" : "circle") }
-                        }.buttonStyle(.plain).accessibilityLabel(avatar.name + (form.avatar == avatar ? ", selected" : ""))
-                    }
+            Section {
+                TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
+                if let note = AgentSheet.sizeNote(form.instructions) {
+                    Text(note).font(.caption).foregroundStyle(form.instructions.utf8.count > AgentSheet.instructionLimit ? .red : .secondary)
                 }
-                Text("Bundled avatars animate gently and respect Reduce Motion.").font(.caption).foregroundStyle(.secondary)
+            } header: { Text(AgentSheet.instructionsTitle(name:form.name)) } footer: {
+                Text("Role, tone and preferences. Applies to future messages; permissions and earlier turns stay unchanged.")
             }
-            Text(model.status).font(.caption).foregroundStyle(.secondary)
+            Section {
+                WorkshopDrawer(isExpanded:$showWorkshop,identifier:"agent-workshop") {
+                    Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
+                    if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                    Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(!model.canRefreshModels)
+                    Text(model.status).font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }.formStyle(.grouped)
-        .navigationTitle(agent?.name ?? "New agent")
+        .navigationTitle(agent?.name ?? "Recruit")
         .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { if await form.save(using:model) { dismiss() } } }.disabled(!valid || model.workspaceSaving) } }
         .task {
             if let agent { await model.focusRuntime(agent.binding.provider) }
