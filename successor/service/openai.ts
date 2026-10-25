@@ -1159,7 +1159,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
               let outcome: { kind: 'drawn'; png: Buffer; width: number } | { kind: 'failed'; message: string };
               try {
                 const drawn = await started.runtime.portrait!({ account: started.account, model: started.agent.binding.selectedModel, subject: { name: started.agent.name, instructions: started.agent.instructions ?? '', ...(note ? { note } : {}) } }, listenerAbort.signal);
-                outcome = drawn.kind === 'drawn' ? { kind: 'drawn', png: drawn.png, width: drawn.width } : { kind: 'failed', message: drawn.message };
+                outcome = drawn.kind === 'drawn' ? { kind: 'drawn', png: drawn.png, width: Math.min(drawn.width, drawn.height) } : { kind: 'failed', message: drawn.message };
               } catch { outcome = { kind: 'failed', message: 'The portrait run failed. Nothing was saved.' }; }
               finally { portraitDrawing = false; runtimeOperations--; queueMicrotask(wake); }
               if (closed) return;

@@ -15,7 +15,7 @@ const png = portraitPng;
 const portraitFeatures = () => syntheticFeatures().map(feature => feature.name === 'image_generation' ? { ...feature, enabled: true } : feature);
 const request: PortraitRequest = { account: syntheticAccountIdentity, model: 'gpt-6-astra', subject: { name: 'Pascal', instructions: 'You ship Fort\'s code.', note: 'Short dark hair, waistcoat.' } };
 type Item = Record<string, unknown>;
-function transport(options: { items?: Item[]; features?: unknown[]; imageCapability?: boolean; account?: unknown; serverRequest?: boolean; status?: string } = {}) {
+function transport(options: { items?: Item[]; features?: unknown[]; imageCapability?: boolean; account?: unknown; serverRequest?: boolean; status?: string; models?: Item[]; reply?: string } = {}) {
   const output = new PassThrough({ highWaterMark: 64 * 1024 }); const calls: { method?: string; params?: Record<string, unknown>; id?: unknown }[] = []; let closed = false;
   const emit = (message: unknown) => output.write(JSON.stringify(message) + '\n');
   const stdin = new Writable({ write(chunk, _encoding, done) {
@@ -30,7 +30,7 @@ function transport(options: { items?: Item[]; features?: unknown[]; imageCapabil
         case 'permissionProfile/list': result({ data: [{ id: 'fort_candidate_b_no_files', description: null, allowed: true }], nextCursor: null }); break;
         case 'account/read': result(options.account ?? syntheticAccount()); break;
         case 'modelProvider/capabilities/read': result({ imageGeneration: options.imageCapability ?? true, webSearch: false }); break;
-        case 'model/list': result({ data: [{ id: 'gpt-6-astra', model: 'gpt-6-astra' }], nextCursor: null }); break;
+        case 'model/list': result({ data: options.models ?? [{ id: 'gpt-6-astra', model: 'gpt-6-astra' }], nextCursor: null }); break;
         case 'thread/start': result({ thread: { id: 'thread', ephemeral: true }, model: frame.params.model, modelProvider: 'openai', cwd: frame.params.cwd, approvalPolicy: 'untrusted', approvalsReviewer: 'user', activePermissionProfile: { id: 'fort_candidate_b_no_files', extends: null }, runtimeWorkspaceRoots: [], sandbox: { type: 'readOnly', networkAccess: false }, instructionSources: [] }); break;
         case 'turn/start': {
           result({ turn: { id: 'turn', status: 'inProgress' } });
@@ -39,7 +39,7 @@ function transport(options: { items?: Item[]; features?: unknown[]; imageCapabil
             emit({ method: 'item/started', params: { threadId: 'thread', turnId: 'turn', item: { ...item, result: '' } } });
             emit({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item } });
           }
-          emit({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item: { id: 'reply', type: 'agentMessage', phase: 'final_answer', text: 'Here is Pascal.' } } });
+          emit({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item: { id: 'reply', type: 'agentMessage', phase: 'final_answer', text: options.reply ?? 'Here is Pascal.' } } });
           emit({ method: 'turn/completed', params: { threadId: 'thread', turn: { id: 'turn', status: options.status ?? 'completed', error: null } } });
           break;
         }
@@ -117,13 +117,14 @@ test('a plan usage limit is reported as such and never retried', async () => {
   assert.equal(fixture.calls.filter(call => call.method === 'turn/start').length, 1);
 });
 
-test('missing, non-PNG, non-square and doubled images are not saved', async () => {
+test('non-PNG, badly shaped and doubled images are not saved', async () => {
   const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.alloc(64)]).toString('base64');
-  const wide = png(256); wide.writeUInt32BE(512, 16);
+  const wide = png(256); wide.writeUInt32BE(600, 16);
+  const tall = png(256); tall.writeUInt32BE(200, 16);
   const cases: [Item[], string][] = [
-    [[], 'noImage'],
     [[{ id: 'img', type: 'imageGeneration', status: 'completed', result: jpeg, failure: null }], 'invalidImage'],
     [[{ id: 'img', type: 'imageGeneration', status: 'completed', result: wide.toString('base64'), failure: null }], 'invalidImage'],
+    [[{ id: 'img', type: 'imageGeneration', status: 'completed', result: tall.toString('base64'), failure: null }], 'invalidImage'],
     [[{ id: 'a', type: 'imageGeneration', status: 'completed', result: png().toString('base64'), failure: null }, { id: 'b', type: 'imageGeneration', status: 'completed', result: png().toString('base64'), failure: null }], 'refused'],
   ];
   for (const [items, reason] of cases) {
@@ -176,4 +177,22 @@ test('the portrait launch plan enables image generation and keeps every other fe
 test('the default Codex connection still refuses a frame larger than 256 KiB', () => {
   assert.throws(() => new CodexConnection({ input: new PassThrough(), output: new PassThrough(), close() {} }, { frameLimit: 1024 }));
   assert.throws(() => new CodexConnection({ input: new PassThrough(), output: new PassThrough(), close() {} }, { frameLimit: 64 * 1024 * 1024 }));
+});
+
+test('a model Codex won’t give the image tool is refused before any turn, naming ones it will', async () => {
+  const fixture = transport({ models: [{ model: 'gpt-6-astra', inputModalities: ['text'] }, { model: 'gpt-6-luna', inputModalities: ['text', 'image'] }] }), result = await draw(fixture);
+  assert.equal(result.kind, 'notStarted');
+  if (result.kind === 'notStarted') assert.equal(result.message, 'Codex doesn’t offer its image tool to gpt-6-astra. Pick gpt-6-luna for this agent. Nothing was drawn.');
+  assert.equal(fixture.calls.some(call => call.method === 'thread/start'), false);
+});
+
+test('when Codex ends without an image, its own short reply says why', async () => {
+  const result = await draw(transport({ items: [], reply: 'I don’t have an image\n tool   here.' }));
+  assert.deepEqual(result, { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait. It said: “I don’t have an image tool here.”' });
+});
+
+test('a near-square image is kept, since Codex picks the size itself', async () => {
+  const portrait = png(256); portrait.writeUInt32BE(384, 20);
+  const result = await draw(transport({ items: [{ id: 'img', type: 'imageGeneration', status: 'completed', result: portrait.toString('base64'), failure: null }] }));
+  assert.deepEqual(result.kind === 'drawn' && [result.width, result.height], [256, 384]);
 });
