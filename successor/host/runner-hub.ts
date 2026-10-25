@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { ExecutionDispatch } from '../contracts/executor.ts';
+import { executionDigest, type ExecutionDispatch } from '../contracts/executor.ts';
+import { parseAccountIdentity } from '../contracts/account.ts';
+import type { AccountIdentity, AccountSignInOptions, AccountSignInResult, ModelCatalog } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from '../runner/chat-runtime.ts';
 import { terminal, validDispatch } from '../runner/executor-process.ts';
+import { parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from '../runner/executor-wire.ts';
+import { parseExecutorAccountFrame, type ExecutorAccountRequest } from '../runner/executor-account-wire.ts';
 
 // Hub side of the runner channel (Spec 063). A runner holds one outbound POST to /v1/runner/connect;
 // the hub streams lease, cancel and ping frames down it as NDJSON. The runner returns executor
@@ -10,8 +14,12 @@ import { terminal, validDispatch } from '../runner/executor-process.ts';
 type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number };
 type Connection = { runnerId: string; response: ServerResponse; leases: Set<string>; timer: ReturnType<typeof setInterval> };
 type Lease = { runnerId: string; connection: Connection; receive(frame: unknown): void; ended(): void; lost(): void };
+// One request leased to a runner: the executor wire request, its cancel frame, and how its evidence settles.
+type Exchange<T> = { request: object; cancel: object; deadline: number; receive(frame: unknown, settle: (value: T) => void): void; unknown(message: string): T };
 
 const FRAMES_BYTES = 1024 * 1024;
+// The Mac refuses a model request due more than 5 seconds out; a second of margin covers clock skew.
+const MODEL_WINDOW_MS = 4000;
 const TOKEN = /^Bearer ([A-Za-z0-9._~-]{1,512})$/;
 const OFFLINE = 'That Mac is not connected. Nothing was sent, and the turn was not moved to another machine.';
 
@@ -119,21 +127,61 @@ export class RunnerHub {
     if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before dispatch. Nothing was sent.' };
     if (dispatch.binding.hostId !== runnerId) return { kind: 'notStarted', message: 'This turn is pinned to a different Mac. Nothing was sent.' };
     if (!validDispatch(input, dispatch)) return { kind: 'notStarted', message: 'Execution scope, input, policy or deadline was not confirmed. Nothing was sent.' };
+    if (!this.connections.has(runnerId)) return { kind: 'notStarted', message: OFFLINE };
+    return this.lease<ChatResult>(runnerId, signal, {
+      request: { protocolVersion: 1, kind: 'dispatch', dispatch, input },
+      cancel: { protocolVersion: 1, kind: 'cancel', dispatchDigest: dispatch.dispatchDigest, attemptId: dispatch.attempt.attemptId, generation: dispatch.attempt.generation },
+      deadline: dispatch.deadline, receive: (frame, settle) => settle(terminal(frame, dispatch)),
+      unknown: message => ({ kind: 'outcomeUnknown', message }),
+    });
+  }
+
+  // Asks the Mac which models its signed-in account offers on this lane. Nothing is cached on the hub.
+  async models(binding: ExecutorBinding, signal: AbortSignal, account?: AccountIdentity): Promise<ModelCatalog> {
+    if (!this.connections.has(binding.hostId) || signal.aborted) return { provider: binding.provider, state: 'unavailable', models: [], detail: 'That Mac is not connected, so its models cannot be checked. Your selection has not changed.' };
+    const body = { ...(account ? { account: parseAccountIdentity(account) } : {}), protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding: { ...binding }, deadline: Date.now() + MODEL_WINDOW_MS } as const;
+    const request: ExecutorModelRequest = { ...body, requestDigest: executionDigest(body) };
+    return this.lease<ModelCatalog>(binding.hostId, signal, { request, deadline: request.deadline,
+      cancel: { protocolVersion: 1, kind: 'cancelModels', requestId: request.requestId, requestDigest: request.requestDigest },
+      receive: (frame, settle) => settle(parseExecutorModelFrame(frame, request)),
+      unknown: () => ({ provider: binding.provider, state: 'error', models: [], detail: 'The Mac did not confirm its models. Your selection has not changed.' }) });
+  }
+
+  // Confirms the account the Mac's runtime is signed in to. A browser sign-in, when one is needed,
+  // happens on the Mac; the challenge is passed back so the owner can see it.
+  async signIn(binding: ExecutorBinding, options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+    const { durationMs, onChallenge } = options;
+    if (!this.connections.has(binding.hostId) || signal.aborted || !Number.isSafeInteger(durationMs) || durationMs < 1 || durationMs > 115_000) return { kind: 'unconfirmed' };
+    const workDeadline = Date.now() + durationMs;
+    const body = { protocolVersion: 1, kind: 'accountSignIn', requestId: randomUUID(), binding: { ...binding }, workDeadline, deadline: workDeadline + 5000 } as const;
+    const request: ExecutorAccountRequest = { ...body, requestDigest: executionDigest(body) };
+    let offered = false;
+    return this.lease<AccountSignInResult>(binding.hostId, signal, { request, deadline: request.deadline,
+      cancel: { protocolVersion: 1, kind: 'cancelAccount', requestId: request.requestId, requestDigest: request.requestDigest },
+      receive: (frame, settle) => {
+        const parsed = parseExecutorAccountFrame(frame, request);
+        if (parsed.kind === 'result') { settle(parsed.value); return; }
+        if (offered) throw new Error('A second account challenge arrived');
+        offered = true; onChallenge({ ...parsed.value });
+      },
+      unknown: () => ({ kind: 'unconfirmed' }) });
+  }
+
+  private async lease<T>(runnerId: string, signal: AbortSignal, exchange: Exchange<T>): Promise<T> {
     const connection = this.connections.get(runnerId);
-    if (!connection) return { kind: 'notStarted', message: OFFLINE };
-    const leaseId = randomUUID(), outcome = Promise.withResolvers<ChatResult>();
-    const unknown = (message: string) => outcome.resolve({ kind: 'outcomeUnknown', message });
+    if (!connection) return exchange.unknown(OFFLINE);
+    const leaseId = randomUUID(), outcome = Promise.withResolvers<T>();
+    const unknown = (message: string) => outcome.resolve(exchange.unknown(message));
     this.leases.set(leaseId, { runnerId, connection,
-      receive: frame => { try { outcome.resolve(terminal(frame, dispatch)); } catch { unknown('The Mac returned evidence that could not be confirmed. Earlier effects remain unknown.'); } },
+      receive: frame => { try { exchange.receive(frame, outcome.resolve); } catch { unknown('The Mac returned evidence that could not be confirmed. Earlier effects remain unknown.'); } },
       ended: () => unknown('The Mac ended this turn without a confirmed reply. Earlier effects remain unknown.'),
       lost: () => unknown('The Mac disconnected before a reply was confirmed. Earlier effects remain unknown.') });
     connection.leases.add(leaseId);
-    const expiry = setTimeout(() => unknown('No confirmed reply arrived before the deadline. Earlier effects remain unknown.'), Math.max(1, dispatch.deadline - Date.now() + 1000));
-    const cancel = () => connection.response.writableEnded || connection.response.write(JSON.stringify({ kind: 'cancel', leaseId,
-      cancel: { protocolVersion: 1, kind: 'cancel', dispatchDigest: dispatch.dispatchDigest, attemptId: dispatch.attempt.attemptId, generation: dispatch.attempt.generation } }) + '\n');
+    const expiry = setTimeout(() => unknown('No confirmed reply arrived before the deadline. Earlier effects remain unknown.'), Math.max(1, exchange.deadline - Date.now() + 1000));
+    const cancel = () => connection.response.writableEnded || connection.response.write(JSON.stringify({ kind: 'cancel', leaseId, cancel: exchange.cancel }) + '\n');
     signal.addEventListener('abort', cancel, { once: true });
     try {
-      connection.response.write(JSON.stringify({ kind: 'lease', leaseId, request: { protocolVersion: 1, kind: 'dispatch', dispatch, input } }) + '\n');
+      connection.response.write(JSON.stringify({ kind: 'lease', leaseId, request: exchange.request }) + '\n');
       return await outcome.promise;
     } finally {
       clearTimeout(expiry); signal.removeEventListener('abort', cancel);
@@ -144,8 +192,14 @@ export class RunnerHub {
 
 // Sends each turn to the runner its binding pins (binding.hostId), never elsewhere. When that Mac is
 // offline the turn is refused at once, or after waiting up to waitMs for it to connect.
-export function routeByNode(hub: RunnerHub, options: { waitMs?: (dispatch: ExecutionDispatch) => number } = {}): ChatRuntime {
+// With a binding, the lane also checks models and confirms the Mac's signed-in account through the
+// channel, so the hub pins each turn to the account the Mac reports.
+export function routeByNode(hub: RunnerHub, options: { waitMs?: (dispatch: ExecutionDispatch) => number; binding?: ExecutorBinding } = {}): ChatRuntime {
+  const binding = options.binding && Object.freeze({ provider: options.binding.provider, runtimeVersion: options.binding.runtimeVersion, hostId: options.binding.hostId });
+  if (binding) validateExecutorBinding(binding);
   return {
+    ...(binding ? { models: (signal: AbortSignal, account?: AccountIdentity) => hub.models(binding, signal, account),
+      signIn: (request: AccountSignInOptions, signal: AbortSignal) => hub.signIn(binding, request, signal) } : {}),
     async execute(input, signal, dispatch) {
       const runnerId = dispatch.binding.hostId;
       const wait = Math.min(options.waitMs?.(dispatch) ?? 0, dispatch.deadline - Date.now());

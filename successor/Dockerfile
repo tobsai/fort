@@ -8,6 +8,7 @@ COPY modules modules
 COPY runner runner
 COPY service service
 COPY host host
+COPY web web
 ENV NODE_ENV=production FORT_DATA=/data
 EXPOSE 8080
 CMD ["node", "host/cloud-hub.ts"]

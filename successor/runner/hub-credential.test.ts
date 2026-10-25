@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Acceptance, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
+import type { Acceptance, AccountSignInStatus, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
 import { startCloudHub } from '../host/cloud-hub.ts';
 import { deleteHubCredential, enrollWithHub, readHubCredential, runAsRunner } from './hub-credential.ts';
 import type { RunnerStatus } from './hub-runner.ts';
@@ -44,9 +44,13 @@ test('a Mac enrolls, keeps its token in an owner-only file, and takes turns from
 
   const stop = new AbortController(), statuses: RunnerStatus['state'][] = [];
   const running = runAsRunner({ stateDirectory: h.state, binding, signal: stop.signal, onStatus: status => statuses.push(status.state),
-    createRuntime: () => ({ async execute(input) { seen.push(input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() {} }) });
+    createRuntime: () => ({ async execute(input) { seen.push(input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; },
+      async signIn() { return { kind: 'signedIn', account: { accountId: 'account', userLabel: 'owner@example.com' } }; }, async dispose() {} }) });
   t.after(async () => { stop.abort(); await running.catch(() => {}); });
   for (let index = 0; index < 200 && !statuses.includes('connected'); index++) await delay(10);
+  // The hub pins turns to the account the Mac reports, once the owner confirms it.
+  assert.equal((await h.call('/v1/account/sign-in/start', { operationId: randomUUID(), expectedRevision: 0, recoveryEpoch: h.hub.installation.recoveryEpoch, expiresAt: Date.now() + 60_000 })).status, 200);
+  for (let index = 0; index < 200 && (await h.call<AccountSignInStatus>('/v1/account/sign-in')).body.state !== 'finished'; index++) await delay(10);
   const agent = (await h.call<Agent>('/v1/agents', { name: 'Remote', model: 'exact-model', instructions: 'Echo.' })).body;
   const requestId = randomUUID();
   await h.call(`/v1/conversations/${agent.homeConversationId}/messages`, { requestId, text: 'from the cloud', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.hub.installation.recoveryEpoch, skills: [] });
