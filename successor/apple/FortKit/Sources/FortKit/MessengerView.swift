@@ -8,6 +8,7 @@ public struct MessengerView: View {
     @State private var showImageImporter = false
     @State private var showMenu = false
     @State private var menuTab: PauseTab?
+    @State private var showChatDetails = false
     @AppStorage("fort.showCity") private var showCity = true
     @Environment(\.scenePhase) private var scenePhase
     public init(model: MessengerModel) { self.model = model }
@@ -16,21 +17,21 @@ public struct MessengerView: View {
         if showCity && model.supportsWeeks { CityHUDView(model:model,showMessages:{ showCity = false },openMenu:{ openMenu(nil) }) } else {
         NavigationSplitView {
             List(selection:SwiftUI.Binding(get:{ model.hasWorkspace ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.hasWorkspace { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
-                Section("Your Agents") {
+                Section("Crew") {
                     ForEach(model.agents) { agent in
                         NavigationLink(value:model.hasWorkspace ? agent.homeConversationId : agent.agentId) {
                             HStack(spacing:10) {
-                            AgentPortraitView(model:model,agent:agent)
-                            VStack(alignment:.leading,spacing:4) {
-                                Text(agent.name).font(.headline)
-                                Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary)
+                            AgentPortraitView(model:model,agent:agent,size:36)
+                            VStack(alignment:.leading,spacing:2) {
+                                Text(agent.name.uppercased()).font(.system(.callout,design:.rounded).weight(.black)).lineLimit(1)
+                                Text(PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes)).font(.caption2.weight(.heavy)).foregroundStyle(HUDStyle.gold)
                             }
                             }
                         }.tag(model.hasWorkspace ? agent.homeConversationId : agent.agentId)
                     }
                 }
                 if model.hasWorkspace {
-                    Section("Shared conversations") { ForEach(model.conversations.filter { $0.kind == "shared" }) { room in NavigationLink(room.name,value:room.id).tag(room.id) } }
+                    Section("Shared") { ForEach(model.conversations.filter { $0.kind == "shared" }) { room in NavigationLink(room.name,value:room.id).tag(room.id) } }
                 }
             }
             .navigationTitle(model.isInteractiveFixture ? "Fort QA · First wave" : "Fort")
@@ -91,24 +92,47 @@ public struct MessengerView: View {
     private func openMenu(_ tab: PauseTab?) { menuTab = tab; showMenu = true }
 
     private var conversationHeader: some View {
-                VStack(alignment:.leading,spacing:6) {
-                    Label(model.isInteractiveFixture ? "Interactive QA · simulated models and replies · no network" : model.isOfflinePreview ? "Offline preview · sample conversation" : model.hasWorkspace ? "Local prototype · provider review required" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
-                    if let agent = model.recipient {
-                        Text(agent.name).font(.title2.bold())
-                        Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
+        let header = ChatQuiet.header(connected:model.connected,preview:model.isOfflinePreview || model.isInteractiveFixture,runtimeState:model.runtimeReadiness?.state,status:model.status)
+        return VStack(alignment:.leading,spacing:8) {
+            if model.isInteractiveFixture || model.isOfflinePreview || !model.hasWorkspace {
+                Label(model.isInteractiveFixture ? "Interactive QA · simulated models and replies · no network" : model.isOfflinePreview ? "Offline preview · sample conversation" : "Development fixture · no live provider",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
+            }
+            HStack(spacing:12) {
+                if let agent = model.recipient {
+                    AgentPortraitView(model:model,agent:agent,size:44)
+                    VStack(alignment:.leading,spacing:2) {
+                        Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black))
+                        HStack(spacing:6) {
+                            Text(PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes).uppercased()).font(.caption2.weight(.heavy))
+                                .padding(.horizontal,5).padding(.vertical,1).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black)
+                            if let memory = model.conversationMemory, !memory.text.isEmpty { Label("Notebook",systemImage:"book.closed").font(.caption2).foregroundStyle(.secondary) }
+                        }
                     }
-                    if let memory = model.conversationMemory, !memory.text.isEmpty { Text("This conversation has a notebook").font(.caption).foregroundStyle(.secondary) }
-                    if let runtime = model.runtimeReadiness {
-                        CopyableText(runtime.detail).font(.caption).foregroundStyle(.secondary)
-                        if runtime.state == "restartRequired" && (model.installation?.supports("ownerPairing") != true || model.canControlHost) { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
-                        if runtime.state == "stopped" && model.canManagePairing { Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork) }
-                    }
-                    if let scheduler = model.schedulerStatus, scheduler.state == "fault" {
-                        CopyableText(scheduler.detail ?? "Schedules need attention.",id:"scheduler-fault").font(.callout).foregroundStyle(.orange)
-                    }
-                    CopyableText(model.status,id:"connection-status").font(.callout)
-                }.frame(maxWidth:.infinity,alignment:.leading).padding()
-
+                } else if let conversation = model.selectedConversation {
+                    Text(conversation.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black))
+                }
+                Spacer(minLength:8)
+                HStack(spacing:6) {
+                    LampView(lamp:header.lamp)
+                    Text(header.line).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }.accessibilityElement(children:.combine)
+            }
+            WorkshopDrawer(isExpanded:$showChatDetails,identifier:"chat-details") {
+                if model.hasWorkspace && !model.isInteractiveFixture && !model.isOfflinePreview {
+                    Label("Local prototype · provider review required",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
+                }
+                if let agent = model.recipient { Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary) }
+                if let runtime = model.runtimeReadiness {
+                    CopyableText(runtime.detail).font(.caption).foregroundStyle(.secondary)
+                    if runtime.state == "restartRequired" && (model.installation?.supports("ownerPairing") != true || model.canControlHost) { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
+                    if runtime.state == "stopped" && model.canManagePairing { Button("Resume local work") { Task { await model.restartRuntime() } }.disabled(!model.canResumeLocalWork) }
+                }
+                if let scheduler = model.schedulerStatus, scheduler.state == "fault" {
+                    CopyableText(scheduler.detail ?? "Schedules need attention.",id:"scheduler-fault").font(.callout).foregroundStyle(.orange)
+                }
+                CopyableText(model.status,id:"connection-status").font(.callout)
+            }
+        }.frame(maxWidth:.infinity,alignment:.leading).padding()
     }
     private var conversationHistory: some View {
         ScrollViewReader { position in
@@ -135,7 +159,7 @@ public struct MessengerView: View {
                         case .message(let message):
                             messageRow(message)
                             ForEach(model.localImages.filter { $0.afterSequence == message.sequence }) { image in LocalImageCard(image:image) { model.removeLocalImage(image) } }
-                        case .run(let run): runRow(run)
+                        case .run(let run): if ChatQuiet.showsRun(state:run.state,isRoutine:run.routine != nil) { runRow(run) }
                         case .approval(let approval): approvalRow(approval)
                         }
                     }
@@ -153,17 +177,25 @@ public struct MessengerView: View {
         }
     }
     private func messageRow(_ message: Message) -> some View {
-        VStack(alignment:.leading,spacing:5) {
-            Text(message.role == "user" ? message.recipientAgentName.map { "You → \($0)" } ?? "You" : message.agentName ?? "Fixture Agent").font(.caption.bold()).foregroundStyle(.secondary)
-            Text(message.text).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
-            if let image = message.image { ConversationImageView(model:model,image:image) }
-            if model.isDrawingImage(message) { Label("Drawing on your ChatGPT plan…",systemImage:"paintbrush").font(.caption).foregroundStyle(.secondary) }
+        let mine = message.role == "user"
+        let author = model.agents.first(where:{ $0.name == message.agentName })
+        return HStack(alignment:.top,spacing:8) {
+            if mine { Spacer(minLength:60) } else if let author { AgentPortraitView(model:model,agent:author,size:28) } else { AgentAvatarView(avatar:.orbit,size:28) }
+            VStack(alignment:.leading,spacing:5) {
+                Text(mine ? message.recipientAgentName.map { "You → \($0)" } ?? "You" : (message.agentName ?? "Fixture Agent").uppercased())
+                    .font(.system(.caption,design:.rounded).weight(.heavy)).foregroundStyle(mine ? Color.secondary : HUDStyle.gold)
+                Text(message.text).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                if let image = message.image { ConversationImageView(model:model,image:image) }
+                if model.isDrawingImage(message) { Label("Drawing on your ChatGPT plan…",systemImage:"paintbrush").font(.caption).foregroundStyle(.secondary) }
+            }
+            .padding(12)
+            .background(mine ? HUDStyle.gold.opacity(0.14) : Color.secondary.opacity(0.08),in:RoundedRectangle(cornerRadius:10))
+            .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(mine ? HUDStyle.gold.opacity(0.35) : Color.secondary.opacity(0.2),lineWidth:1))
+            .accessibilityElement(children:.combine)
+            .accessibilityIdentifier("message-" + message.id)
+            .accessibilityLabel(Text("\(mine ? "You" : message.agentName ?? "Fixture Agent")\n\(message.text)"))
+            if !mine { Spacer(minLength:60) }
         }
-        .padding(12)
-        .background(message.role == "user" ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
-        .accessibilityElement(children:.combine)
-        .accessibilityIdentifier("message-" + message.id)
-        .accessibilityLabel(Text("\(message.role == "user" ? "You" : message.agentName ?? "Fixture Agent")\n\(message.text)"))
         .task { await model.markRead(message) }
     }
     private func runRow(_ run: Run) -> some View {
@@ -259,7 +291,7 @@ public struct MessengerView: View {
                     #else
                     TextField("Message your Agent",text:$model.draft,axis:.vertical).autocorrectionDisabled().lineLimit(1...6).textFieldStyle(.plain).padding(10).background(.quaternary,in:RoundedRectangle(cornerRadius:10)).accessibilityLabel("Message").accessibilityIdentifier("message-composer").disabled(model.isOfflinePreview)
                     #endif
-                    Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
+                    Button("Send",systemImage:"arrow.up.circle.fill") { Task { await model.send() } }.modifier(GoldButton(on:true)).disabled(!model.canSend).keyboardShortcut(.return,modifiers:.command).accessibilityIdentifier("send-message")
                 }
         }.padding()
     }

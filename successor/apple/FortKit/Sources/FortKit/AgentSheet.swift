@@ -30,6 +30,18 @@ enum AgentSheet {
         return nil
     }
 
+    /// Why Save is greyed out, in plain words, or nil when the agent can be saved.
+    static func missing(name: String, instructions: String, modelReady: Bool) -> String? {
+        var needs: [String] = []
+        let trimmedName = name.trimmingCharacters(in:.whitespacesAndNewlines)
+        if trimmedName.isEmpty { needs.append("a name") } else if name.utf8.count > 128 { needs.append("a shorter name") }
+        if instructions.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty { needs.append("instructions") } else if instructions.utf8.count > instructionLimit { needs.append("shorter instructions") }
+        if !modelReady { needs.append("available gear") }
+        guard !needs.isEmpty else { return nil }
+        let list = needs.count == 1 ? needs[0] : needs.dropLast().joined(separator:", ") + " and " + needs.last!
+        return "To save, add \(list)."
+    }
+
     static func instructionsTitle(name: String) -> String {
         let trimmed = name.trimmingCharacters(in:.whitespacesAndNewlines)
         return "How \(trimmed.isEmpty ? "this agent" : trimmed) should work"

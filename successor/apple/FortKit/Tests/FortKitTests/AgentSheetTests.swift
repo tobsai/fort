@@ -32,3 +32,10 @@ import Testing
     #expect(JoinPanel.make(address:"https://fort.example:8443",code:"secret",hasPending:false) == .ready(host:"fort.example"))
     #expect(JoinPanel.make(address:"",code:"",hasPending:true) == .pending)
 }
+
+@Test func agentSheetSaysWhatSaveIsWaitingFor() {
+    #expect(AgentSheet.missing(name:"Scout",instructions:"Be brief.",modelReady:true) == nil)
+    #expect(AgentSheet.missing(name:" ",instructions:"Be brief.",modelReady:true) == "To save, add a name.")
+    #expect(AgentSheet.missing(name:"",instructions:"",modelReady:false) == "To save, add a name, instructions and available gear.")
+    #expect(AgentSheet.missing(name:String(repeating:"a",count:129),instructions:"x",modelReady:true) == "To save, add a shorter name.")
+}
