@@ -38,7 +38,7 @@ struct WorkspaceEditor: View {
                     Text("Choose one recipient when sending each message.").font(.caption)
                 } else {
                     Section(kind == "Skill" ? "Instruction skill" : "Agent instructions") {
-                        TextEditor(text:$form.instructions).frame(minHeight:130).accessibilityLabel("Instructions")
+                        MarkdownEditor(text:$form.instructions,placeholder:"Instructions",minHeight:130,accessibilityLabel:"Instructions")
                     }
                     if kind == "Skill" { Text("Saving creates a complete private instruction bundle. Review and enable its exact revision before selecting it for a message or routine.").font(.caption) }
                 }
@@ -107,7 +107,7 @@ struct ConversationMemoryEditor: View {
         NavigationStack {
             Form {
                 Text("Write notes you want the selected agents to use in this conversation. Other conversations keep their own notes.").font(.callout)
-                TextEditor(text:$form.text).frame(minHeight:180).accessibilityLabel("Conversation memory notes")
+                MarkdownEditor(text:$form.text,placeholder:"Notes for this conversation",minHeight:180,accessibilityLabel:"Conversation memory notes")
                 Text("Applies to future chat messages. Clearing these notes keeps earlier messages and the memory recorded with accepted turns. Routines keep their saved plan.").font(.caption).foregroundStyle(.secondary)
                 Text("\(form.text.utf8.count) of 8192 bytes").font(.caption)
                 Button("Clear notes") { form.text = "" }.disabled(model.workspaceSaving)

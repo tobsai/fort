@@ -121,11 +121,16 @@ struct CityHUDView: View {
             VStack(alignment:.leading,spacing:8) {
                 HStack { Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black)).foregroundStyle(HUDStyle.gold); Spacer(); Button("Close",systemImage:"xmark") { talkingTo = nil }.labelStyle(.iconOnly).keyboardShortcut(.cancelAction) }
                 if messages.isEmpty { Text("Say something to \(agent.name).").foregroundStyle(.secondary) }
+                // Every line says who wrote it, so an Agent's words never pass for Toby's.
                 ForEach(messages) { message in
-                    Text(message.text).font(.callout).foregroundStyle(message.role == "user" ? .secondary : .primary).lineLimit(4).frame(maxWidth:.infinity,alignment:message.role == "user" ? .trailing : .leading)
+                    let mine = message.role == "user"
+                    VStack(alignment:mine ? .trailing : .leading,spacing:1) {
+                        Text(mine ? "YOU" : agent.name.uppercased()).font(.caption2.weight(.heavy)).foregroundStyle(mine ? Color.secondary : HUDStyle.gold)
+                        Text(message.text).font(.callout).foregroundStyle(mine ? .secondary : .primary).lineLimit(4)
+                    }.frame(maxWidth:.infinity,alignment:mine ? .trailing : .leading)
                 }
                 HStack {
-                    TextField("Message \(agent.name)",text:$model.draft).textFieldStyle(.roundedBorder).onSubmit(send).accessibilityIdentifier("hud-composer")
+                    TextField("Message \(agent.name)",text:$model.draft).fortInput().onSubmit(send).accessibilityIdentifier("hud-composer")
                     Button("Send",action:send).buttonStyle(.borderedProminent).disabled(!model.canSend)
                 }
             }

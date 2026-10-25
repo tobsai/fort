@@ -88,7 +88,7 @@ struct PlannerView: View {
         ForEach($draft.goals) { $goal in
             HStack(spacing:10) {
                 Button { draft.mainGoalID = goal.id } label: { Image(systemName:draft.mainGoalID == goal.id ? "star.fill" : "star") }.buttonStyle(.plain).foregroundStyle(HUDStyle.gold).accessibilityLabel("Main quest")
-                TextField("Goal",text:$goal.text).textFieldStyle(.roundedBorder)
+                TextField("Goal",text:$goal.text).fortInput()
                 Picker("Zone",selection:$goal.zone) { ForEach(WeekZone.allCases,id:\.self) { Text(zoneName($0)).tag($0) } }.labelsHidden().frame(width:110)
                 Picker("Lead",selection:$goal.lead) { ownerOptions }.labelsHidden().frame(width:120)
                 if goal.carriedFrom != nil { Text("CARRIED").font(.caption2.weight(.heavy)).foregroundStyle(.secondary) }
@@ -97,7 +97,7 @@ struct PlannerView: View {
         }
         if draft.goals.count < PlanDraft.maximumGoals {
             HStack {
-                TextField("Add a goal, like “Ship the beta”",text:$newGoal).textFieldStyle(.roundedBorder).onSubmit(addGoal).accessibilityIdentifier("planner-new-goal")
+                TextField("Add a goal, like “Ship the beta”",text:$newGoal).fortInput().onSubmit(addGoal).accessibilityIdentifier("planner-new-goal")
                 Button("Add",action:addGoal).disabled(newGoal.trimmingCharacters(in:.whitespaces).isEmpty)
             }
         }
@@ -116,14 +116,14 @@ struct PlannerView: View {
                 }
                 ForEach($draft.tasks.filter { $0.wrappedValue.goalID == goal.id }) { $task in
                     HStack(spacing:8) {
-                        TextField("Task",text:$task.text).textFieldStyle(.roundedBorder)
+                        TextField("Task",text:$task.text).fortInput()
                         Picker("Size",selection:$task.size) { ForEach(WeekSize.allCases,id:\.self) { Text("\($0.rawValue.capitalized) \($0.points)").tag($0) } }.labelsHidden().frame(width:140)
                         Picker("Owner",selection:$task.owner) { ownerOptions }.labelsHidden().frame(width:120)
                         Button("Remove",systemImage:"xmark") { draft.removeTask(task.id) }.labelStyle(.iconOnly).buttonStyle(.borderless)
                     }
                 }
                 HStack {
-                    TextField("Add a task",text:SwiftUI.Binding(get:{ newTasks[goal.id] ?? "" },set:{ newTasks[goal.id] = $0 })).textFieldStyle(.roundedBorder).onSubmit { addTask(goal) }
+                    TextField("Add a task",text:SwiftUI.Binding(get:{ newTasks[goal.id] ?? "" },set:{ newTasks[goal.id] = $0 })).fortInput().onSubmit { addTask(goal) }
                     Button("Add") { addTask(goal) }.disabled((newTasks[goal.id] ?? "").trimmingCharacters(in:.whitespaces).isEmpty)
                 }
             }.padding(12).background(.black.opacity(0.25),in:RoundedRectangle(cornerRadius:8))
@@ -132,7 +132,7 @@ struct PlannerView: View {
     }
 
     @ViewBuilder private var found: some View {
-        TextField("City name",text:$draft.name).textFieldStyle(.roundedBorder).font(.title3).accessibilityIdentifier("planner-city-name")
+        TextField("City name",text:$draft.name).font(.title3).fortInput().accessibilityIdentifier("planner-city-name")
         Text("Starts \(draft.startsOn) · \(draft.goals.count) \(draft.goals.count == 1 ? "goal" : "goals") · \(draft.tasks.count) \(draft.tasks.count == 1 ? "task" : "tasks") on the blueprint").foregroundStyle(.secondary)
         if let live = model.liveWeek { Text("Founding closes Week \(live.number) · \(live.name). Its open tasks are already carried over here.").font(.callout).foregroundStyle(.orange) }
         ForEach(draft.problems,id:\.self) { Label($0,systemImage:"exclamationmark.triangle").foregroundStyle(.orange) }

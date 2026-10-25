@@ -119,7 +119,7 @@ private struct RoutineEditor: View {
                     Text("Binding: " + form.definition.bindingRevisionId).font(.caption).textSelection(.enabled)
                     if let agent = form.boundAgent ?? model.agents.first(where:{$0.binding.bindingRevisionId == form.definition.bindingRevisionId}) { Text("Pinned \(agent.name) · \(agent.binding.selectedModel)") }
                     Menu("Choose current Agent revision") { ForEach(model.agents.filter(\.binding.enabled)) { agent in Button("\(agent.name) · \(agent.binding.selectedModel)") { form.bind(agent) } } }
-                    TextEditor(text:$form.definition.instructions).frame(minHeight:80).accessibilityLabel("Routine instructions")
+                    MarkdownEditor(text:$form.definition.instructions,placeholder:"What this routine does",minHeight:80,accessibilityLabel:"Routine instructions")
                 }
                 Section("Typed inputs") {
                     ForEach(form.definition.inputs.indices,id:\.self) { index in
@@ -168,7 +168,7 @@ private struct RoutineEditor: View {
         Section("Step \(index+1) · \(form.definition.steps[index].type)") {
             TextField("Step name",text:$form.definition.steps[index].name)
             if form.definition.steps[index].type == "task" {
-                TextEditor(text:SwiftUI.Binding(get:{ form.definition.steps[index].instructions ?? "" },set:{ form.definition.steps[index].instructions = $0 })).frame(minHeight:80).accessibilityLabel("Task instructions")
+                MarkdownEditor(text:SwiftUI.Binding(get:{ form.definition.steps[index].instructions ?? "" },set:{ form.definition.steps[index].instructions = $0 }),placeholder:"What this step does",minHeight:80,accessibilityLabel:"Task instructions")
                 ForEach(form.definition.inputs,id:\.name) { input in referenceToggle(input.name,index:index,output:false,label:"Read input: " + input.name) }
                 ForEach(form.definition.steps.prefix(index).filter { $0.type == "task" }) { step in referenceToggle(step.id,index:index,output:true,label:"Read output: " + step.name) }
             } else { TextField("Approval question",text:SwiftUI.Binding(get:{ form.definition.steps[index].prompt ?? "" },set:{ form.definition.steps[index].prompt = $0 })) }
