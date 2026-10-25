@@ -8,7 +8,7 @@ import { servePrivateChannel } from './private-channel.ts';
 import type {SecureNetworkControl} from '../contracts/secure-network.ts';
 
 type CoreOptions = Parameters<typeof createApplication>[0];
-export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 'context' | 'attemptTimeoutMs' | 'ownerPairingPolicy'> & {
+export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 'context' | 'attemptTimeoutMs' | 'ownerPairingPolicy' | 'hubRunner'> & {
   runtime: ChatRuntime;
   // Other runtimes this host serves beside the primary (Spec 064).
   runtimes?: readonly { provider: RuntimeDescriptor; runtime: ChatRuntime }[];
@@ -22,7 +22,7 @@ export type OwnedCoreOptions = Pick<CoreOptions, 'dataDirectory' | 'provider' | 
 };
 
 export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
-  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode, ready, runtimes = [] } = options;
+  const { runtime, dataDirectory, provider, context, attemptTimeoutMs, ownerPairingPolicy, start = 'restore', input, output, signal, network:networkMode, ready, runtimes = [], hubRunner } = options;
   if (!runtime || typeof runtime.execute !== 'function' || typeof runtime.dispose !== 'function') throw new Error('Select an explicit owned runtime');
   let service: ReturnType<typeof createApplication> | undefined;
   let network:SecureNetworkControl|undefined;
@@ -34,7 +34,7 @@ export async function serveOwnedCore(options: OwnedCoreOptions): Promise<void> {
     const directory = lstatSync(dataDirectory);
     if (!directory.isDirectory() || !process.getuid || directory.uid !== process.getuid() || (directory.mode & 0o077) !== 0
       || realpathSync(dataDirectory) !== realpathSync(process.cwd())) throw new Error('The owned core requires its private ledger working directory');
-    service = createApplication({ dataDirectory, provider, runtime, runtimes, context, attemptTimeoutMs, autoRun: true,
+    service = createApplication({ dataDirectory, provider, runtime, runtimes, context, attemptTimeoutMs, autoRun: true, ...(hubRunner ? { hubRunner } : {}),
       ...(networkMode==='explicit'?{ownerAccessChanged:()=>{void network?.reconcileOwner().catch(()=>{});}}:{}),
       ownerPairingPolicy: ownerPairingPolicy ?? { expiresAfterDays: null } });
     await service.start({ listener: { kind: 'privateSocket', name: 'core.sock' }, signal, resumeOwnerHost: start === 'resume' });

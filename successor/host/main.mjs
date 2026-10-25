@@ -1,9 +1,11 @@
 import { renameSync, rmSync, writeFileSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serveOwnedCore } from './core/host/owned-core.js';
 import { createPrivateCodexExecutorProcess, CODEX_RUNTIME } from './executor/runner/codex-executor.js';
 import { createClaudeCodeHost, selectedClaudeCode, watchClaudeCodeSelection } from './executor/runner/claude-code-host.js';
+import { macHubRunner, sharedRuntime } from './executor/runner/mac-hub-runner.js';
 import { LOCAL_CONTEXT } from './context/modules/local-context.js';
 
 // The helper discards stderr, so a startup problem leaves its reason here for the app to show. Only errors raised before
@@ -44,8 +46,22 @@ try {
   // Turning Claude on or off in the app ends this host cleanly; the helper exits with it, and macOS starts a new one with
   // the new choice on the app's next request.
   watchClaudeCodeSelection(process.cwd(), () => { note('Claude was turned ' + (claude ? 'off' : 'on') + ', restarting'); stop(); });
-  await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: codex, runtimes, context: LOCAL_CONTEXT, network: 'explicit',
-    input: process.stdin, output: process.stdout, signal: controller.signal, ready: () => { serving = true; note('serving ' + (runtimes.length ? 'ChatGPT and Claude' : 'ChatGPT only')); } });
+  // Spec 063: once the owner enrolls this Mac with a cloud hub, the same runtimes also take the hub's turns, under this
+  // Mac's runner ID. ChatGPT gets its own executor for that ID; Claude's runtime is shared with the local core.
+  const hub = macHubRunner({ stateDirectory: process.cwd(), runnerName: hostname().replace(/\.local$/, '').slice(0, 128) || 'Mac',
+    lanes: runnerId => [
+      { binding: { provider: CODEX_RUNTIME.provider, runtimeVersion: CODEX_RUNTIME.runtimeVersion, hostId: runnerId },
+        createRuntime: sharedRuntime(createPrivateCodexExecutorProcess({ executable: fileURLToPath(new URL('../../MacOS/codex', import.meta.url)), guardian,
+          directory: join(process.cwd(), 'Runtime'), hostId: runnerId })) },
+      ...runtimes.map(lane => ({ binding: { provider: lane.provider.provider, runtimeVersion: lane.provider.runtimeVersion, hostId: runnerId }, createRuntime: sharedRuntime(lane.runtime) })),
+    ] });
+  try {
+    await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: codex, runtimes, context: LOCAL_CONTEXT, network: 'explicit', hubRunner: hub,
+      input: process.stdin, output: process.stdout, signal: controller.signal, ready: () => {
+        serving = true; note('serving ' + (runtimes.length ? 'ChatGPT and Claude' : 'ChatGPT only'));
+        void hub.start().then(status => { if (status.state !== 'notEnrolled') note('connecting to the cloud hub as ' + status.runnerId); }, error => note('cloud hub runner could not start: ' + (error instanceof Error ? error.message : 'unknown error')));
+      } });
+  } finally { await hub.stop(); }
 } catch (error) {
   process.stderr.write('Fort host could not start or finish safely.\n');
   note((serving ? 'stopped after an error: ' : 'could not start: ') + (error instanceof Error ? error.message : 'unknown error'));

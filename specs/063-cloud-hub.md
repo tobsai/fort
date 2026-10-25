@@ -152,7 +152,13 @@ What changes:
   which shows the existing `fort-invite:` text with the hub's https address, and the
   iPhone pairs as the companion.
 
-Still to do, in order: the Mac runner entry (the helper runs runner mode with both lanes
-and stays up while the Mac is awake; keeping it up when no window is open needs a login
-item, which needs Toby's OK), verified on his Mac; then ledger migration with a hostId
-rewrite to the runner ID; then the Mac app as a hub client.
+**Mac runner.** Beside its local core, the helper keeps one runner connection for all its
+runtimes once the owner pastes the hub's `fort-runner:` invitation (which names the
+runner ID) under Devices, Cloud hub. The local core gains owner-only `/v1/hub/runner`
+routes for status, enroll and remove. ChatGPT gets a second executor under the runner
+ID; Claude's runtime is shared with the local core. The connection lives only as long as
+the helper does, so no new login item or startup registration is added. Keeping the Mac
+reachable with no Fort window open would need one, and that needs Toby's OK.
+
+Still to do, in order: verify the runner on Toby's Mac; then ledger migration with a
+hostId rewrite to the runner ID; then the Mac app as a hub client.

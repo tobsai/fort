@@ -397,6 +397,9 @@ import Observation
     public internal(set) var phoneListener: MacNetworkListener?
     public internal(set) var phonePairing: CompanionPairingState?
     public internal(set) var phoneInvitation: CompanionInvitationLink?
+    public internal(set) var hubRunner: HubRunnerStatus?
+    public internal(set) var hubRunnerBusy = false
+    public internal(set) var hubRunnerMessage = ""
     #endif
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
@@ -1312,6 +1315,25 @@ import Observation
 
 #if os(macOS)
 extension MessengerModel {
+    // Spec 063: this Mac as a runner for a cloud hub, so the phone and the web reach Fort without this Mac's network.
+    public func refreshHubRunner() async {
+        guard canManagePhoneAccess, let client else { return }
+        do { hubRunner = try await client.hubRunnerStatus() }
+        catch { hubRunner = nil; hubRunnerMessage = "This Mac's Fort host doesn't offer a cloud hub connection yet. Update Fort, then try again." }
+    }
+    public func enrollHubRunner(invitation: String) async {
+        guard canManagePhoneAccess, let client, !hubRunnerBusy else { return }
+        hubRunnerBusy = true; defer { hubRunnerBusy = false }
+        do { hubRunner = try await client.enrollHubRunner(invitation:invitation.trimmingCharacters(in:.whitespacesAndNewlines)); hubRunnerMessage = "Enrolled. This Mac now takes the hub's turns while Fort is running." }
+        catch ClientError.service(_, let reason) { hubRunnerMessage = reason }
+        catch { hubRunnerMessage = "The enrollment couldn't be confirmed. Ask the hub for a new invitation and try again." }
+    }
+    public func removeHubRunner() async {
+        guard canManagePhoneAccess, let client, !hubRunnerBusy else { return }
+        hubRunnerBusy = true; defer { hubRunnerBusy = false }
+        do { hubRunner = try await client.removeHubRunner(); hubRunnerMessage = "This Mac no longer takes the hub's turns. Remove it in the hub's Setup too." }
+        catch { hubRunnerMessage = "Disconnecting from the hub couldn't be confirmed." }
+    }
     public var canManagePhoneAccess: Bool { canControlHost && !isOfflinePreview && !isInteractiveFixture && client != nil }
     public var phoneListenerActive: Bool { if case .active = phoneListener { true } else { false } }
     private var phoneAccess: MacPhoneAccess { MacPhoneAccess(directory:storage.directory) }
