@@ -460,7 +460,11 @@ import Observation
     public var connected = false
     /// The last check with the host failed. Cleared when a sync succeeds; never set by launch, previews, fixtures or unpairing.
     private(set) var contactFailed = false
-    var hasLostContact: Bool { contactFailed && !connected && !pairingRemoved && !isOfflinePreview && !isInteractiveFixture }
+    var hasLostContact: Bool { contactFailed && !connected && !pairingRemoved && !isOfflinePreview && !isInteractiveFixture && !googleSignInNeeded }
+    /// The hub answered that it wants this device's Google sign-in first (Spec 066).
+    public private(set) var googleSignInNeeded = false
+    public private(set) var googleSignInBusy = false
+    public private(set) var googleSignInMessage: String?
     public var showConnection = true
     private let storage: DeviceStorage
     private let session: URLSession
@@ -969,7 +973,7 @@ import Observation
             if case ClientError.service(let code,_) = error, ["cursorExpired","recoveryEpochChanged"].contains(code) {
                 eventCursor = nil; await refresh()
             } else {
-                connected = false; contactFailed = true; status = error.localizedDescription
+                connected = false; contactFailed = true; status = error.localizedDescription; noteSignInRequired(error)
                 try? await Task.sleep(for:.seconds(5))
             }
         }
@@ -1023,13 +1027,28 @@ import Observation
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
             eventCursor = current.eventCursor
-            loadLocalImages();connected = true; contactFailed = false
+            loadLocalImages();connected = true; contactFailed = false; googleSignInNeeded = false
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
             if isInteractiveFixture && pendingErrors.isEmpty { status = "Interactive QA · simulated replies · no network or credentials" }
         } catch {
-            connected = false; contactFailed = true; status = error.localizedDescription
+            connected = false; contactFailed = true; status = error.localizedDescription; noteSignInRequired(error)
             if snapshot == nil, let conversationID = activeConversationID { snapshot = try? storage.snapshot(installationID:expectedInstallation,conversationID:conversationID) }
         }
+    }
+    private func noteSignInRequired(_ error: any Error) {
+        if case ClientError.service("signInRequired",_) = error { googleSignInNeeded = true }
+    }
+    /// Signs this device in to its cloud hub with Google, then syncs again.
+    public func signInWithGoogle(authenticate: (_ url: URL, _ callbackScheme: String) async throws -> URL) async {
+        guard !googleSignInBusy, case .network(let baseURL,_)? = (try? storage.connection())?.endpoint else { return }
+        googleSignInBusy = true; googleSignInMessage = nil
+        defer { googleSignInBusy = false }
+        do {
+            try await HubGoogleSignIn.signIn(baseURL:baseURL,session:session,authenticate:authenticate)
+            googleSignInNeeded = false
+            await refresh()
+        } catch HubSignInError.canceled {
+        } catch { googleSignInMessage = error.localizedDescription }
     }
     public func cancelPending(_ item: PendingSubmission) async {
         guard installation?.supports("requestCancellation") == true, item.recoveryEpoch == installation?.recoveryEpoch, let pendingStore else { return }

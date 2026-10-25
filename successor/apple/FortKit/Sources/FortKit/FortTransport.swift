@@ -63,6 +63,8 @@ struct HTTPFortTransport: FortTransport {
         request.setValue(input.installationID,forHTTPHeaderField:"X-Fort-Installation-Id")
         request.setValue("application/json",forHTTPHeaderField:"Content-Type")
         if let token = input.token { request.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization") }
+        // A hub behind Google sign-in (Spec 066) also wants this device's Google session.
+        if baseURL.scheme == "https", let host = baseURL.host, let session = HubSessions.session(for:host) { request.setValue(session,forHTTPHeaderField:"X-Fort-Session") }
         let (data,response) = try await session.data(for:request,delegate:RefuseRedirects.shared)
         guard let response = response as? HTTPURLResponse else { throw ClientError.invalidResponse }
         return FortResponse(status:response.statusCode,body:data)
