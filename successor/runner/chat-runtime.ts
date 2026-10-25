@@ -1,7 +1,7 @@
 import type { RuntimeAttempt } from '../contracts/attempt.ts';
 import type { ExecutionDispatch } from '../contracts/executor.ts';
 import type { PreparedContext } from '../contracts/context.ts';
-import type { PortraitRequest, PortraitResult } from './codex-portrait.ts';
+import type { PortraitRequest, PortraitResult } from '../contracts/portrait.ts';
 import type { Message, TurnConfiguration, RuntimeReadiness, ModelCatalog, AccountSignInOptions, AccountSignInResult, AccountIdentity } from '../contracts/v1.ts';
 
 export type ChatInput = {

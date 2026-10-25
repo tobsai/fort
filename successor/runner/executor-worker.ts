@@ -1,6 +1,6 @@
 import type { Readable, Writable } from 'node:stream';
 import type { ChatRuntime } from './chat-runtime.ts';
-import type { PortraitResult } from './codex-portrait.ts';
+import type { PortraitResult } from '../contracts/portrait.ts';
 import { DISPATCH_FRAME_BYTES, MODEL_FRAME_BYTES, parseExecutorModelRequest, parseExecutorModelCatalog, parseExecutorRequest, parseExecutorResult, validateExecutorBinding, validateExecutorCancel, validateExecutorModelCancel, type ExecutorBinding, type ExecutorRequest, type ExecutorModelRequest } from './executor-wire.ts';
 import { PORTRAIT_FRAME_BYTES, encodePortraitResult, parseExecutorPortraitRequest, validateExecutorPortraitCancel, type ExecutorPortraitRequest } from './executor-portrait-wire.ts';
 import { ACCOUNT_FRAME_BYTES, parseExecutorAccountRequest, parseAccountChallenge, parseAccountSignInResult, validateExecutorAccountCancel, type ExecutorAccountRequest } from './executor-account-wire.ts';

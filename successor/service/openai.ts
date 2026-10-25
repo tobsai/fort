@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, AgentPortrait, PortraitDraw, PortraitImage, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, type PreparedContext } from '../contracts/context.ts';
@@ -28,7 +28,7 @@ type OwnerSetup = { version: 1; setupId: string; expires: number } & (
   | { state: 'completed' | 'canceling'; deviceId: string }
   | { state: 'canceled'; deviceId: string; outcome: 'notPaired' | 'revoked' }
 );
-type Entity = 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'portraits' | 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -57,10 +57,22 @@ function avatar(value:unknown):{avatar?:AgentAvatar} {
   if(value!=='orbit'&&value!=='ember'&&value!=='sprout')fail(400,'invalidAvatar','Choose a bundled Fort avatar.');
   return {avatar:value};
 }
+function decodePortrait(value: unknown): { portrait?: AgentPortrait } {
+  if (value === undefined) return {};
+  const v = record(value);
+  if (typeof v.size !== 'number' || !Number.isSafeInteger(v.size) || v.size < 256 || v.size > 2048 || typeof v.createdAt !== 'string') throw new Error('Invalid stored portrait');
+  return { portrait: { revision: id(v.revision), createdAt: v.createdAt, size: v.size } };
+}
+function decodePortraitDraw(value: unknown): { portraitDraw?: PortraitDraw } {
+  if (value === undefined) return {};
+  const v = record(value);
+  if ((v.state !== 'drawing' && v.state !== 'failed') || typeof v.updatedAt !== 'string') throw new Error('Invalid stored portrait draw');
+  return { portraitDraw: { state: v.state, detail: text(v.detail, 'detail', 16_384), updatedAt: v.updatedAt } };
+}
 function decodeAgent(value: unknown): Agent {
   const v = record(value), b = record(v.binding);
   if (typeof b.provider !== 'string' || typeof b.enabled !== 'boolean' || v.readiness !== 'requiresLiveReview') throw new Error('Invalid stored Agent');
-  return { ...avatar(v.avatar),agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
+  return { ...avatar(v.avatar),...decodePortrait(v.portrait),...decodePortraitDraw(v.portraitDraw),agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
     binding: { bindingRevisionId: id(b.bindingRevisionId), provider: b.provider, runtimeVersion: text(b.runtimeVersion, 'runtime'), selectedModel: text(b.selectedModel, 'model'), hostId: id(b.hostId), enabled: b.enabled } };
 }
 function decodeSkill(value: unknown): InstructionSkill {
@@ -314,6 +326,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     queueMicrotask(() => { for (const wake of [...eventWaiters]) wake(); });
     return sequence;
   };
+  // A portrait draw doesn't survive a restart (Spec 065); say so instead of showing it as still drawing.
+  transaction(() => {
+    for (const agent of list('agents', decodeAgent)) if (agent.portraitDraw?.state === 'drawing')
+      put('agents', agent.agentId, { ...agent, portraitDraw: { state: 'failed', detail: 'Fort restarted before the portrait finished. Nothing was saved.', updatedAt: new Date(now()).toISOString() } });
+  });
   transaction(() => {
     for (const run of db.prepare("SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id ORDER BY o.position").all().map(row=>decodeRun(json(row)))) {
       if (run.state === 'running' || run.state === 'cancelRequested') { put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'Service restarted before a confirmed result.',...(run.routine?{routine:stopRoutine(run.routine,'outcomeUnknown','Service restarted before a confirmed result.')}: {}) }); append(run.conversationId, 'runStopped', run.runId); }
@@ -542,7 +559,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     armScheduleClock();
     if (wasFault !== schedulerFault) transaction(() => append('_workspace', 'schedulerChanged', installation.installationId));
   };
-  let runtimeOperations = 0;
+  let runtimeOperations = 0, portraitDrawing = false;
   const canPrepareRuntime = () => Boolean(!closed && !starting && !stopCommandActive && !accountsBusy() && runtimeOperations === 0 && options.runtime
     && (runtimeStop === undefined ? (!options.runtime.readiness || options.runtime.readiness().state === 'ready')
       : runtimeStop.state === 'confirmed' && options.runtime.restart && options.runtime.readiness?.().canRestart));
@@ -1101,6 +1118,61 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             }
             return { lastReadMessageSequence: sequence };
           });
+        }
+        else if (/^\/v1\/agents\/[^/]+\/portrait$/.test(url.pathname) && ['GET', 'POST', 'DELETE'].includes(request.method ?? '')) {
+          // Spec 065: one portrait draw at a time, on the Agent's own runtime and signed-in account.
+          const agentId = id(url.pathname.split('/')[3]);
+          if (request.method === 'GET') {
+            authenticate(request);
+            const agent = load('agents', agentId, decodeAgent), row = db.prepare("SELECT data FROM entities WHERE kind='portraits' AND id=?").get(agentId);
+            if (!agent.portrait || !row) fail(404, 'noPortrait', 'This Agent has no portrait.');
+            const image = record(json(row));
+            if (image.revision !== agent.portrait.revision || typeof image.png !== 'string') fail(404, 'noPortrait', 'This Agent has no portrait.');
+            result = { agentId, revision: agent.portrait.revision, png: image.png } satisfies PortraitImage;
+          } else if (request.method === 'DELETE') {
+            result = owner(request, () => {
+              const agent = load('agents', agentId, decodeAgent);
+              if (agent.portraitDraw?.state === 'drawing') fail(409, 'portraitDrawing', 'Wait for the portrait to finish drawing.');
+              const { portrait: _portrait, portraitDraw: _draw, ...rest } = agent;
+              db.prepare("DELETE FROM entities WHERE kind='portraits' AND id=?").run(agentId);
+              put('agents', agentId, rest); return rest;
+            });
+          } else {
+            const body = await readBody(request);
+            if (Object.keys(body).some(key => key !== 'note') || (body.note !== undefined && (typeof body.note !== 'string' || !body.note.isWellFormed() || Buffer.byteLength(body.note) > 500))) fail(400, 'invalidPortrait', 'Use an optional note of at most 500 bytes.');
+            const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : undefined;
+            const started = owner(request, () => {
+              const agent = load('agents', agentId, decodeAgent), lane = laneFor(agent.binding), account = lane && laneAccounts(lane).selected();
+              if (!lane?.runtime?.portrait) fail(409, 'portraitUnavailable', 'Portraits need a ChatGPT Agent on this Mac. Nothing was drawn.');
+              if (agent.portraitDraw?.state === 'drawing' || portraitDrawing) fail(409, 'portraitDrawing', 'A portrait is already being drawn.');
+              if (dispatchStopped || accountsBusy() || dispatching || runtimeOperations > 0) fail(409, 'runtimeBusy', 'Fort is busy with another reply. Try again when it finishes.');
+              if (!account) fail(409, 'signInRequired', 'Sign in to ChatGPT on this Mac first. Nothing was drawn.');
+              const drawing: Agent = { ...agent, portraitDraw: { state: 'drawing', detail: 'Drawing on your ChatGPT plan.', updatedAt: new Date(now()).toISOString() } };
+              put('agents', agentId, drawing);
+              return { agent: drawing, runtime: lane.runtime, account };
+            });
+            portraitDrawing = true; runtimeOperations++;
+            void (async () => {
+              let outcome: { kind: 'drawn'; png: Buffer; width: number } | { kind: 'failed'; message: string };
+              try {
+                const drawn = await started.runtime.portrait!({ account: started.account, model: started.agent.binding.selectedModel, subject: { name: started.agent.name, instructions: started.agent.instructions ?? '', ...(note ? { note } : {}) } }, listenerAbort.signal);
+                outcome = drawn.kind === 'drawn' ? { kind: 'drawn', png: drawn.png, width: drawn.width } : { kind: 'failed', message: drawn.message };
+              } catch { outcome = { kind: 'failed', message: 'The portrait run failed. Nothing was saved.' }; }
+              finally { portraitDrawing = false; runtimeOperations--; queueMicrotask(wake); }
+              if (closed) return;
+              try {
+                transaction(() => {
+                  const current = load('agents', agentId, decodeAgent), { portraitDraw: _draw, ...rest } = current;
+                  if (outcome.kind === 'drawn') {
+                    const portrait: AgentPortrait = { revision: randomUUID(), createdAt: new Date(now()).toISOString(), size: outcome.width };
+                    db.prepare("INSERT INTO entities(kind,id,data) VALUES ('portraits',?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data").run(agentId, JSON.stringify({ revision: portrait.revision, png: outcome.png.toString('base64') }));
+                    put('agents', agentId, { ...rest, portrait });
+                  } else put('agents', agentId, { ...rest, portraitDraw: { state: 'failed', detail: outcome.message, updatedAt: new Date(now()).toISOString() } });
+                });
+              } catch {}
+            })();
+            result = started.agent; status = 202;
+          }
         }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {
           const body = await readBody(request), agentId = id(url.pathname.split('/')[3]);

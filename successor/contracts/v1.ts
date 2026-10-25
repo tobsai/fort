@@ -20,7 +20,11 @@ export type Binding = { bindingRevisionId: string; provider: string; runtimeVers
 export type AgentAvatar = 'orbit' | 'ember' | 'sprout';
 export type ModelOption = { id:string; name:string; availability:'available'|'unavailable'; detail?:string };
 export type ModelCatalog = {provider:string;state:'ready';models:ModelOption[];checkedAt:string}|{provider:string;state:'unavailable'|'error';models:[];detail:string};
-export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string; avatar?: AgentAvatar };
+// Spec 065: a portrait Fort drew on the ChatGPT plan. The PNG is fetched separately by revision.
+export type AgentPortrait = { revision: string; createdAt: string; size: number };
+export type PortraitDraw = { state: 'drawing' | 'failed'; detail: string; updatedAt: string };
+export type PortraitImage = { agentId: string; revision: string; png: string };
+export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string; avatar?: AgentAvatar; portrait?: AgentPortrait; portraitDraw?: PortraitDraw };
 export type Message = { messageId: string; conversationId: string; requestId: string; role: 'user' | 'assistant'; text: string; sequence: number; createdAt: string; agentId?: string; agentName?: string; recipientAgentId?: string; recipientAgentName?: string };
 export type Run = { runId: string; requestId: string; conversationId: string; bindingRevisionId: string; state: 'queued' | 'running' | 'waitingForApproval' | 'cancelRequested' | 'canceled' | 'closedUnknown' | 'completed' | 'failed' | 'outcomeUnknown'; selectedModel: string; effectiveModel: string | null; modelEvidence: 'fixture' | 'unreported'; attemptId: string | null; attemptGeneration?: number; configuration?: TurnConfiguration; routine?: RoutineExecution; statusDetail?: string };
 export type ConversationMemory = { conversationId: string; revisionId: string; text: string };

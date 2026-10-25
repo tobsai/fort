@@ -8,7 +8,7 @@ import type { ModelCatalog, RuntimeReadiness, AccountSignInOptions, AccountSignI
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { MODEL_EVIDENCE_BYTES, parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from './executor-wire.ts';
 import { PORTRAIT_EVIDENCE_BYTES, parseExecutorPortraitFrame, portraitRequestBody } from './executor-portrait-wire.ts';
-import type { PortraitRequest, PortraitResult } from './codex-portrait.ts';
+import type { PortraitRequest, PortraitResult } from '../contracts/portrait.ts';
 import { ACCOUNT_EVIDENCE_BYTES, parseExecutorAccountFrame, type ExecutorAccountRequest } from './executor-account-wire.ts';
 
 type ProcessOptions = {

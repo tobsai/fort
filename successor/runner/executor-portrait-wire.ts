@@ -2,7 +2,7 @@ import { executionDigest, immutable } from '../contracts/executor.ts';
 import { parseAccountIdentity } from '../contracts/account.ts';
 import type { AccountIdentity } from '../contracts/v1.ts';
 import { validateExecutorBinding, type ExecutorBinding } from './executor-wire.ts';
-import { decodePortrait, PORTRAIT_MAX_BYTES, type PortraitResult, type PortraitSubject } from './codex-portrait.ts';
+import { decodePortrait, PORTRAIT_MAX_BYTES, type PortraitResult, type PortraitSubject } from '../contracts/portrait.ts';
 
 // Spec 065: one portrait draw per executor process. The result frame carries the PNG as base64.
 export const PORTRAIT_FRAME_BYTES = 80 * 1024;

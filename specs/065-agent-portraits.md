@@ -30,8 +30,11 @@ Claude has no image generation, so this is ChatGPT-only.
   built prompt. If the check fails, nothing is sent.
 - **Credentials.** No change. The portrait run uses the same Codex sign-in and the same pinned
   account as the agent's binding. Claude-bound agents don't get the button.
-- **Data.** Portraits are PNGs stored by the core next to the ledger (at most 2 MB, re-encoded
-  and checked as a single square PNG). Removing a portrait deletes only that file.
+- **Data.** Each portrait is one square PNG (256 to 2048 px, at most 8 MB), stored in the ledger
+  as a `portraits` row keyed by agent. Removing a portrait deletes only that row. Codex also keeps
+  its own copy under the private runtime's `generated_images/`; Fort leaves that folder alone.
+- **Chat while drawing.** A draw holds the runtime for up to about two minutes. Messages sent
+  meanwhile queue and run when it finishes. A restart mid-draw marks it failed, and nothing is saved.
 - **Undo.** Remove the portrait, or revert the PR. Stock icons keep working throughout.
 
 ## Plan
@@ -40,9 +43,12 @@ Claude has no image generation, so this is ChatGPT-only.
   item. It takes the base64 `result` (not `savedPath`, which is outside the sandbox), with its
   own frame limit sized for one image. Any other item type (commands, file edits, tool calls)
   ends the turn as refused. `portraitControls` verifies the portrait profile described above.
-- **Core**: `POST /v1/agents/{id}/portrait` with `{ note? }` starts a draw on the agent's own
-  Codex binding and account. `GET` returns the PNG, and `DELETE` removes it. `Agent` gains
-  `portrait?: { revision, createdAt }`. One draw at a time per host.
+- **Executor**: a `portrait` operation on the existing worker wire. The worker launches the same
+  private Codex directories with the portrait profile and a 12 MiB frame limit.
+- **Core**: `POST /v1/agents/{id}/portrait` with `{ note? }` returns 202 and draws in the
+  background, on the agent's own runtime, model and selected account. `GET` returns
+  `{ revision, png }` (base64), and `DELETE` removes it. `Agent` gains `portrait?: { revision,
+  createdAt, size }` and `portraitDraw?: { state: drawing | failed, detail }`. One draw at a time.
 - **Apps**: `AgentAvatarView` shows the portrait when there is one. The agent editor gets
   Draw, Redraw and Remove, with a note that a draw uses ChatGPT plan usage.
 - **Rejected**: the "Sign in with ChatGPT" Responses route, because its preview has no hosted
