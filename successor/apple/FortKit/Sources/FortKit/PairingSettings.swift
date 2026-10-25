@@ -69,7 +69,7 @@ struct PairingSettingsView: View {
                 if let pairing = model.pairingStatus {
                     Text(pairing.expiresAt.map { "Expires: \($0)" } ?? "No expiry · stays paired until you disconnect")
                 } else { Text(model.isCompanionPairing ? "This phone’s access is currently unconfirmed." : "New owner pairings have no default expiry.") }
-                Text(model.pairingMessage).font(.caption).foregroundStyle(.secondary)
+                CopyableText(model.pairingMessage).font(.caption).foregroundStyle(.secondary)
                 if model.canManagePairing {
                     if model.pairingStatus != nil {
                         Toggle("No expiry",isOn:$noExpiry).disabled(!model.canEditPairingExpiry)

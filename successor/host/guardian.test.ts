@@ -52,7 +52,9 @@ test('abrupt Swift supervisor death removes its noncooperative runtime and desce
     assert.ok(await until(() => absent(pid) && (!group || absent(-group)), 2000), 'fixture cleanup was not confirmed');
     rmSync(directory, { recursive: true, force: true });
   });
-  assert.ok(await until(() => existsSync(join(directory, 'supervisor-ready.json')) && existsSync(join(directory, 'descendant-pid.json')), 6000));
+  // The fixture may be mid-write when a file first appears, so wait until each one parses.
+  const written = (name: string) => { try { JSON.parse(readFileSync(join(directory, name), 'utf8')); return true; } catch { return false; } };
+  assert.ok(await until(() => ['supervisor-ready.json', 'fixture-pid.json', 'descendant-pid.json'].every(written), 6000));
   group = readGroup(directory);
   const runtime = readPid(join(directory, 'fixture-pid.json'));
   const descendant = readPid(join(directory, 'descendant-pid.json'));

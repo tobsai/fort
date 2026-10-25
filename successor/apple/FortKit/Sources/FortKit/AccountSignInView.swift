@@ -26,7 +26,7 @@ struct AccountSignInPanel: View {
                 if runtime.provider == model.focusedRuntime?.provider { focusedRow(name:runtime.name,panel:panel) }
                 else { otherRow(runtime) }
             }
-            Text(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
+            CopyableText(model.accountSignInMessage).font(.caption).foregroundStyle(.secondary)
             workshop
         }
         .task { await model.refreshAccountSignIn() }

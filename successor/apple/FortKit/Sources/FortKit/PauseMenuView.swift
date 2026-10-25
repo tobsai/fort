@@ -88,7 +88,7 @@ struct PauseMenuView: View {
             LazyVGrid(columns:[GridItem(.adaptive(minimum:160),spacing:12)],spacing:12) {
                 ForEach(model.agents) { agent in
                     NavigationLink { AgentSettingsEditor(model:model,agent:agent) } label: {
-                        CrewCard(agent:agent,className:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes))
+                        CrewCard(model:model,agent:agent,className:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes))
                     }.buttonStyle(.plain).accessibilityIdentifier("crew-\(agent.agentId)")
                 }
                 NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: {
@@ -141,11 +141,12 @@ struct PauseMenuView: View {
 }
 
 private struct CrewCard: View {
+    let model: MessengerModel
     let agent: Agent
     let className: String
     var body: some View {
         VStack(alignment:.leading,spacing:8) {
-            AgentAvatarView(avatar:agent.avatar ?? .orbit,size:72)
+            AgentPortraitView(model:model,agent:agent,size:72)
             HStack(spacing:6) {
                 Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black)).lineLimit(1)
                 Spacer(minLength:4)

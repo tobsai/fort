@@ -38,7 +38,7 @@ struct MacHostControlView: View {
                     .accessibilityIdentifier("local-host-remove-unpaired")
             }
             if let startFailure {
-                Text("The local host reported a problem at its last start: \(startFailure)").font(.callout).foregroundStyle(.red).textSelection(.enabled)
+                CopyableText("The local host reported a problem at its last start: \(startFailure)").font(.callout).foregroundStyle(.red)
                     .accessibilityIdentifier("local-host-start-failure")
             }
             Button("Check host status") { Task { await model.inspectLocalHost(); refreshStartFailure() } }
@@ -77,7 +77,7 @@ struct OwnerSetupView: View {
     var body: some View {
         Section("This Mac") {
             Text("Pair this Mac with its configured Fort host. The device credential stays in Keychain. Pairing has no default expiry; you can disconnect later.")
-            Text(model.ownerSetupMessage).font(.callout).accessibilityIdentifier("owner-setup-status")
+            CopyableText(model.ownerSetupMessage,id:"owner-setup-status").font(.callout)
             if model.ownerSetupBusy { ProgressView("Finishing the requested setup action…") }
             if model.pendingOwnerSetup?.phase != .canceling && model.pendingOwnerSetup?.phase != .canceled {
                 Button(connectTitle) { Task { await model.completeOwnerSetup() } }

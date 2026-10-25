@@ -8,6 +8,7 @@ type GuardedCodexOptions = {
   cwd: string;
   env: Readonly<Record<string, string>>;
   deadlineMs: number;
+  frameLimit?: number;
 };
 
 function text(value: string): boolean {
@@ -26,5 +27,5 @@ export function launchGuardedCodexProcess(options: GuardedCodexOptions) {
   if (entries.length > 128 || !entries.every(([key, value]) => text(key) && key.length > 0 && !key.includes('=') && text(value))
       || entries.reduce((sum, [key, value]) => sum + Buffer.byteLength(key) + Buffer.byteLength(value) + 2, 0) > 65_536) throw new Error('Runtime environment exceeds its bounds');
   return launchOwnedProcess({ executable: options.guardian, args: [String(process.pid), options.executable, ...args], cwd: options.cwd,
-    env: Object.fromEntries(entries), deadlineMs: options.deadlineMs, terminationGraceMs: 250, killGraceMs: 750 });
+    env: Object.fromEntries(entries), deadlineMs: options.deadlineMs, terminationGraceMs: 250, killGraceMs: 750, ...(options.frameLimit === undefined ? {} : { frameLimit: options.frameLimit }) });
 }

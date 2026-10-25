@@ -1,16 +1,16 @@
 import { lstatSync, readdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
-import { CODEX_DISABLED_FEATURES, CODEX_SETTINGS } from './codex-controls.ts';
+import { CODEX_DISABLED_FEATURES, CODEX_SETTINGS, PORTRAIT_DISABLED_FEATURES, PORTRAIT_ENABLED_FEATURES, PORTRAIT_TOOL_OVERRIDE, type CodexProfile } from './codex-controls.ts';
 import { CODEX_PERMISSION_OVERRIDE } from './codex-permissions.ts';
 
-type PrivateCodexPaths = { executable: string; guardian: string; directory: string };
+type PrivateCodexPaths = { executable: string; guardian: string; directory: string; profile?: CodexProfile };
 
 function exactPath(value: string): boolean {
   return typeof value === 'string' && value.isWellFormed() && !value.includes('\0') && Buffer.byteLength(value) <= 4096
     && isAbsolute(value) && value !== '/' && normalize(value) === value;
 }
 
-export function privateCodexLaunchPlan({ executable, guardian, directory }: PrivateCodexPaths) {
+export function privateCodexLaunchPlan({ executable, guardian, directory, profile = 'chat' }: PrivateCodexPaths) {
   if (![executable, guardian, directory].every(exactPath) || !process.getuid) throw new Error('Select exact private runtime paths');
   const uid = process.getuid();
   const home = join(directory, 'home'), state = join(directory, 'state'), workspace = join(directory, 'workspace'), temporary = join(directory, 'tmp');
@@ -33,8 +33,10 @@ export function privateCodexLaunchPlan({ executable, guardian, directory }: Priv
   }
   const settings = [...CODEX_SETTINGS, ['mcp_servers', {}], ['forced_login_method', 'chatgpt'], ['cli_auth_credentials_store', 'file'], ['mcp_oauth_credentials_store', 'file'],
     ['otel.exporter', 'none'], ['otel.trace_exporter', 'none'], ['otel.metrics_exporter', 'none'], ['otel.log_user_prompt', false]] as const;
-  const args = Object.freeze(['app-server', '--listen', 'stdio://', ...[...settings.map(([name, value]) => `${name}=${JSON.stringify(value)}`), CODEX_PERMISSION_OVERRIDE].flatMap(value => ['-c', value]),
-    '--enable', 'skip_host_skill_discovery', ...CODEX_DISABLED_FEATURES.flatMap(value => ['--disable', value])]);
+  const overrides = [...settings.map(([name, value]) => `${name}=${JSON.stringify(value)}`), CODEX_PERMISSION_OVERRIDE, ...(profile === 'portrait' ? [PORTRAIT_TOOL_OVERRIDE] : [])];
+  const args = Object.freeze(['app-server', '--listen', 'stdio://', ...overrides.flatMap(value => ['-c', value]),
+    '--enable', 'skip_host_skill_discovery', ...(profile === 'portrait' ? PORTRAIT_ENABLED_FEATURES.flatMap(value => ['--enable', value]) : []),
+    ...(profile === 'portrait' ? PORTRAIT_DISABLED_FEATURES : CODEX_DISABLED_FEATURES).flatMap(value => ['--disable', value])]);
   const env = Object.freeze({ HOME: home, CODEX_HOME: state, TMPDIR: temporary, PATH: '/usr/bin:/bin', LANG: 'en_US.UTF8', TZ: 'UTC' });
   return Object.freeze({ executable, guardian, args, cwd: workspace, env });
 }

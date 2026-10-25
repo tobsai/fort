@@ -35,6 +35,8 @@ struct AgentSettingsEditor: View {
     }
     @State private var showWorkshop = false
     @State private var previewInstructions = false
+    @State private var portraitNote = ""
+    private var liveAgent: Agent? { agent.map { current in model.agents.first { $0.agentId == current.agentId } ?? current } }
     private var className: String { agent.map { PauseMenu.className(provider:$0.binding.provider,runtimes:model.runtimes) } ?? model.focusedRuntimeName }
     var body: some View {
         Form {
@@ -43,7 +45,10 @@ struct AgentSettingsEditor: View {
             #endif
             Section {
                 HStack(alignment:.center,spacing:16) {
-                    AgentAvatarView(avatar:form.avatar,size:96).padding(6).hudFrame()
+                    Group {
+                        if let liveAgent, liveAgent.portrait != nil { AgentPortraitView(model:model,agent:liveAgent,size:96) }
+                        else { AgentAvatarView(avatar:form.avatar,size:96) }
+                    }.padding(6).hudFrame()
                     VStack(alignment:.leading,spacing:8) {
                         // A bordered field with its own prompt: inside a grouped Form row the plain style collapsed to an invisible, untappable field.
                         TextField("Name",text:$form.name,prompt:Text("Name your agent"))
@@ -64,6 +69,9 @@ struct AgentSettingsEditor: View {
                         }.buttonStyle(.plain).accessibilityLabel(avatar.name + (form.avatar == avatar ? ", selected" : ""))
                     }
                 }
+                if let liveAgent, model.supportsPortraits, PortraitDrawing.canDraw(liveAgent) {
+                    PortraitDrawControls(model:model,agent:liveAgent,note:$portraitNote)
+                }
             } header: { Text("Portrait") }
             #if os(macOS)
             if model.canManageProviderAccount && model.accountSignInStatus?.accountSelected != true {
@@ -81,7 +89,7 @@ struct AgentSettingsEditor: View {
             } header: { Text("Class") }
             Section {
                 let gear = AgentSheet.gear(model.modelCatalog.options(preserving:form.exactModel))
-                if gear.isEmpty { Text(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
+                if gear.isEmpty { CopyableText(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
                 ForEach(gear) { item in
                     Button { form.exactModel = item.id } label: {
                         HStack(spacing:10) {
@@ -119,9 +127,9 @@ struct AgentSettingsEditor: View {
             Section {
                 WorkshopDrawer(isExpanded:$showWorkshop,identifier:"agent-workshop") {
                     Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
-                    if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                    if let detail = model.modelCatalog.detail { CopyableText(detail).font(.caption).foregroundStyle(.secondary) }
                     Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(!model.canRefreshModels)
-                    Text(model.status).font(.caption).foregroundStyle(.secondary)
+                    CopyableText(model.status).font(.caption).foregroundStyle(.secondary)
                 }
             }
         }.formStyle(.grouped)
@@ -136,6 +144,34 @@ struct AgentSettingsEditor: View {
             if let agent { await model.focusRuntime(agent.binding.provider) }
             await model.refreshModels()
         }
+    }
+}
+
+enum PortraitDrawing {
+    /// Only ChatGPT (Codex) Agents can draw; Claude has no image generation.
+    static func canDraw(_ agent: Agent) -> Bool { agent.binding.provider == "codex" }
+    static func buttonTitle(_ agent: Agent) -> String { agent.portraitDraw?.isDrawing == true ? "Drawing…" : agent.portrait == nil ? "Draw portrait" : "Redraw portrait" }
+    static let costNote = "Fort draws one picture on your ChatGPT plan. An image uses more of your plan than a message."
+}
+struct PortraitDrawControls: View {
+    let model: MessengerModel
+    let agent: Agent
+    @SwiftUI.Binding var note: String
+    var body: some View {
+        let drawing = agent.portraitDraw?.isDrawing == true
+        TextField("Look and props (optional)",text:$note,axis:.vertical).lineLimit(1...3).disabled(drawing)
+            .accessibilityIdentifier("portrait-note")
+        HStack {
+            Button(PortraitDrawing.buttonTitle(agent)) { Task { await model.drawPortrait(agent,note:note) } }
+                .disabled(drawing || model.portraitBusy || note.utf8.count > 500).accessibilityIdentifier("portrait-draw")
+            if agent.portrait != nil {
+                Button("Use stock icon",role:.destructive) { Task { await model.removePortrait(agent) } }
+                    .disabled(drawing || model.portraitBusy).accessibilityIdentifier("portrait-remove")
+            }
+            if drawing { ProgressView().controlSize(.small) }
+        }
+        if let draw = agent.portraitDraw, !draw.isDrawing { CopyableText(draw.detail).font(.caption).foregroundStyle(.red) }
+        Text(PortraitDrawing.costNote).font(.caption).foregroundStyle(.secondary)
     }
 }
 

@@ -46,7 +46,16 @@ public struct Agent: Codable, Equatable, Sendable, Identifiable {
     public let readiness: String
     public var instructions: String? = nil
     public var avatar: AgentAvatar? = nil
+    public var portrait: AgentPortrait? = nil
+    public var portraitDraw: PortraitDraw? = nil
 }
+/// Spec 065: a portrait Fort drew on the ChatGPT plan. The PNG is fetched separately by revision.
+public struct AgentPortrait: Codable, Equatable, Sendable { public let revision: String; public let createdAt: String; public let size: Int }
+public struct PortraitDraw: Codable, Equatable, Sendable {
+    public let state: String; public let detail: String; public let updatedAt: String
+    public var isDrawing: Bool { state == "drawing" }
+}
+public struct PortraitImage: Codable, Equatable, Sendable { public let agentId: String; public let revision: String; public let png: String }
 public struct AgentList: Codable, Sendable { public let agents: [Agent] }
 public struct SkillReference: Codable, Equatable, Sendable { public let skillId: String; public let revisionId: String }
 public struct InstructionSkill: Codable, Equatable, Sendable, Identifiable {

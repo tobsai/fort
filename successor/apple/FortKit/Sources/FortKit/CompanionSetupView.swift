@@ -27,7 +27,7 @@ struct CompanionSetupView: View {
                     joinButton("Retry exact invitation")
                 }
             }
-            Text(model.companionSetupMessage).font(.callout).accessibilityIdentifier("phone-setup-status")
+            CopyableText(model.companionSetupMessage,id:"phone-setup-status").font(.callout)
         }
         Section {
             WorkshopDrawer(isExpanded:$showWorkshop,forceOpen:panel == .pending,identifier:"phone-setup-workshop") {
