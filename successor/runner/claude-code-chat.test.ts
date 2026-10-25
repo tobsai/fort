@@ -208,12 +208,23 @@ test('models come from the signed-in runtime, deduplicated to exact model IDs', 
   const f = fixture();
   const catalog = await f.runtime.models(new AbortController().signal, account);
   assert.equal(catalog.state, 'ready');
-  assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [['claude-opus-5-5', 'Opus'], [MODEL, 'Sonnet']]);
+  assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [['claude-opus-5-5', 'Opus 5.5'], [MODEL, 'Sonnet 5.5']], 'the picker names the exact version, not just the family');
   assert.equal(f.launches[0]!.args.includes('--model'), false); assert.equal(f.killed, 1);
   const signedOut = await fixture({}, { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' }).runtime.models(new AbortController().signal);
   assert.equal(signedOut.state, 'unavailable'); assert.match(signedOut.state === 'unavailable' ? signedOut.detail : '', /Sign in/);
   const other = await fixture().runtime.models(new AbortController().signal, { accountId: status.orgId, userLabel: 'someone@example.com' });
   assert.equal(other.state, 'error');
+});
+
+test('model names carry the exact version from the model ID, and unrecognized IDs keep Claude Code\'s own name', async () => {
+  const listed = [{ value: 'opus', resolvedModel: 'claude-opus-5-5[1m]', displayName: 'Opus' }, { value: 'haiku', resolvedModel: 'claude-haiku-4-5-20251001', displayName: 'Haiku' },
+    { value: 'fable', resolvedModel: 'claude-fable-5-1', displayName: 'Fable' }, { value: 'x', resolvedModel: 'claude-experimental', displayName: 'Experimental' }];
+  const catalog = await fixture({ initialize: initialize({ models: listed }) }).runtime.models(new AbortController().signal, account);
+  assert.deepEqual(catalog.models.map(model => model.name), ['Opus 5.5 (1M context)', 'Haiku 4.5', 'Fable 5.1', 'Experimental']);
+  const lines: string[] = [], f = fixture();
+  const runtime = new ClaudeCodeChat({ ...(f.runtime as any).options, report: (line: string) => lines.push(line) });
+  await runtime.models(new AbortController().signal, account); await runtime.models(new AbortController().signal, account);
+  assert.deepEqual(lines, ['Claude Code models: Opus 5.5, Sonnet 5.5'], 'the host log names what the picker offers, once per change');
 });
 
 test('without an injected reader, the account comes from `claude auth status --json` run with the isolated environment', async t => {

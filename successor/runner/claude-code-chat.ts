@@ -105,10 +105,18 @@ function catalog(value: unknown): ModelOption[] {
     const row = record(entry);
     if (typeof row.resolvedModel !== 'string' || !MODEL_ID.test(row.resolvedModel) || typeof row.value !== 'string') throw new Error('Invalid model catalog');
     if (row.value === 'default' || models.has(row.resolvedModel)) continue;
-    const name = typeof row.displayName === 'string' && row.displayName.length > 0 && row.displayName.length <= 128 ? row.displayName : row.resolvedModel;
+    const name = versionedName(row.resolvedModel) ?? (typeof row.displayName === 'string' && row.displayName.length > 0 && row.displayName.length <= 128 ? row.displayName : row.resolvedModel);
     models.set(row.resolvedModel, { id: row.resolvedModel, name, availability: 'available' });
   }
   return [...models.values()];
+}
+
+// Claude Code names models by family only ("Opus"); the exact model ID carries the version, e.g. claude-opus-5-5 → "Opus 5.5".
+function versionedName(id: string): string | undefined {
+  const match = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(\[1m\])?$/.exec(id);
+  if (!match) return undefined;
+  const [, family, major, minor, long] = match;
+  return family![0]!.toUpperCase() + family!.slice(1) + ' ' + major + (minor ? '.' + minor : '') + (long ? ' (1M context)' : '');
 }
 
 // The initialize response must show this exact runtime, a subscription token, no API key and nothing ambient enabled.
@@ -302,6 +310,7 @@ export class ClaudeCodeChat implements ChatRuntime {
   private readonly launch: (plan: ClaudeCodeLaunch) => ClaudeCodeProcess;
   private busy = false;
   private disposed = false;
+  private reportedModels = '';
   constructor(options: ChatOptions) {
     claudeCodeLaunch(options);
     if (!/^\d+\.\d+\.\d+$/.test(options.runtimeVersion)) throw new Error('Pin an exact Claude Code version');
@@ -353,6 +362,9 @@ export class ClaudeCodeChat implements ChatRuntime {
       if (selected && !sameAccount(parseAccountIdentity(selected), account)) throw new Error('Selected account unavailable');
       session = this.open();
       const models = checkInitialize(await session.control({ subtype: 'initialize' }, signal), this.options.runtimeVersion, account);
+      // Model names only, and only when the list changes, so the host log shows what the picker offers.
+      const names = models.map(model => model.name).join(', ');
+      if (names !== this.reportedModels) { this.reportedModels = names; this.options.report?.('Claude Code models: ' + failureReason(new Error(names))); }
       return { provider, state: 'ready', models, checkedAt: new Date().toISOString() };
     } catch (error) { await this.failed('model check', error, session); return { provider, state: 'error', models: [], detail: 'Could not verify models from the signed-in Claude Code runtime. Your selection has not changed.' }; }
     finally { session?.close(); this.busy = false; }
