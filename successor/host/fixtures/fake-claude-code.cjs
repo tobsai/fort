@@ -12,6 +12,9 @@ const signedIn = () => existsSync(marker);
 const args = process.argv.slice(2);
 const out = frame => process.stdout.write(JSON.stringify(frame) + '\n');
 
+// Like Claude Code 2.1.299 on macOS: a session ignores TMPDIR and opens /tmp/claude-<uid> unless CLAUDE_CODE_TMPDIR
+// is set. The App Sandbox denies /tmp, so without it the real CLI exits before answering (`auth status` is unaffected).
+if (args[0] === '-p' && !process.env.CLAUDE_CODE_TMPDIR) { process.stderr.write(`EPERM: operation not permitted, open '/tmp/claude-${process.getuid()}'\n`); process.exit(1); }
 if (args[0] === '--version') { process.stdout.write(VERSION + ' (Claude Code)\n'); process.exit(0); }
 // The same fields Claude Code 2.1.x prints. With only `fake-claude-credential-only` in HOME it reports what a
 // credential without an account record looks like: signed in, but with no email or organization.
