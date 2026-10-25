@@ -144,8 +144,8 @@ function macSection() {
     say(error); const invitation = { invitationId: crypto.randomUUID(), code: secret() };
     try {
       const reply = await api('/v1/runners/invitation', invitation);
-      out.replaceChildren(h('p.muted', {}, `Give this to your Mac within 5 minutes (until ${new Date(reply.expiresAt).toLocaleTimeString()}). It is used once.`),
-        h('div.code', {}, 'fort-runner:' + encode({ v: 1, hub: location.origin, ...invitation })));
+      out.replaceChildren(h('p.muted', {}, `In Fort on your Mac, open Devices, choose Connect to cloud hub, and paste this within 5 minutes (until ${new Date(reply.expiresAt).toLocaleTimeString()}). It is used once.`),
+        h('div.code', {}, 'fort-runner:' + encode({ v: 1, hub: location.origin, ...invitation, runnerId: state.installation.runtimes[0].hostId })));
     } catch (problem) { say(error, problem); }
   } }, 'Add a Mac');
   const node = state.installation?.runtimes?.[0]?.hostId;

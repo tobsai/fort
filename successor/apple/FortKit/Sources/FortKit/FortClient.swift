@@ -180,6 +180,16 @@ public struct FortClient: Sendable {
         try await get("v1/routines/\(try segment(routineID))/revisions/\(try segment(revisionID))")
     }
     public func runtimeReadiness() async throws -> RuntimeReadiness { try await get("v1/runtime") }
+    public func hubRunnerStatus() async throws -> HubRunnerStatus { try await get("v1/hub/runner") }
+    /// Enrolls this Mac with a cloud hub using the hub's one-time "fort-runner:" invitation.
+    public func enrollHubRunner(invitation: String) async throws -> HubRunnerStatus {
+        struct Body: Encodable { let invitation: String }
+        return try await request(path:"v1/hub/runner/enroll",method:.post,data:JSONEncoder().encode(Body(invitation:invitation)),timeout:30)
+    }
+    public func removeHubRunner() async throws -> HubRunnerStatus {
+        struct Body: Encodable {}
+        return try await send("v1/hub/runner/remove",method:.post,body:Body())
+    }
     public func schedulerStatus() async throws -> SchedulerStatus { try await get("v1/scheduler") }
     public func restartRuntime(recoveryEpoch: String) async throws -> RuntimeReadiness {
         struct Body: Encodable { let recoveryEpoch: String }
