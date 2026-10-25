@@ -9,7 +9,7 @@ import { CODEX_PERMISSION_PROFILE, verifyPermissionSelection } from './codex-per
 
 // Spec 065: one Codex turn on the ChatGPT plan that returns exactly one generated portrait.
 export const PORTRAIT_FRAME_LIMIT = 8 * 1024 * 1024;
-const MAX_WIRE = 16 * 1024 * 1024, MAX_TEXT = 8192, MAX_NOTE = 500, MAX_ROLE = 2000, MAX_REPLY = 300;
+const MAX_WIRE = 24 * 1024 * 1024, MAX_TEXT = 8192, MAX_NOTE = 500, MAX_ROLE = 2000, MAX_REPLY = 300;
 
 export const PORTRAIT_STYLE = 'Retro-futurist comic book illustration with bold ink outlines, halftone shading and a warm golden-hour palette. '
   + 'Waist-up, facing the viewer, seated in a cosy study with wooden bookshelves. A large round window shows a green, leafy futuristic city skyline. '
@@ -45,6 +45,7 @@ export class PortraitTurn {
   private wireBytes = 0;
   private textBytes = 0;
   private reply = '';
+  private tool: { name: string; answer?: string } | undefined;
   private image: { png: Buffer; width: number; height: number } | undefined;
   private imageItem: string | undefined;
   private failure: PortraitResult | undefined;
@@ -123,6 +124,24 @@ export class PortraitTurn {
     this.turnId = turn.id;
     for (const pending of this.early.splice(0)) { this.notification(pending, output); if (this.done) return; }
   }
+  // Raw events only explain a failed draw: which tool Codex called and what that tool answered.
+  private raw(params: Record<string, unknown> | undefined) {
+    if (!this.turnId || params?.threadId !== this.input.threadId || params.turnId !== this.turnId) return;
+    const item = record(params.item);
+    if (item?.type === 'function_call' && typeof item.name === 'string') {
+      const name = [item.namespace, item.name].filter(part => typeof part === 'string' && part).join('.');
+      this.tool = { name: /^[A-Za-z0-9_.:/-]{1,64}$/.test(name) ? name : 'an unnamed tool' };
+    } else if (item?.type === 'function_call_output' && this.tool) {
+      const output = item.output, parts = typeof output === 'string' ? [output]
+        : Array.isArray(output) ? output.map(part => record(part)).filter(part => part?.type === 'input_text' || part?.type === 'output_text').map(part => part!.text) : [];
+      const answer = parts.filter((part): part is string => typeof part === 'string').join(' ').replace(/\s+/g, ' ').trim();
+      if (answer && !answer.includes('data:image')) this.tool.answer = answer.slice(0, MAX_REPLY);
+    }
+  }
+  private toolSummary(): string {
+    if (!this.tool) return ' Codex called no tool.';
+    return ` Codex called ${this.tool.name}` + (this.tool.answer ? `, which answered: “${this.tool.answer}”` : '') + '.';
+  }
   private notification(message: Record<string, unknown>, output: TurnOutput) {
     const method = String(message.method), params = record(message.params);
     if (method === 'thread/settings/updated') {
@@ -132,6 +151,7 @@ export class PortraitTurn {
       if (settings?.cwd !== this.input.workspace || settings.model !== this.input.model || settings.modelProvider !== 'openai' || sandbox?.type !== 'readOnly' || sandbox.networkAccess !== false) this.refuse(output, 'Codex changed its settings. Nothing was saved.');
       return;
     }
+    if (method === 'rawResponseItem/completed') { this.raw(params); return; }
     if (!['turn/started', 'turn/completed', 'item/started', 'item/completed', 'model/rerouted'].includes(method)) return;
     if (!params || params.threadId !== this.input.threadId) return;
     const turn = record(params.turn), turnID = turn ? turn.id : params.turnId;
@@ -144,7 +164,7 @@ export class PortraitTurn {
       if (turn?.status === 'interrupted') { this.finish(output, this.failure ?? { kind: 'canceled', message: 'Stopped. Nothing was saved.' }); return; }
       if (this.failure) { this.finish(output, this.failure); return; }
       if (turn?.status !== 'completed') { this.finish(output, { kind: 'outcomeUnknown', message: 'Codex ended the portrait without confirming it.' }); return; }
-      this.finish(output, this.image ? { kind: 'drawn', ...this.image } : { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait.' + (this.reply ? ` It said: “${this.reply}”` : '') });
+      this.finish(output, this.image ? { kind: 'drawn', ...this.image } : { kind: 'failed', reason: 'noImage', message: 'Codex finished without drawing a portrait.' + (this.reply ? ` It said: “${this.reply}”` : '') + this.toolSummary() });
       return;
     }
     const item = record(params.item);
@@ -190,7 +210,7 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
       const usable = rows.filter(seesImages).map(row => row.model as string).slice(0, 6);
       return { kind: 'notStarted', message: `Codex doesn’t offer its image tool to ${request.model}${usable.length ? `. Pick ${usable.join(', ')} for this agent` : ''}. Nothing was drawn.` };
     }
-    const started = object(await connection.request('thread/start', { model: request.model, modelProvider: 'openai', cwd: workspace, approvalPolicy: 'untrusted', approvalsReviewer: 'user', permissions: CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots: [], ephemeral: true, environments: [], dynamicTools: [], selectedCapabilityRoots: [], developerInstructions: INSTRUCTIONS }, signal));
+    const started = object(await connection.request('thread/start', { model: request.model, modelProvider: 'openai', cwd: workspace, approvalPolicy: 'untrusted', approvalsReviewer: 'user', permissions: CODEX_PERMISSION_PROFILE, runtimeWorkspaceRoots: [], ephemeral: true, environments: [], dynamicTools: [], selectedCapabilityRoots: [], developerInstructions: INSTRUCTIONS, experimentalRawEvents: true }, signal));
     const thread = object(started.thread), sandbox = object(started.sandbox);
     verifyPermissionSelection(started.activePermissionProfile);
     if (!id(thread.id) || thread.ephemeral !== true || started.model !== request.model || started.modelProvider !== 'openai' || started.cwd !== workspace || started.approvalPolicy !== 'untrusted' || started.approvalsReviewer !== 'user'

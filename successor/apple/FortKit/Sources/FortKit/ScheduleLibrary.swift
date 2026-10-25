@@ -35,8 +35,8 @@ struct ScheduleLibrary: View {
                         HStack { Button("Review and manage") { selected = schedule }; Button("Edit") { editing = schedule } }.buttonStyle(.bordered)
                     }
                 }
-                if let error { Text(error).foregroundStyle(.red) }
-                Text(model.status).font(.caption)
+                if let error { CopyableText(error).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption)
             }.navigationTitle("Schedules")
             .toolbar { ToolbarItem(placement:.cancellationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented:$creating) { ScheduleEditor(model:model,routine:routine,imported:imported) }
@@ -108,8 +108,8 @@ private struct ScheduleEditor: View {
                 }
                 Text("Save creates a paused revision. Review its next occurrences before enabling it.").font(.caption)
                 Button("Export schedule JSON") { if prepare() { exporting = true } }
-                if let error { Text(error).foregroundStyle(.red) }
-                Text(model.status).font(.caption)
+                if let error { CopyableText(error).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption)
             }.formStyle(.grouped).navigationTitle("Schedule")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction) { Button("Cancel") { dismiss() } }
@@ -183,8 +183,8 @@ private struct ScheduleReview: View {
                     Text("Pausing preserves history and does not stop work already accepted.").font(.caption)
                 }
                 Section("Occurrence history") { ForEach(occurrences) { occurrence in VStack(alignment:.leading) { Text("\(occurrence.localDate) \(occurrence.localTime) · \(occurrence.displayState)"); if let detail = occurrence.detail { Text(detail).font(.caption) } } } }
-                if let error { Text(error).foregroundStyle(.red) }
-                Text(model.status).font(.caption)
+                if let error { CopyableText(error).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption)
             }.navigationTitle("Review schedule")
             .toolbar { ToolbarItem(placement:.cancellationAction) { Button("Done") { dismiss() } } }
             .task { do { pinnedRoutine = try await model.routineRevision(routineID:revision.definition.routineId,revisionID:revision.definition.routineRevisionId); preview = try await model.schedulePreview(revision); occurrences = try await model.scheduleOccurrences(revision) } catch { self.error = error.localizedDescription } }

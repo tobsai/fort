@@ -85,7 +85,7 @@ struct AgentSettingsEditor: View {
             } header: { Text("Class") }
             Section {
                 let gear = AgentSheet.gear(model.modelCatalog.options(preserving:form.exactModel))
-                if gear.isEmpty { Text(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
+                if gear.isEmpty { CopyableText(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
                 ForEach(gear) { item in
                     Button { form.exactModel = item.id } label: {
                         HStack(spacing:10) {
@@ -116,9 +116,9 @@ struct AgentSettingsEditor: View {
             Section {
                 WorkshopDrawer(isExpanded:$showWorkshop,identifier:"agent-workshop") {
                     Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
-                    if let detail = model.modelCatalog.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                    if let detail = model.modelCatalog.detail { CopyableText(detail).font(.caption).foregroundStyle(.secondary) }
                     Button(model.loadingModels ? "Checking models…" : "Refresh models") { Task { await model.refreshModels() } }.disabled(!model.canRefreshModels)
-                    Text(model.status).font(.caption).foregroundStyle(.secondary)
+                    CopyableText(model.status).font(.caption).foregroundStyle(.secondary)
                 }
             }
         }.formStyle(.grouped)
@@ -154,7 +154,7 @@ struct PortraitDrawControls: View {
             }
             if drawing { ProgressView().controlSize(.small) }
         }
-        if let draw = agent.portraitDraw, !draw.isDrawing { Text(draw.detail).font(.caption).foregroundStyle(.red) }
+        if let draw = agent.portraitDraw, !draw.isDrawing { CopyableText(draw.detail).font(.caption).foregroundStyle(.red) }
         Text(PortraitDrawing.costNote).font(.caption).foregroundStyle(.secondary)
     }
 }

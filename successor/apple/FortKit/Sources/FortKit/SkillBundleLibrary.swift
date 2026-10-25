@@ -47,8 +47,8 @@ struct SkillBundleLibrary: View {
                         }
                     }
                 }
-                if let errorText { Text(errorText).foregroundStyle(.red) }
-                Text(model.status).font(.caption).foregroundStyle(.secondary)
+                if let errorText { CopyableText(errorText).foregroundStyle(.red) }
+                CopyableText(model.status).font(.caption).foregroundStyle(.secondary)
             }
             .navigationTitle("Skill bundles")
             .toolbar { ToolbarItem(placement:.cancellationAction) { Button("Done") { dismiss() } } }
@@ -120,7 +120,7 @@ struct SkillBundleReviewView: View {
                     }
                     Section("Changes to review") {
                         if comparing { ProgressView("Loading previous revision") }
-                        else if let comparisonError { Text(comparisonError).foregroundStyle(.red) }
+                        else if let comparisonError { CopyableText(comparisonError).foregroundStyle(.red) }
                         else {
                             ForEach(bundle.changes(from:previous?.bundle)) { change in Text(change.change + ": " + change.path) }
                             if bundle.changes(from:previous?.bundle).isEmpty { Text("No file changes.") }
@@ -152,8 +152,8 @@ struct SkillBundleReviewView: View {
                                 exportDocument = BundleDocument(data:try encoder.encode(bundle)); exporting = true
                             } catch { errorText = error.localizedDescription }
                         }
-                        if let errorText { Text(errorText).foregroundStyle(.red) }
-                        Text(model.status).font(.caption).foregroundStyle(.secondary)
+                        if let errorText { CopyableText(errorText).foregroundStyle(.red) }
+                        CopyableText(model.status).font(.caption).foregroundStyle(.secondary)
                     }
                 }.formStyle(.grouped)
                 .navigationTitle("Review skill bundle")
