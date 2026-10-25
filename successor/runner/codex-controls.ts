@@ -14,6 +14,9 @@ export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks',
 export const PORTRAIT_ENABLED_FEATURES = ['image_generation'] as const;
 export const PORTRAIT_DISABLED_FEATURES = CODEX_DISABLED_FEATURES.filter(name => name!=='image_generation' && name!=='imagegenext');
 export type CodexProfile = 'chat' | 'portrait';
+// GPT-6 models run Codex in code-mode-only, where the image tool is reachable only from inside code mode's
+// exec, which failed to start in the portrait run on Toby's Mac. This keeps the image tool a plain top-level tool for the portrait run.
+export const PORTRAIT_TOOL_OVERRIDE = 'features.code_mode.direct_only_tool_namespaces=["image_gen"]';
 
 export function verifyEffectiveConfig(value: unknown): void {
   const config = object(value);

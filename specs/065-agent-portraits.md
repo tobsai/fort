@@ -26,7 +26,9 @@ Claude has no image generation, so this is ChatGPT-only.
 - **Weaker controls, kept narrow.** Chat runs keep `image_generation` off, unchanged. The portrait
   run is its own Codex app-server process with a separate control check that requires
   `image_generation` on and every other disabled feature still off, an empty workspace, no shell,
-  no MCP and web search disabled. It gets no conversation history, skills or memory, only the
+  no MCP and web search disabled. The one config difference keeps Codex's `image_gen` tool namespace top-level
+  (`features.code_mode.direct_only_tool_namespaces`), because GPT-6 models otherwise reach tools only through
+  code mode's `exec`, which failed to start in the portrait run on Toby's Mac. It gets no conversation history, skills or memory, only the
   built prompt. If the check fails, nothing is sent.
 - **Credentials.** No change. The portrait run uses the same Codex sign-in and the same pinned
   account as the agent's binding. Claude-bound agents don't get the button.
