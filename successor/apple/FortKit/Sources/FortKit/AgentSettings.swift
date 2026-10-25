@@ -34,6 +34,8 @@ struct AgentSettingsEditor: View {
         (model.modelCatalog.canSelect(form.exactModel) || agent?.binding.selectedModel == form.exactModel)
     }
     @State private var showWorkshop = false
+    @State private var portraitNote = ""
+    private var liveAgent: Agent? { agent.map { current in model.agents.first { $0.agentId == current.agentId } ?? current } }
     private var className: String { agent.map { PauseMenu.className(provider:$0.binding.provider,runtimes:model.runtimes) } ?? model.focusedRuntimeName }
     var body: some View {
         Form {
@@ -42,7 +44,10 @@ struct AgentSettingsEditor: View {
             #endif
             Section {
                 HStack(alignment:.center,spacing:16) {
-                    AgentAvatarView(avatar:form.avatar,size:96).padding(6).hudFrame()
+                    Group {
+                        if let liveAgent, liveAgent.portrait != nil { AgentPortraitView(model:model,agent:liveAgent,size:96) }
+                        else { AgentAvatarView(avatar:form.avatar,size:96) }
+                    }.padding(6).hudFrame()
                     VStack(alignment:.leading,spacing:8) {
                         TextField("Name",text:$form.name).font(.system(.title2,design:.rounded).weight(.black))
                         HStack(spacing:6) {
@@ -59,6 +64,9 @@ struct AgentSettingsEditor: View {
                                 .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(form.avatar == avatar ? HUDStyle.gold : .clear,lineWidth:2))
                         }.buttonStyle(.plain).accessibilityLabel(avatar.name + (form.avatar == avatar ? ", selected" : ""))
                     }
+                }
+                if let liveAgent, model.supportsPortraits, PortraitDrawing.canDraw(liveAgent) {
+                    PortraitDrawControls(model:model,agent:liveAgent,note:$portraitNote)
                 }
             } header: { Text("Portrait") }
             #if os(macOS)
@@ -120,6 +128,34 @@ struct AgentSettingsEditor: View {
             if let agent { await model.focusRuntime(agent.binding.provider) }
             await model.refreshModels()
         }
+    }
+}
+
+enum PortraitDrawing {
+    /// Only ChatGPT (Codex) Agents can draw; Claude has no image generation.
+    static func canDraw(_ agent: Agent) -> Bool { agent.binding.provider == "codex" }
+    static func buttonTitle(_ agent: Agent) -> String { agent.portraitDraw?.isDrawing == true ? "Drawing…" : agent.portrait == nil ? "Draw portrait" : "Redraw portrait" }
+    static let costNote = "Fort draws one picture on your ChatGPT plan. An image uses more of your plan than a message."
+}
+struct PortraitDrawControls: View {
+    let model: MessengerModel
+    let agent: Agent
+    @SwiftUI.Binding var note: String
+    var body: some View {
+        let drawing = agent.portraitDraw?.isDrawing == true
+        TextField("Look and props (optional)",text:$note,axis:.vertical).lineLimit(1...3).disabled(drawing)
+            .accessibilityIdentifier("portrait-note")
+        HStack {
+            Button(PortraitDrawing.buttonTitle(agent)) { Task { await model.drawPortrait(agent,note:note) } }
+                .disabled(drawing || model.portraitBusy || note.utf8.count > 500).accessibilityIdentifier("portrait-draw")
+            if agent.portrait != nil {
+                Button("Use stock icon",role:.destructive) { Task { await model.removePortrait(agent) } }
+                    .disabled(drawing || model.portraitBusy).accessibilityIdentifier("portrait-remove")
+            }
+            if drawing { ProgressView().controlSize(.small) }
+        }
+        if let draw = agent.portraitDraw, !draw.isDrawing { Text(draw.detail).font(.caption).foregroundStyle(.red) }
+        Text(PortraitDrawing.costNote).font(.caption).foregroundStyle(.secondary)
     }
 }
 

@@ -8,6 +8,7 @@ import { launchGuardedCodexProcess } from './guarded-codex-process.ts';
 import { serveExecutorWorker } from './executor-worker.ts';
 import { ExecutorProcess } from './executor-process.ts';
 import { privateCodexLaunchPlan } from './private-codex-plan.ts';
+import { CodexPortraitRuntime, PORTRAIT_FRAME_LIMIT } from './codex-portrait.ts';
 export { CODEX_RUNTIME } from './codex-descriptor.ts';
 export { privateCodexLaunchPlan } from './private-codex-plan.ts';
 export { signInCodexAccount } from './codex-account.ts';
@@ -15,6 +16,8 @@ export { signInCodexAccount } from './codex-account.ts';
 type CodexExecutorOptions = {
   input: Readable; output: Writable; hostId: string;
   runtime: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs'>;
+  // Spec 065: the same private directories, launched with image generation on for one portrait.
+  portraitRuntime?: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs' | 'frameLimit'>;
 };
 type CodexProcessOptions = Omit<ConstructorParameters<typeof ExecutorProcess>[0], 'lifecycle' | 'cooperativeCancellationMs' | 'discovery' | 'signIn'> & { guardian: string; hostId: string };
 type PrivateCodexOptions = Parameters<typeof privateCodexLaunchPlan>[0] & { hostId: string };
@@ -47,14 +50,18 @@ export function createPrivateCodexExecutorProcess(options: PrivateCodexOptions):
 
 export function createCodexExecutorProcess({ guardian, hostId, ...process }: CodexProcessOptions): ExecutorProcess {
   return new ExecutorProcess({ ...process, lifecycle: { kind: 'macParentExit', guardian }, cooperativeCancellationMs: 3500,
-    discovery: { provider: 'codex', runtimeVersion: '0.163.0', hostId }, signIn: { provider: 'codex', runtimeVersion: '0.163.0', hostId } });
+    discovery: { provider: 'codex', runtimeVersion: '0.163.0', hostId }, signIn: { provider: 'codex', runtimeVersion: '0.163.0', hostId }, portrait: { provider: 'codex', runtimeVersion: '0.163.0', hostId } });
 }
 
 export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void> {
   const runtime = { ...options.runtime, args: [...options.runtime.args], env: { ...options.runtime.env } };
+  const portraitRuntime = options.portraitRuntime && { ...options.portraitRuntime, args: [...options.portraitRuntime.args], env: { ...options.portraitRuntime.env } };
+  function emptyWorkspace(cwd: string) {
+    if (!isAbsolute(cwd) || cwd === '/' || normalize(cwd) !== cwd || !cwd.isWellFormed() || cwd.includes('\0')) throw new Error('Select an exact empty runtime workspace');
+    if (readdirSync(cwd).length !== 0) throw new Error('Codex executor workspace must be empty');
+  }
   function create(deadline: number): CodexChat {
-    if (!isAbsolute(runtime.cwd) || runtime.cwd === '/' || normalize(runtime.cwd) !== runtime.cwd || !runtime.cwd.isWellFormed() || runtime.cwd.includes('\0')) throw new Error('Select an exact empty runtime workspace');
-    if (readdirSync(runtime.cwd).length !== 0) throw new Error('Codex executor workspace must be empty');
+    emptyWorkspace(runtime.cwd);
     const owned = launchGuardedCodexProcess({ ...runtime, deadlineMs: deadline - Date.now() });
     return new CodexChat({ connection: owned.connection, workspace: runtime.cwd, runtimeVersion: '0.163.0' });
   }
@@ -63,6 +70,11 @@ export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void>
     createRuntime: ({ dispatch }) => create(dispatch.deadline),
     createDiscovery: ({ deadline }) => create(deadline),
     createSignIn: ({ deadline }) => create(deadline),
+    ...(portraitRuntime ? { createPortrait: ({ deadline }: { deadline: number }) => {
+      emptyWorkspace(portraitRuntime.cwd);
+      const owned = launchGuardedCodexProcess({ ...portraitRuntime, deadlineMs: deadline - Date.now(), frameLimit: PORTRAIT_FRAME_LIMIT });
+      return new CodexPortraitRuntime({ connection: owned.connection, workspace: portraitRuntime.cwd });
+    } } : {}),
   });
 }
 
@@ -72,7 +84,8 @@ if (import.meta.main) {
     const { values } = parseArgs({ options: { executable: { type: 'string' }, guardian: { type: 'string' }, directory: { type: 'string' }, host: { type: 'string' } }, strict: true, allowPositionals: false });
     if (!values.executable || !values.guardian || !values.directory || !values.host) throw new Error('Missing private runtime configuration');
     await serveCodexExecutor({ input: process.stdin, output: process.stdout, hostId: values.host,
-      runtime: privateCodexLaunchPlan({ executable: values.executable, guardian: values.guardian, directory: values.directory }) });
+      runtime: privateCodexLaunchPlan({ executable: values.executable, guardian: values.guardian, directory: values.directory }),
+      portraitRuntime: privateCodexLaunchPlan({ executable: values.executable, guardian: values.guardian, directory: values.directory, profile: 'portrait' }) });
   } catch {
     process.stderr.write('Fort executor could not start or finish safely.\n');
     process.exitCode = 1;

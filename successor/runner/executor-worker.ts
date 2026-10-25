@@ -1,6 +1,8 @@
 import type { Readable, Writable } from 'node:stream';
 import type { ChatRuntime } from './chat-runtime.ts';
+import type { PortraitResult } from '../contracts/portrait.ts';
 import { DISPATCH_FRAME_BYTES, MODEL_FRAME_BYTES, parseExecutorModelRequest, parseExecutorModelCatalog, parseExecutorRequest, parseExecutorResult, validateExecutorBinding, validateExecutorCancel, validateExecutorModelCancel, type ExecutorBinding, type ExecutorRequest, type ExecutorModelRequest } from './executor-wire.ts';
+import { PORTRAIT_FRAME_BYTES, encodePortraitResult, parseExecutorPortraitRequest, validateExecutorPortraitCancel, type ExecutorPortraitRequest } from './executor-portrait-wire.ts';
 import { ACCOUNT_FRAME_BYTES, parseExecutorAccountRequest, parseAccountChallenge, parseAccountSignInResult, validateExecutorAccountCancel, type ExecutorAccountRequest } from './executor-account-wire.ts';
 
 type WorkerOptions = {
@@ -8,6 +10,7 @@ type WorkerOptions = {
   createRuntime(request: ExecutorRequest, signal: AbortSignal): ChatRuntime;
   createDiscovery?(request: ExecutorModelRequest, signal: AbortSignal): ChatRuntime;
   createSignIn?(request: ExecutorAccountRequest, signal: AbortSignal): ChatRuntime;
+  createPortrait?(request: ExecutorPortraitRequest, signal: AbortSignal): ChatRuntime;
 };
 type Operation = {
   deadline: number; requestBytes: number; canceledIsFailure: boolean;
@@ -17,7 +20,7 @@ type Operation = {
   cancel(value: unknown): void;
 };
 
-export function serveExecutorWorker({ input, output, binding, createRuntime, createDiscovery, createSignIn }: WorkerOptions): Promise<void> {
+export function serveExecutorWorker({ input, output, binding, createRuntime, createDiscovery, createSignIn, createPortrait }: WorkerOptions): Promise<void> {
   validateExecutorBinding(binding);
   const selected = { ...binding }, done = Promise.withResolvers<void>(), failed = Promise.withResolvers<never>();
   void failed.promise.catch(() => {});
@@ -65,6 +68,20 @@ export function serveExecutorWorker({ input, output, binding, createRuntime, cre
         terminal: result => ({ protocolVersion: 1, kind: 'accountResult', sequence: 1,
           requestId: accepted.requestId, requestDigest: accepted.requestDigest, result: parseAccountSignInResult(result) }),
         cancel: value => validateExecutorAccountCancel(value, accepted),
+      };
+    }
+    if (value && typeof value === 'object' && 'kind' in value && value.kind === 'portrait') {
+      const accepted = parseExecutorPortraitRequest(value, selected);
+      if (!createPortrait) throw new Error('Portraits are not configured');
+      return { deadline: accepted.deadline, requestBytes: PORTRAIT_FRAME_BYTES, canceledIsFailure: false,
+        create: () => createPortrait(accepted, controller.signal),
+        execute: async runtime => {
+          if (!runtime.portrait) throw new Error('Portraits are not supported');
+          return runtime.portrait({ account: accepted.account, model: accepted.model, subject: accepted.subject }, controller.signal);
+        },
+        terminal: result => ({ protocolVersion: 1, kind: 'portraitResult', sequence: 1,
+          requestId: accepted.requestId, requestDigest: accepted.requestDigest, result: encodePortraitResult(result as PortraitResult) }),
+        cancel: value => validateExecutorPortraitCancel(value, accepted),
       };
     }
     if (value && typeof value === 'object' && 'kind' in value && value.kind === 'models') {

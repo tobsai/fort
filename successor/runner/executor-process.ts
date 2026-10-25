@@ -7,6 +7,8 @@ import { parseAccountIdentity } from '../contracts/account.ts';
 import type { ModelCatalog, RuntimeReadiness, AccountSignInOptions, AccountSignInResult, AccountIdentity } from '../contracts/v1.ts';
 import type { ChatInput, ChatResult, ChatRuntime } from './chat-runtime.ts';
 import { MODEL_EVIDENCE_BYTES, parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from './executor-wire.ts';
+import { PORTRAIT_EVIDENCE_BYTES, parseExecutorPortraitFrame, portraitRequestBody } from './executor-portrait-wire.ts';
+import type { PortraitRequest, PortraitResult } from '../contracts/portrait.ts';
 import { ACCOUNT_EVIDENCE_BYTES, parseExecutorAccountFrame, type ExecutorAccountRequest } from './executor-account-wire.ts';
 
 type ProcessOptions = {
@@ -15,6 +17,7 @@ type ProcessOptions = {
   cooperativeCancellationMs?: number;
   discovery?: ExecutorBinding;
   signIn?: ExecutorBinding;
+  portrait?: ExecutorBinding;
 };
 type ExitReport = { pid: number | null; groupAbsent: boolean; forced: boolean; code: number | null; signal: NodeJS.Signals | null };
 type Exchange<T> = {
@@ -66,6 +69,7 @@ export class ExecutorProcess implements ChatRuntime {
   private report: ExitReport | undefined;
   readonly models?: (signal: AbortSignal, account?: AccountIdentity) => Promise<ModelCatalog>;
   readonly signIn?: (options: AccountSignInOptions, signal: AbortSignal) => Promise<AccountSignInResult>;
+  readonly portrait?: (request: PortraitRequest, signal: AbortSignal) => Promise<PortraitResult>;
 
   constructor(options: ProcessOptions) {
     if (!isAbsolute(options.executable) || !isAbsolute(options.cwd)) throw new Error('Select exact executor and working-directory paths');
@@ -84,6 +88,12 @@ export class ExecutorProcess implements ChatRuntime {
       if (options.discovery && executionDigest(options.discovery) !== executionDigest(options.signIn)) throw new Error('Account and model discovery must select the same runtime');
       const binding = Object.freeze({ ...options.signIn });
       this.signIn = (request, signal) => this.authenticateAccount(binding, request, signal);
+    }
+    if (options.portrait) {
+      validateExecutorBinding(options.portrait);
+      if (options.discovery && executionDigest(options.discovery) !== executionDigest(options.portrait)) throw new Error('Portraits and model discovery must select the same runtime');
+      const binding = Object.freeze({ ...options.portrait });
+      this.portrait = (request, signal) => this.drawPortrait(binding, request, signal);
     }
   }
 
@@ -163,6 +173,20 @@ export class ExecutorProcess implements ChatRuntime {
       },
       canComplete: () => Date.now() < request.deadline,
       failure: () => ({ kind: 'unconfirmed' }),
+    });
+  }
+
+  private async drawPortrait(binding: ExecutorBinding, input: PortraitRequest, signal: AbortSignal): Promise<PortraitResult> {
+    if (this.stopped || this.blocked || this.active || signal.aborted) return { kind: 'notStarted', message: 'The runtime is stopped, busy or canceled. Nothing was drawn.' };
+    let request;
+    try { request = portraitRequestBody(binding, input.account, input.model, input.subject, randomUUID()); }
+    catch { return { kind: 'notStarted', message: 'The portrait request was not valid. Nothing was drawn.' }; }
+    return this.exchange(signal, { request, deadline: request.deadline, evidenceBytes: PORTRAIT_EVIDENCE_BYTES,
+      cancel: { protocolVersion: 1, kind: 'cancelPortrait', requestId: request.requestId, requestDigest: request.requestDigest },
+      parse: value => parseExecutorPortraitFrame(value, request),
+      canComplete: () => Date.now() < request.deadline,
+      failure: (spawnFailed, absent) => spawnFailed ? { kind: 'notStarted', message: 'The executor could not start. Nothing was drawn.' }
+        : { kind: 'outcomeUnknown', message: absent ? 'The portrait run ended without a confirmed result. Nothing was saved.' : 'Executor cleanup is unconfirmed. Nothing was saved.' },
     });
   }
 

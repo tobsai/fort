@@ -15,8 +15,12 @@ export class CodexConnection {
   private readonly decoder = new TextDecoder('utf-8', { fatal:true });
   private buffer = '';
   private stopped = false;
-  constructor(io: { input: Writable; output: Readable; close(): void | Promise<void> }) {
-    this.io = io;
+  private readonly frameLimit: number;
+  // frameLimit: chat keeps 256 KiB. The portrait run (Spec 065) raises it to fit one base64 image item.
+  constructor(io: { input: Writable; output: Readable; close(): void | Promise<void> }, options: { frameLimit?: number } = {}) {
+    const frameLimit = options.frameLimit ?? 262_144;
+    if (!Number.isSafeInteger(frameLimit) || frameLimit < 262_144 || frameLimit > 16_777_216) throw new Error('Invalid Codex frame limit');
+    this.io = io; this.frameLimit = frameLimit;
     io.output.on('data', (bytes: Buffer) => this.receive(bytes));
     io.output.on('end', () => this.close()); io.output.on('error', () => this.close()); io.input.on('error', () => this.close());
   }
@@ -55,12 +59,12 @@ export class CodexConnection {
   private receive(bytes: Uint8Array) {
     if (this.stopped) return;
     try {
-      if (bytes.byteLength > 1_000_000) throw new Error('Frame limit');
+      if (bytes.byteLength > Math.max(1_000_000, this.frameLimit)) throw new Error('Frame limit');
       this.buffer += this.decoder.decode(bytes, { stream:true });
       for (;;) {
         const end = this.buffer.indexOf('\n'); if (end < 0) break;
         const line = this.buffer.slice(0,end); this.buffer = this.buffer.slice(end+1);
-        if (Buffer.byteLength(line) > 262_144) throw new Error('Frame limit');
+        if (Buffer.byteLength(line) > this.frameLimit) throw new Error('Frame limit');
         if (!line.trim()) continue;
         const frame = object(JSON.parse(line));
         if (typeof frame.method === 'string' && frame.id !== undefined && this.subscribers.size === 0) {
@@ -74,7 +78,7 @@ export class CodexConnection {
         } else for (const subscriber of [...this.subscribers]) subscriber.frame(Buffer.from(line+'\n'));
         if (this.stopped) return;
       }
-      if (Buffer.byteLength(this.buffer) > 262_144) throw new Error('Frame limit');
+      if (Buffer.byteLength(this.buffer) > this.frameLimit) throw new Error('Frame limit');
     } catch { this.close(); }
   }
 }

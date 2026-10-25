@@ -246,3 +246,36 @@ test('the production worker synthetic process journey meets its isolated budget'
   writeFileSync(destination, JSON.stringify(samples));
   const sorted = [...samples].sort((a, b) => a - b), p95 = sorted[18]; assert.ok(p95 !== undefined && p95 <= 2000);
 });
+
+test('a portrait round-trips through the real executor process, PNG intact', async () => {
+  const worker = fileURLToPath(new URL('./fixtures/owned-executor.mjs', import.meta.url));
+  const account = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
+  for (const scenario of ['portrait', 'portrait-limit']) {
+    const runtime = new ExecutorProcess({ executable: process.execPath, args: [worker, scenario], cwd: process.cwd(), env: {}, lifecycle: { kind: 'processGroup' }, portrait: binding });
+    try {
+      const result = await runtime.portrait!({ account, model: 'exact-model', subject: { name: 'Pascal', instructions: 'Ships code.' } }, new AbortController().signal);
+      if (scenario === 'portrait') {
+        assert.equal(result.kind, 'drawn');
+        if (result.kind === 'drawn') { assert.equal(result.width, 1024); assert.ok(result.png.length > 3_000_000); }
+      } else assert.deepEqual(result, { kind: 'failed', reason: 'usageLimit', message: 'Plan limit reached.' });
+      assert.equal(runtime.lastExit?.groupAbsent, true);
+    } finally { await runtime.dispose(); }
+  }
+});
+
+test('portrait requests with a foreign binding or bad subject never reach the runtime', async () => {
+  const { portraitRequestBody } = await import('./executor-portrait-wire.ts');
+  const account = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
+  let created = 0;
+  for (const frame of [
+    portraitRequestBody({ ...binding, hostId: 'other-host' }, account, 'exact-model', { name: 'Pascal', instructions: '' }, 'req-1'),
+    portraitRequestBody(binding, account, 'exact-model', { name: ' ', instructions: '' }, 'req-2'),
+    { ...portraitRequestBody(binding, account, 'exact-model', { name: 'Pascal', instructions: '' }, 'req-3'), model: 'other-model' },
+  ]) {
+    const input = new PassThrough(), output = new PassThrough();
+    const done = serveExecutorWorker({ input, output, binding, createRuntime: () => { throw new Error('no chat'); }, createPortrait: () => { created++; throw new Error('must not create'); } });
+    input.write(JSON.stringify(frame) + '\n');
+    await assert.rejects(done);
+  }
+  assert.equal(created, 0);
+});
