@@ -49,7 +49,7 @@ struct AgentSettingsEditor: View {
                         else { AgentAvatarView(avatar:form.avatar,size:96) }
                     }.padding(6).hudFrame()
                     VStack(alignment:.leading,spacing:8) {
-                        TextField("Name",text:$form.name).font(.system(.title2,design:.rounded).weight(.black))
+                        TextField("Agent name",text:$form.name).font(.system(.title2,design:.rounded).weight(.black)).fortInput().accessibilityIdentifier("agent-name")
                         HStack(spacing:6) {
                             Text(className.uppercased()).font(.caption.weight(.heavy))
                                 .padding(.horizontal,6).padding(.vertical,2).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black)
@@ -106,7 +106,7 @@ struct AgentSettingsEditor: View {
                 Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Checked again when you send. Fort never swaps in another model.")
             }
             Section {
-                TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
+                MarkdownEditor(text:$form.instructions,placeholder:"Who this agent is: role, tone, what to always or never do.",minHeight:140,accessibilityLabel:"Agent identity")
                 if let note = AgentSheet.sizeNote(form.instructions) {
                     Text(note).font(.caption).foregroundStyle(form.instructions.utf8.count > AgentSheet.instructionLimit ? .red : .secondary)
                 }
@@ -143,7 +143,7 @@ struct PortraitDrawControls: View {
     @SwiftUI.Binding var note: String
     var body: some View {
         let drawing = agent.portraitDraw?.isDrawing == true
-        TextField("Look and props (optional)",text:$note,axis:.vertical).lineLimit(1...3).disabled(drawing)
+        TextField("Look and props (optional)",text:$note,axis:.vertical).lineLimit(1...3).fortInput().disabled(drawing)
             .accessibilityIdentifier("portrait-note")
         HStack {
             Button(PortraitDrawing.buttonTitle(agent)) { Task { await model.drawPortrait(agent,note:note) } }

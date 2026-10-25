@@ -27,7 +27,7 @@ struct MessageComposer: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let input = scroll.documentView as? MessageTextView else { return }
-        if input.string != text { input.string = text }
+        if input.string != text { input.string = text; context.coordinator.restyle(input) }
         input.isEditable = editable; input.canSend = canSend; input.send = send; input.needsDisplay = true; scroll.needsLayout = true
     }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView scroll: NSScrollView, context: Context) -> CGSize? {
@@ -41,7 +41,18 @@ struct MessageComposer: NSViewRepresentable {
         init(_ parent: MessageComposer) { self.parent = parent }
         func textDidChange(_ notification: Notification) {
             guard let input = notification.object as? MessageTextView else { return }
-            parent.text = input.string; input.needsDisplay = true
+            parent.text = input.string; restyle(input); input.needsDisplay = true
+        }
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let input = notification.object as? MessageTextView else { return }
+            restyle(input)
+        }
+        /// The draft takes Markdown; lines away from the caret show formatted.
+        func restyle(_ input: NSTextView, focused: Bool? = nil) {
+            guard !input.hasMarkedText(), let storage = input.textStorage, let font = input.font else { return }
+            let editing = (focused ?? (input.window?.firstResponder === input)) ? input.selectedRange() : nil
+            MarkdownPreview.apply(to:storage,editing:editing,font:font,color:.labelColor)
+            input.typingAttributes = [.font:font,.foregroundColor:NSColor.labelColor]
         }
     }
 }
@@ -61,6 +72,11 @@ final class MessageTextView: NSTextView {
     }
     var canSend = false
     var send: () -> Void = {}
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted { (delegate as? MessageComposer.Coordinator)?.restyle(self,focused:false) }
+        return accepted
+    }
     override func keyDown(with event: NSEvent) {
         if [36,76].contains(event.keyCode), !hasMarkedText() {
             guard isEditable else { return }
