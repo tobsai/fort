@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import Observation
 
 @Observable @MainActor public final class MessengerModel {
@@ -1085,6 +1086,32 @@ import Observation
         do { try saveNavigation() } catch { status = error.localizedDescription }
         if refreshing { await withCheckedContinuation { refreshWaiters.append($0) } }
         await refresh()
+    }
+    // Spec 065: portraits Fort drew, cached by revision for this session.
+    public var supportsPortraits: Bool { installation?.supports("agentPortraits") == true }
+    public private(set) var portraitBusy = false
+    private var portraitImages: [String:CGImage] = [:]
+    private var portraitLoads: Set<String> = []
+    func portraitImage(for agent: Agent) -> CGImage? { agent.portrait.flatMap { portraitImages[$0.revision] } }
+    public func loadPortrait(_ agent: Agent) async {
+        guard let revision = agent.portrait?.revision, portraitImages[revision] == nil, !portraitLoads.contains(revision), let client else { return }
+        portraitLoads.insert(revision); defer { portraitLoads.remove(revision) }
+        guard let data = try? await client.portrait(agentID:agent.agentId,revision:revision), let image = PortraitDecoder.image(data) else { return }
+        portraitImages[revision] = image
+    }
+    /// One press, one draw on the Agent's ChatGPT plan. Fort never retries it.
+    public func drawPortrait(_ agent: Agent, note: String) async {
+        let trimmed = note.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard supportsPortraits, !portraitBusy, trimmed.utf8.count <= 500, let client else { return }
+        portraitBusy = true; defer { portraitBusy = false }
+        do { _ = try await client.drawPortrait(agentID:agent.agentId,note:trimmed.isEmpty ? nil : trimmed); await refresh() }
+        catch { status = error.localizedDescription }
+    }
+    public func removePortrait(_ agent: Agent) async {
+        guard supportsPortraits, !portraitBusy, let client else { return }
+        portraitBusy = true; defer { portraitBusy = false }
+        do { _ = try await client.removePortrait(agentID:agent.agentId); await refresh() }
+        catch { status = error.localizedDescription }
     }
     private func beginWorkspaceSave() async -> FortClient? {
         guard !workspaceSaving else { return nil }

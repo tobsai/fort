@@ -283,7 +283,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
+  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(lanes.some(lane=>lane.runtime?.portrait)?['agentPortraits']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {

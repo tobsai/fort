@@ -20,7 +20,7 @@ public struct MessengerView: View {
                     ForEach(model.agents) { agent in
                         NavigationLink(value:model.hasWorkspace ? agent.homeConversationId : agent.agentId) {
                             HStack(spacing:10) {
-                            AgentAvatarView(avatar:agent.avatar ?? .orbit)
+                            AgentPortraitView(model:model,agent:agent)
                             VStack(alignment:.leading,spacing:4) {
                                 Text(agent.name).font(.headline)
                                 Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary)

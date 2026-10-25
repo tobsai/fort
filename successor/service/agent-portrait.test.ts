@@ -51,6 +51,7 @@ async function fixture(t: TestContext, options: { draw?: (request: PortraitReque
 
 test('drawing a portrait uses the Agent’s model and account, then serves the PNG', async t => {
   const h = await fixture(t);
+  assert.ok((await h.api<{ capabilities: string[] }>('/v1/installation')).body.capabilities.includes('agentPortraits'));
   const started = await h.api<Agent>('/v1/agents/' + h.agent.agentId + '/portrait', { note: 'Waistcoat, short dark hair.' });
   assert.equal(started.status, 202);
   assert.equal(started.body.portraitDraw?.state, 'drawing');
@@ -99,6 +100,7 @@ test('nothing is drawn without a signed-in account, a portrait runtime or a vali
   const unsigned = await fixture(t, { signedIn: false });
   assert.equal((await unsigned.api<{ error: { code: string } }>('/v1/agents/' + unsigned.agent.agentId + '/portrait', {})).body.error.code, 'signInRequired');
   const claude = await fixture(t, { portraits: false });
+  assert.ok(!(await claude.api<{ capabilities: string[] }>('/v1/installation')).body.capabilities.includes('agentPortraits'));
   assert.equal((await claude.api<{ error: { code: string } }>('/v1/agents/' + claude.agent.agentId + '/portrait', {})).body.error.code, 'portraitUnavailable');
   assert.equal((await claude.api('/v1/agents/' + claude.agent.agentId + '/portrait', { note: 'x'.repeat(501) })).status, 400);
   assert.equal((await claude.api('/v1/agents/' + claude.agent.agentId + '/portrait', { prompt: 'anything' })).status, 400);

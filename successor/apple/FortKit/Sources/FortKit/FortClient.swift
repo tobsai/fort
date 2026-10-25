@@ -87,6 +87,24 @@ public struct FortClient: Sendable {
         struct Body: Encodable { let name: String; let model: String; let instructions: String; let expectedBindingRevisionId: String?; let avatar: AgentAvatar?; let provider: String? }
         return try await send(agent.map { "v1/agents/\($0.agentId)" } ?? "v1/agents", method:.post, body:Body(name:name, model:model, instructions:instructions, expectedBindingRevisionId:agent?.binding.bindingRevisionId,avatar:avatar,provider:agent == nil ? provider : nil))
     }
+    /// Starts a portrait draw on the Agent's own ChatGPT runtime (Spec 065). The returned Agent shows it drawing.
+    public func drawPortrait(agentID: String, note: String?) async throws -> Agent {
+        struct Body: Encodable { let note: String? }
+        let agent: Agent = try await send("v1/agents/\(try segment(agentID))/portrait",method:.post,body:Body(note:note))
+        guard agent.agentId == agentID else { throw ClientError.invalidResponse }
+        return agent
+    }
+    public func portrait(agentID: String, revision: String) async throws -> Data {
+        let image: PortraitImage = try await request(path:"v1/agents/\(try segment(agentID))/portrait",method:.get,data:nil,timeout:30)
+        guard image.agentId == agentID, image.revision == revision, let data = Data(base64Encoded:image.png), data.count <= 5 * 1024 * 1024,
+              data.starts(with:[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) else { throw ClientError.invalidResponse }
+        return data
+    }
+    public func removePortrait(agentID: String) async throws -> Agent {
+        let agent: Agent = try await send("v1/agents/\(try segment(agentID))/portrait/remove",method:.post,body:[String:String]())
+        guard agent.agentId == agentID, agent.portrait == nil else { throw ClientError.invalidResponse }
+        return agent
+    }
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async throws -> InstructionSkill {
         struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
         return try await send(skill.map { "v1/skills/\($0.skillId)" } ?? "v1/skills", method:.post, body:Body(name:name, instructions:instructions, expectedRevisionId:skill?.revisionId))

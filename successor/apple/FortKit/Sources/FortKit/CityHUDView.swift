@@ -61,7 +61,7 @@ struct CityHUDView: View {
             ForEach(Array(hud.members.enumerated()),id:\.element.id) { index, member in
                 Button { talk(member.id) } label: {
                     HStack(spacing:10) {
-                        AgentAvatarView(avatar:member.avatar,size:44)
+                        if let agent = model.agents.first(where:{ $0.agentId == member.id }) { AgentPortraitView(model:model,agent:agent,size:44) } else { AgentAvatarView(avatar:member.avatar,size:44) }
                         VStack(alignment:.leading,spacing:3) {
                             HStack { Text(member.name).font(.system(.headline,design:.rounded).weight(.heavy)); Spacer(); if index < 9 { Text("⌘\(index + 1)").font(.caption2.monospaced()).padding(.horizontal,4).overlay(RoundedRectangle(cornerRadius:3).stroke(.secondary)) } }
                             Text(stateLabel(member.state)).font(.caption2.weight(.bold)).foregroundStyle(stateColor(member.state))
@@ -117,7 +117,7 @@ struct CityHUDView: View {
     private func dialogue(_ agent: Agent) -> some View {
         let messages = model.activeConversationID == agent.homeConversationId ? Array((model.displaySnapshot?.messages ?? []).suffix(4)) : []
         return HStack(alignment:.top,spacing:14) {
-            AgentAvatarView(avatar:agent.avatar ?? .orbit,size:88)
+            AgentPortraitView(model:model,agent:agent,size:88)
             VStack(alignment:.leading,spacing:8) {
                 HStack { Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black)).foregroundStyle(HUDStyle.gold); Spacer(); Button("Close",systemImage:"xmark") { talkingTo = nil }.labelStyle(.iconOnly).keyboardShortcut(.cancelAction) }
                 if messages.isEmpty { Text("Say something to \(agent.name).").foregroundStyle(.secondary) }
