@@ -33,3 +33,18 @@ import Testing
     #expect(cards[0].line == "The network connection was lost." && cards[0].tab == .devices)
     #expect(TroubleCard.make(.init(lostContact:true)).first?.line.contains("Saved history is kept") == true)
 }
+
+@Test func chatHidesFinishedRepliesButKeepsAnythingThatNeedsYou() {
+    #expect(!ChatQuiet.showsRun(state:"completed",isRoutine:false))
+    #expect(ChatQuiet.showsRun(state:"completed",isRoutine:true))
+    for state in ["queued","running","waitingForApproval","outcomeUnknown","failed","canceled","closedUnknown","cancelRequested","somethingNew"] {
+        #expect(ChatQuiet.showsRun(state:state,isRoutine:false))
+    }
+}
+
+@Test func chatHeaderShowsOneLightAndOneWord() {
+    #expect(ChatQuiet.header(connected:true,preview:false,runtimeState:"ready",status:"Connected · local prototype") == (.ready,"Ready"))
+    #expect(ChatQuiet.header(connected:true,preview:false,runtimeState:"stopped",status:"").lamp == .attention)
+    #expect(ChatQuiet.header(connected:false,preview:false,runtimeState:nil,status:"The network connection was lost.") == (.attention,"The network connection was lost."))
+    #expect(ChatQuiet.header(connected:false,preview:true,runtimeState:nil,status:"Offline preview").lamp == .off)
+}

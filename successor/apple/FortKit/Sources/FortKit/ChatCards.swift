@@ -54,3 +54,20 @@ struct TroubleCard: Equatable, Sendable, Identifiable {
         return cards
     }
 }
+
+/// What the chat shows about runs and the connection, kept quiet when nothing needs you.
+enum ChatQuiet {
+    /// A finished reply speaks for itself; only routines keep their step list once done.
+    static func showsRun(state: String, isRoutine: Bool) -> Bool { state != "completed" || isRoutine }
+
+    /// The header's single light and sentence.
+    static func header(connected: Bool, preview: Bool, runtimeState: String?, status: String) -> (lamp: StatusLamp, line: String) {
+        if preview { return (.off,status) }
+        guard connected else { return (.attention,status.isEmpty ? "Not connected" : status) }
+        switch runtimeState {
+        case "stopped"?: return (.attention,"Crew stopped")
+        case "restartRequired"?: return (.attention,"Restart needed")
+        default: return (.ready,"Ready")
+        }
+    }
+}
