@@ -10,6 +10,19 @@ private func terminateOwnedGroup() -> Never {
     _exit(125)
 }
 
+// The runtime can exit before the parent-exit watch fires, leaving descendants in the group.
+// Remove every other member so the exact status can still be returned.
+private func terminateOtherMembers() {
+    let me = getpid()
+    for _ in 0..<8 {
+        var pids = [pid_t](repeating:0,count:1024)
+        let bytes = proc_listpids(UInt32(PROC_PGRP_ONLY),UInt32(me),&pids,Int32(pids.count * MemoryLayout<pid_t>.size))
+        let others = pids.prefix(max(0,Int(bytes) / MemoryLayout<pid_t>.size)).filter { $0 > 1 && $0 != me }
+        if others.isEmpty { return }
+        for pid in others { _ = kill(pid,SIGKILL) }
+    }
+}
+
 private func run() throws -> Int32 {
     let arguments = CommandLine.arguments
     guard arguments.count >= 3, let parent = pid_t(arguments[1]), parent > 1,
@@ -33,7 +46,12 @@ private func run() throws -> Int32 {
     defer { posix_spawnattr_destroy(&attributes) }
     try check(posix_spawn_file_actions_init(&actions))
     defer { posix_spawn_file_actions_destroy(&actions) }
-    try check(posix_spawnattr_setflags(&attributes,Int16(POSIX_SPAWN_CLOEXEC_DEFAULT)))
+    // A group SIGTERM reaches the runtime; the guardian outlives it so it can still clear the group.
+    var defaults = sigset_t()
+    sigemptyset(&defaults); sigaddset(&defaults,SIGTERM)
+    try check(posix_spawnattr_setsigdefault(&attributes,&defaults))
+    try check(posix_spawnattr_setflags(&attributes,Int16(POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF)))
+    signal(SIGTERM,SIG_IGN)
     for descriptor in [STDIN_FILENO,STDOUT_FILENO,STDERR_FILENO] {
         try check(posix_spawn_file_actions_addinherit_np(&actions,descriptor))
     }
@@ -48,6 +66,7 @@ private func run() throws -> Int32 {
     while waitpid(child,&status,0) == -1 {
         if errno != EINTR { terminateOwnedGroup() }
     }
+    terminateOtherMembers()
     return status & 0x7f == 0 ? (status >> 8) & 0xff : 128 + (status & 0x7f)
 }
 
