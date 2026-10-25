@@ -140,7 +140,7 @@ enum PortraitDrawing {
 struct PortraitDrawControls: View {
     let model: MessengerModel
     let agent: Agent
-    @Binding var note: String
+    @SwiftUI.Binding var note: String
     var body: some View {
         let drawing = agent.portraitDraw?.isDrawing == true
         TextField("Look and props (optional)",text:$note,axis:.vertical).lineLimit(1...3).disabled(drawing)
