@@ -10,6 +10,11 @@ export const CODEX_SETTINGS = [
 // Requested CLI opt-outs; pinned-runtime observations are checked separately below.
 export const CODEX_DISABLED_FEATURES = ['apps','plugins','hooks','plugin_hooks','remote_control','remote_models','memories','memory_tool','multi_agent','multi_agent_v2','shell_tool','unified_exec','js_repl','skill_search','skill_mcp_dependency_install','skill_env_var_dependency_prompt','image_generation','imagegenext','browser_use','browser_use_external','browser_use_full_cdp_access','computer_use','cli_daybreak','api_key_model_discovery','api_key_cyber_access_programs','ultrafast_mode'] as const;
 
+// Spec 065: the portrait run is a separate process with image generation on and every other control unchanged.
+export const PORTRAIT_ENABLED_FEATURES = ['image_generation'] as const;
+export const PORTRAIT_DISABLED_FEATURES = CODEX_DISABLED_FEATURES.filter(name => name!=='image_generation' && name!=='imagegenext');
+export type CodexProfile = 'chat' | 'portrait';
+
 export function verifyEffectiveConfig(value: unknown): void {
   const config = object(value);
   for (const [path,expected] of CODEX_SETTINGS) {
@@ -52,7 +57,7 @@ export async function readRuntimePages(connection: CodexConnection, method: stri
   throw new Error('Runtime inventory exceeded its bound');
 }
 
-export async function verifyRuntimeControls(connection: CodexConnection, workspace: string, signal: AbortSignal, threadId?: string): Promise<void> {
+export async function verifyRuntimeControls(connection: CodexConnection, workspace: string, signal: AbortSignal, threadId?: string, profile: CodexProfile = 'chat'): Promise<void> {
   let checkpoint:StartupDiagnostic={stage:'protocol',check:'config/read'};
   try {
     const config=object(object(await connection.request('config/read',{ includeLayers:false,cwd:workspace },signal)).config);
@@ -68,7 +73,8 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
       if (typeof feature.name !== 'string' || typeof feature.enabled !== 'boolean' || states.has(feature.name)) throw new StartupCheckError({stage:'features',check:'inventory'});
       states.set(feature.name,feature.enabled);
     }
-    const unconfirmed=CODEX_DISABLED_FEATURES.find(name => {
+    const disabled:readonly string[]=profile==='portrait'?PORTRAIT_DISABLED_FEATURES:CODEX_DISABLED_FEATURES;
+    const unconfirmed=disabled.find(name => {
       // 0.163.0 forces this backend selector on unless managed requirements pin it.
       // Shell authority is blocked by explicit shell_tool:false plus empty environments.
       if (name==='unified_exec') return !states.has(name);
@@ -76,7 +82,8 @@ export async function verifyRuntimeControls(connection: CodexConnection, workspa
       const canonical=name==='memory_tool'?'memories':name==='imagegenext'?'image_generation':name;
       return states.get(canonical)!==false || (canonical!==name && states.has(name) && states.get(name)!==false);
     });
-    if (unconfirmed) throw new StartupCheckError({stage:'features',check:unconfirmed});
+    if (unconfirmed) throw new StartupCheckError({stage:'features',check:unconfirmed as (typeof CODEX_DISABLED_FEATURES)[number]});
+    if (profile==='portrait' && (states.get('image_generation')!==true || (states.has('imagegenext') && states.get('imagegenext')!==true))) throw new StartupCheckError({stage:'features',check:'image_generation'});
     if (states.get('skip_host_skill_discovery')!==true) throw new StartupCheckError({stage:'features',check:'skip_host_skill_discovery'});
     checkpoint={stage:'protocol',check:'mcpServerStatus/list'};
     const servers=await readRuntimePages(connection,'mcpServerStatus/list',{ ...scope,detail:'full' },signal);
