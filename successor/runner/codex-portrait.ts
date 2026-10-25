@@ -35,7 +35,7 @@ const QUIET = ['userMessage', 'reasoning', 'plan', 'contextCompaction', 'agentMe
 
 // Wire state for one portrait turn: only image generation and plain replies are allowed; anything else interrupts.
 export class PortraitTurn {
-  private readonly input: { threadId: string; requestId: string; workspace: string; model: string; text: string };
+  private readonly input: { threadId: string; requestId: string; workspace: string; model: string; text: string; plan?: string };
   private started = false;
   private done = false;
   private turnId: string | undefined;
@@ -51,7 +51,7 @@ export class PortraitTurn {
   private failure: PortraitResult | undefined;
   private readonly early: Record<string, unknown>[] = [];
 
-  constructor(input: { threadId: string; requestId: string; workspace: string; model: string; text: string }) {
+  constructor(input: { threadId: string; requestId: string; workspace: string; model: string; text: string; plan?: string }) {
     if (!id(input.threadId) || !id(input.requestId) || !id(input.model) || !text(input.text, 65_536) || !input.text) throw new Error('Invalid portrait turn');
     this.input = { ...input };
   }
@@ -139,8 +139,9 @@ export class PortraitTurn {
     }
   }
   private toolSummary(): string {
-    if (!this.tool) return ' Codex called no tool.';
-    return ` Codex called ${this.tool.name}` + (this.tool.answer ? `, which answered: “${this.tool.answer}”` : '') + '.';
+    const plan = this.input.plan ? ` (${this.input.model}, ${this.input.plan} plan)` : '';
+    if (!this.tool) return ` Codex called no tool${plan}.`;
+    return ` Codex called ${this.tool.name}` + (this.tool.answer ? `, which answered: “${this.tool.answer}”` : '') + plan + '.';
   }
   private notification(message: Record<string, unknown>, output: TurnOutput) {
     const method = String(message.method), params = record(message.params);
@@ -192,7 +193,7 @@ export class PortraitTurn {
 export async function drawPortrait(connection: CodexConnection, workspace: string, request: PortraitRequest, signal: AbortSignal, deadlineMs = 100_000): Promise<PortraitResult> {
   let prompt: string;
   try { prompt = portraitPrompt(request.subject); } catch { return { kind: 'notStarted', message: 'The agent name or note can’t be used for a portrait. Nothing was drawn.' }; }
-  let threadId: string;
+  let threadId: string, planLabel = 'unknown';
   try {
     const account = parseAccountIdentity(request.account);
     await connection.request('initialize', { clientInfo: { name: 'fort_candidate_b', title: 'Fort', version: '0.1.0' }, capabilities: { experimentalApi: true, requestAttestation: false } }, signal);
@@ -200,6 +201,10 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
     await verifyRuntimeControls(connection, workspace, signal, undefined, 'portrait');
     if (!sameAccount(account, await readCodexAccount(connection, signal) ?? undefined)) return { kind: 'notStarted', message: 'The selected ChatGPT account is not signed in. Nothing was drawn.' };
     if (object(await connection.request('modelProvider/capabilities/read', {}, signal)).imageGeneration !== true) return { kind: 'notStarted', message: 'Your ChatGPT sign-in doesn’t offer image generation in Codex. Nothing was drawn.' };
+    // Codex withholds its image tool on the Free plan, whatever the provider reports.
+    const plan = object(object(await connection.request('account/read', { refreshToken: false }, signal)).account).planType;
+    if (plan === 'free') return { kind: 'notStarted', message: 'Codex sees this ChatGPT account on the Free plan, where it doesn’t offer image generation. Nothing was drawn.' };
+    planLabel = typeof plan === 'string' && /^[a-z_0-9]{1,40}$/.test(plan) ? plan : 'unknown';
     const rows = (await readRuntimePages(connection, 'model/list', {}, signal)).map(value => object(value)).filter(row => typeof row.model === 'string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(row.model));
     const listed = rows.map(row => row.model as string);
     if (!listed.includes(request.model)) { connection.close(); return { kind: 'notStarted', message: `Codex didn’t list ${request.model} for portraits${listed.length ? ` (it listed ${listed.slice(0, 6).join(', ')})` : ' (it listed no models)'}. Nothing was drawn.` }; }
@@ -219,7 +224,7 @@ export async function drawPortrait(connection: CodexConnection, workspace: strin
     threadId = thread.id;
   } catch { connection.close(); return { kind: 'notStarted', message: signal.aborted ? 'Canceled before drawing.' : 'Codex setup for portraits was not confirmed. Nothing was drawn.' }; }
   if (signal.aborted) { connection.close(); return { kind: 'notStarted', message: 'Canceled before drawing.' }; }
-  const turn = new PortraitTurn({ threadId, requestId: randomUUID(), workspace, model: request.model, text: prompt });
+  const turn = new PortraitTurn({ threadId, requestId: randomUUID(), workspace, model: request.model, text: prompt, plan: planLabel });
   return await new Promise<PortraitResult>(resolve => {
     let settled = false, interruptTimer: ReturnType<typeof setTimeout> | undefined;
     const settle = (result: PortraitResult) => {
