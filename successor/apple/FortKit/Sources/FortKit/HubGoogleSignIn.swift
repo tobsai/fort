@@ -84,30 +84,6 @@ extension Data {
     var base64URL: String { base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"") }
 }
 
-// Hub sessions, one per hub host, kept in the Keychain on this device only.
-public enum HubSessions {
-    private static let service = "Fort.HubSession"
-    private static func query(_ host: String) -> [String:Any] {
-        [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:host.lowercased()]
-    }
-    public static func session(for host: String) -> String? {
-        var query = query(host); query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary,&result) == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data:data,encoding:.utf8)
-    }
-    public static func save(_ session: String, for host: String) throws {
-        let data = Data(session.utf8)
-        let status = SecItemUpdate(query(host) as CFDictionary,[kSecValueData as String:data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var add = query(host); add[kSecValueData as String] = data; add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            let inserted = SecItemAdd(add as CFDictionary,nil)
-            guard inserted == errSecSuccess else { throw DeviceStorageError.keychain(inserted) }
-        } else if status != errSecSuccess { throw DeviceStorageError.keychain(status) }
-    }
-    public static func remove(for host: String) { SecItemDelete(query(host) as CFDictionary) }
-}
-
 public enum HubGoogleSignIn {
     private struct Offer: Decodable { let google: Bool; let iosClientId: String?; let nonce: String? }
     private struct Tokens: Decodable { let id_token: String }

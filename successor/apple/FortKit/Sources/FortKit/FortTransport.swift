@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 public enum ClientError: Error, LocalizedError {
     case insecureEndpoint, invalidResponse, wrongInstallation, localHostUnavailable, service(String, String)
@@ -69,4 +70,28 @@ struct HTTPFortTransport: FortTransport {
         guard let response = response as? HTTPURLResponse else { throw ClientError.invalidResponse }
         return FortResponse(status:response.statusCode,body:data)
     }
+}
+
+// Google sessions for hubs behind Google sign-in (Spec 066), one per hub host, kept in the Keychain on this device only.
+public enum HubSessions {
+    private static let service = "Fort.HubSession"
+    private static func query(_ host: String) -> [String:Any] {
+        [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:host.lowercased()]
+    }
+    public static func session(for host: String) -> String? {
+        var lookup = query(host); lookup[kSecReturnData as String] = true; lookup[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(lookup as CFDictionary,&result) == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data:data,encoding:.utf8)
+    }
+    public static func save(_ session: String, for host: String) throws {
+        let data = Data(session.utf8)
+        let status = SecItemUpdate(query(host) as CFDictionary,[kSecValueData as String:data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var add = query(host); add[kSecValueData as String] = data; add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            let inserted = SecItemAdd(add as CFDictionary,nil)
+            guard inserted == errSecSuccess else { throw ClientError.service("keychain","Fort couldn’t save the hub sign-in on this device.") }
+        } else if status != errSecSuccess { throw ClientError.service("keychain","Fort couldn’t save the hub sign-in on this device.") }
+    }
+    public static func remove(for host: String) { _ = SecItemDelete(query(host) as CFDictionary) }
 }
