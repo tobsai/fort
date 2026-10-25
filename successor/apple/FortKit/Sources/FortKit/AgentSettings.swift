@@ -34,6 +34,7 @@ struct AgentSettingsEditor: View {
         (model.modelCatalog.canSelect(form.exactModel) || agent?.binding.selectedModel == form.exactModel)
     }
     @State private var showWorkshop = false
+    @State private var previewInstructions = false
     private var className: String { agent.map { PauseMenu.className(provider:$0.binding.provider,runtimes:model.runtimes) } ?? model.focusedRuntimeName }
     var body: some View {
         Form {
@@ -44,7 +45,10 @@ struct AgentSettingsEditor: View {
                 HStack(alignment:.center,spacing:16) {
                     AgentAvatarView(avatar:form.avatar,size:96).padding(6).hudFrame()
                     VStack(alignment:.leading,spacing:8) {
-                        TextField("Name",text:$form.name).font(.system(.title2,design:.rounded).weight(.black))
+                        // A bordered field with its own prompt: inside a grouped Form row the plain style collapsed to an invisible, untappable field.
+                        TextField("Name",text:$form.name,prompt:Text("Name your agent"))
+                            .labelsHidden().textFieldStyle(.roundedBorder).font(.system(.title3,design:.rounded).weight(.bold))
+                            .frame(maxWidth:.infinity).accessibilityIdentifier("agent-name")
                         HStack(spacing:6) {
                             Text(className.uppercased()).font(.caption.weight(.heavy))
                                 .padding(.horizontal,6).padding(.vertical,2).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black)
@@ -98,12 +102,19 @@ struct AgentSettingsEditor: View {
                 Text(model.isInteractiveFixture ? "Simulated availability only. Sending exercises local QA replies and does not verify a real model." : "Checked again when you send. Fort never swaps in another model.")
             }
             Section {
-                TextEditor(text:$form.instructions).frame(minHeight:140).accessibilityLabel("Agent identity")
+                Picker("Instructions view",selection:$previewInstructions) {
+                    Text("Write").tag(false); Text("Preview").tag(true)
+                }.pickerStyle(.segmented).labelsHidden().accessibilityIdentifier("agent-instructions-mode")
+                if previewInstructions {
+                    MarkdownPreview(text:form.instructions).frame(maxWidth:.infinity,minHeight:140,alignment:.topLeading)
+                } else {
+                    TextEditor(text:$form.instructions).font(.system(.body,design:.monospaced)).frame(minHeight:140).accessibilityLabel("Agent identity")
+                }
                 if let note = AgentSheet.sizeNote(form.instructions) {
                     Text(note).font(.caption).foregroundStyle(form.instructions.utf8.count > AgentSheet.instructionLimit ? .red : .secondary)
                 }
             } header: { Text(AgentSheet.instructionsTitle(name:form.name)) } footer: {
-                Text("Role, tone and preferences. Applies to future messages; permissions and earlier turns stay unchanged.")
+                Text("Role, tone and preferences, in Markdown. Applies to future messages; permissions and earlier turns stay unchanged.")
             }
             Section {
                 WorkshopDrawer(isExpanded:$showWorkshop,identifier:"agent-workshop") {
@@ -114,6 +125,11 @@ struct AgentSettingsEditor: View {
                 }
             }
         }.formStyle(.grouped)
+        .safeAreaInset(edge:.bottom) {
+            if let missing = AgentSheet.missing(name:form.name,instructions:form.instructions,modelReady:model.modelCatalog.canSelect(form.exactModel) || agent?.binding.selectedModel == form.exactModel) {
+                Text(missing).font(.caption).foregroundStyle(.secondary).frame(maxWidth:.infinity).padding(8).background(.bar).accessibilityIdentifier("agent-save-hint")
+            }
+        }
         .navigationTitle(agent?.name ?? "Recruit")
         .toolbar { ToolbarItem(placement:.confirmationAction) { Button("Save") { Task { if await form.save(using:model) { dismiss() } } }.disabled(!valid || model.workspaceSaving) } }
         .task {
@@ -136,3 +152,17 @@ struct InteractiveFixtureControls: View {
     }
 }
 #endif
+
+/// The instructions as they read once formatted: bold, italics, code and links, with line breaks kept.
+struct MarkdownPreview: View {
+    let text: String
+    var body: some View {
+        if text.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty {
+            Text("Nothing written yet.").foregroundStyle(.secondary)
+        } else if let rendered = try? AttributedString(markdown:text,options:.init(interpretedSyntax:.inlineOnlyPreservingWhitespace)) {
+            Text(rendered).textSelection(.enabled)
+        } else {
+            Text(text).textSelection(.enabled)
+        }
+    }
+}
