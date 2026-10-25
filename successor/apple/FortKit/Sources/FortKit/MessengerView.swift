@@ -53,12 +53,13 @@ public struct MessengerView: View {
                 }
                 #endif
                 Divider()
+                TroubleStrip(cards:TroubleCard.make(model.troubleFacts)) { openMenu($0) }
                 conversationHistory
                 Divider()
                 messageComposer
             }
             .toolbar {
-                if model.canEditMemory, let conversationID = model.activeConversationID { Button("Memory",systemImage:"note.text") { memoryForm = ConversationMemoryForm(conversationID:conversationID,memory:model.conversationMemory) } }
+                if model.canEditMemory, let conversationID = model.activeConversationID { Button("Notebook",systemImage:"book.closed") { memoryForm = ConversationMemoryForm(conversationID:conversationID,memory:model.conversationMemory) } }
                 Button("Refresh",systemImage:"arrow.clockwise") { Task { await model.refresh() } }.disabled(model.isBusy)
             }
             .navigationTitle((model.isInteractiveFixture ? "Fort QA — " : "") + (model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Conversation"))
@@ -96,7 +97,7 @@ public struct MessengerView: View {
                         Text(agent.name).font(.title2.bold())
                         Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary)
                     }
-                    if let memory = model.conversationMemory, !memory.text.isEmpty { Text("Saved memory applies to this conversation").font(.caption).foregroundStyle(.secondary) }
+                    if let memory = model.conversationMemory, !memory.text.isEmpty { Text("This conversation has a notebook").font(.caption).foregroundStyle(.secondary) }
                     if let runtime = model.runtimeReadiness {
                         Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
                         if runtime.state == "restartRequired" && (model.installation?.supports("ownerPairing") != true || model.canControlHost) { Button("Restart runtime") { Task { await model.restartRuntime() } }.disabled(!runtime.canRestart || model.isBusy) }
@@ -165,7 +166,10 @@ public struct MessengerView: View {
     }
     private func runRow(_ run: Run) -> some View {
         VStack(alignment:.leading) {
-            Text(run.displayState).font(.caption)
+            HStack(spacing:8) {
+                RunMeterView(meter:RunMeter.make(state:run.state))
+                Text(run.displayState).font(.caption)
+            }
             if let detail = run.statusDetail { Text(detail).font(.caption2) }
             if let configuration = run.configuration {
                 Text("\(configuration.agentName) · \(configuration.selectedModel)").font(.caption2)
@@ -180,7 +184,7 @@ public struct MessengerView: View {
                     }
                 }
             }
-            if let memory = run.configuration?.memory, !memory.text.isEmpty { DisclosureGroup("Memory used for this turn") { Text(memory.text).font(.caption).textSelection(.enabled) } }
+            if let memory = run.configuration?.memory, !memory.text.isEmpty { DisclosureGroup("Notebook used for this turn") { Text(memory.text).font(.caption).textSelection(.enabled) } }
             if run.canRequestCancellation {
                 Button("Cancel run",role:.destructive) { Task { await model.cancel(run) } }.disabled(model.isBusy || !model.supportsCommands)
             }
@@ -194,16 +198,21 @@ public struct MessengerView: View {
     }
     private func approvalRow(_ approval: Approval) -> some View {
         VStack(alignment:.leading,spacing:8) {
+            HStack(spacing:8) {
+                LampView(lamp:approval.state == "pending" ? .attention : .off)
+                Text("DECISION").font(.caption.weight(.heavy)).foregroundStyle(HUDStyle.gold)
+            }
             Label(approval.actionDescription,systemImage:"hand.raised").font(.headline)
             Text("Scope: " + approval.resourceScope.joined(separator:", ")).font(.caption)
             Text("Approval: " + approval.state).font(.caption)
             if approval.state == "pending" {
                 HStack {
                     Button(approval.kind == "routineGate" ? "Continue routine" : "Approve fixture reply") { Task { await model.decide(approval,approve:true) } }
-                    Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }
+                        .modifier(GoldButton(on:true))
+                    Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }.buttonStyle(.bordered)
                 }.disabled(!approval.canDecide || model.isBusy || !model.supportsCommands)
             }
-        }.padding().background(.quaternary,in:RoundedRectangle(cornerRadius:12))
+        }.padding().frame(maxWidth:.infinity,alignment:.leading).hudFrame()
     }
     private func pendingRow(_ pending: PendingSubmission) -> some View {
         VStack(alignment:.leading,spacing:4) {
@@ -309,3 +318,55 @@ struct NonBlockingSheetWindow: NSViewRepresentable {
     func updateNSView(_ view: SheetView, context: Context) {}
 }
 #endif
+
+/// Trouble above the chat: one card per problem, each with the one place to fix it.
+struct TroubleStrip: View {
+    let cards: [TroubleCard]
+    let open: (PauseTab) -> Void
+    var body: some View {
+        if !cards.isEmpty {
+            VStack(spacing:6) {
+                ForEach(cards) { card in
+                    HStack(spacing:10) {
+                        LampView(lamp:.attention)
+                        VStack(alignment:.leading,spacing:2) {
+                            Text(card.title.uppercased()).font(.caption.weight(.heavy))
+                            Text(card.line).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                        Spacer(minLength:8)
+                        Button(card.button) { open(card.tab) }.modifier(GoldButton(on:true)).controlSize(.small)
+                    }
+                    .padding(8).hudFrame()
+                    .accessibilityElement(children:.contain).accessibilityIdentifier("trouble-\(card.id)")
+                }
+            }.padding(.horizontal).padding(.vertical,8)
+        }
+    }
+}
+
+/// Three pips for accepted, working and done, coloured by whether the run needs you.
+struct RunMeterView: View {
+    let meter: RunMeter
+    var body: some View {
+        HStack(spacing:3) {
+            ForEach(0..<RunMeter.steps,id:\.self) { step in
+                RoundedRectangle(cornerRadius:2).fill(step < meter.filled ? color : Color.secondary.opacity(0.25)).frame(width:14,height:6)
+            }
+        }.accessibilityHidden(true)
+    }
+    private var color: Color { switch meter.lamp { case .ready: .green; case .waiting: .cyan; case .attention: .red; case .off: .gray } }
+}
+
+extension MessengerModel {
+    var troubleFacts: TroubleCard.Facts {
+        let account = AccountPanel.make(status:accountSignInStatus,hasPendingRequest:hasPendingAccountSignIn,now:Int64(Date().timeIntervalSince1970 * 1000))
+        return TroubleCard.Facts(
+            lostContact:hasLostContact,
+            status:status,
+            runtimeState:runtimeReadiness?.state,
+            runtimeDetail:runtimeReadiness?.detail,
+            accountNeedsYou:canManageProviderAccount && accountSignInStatus != nil && (account.action == .signIn || account.action == .useAccount),
+            scheduleFault:schedulerStatus?.state == "fault" ? schedulerStatus?.detail ?? "Schedules need attention." : nil
+        )
+    }
+}
