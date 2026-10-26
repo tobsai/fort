@@ -17,8 +17,9 @@ struct CloudHubView: View {
                 Button("Disconnect from hub",role:.destructive) { Task { await model.removeHubRunner() } }
                     .disabled(busy).accessibilityIdentifier("cloud-hub-remove")
             } else {
-                TextField("Paste the fort-runner: invitation",text:$invitation,axis:.vertical).lineLimit(2...4)
-                    .font(.caption.monospaced()).accessibilityIdentifier("cloud-hub-invitation")
+                // A bordered box with a label, so it reads as somewhere to paste rather than as instructions.
+                TextField("Invitation",text:$invitation,prompt:Text("fort-runner:…"),axis:.vertical).lineLimit(2...4)
+                    .textFieldStyle(.roundedBorder).font(.caption.monospaced()).accessibilityIdentifier("cloud-hub-invitation")
                 Button("Connect to cloud hub") { Task { await model.enrollHubRunner(invitation:invitation); if model.hubRunner?.enrolled == true { invitation = "" } } }
                     .disabled(busy || !invitation.trimmingCharacters(in:.whitespacesAndNewlines).hasPrefix("fort-runner:")).accessibilityIdentifier("cloud-hub-connect")
                 Text("In the hub's web page, open Setup, choose Add a Mac, and copy the text it shows. It works once, for 5 minutes.").font(.caption).foregroundStyle(.secondary)
