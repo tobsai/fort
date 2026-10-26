@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import { DatabaseSync } from 'node:sqlite';
 import type { Acceptance, AccountSignInStatus, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import { connectToHub } from '../runner/hub-runner.ts';
@@ -77,6 +78,10 @@ async function macSnapshot(t: TestContext) {
   const first = await mac.send(agent, 'remember the cedar 🌲');
   assert.equal(first.state, 'completed');
   await mac.close();
+  // A Mac that has moved runtime versions keeps a migration journal beside the Fort tables.
+  const ledger = new DatabaseSync(join(mac.dataDirectory, 'openai-candidate-b.sqlite'));
+  ledger.exec("CREATE TABLE runtime_migrations (id TEXT PRIMARY KEY, data TEXT NOT NULL); INSERT INTO runtime_migrations VALUES ('m1', '{}')");
+  ledger.close();
   const export_ = join(mac.dataDirectory, 'export');
   await migrateLedger({ source: join(mac.dataDirectory, 'openai-candidate-b.sqlite'), destination: export_ });
   return { agent, requestId: first.requestId, ledger: join(mac.dataDirectory, 'openai-candidate-b.sqlite'), bytes: await readFile(join(export_, 'openai-candidate-b.sqlite')) };

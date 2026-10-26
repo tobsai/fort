@@ -26,7 +26,8 @@ export function inspectLedgerSnapshot(path: string): { sourceSHA256: string; ent
     db.exec('PRAGMA trusted_schema=OFF');
     if (db.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') refuse('The snapshot is damaged.');
     const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row => String(row.name));
-    if (JSON.stringify(tables) !== JSON.stringify(TABLES) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view')").get()) refuse('The snapshot is not a Fort ledger this hub understands.');
+    // A runtime-migration journal may sit beside the Fort tables; it belongs to the Mac and is not copied.
+    if (JSON.stringify(tables.filter(name => name !== 'runtime_migrations')) !== JSON.stringify(TABLES) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view')").get()) refuse('The snapshot is not a Fort ledger this hub understands.');
     const installation = JSON.parse(String(db.prepare("SELECT data FROM metadata WHERE key='installation'").get()?.data ?? '{}')) as { contractVersion?: unknown };
     if (installation.contractVersion !== '1.0') refuse('The snapshot comes from an unsupported Fort version.');
     if (db.prepare('SELECT 1 FROM dispatch_outbox').get() || db.prepare(`SELECT 1 FROM entities WHERE kind='runs' AND coalesce(json_extract(data,'$.state'),'') NOT IN (${SETTLED.map(() => '?').join(',')})`).get(...SETTLED))
