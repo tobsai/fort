@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, request as forward, type IncomingMessage, type ServerResponse } from 'node:http';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,7 @@ import type { RuntimeDescriptor } from '../contracts/v1.ts';
 import { createApplication } from '../service/openai.ts';
 import { RunnerEnrollmentError, runnerEnrollment } from '../service/runner-enrollment.ts';
 import { RunnerHub, routeByNode } from './runner-hub.ts';
+import { importLedger, inspectLedgerSnapshot } from '../service/import-ledger.ts';
 import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
 
 // Headless hub entry point (Spec 063, step 3). One process serves plain HTTP on $PORT behind the
@@ -26,9 +27,13 @@ export type CloudHubOptions = {
   // Puts every browser path behind Google sign-in for the named emails (Spec 066). Needs publicOrigin.
   google?: GoogleSignInOptions;
   offlineWaitMs?: number;
+  // Called once a Mac's ledger snapshot is staged. The hub applies it the next time it starts, so the
+  // container entry restarts the hub in place.
+  onImportStaged?: () => void;
 };
 
-const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024;
+const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024;
+const PENDING = 'ledger-import.sqlite', RESULT = 'ledger-import.json';
 // The web client: a few static files, served with a policy that allows only this origin's own scripts.
 const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/app.css', ['app.css', 'text/css; charset=utf-8']], ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']]]);
@@ -41,7 +46,7 @@ const GOOGLE_WEB_HEADERS = { ...WEB_HEADERS, 'referrer-policy': 'strict-origin-w
 // Without a Google session only these pages load: enough to show the sign-in button, nothing of Fort's.
 const PUBLIC_PAGES = new Set(['/', '/signin.js', '/app.css', '/icon.svg', '/manifest.webmanifest']);
 // Machine paths keep their own credentials (runner token, one-time invitation codes) and never see a browser.
-const MACHINE_PATHS = new Set(['/v1/runners/join', '/v1/devices/join', '/v1/pairing/leave']);
+const MACHINE_PATHS = new Set(['/v1/runners/join', '/v1/runners/import', '/v1/devices/join', '/v1/pairing/leave']);
 const PASSED = ['authorization', 'content-type', 'content-length', 'x-fort-installation-id'];
 
 class HubError extends Error {
@@ -56,6 +61,18 @@ async function body(request: IncomingMessage): Promise<unknown> {
   let size = 0;
   for await (const chunk of request as AsyncIterable<Buffer>) { size += chunk.length; if (size > BODY_BYTES) fail(413, 'bodyTooLarge', 'The request is too large.'); chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return fail(400, 'invalidBody', 'Send valid JSON.'); }
+}
+
+// A staged Mac ledger is applied before the core opens its ledger. A refusal is recorded and the hub
+// starts as it was; it never stops the hub from starting.
+function applyStagedImport(dataDirectory: string, hostId: string) {
+  const pending = join(dataDirectory, PENDING);
+  if (!existsSync(pending)) return;
+  let result: unknown;
+  try { result = { state: 'applied', ...importLedger({ source: pending, ledger: join(dataDirectory, 'openai-candidate-b.sqlite'), hostId }) }; }
+  catch (error) { result = { state: 'refused', message: error instanceof Error ? error.message.slice(0, 300) : 'The import could not be applied.' }; }
+  writeFileSync(join(dataDirectory, RESULT), JSON.stringify(result), { mode: 0o600 });
+  rmSync(pending, { force: true });
 }
 
 function bareOrigin(value: string): string {
@@ -73,6 +90,7 @@ export async function startCloudHub(options: CloudHubOptions) {
   if (options.setupCodeDigest !== undefined && !/^[a-f0-9]{64}$/.test(options.setupCodeDigest)) throw new Error('Use a SHA-256 hex digest for the setup code');
   if (!Number.isSafeInteger(offlineWaitMs) || offlineWaitMs < 0 || offlineWaitMs > 600_000) throw new Error('Use an offline wait of at most ten minutes');
   mkdirSync(dataDirectory, { recursive: true, mode: 0o700 });
+  applyStagedImport(dataDirectory, provider.hostId);
   const google = options.google ? googleSignIn(dataDirectory, options.google) : undefined;
   const pageHeaders = google ? GOOGLE_WEB_HEADERS : WEB_HEADERS;
   const runners = new RunnerHub({ authenticate: token => enrollment.authenticate(token) });
@@ -94,6 +112,30 @@ export async function startCloudHub(options: CloudHubOptions) {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
     if (request.headers['x-fort-installation-id'] !== app.installation.installationId || !token || !app.ownerDevice(token)) fail(401, 'unauthorized', 'Use the owning Mac’s credential.');
   };
+  // The enrolled Mac this hub serves sends its ledger snapshot with its runner token.
+  const thisMac = (request: IncomingMessage) => {
+    const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
+    const runnerId = token ? enrollment.authenticate(token) : undefined;
+    if (!runnerId) fail(401, 'unauthorized', 'Use this Mac’s runner token.');
+    if (runnerId !== provider.hostId) fail(403, 'wrongMac', 'Only the Mac this hub runs on can import its ledger.');
+  };
+  async function stageImport(request: IncomingMessage) {
+    thisMac(request);
+    if (request.headers['content-type'] !== 'application/vnd.sqlite3') fail(415, 'invalidBody', 'Send the ledger snapshot as application/vnd.sqlite3.');
+    if (existsSync(join(dataDirectory, RESULT)) && (JSON.parse(readFileSync(join(dataDirectory, RESULT), 'utf8')) as { state?: unknown }).state === 'applied') fail(409, 'alreadyImported', 'This hub already holds an imported ledger.');
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of request as AsyncIterable<Buffer>) { size += chunk.length; if (size > SNAPSHOT_BYTES) fail(413, 'bodyTooLarge', 'The snapshot is too large.'); chunks.push(chunk); }
+    const partial = join(dataDirectory, PENDING + '.partial');
+    writeFileSync(partial, Buffer.concat(chunks), { mode: 0o600 });
+    try { const inspected = inspectLedgerSnapshot(partial); renameSync(partial, join(dataDirectory, PENDING)); rmSync(join(dataDirectory, RESULT), { force: true }); return { state: 'staged', ...inspected }; }
+    catch (error) { rmSync(partial, { force: true }); fail(422, 'importRefused', error instanceof Error ? error.message.slice(0, 300) : 'The snapshot was refused.'); }
+  }
+  function importStatus(request: IncomingMessage) {
+    thisMac(request);
+    if (existsSync(join(dataDirectory, PENDING))) return { state: 'staged' };
+    return existsSync(join(dataDirectory, RESULT)) ? JSON.parse(readFileSync(join(dataDirectory, RESULT), 'utf8')) as unknown : { state: 'none' };
+  }
   async function setup(request: IncomingMessage) {
     if (!options.setupCodeDigest) fail(404, 'notFound', 'Setup is not offered.');
     const value = await body(request) as Record<string, unknown>;
@@ -193,6 +235,8 @@ export async function startCloudHub(options: CloudHubOptions) {
     const local = async (): Promise<[number, unknown] | undefined> => {
       if (request.method === 'POST' && path === '/v1/hub/setup') return [201, await setup(request)];
       if (request.method === 'POST' && path === '/v1/runners/join') return [201, enrollment.join(await body(request))];
+      if (request.method === 'POST' && path === '/v1/runners/import') { const staged = await stageImport(request); response.once('finish', () => options.onImportStaged?.()); return [202, staged]; }
+      if (request.method === 'GET' && path === '/v1/runners/import') return [200, importStatus(request)];
       if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, online: runners.online(runner.runnerId) })) }]; }
       if (request.method === 'POST' && path === '/v1/runners/invitation') { owner(request); return [201, enrollment.invite(await body(request))]; }
       if (request.method === 'POST' && path === '/v1/runners/revoke') {
@@ -251,13 +295,16 @@ if (import.meta.main) {
     if (typeof row?.provider !== 'string' || typeof row.runtimeVersion !== 'string' || (row.name !== undefined && typeof row.name !== 'string') || !Array.isArray(row.capabilities)) throw new Error('Set each runtime’s provider, runtimeVersion and capabilities');
     return { provider: row.provider, name: (row.name as string | undefined) ?? row.provider, runtimeVersion: row.runtimeVersion, hostId: node, session: 'stateless', capabilities: row.capabilities as RuntimeDescriptor['capabilities'] };
   });
-  const hub = await startCloudHub({ dataDirectory: required('FORT_DATA'), port, provider: provider!, runtimes,
+  const start = () => startCloudHub({ dataDirectory: required('FORT_DATA'), port, provider: provider!, runtimes, onImportStaged: () => { void restart(); },
     ...(env.FORT_PUBLIC_ORIGIN ? { publicOrigin: env.FORT_PUBLIC_ORIGIN } : {}),
     ...(env.FORT_SETUP_CODE_SHA256 ? { setupCodeDigest: env.FORT_SETUP_CODE_SHA256 } : {}),
     // FORT_GOOGLE_CLIENT_ID (a public web client ID) and FORT_OWNER_EMAIL (comma-separated) turn on the Google gate.
     ...(env.FORT_GOOGLE_CLIENT_ID || env.FORT_OWNER_EMAIL ? { google: { clientId: required('FORT_GOOGLE_CLIENT_ID'), emails: required('FORT_OWNER_EMAIL').split(','),
       ...(env.FORT_GOOGLE_IOS_CLIENT_ID ? { iosClientId: env.FORT_GOOGLE_IOS_CLIENT_ID } : {}) } } : {}),
     offlineWaitMs: Number(env.FORT_OFFLINE_WAIT_MS ?? 0) });
+  let hub = await start();
+  // A staged ledger import is applied on start, so the hub closes and starts again in this process.
+  async function restart() { await hub.close(); hub = await start(); process.stdout.write('Fort hub restarted to apply a ledger import\n'); }
   process.stdout.write(`Fort hub listening on port ${port}\n`);
   const stop = () => { void hub.close().finally(() => process.exit(0)); };
   process.once('SIGTERM', stop); process.once('SIGINT', stop);
