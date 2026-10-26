@@ -36,13 +36,22 @@ export async function readHubCredential(directory: string): Promise<HubCredentia
 
 export function deleteHubCredential(directory: string): Promise<'deleted' | 'absent'> { return deletePrivate(directory, CREDENTIAL); }
 
+// Node reports every network failure as "fetch failed"; the cause's code says which one it was.
+function unreachable(origin: string, error: unknown): Error {
+  const cause = error instanceof Error ? (error.cause as { code?: unknown } | undefined) : undefined;
+  const code = typeof cause?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(cause.code) ? cause.code : undefined;
+  const certificate = code !== undefined && /CERT|SIGNATURE|ISSUER|SELF_SIGNED/.test(code);
+  return new Error((certificate ? 'This Mac couldn’t check the hub’s certificate' : `This Mac couldn’t reach ${new URL(origin).host}`) + (code ? ` (${code})` : '') + '.');
+}
+
 // Joins the hub with an owner invitation and keeps the new token only after the hub confirms it.
 export async function enrollWithHub(options: { stateDirectory: string; hubURL: string; invitationId: string; code: string; runnerId: string; runnerName: string; fetch?: Fetch }): Promise<{ runnerId: string }> {
   const origin = hubURL(options.hubURL);
   if (await readHubCredential(options.stateDirectory)) throw new Error('This Mac is already enrolled with a hub. Remove that enrollment first.');
   const token = randomBytes(32).toString('base64url');
   const response = await (options.fetch ?? fetch)(origin + '/v1/runners/join', { method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ invitationId: options.invitationId, code: options.code, runnerId: options.runnerId, runnerToken: token, runnerName: options.runnerName }) });
+    body: JSON.stringify({ invitationId: options.invitationId, code: options.code, runnerId: options.runnerId, runnerToken: token, runnerName: options.runnerName }) })
+    .catch((error: unknown) => { throw unreachable(origin, error); });
   const reply = await response.json().catch(() => undefined) as { runnerId?: unknown } | undefined;
   if (response.status !== 201 || reply?.runnerId !== options.runnerId) throw new Error('The hub refused this enrollment');
   await writePrivate(options.stateDirectory, CREDENTIAL, JSON.stringify(parse({ hubURL: origin, runnerId: options.runnerId, token })));

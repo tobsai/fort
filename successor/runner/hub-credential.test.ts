@@ -79,6 +79,16 @@ test('enrollment refuses a second hub, plain HTTP off this machine, and leaves n
   await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /already enrolled/);
 });
 
+test('a Mac that cannot reach the hub says why, not just "fetch failed"', async t => {
+  const h = await fixture(t);
+  const failing = (code: string) => async () => { throw new TypeError('fetch failed', { cause: Object.assign(new Error('unable to get local issuer certificate'), { code }) }); };
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'https://fort.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini', fetch: failing('UNABLE_TO_GET_ISSUER_CERT_LOCALLY') }),
+    /couldn’t check the hub’s certificate.*UNABLE_TO_GET_ISSUER_CERT_LOCALLY/);
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'https://fort.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini', fetch: failing('ENOTFOUND') }),
+    /couldn’t reach fort\.example\.com.*ENOTFOUND/);
+  assert.deepEqual(await readdir(h.state), []);
+});
+
 test('runner mode refuses a binding for a different Mac than the one enrolled', async t => {
   const h = await fixture(t);
   await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' });
