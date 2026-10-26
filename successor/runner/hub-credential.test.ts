@@ -73,7 +73,7 @@ test('a revoked Mac stops connecting and keeps its file until the owner removes 
 test('enrollment refuses a second hub, plain HTTP off this machine, and leaves nothing on failure', async t => {
   const h = await fixture(t);
   await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'http://hub.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /HTTPS/);
-  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, invitationId: randomUUID(), code: secret(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /refused/);
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, invitationId: randomUUID(), code: secret(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /refused this enrollment: This invitation does not match\./);
   assert.deepEqual(await readdir(h.state), []);
   await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' });
   await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /already enrolled/);

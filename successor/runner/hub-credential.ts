@@ -52,8 +52,12 @@ export async function enrollWithHub(options: { stateDirectory: string; hubURL: s
   const response = await (options.fetch ?? fetch)(origin + '/v1/runners/join', { method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ invitationId: options.invitationId, code: options.code, runnerId: options.runnerId, runnerToken: token, runnerName: options.runnerName }) })
     .catch((error: unknown) => { throw unreachable(origin, error); });
-  const reply = await response.json().catch(() => undefined) as { runnerId?: unknown } | undefined;
-  if (response.status !== 201 || reply?.runnerId !== options.runnerId) throw new Error('The hub refused this enrollment');
+  const reply = await response.json().catch(() => undefined) as { runnerId?: unknown; error?: { message?: unknown } } | undefined;
+  if (response.status !== 201 || reply?.runnerId !== options.runnerId) {
+    // The hub's own reason (expired, already used, doesn't match), kept short and to one line.
+    const reason = typeof reply?.error?.message === 'string' ? reply.error.message.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    throw new Error('The hub refused this enrollment' + (reason ? ': ' + reason : '') + (/expired/i.test(reason) ? ' Invitations last 5 minutes; make a new one.' : ''));
+  }
   await writePrivate(options.stateDirectory, CREDENTIAL, JSON.stringify(parse({ hubURL: origin, runnerId: options.runnerId, token })));
   return { runnerId: options.runnerId };
 }
