@@ -71,3 +71,73 @@ export function crewSlot(agentId, count = 6) {
   for (const byte of new TextEncoder().encode(agentId)) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
   return hash % count;
 }
+
+// ---------- The Quest log home: what needs you, beside every chat ----------
+
+/** Pips filled out of three as a run moves, the same steps as FortKit's RunMeter, with the run's status tone. */
+export function runMeter(run) {
+  const filled = { queued: 1, running: 2, cancelRequested: 2, waitingForApproval: 2, outcomeUnknown: 2, completed: 3, failed: 3, canceled: 3, closedUnknown: 3 }[run.state] ?? 0;
+  return { filled, tone: runStatus(run).tone };
+}
+
+/** The Agent a run belongs to: the one the request was sent to, or the chat's only Agent. */
+function runAgent(run, snapshot, conversation, agentsById) {
+  const asked = snapshot.messages.find(message => message.requestId === run.requestId && (message.recipientAgentId || message.agentId));
+  return agentsById.get(asked?.recipientAgentId ?? asked?.agentId) ?? (conversation.participantAgentIds.length === 1 ? agentsById.get(conversation.participantAgentIds[0]) : undefined);
+}
+
+/**
+ * Every quest across your chats, most urgent first: approvals you can decide now, then a chat whose
+ * latest turn failed, then runs waiting on an approval only the chat can show. A failed turn stops
+ * being a quest as soon as a later turn in the same chat starts.
+ */
+export function questLog(conversations, snapshots, agents, now = Date.now()) {
+  const agentsById = new Map(agents.map(agent => [agent.agentId, agent]));
+  const decide = [], failed = [], waiting = [];
+  for (const conversation of conversations) {
+    const snapshot = snapshots.get(conversation.conversationId);
+    if (!snapshot) continue;
+    const base = run => ({ conversationId: conversation.conversationId, chat: conversation.name, agent: run ? runAgent(run, snapshot, conversation, agentsById) ?? null : null });
+    const decidable = new Set();
+    for (const approval of snapshot.approvals ?? []) {
+      if (!canDecide(approval, now)) continue;
+      const run = snapshot.runs.find(item => item.runId === approval.runId);
+      decidable.add(approval.runId);
+      decide.push({ ...base(run), id: 'approval:' + approval.approvalId, kind: 'approval', title: approval.actionDescription, detail: run?.statusDetail && run.statusDetail !== approval.actionDescription ? run.statusDetail : null, approval });
+    }
+    for (const run of snapshot.runs) {
+      if (run.state === 'waitingForApproval' && !decidable.has(run.runId))
+        waiting.push({ ...base(run), id: 'run:' + run.runId, kind: 'waiting', title: run.statusDetail ?? runStatus(run).text, detail: 'Open the chat to answer.', run });
+    }
+    const latest = snapshot.runs.at(-1);
+    if (latest && runStatus(latest).tone === 'failed')
+      failed.push({ ...base(latest), id: 'run:' + latest.runId, kind: 'failed', title: runStatus(latest).text, detail: latest.statusDetail ?? null, run: latest });
+  }
+  return [...decide, ...failed, ...waiting];
+}
+
+/** One panel per chat: its crew, the runs still going and how many quests it holds. */
+export function chatPanels(conversations, snapshots, agents, quests) {
+  const agentsById = new Map(agents.map(agent => [agent.agentId, agent]));
+  return conversations.map(conversation => {
+    const snapshot = snapshots.get(conversation.conversationId);
+    const mine = quests.filter(quest => quest.conversationId === conversation.conversationId);
+    const live = (snapshot?.runs ?? []).filter(run => ['working', 'needsYou'].includes(runStatus(run).tone)).map(run => {
+      const agent = runAgent(run, snapshot, conversation, agentsById);
+      return { runId: run.runId, agentName: agent?.name ?? null, text: runStatus(run).text, ...runMeter(run) };
+    });
+    const tone = mine.some(quest => quest.kind === 'failed') ? 'failed' : mine.length ? 'needsYou' : live.length ? 'working' : 'quiet';
+    return {
+      conversationId: conversation.conversationId, name: conversation.name, kind: conversation.kind, tone, quests: mine.length, live,
+      crew: conversation.participantAgentIds.map(id => agentsById.get(id)).filter(Boolean).map(agent => ({ agentId: agent.agentId, name: agent.name, initial: [...agent.name.trim()][0]?.toUpperCase() ?? '?', slot: crewSlot(agent.agentId) }))
+    };
+  });
+}
+
+/** The one line under the header: how many quests, and how many runs are going. */
+export function deskSummary(quests, panels) {
+  const running = panels.reduce((sum, panel) => sum + panel.live.filter(run => run.tone === 'working').length, 0);
+  const parts = [quests.length ? `${quests.length} ${quests.length === 1 ? 'quest' : 'quests'}` : 'No quests'];
+  if (running) parts.push(`${running} running`);
+  return parts.join(' · ');
+}

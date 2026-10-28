@@ -1,10 +1,10 @@
 // Fort web client (Spec 063). Served by the hub itself, so every call is same-origin. The browser
 // holds one device credential in localStorage; all text is rendered with textContent, never as HTML.
-import { approvalCopy, canDecide, resolution, runStatus, transcriptRows } from '/transcript.js';
+import { approvalCopy, canDecide, chatPanels, crewSlot, deskSummary, questLog, resolution, runStatus, transcriptRows } from '/transcript.js';
 
 const STORE = 'fort.device.v1';
 const app = document.getElementById('app');
-const state = { device: load(), installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null };
+const state = { device: load(), installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null, snapshots: new Map(), cleared: [] };
 
 function load() { try { return JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { return null; } }
 function save(device) { state.device = device; if (device) localStorage.setItem(STORE, JSON.stringify(device)); else localStorage.removeItem(STORE); }
@@ -61,6 +61,9 @@ function claimView() {
 async function refresh() {
   const [agents, conversations, runners] = await Promise.all([api('/v1/agents'), api('/v1/conversations'), api('/v1/runners').catch(() => ({ runners: [] }))]);
   state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners;
+  // The Quest log reads every chat; a chat that can't be read is left out until the next update.
+  const snapshots = await Promise.all(state.conversations.map(conversation => api(`/v1/conversations/${encodeURIComponent(conversation.conversationId)}/snapshot`).catch(() => null)));
+  state.snapshots = new Map(state.conversations.map((conversation, index) => [conversation.conversationId, snapshots[index]]).filter(([, snapshot]) => snapshot));
 }
 async function openConversation(conversationId) {
   state.current = conversationId;
@@ -69,7 +72,7 @@ async function openConversation(conversationId) {
 
 function render() {
   if (!state.device) return claimView();
-  const shell = h('div.shell' + (state.current ? '.open' : ''), {}, sidebar(), chat());
+  const shell = h('div.shell', {}, topBar(), state.current ? chat() : desk(), state.current ? null : statusBar());
   const scroller = app.querySelector('.messages'), atBottom = !scroller || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
   const draft = app.querySelector('.composer textarea')?.value;
   // The sheet keeps its own state (an invitation on screen, a half-filled form) across live updates.
@@ -81,20 +84,69 @@ function render() {
   if (messages && atBottom) messages.scrollTop = messages.scrollHeight;
 }
 
-function sidebar() {
-  const agentsById = new Map(state.agents.map(agent => [agent.agentId, agent]));
-  const item = (conversation, title, sub) => h('button.item' + (conversation === state.current ? '.active' : ''), { onclick: () => select(conversation) }, title, h('span.sub', {}, sub));
+function topBar() {
+  const quests = questLog(state.conversations, state.snapshots, state.agents);
+  const panels = chatPanels(state.conversations, state.snapshots, state.agents, quests);
+  return h('header.top', {}, h('h1.wordmark', { 'aria-label': 'Fort' }, 'FORT'), h('span.caption.topline', {}, deskSummary(quests, panels)), h('span.grow'),
+    h('button', { onclick: () => { state.sheet = true; render(); } }, 'Setup'));
+}
+function statusBar() {
   const online = state.runners.filter(runner => runner.online);
-  return h('aside.side', {},
-    h('header', {}, h('h1.wordmark', { 'aria-label': 'Fort' }, 'FORT'), h('button.link', { onclick: () => { state.sheet = true; render(); }, 'aria-label': 'Setup' }, 'Setup')),
-    h('nav.list', {},
-      h('h2', {}, h('span.caption', {}, 'Crew')),
-      state.agents.length ? state.agents.map(agent => item(agent.homeConversationId, agent.name, providerName(agent.binding.provider) + ' · ' + agent.binding.selectedModel))
-        : h('p.muted.pad', {}, 'No agents yet. Open Setup to add one.'),
-      state.conversations.filter(conversation => conversation.kind === 'shared').length ? h('h2', {}, h('span.caption', {}, 'Group chats')) : null,
-      state.conversations.filter(conversation => conversation.kind === 'shared').map(conversation =>
-        item(conversation.conversationId, conversation.name, conversation.participantAgentIds.map(id => agentsById.get(id)?.name ?? 'Agent').join(', ')))),
-    h('div.status', {}, h('span.dot' + (online.length ? '.on' : '')), online.length ? `${online.map(runner => runner.runnerName).join(', ')} connected` : (state.runners.length ? 'Your Mac is offline. Replies wait for it.' : 'No Mac connected yet.')));
+  return h('footer.status', {}, h('span.dot' + (online.length ? '.on' : '')), online.length ? `${online.map(runner => runner.runnerName).join(', ')} connected` : (state.runners.length ? 'Your Mac is offline. Replies wait for it.' : 'No Mac connected yet.'));
+}
+
+// The home screen: the Quest log of everything waiting on you, beside a panel for every chat.
+function desk() {
+  const quests = questLog(state.conversations, state.snapshots, state.agents);
+  const panels = chatPanels(state.conversations, state.snapshots, state.agents, quests);
+  const cleared = state.cleared.filter(item => !quests.some(quest => quest.id === item.id)).slice(-3);
+  return h('main.desk', {},
+    h('section.col', { 'aria-labelledby': 'quest-title' },
+      h('div.sechead', {}, h('h2.title', { id: 'quest-title' }, 'Quest log'), quests.length ? h('span.caption.gold', {}, quests.length === 1 ? '1 needs you' : `${quests.length} need you`) : null),
+      state.problem ? h('p.error', { role: 'alert' }, state.problem) : null,
+      quests.length ? quests.map(questCard) : h('p.panel.calm', {}, 'Nothing needs you. Your crew is on it.'),
+      cleared.map(item => h('div.panel.cleared', {}, h('span.stamp' + (item.dropped ? '.dropped' : ''), {}, item.dropped ? 'Dropped' : 'Quest clear!'), h('span.muted', {}, item.title)))),
+    h('section.col', { 'aria-labelledby': 'chats-title' },
+      h('div.sechead', {}, h('h2.title', { id: 'chats-title' }, 'Chats')),
+      panels.length ? h('div.panels', {}, panels.map(chatPanel)) : h('p.panel.calm', {}, 'No agents yet. Open Setup to add one.')));
+}
+
+const KIND = { approval: 'Approval', failed: 'Failed', waiting: 'Waiting' };
+function questCard(quest) {
+  const open = () => select(quest.conversationId);
+  const actions = [];
+  if (quest.kind === 'approval') {
+    const copy = approvalCopy(quest.approval);
+    const decide = approve => async event => {
+      for (const button of event.currentTarget.parentElement.querySelectorAll('button')) button.disabled = true;
+      state.problem = null;
+      try {
+        await api(`/v1/approvals/${encodeURIComponent(quest.approval.approvalId)}/resolve`, resolution(quest.approval, approve));
+        state.cleared.push({ id: quest.id, title: quest.title, dropped: !approve });
+        await refresh();
+      } catch (error) { state.problem = error.message; }
+      render();
+    };
+    actions.push(h('button.primary', { onclick: decide(true) }, copy.approve), h('button', { onclick: decide(false) }, copy.reject));
+  }
+  actions.push(h('button' + (quest.kind === 'approval' ? '.link' : '.primary'), { onclick: open }, 'Open chat'));
+  return h('article.panel.quest.' + quest.kind, {},
+    h('div.questhead', {}, h('span.mark', { 'aria-hidden': 'true' }, h('span', {}, '!')),
+      h('div', {}, h('strong', {}, quest.title),
+        h('div.meta', {}, quest.agent ? h('span.portrait.crew-' + crewSlot(quest.agent.agentId), { 'aria-hidden': 'true' }, [...quest.agent.name.trim()][0]?.toUpperCase() ?? '?') : null,
+          [quest.agent?.name, quest.chat !== quest.agent?.name ? quest.chat : null, KIND[quest.kind]].filter(Boolean).join(' · ')))),
+    quest.detail ? h('p', {}, quest.detail) : null,
+    h('div.actions', {}, actions));
+}
+
+function chatPanel(panel) {
+  const line = [panel.quests ? (panel.quests === 1 ? '1 needs you' : `${panel.quests} need you`) : null, panel.live.some(run => run.tone === 'working') ? `${panel.live.filter(run => run.tone === 'working').length} running` : null].filter(Boolean).join(' · ') || 'Quiet';
+  return h('button.panel.chatpanel', { onclick: () => select(panel.conversationId), 'aria-label': `${panel.name}: ${line}` },
+    h('span.strip.halftone.' + panel.tone, {}, h('span.caption', {}, panel.name), h('span.grow'), h('span.line', {}, line)),
+    h('span.crew', {}, panel.crew.map(member => h('span.portrait.crew-' + member.slot, { title: member.name }, member.initial))),
+    h('span.runs', {}, panel.live.length ? panel.live.map(run => h('span.runline', {},
+      h('span.meter.' + run.tone, { 'aria-hidden': 'true' }, [0, 1, 2].map(index => h('span.pip' + (index < run.filled ? '.on' : '')))),
+      h('span', {}, (run.agentName ? run.agentName + ': ' : '') + run.text))) : h('span.muted', {}, 'Nothing running')));
 }
 const providerName = provider => state.installation?.runtimes?.find(runtime => runtime.provider === provider)?.name ?? provider;
 async function select(conversationId) { state.problem = null; try { await openConversation(conversationId); } catch (error) { state.problem = error.message; } render(); }
@@ -128,7 +180,7 @@ function chat() {
     } catch (error) { state.problem = error.message; render(); }
   };
   return h('section.chat', {},
-    h('header', {}, h('button.link.back', { onclick: () => { state.current = null; render(); } }, '‹ Back'), h('h2', {}, conversation?.name ?? 'Chat')),
+    h('header', {}, h('button.back', { onclick: () => { state.current = null; state.problem = null; render(); } }, '‹ Quest log'), h('h2', {}, conversation?.name ?? 'Chat')),
     h('div.messages', {}, rows.length ? rows : h('p.empty', {}, 'No messages yet.')),
     state.problem ? h('p.error.problem', { role: 'alert' }, state.problem) : null,
     h('form.composer', { onsubmit: event => { event.preventDefault(); send(); } }, participants.length > 1 ? recipient : null, input, h('button.primary', { type: 'submit' }, 'Send')));
