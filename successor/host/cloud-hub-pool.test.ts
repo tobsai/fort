@@ -94,6 +94,10 @@ test('runs go to the mini, and to the laptop while the mini is away', async t =>
   await h.online('mini', false);
   assert.equal((await h.settled(await h.send('to the laptop'))).state, 'completed');
   assert.deepEqual(h.seen, ['mini:to the mini', 'laptop:to the laptop']);
+  const listed = (await h.call<{ runners: { runnerId: string; online: boolean; turns: number; lastSeen?: string; connectedAt?: string }[] }>('/v1/runners')).body.runners;
+  const away = listed.find(runner => runner.runnerId === 'mini')!, here = listed.find(runner => runner.runnerId === 'laptop')!;
+  assert.deepEqual([away.online, away.turns, typeof away.lastSeen, away.connectedAt], [false, 0, 'string', undefined]);
+  assert.deepEqual([here.online, here.turns, typeof here.connectedAt], [true, 0, 'string']);
 });
 
 test('with no Mac connected, work waits queued and starts when one connects', async t => {

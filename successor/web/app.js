@@ -141,7 +141,7 @@ function setupSheet() {
 
 function macSection() {
   const out = h('div'), error = h('p.error');
-  const list = state.runners.map(runner => h('div.row', {}, h('span', {}, h('span.dot' + (runner.online ? '.on' : '')), runner.runnerName, h('span.muted', {}, ' · ' + runner.runnerId)),
+  const list = state.runners.map(runner => h('div.row', {}, h('span', {}, h('span.dot' + (runner.online ? '.on' : '')), runner.runnerName, h('span.muted', {}, ' · ' + runner.runnerId + ' · ' + macState(runner))),
     h('button.link', { onclick: async () => { if (!confirm(`Remove ${runner.runnerName}? It stops taking turns at once.`)) return; try { await api('/v1/runners/revoke', { runnerId: runner.runnerId }); await refresh(); state.sheetNode = null; render(); } catch (problem) { say(error, problem); } } }, 'Remove')));
   const add = h('button', { onclick: async () => {
     say(error); const invitation = { invitationId: crypto.randomUUID(), code: secret() };
@@ -158,6 +158,13 @@ function macSection() {
 // A pooled hub names its Macs; an invitation is for the first one not enrolled yet.
 function nextRunnerId() {
   return state.pool?.runners.find(id => !state.runners.some(runner => runner.runnerId === id)) ?? state.installation.runtimes[0].hostId;
+}
+// Online and running, online and idle, or when the hub last heard from it since it started.
+function macState(runner) {
+  if (runner.online) return runner.turns ? `running ${runner.turns === 1 ? 'a turn' : runner.turns + ' turns'}` : 'connected';
+  if (!runner.lastSeen) return 'offline';
+  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(runner.lastSeen)) / 60_000));
+  return minutes < 1 ? 'offline, seen just now' : minutes < 120 ? `offline, last seen ${minutes} min ago` : `offline since ${new Date(runner.lastSeen).toLocaleString()}`;
 }
 
 function accountSection() {

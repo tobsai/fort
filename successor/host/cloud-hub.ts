@@ -277,7 +277,7 @@ export async function startCloudHub(options: CloudHubOptions) {
       if (request.method === 'POST' && path === '/v1/runners/join') { const joined = enrollment.join(await body(request)); return [201, { ...joined, node: nodeOf(joined.runnerId) }]; }
       if (request.method === 'POST' && path === '/v1/runners/import') { const staged = await stageImport(request); response.once('finish', () => options.onImportStaged?.()); return [202, staged]; }
       if (request.method === 'GET' && path === '/v1/runners/import') return [200, importStatus(request)];
-      if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, online: runners.online(runner.runnerId) })),
+      if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, ...runners.status(runner.runnerId) })),
         ...(pool ? { pool: { node: pool.node, runners: pool.runners, queue: queue() } } : {}) }]; }
       if (request.method === 'POST' && path === '/v1/runners/invitation') { owner(request); return [201, enrollment.invite(await body(request))]; }
       if (request.method === 'POST' && path === '/v1/runners/revoke') {
