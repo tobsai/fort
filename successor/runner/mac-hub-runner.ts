@@ -15,6 +15,8 @@ type Options = {
   // Builds this Mac's lanes for the node it serves (its runner ID unless pooled); the first is the primary.
   lanes(hostId: string): RunnerLane[];
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
+  // Holds the Mac awake while the runner is up (caffeinate on macOS); released when it stops or fails.
+  keepAwake?: () => { release(): void };
 };
 
 const PREFIX = 'fort-runner:';
@@ -41,6 +43,7 @@ export function sharedRuntime(runtime: ChatRuntime): () => ChatRuntime {
 
 export function macHubRunner(options: Options) {
   let status: MacHubStatus = { state: 'notEnrolled' }, controller: AbortController | undefined, running: Promise<unknown> | undefined;
+  let awake: { release(): void } | undefined;
   const fetcher = options.fetch ? { fetch: options.fetch } : {};
 
   async function start(): Promise<MacHubStatus> {
@@ -52,9 +55,11 @@ export function macHubRunner(options: Options) {
     const identity = { hubURL: credential.hubURL, runnerId: credential.runnerId, ...(credential.node ? { node: credential.node } : {}) };
     const ours = controller = new AbortController();
     status = { state: 'connecting', ...identity };
+    awake ??= options.keepAwake?.();
     running = runAsRunner({ stateDirectory: options.stateDirectory, ...first, lanes: rest, signal: ours.signal, ...fetcher,
       onStatus: next => { if (controller === ours) status = { ...identity, state: next.state, ...(next.retryMs === undefined ? {} : { retryMs: next.retryMs }) }; } })
-      .catch((error: unknown) => { if (controller === ours) status = { ...identity, state: 'failed', detail: error instanceof Error ? error.message : 'The runner stopped' }; });
+      .catch((error: unknown) => { if (controller === ours) status = { ...identity, state: 'failed', detail: error instanceof Error ? error.message : 'The runner stopped' }; })
+      .finally(() => { if (controller === ours || !controller) { awake?.release(); awake = undefined; } });
     return status;
   }
 

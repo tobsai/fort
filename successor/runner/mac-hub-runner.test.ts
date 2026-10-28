@@ -16,6 +16,7 @@ const codex: RuntimeDescriptor = { provider: 'codex', name: 'ChatGPT', runtimeVe
 const encode = (value: object) => 'fort-runner:' + Buffer.from(JSON.stringify(value)).toString('base64url');
 
 async function fixture(t: TestContext) {
+  const awake: string[] = [];
   const root = await mkdtemp(join(tmpdir(), 'fort-mac-hub-')), state = join(root, 'state');
   await mkdir(state, { mode: 0o700 });
   const setupCode = secret();
@@ -31,10 +32,11 @@ async function fixture(t: TestContext) {
   };
   const disposed: string[] = [];
   const runtime: ChatRuntime = { async execute(input) { return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() { disposed.push('local'); } };
-  const runner = macHubRunner({ stateDirectory: state, runnerName: 'Toby’s Mac', lanes: runnerId => [{ binding: { provider: 'codex', runtimeVersion: '0.163.0', hostId: runnerId }, createRuntime: sharedRuntime(runtime) }] });
+  const runner = macHubRunner({ stateDirectory: state, runnerName: 'Toby’s Mac', lanes: runnerId => [{ binding: { provider: 'codex', runtimeVersion: '0.163.0', hostId: runnerId }, createRuntime: sharedRuntime(runtime) }],
+    keepAwake: () => { awake.push('held'); return { release: () => awake.push('released') }; } });
   t.after(async () => { await runner.stop(); await hub.close(); await rm(root, { recursive: true, force: true }); });
   const until = async (state: MacHubStatus['state']) => { for (let index = 0; index < 300 && runner.status().state !== state; index++) await delay(10); assert.equal(runner.status().state, state); };
-  return { hub, call, invitation, runner, state, until, disposed };
+  return { hub, call, invitation, runner, state, until, disposed, awake };
 }
 
 test('pasting the hub’s invitation enrolls this Mac and connects it under the hub’s runner ID', async t => {
@@ -101,4 +103,19 @@ test('the owning Mac manages its hub connection through the local core; others c
   assert.equal((await api('/v1/hub/runner/remove', {})).status, 200);
   assert.equal((await api('/v1/hub/runner', undefined, secret())).status, 401);
   assert.deepEqual(seen, ['fort-runner:abc', 'remove']);
+});
+
+test('the Mac holds itself awake only while its runner is up', async t => {
+  const h = await fixture(t);
+  await h.runner.start();
+  assert.deepEqual(h.awake, [], 'an unenrolled Mac never holds the assertion');
+  await h.runner.enroll(await h.invitation());
+  await h.until('connected');
+  await h.runner.start();
+  assert.deepEqual(h.awake, ['held'], 'starting again keeps the one assertion');
+  await h.runner.stop();
+  assert.deepEqual(h.awake, ['held', 'released']);
+  await h.runner.start(); await h.until('connected');
+  await h.runner.remove();
+  assert.deepEqual(h.awake, ['held', 'released', 'held', 'released']);
 });

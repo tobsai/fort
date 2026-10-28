@@ -189,6 +189,11 @@ What changes:
   the hub logs one line (counts and Mac IDs only, never message text), `GET /v1/runners` shows
   `pool.queue.alert`, and the runtime status says how long work has waited. A push to the phone is not
   built yet.
+- **Staying awake.** While an enrolled Mac's runner is up, its helper runs `caffeinate -s -w <pid>`,
+  macOS's own "prevent system sleep" assertion. It holds only on AC power, so the laptop on battery
+  still sleeps, and it ends when the runner stops, fails, or the helper exits. Not tested on a Mac yet:
+  if the helper's sandbox blocks it, caffeinate exits and nothing else changes. The Mini's Energy
+  settings (`setup/mac-runner-power.sh`) remain the main guard.
 
 Risk:
 

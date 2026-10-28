@@ -6,6 +6,7 @@ import { serveOwnedCore } from './core/host/owned-core.js';
 import { createPrivateCodexExecutorProcess, CODEX_RUNTIME } from './executor/runner/codex-executor.js';
 import { createClaudeCodeHost, selectedClaudeCode, watchClaudeCodeSelection } from './executor/runner/claude-code-host.js';
 import { macHubRunner, sharedRuntime } from './executor/runner/mac-hub-runner.js';
+import { caffeinate } from './executor/runner/keep-awake.js';
 import { LOCAL_CONTEXT } from './context/modules/local-context.js';
 
 // The helper discards stderr, so a startup problem leaves its reason here for the app to show. Only errors raised before
@@ -50,6 +51,7 @@ try {
   // node the hub named (this Mac's runner ID, or the pool's node). ChatGPT gets its own executor for that ID; Claude's
   // runtime is shared with the local core.
   const hub = macHubRunner({ stateDirectory: process.cwd(), runnerName: hostname().replace(/\.local$/, '').slice(0, 128) || 'Mac',
+    ...(process.platform === 'darwin' ? { keepAwake: () => caffeinate() } : {}),
     lanes: hostId => [
       { binding: { provider: CODEX_RUNTIME.provider, runtimeVersion: CODEX_RUNTIME.runtimeVersion, hostId },
         createRuntime: sharedRuntime(createPrivateCodexExecutorProcess({ executable: fileURLToPath(new URL('../../MacOS/codex', import.meta.url)), guardian,
