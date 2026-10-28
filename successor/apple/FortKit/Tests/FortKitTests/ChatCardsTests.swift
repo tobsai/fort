@@ -48,3 +48,11 @@ import Testing
     #expect(ChatQuiet.header(connected:false,preview:false,runtimeState:nil,status:"The network connection was lost.") == (.attention,"The network connection was lost."))
     #expect(ChatQuiet.header(connected:false,preview:true,runtimeState:nil,status:"Offline preview").lamp == .off)
 }
+
+@Test func cityIsHomeOnlyWhereItFits() {
+    #expect(ChatQuiet.showsCity(wanted:true,supportsWeeks:true,compactWidth:false))
+    // A phone-width window opens on the chat: the city's panels are wider than the screen.
+    #expect(!ChatQuiet.showsCity(wanted:true,supportsWeeks:true,compactWidth:true))
+    #expect(!ChatQuiet.showsCity(wanted:false,supportsWeeks:true,compactWidth:false))
+    #expect(!ChatQuiet.showsCity(wanted:true,supportsWeeks:false,compactWidth:false))
+}

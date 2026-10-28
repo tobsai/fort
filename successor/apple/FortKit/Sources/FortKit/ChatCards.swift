@@ -60,6 +60,9 @@ enum ChatQuiet {
     /// A finished reply speaks for itself; only routines keep their step list once done.
     static func showsRun(state: String, isRoutine: Bool) -> Bool { state != "completed" || isRoutine }
 
+    /// The city HUD is home only when it was chosen, the service has weeks, and the window is wide enough for its fixed panels.
+    static func showsCity(wanted: Bool, supportsWeeks: Bool, compactWidth: Bool) -> Bool { wanted && supportsWeeks && !compactWidth }
+
     /// The header's single light and sentence.
     static func header(connected: Bool, preview: Bool, runtimeState: String?, status: String) -> (lamp: StatusLamp, line: String) {
         if preview { return (.off,status) }
