@@ -8,12 +8,12 @@ import type { PortraitRequest, PortraitResult } from '../contracts/portrait.ts';
 import type { Agent, ConversationImage, Message, RuntimeDescriptor, Snapshot } from '../contracts/v1.ts';
 import { portraitPng } from '../runner/fixtures/portrait-png.ts';
 
-// Spec 066: the owner asks an Agent for an image in a conversation; Fort draws it on the portrait run and posts it as the Agent's reply.
+// Spec 067: the owner asks an Agent for an image in a conversation; Fort draws it on the portrait run and posts it as the Agent's reply.
 const descriptor: RuntimeDescriptor = { provider: 'codex', name: 'Codex fixture', runtimeVersion: '0.163.0', hostId: 'fixture-host', session: 'stateless', capabilities: ['plainText', 'modelCatalog'] };
 const account = { accountId: 'workspace-fixture', userLabel: 'owner@fixture.invalid' };
 
 async function fixture(t: TestContext, options: { draw?: (request: PortraitRequest) => Promise<PortraitResult>; portraits?: boolean; signedIn?: boolean } = {}) {
-  const directory = await realpath(await mkdtemp('/tmp/fort066-image-'));
+  const directory = await realpath(await mkdtemp('/tmp/fort067-image-'));
   const requests: PortraitRequest[] = [], chats: string[] = [];
   const runtime: ChatRuntime = {
     async execute(input) { chats.push(input.text); return { kind: 'completed', text: 'reply', effectiveModel: null }; },

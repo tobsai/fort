@@ -24,7 +24,7 @@ export type ModelCatalog = {provider:string;state:'ready';models:ModelOption[];c
 export type AgentPortrait = { revision: string; createdAt: string; size: number };
 export type PortraitDraw = { state: 'drawing' | 'failed'; detail: string; updatedAt: string };
 export type PortraitImage = { agentId: string; revision: string; png: string };
-// Spec 066: an image Fort drew in a conversation. The PNG is fetched separately by imageId.
+// Spec 067: an image Fort drew in a conversation. The PNG is fetched separately by imageId.
 export type MessageImage = { imageId: string; width: number; height: number };
 export type ConversationImage = { imageId: string; png: string };
 export type Agent = { agentId: string; name: string; homeConversationId: string; binding: Binding; readiness: 'fixtureReady' | 'requiresLiveReview'; instructions?: string; avatar?: AgentAvatar; portrait?: AgentPortrait; portraitDraw?: PortraitDraw };

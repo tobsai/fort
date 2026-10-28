@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import FortKit
 
-// Spec 066: the client asks an Agent for an image in a conversation, then fetches the PNG by image ID.
+// Spec 067: the client asks an Agent for an image in a conversation, then fetches the PNG by image ID.
 private let png = Data([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13])
 private let userJSON = #"{"messageId":"m1","conversationId":"c","requestId":"r","role":"user","text":"/image A lighthouse","sequence":1,"createdAt":"2026-10-25T00:00:00.000Z","recipientAgentId":"a","recipientAgentName":"Pascal","drawsImage":true}"#
 private actor ImageTransport: FortTransport {

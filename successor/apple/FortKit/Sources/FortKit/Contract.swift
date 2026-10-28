@@ -129,7 +129,7 @@ public struct Message: Codable, Equatable, Sendable, Identifiable {
     public var agentName: String? = nil
     public var recipientAgentId: String? = nil
     public var recipientAgentName: String? = nil
-    /// Spec 066: a user message that asked for an image, and the Agent's reply that carries it.
+    /// Spec 067: a user message that asked for an image, and the Agent's reply that carries it.
     public var drawsImage: Bool? = nil
     public var image: MessageImage? = nil
 }

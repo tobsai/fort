@@ -461,7 +461,7 @@ import Observation
     /// The last check with the host failed. Cleared when a sync succeeds; never set by launch, previews, fixtures or unpairing.
     private(set) var contactFailed = false
     var hasLostContact: Bool { contactFailed && !connected && !pairingRemoved && !isOfflinePreview && !isInteractiveFixture && !googleSignInNeeded }
-    /// The hub answered that it wants this device's Google sign-in first (Spec 066).
+    /// The hub answered that it wants this device's Google sign-in first (Spec 067).
     public private(set) var googleSignInNeeded = false
     public private(set) var googleSignInBusy = false
     public private(set) var googleSignInMessage: String?
@@ -1130,7 +1130,7 @@ import Observation
         do { _ = try await client.drawPortrait(agentID:agent.agentId,note:trimmed.isEmpty ? nil : trimmed); await refresh() }
         catch { status = error.localizedDescription }
     }
-    // Spec 066: "/image <description>" asks the recipient Agent for one image on the ChatGPT plan.
+    // Spec 067: "/image <description>" asks the recipient Agent for one image on the ChatGPT plan.
     public var supportsImages: Bool { installation?.supports("conversationImages") == true }
     public var imagePrompt: String? {
         guard supportsImages, draft.hasPrefix("/image ") else { return nil }

@@ -335,7 +335,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     queueMicrotask(() => { for (const wake of [...eventWaiters]) wake(); });
     return sequence;
   };
-  // Spec 066: finishes one image draw by posting the Agent's reply, with the image when there is one.
+  // Spec 067: finishes one image draw by posting the Agent's reply, with the image when there is one.
   const imageReply = (requestId: string, outcome: { kind: 'drawn'; png: Buffer; width: number; height: number } | { kind: 'failed'; message: string }) => {
     const row = db.prepare("SELECT data FROM entities WHERE kind='imageDraws' AND id=?").get(requestId);
     if (!row) return;
@@ -355,7 +355,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   transaction(() => {
     for (const agent of list('agents', decodeAgent)) if (agent.portraitDraw?.state === 'drawing')
       put('agents', agent.agentId, { ...agent, portraitDraw: { state: 'failed', detail: 'Fort restarted before the portrait finished. Nothing was saved.', updatedAt: new Date(now()).toISOString() } });
-    // Spec 066: the same for an image drawn in a conversation; the reply says it didn't finish.
+    // Spec 067: the same for an image drawn in a conversation; the reply says it didn't finish.
     for (const row of db.prepare("SELECT id FROM entities WHERE kind='imageDraws'").all()) imageReply(String(row.id), { kind: 'failed', message: 'Fort restarted before the image finished. Nothing was saved.' });
   });
   transaction(() => {
@@ -1167,7 +1167,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result = { imageId, png: image.png } satisfies ConversationImage;
         }
         else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/images$/.test(url.pathname)) {
-          // Spec 066: the owner asks an Agent for one image. It draws on the same locked-down run as portraits, one draw at a time.
+          // Spec 067: the owner asks an Agent for one image. It draws on the same locked-down run as portraits, one draw at a time.
           const body = await readBody(request), conversationId = id(url.pathname.split('/')[3]);
           if (Object.keys(body).some(key => !['requestId', 'agentId', 'prompt'].includes(key)) || !validImagePrompt(body.prompt)) fail(400, 'invalidImage', 'Describe the image in at most 2000 bytes.');
           const requestId = id(body.requestId), agentId = id(body.agentId), prompt = body.prompt.trim();

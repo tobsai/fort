@@ -100,7 +100,7 @@ public struct FortClient: Sendable {
               data.starts(with:[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) else { throw ClientError.invalidResponse }
         return data
     }
-    /// Asks an Agent for one image in a conversation (Spec 066). The reply arrives later as the Agent's message.
+    /// Asks an Agent for one image in a conversation (Spec 067). The reply arrives later as the Agent's message.
     public func drawImage(conversationID: String, agentID: String, requestID: String, prompt: String) async throws -> Message {
         struct Body: Encodable { let requestId: String; let agentId: String; let prompt: String }
         struct Accepted: Decodable { let message: Message }

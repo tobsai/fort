@@ -5,7 +5,7 @@ import { validateExecutorBinding, type ExecutorBinding } from './executor-wire.t
 import { decodePortrait, PORTRAIT_MAX_BYTES, validImagePrompt, type PortraitResult, type PortraitSubject } from '../contracts/portrait.ts';
 
 // Spec 065: one portrait draw per executor process. The result frame carries the PNG as base64.
-// Spec 066: the same operation carries either a portrait subject or an owner's image prompt, never both.
+// Spec 067: the same operation carries either a portrait subject or an owner's image prompt, never both.
 export const PORTRAIT_FRAME_BYTES = 80 * 1024;
 export const PORTRAIT_EVIDENCE_BYTES = Math.ceil(PORTRAIT_MAX_BYTES / 3) * 4 + 16_384;
 // Fits the guarded runtime's 120-second ceiling.

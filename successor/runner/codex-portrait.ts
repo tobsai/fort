@@ -8,7 +8,7 @@ export { decodePortrait, IMAGE_PROMPT_BYTES, PORTRAIT_MAX_BYTES, type PortraitRe
 import { CODEX_PERMISSION_PROFILE, verifyPermissionSelection } from './codex-permissions.ts';
 
 // Spec 065: one Codex turn on the ChatGPT plan that returns exactly one generated portrait.
-// Spec 066: the same locked-down run draws a general image from the owner's prompt.
+// Spec 067: the same locked-down run draws a general image from the owner's prompt.
 export const PORTRAIT_FRAME_LIMIT = 8 * 1024 * 1024;
 const MAX_WIRE = 24 * 1024 * 1024, MAX_TEXT = 8192, MAX_NOTE = 500, MAX_ROLE = 2000, MAX_REPLY = 300;
 

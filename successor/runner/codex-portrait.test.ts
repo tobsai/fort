@@ -220,7 +220,7 @@ test('a Free plan is refused before any turn, since Codex withholds its image to
   assert.equal(fixture.calls.some(call => call.method === 'thread/start'), false);
 });
 
-// Spec 066: the same locked-down run draws an image from the owner's own words.
+// Spec 067: the same locked-down run draws an image from the owner's own words.
 const imageRequest: PortraitRequest = { account: syntheticAccountIdentity, model: 'gpt-6-astra', prompt: 'A lighthouse at dusk, watercolour, wide' };
 
 test('an image run draws from the owner prompt with the image-artist instructions', async () => {

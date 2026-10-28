@@ -20,7 +20,7 @@ struct AgentPortraitView: View {
     }
 }
 
-/// Spec 066: an image Fort drew in a conversation, loaded once per session.
+/// Spec 067: an image Fort drew in a conversation, loaded once per session.
 struct ConversationImageView: View {
     let model: MessengerModel
     let image: MessageImage

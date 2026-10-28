@@ -1,8 +1,9 @@
-# 066: Agents draw images in chat
+# 067: Agents draw images in chat
 
 **Decision:** Toby asked on 2026-10-25 ("add image generation through Codex or an API call as a fast follow",
 Fort project thread). This covers the Codex route below. The API-key route is not built (see Plan).
 A real test image on his Mac still needs his OK, as each one uses ChatGPT plan usage.
+Toby decided on 2026-10-28 to run image generation through the ChatGPT subscription to start, with an API route possibly later. Renumbered from 066 because Spec 066 is Google sign-in.
 
 ## What and why
 
