@@ -8,7 +8,7 @@ import Testing
     #expect(RunMeter.make(state:"waitingForApproval") == RunMeter(filled:2,lamp:.attention))
     #expect(RunMeter.make(state:"outcomeUnknown").lamp == .attention)
     #expect(RunMeter.make(state:"completed") == RunMeter(filled:3,lamp:.ready))
-    #expect(RunMeter.make(state:"failed") == RunMeter(filled:3,lamp:.attention))
+    #expect(RunMeter.make(state:"failed") == RunMeter(filled:3,lamp:.failed))
     #expect(RunMeter.make(state:"canceled").lamp == .off)
     #expect(RunMeter.make(state:"somethingNew") == RunMeter(filled:0,lamp:.off))
 }
@@ -45,6 +45,6 @@ import Testing
 @Test func chatHeaderShowsOneLightAndOneWord() {
     #expect(ChatQuiet.header(connected:true,preview:false,runtimeState:"ready",status:"Connected · local prototype") == (.ready,"Ready"))
     #expect(ChatQuiet.header(connected:true,preview:false,runtimeState:"stopped",status:"").lamp == .attention)
-    #expect(ChatQuiet.header(connected:false,preview:false,runtimeState:nil,status:"The network connection was lost.") == (.attention,"The network connection was lost."))
+    #expect(ChatQuiet.header(connected:false,preview:false,runtimeState:nil,status:"The network connection was lost.") == (.failed,"The network connection was lost."))
     #expect(ChatQuiet.header(connected:false,preview:true,runtimeState:nil,status:"Offline preview").lamp == .off)
 }

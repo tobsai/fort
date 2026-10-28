@@ -184,8 +184,13 @@ struct LampView: View {
         Circle().fill(color).frame(width:11,height:11).shadow(color:color.opacity(lamp == .off ? 0 : 0.8),radius:4)
             .accessibilityLabel(label)
     }
-    private var color: Color { switch lamp { case .ready: .green; case .waiting: .cyan; case .attention: .red; case .off: .gray } }
-    private var label: String { switch lamp { case .ready: "Ready"; case .waiting: "In progress"; case .attention: "Needs you"; case .off: "Not available" } }
+    private var color: Color { lamp.color }
+    private var label: String { switch lamp { case .ready: "Ready"; case .waiting: "In progress"; case .attention: "Needs you"; case .failed: "Failed"; case .off: "Not available" } }
+}
+
+/// One colour per state on every surface: blue working, amber needs you, green done, red failed.
+extension StatusLamp {
+    var color: Color { switch self { case .ready: .green; case .waiting: .blue; case .attention: .orange; case .failed: .red; case .off: .gray } }
 }
 
 /// Recovery and rarely used controls, tucked under a dashed drawer at the bottom of a tab. Nothing in it is removed, only moved.

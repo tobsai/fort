@@ -387,7 +387,7 @@ struct RunMeterView: View {
             }
         }.accessibilityHidden(true)
     }
-    private var color: Color { switch meter.lamp { case .ready: .green; case .waiting: .cyan; case .attention: .red; case .off: .gray } }
+    private var color: Color { meter.lamp.color }
 }
 
 extension MessengerModel {
