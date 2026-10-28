@@ -9,12 +9,24 @@ public struct MessengerView: View {
     @State private var showMenu = false
     @State private var menuTab: PauseTab?
     @State private var showChatDetails = false
-    @AppStorage("fort.showCity") private var showCity = true
+    @AppStorage("fort.showCity") private var showCity = false
+    @AppStorage("fort.showDesk") private var showDesk = true
     @Environment(\.scenePhase) private var scenePhase
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// The city's HUD panels are fixed widths that can't fit a phone, so it stays a Mac and iPad view.
+    private var compactWidth: Bool { horizontalSizeClass == .compact }
+    #else
+    private let compactWidth = false
+    #endif
     public init(model: MessengerModel) { self.model = model }
     public var body: some View {
         Group {
-        if showCity && model.supportsWeeks { CityHUDView(model:model,showMessages:{ showCity = false },openMenu:{ openMenu(nil) }) } else {
+        // Home is the Quest log; the city is the Week view behind it, and a chat opens from either.
+        if showDesk && model.hasWorkspace {
+            QuestLogView(model:model,openChat:{ id in showDesk = false; showCity = false; Task { await model.selectConversation(id) } },
+                         showCity:model.supportsWeeks ? { showDesk = false; showCity = true } : nil,openMenu:{ openMenu(nil) })
+        } else if showCity && model.supportsWeeks && !compactWidth { CityHUDView(model:model,showMessages:{ showCity = false; showDesk = model.hasWorkspace },openMenu:{ openMenu(nil) }) } else {
         NavigationSplitView {
             List(selection:SwiftUI.Binding(get:{ model.hasWorkspace ? model.activeConversationID : model.selectedAgentID },set:{ id in if model.hasWorkspace { Task { await model.selectConversation(id) } } else { model.selectedAgentID = id } })) {
                 Section("Crew") {
@@ -36,7 +48,8 @@ public struct MessengerView: View {
             }
             .navigationTitle(model.isInteractiveFixture ? "Fort QA · First wave" : "Fort")
             .toolbar {
-                if model.supportsWeeks { Button("City",systemImage:"building.2") { showCity = true }.accessibilityIdentifier("show-city") }
+                if model.hasWorkspace { Button("Quest log",systemImage:"list.star") { showDesk = true }.accessibilityIdentifier("show-quest-log") }
+                if model.supportsWeeks && !compactWidth { Button("City",systemImage:"building.2") { showCity = true }.accessibilityIdentifier("show-city") }
                 if !PauseMenu.make(model.pauseFacts).entries.isEmpty {
                     Button("Menu",systemImage:"line.3.horizontal") { openMenu(nil) }.keyboardShortcut(",",modifiers:.command).accessibilityIdentifier("pause-menu-open")
                 }
