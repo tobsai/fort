@@ -4,7 +4,7 @@ import type { Socket } from 'node:net';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, lstatSync, chmodSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, AgentPortrait, PortraitDraw, PortraitImage, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
+import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation, InstructionSkill, Installation, Message, Run, Snapshot, TurnConfiguration, RoutineRevision, RoutineExecution, RoutineApproval, ScheduleRevision, SchedulerStatus, SchedulePreview, ScheduleOccurrence, RequestCancellation, ConversationMemory, RuntimeReadiness, AgentAvatar, AgentPortrait, PortraitDraw, PortraitImage, ConversationImage, MessageImage, OwnerPairingPolicy, PairingStatus } from '../contracts/v1.ts';
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, type PreparedContext } from '../contracts/context.ts';
@@ -18,6 +18,7 @@ import { OwnerRecoveryIdentityRejected } from '../contracts/owner-recovery.ts';
 import { companionPairing, CompanionPairingError } from './companion-pairing.ts';
 import { parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 import { accountSignIn, AccountSignInError } from './account-sign-in.ts';
+import { validImagePrompt } from '../contracts/portrait.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -28,7 +29,7 @@ type OwnerSetup = { version: 1; setupId: string; expires: number } & (
   | { state: 'completed' | 'canceling'; deviceId: string }
   | { state: 'canceled'; deviceId: string; outcome: 'notPaired' | 'revoked' }
 );
-type Entity = 'portraits' | 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'portraits' | 'images' | 'imageDraws' | 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -104,7 +105,13 @@ function decodeMessage(value: unknown): Message {
   if ((v.role !== 'user' && v.role !== 'assistant') || typeof v.sequence !== 'number' || !Number.isSafeInteger(v.sequence)) throw new Error('Invalid stored Message');
   return { messageId: id(v.messageId), conversationId: id(v.conversationId), requestId: id(v.requestId), role: v.role, text: messageText(v.text), sequence: v.sequence, createdAt: text(v.createdAt, 'date'),
     ...(v.agentId === undefined ? {} : { agentId: id(v.agentId), agentName: text(v.agentName, 'name') }),
-    ...(v.recipientAgentId === undefined ? {} : { recipientAgentId: id(v.recipientAgentId), recipientAgentName: text(v.recipientAgentName, 'name') }) };
+    ...(v.recipientAgentId === undefined ? {} : { recipientAgentId: id(v.recipientAgentId), recipientAgentName: text(v.recipientAgentName, 'name') }),
+    ...(v.drawsImage === true ? { drawsImage: true as const } : {}), ...(v.image === undefined ? {} : { image: decodeMessageImage(v.image) }) };
+}
+function decodeMessageImage(value: unknown): MessageImage {
+  const v = record(value), side = (n: unknown) => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 2048;
+  if (!side(v.width) || !side(v.height)) throw new Error('Invalid stored image');
+  return { imageId: id(v.imageId), width: v.width as number, height: v.height as number };
 }
 function storedReceipt(value: unknown): Receipt {
   const stored = record(value);
@@ -285,7 +292,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(lanes.some(lane=>lane.runtime?.portrait)?['agentPortraits']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
+  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(lanes.some(lane=>lane.runtime?.portrait)?['agentPortraits','conversationImages']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -328,10 +335,28 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     queueMicrotask(() => { for (const wake of [...eventWaiters]) wake(); });
     return sequence;
   };
+  // Spec 067: finishes one image draw by posting the Agent's reply, with the image when there is one.
+  const imageReply = (requestId: string, outcome: { kind: 'drawn'; png: Buffer; width: number; height: number } | { kind: 'failed'; message: string }) => {
+    const row = db.prepare("SELECT data FROM entities WHERE kind='imageDraws' AND id=?").get(requestId);
+    if (!row) return;
+    const draw = record(json(row)), conversationId = id(draw.conversationId), messageId = randomUUID();
+    let image: MessageImage | undefined;
+    if (outcome.kind === 'drawn') {
+      image = { imageId: randomUUID(), width: outcome.width, height: outcome.height };
+      put('images', image.imageId, { conversationId, png: outcome.png.toString('base64') });
+    }
+    const sequence = append(conversationId, 'messageCompleted', messageId);
+    const reply: Message = { messageId, conversationId, requestId, role: 'assistant', text: image ? 'Here’s your image.' : messageText('I couldn’t draw that image. ' + (outcome.kind === 'failed' ? outcome.message : '')), sequence, createdAt: new Date(now()).toISOString(),
+      agentId: id(draw.agentId), agentName: text(draw.agentName, 'name'), ...(image ? { image } : {}) };
+    put('messages', messageId, reply);
+    db.prepare("DELETE FROM entities WHERE kind='imageDraws' AND id=?").run(requestId);
+  };
   // A portrait draw doesn't survive a restart (Spec 065); say so instead of showing it as still drawing.
   transaction(() => {
     for (const agent of list('agents', decodeAgent)) if (agent.portraitDraw?.state === 'drawing')
       put('agents', agent.agentId, { ...agent, portraitDraw: { state: 'failed', detail: 'Fort restarted before the portrait finished. Nothing was saved.', updatedAt: new Date(now()).toISOString() } });
+    // Spec 067: the same for an image drawn in a conversation; the reply says it didn't finish.
+    for (const row of db.prepare("SELECT id FROM entities WHERE kind='imageDraws'").all()) imageReply(String(row.id), { kind: 'failed', message: 'Fort restarted before the image finished. Nothing was saved.' });
   });
   transaction(() => {
     for (const run of db.prepare("SELECT e.data FROM dispatch_outbox o JOIN entities e ON e.kind='runs' AND e.id=o.run_id ORDER BY o.position").all().map(row=>decodeRun(json(row)))) {
@@ -1132,6 +1157,52 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             }
             return { lastReadMessageSequence: sequence };
           });
+        }
+        else if (request.method === 'GET' && /^\/v1\/images\/[^/]+$/.test(url.pathname)) {
+          authenticate(request);
+          const imageId = id(url.pathname.split('/')[3]), row = db.prepare("SELECT data FROM entities WHERE kind='images' AND id=?").get(imageId);
+          if (!row) fail(404, 'noImage', 'This image is not stored.');
+          const image = record(json(row));
+          if (typeof image.png !== 'string') fail(404, 'noImage', 'This image is not stored.');
+          result = { imageId, png: image.png } satisfies ConversationImage;
+        }
+        else if (request.method === 'POST' && /^\/v1\/conversations\/[^/]+\/images$/.test(url.pathname)) {
+          // Spec 067: the owner asks an Agent for one image. It draws on the same locked-down run as portraits, one draw at a time.
+          const body = await readBody(request), conversationId = id(url.pathname.split('/')[3]);
+          if (Object.keys(body).some(key => !['requestId', 'agentId', 'prompt'].includes(key)) || !validImagePrompt(body.prompt)) fail(400, 'invalidImage', 'Describe the image in at most 2000 bytes.');
+          const requestId = id(body.requestId), agentId = id(body.agentId), prompt = body.prompt.trim();
+          const started = owner(request, () => {
+            const prior = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(requestId);
+            if (prior) { const message = decodeMessage(json(prior)); if (!message.drawsImage || message.conversationId !== conversationId) fail(409, 'requestConflict', 'This request ID was already used.'); return { message }; }
+            const conversation = load('conversations', conversationId, decodeConversation);
+            if (!conversation.participantAgentIds.includes(agentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
+            const agent = load('agents', agentId, decodeAgent), lane = laneFor(agent.binding), account = lane && laneAccounts(lane).selected();
+            if (!agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before asking.');
+            if (!lane?.runtime?.portrait) fail(409, 'imagesUnavailable', 'Images need a ChatGPT Agent on this Mac. Nothing was drawn.');
+            if (portraitDrawing || db.prepare("SELECT 1 FROM entities WHERE kind='imageDraws'").get()) fail(409, 'imageDrawing', 'Fort is already drawing an image. Try again when it finishes.');
+            if (dispatchStopped || accountsBusy() || dispatching || runtimeOperations > 0) fail(409, 'runtimeBusy', 'Fort is busy with another reply. Try again when it finishes.');
+            if (!account) fail(409, 'signInRequired', 'Sign in to ChatGPT on this Mac first. Nothing was drawn.');
+            const messageId = randomUUID(), sequence = append(conversationId, 'messageAccepted', messageId);
+            const message: Message = { messageId, conversationId, requestId, role: 'user', text: messageText('/image ' + prompt), sequence, createdAt: new Date(now()).toISOString(), recipientAgentId: agent.agentId, recipientAgentName: agent.name, drawsImage: true };
+            put('messages', messageId, message);
+            put('imageDraws', requestId, { conversationId, agentId: agent.agentId, agentName: agent.name });
+            return { message, draw: { runtime: lane.runtime, account, model: agent.binding.selectedModel } };
+          });
+          if (started.draw) {
+            const { runtime, account, model } = started.draw;
+            portraitDrawing = true; runtimeOperations++;
+            void (async () => {
+              let outcome: Parameters<typeof imageReply>[1];
+              try {
+                const drawn = await runtime.portrait!({ account, model, prompt }, listenerAbort.signal);
+                outcome = drawn.kind === 'drawn' ? drawn : { kind: 'failed', message: drawn.message };
+              } catch { outcome = { kind: 'failed', message: 'The image run failed. Nothing was saved.' }; }
+              finally { portraitDrawing = false; runtimeOperations--; queueMicrotask(wake); }
+              if (closed) return;
+              try { transaction(() => imageReply(requestId, outcome)); } catch {}
+            })();
+          }
+          result = { message: started.message }; status = 202;
         }
         else if ((request.method === 'GET' || request.method === 'POST') && /^\/v1\/agents\/[^/]+\/portrait(\/remove)?$/.test(url.pathname)) {
           // Spec 065: one portrait draw at a time, on the Agent's own runtime and signed-in account.

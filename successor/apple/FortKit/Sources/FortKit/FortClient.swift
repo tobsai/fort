@@ -100,6 +100,20 @@ public struct FortClient: Sendable {
               data.starts(with:[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) else { throw ClientError.invalidResponse }
         return data
     }
+    /// Asks an Agent for one image in a conversation (Spec 067). The reply arrives later as the Agent's message.
+    public func drawImage(conversationID: String, agentID: String, requestID: String, prompt: String) async throws -> Message {
+        struct Body: Encodable { let requestId: String; let agentId: String; let prompt: String }
+        struct Accepted: Decodable { let message: Message }
+        let accepted: Accepted = try await send("v1/conversations/\(try segment(conversationID))/images",method:.post,body:Body(requestId:requestID,agentId:agentID,prompt:prompt))
+        guard accepted.message.conversationId == conversationID, accepted.message.requestId == requestID, accepted.message.drawsImage == true else { throw ClientError.invalidResponse }
+        return accepted.message
+    }
+    public func image(id imageID: String) async throws -> Data {
+        let image: ConversationImage = try await request(path:"v1/images/\(try segment(imageID))",method:.get,data:nil,timeout:30)
+        guard image.imageId == imageID, let data = Data(base64Encoded:image.png), data.count <= 5 * 1024 * 1024,
+              data.starts(with:[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) else { throw ClientError.invalidResponse }
+        return data
+    }
     public func removePortrait(agentID: String) async throws -> Agent {
         let agent: Agent = try await send("v1/agents/\(try segment(agentID))/portrait/remove",method:.post,body:[String:String]())
         guard agent.agentId == agentID, agent.portrait == nil else { throw ClientError.invalidResponse }

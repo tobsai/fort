@@ -196,6 +196,8 @@ public struct MessengerView: View {
                 Text(mine ? message.recipientAgentName.map { "You → \($0)" } ?? "You" : (message.agentName ?? "Fixture Agent").uppercased())
                     .font(.system(.caption,design:.rounded).weight(.heavy)).foregroundStyle(mine ? Color.secondary : HUDStyle.gold)
                 Text(message.text).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                if let image = message.image { ConversationImageView(model:model,image:image) }
+                if model.isDrawingImage(message) { Label("Drawing on your ChatGPT plan…",systemImage:"paintbrush").font(.caption).foregroundStyle(.secondary) }
             }
             .padding(12)
             .background(mine ? HUDStyle.gold.opacity(0.14) : Color.secondary.opacity(0.08),in:RoundedRectangle(cornerRadius:10))
@@ -290,6 +292,9 @@ public struct MessengerView: View {
                     }
                 }
             }
+                if model.imagePrompt != nil {
+                    Text("Sending draws one image on your ChatGPT plan.").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("image-hint")
+                }
                 HStack(alignment:.bottom,spacing:12) {
                     #if os(macOS)
                     MessageComposer(text:$model.draft,editable:!model.isOfflinePreview,canSend:model.canSend) { Task { await model.send() } }

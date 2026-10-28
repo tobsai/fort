@@ -77,7 +77,7 @@ export function serveExecutorWorker({ input, output, binding, createRuntime, cre
         create: () => createPortrait(accepted, controller.signal),
         execute: async runtime => {
           if (!runtime.portrait) throw new Error('Portraits are not supported');
-          return runtime.portrait({ account: accepted.account, model: accepted.model, subject: accepted.subject }, controller.signal);
+          return runtime.portrait(accepted.prompt === undefined ? { account: accepted.account, model: accepted.model, subject: accepted.subject } : { account: accepted.account, model: accepted.model, prompt: accepted.prompt }, controller.signal);
         },
         terminal: result => ({ protocolVersion: 1, kind: 'portraitResult', sequence: 1,
           requestId: accepted.requestId, requestDigest: accepted.requestDigest, result: encodePortraitResult(result as PortraitResult) }),

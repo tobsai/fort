@@ -2,17 +2,19 @@ import { executionDigest, immutable } from '../contracts/executor.ts';
 import { parseAccountIdentity } from '../contracts/account.ts';
 import type { AccountIdentity } from '../contracts/v1.ts';
 import { validateExecutorBinding, type ExecutorBinding } from './executor-wire.ts';
-import { decodePortrait, PORTRAIT_MAX_BYTES, type PortraitResult, type PortraitSubject } from '../contracts/portrait.ts';
+import { decodePortrait, PORTRAIT_MAX_BYTES, validImagePrompt, type PortraitResult, type PortraitSubject } from '../contracts/portrait.ts';
 
 // Spec 065: one portrait draw per executor process. The result frame carries the PNG as base64.
+// Spec 067: the same operation carries either a portrait subject or an owner's image prompt, never both.
 export const PORTRAIT_FRAME_BYTES = 80 * 1024;
 export const PORTRAIT_EVIDENCE_BYTES = Math.ceil(PORTRAIT_MAX_BYTES / 3) * 4 + 16_384;
 // Fits the guarded runtime's 120-second ceiling.
 export const PORTRAIT_DEADLINE_MS = 115_000;
 export type ExecutorPortraitRequest = {
   protocolVersion: 1; kind: 'portrait'; requestId: string; binding: ExecutorBinding; account: AccountIdentity;
-  model: string; subject: PortraitSubject; deadline: number; requestDigest: string;
-};
+  model: string; deadline: number; requestDigest: string;
+} & ({ subject: PortraitSubject; prompt?: never } | { prompt: string; subject?: never });
+export type ExecutorDraw = { subject: PortraitSubject; prompt?: never } | { prompt: string; subject?: never };
 
 function reject(): never { throw new Error('Portrait executor evidence was not confirmed'); }
 function object(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -24,15 +26,17 @@ function object(value: unknown, keys: readonly string[]): Record<string, unknown
 const identifier = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 const text = (value: unknown, limit: number): value is string => typeof value === 'string' && value.isWellFormed() && !value.includes('\0') && Buffer.byteLength(value) <= limit;
 
-export function portraitRequestBody(binding: ExecutorBinding, account: AccountIdentity, model: string, subject: PortraitSubject, requestId: string, now = Date.now()): ExecutorPortraitRequest {
-  const body = { protocolVersion: 1, kind: 'portrait', requestId, binding, account: parseAccountIdentity(account), model, subject: { ...subject }, deadline: now + PORTRAIT_DEADLINE_MS } as const;
+export function portraitRequestBody(binding: ExecutorBinding, account: AccountIdentity, model: string, draw: ExecutorDraw, requestId: string, now = Date.now()): ExecutorPortraitRequest {
+  const body = { protocolVersion: 1, kind: 'portrait', requestId, binding, account: parseAccountIdentity(account), model, ...(draw.prompt === undefined ? { subject: { ...draw.subject } } : { prompt: draw.prompt }), deadline: now + PORTRAIT_DEADLINE_MS } as const;
   return { ...body, requestDigest: executionDigest(body) };
 }
 
 export function parseExecutorPortraitRequest(value: unknown, selected: ExecutorBinding): ExecutorPortraitRequest {
-  const row = object(value, ['protocolVersion', 'kind', 'requestId', 'binding', 'account', 'model', 'subject', 'deadline', 'requestDigest']);
+  const row = object(value, ['protocolVersion', 'kind', 'requestId', 'binding', 'account', 'model', 'subject', 'prompt', 'deadline', 'requestDigest']);
   const binding = object(row.binding, ['provider', 'runtimeVersion', 'hostId']);
-  const subject = object(row.subject, ['name', 'instructions', 'note']);
+  if ((row.subject === undefined) === (row.prompt === undefined)) reject();
+  if (row.prompt !== undefined && !validImagePrompt(row.prompt)) reject();
+  const subject = row.prompt === undefined ? object(row.subject, ['name', 'instructions', 'note']) : { name: 'image', instructions: '' };
   if (row.protocolVersion !== 1 || row.kind !== 'portrait' || !identifier(row.requestId)
       || binding.provider !== selected.provider || binding.runtimeVersion !== selected.runtimeVersion || binding.hostId !== selected.hostId
       || !text(row.model, 128) || !/^[A-Za-z0-9_.:/-]{1,128}$/.test(row.model)
@@ -44,7 +48,8 @@ export function parseExecutorPortraitRequest(value: unknown, selected: ExecutorB
   const { requestDigest, ...body } = row;
   if (executionDigest(body) !== requestDigest) reject();
   return immutable({ protocolVersion: 1, kind: 'portrait', requestId: row.requestId, binding: { ...selected }, account, model: row.model,
-    subject: { name: subject.name, instructions: subject.instructions, ...(subject.note === undefined ? {} : { note: subject.note as string }) }, deadline: row.deadline, requestDigest: row.requestDigest });
+    ...(typeof row.prompt === 'string' ? { prompt: row.prompt } : { subject: { name: subject.name as string, instructions: subject.instructions as string, ...(subject.note === undefined ? {} : { note: subject.note as string }) } }),
+    deadline: row.deadline, requestDigest: row.requestDigest });
 }
 
 export function validateExecutorPortraitCancel(value: unknown, request: ExecutorPortraitRequest): void {

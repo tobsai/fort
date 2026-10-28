@@ -12,8 +12,8 @@ export type HistoryDeletion = Readonly<{
 }>;
 
 type DeletionReceipt = Omit<HistoryDeletion, 'directory'> & { version: 1; nextRecoveryEpoch: string; deletedRecords: number };
-const history = ['messages', 'runs', 'requests', 'contexts', 'reads', 'routineApprovals', 'requestCancellations', 'scheduleOccurrences'];
-const retained = ['agents', 'agentBindings', 'disabledBindings', 'conversations', 'conversationMemory', 'skills', 'skillRevisions', 'routines', 'routineRevisions', 'schedules', 'scheduleRevisions'];
+const history = ['images', 'imageDraws', 'messages', 'runs', 'requests', 'contexts', 'reads', 'routineApprovals', 'requestCancellations', 'scheduleOccurrences'];
+const retained = ['portraits', 'weeks', 'agents', 'agentBindings', 'disabledBindings', 'conversations', 'conversationMemory', 'skills', 'skillRevisions', 'routines', 'routineRevisions', 'schedules', 'scheduleRevisions'];
 const metadata = ['installation', 'runtimeIdentity', 'outboxVersion', 'ownerPairingPolicy', 'ownerControl', 'ownerSetup', 'historyDeletion'];
 const columns: Record<string, string[]> = {
   metadata: ['key', 'data'], enrollment: ['hash', 'expires'], devices: ['id', 'hash', 'expires'],

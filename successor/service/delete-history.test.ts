@@ -245,3 +245,18 @@ test('10,000-message warm offline deletion stays within its two-second p95 budge
   await writeFile(process.env.FORT_HISTORY_SAMPLES!, JSON.stringify({ unit: 'milliseconds', samples, p95: [...samples].sort((a, b) => a - b)[18] }, null, 2));
   assert.ok([...samples].sort((a, b) => a - b)[18]! <= 2000);
 });
+
+test('deleting history removes drawn images and keeps portraits and weeks', async t => {
+  const h = await fixture(t);
+  await h.disconnect(); await h.close();
+  edit(h.path, db => {
+    const add = db.prepare('INSERT INTO entities VALUES (?,?,?)');
+    add.run('images', 'image-1', JSON.stringify({ conversationId: h.agent.homeConversationId, png: 'AAAA' }));
+    add.run('imageDraws', 'draw-1', JSON.stringify({ conversationId: h.agent.homeConversationId, agentId: h.agent.agentId, agentName: h.agent.name }));
+    add.run('portraits', h.agent.agentId, JSON.stringify({ revision: 'r', png: 'AAAA' }));
+  });
+  deleteOwnerHistory(h.request);
+  edit(h.path, db => {
+    assert.deepEqual(db.prepare("SELECT kind FROM entities WHERE kind IN ('images','imageDraws','portraits') ORDER BY kind").all().map(row => row.kind), ['portraits']);
+  });
+});
