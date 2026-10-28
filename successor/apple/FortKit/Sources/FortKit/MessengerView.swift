@@ -119,9 +119,6 @@ public struct MessengerView: View {
                 }.accessibilityElement(children:.combine)
             }
             WorkshopDrawer(isExpanded:$showChatDetails,identifier:"chat-details") {
-                if model.hasWorkspace && !model.isInteractiveFixture && !model.isOfflinePreview {
-                    Label("Local prototype · provider review required",systemImage:"hammer").font(.caption).foregroundStyle(.orange)
-                }
                 if let agent = model.recipient { Text("\(agent.binding.selectedModel) · \(agent.binding.hostId)").font(.caption).foregroundStyle(.secondary) }
                 if let runtime = model.runtimeReadiness {
                     CopyableText(runtime.detail).font(.caption).foregroundStyle(.secondary)
