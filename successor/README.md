@@ -49,6 +49,14 @@ starts and answers. With **Wait for CI** on in the hub service's Railway setting
 that workflow and is skipped if it fails. Runs on `main` are never cancelled, because Railway treats
 a cancelled run as a block.
 
+The hub keeps everything in SQLite on its `/data` volume. Railway can back that volume up on a
+schedule (the hub service's **Backups** tab): daily copies are kept 6 days, weekly 27 and monthly 89.
+SQLite survives a snapshot taken mid-write the same way it survives a power cut. Turn on Daily, plus
+Weekly if you want a longer reach. Backups are billed as volume storage for the changed data only.
+Two things to know: deleting history in Fort doesn't reach the backups, so deleted messages live on
+until the copies age out, and wiping the volume deletes its backups too. A restore mounts the copy as
+a new volume and stages a redeploy for you to review.
+
 ## v1 checklist
 
 Update this list in the PR that changes it.
