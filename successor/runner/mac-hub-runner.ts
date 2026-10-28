@@ -4,16 +4,16 @@ import type { RunnerLane, RunnerStatus } from './hub-runner.ts';
 
 // The Mac side of the cloud hub (Spec 063, step 4). Beside its local core, the helper keeps one runner
 // connection to the hub for every runtime it serves, once the owner has enrolled this Mac by pasting
-// the hub's one-time "fort-runner:" invitation. Each lane runs under the Mac's runner ID, which is
-// the hostId the hub pins those turns to.
+// the hub's one-time "fort-runner:" invitation. Each lane runs under the node the hub named at
+// enrollment: the Mac's own runner ID, or the pool's node when several Macs serve the hub.
 export type MacHubStatus =
   | { state: 'notEnrolled' }
-  | { state: RunnerStatus['state'] | 'failed'; hubURL: string; runnerId: string; retryMs?: number; detail?: string };
+  | { state: RunnerStatus['state'] | 'failed'; hubURL: string; runnerId: string; node?: string; retryMs?: number; detail?: string };
 export type MacHubInvitation = { hub: string; invitationId: string; code: string; runnerId: string };
 type Options = {
   stateDirectory: string; runnerName: string;
-  // Builds this Mac's lanes for the runner ID it enrolled with; the first is the primary.
-  lanes(runnerId: string): RunnerLane[];
+  // Builds this Mac's lanes for the node it serves (its runner ID unless pooled); the first is the primary.
+  lanes(hostId: string): RunnerLane[];
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
 };
 
@@ -47,9 +47,9 @@ export function macHubRunner(options: Options) {
     if (controller && !controller.signal.aborted) return status;
     const credential = await readHubCredential(options.stateDirectory);
     if (!credential) { status = { state: 'notEnrolled' }; return status; }
-    const [first, ...rest] = options.lanes(credential.runnerId);
+    const [first, ...rest] = options.lanes(credential.node ?? credential.runnerId);
     if (!first) throw new Error('This Mac has no runtime to offer the hub');
-    const identity = { hubURL: credential.hubURL, runnerId: credential.runnerId };
+    const identity = { hubURL: credential.hubURL, runnerId: credential.runnerId, ...(credential.node ? { node: credential.node } : {}) };
     const ours = controller = new AbortController();
     status = { state: 'connecting', ...identity };
     running = runAsRunner({ stateDirectory: options.stateDirectory, ...first, lanes: rest, signal: ours.signal, ...fetcher,

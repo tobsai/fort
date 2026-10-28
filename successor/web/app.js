@@ -58,7 +58,7 @@ function claimView() {
 // ---------- Main ----------
 async function refresh() {
   const [agents, conversations, runners] = await Promise.all([api('/v1/agents'), api('/v1/conversations'), api('/v1/runners').catch(() => ({ runners: [] }))]);
-  state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners;
+  state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners; state.pool = runners.pool ?? null;
 }
 async function openConversation(conversationId) {
   state.current = conversationId;
@@ -147,11 +147,16 @@ function macSection() {
     try {
       const reply = await api('/v1/runners/invitation', invitation);
       out.replaceChildren(h('p.muted', {}, `In Fort on your Mac, open Devices, choose Connect to cloud hub, and paste this within 5 minutes (until ${new Date(reply.expiresAt).toLocaleTimeString()}). It is used once.`),
-        h('div.code', {}, 'fort-runner:' + encode({ v: 1, hub: location.origin, ...invitation, runnerId: state.installation.runtimes[0].hostId })));
+        h('div.code', {}, 'fort-runner:' + encode({ v: 1, hub: location.origin, ...invitation, runnerId: nextRunnerId() })));
     } catch (problem) { say(error, problem); }
   } }, 'Add a Mac');
   const node = state.installation?.runtimes?.[0]?.hostId;
-  return h('section', {}, h('h3', {}, 'Macs'), h('p.muted', {}, `Your Macs run the turns; the hub only routes them. This hub sends turns to the Mac named “${node ?? '?'}”.`), list, add, out, error);
+  const where = state.pool ? `This hub sends each run to the first connected Mac of ${state.pool.runners.map(id => `“${id}”`).join(', then ')}.` : `This hub sends turns to the Mac named “${node ?? '?'}”.`;
+  return h('section', {}, h('h3', {}, 'Macs'), h('p.muted', {}, `Your Macs run the turns; the hub only routes them. ${where}`), list, add, out, error);
+}
+// A pooled hub names its Macs; an invitation is for the first one not enrolled yet.
+function nextRunnerId() {
+  return state.pool?.runners.find(id => !state.runners.some(runner => runner.runnerId === id)) ?? state.installation.runtimes[0].hostId;
 }
 
 function accountSection() {

@@ -1371,6 +1371,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return device && (device.expires === 0 || Number(device.expires) > now()) ? ownerControl.deviceId : undefined;
   };
   const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess, ownerDevice,
+    // Runs accepted but not yet started, for a hub that waits for a Mac to connect (Spec 063).
+    queuedRuns: (): number => Number(db.prepare("SELECT count(*) AS waiting FROM dispatch_outbox WHERE state='queued' AND held=0").get()?.waiting ?? 0),
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
       if (identity.installationId !== installation.installationId) throw new OwnerRecoveryIdentityRejected('installation');
       const deviceId = id(identity.deviceId);

@@ -34,7 +34,7 @@ async function fixture(t: TestContext) {
 
 test('a Mac enrolls, keeps its token in an owner-only file, and takes turns from the hub', async t => {
   const h = await fixture(t), invitation = await h.invite(), seen: string[] = [];
-  assert.deepEqual(await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...invitation, runnerId: 'mac-mini', runnerName: 'Mac mini' }), { runnerId: 'mac-mini' });
+  assert.deepEqual(await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...invitation, runnerId: 'mac-mini', runnerName: 'Mac mini' }), { runnerId: 'mac-mini', node: 'mac-mini' });
   const file = join(h.state, 'hub-runner.json');
   assert.equal((await stat(file)).mode & 0o777, 0o600);
   const saved = await readHubCredential(h.state);
@@ -94,4 +94,24 @@ test('runner mode refuses a binding for a different Mac than the one enrolled', 
   await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' });
   await assert.rejects(runAsRunner({ stateDirectory: h.state, binding: { ...binding, hostId: 'mac-studio' }, signal: new AbortController().signal, createRuntime: () => { throw new Error('No turn'); } }), /different Mac/);
   await assert.rejects(runAsRunner({ stateDirectory: join(h.state, '..'), binding, signal: new AbortController().signal, createRuntime: () => { throw new Error('No turn'); } }));
+});
+
+test('a pooled Mac keeps the node the hub names and serves its lanes under it', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'fort-hub-credential-')), state = join(root, 'state');
+  const { mkdir } = await import('node:fs/promises'); await mkdir(state, { mode: 0o700 });
+  const setupCode = secret(), owner = secret();
+  const hub = await startCloudHub({ dataDirectory: join(root, 'hub'), host: '127.0.0.1', port: 0, provider, pool: ['mac-mini', 'macbook'], setupCodeDigest: createHash('sha256').update(setupCode).digest('hex') });
+  t.after(async () => { await hub.close(); await rm(root, { recursive: true, force: true }); });
+  assert.equal((await fetch(hub.url + '/v1/hub/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ setupCode, deviceId: randomUUID(), deviceToken: owner }) })).status, 201);
+  const invitation = { invitationId: randomUUID(), code: secret() };
+  assert.equal((await fetch(hub.url + '/v1/runners/invitation', { method: 'POST', body: JSON.stringify(invitation),
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + owner, 'x-fort-installation-id': hub.installation.installationId } })).status, 201);
+  assert.deepEqual(await enrollWithHub({ stateDirectory: state, hubURL: hub.url, ...invitation, runnerId: 'macbook', runnerName: 'MacBook' }), { runnerId: 'macbook', node: 'mac-mini' });
+  assert.equal((await readHubCredential(state))?.node, 'mac-mini');
+  await assert.rejects(runAsRunner({ stateDirectory: state, binding: { ...binding, hostId: 'macbook' }, signal: new AbortController().signal, createRuntime: () => { throw new Error('No turn'); } }), /different Mac/);
+  const stop = new AbortController(), statuses: RunnerStatus['state'][] = [];
+  const running = runAsRunner({ stateDirectory: state, binding, signal: stop.signal, onStatus: status => statuses.push(status.state), createRuntime: () => { throw new Error('No turn'); } });
+  t.after(async () => { stop.abort(); await running.catch(() => {}); });
+  for (let index = 0; index < 200 && !statuses.includes('connected'); index++) await delay(10);
+  assert.ok(statuses.includes('connected'));
 });
