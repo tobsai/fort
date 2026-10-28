@@ -86,12 +86,12 @@ function sidebar() {
   const item = (conversation, title, sub) => h('button.item' + (conversation === state.current ? '.active' : ''), { onclick: () => select(conversation) }, title, h('span.sub', {}, sub));
   const online = state.runners.filter(runner => runner.online);
   return h('aside.side', {},
-    h('header', {}, h('h1', {}, 'Fort'), h('button.link', { onclick: () => { state.sheet = true; render(); }, 'aria-label': 'Setup' }, 'Setup')),
+    h('header', {}, h('h1.wordmark', { 'aria-label': 'Fort' }, 'FORT'), h('button.link', { onclick: () => { state.sheet = true; render(); }, 'aria-label': 'Setup' }, 'Setup')),
     h('nav.list', {},
-      h('h2', {}, 'Agents'),
+      h('h2', {}, h('span.caption', {}, 'Crew')),
       state.agents.length ? state.agents.map(agent => item(agent.homeConversationId, agent.name, providerName(agent.binding.provider) + ' · ' + agent.binding.selectedModel))
         : h('p.muted.pad', {}, 'No agents yet. Open Setup to add one.'),
-      state.conversations.filter(conversation => conversation.kind === 'shared').length ? h('h2', {}, 'Group chats') : null,
+      state.conversations.filter(conversation => conversation.kind === 'shared').length ? h('h2', {}, h('span.caption', {}, 'Group chats')) : null,
       state.conversations.filter(conversation => conversation.kind === 'shared').map(conversation =>
         item(conversation.conversationId, conversation.name, conversation.participantAgentIds.map(id => agentsById.get(id)?.name ?? 'Agent').join(', ')))),
     h('div.status', {}, h('span.dot' + (online.length ? '.on' : '')), online.length ? `${online.map(runner => runner.runnerName).join(', ')} connected` : (state.runners.length ? 'Your Mac is offline. Replies wait for it.' : 'No Mac connected yet.')));
@@ -154,7 +154,7 @@ function approvalCard(approval) {
 
 // ---------- Setup sheet ----------
 function setupSheet() {
-  const body = h('div', {}, h('header', {}, h('h2', {}, 'Setup'), h('button.link', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
+  const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.link', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
   body.append(macSection(), accountSection(), agentSection(), phoneSection(), browserSection());
   return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) { state.sheet = false; render(); } } }, body);
 }
