@@ -1,7 +1,7 @@
 import Foundation
 
-/// The state light in the pause menu: ready, working on it, needs you, or nothing to show.
-enum StatusLamp: Equatable, Sendable { case ready, waiting, attention, off }
+/// The state light: ready, working on it, needs you, failed, or nothing to show.
+enum StatusLamp: Equatable, Sendable { case ready, waiting, attention, failed, off }
 
 /// What the Accounts tab says about the focused plan: one light, one sentence, and at most one main action.
 /// Recovery steps (check status, retry, discard, change account) stay available in the Workshop drawer.

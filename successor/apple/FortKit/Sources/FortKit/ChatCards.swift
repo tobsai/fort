@@ -12,7 +12,7 @@ struct RunMeter: Equatable, Sendable {
         case "running", "cancelRequested": RunMeter(filled:2,lamp:.waiting)
         case "waitingForApproval", "outcomeUnknown": RunMeter(filled:2,lamp:.attention)
         case "completed": RunMeter(filled:3,lamp:.ready)
-        case "failed": RunMeter(filled:3,lamp:.attention)
+        case "failed": RunMeter(filled:3,lamp:.failed)
         case "canceled", "closedUnknown": RunMeter(filled:3,lamp:.off)
         default: RunMeter(filled:0,lamp:.off)
         }
@@ -63,7 +63,7 @@ enum ChatQuiet {
     /// The header's single light and sentence.
     static func header(connected: Bool, preview: Bool, runtimeState: String?, status: String) -> (lamp: StatusLamp, line: String) {
         if preview { return (.off,status) }
-        guard connected else { return (.attention,status.isEmpty ? "Not connected" : status) }
+        guard connected else { return (.failed,status.isEmpty ? "Not connected" : status) }
         switch runtimeState {
         case "stopped"?: return (.attention,"Crew stopped")
         case "restartRequired"?: return (.attention,"Restart needed")
