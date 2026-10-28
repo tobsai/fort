@@ -1,6 +1,8 @@
 :root {
   --bg: #0f1216; --panel: #161a20; --raise: #1d222a; --line: #2a313b; --text: #e7eaee; --muted: #9aa3ae;
   --accent: #e8b04a; --accent-ink: #1a1408; --good: #5cc98a; --bad: #ef6b6b; --mine: #2a3a52;
+  /* Status grammar shared with the Mac and iPhone apps: working, needs you, done, failed, off. */
+  --working: #6fa8ff; --needs-you: #e0a458; --off: #56617a;
   --radius: 12px; font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: light) {
@@ -50,8 +52,21 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px
 .msg { max-width: min(720px, 88%); padding: 10px 13px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .msg.user { align-self: flex-end; background: var(--mine); border-color: transparent; }
 .msg .who { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
-.run { align-self: flex-start; font-size: 13px; color: var(--muted); padding: 2px 4px; }
-.run.bad { color: var(--bad); }
+.run { align-self: flex-start; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); padding: 2px 4px; }
+.run .lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--off); flex: none; }
+.run.working .lamp { background: var(--working); animation: pulse 1.6s ease-in-out infinite; }
+.run.needsYou .lamp { background: var(--needs-you); }
+.run.done .lamp { background: var(--good); }
+.run.failed { color: var(--bad); } .run.failed .lamp { background: var(--bad); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .run.working .lamp { animation: none; } }
+.approval { align-self: stretch; max-width: 720px; padding: 12px 14px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--off); }
+.approval.open { border-left-color: var(--needs-you); }
+.approval .label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.approval.open .label { color: var(--needs-you); }
+.approval p { margin: 4px 0 0; color: var(--muted); font-size: 14px; white-space: pre-wrap; }
+.approval .actions { display: flex; gap: 8px; margin-top: 10px; }
+.problem { margin: 0 16px 8px; }
 .composer { display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--panel); }
 .composer textarea { min-height: 44px; max-height: 40vh; }
 .composer button { align-self: flex-end; }

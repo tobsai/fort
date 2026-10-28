@@ -145,7 +145,7 @@ test('an account check with the Mac offline is unconfirmed, not invented', async
 
 test('the hub serves its web client with a policy that allows only its own scripts', async t => {
   const h = await fixture(t);
-  for (const [path, type] of [['/', 'text/html'], ['/app.js', 'text/javascript'], ['/app.css', 'text/css'], ['/manifest.webmanifest', 'application/manifest+json']] as const) {
+  for (const [path, type] of [['/', 'text/html'], ['/app.js', 'text/javascript'], ['/transcript.js', 'text/javascript'], ['/app.css', 'text/css'], ['/manifest.webmanifest', 'application/manifest+json']] as const) {
     const response = await fetch(h.hub.url + path);
     assert.equal(response.status, 200, path);
     assert.ok(response.headers.get('content-type')?.startsWith(type), path);

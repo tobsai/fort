@@ -58,6 +58,7 @@ test('before Google sign-in a browser gets only the sign-in page, and nothing el
   assert.equal(signin.status, 200);
   assert.match(signin.headers.get('content-security-policy')!, /script-src 'self' https:\/\/accounts\.google\.com\/gsi\/client;/);
   assert.equal((await h.call('/app.js')).status, 401, 'the app itself waits for sign-in');
+  assert.equal((await h.call('/transcript.js')).status, 401, 'so do the modules it loads');
   const session = await h.call('/auth/session');
   assert.deepEqual([session.body.google, session.body.signedIn, session.body.clientId], [true, false, clientId]);
   for (const path of ['/v1/installation', '/v1/agents', '/v1/runners']) assert.equal((await h.browser(path)).body.error.code, 'signInRequired', path);

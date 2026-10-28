@@ -1,8 +1,10 @@
 // Fort web client (Spec 063). Served by the hub itself, so every call is same-origin. The browser
 // holds one device credential in localStorage; all text is rendered with textContent, never as HTML.
+import { approvalCopy, canDecide, resolution, runStatus, transcriptRows } from '/transcript.js';
+
 const STORE = 'fort.device.v1';
 const app = document.getElementById('app');
-const state = { device: load(), installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false };
+const state = { device: load(), installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null };
 
 function load() { try { return JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { return null; } }
 function save(device) { state.device = device; if (device) localStorage.setItem(STORE, JSON.stringify(device)); else localStorage.removeItem(STORE); }
@@ -96,40 +98,59 @@ function sidebar() {
     h('div.status', {}, h('span.dot' + (online.length ? '.on' : '')), online.length ? `${online.map(runner => runner.runnerName).join(', ')} connected` : (state.runners.length ? 'Your Mac is offline. Replies wait for it.' : 'No Mac connected yet.')));
 }
 const providerName = provider => state.installation?.runtimes?.find(runtime => runtime.provider === provider)?.name ?? provider;
-async function select(conversationId) { try { await openConversation(conversationId); } catch (error) { alert(error.message); } render(); }
+async function select(conversationId) { state.problem = null; try { await openConversation(conversationId); } catch (error) { state.problem = error.message; } render(); }
 
 function chat() {
-  if (!state.current || !state.snapshot) return h('section.chat', {}, h('p.empty', {}, 'Pick an agent to start talking.'));
+  if (!state.current || !state.snapshot) return h('section.chat', {}, h('p.empty', {}, 'Pick an agent to start talking.'), state.problem ? h('p.error.problem', { role: 'alert' }, state.problem) : null);
   const conversation = state.conversations.find(item => item.conversationId === state.current);
   const participants = state.agents.filter(agent => conversation?.participantAgentIds.includes(agent.agentId));
-  const runs = new Map(state.snapshot.runs.map(run => [run.requestId, run]));
-  const rows = [];
-  for (const message of state.snapshot.messages) {
-    rows.push(h('div.msg.' + message.role, {}, message.role === 'assistant' || participants.length > 1 ? h('span.who', {}, message.role === 'user' ? 'You' + (message.recipientAgentName ? ' → ' + message.recipientAgentName : '') : message.agentName ?? 'Agent') : null, message.text));
-  }
-  const replied = new Set(state.snapshot.messages.filter(message => message.role === 'assistant').map(message => message.requestId));
-  for (const run of runs.values()) {
-    if (replied.has(run.requestId) || run.state === 'completed') continue;
-    const working = ['queued', 'running', 'cancelRequested'].includes(run.state);
-    rows.push(h('div.run' + (working ? '' : '.bad'), {}, working ? (run.state === 'queued' ? 'Waiting for your Mac…' : 'Thinking…') : `${run.state}: ${run.statusDetail ?? 'No reply.'}`));
-  }
+  const rows = transcriptRows(state.snapshot).map(row => {
+    if (row.kind === 'message') {
+      const message = row.message;
+      return h('div.msg.' + message.role, {}, message.role === 'assistant' || participants.length > 1 ? h('span.who', {}, message.role === 'user' ? 'You' + (message.recipientAgentName ? ' → ' + message.recipientAgentName : '') : message.agentName ?? 'Agent') : null, message.text);
+    }
+    if (row.kind === 'run') {
+      const status = runStatus(row.run);
+      return h('div.run.' + status.tone, {}, h('span.lamp'), status.text, status.detail && status.tone !== 'needsYou' ? h('span.muted', {}, ' · ' + status.detail) : null);
+    }
+    return approvalCard(row.approval);
+  });
   const recipient = h('select', { 'aria-label': 'Send to' }, participants.map(agent => h('option', { value: agent.agentId }, agent.name)));
   const input = h('textarea', { rows: 1, placeholder: 'Message', 'aria-label': 'Message', onkeydown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && matchMedia('(pointer:fine)').matches) { event.preventDefault(); send(); } } });
   const send = async () => {
     const text = input.value.trim(); if (!text) return;
     const agent = participants.find(item => item.agentId === recipient.value) ?? participants[0];
     if (!agent) return;
-    input.disabled = true;
+    input.disabled = true; state.problem = null;
     try {
       await api(`/v1/conversations/${encodeURIComponent(state.current)}/messages`, { requestId: crypto.randomUUID(), text, recipientAgentId: agent.agentId,
         bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: state.installation.recoveryEpoch, skills: [] });
       input.value = ''; await openConversation(state.current); render();
-    } catch (error) { alert(error.message); input.disabled = false; }
+    } catch (error) { state.problem = error.message; render(); }
   };
   return h('section.chat', {},
     h('header', {}, h('button.link.back', { onclick: () => { state.current = null; render(); } }, '‹ Back'), h('h2', {}, conversation?.name ?? 'Chat')),
     h('div.messages', {}, rows.length ? rows : h('p.empty', {}, 'No messages yet.')),
+    state.problem ? h('p.error.problem', { role: 'alert' }, state.problem) : null,
     h('form.composer', { onsubmit: event => { event.preventDefault(); send(); } }, participants.length > 1 ? recipient : null, input, h('button.primary', { type: 'submit' }, 'Send')));
+}
+
+// An agent asking to go on: what it wants, in its words, with Approve and Reject while it can still be decided.
+function approvalCard(approval) {
+  const copy = approvalCopy(approval), open = canDecide(approval);
+  const decide = approve => async event => {
+    for (const button of event.currentTarget.parentElement.querySelectorAll('button')) button.disabled = true;
+    state.problem = null;
+    try { await api(`/v1/approvals/${encodeURIComponent(approval.approvalId)}/resolve`, resolution(approval, approve)); await openConversation(state.current); }
+    catch (error) { state.problem = error.message; }
+    render();
+  };
+  const run = state.snapshot.runs.find(item => item.runId === approval.runId);
+  return h('div.approval' + (open ? '.open' : ''), {},
+    h('span.label', {}, open ? 'Needs you' : copy.decided ?? approval.state),
+    h('strong', {}, approval.actionDescription),
+    run?.statusDetail && run.statusDetail !== approval.actionDescription ? h('p', {}, run.statusDetail) : null,
+    open ? h('div.actions', {}, h('button.primary', { onclick: decide(true) }, copy.approve), h('button', { onclick: decide(false) }, copy.reject)) : null);
 }
 
 // ---------- Setup sheet ----------
