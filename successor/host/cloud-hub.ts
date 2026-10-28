@@ -7,7 +7,8 @@ import { DatabaseSync } from 'node:sqlite';
 import type { RuntimeDescriptor } from '../contracts/v1.ts';
 import { createApplication } from '../service/openai.ts';
 import { RunnerEnrollmentError, runnerEnrollment } from '../service/runner-enrollment.ts';
-import { RunnerHub, routeByNode } from './runner-hub.ts';
+import { RunnerHub, routeByNode, routePool } from './runner-hub.ts';
+import { parseRunnerPool, runPins, type RunnerPool } from './runner-pool.ts';
 import { importLedger, inspectLedgerSnapshot } from '../service/import-ledger.ts';
 import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
 
@@ -27,10 +28,18 @@ export type CloudHubOptions = {
   // Puts every browser path behind Google sign-in for the named emails (Spec 066). Needs publicOrigin.
   google?: GoogleSignInOptions;
   offlineWaitMs?: number;
+  // Several Macs serving this hub's node (Spec 063, revision 2026-10-28): runner IDs, primary first.
+  // Each run goes to the first connected one and stays there; with none connected, runs wait queued.
+  pool?: readonly string[];
+  // How long queued work may wait with no Mac connected before onQueueAlert is called. Default 15 minutes.
+  queueAlertMs?: number;
+  onQueueAlert?: (alert: QueueAlert) => void;
   // Called once a Mac's ledger snapshot is staged. The hub applies it the next time it starts, so the
   // container entry restarts the hub in place.
   onImportStaged?: () => void;
 };
+
+export type QueueAlert = { waiting: number; waitingSince: string; runners: readonly string[] };
 
 const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024;
 const PENDING = 'ledger-import.sqlite', RESULT = 'ledger-import.json';
@@ -93,19 +102,49 @@ export async function startCloudHub(options: CloudHubOptions) {
   applyStagedImport(dataDirectory, provider.hostId);
   const google = options.google ? googleSignIn(dataDirectory, options.google) : undefined;
   const pageHeaders = google ? GOOGLE_WEB_HEADERS : WEB_HEADERS;
-  const runners = new RunnerHub({ authenticate: token => enrollment.authenticate(token) });
-  const lane = (descriptor: RuntimeDescriptor) => routeByNode(runners, { waitMs: () => offlineWaitMs, binding: descriptor });
-  const app = createApplication({ dataDirectory, provider, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
-    autoRun: true, ownerPairingPolicy: { expiresAfterDays: null } });
+  const queueAlertMs = options.queueAlertMs ?? 15 * 60_000;
+  if (!Number.isSafeInteger(queueAlertMs) || queueAlertMs < 1000) throw new Error('Use a queue alert of at least a second');
+  const pool: RunnerPool | undefined = options.pool === undefined ? undefined : { node: provider.hostId, runners: [...options.pool] };
+  if (pool && (!pool.runners.length || new Set(pool.runners).size !== pool.runners.length || (options.runtimes ?? []).some(descriptor => descriptor.hostId !== pool.node))) throw new Error('Use distinct pool runners and one node for every runtime');
   let db: DatabaseSync | undefined;
   try {
     db = new DatabaseSync(join(dataDirectory, 'runners.sqlite'));
     db.exec('PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
-  } catch (error) { db?.close(); await app.close(); throw error; }
+  } catch (error) { db?.close(); throw error; }
   const ledger = db;
   const enrollment = runnerEnrollment(ledger, { revoked: runnerId => runners.disconnect(runnerId) });
+  const pins = pool ? runPins(ledger) : undefined;
+  const nodeOf = (runnerId: string) => pool?.runners.includes(runnerId) ? pool.node : runnerId;
+  // A Mac connecting may unblock queued work, so the core looks again.
+  const pump = () => { void (async () => { while (await app.dispatchNext()) { /* one turn at a time */ } })().catch(() => {}); };
+  const runners = new RunnerHub({ authenticate: token => enrollment.authenticate(token), nodeOf, ...(pool ? { onOnline: () => queueMicrotask(pump) } : {}) });
+  const names = (runnerId: string) => enrollment.list().find(runner => runner.runnerId === runnerId)?.runnerName;
+  // Queued work with no Mac connected: when it started waiting, and whether the owner has been alerted.
+  let waitingSince: number | undefined, alerted = false;
+  const queue = () => {
+    let waiting = 0;
+    try { waiting = app.queuedRuns(); } catch { /* the core is closing */ }
+    const stranded = pool !== undefined && waiting > 0 && !pool.runners.some(id => runners.online(id));
+    if (!stranded) { waitingSince = undefined; alerted = false; }
+    else waitingSince ??= Date.now();
+    return { waiting, ...(waitingSince === undefined ? {} : { waitingSince: new Date(waitingSince).toISOString() }), alert: waitingSince !== undefined && Date.now() - waitingSince >= queueAlertMs };
+  };
+  const waited = () => { const state = queue(); return state.alert && state.waitingSince ? `${state.waiting === 1 ? 'One run has' : state.waiting + ' runs have'} waited since ${state.waitingSince}.` : undefined; };
+  const lane = (descriptor: RuntimeDescriptor) => pool && pins
+    ? routePool(runners, pool, { binding: descriptor, pins, waitMs: () => offlineWaitMs, names, detail: waited })
+    : routeByNode(runners, { waitMs: () => offlineWaitMs, binding: descriptor });
+  let app: ReturnType<typeof createApplication>;
+  try {
+    app = createApplication({ dataDirectory, provider, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
+      autoRun: true, ownerPairingPolicy: { expiresAfterDays: null } });
+  } catch (error) { ledger.close(); throw error; }
+  const watch = pool ? setInterval(() => {
+    const state = queue();
+    if (state.alert && !alerted && state.waitingSince) { alerted = true; options.onQueueAlert?.({ waiting: state.waiting, waitingSince: state.waitingSince, runners: pool.runners }); }
+  }, Math.min(30_000, queueAlertMs)) : undefined;
+  watch?.unref();
   try { await app.start({ listener: { kind: 'loopback' } }); }
-  catch (error) { ledger.close(); await app.close().catch(() => {}); throw error; }
+  catch (error) { clearInterval(watch); ledger.close(); await app.close().catch(() => {}); throw error; }
   const core = new URL(app.baseURL);
 
   const owner = (request: IncomingMessage) => {
@@ -117,7 +156,7 @@ export async function startCloudHub(options: CloudHubOptions) {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
     const runnerId = token ? enrollment.authenticate(token) : undefined;
     if (!runnerId) fail(401, 'unauthorized', 'Use this Mac’s runner token.');
-    if (runnerId !== provider.hostId) fail(403, 'wrongMac', 'Only the Mac this hub runs on can import its ledger.');
+    if (nodeOf(runnerId) !== provider.hostId) fail(403, 'wrongMac', 'Only the Mac this hub runs on can import its ledger.');
   };
   async function stageImport(request: IncomingMessage) {
     thisMac(request);
@@ -234,10 +273,12 @@ export async function startCloudHub(options: CloudHubOptions) {
     if (runners.handle(request, response)) return;
     const local = async (): Promise<[number, unknown] | undefined> => {
       if (request.method === 'POST' && path === '/v1/hub/setup') return [201, await setup(request)];
-      if (request.method === 'POST' && path === '/v1/runners/join') return [201, enrollment.join(await body(request))];
+      // The reply names the node the Mac serves, so a pooled Mac offers its lanes under the pool's ID.
+      if (request.method === 'POST' && path === '/v1/runners/join') { const joined = enrollment.join(await body(request)); return [201, { ...joined, node: nodeOf(joined.runnerId) }]; }
       if (request.method === 'POST' && path === '/v1/runners/import') { const staged = await stageImport(request); response.once('finish', () => options.onImportStaged?.()); return [202, staged]; }
       if (request.method === 'GET' && path === '/v1/runners/import') return [200, importStatus(request)];
-      if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, online: runners.online(runner.runnerId) })) }]; }
+      if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, online: runners.online(runner.runnerId) })),
+        ...(pool ? { pool: { node: pool.node, runners: pool.runners, queue: queue() } } : {}) }]; }
       if (request.method === 'POST' && path === '/v1/runners/invitation') { owner(request); return [201, enrollment.invite(await body(request))]; }
       if (request.method === 'POST' && path === '/v1/runners/revoke') {
         owner(request);
@@ -263,7 +304,7 @@ export async function startCloudHub(options: CloudHubOptions) {
   server.headersTimeout = 10_000;
   server.requestTimeout = 0; // The runner channel and event replay are long-lived; pings keep them honest.
   try { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port, options.host ?? '0.0.0.0', () => { server.off('error', reject); resolve(); }); }); }
-  catch (error) { runners.close(); await app.close().catch(() => {}); ledger.close(); throw error; }
+  catch (error) { clearInterval(watch); runners.close(); await app.close().catch(() => {}); ledger.close(); throw error; }
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Missing listener');
   let closing: Promise<void> | undefined;
@@ -272,6 +313,7 @@ export async function startCloudHub(options: CloudHubOptions) {
     installation: app.installation,
     close(): Promise<void> {
       closing ??= (async () => {
+        clearInterval(watch);
         runners.close();
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
@@ -301,6 +343,10 @@ if (import.meta.main) {
     // FORT_GOOGLE_CLIENT_ID (a public web client ID) and FORT_OWNER_EMAIL (comma-separated) turn on the Google gate.
     ...(env.FORT_GOOGLE_CLIENT_ID || env.FORT_OWNER_EMAIL ? { google: { clientId: required('FORT_GOOGLE_CLIENT_ID'), emails: required('FORT_OWNER_EMAIL').split(','),
       ...(env.FORT_GOOGLE_IOS_CLIENT_ID ? { iosClientId: env.FORT_GOOGLE_IOS_CLIENT_ID } : {}) } } : {}),
+    // FORT_RUNNER_POOL lists the Macs that serve FORT_NODE, primary first, for example "toby-mini,toby-laptop".
+    ...(env.FORT_RUNNER_POOL ? { pool: parseRunnerPool(node, env.FORT_RUNNER_POOL).runners,
+      queueAlertMs: Number(env.FORT_QUEUE_ALERT_MINUTES ?? 15) * 60_000,
+      onQueueAlert: (alert: QueueAlert) => process.stdout.write(`Fort hub: ${alert.waiting} queued run(s) have waited since ${alert.waitingSince}; none of ${alert.runners.join(', ')} is connected\n`) } : {}),
     offlineWaitMs: Number(env.FORT_OFFLINE_WAIT_MS ?? 0) });
   let hub = await start();
   // A staged ledger import is applied on start, so the hub closes and starts again in this process.

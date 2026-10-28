@@ -7,11 +7,13 @@ import type { ChatInput, ChatResult, ChatRuntime } from '../runner/chat-runtime.
 import { terminal, validDispatch } from '../runner/executor-process.ts';
 import { parseExecutorModelFrame, validateExecutorBinding, type ExecutorBinding, type ExecutorModelRequest } from '../runner/executor-wire.ts';
 import { parseExecutorAccountFrame, type ExecutorAccountRequest } from '../runner/executor-account-wire.ts';
+import { chooseRunner, type RunPins, type RunnerPool } from './runner-pool.ts';
 
 // Hub side of the runner channel (Spec 063). A runner holds one outbound POST to /v1/runner/connect;
 // the hub streams lease, cancel and ping frames down it as NDJSON. The runner returns executor
 // evidence for a lease as separate authenticated POSTs to /v1/runner/frames.
-type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number };
+// nodeOf names the node a runner serves (its own ID unless it is in a pool); onOnline hears each connect.
+type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number; nodeOf?(runnerId: string): string; onOnline?(runnerId: string): void };
 type Connection = { runnerId: string; response: ServerResponse; leases: Set<string>; timer: ReturnType<typeof setInterval> };
 type Lease = { runnerId: string; connection: Connection; receive(frame: unknown): void; ended(): void; lost(): void };
 // One request leased to a runner: the executor wire request, its cancel frame, and how its evidence settles.
@@ -90,6 +92,7 @@ export class RunnerHub {
     response.once('close', () => this.drop(connection));
     request.resume();
     for (const arrived of [...this.waiters.get(runnerId) ?? []]) arrived();
+    this.options.onOnline?.(runnerId);
   }
 
   private drop(connection: Connection) {
@@ -125,7 +128,7 @@ export class RunnerHub {
 
   private async execute(runnerId: string, input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult> {
     if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before dispatch. Nothing was sent.' };
-    if (dispatch.binding.hostId !== runnerId) return { kind: 'notStarted', message: 'This turn is pinned to a different Mac. Nothing was sent.' };
+    if (dispatch.binding.hostId !== (this.options.nodeOf?.(runnerId) ?? runnerId)) return { kind: 'notStarted', message: 'This turn is pinned to a different Mac. Nothing was sent.' };
     if (!validDispatch(input, dispatch)) return { kind: 'notStarted', message: 'Execution scope, input, policy or deadline was not confirmed. Nothing was sent.' };
     if (!this.connections.has(runnerId)) return { kind: 'notStarted', message: OFFLINE };
     return this.lease<ChatResult>(runnerId, signal, {
@@ -137,11 +140,12 @@ export class RunnerHub {
   }
 
   // Asks the Mac which models its signed-in account offers on this lane. Nothing is cached on the hub.
-  async models(binding: ExecutorBinding, signal: AbortSignal, account?: AccountIdentity): Promise<ModelCatalog> {
-    if (!this.connections.has(binding.hostId) || signal.aborted) return { provider: binding.provider, state: 'unavailable', models: [], detail: 'That Mac is not connected, so its models cannot be checked. Your selection has not changed.' };
+  // A pooled node's Mac is named by runnerId; otherwise the binding's hostId is the Mac.
+  async models(binding: ExecutorBinding, signal: AbortSignal, account?: AccountIdentity, runnerId = binding.hostId): Promise<ModelCatalog> {
+    if (!this.connections.has(runnerId) || signal.aborted) return { provider: binding.provider, state: 'unavailable', models: [], detail: 'That Mac is not connected, so its models cannot be checked. Your selection has not changed.' };
     const body = { ...(account ? { account: parseAccountIdentity(account) } : {}), protocolVersion: 1, kind: 'models', requestId: randomUUID(), binding: { ...binding }, deadline: Date.now() + MODEL_WINDOW_MS } as const;
     const request: ExecutorModelRequest = { ...body, requestDigest: executionDigest(body) };
-    return this.lease<ModelCatalog>(binding.hostId, signal, { request, deadline: request.deadline,
+    return this.lease<ModelCatalog>(runnerId, signal, { request, deadline: request.deadline,
       cancel: { protocolVersion: 1, kind: 'cancelModels', requestId: request.requestId, requestDigest: request.requestDigest },
       receive: (frame, settle) => settle(parseExecutorModelFrame(frame, request)),
       unknown: () => ({ provider: binding.provider, state: 'error', models: [], detail: 'The Mac did not confirm its models. Your selection has not changed.' }) });
@@ -149,14 +153,14 @@ export class RunnerHub {
 
   // Confirms the account the Mac's runtime is signed in to. A browser sign-in, when one is needed,
   // happens on the Mac; the challenge is passed back so the owner can see it.
-  async signIn(binding: ExecutorBinding, options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult> {
+  async signIn(binding: ExecutorBinding, options: AccountSignInOptions, signal: AbortSignal, runnerId = binding.hostId): Promise<AccountSignInResult> {
     const { durationMs, onChallenge } = options;
-    if (!this.connections.has(binding.hostId) || signal.aborted || !Number.isSafeInteger(durationMs) || durationMs < 1 || durationMs > 115_000) return { kind: 'unconfirmed' };
+    if (!this.connections.has(runnerId) || signal.aborted || !Number.isSafeInteger(durationMs) || durationMs < 1 || durationMs > 115_000) return { kind: 'unconfirmed' };
     const workDeadline = Date.now() + durationMs;
     const body = { protocolVersion: 1, kind: 'accountSignIn', requestId: randomUUID(), binding: { ...binding }, workDeadline, deadline: workDeadline + 5000 } as const;
     const request: ExecutorAccountRequest = { ...body, requestDigest: executionDigest(body) };
     let offered = false;
-    return this.lease<AccountSignInResult>(binding.hostId, signal, { request, deadline: request.deadline,
+    return this.lease<AccountSignInResult>(runnerId, signal, { request, deadline: request.deadline,
       cancel: { protocolVersion: 1, kind: 'cancelAccount', requestId: request.requestId, requestDigest: request.requestDigest },
       receive: (frame, settle) => {
         const parsed = parseExecutorAccountFrame(frame, request);
@@ -204,6 +208,57 @@ export function routeByNode(hub: RunnerHub, options: { waitMs?: (dispatch: Execu
       const runnerId = dispatch.binding.hostId;
       const wait = Math.min(options.waitMs?.(dispatch) ?? 0, dispatch.deadline - Date.now());
       if (!await hub.whenOnline(runnerId, wait, signal)) return { kind: 'notStarted', message: signal.aborted ? 'Canceled before dispatch. Nothing was sent.' : OFFLINE };
+      return hub.executor(runnerId).execute(input, signal, dispatch);
+    },
+    dispose: async () => {},
+  };
+}
+
+// Sends each turn of a pooled node (Spec 063, revision 2026-10-28) to one of the pool's Macs: the first
+// connected one in order of preference, or the Mac the run is already pinned to. The lane reports itself
+// unavailable while no Mac in the pool is connected, so the core keeps runs queued in its ledger instead
+// of starting them; the hub wakes the core when a Mac connects. Model and account checks go to the first
+// connected Mac. Each Mac still refuses a turn for an account it is not signed in to.
+export function routePool(hub: RunnerHub, pool: RunnerPool, options: { binding: ExecutorBinding; pins: RunPins; waitMs?: () => number; names?: (runnerId: string) => string | undefined; detail?: () => string | undefined }): ChatRuntime {
+  const binding = Object.freeze({ provider: options.binding.provider, runtimeVersion: options.binding.runtimeVersion, hostId: options.binding.hostId });
+  validateExecutorBinding(binding);
+  if (binding.hostId !== pool.node) throw new Error('A pooled lane must use the pool’s node ID');
+  const online = (runnerId: string) => hub.online(runnerId);
+  const name = (runnerId: string) => options.names?.(runnerId) ?? runnerId;
+  // Resolves once some Mac can take the run, or undefined when the wait or the signal ends first.
+  async function available(pinned: string | undefined, waitMs: number, signal: AbortSignal): Promise<string | undefined> {
+    const end = Date.now() + Math.max(0, waitMs);
+    for (;;) {
+      const chosen = chooseRunner(pool, online, pinned);
+      if (chosen !== undefined || signal.aborted || Date.now() >= end) return chosen;
+      const candidates = pinned === undefined ? pool.runners : [pinned];
+      const step = new AbortController(), stop = () => step.abort();
+      signal.addEventListener('abort', stop, { once: true });
+      try { await Promise.race(candidates.map(id => hub.whenOnline(id, end - Date.now(), step.signal))); }
+      finally { step.abort(); signal.removeEventListener('abort', stop); }
+    }
+  }
+  return {
+    models: (signal: AbortSignal, account?: AccountIdentity) => {
+      const runnerId = chooseRunner(pool, online);
+      return runnerId === undefined ? hub.models(binding, signal, account, pool.runners[0]) : hub.models(binding, signal, account, runnerId);
+    },
+    signIn: (request: AccountSignInOptions, signal: AbortSignal) => hub.signIn(binding, request, signal, chooseRunner(pool, online) ?? pool.runners[0]),
+    readiness: () => {
+      const connected = pool.runners.filter(online);
+      const extra = options.detail?.();
+      return connected.length
+        ? { state: 'ready', canRestart: false, detail: `Runs go to ${name(connected[0]!)}.` }
+        : { state: 'unavailable', canRestart: false, detail: (extra ? extra + ' ' : '') + `Waiting for ${pool.runners.map(name).join(' or ')} to connect. Queued work starts when one does.` };
+    },
+    async execute(input, signal, dispatch) {
+      if (dispatch.binding.hostId !== pool.node) return { kind: 'notStarted', message: 'This turn is pinned to a different Mac. Nothing was sent.' };
+      const pinned = options.pins.get(dispatch.attempt.runId);
+      const wait = Math.min(options.waitMs?.() ?? 0, dispatch.deadline - Date.now());
+      const runnerId = await available(pinned, wait, signal);
+      if (runnerId === undefined) return { kind: 'notStarted', message: signal.aborted ? 'Canceled before dispatch. Nothing was sent.'
+        : pinned !== undefined ? `This run started on ${name(pinned)}, which is not connected. Nothing was sent, and the run was not moved to another Mac.` : OFFLINE };
+      options.pins.pin(dispatch.attempt.runId, runnerId);
       return hub.executor(runnerId).execute(input, signal, dispatch);
     },
     dispose: async () => {},

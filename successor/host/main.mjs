@@ -46,14 +46,15 @@ try {
   // Turning Claude on or off in the app ends this host cleanly; the helper exits with it, and macOS starts a new one with
   // the new choice on the app's next request.
   watchClaudeCodeSelection(process.cwd(), () => { note('Claude was turned ' + (claude ? 'off' : 'on') + ', restarting'); stop(); });
-  // Spec 063: once the owner enrolls this Mac with a cloud hub, the same runtimes also take the hub's turns, under this
-  // Mac's runner ID. ChatGPT gets its own executor for that ID; Claude's runtime is shared with the local core.
+  // Spec 063: once the owner enrolls this Mac with a cloud hub, the same runtimes also take the hub's turns, under the
+  // node the hub named (this Mac's runner ID, or the pool's node). ChatGPT gets its own executor for that ID; Claude's
+  // runtime is shared with the local core.
   const hub = macHubRunner({ stateDirectory: process.cwd(), runnerName: hostname().replace(/\.local$/, '').slice(0, 128) || 'Mac',
-    lanes: runnerId => [
-      { binding: { provider: CODEX_RUNTIME.provider, runtimeVersion: CODEX_RUNTIME.runtimeVersion, hostId: runnerId },
+    lanes: hostId => [
+      { binding: { provider: CODEX_RUNTIME.provider, runtimeVersion: CODEX_RUNTIME.runtimeVersion, hostId },
         createRuntime: sharedRuntime(createPrivateCodexExecutorProcess({ executable: fileURLToPath(new URL('../../MacOS/codex', import.meta.url)), guardian,
-          directory: join(process.cwd(), 'Runtime'), hostId: runnerId })) },
-      ...runtimes.map(lane => ({ binding: { provider: lane.provider.provider, runtimeVersion: lane.provider.runtimeVersion, hostId: runnerId }, createRuntime: sharedRuntime(lane.runtime) })),
+          directory: join(process.cwd(), 'Runtime'), hostId })) },
+      ...runtimes.map(lane => ({ binding: { provider: lane.provider.provider, runtimeVersion: lane.provider.runtimeVersion, hostId }, createRuntime: sharedRuntime(lane.runtime) })),
     ] });
   try {
     await serveOwnedCore({ dataDirectory: process.cwd(), provider: CODEX_RUNTIME, runtime: codex, runtimes, context: LOCAL_CONTEXT, network: 'explicit', hubRunner: hub,

@@ -162,3 +162,44 @@ reachable with no Fort window open would need one, and that needs Toby's OK.
 
 Still to do, in order: verify the runner on Toby's Mac; then ledger migration with a
 hostId rewrite to the runner ID; then the Mac app as a hub client.
+
+## Revision, 2026-10-28: Mac mini first, laptop as overflow
+
+**Decision:** On 2026-10-28 Toby chose the Mac mini (nearly always on, battery backed) as the primary
+runner and his laptop as overflow, with no cloud runner. The laptop stays signed in to the same
+ChatGPT and Claude accounts as the mini, queued work raises an alert after 15 minutes, and FileVault
+stays on for the mini. Enrolling either Mac and changing the hub's Railway variables still need his OK.
+
+What changes:
+
+- **One node, several Macs.** `FORT_RUNNER_POOL` lists the Macs that serve `FORT_NODE`, primary first
+  (for example `toby-mini,toby-laptop`). Every Mac in the pool offers its lanes under the node's ID, so
+  bindings, dispatch digests and the executor wire are unchanged: `hostId` is still the node. The hub
+  tells each Mac its node when it joins, and the Mac keeps it beside its runner token.
+- **Picking a Mac.** Each run goes to the first connected Mac in the pool: the mini, or the laptop while
+  the mini is away. The core runs one turn at a time, so "overflow" means "the mini isn't connected";
+  load-based overflow can come later if the core runs turns in parallel.
+- **Pinning.** The first Mac a run reaches is recorded (`run_pins` in `runners.sqlite`, kept 30 days).
+  A routine's later steps go to that Mac only. If it is gone, the step waits up to
+  `FORT_OFFLINE_WAIT_MS` and is then refused with "Nothing was sent". A started run never moves.
+- **Queueing.** With no Mac in the pool connected, the lane reports itself unavailable, so the core keeps
+  accepted runs queued in its ledger instead of failing them. When a Mac connects, the hub wakes the core
+  and the queue drains in order.
+- **Alert.** When queued work has waited `FORT_QUEUE_ALERT_MINUTES` (default 15) with no Mac connected,
+  the hub logs one line (counts and Mac IDs only, never message text), `GET /v1/runners` shows
+  `pool.queue.alert`, and the runtime status says how long work has waited. A push to the phone is not
+  built yet.
+
+Risk:
+
+- **Billing/provider path.** A run can now reach either Mac. Both runtimes check the account on every
+  turn: a Mac signed in to a different ChatGPT or Claude account refuses the turn ("Nothing was sent")
+  instead of running it on another account. Model and account checks go to the first connected Mac.
+- **Persistent access.** Unchanged: each Mac enrolls with its own one-time invitation and token, and the
+  owner can revoke either one. A Mac outside the pool can't take the pool's turns.
+- **Undo.** Remove `FORT_RUNNER_POOL` and the hub routes to `FORT_NODE` alone, as before. Pins are
+  advisory data in `runners.sqlite`; deleting them changes nothing else.
+
+Tests: `host/runner-pool.test.ts` (choice, pinning, waiting, a Mac outside the pool) and
+`host/cloud-hub-pool.test.ts` (join names the node, mini then laptop, queued until a Mac connects, one
+alert), plus the pooled credential case in `runner/hub-credential.test.ts`.
