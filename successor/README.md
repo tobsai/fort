@@ -41,6 +41,14 @@ signing turned off, so the script needs the real App Store IDs passed in. Creati
 App Store records, API keys or profiles needs Toby's approval. The Mac archive
 doesn't embed the host resources yet, so Mac betas run without a local host for now.
 
+## Deploy the hub
+
+Railway builds `successor/Dockerfile` from `main` for fort.mtree.io. The Fort quality workflow also
+runs on every push to `main`, and its `hub-image` job builds that same image and checks that the hub
+starts and answers. With **Wait for CI** on in the hub service's Railway settings, a deploy waits for
+that workflow and is skipped if it fails. Runs on `main` are never cancelled, because Railway treats
+a cancelled run as a block.
+
 ## v1 checklist
 
 Update this list in the PR that changes it.
