@@ -49,8 +49,13 @@ public enum MacAgentServiceError: Error, LocalizedError {
             _ = try storage.prepareRuntimeDirectory()
             return storage
         },launch:{ try await MacCoreHost.launch(executable:program.executable,
-            arguments:["--jitless","--no-experimental-strip-types","--no-warnings","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path],directory:$0,environment:Self.hostEnvironment(),guardian:program.guardian) },
+            arguments:Self.hostArguments(program:program),directory:$0,environment:Self.hostEnvironment(),guardian:program.guardian) },
             makeListener:makeListener)
+    }
+    // The bundled Node was built to read OpenSSL's certificate file, which lives outside the App Sandbox (or is missing),
+    // so it would trust no one and every HTTPS call (the cloud hub, Google) fails as "fetch failed". It uses Node's own roots.
+    static func hostArguments(program: MacHostProgram) -> [String] {
+        ["--jitless","--no-experimental-strip-types","--no-warnings","--use-bundled-ca","--openssl-config=" + program.opensslConfiguration.path,program.bootstrap.path]
     }
     // Only the sandbox container's temporary directory, and the shorter of its two names. Claude Code's local socket must
     // fit in 103 bytes, so its private directory under TMPDIR stays within 72 (Spec 062). The system temporary directory

@@ -55,6 +55,9 @@ struct PairingSettingsView: View {
     var body: some View {
         Form {
             DevicesBoardSection(model:model,showWorkshop:$showWorkshop)
+            #if os(macOS)
+            if model.canManagePhoneAccess { CloudHubView(model:model) }
+            #endif
             Section {
                 Button { showWorkshop.toggle() } label: {
                     Label("WORKSHOP",systemImage:showWorkshop ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)

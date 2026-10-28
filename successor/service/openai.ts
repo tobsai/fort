@@ -153,7 +153,9 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean }) {
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean;
+  // The Mac's connection to a cloud hub (Spec 063), managed by the owner from the Mac app.
+  hubRunner?: { status(): unknown; enroll(invitation: string): Promise<unknown>; remove(): Promise<unknown> } }) {
   const ownerAccessChanged=options.ownerAccessChanged;
   if(ownerAccessChanged!==undefined && typeof ownerAccessChanged!=='function')throw new Error('Select an explicit owner access notification');
   let ownerAccessWake=()=>{},ownerWakeQueued=false;
@@ -1061,6 +1063,18 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }
         else if(request.method==='GET'&&url.pathname==='/v1/scheduler')result=scheduleStatus;
         else if(request.method==='GET'&&url.pathname==='/v1/runtime')result=owner(request,()=>runtimeReadiness());
+        else if(options.hubRunner&&/^\/v1\/hub\/runner(\/enroll|\/remove)?$/.test(url.pathname)){
+          const deviceId=owner(request,id=>id),hub=options.hubRunner;
+          if(ownerPairingPolicy&&ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to manage its cloud hub connection.');
+          if(request.method==='GET'&&url.pathname==='/v1/hub/runner')result=hub.status();
+          else if(request.method==='POST'&&url.pathname==='/v1/hub/runner/enroll'){
+            const body=await readBody(request);
+            if(Object.keys(body).some(key=>key!=='invitation')||typeof body.invitation!=='string'||body.invitation.length>4096)fail(400,'invalidInvitation','Paste the hub’s fort-runner: invitation.');
+            try{result=await hub.enroll(body.invitation);}catch(error){fail(409,'enrollmentFailed',error instanceof Error?error.message.slice(0,300):'The hub refused this enrollment.');}
+          }
+          else if(request.method==='POST'&&url.pathname==='/v1/hub/runner/remove'){await readBody(request);result=await hub.remove();}
+          else fail(404,'notFound','Route was not found.');
+        }
         else if(request.method==='GET'&&url.pathname==='/v1/modules/context')result=contextStatus();
         else if(request.method==='POST'&&url.pathname==='/v1/runtime/restart'){
           const body=await readBody(request);

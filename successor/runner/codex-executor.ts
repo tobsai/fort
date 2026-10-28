@@ -43,7 +43,7 @@ function nodeConfiguration(): string {
 export function createPrivateCodexExecutorProcess(options: PrivateCodexOptions): ExecutorProcess {
   const worker = compiledWorker(), configuration = nodeConfiguration(), plan = privateCodexLaunchPlan(options);
   return createCodexExecutorProcess({ executable: process.execPath,
-    args: ['--jitless', '--no-experimental-strip-types', '--no-warnings', '--openssl-config=' + configuration, worker,
+    args: ['--jitless', '--no-experimental-strip-types', '--no-warnings', '--use-bundled-ca', '--openssl-config=' + configuration, worker,
       '--executable', plan.executable, '--guardian', plan.guardian, '--directory', options.directory, '--host', options.hostId],
     cwd: options.directory, env: {}, guardian: plan.guardian, hostId: options.hostId });
 }

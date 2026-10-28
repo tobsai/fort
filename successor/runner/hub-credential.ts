@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { ChatRuntime } from './chat-runtime.ts';
 import type { ExecutorBinding } from './executor-wire.ts';
-import { keepConnected, type RunnerStatus } from './hub-runner.ts';
+import { keepConnected, type RunnerLane, type RunnerStatus } from './hub-runner.ts';
 import { deletePrivate, privateDirectory, readPrivate, writePrivate } from './private-file.ts';
 
 // The Mac's hub runner token (Spec 063, step 4). Toby chose on 2026-10-24 to keep it like the ChatGPT
@@ -36,24 +36,37 @@ export async function readHubCredential(directory: string): Promise<HubCredentia
 
 export function deleteHubCredential(directory: string): Promise<'deleted' | 'absent'> { return deletePrivate(directory, CREDENTIAL); }
 
+// Node reports every network failure as "fetch failed"; the cause's code says which one it was.
+function unreachable(origin: string, error: unknown): Error {
+  const cause = error instanceof Error ? (error.cause as { code?: unknown } | undefined) : undefined;
+  const code = typeof cause?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(cause.code) ? cause.code : undefined;
+  const certificate = code !== undefined && /CERT|SIGNATURE|ISSUER|SELF_SIGNED/.test(code);
+  return new Error((certificate ? 'This Mac couldn’t check the hub’s certificate' : `This Mac couldn’t reach ${new URL(origin).host}`) + (code ? ` (${code})` : '') + '.');
+}
+
 // Joins the hub with an owner invitation and keeps the new token only after the hub confirms it.
 export async function enrollWithHub(options: { stateDirectory: string; hubURL: string; invitationId: string; code: string; runnerId: string; runnerName: string; fetch?: Fetch }): Promise<{ runnerId: string }> {
   const origin = hubURL(options.hubURL);
   if (await readHubCredential(options.stateDirectory)) throw new Error('This Mac is already enrolled with a hub. Remove that enrollment first.');
   const token = randomBytes(32).toString('base64url');
   const response = await (options.fetch ?? fetch)(origin + '/v1/runners/join', { method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ invitationId: options.invitationId, code: options.code, runnerId: options.runnerId, runnerToken: token, runnerName: options.runnerName }) });
-  const reply = await response.json().catch(() => undefined) as { runnerId?: unknown } | undefined;
-  if (response.status !== 201 || reply?.runnerId !== options.runnerId) throw new Error('The hub refused this enrollment');
+    body: JSON.stringify({ invitationId: options.invitationId, code: options.code, runnerId: options.runnerId, runnerToken: token, runnerName: options.runnerName }) })
+    .catch((error: unknown) => { throw unreachable(origin, error); });
+  const reply = await response.json().catch(() => undefined) as { runnerId?: unknown; error?: { message?: unknown } } | undefined;
+  if (response.status !== 201 || reply?.runnerId !== options.runnerId) {
+    // The hub's own reason (expired, already used, doesn't match), kept short and to one line.
+    const reason = typeof reply?.error?.message === 'string' ? reply.error.message.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    throw new Error('The hub refused this enrollment' + (reason ? ': ' + reason : '') + (/expired/i.test(reason) ? ' Invitations last 5 minutes; make a new one.' : ''));
+  }
   await writePrivate(options.stateDirectory, CREDENTIAL, JSON.stringify(parse({ hubURL: origin, runnerId: options.runnerId, token })));
   return { runnerId: options.runnerId };
 }
 
 // Runs this Mac as the enrolled runner until the signal ends or the hub refuses the token.
-export async function runAsRunner(options: { stateDirectory: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; signal: AbortSignal; onStatus?(status: RunnerStatus): void; fetch?: Fetch }): Promise<RunnerStatus> {
+export async function runAsRunner(options: { stateDirectory: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; lanes?: RunnerLane[]; signal: AbortSignal; onStatus?(status: RunnerStatus): void; fetch?: Fetch }): Promise<RunnerStatus> {
   const credential = await readHubCredential(options.stateDirectory);
   if (!credential) throw new Error('This Mac is not enrolled with a hub');
-  if (credential.runnerId !== options.binding.hostId) throw new Error('This binding is pinned to a different Mac than the one enrolled');
-  return keepConnected({ url: credential.hubURL, token: credential.token, binding: options.binding, createRuntime: options.createRuntime,
+  if ([options.binding, ...(options.lanes ?? []).map(lane => lane.binding)].some(binding => binding.hostId !== credential.runnerId)) throw new Error('This binding is pinned to a different Mac than the one enrolled');
+  return keepConnected({ url: credential.hubURL, token: credential.token, binding: options.binding, createRuntime: options.createRuntime, ...(options.lanes ? { lanes: options.lanes } : {}),
     signal: options.signal, ...(options.onStatus ? { onStatus: options.onStatus } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) });
 }

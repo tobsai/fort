@@ -397,6 +397,9 @@ import Observation
     public internal(set) var phoneListener: MacNetworkListener?
     public internal(set) var phonePairing: CompanionPairingState?
     public internal(set) var phoneInvitation: CompanionInvitationLink?
+    public internal(set) var hubRunner: HubRunnerStatus?
+    public internal(set) var hubRunnerBusy = false
+    public internal(set) var hubRunnerMessage = ""
     #endif
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
@@ -457,7 +460,11 @@ import Observation
     public var connected = false
     /// The last check with the host failed. Cleared when a sync succeeds; never set by launch, previews, fixtures or unpairing.
     private(set) var contactFailed = false
-    var hasLostContact: Bool { contactFailed && !connected && !pairingRemoved && !isOfflinePreview && !isInteractiveFixture }
+    var hasLostContact: Bool { contactFailed && !connected && !pairingRemoved && !isOfflinePreview && !isInteractiveFixture && !googleSignInNeeded }
+    /// The hub answered that it wants this device's Google sign-in first (Spec 066).
+    public private(set) var googleSignInNeeded = false
+    public private(set) var googleSignInBusy = false
+    public private(set) var googleSignInMessage: String?
     public var showConnection = true
     private let storage: DeviceStorage
     private let session: URLSession
@@ -966,7 +973,7 @@ import Observation
             if case ClientError.service(let code,_) = error, ["cursorExpired","recoveryEpochChanged"].contains(code) {
                 eventCursor = nil; await refresh()
             } else {
-                connected = false; contactFailed = true; status = error.localizedDescription
+                connected = false; contactFailed = true; status = error.localizedDescription; noteSignInRequired(error)
                 try? await Task.sleep(for:.seconds(5))
             }
         }
@@ -1020,13 +1027,28 @@ import Observation
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
             eventCursor = current.eventCursor
-            loadLocalImages();connected = true; contactFailed = false
+            loadLocalImages();connected = true; contactFailed = false; googleSignInNeeded = false
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
             if isInteractiveFixture && pendingErrors.isEmpty { status = "Interactive QA · simulated replies · no network or credentials" }
         } catch {
-            connected = false; contactFailed = true; status = error.localizedDescription
+            connected = false; contactFailed = true; status = error.localizedDescription; noteSignInRequired(error)
             if snapshot == nil, let conversationID = activeConversationID { snapshot = try? storage.snapshot(installationID:expectedInstallation,conversationID:conversationID) }
         }
+    }
+    private func noteSignInRequired(_ error: any Error) {
+        if case ClientError.service("signInRequired",_) = error { googleSignInNeeded = true }
+    }
+    /// Signs this device in to its cloud hub with Google, then syncs again.
+    public func signInWithGoogle(authenticate: (_ url: URL, _ callbackScheme: String) async throws -> URL) async {
+        guard !googleSignInBusy, case .network(let baseURL,_)? = (try? storage.connection())?.endpoint else { return }
+        googleSignInBusy = true; googleSignInMessage = nil
+        defer { googleSignInBusy = false }
+        do {
+            try await HubGoogleSignIn.signIn(baseURL:baseURL,session:session,authenticate:authenticate)
+            googleSignInNeeded = false
+            await refresh()
+        } catch HubSignInError.canceled {
+        } catch { googleSignInMessage = error.localizedDescription }
     }
     public func cancelPending(_ item: PendingSubmission) async {
         guard installation?.supports("requestCancellation") == true, item.recoveryEpoch == installation?.recoveryEpoch, let pendingStore else { return }
@@ -1344,6 +1366,25 @@ import Observation
 
 #if os(macOS)
 extension MessengerModel {
+    // Spec 063: this Mac as a runner for a cloud hub, so the phone and the web reach Fort without this Mac's network.
+    public func refreshHubRunner() async {
+        guard canManagePhoneAccess, let client else { return }
+        do { hubRunner = try await client.hubRunnerStatus() }
+        catch { hubRunner = nil; hubRunnerMessage = "This Mac's Fort host doesn't offer a cloud hub connection yet. Update Fort, then try again." }
+    }
+    public func enrollHubRunner(invitation: String) async {
+        guard canManagePhoneAccess, let client, !hubRunnerBusy else { return }
+        hubRunnerBusy = true; defer { hubRunnerBusy = false }
+        do { hubRunner = try await client.enrollHubRunner(invitation:invitation.trimmingCharacters(in:.whitespacesAndNewlines)); hubRunnerMessage = "Enrolled. This Mac now takes the hub's turns while Fort is running." }
+        catch ClientError.service(_, let reason) { hubRunnerMessage = reason }
+        catch { hubRunnerMessage = "The enrollment couldn't be confirmed. Ask the hub for a new invitation and try again." }
+    }
+    public func removeHubRunner() async {
+        guard canManagePhoneAccess, let client, !hubRunnerBusy else { return }
+        hubRunnerBusy = true; defer { hubRunnerBusy = false }
+        do { hubRunner = try await client.removeHubRunner(); hubRunnerMessage = "This Mac no longer takes the hub's turns. Remove it in the hub's Setup too." }
+        catch { hubRunnerMessage = "Disconnecting from the hub couldn't be confirmed." }
+    }
     public var canManagePhoneAccess: Bool { canControlHost && !isOfflinePreview && !isInteractiveFixture && client != nil }
     public var phoneListenerActive: Bool { if case .active = phoneListener { true } else { false } }
     private var phoneAccess: MacPhoneAccess { MacPhoneAccess(directory:storage.directory) }

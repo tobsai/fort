@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Acceptance, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
+import type { Acceptance, AccountSignInStatus, Agent, RuntimeDescriptor } from '../contracts/v1.ts';
 import { startCloudHub } from '../host/cloud-hub.ts';
 import { deleteHubCredential, enrollWithHub, readHubCredential, runAsRunner } from './hub-credential.ts';
 import type { RunnerStatus } from './hub-runner.ts';
@@ -44,9 +44,13 @@ test('a Mac enrolls, keeps its token in an owner-only file, and takes turns from
 
   const stop = new AbortController(), statuses: RunnerStatus['state'][] = [];
   const running = runAsRunner({ stateDirectory: h.state, binding, signal: stop.signal, onStatus: status => statuses.push(status.state),
-    createRuntime: () => ({ async execute(input) { seen.push(input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; }, async dispose() {} }) });
+    createRuntime: () => ({ async execute(input) { seen.push(input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; },
+      async signIn() { return { kind: 'signedIn', account: { accountId: 'account', userLabel: 'owner@example.com' } }; }, async dispose() {} }) });
   t.after(async () => { stop.abort(); await running.catch(() => {}); });
   for (let index = 0; index < 200 && !statuses.includes('connected'); index++) await delay(10);
+  // The hub pins turns to the account the Mac reports, once the owner confirms it.
+  assert.equal((await h.call('/v1/account/sign-in/start', { operationId: randomUUID(), expectedRevision: 0, recoveryEpoch: h.hub.installation.recoveryEpoch, expiresAt: Date.now() + 60_000 })).status, 200);
+  for (let index = 0; index < 200 && (await h.call<AccountSignInStatus>('/v1/account/sign-in')).body.state !== 'finished'; index++) await delay(10);
   const agent = (await h.call<Agent>('/v1/agents', { name: 'Remote', model: 'exact-model', instructions: 'Echo.' })).body;
   const requestId = randomUUID();
   await h.call(`/v1/conversations/${agent.homeConversationId}/messages`, { requestId, text: 'from the cloud', recipientAgentId: agent.agentId, bindingRevisionId: agent.binding.bindingRevisionId, recoveryEpoch: h.hub.installation.recoveryEpoch, skills: [] });
@@ -69,10 +73,20 @@ test('a revoked Mac stops connecting and keeps its file until the owner removes 
 test('enrollment refuses a second hub, plain HTTP off this machine, and leaves nothing on failure', async t => {
   const h = await fixture(t);
   await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'http://hub.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /HTTPS/);
-  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, invitationId: randomUUID(), code: secret(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /refused/);
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, invitationId: randomUUID(), code: secret(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /refused this enrollment: This invitation does not match\./);
   assert.deepEqual(await readdir(h.state), []);
   await enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' });
   await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: h.hub.url, ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini' }), /already enrolled/);
+});
+
+test('a Mac that cannot reach the hub says why, not just "fetch failed"', async t => {
+  const h = await fixture(t);
+  const failing = (code: string) => async () => { throw new TypeError('fetch failed', { cause: Object.assign(new Error('unable to get local issuer certificate'), { code }) }); };
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'https://fort.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini', fetch: failing('UNABLE_TO_GET_ISSUER_CERT_LOCALLY') }),
+    /couldn’t check the hub’s certificate.*UNABLE_TO_GET_ISSUER_CERT_LOCALLY/);
+  await assert.rejects(enrollWithHub({ stateDirectory: h.state, hubURL: 'https://fort.example.com', ...await h.invite(), runnerId: 'mac-mini', runnerName: 'Mac mini', fetch: failing('ENOTFOUND') }),
+    /couldn’t reach fort\.example\.com.*ENOTFOUND/);
+  assert.deepEqual(await readdir(h.state), []);
 });
 
 test('runner mode refuses a binding for a different Mac than the one enrolled', async t => {

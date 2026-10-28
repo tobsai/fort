@@ -221,6 +221,18 @@ import Testing
     _ = MacHostProgram(bundle:bundle,executable:URL(fileURLWithPath:"/missing/node"),guardian:URL(fileURLWithPath:"/missing/guardian"),bootstrap:URL(fileURLWithPath:"/missing/main.mjs"),codex:URL(fileURLWithPath:"/missing/codex")).makeService()
 }
 
+// Inside the App Sandbox the bundled Node can't read OpenSSL's certificate file, so it must use its own roots or every
+// HTTPS call (the cloud hub, Google) fails as "fetch failed".
+@Test @MainActor func agentServiceHostTrustsNodesBundledCertificates() throws {
+    let endpoint = try MacAgentEndpoint(serviceIdentifier:"io.fort.inert.host",signingTeam:"ABCDE12345",appGroup:"group.io.fort.inert")
+    let app = URL(fileURLWithPath:"/synthetic/Fort.app",isDirectory:true)
+    let bundle = MacHostBundle(applicationURL:app,helperURL:app.appendingPathComponent("Contents/Helpers/FortHost.app",isDirectory:true),endpoint:endpoint,clientIdentifier:"io.fort.inert")
+    let program = MacHostProgram(bundle:bundle,executable:URL(fileURLWithPath:"/missing/node"),guardian:URL(fileURLWithPath:"/missing/guardian"),bootstrap:URL(fileURLWithPath:"/synthetic/Resources/main.mjs"),codex:URL(fileURLWithPath:"/missing/codex"))
+    let arguments = MacAgentService.hostArguments(program:program)
+    #expect(arguments.contains("--use-bundled-ca"))
+    #expect(arguments.firstIndex(of:"--use-bundled-ca")! < arguments.firstIndex(of:"/synthetic/Resources/main.mjs")!)
+}
+
 @Test @MainActor func agentServiceForcedCoreCleanupRemainsUnconfirmedOnEveryRetry() async throws {
     let fixture = try AgentServiceFixture()
     let environment = ProcessInfo.processInfo.environment

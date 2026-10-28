@@ -368,6 +368,24 @@ public struct RequestCancellation: Codable, Sendable {
     public var message: Message? = nil
 }
 
+/// This Mac's connection to a cloud hub (Spec 063): "notEnrolled", or the runner's state with the hub it serves.
+public struct HubRunnerStatus: Codable, Equatable, Sendable {
+    public let state: String
+    public var hubURL: String? = nil; public var runnerId: String? = nil; public var retryMs: Int? = nil; public var detail: String? = nil
+    public var enrolled: Bool { state != "notEnrolled" }
+    public var summary: String {
+        switch state {
+        case "connected": "Connected"
+        case "connecting": "Connecting…"
+        case "waiting": "Offline, retrying\(retryMs.map { " in \(max(1,$0 / 1000))s" } ?? "")"
+        case "refused": "The hub removed this Mac"
+        case "failed": detail ?? "Stopped after an error"
+        case "notEnrolled": "Not connected"
+        default: "Stopped"
+        }
+    }
+}
+
 public struct RuntimeReadiness: Codable, Equatable, Sendable {
     public let state: String; public let canRestart: Bool; public let detail: String
     public var connectionsUsed: Int? = nil; public var maximumConnections: Int? = nil

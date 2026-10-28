@@ -119,3 +119,46 @@ Rejected alternatives:
 
 Open: the domain name (a Railway subdomain or Toby's own), and whether the iPhone
 keeps the Tailscale path as a fallback.
+
+## Revision, 2026-10-25: phone and web clients, one Mac with two providers
+
+**Decision:** On 2026-10-25 Toby asked to move Fort off the Mac so he can use it from his
+phone and the web ("move this experience off my local Mac only"). The coordinator relayed
+that as OK to deploy the hub to Railway. Storing his provider credentials in the cloud,
+and spending plan usage, still need their own approval. Neither happens in this revision.
+
+What changes:
+
+- **Several runtimes per hub.** `FORT_RUNTIMES` lists every runtime the Mac at
+  `FORT_NODE` serves (for example ChatGPT and Claude), and each one becomes a Spec 064
+  lane. All of a Mac's lanes share that Mac's runner ID as their `hostId`, so "hostId is
+  the node" holds and one runner connection serves them all. The runner chooses the lane
+  from the exact binding (provider, version, host) and refuses anything else.
+- **Accounts and models over the channel.** Model discovery and account confirmation
+  are leased to the Mac like turns, over the same executor wire. The hub pins each turn to
+  the account the Mac reports, which the owner confirms once per provider. Sign-in itself
+  still happens on the Mac. The hub never sees a provider credential, and with the Mac
+  offline a check comes back "unconfirmed", never invented.
+- **Web client.** The hub serves a small static web client at `/` with a strict content
+  policy (its own scripts only, no framing). Browser calls are allowed only from
+  `FORT_PUBLIC_ORIGIN`, the hub's own address. The origin is removed before the core sees
+  the request, so the core's own refusal of browsers is unchanged for every other origin,
+  and the runner channel never accepts a browser.
+- **New credential: the web owner.** The browser that claims the hub with the setup code
+  becomes the owner device. Its device token lives in that browser's local storage, and
+  the hub keeps only its digest, as for every paired device. Anyone with that browser
+  profile can use Fort, so this suits a personal device. Recovery is a fresh setup code.
+- **iPhone.** No app change. The owner creates a phone invitation in the web client,
+  which shows the existing `fort-invite:` text with the hub's https address, and the
+  iPhone pairs as the companion.
+
+**Mac runner.** Beside its local core, the helper keeps one runner connection for all its
+runtimes once the owner pastes the hub's `fort-runner:` invitation (which names the
+runner ID) under Devices, Cloud hub. The local core gains owner-only `/v1/hub/runner`
+routes for status, enroll and remove. ChatGPT gets a second executor under the runner
+ID; Claude's runtime is shared with the local core. The connection lives only as long as
+the helper does, so no new login item or startup registration is added. Keeping the Mac
+reachable with no Fort window open would need one, and that needs Toby's OK.
+
+Still to do, in order: verify the runner on Toby's Mac; then ledger migration with a
+hostId rewrite to the runner ID; then the Mac app as a hub client.

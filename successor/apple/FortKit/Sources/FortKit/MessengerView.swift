@@ -67,6 +67,7 @@ public struct MessengerView: View {
         }
         }
         }
+        .safeAreaInset(edge:.top,spacing:0) { HubSignInBanner(model:model) }
         .confirmationDialog("Close this uncertain run?",isPresented:SwiftUI.Binding(get:{ uncertainRun != nil },set:{ if !$0 { uncertainRun = nil } }),presenting:uncertainRun) { run in
             Button("Close without retry",role:.destructive) { Task { await model.closeUnknown(run) } }
         } message: { _ in Text("The original outcome remains unknown. Closing preserves its record and allows future messages. Fort will not retry this run.") }

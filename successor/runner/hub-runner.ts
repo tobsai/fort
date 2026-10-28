@@ -7,7 +7,10 @@ import { DISPATCH_FRAME_BYTES, type ExecutorBinding } from './executor-wire.ts';
 // each leased dispatch through the same executor worker that guards local turns. Nothing listens
 // on this machine. When the connection ends, every running lease is stopped; nothing is replayed.
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
-type RunnerOptions = { url: string; token: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; signal: AbortSignal; fetch?: Fetch;
+// One runtime this Mac serves. A Mac with several providers (Spec 064) passes the first as binding and
+// createRuntime and the rest as lanes; each request runs only on the lane its binding names exactly.
+export type RunnerLane = { binding: ExecutorBinding; createRuntime(): ChatRuntime };
+type RunnerOptions = { url: string; token: string; binding: ExecutorBinding; createRuntime(): ChatRuntime; lanes?: RunnerLane[]; signal: AbortSignal; fetch?: Fetch;
   // The hub pings every 15 seconds; a connection silent for longer than this is treated as dead.
   idleMs?: number };
 export class HubRefused extends Error { constructor() { super('The hub refused this runner'); } }
@@ -29,8 +32,18 @@ export async function connectToHub(options: RunnerOptions): Promise<void> {
       headers: { authorization, 'content-type': 'application/x-ndjson' }, body: JSON.stringify(row) + '\n' })
       .then(reply => reply.body?.cancel()).catch(() => {});
 
+    const lanes: RunnerLane[] = [{ binding: options.binding, createRuntime: options.createRuntime }, ...options.lanes ?? []];
+    // Dispatches name their lane in dispatch.binding; model, account and portrait requests in binding.
+    const laneFor = (request: unknown): RunnerLane | undefined => {
+      const row = request && typeof request === 'object' ? request as { binding?: unknown; dispatch?: { binding?: unknown } } : {};
+      const named = (row.dispatch && typeof row.dispatch === 'object' ? row.dispatch.binding : row.binding) as Partial<ExecutorBinding> | undefined;
+      return lanes.find(lane => named?.provider === lane.binding.provider && named.runtimeVersion === lane.binding.runtimeVersion && named.hostId === lane.binding.hostId);
+    };
+
     function lease(leaseId: string, request: unknown) {
       if (leases.has(leaseId)) return;
+      const selected = laneFor(request);
+      if (!selected) { void post({ leaseId, ended: true }); return; }
       const input = new PassThrough(), output = new PassThrough();
       leases.set(leaseId, input);
       // Frames for one lease are posted in order, and the final "ended" row only after all of them.
@@ -44,7 +57,8 @@ export async function connectToHub(options: RunnerOptions): Promise<void> {
           try { send({ leaseId, frame: JSON.parse(line) }); } catch {}
         }
       });
-      void serveExecutorWorker({ input, output, binding: options.binding, createRuntime: () => options.createRuntime() })
+      const create = () => selected.createRuntime();
+      void serveExecutorWorker({ input, output, binding: selected.binding, createRuntime: create, createDiscovery: create, createSignIn: create })
         .catch(() => {}).finally(() => { leases.delete(leaseId); send({ leaseId, ended: true }); });
       input.write(JSON.stringify(request) + '\n');
     }

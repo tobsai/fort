@@ -36,7 +36,7 @@ export async function migrateLedger(options: { source: string; destination: stri
     const db = destination;
     if (db.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') throw new Error('Ledger integrity check failed');
     const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row => row.name);
-    if (!isDeepStrictEqual(tables.filter(name => name !== 'dispatch_outbox'), ['devices', 'enrollment', 'entities', 'events', 'metadata']) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view')").get()) throw new Error('Unsupported ledger schema');
+    if (!isDeepStrictEqual(tables.filter(name => name !== 'dispatch_outbox' && name !== 'runtime_migrations'), ['devices', 'enrollment', 'entities', 'events', 'metadata']) || db.prepare("SELECT 1 FROM sqlite_schema WHERE type IN ('trigger','view')").get()) throw new Error('Unsupported ledger schema');
     const read = (kind: string, id: unknown) => {
       const row = db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, string(id));
       return object(JSON.parse(string(row?.data)));
