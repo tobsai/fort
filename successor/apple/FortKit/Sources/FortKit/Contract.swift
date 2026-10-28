@@ -179,11 +179,12 @@ public struct Approval: Codable, Equatable, Sendable, Identifiable {
     public var kind: String? = nil
     public var routineRevisionId: String? = nil
     public var stepId: String? = nil
-    public var canDecide: Bool {
+    public var canDecide: Bool { canDecide(at:Date()) }
+    public func canDecide(at now: Date) -> Bool {
         let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
         let recognized = (kind == nil && resourceScope == ["fixture:reply"]) || (kind == "routineGate" && resourceScope == ["routine:continue"] && !(routineRevisionId ?? "").isEmpty && !(stepId ?? "").isEmpty)
         guard state == "pending", recognized, let expiry = formatter.date(from:expiresAt) else { return false }
-        return expiry > Date()
+        return expiry > now
     }
 }
 public struct ApprovalResolution: Codable, Sendable { public let approval: Approval; public let run: Run }

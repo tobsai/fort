@@ -67,6 +67,9 @@ import Observation
     public var selectedSkillIDs: Set<String> = []
     public var workspaceSaving = false
     public var snapshot: Snapshot?
+    /// Every chat's latest snapshot, read on each refresh for the Quest log home.
+    public var deskSnapshots: [String: Snapshot] = [:]
+    public var questLog: QuestLog { QuestLog.make(conversations:conversations,agents:agents,snapshots:deskSnapshots) }
     private var historyPage: Snapshot?
     private var historyRevision = 0
     public private(set) var loadingEarlierMessages = false
@@ -1026,6 +1029,12 @@ import Observation
                 let incoming = try await client.snapshot(conversationID:conversationID)
                 try persist(incoming,conversationID:conversationID,epoch:current.recoveryEpoch)
             }
+            if hasWorkspace {
+                // The hub has no list of approvals across chats, so the Quest log reads each chat; one that can't be read waits for the next refresh.
+                var desk: [String: Snapshot] = [:]
+                for conversation in conversations { if let incoming = try? await client.snapshot(conversationID:conversation.conversationId) { desk[conversation.conversationId] = incoming } }
+                deskSnapshots = desk
+            } else { deskSnapshots = [:] }
             eventCursor = current.eventCursor
             loadLocalImages();connected = true; contactFailed = false; googleSignInNeeded = false
             status = !current.supportsCommands ? "This Fort version is read-only. Update the app to send or change work." : pending.contains(where:{$0.cancelRequested == true}) ? "Cancellation saved on this device · confirmation pending" : pending.contains(where:{!$0.canRetry(in:current.recoveryEpoch)}) ? "Pending work needs review and will not resend." : pendingErrors.isEmpty ? (current.mode == "fixture" ? "Connected · fixture only" : "Connected · local prototype") : "Pending work needs review · history is up to date"
