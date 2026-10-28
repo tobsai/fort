@@ -2,6 +2,10 @@ name: Fort quality
 
 on:
   pull_request:
+  # Railway deploys the hub from main. With "Wait for CI" on in the hub's service settings, a deploy
+  # waits for this workflow on the merged commit and is skipped if it fails.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -9,7 +13,8 @@ permissions:
 
 concurrency:
   group: fort-quality-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run on main: Railway blocks a deploy whose only workflow run was cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -49,6 +54,30 @@ jobs:
       - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix successor run typecheck
       - run: npm --prefix successor test
+
+  # Builds the image Railway deploys and checks that the hub starts and answers, so a file the
+  # Dockerfile doesn't copy fails here instead of on fort.mtree.io.
+  hub-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: docker build --tag fort-hub:ci successor
+      - name: Start the hub and wait for it to answer
+        shell: bash
+        run: |
+          docker run --detach --name fort-hub --publish 127.0.0.1:8080:8080 --tmpfs /data:mode=0700 \
+            --env FORT_NODE=ci-mac --env FORT_PROVIDER=codex --env FORT_RUNTIME_VERSION=0.163.0 fort-hub:ci
+          for attempt in $(seq 1 30); do
+            if reply=$(curl -fsS http://127.0.0.1:8080/auth/session) && [ "$reply" = '{"google":false}' ]; then echo "Hub answered: $reply"; exit 0; fi
+            sleep 1
+          done
+          docker logs fort-hub
+          exit 1
+      - if: always()
+        run: docker rm --force fort-hub || true
 
   native:
     needs: changes
