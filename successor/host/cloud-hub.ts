@@ -35,7 +35,7 @@ export type CloudHubOptions = {
 const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024;
 const PENDING = 'ledger-import.sqlite', RESULT = 'ledger-import.json';
 // The web client: a few static files, served with a policy that allows only this origin's own scripts.
-const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/transcript.js', ['transcript.js', 'text/javascript; charset=utf-8']],
   ['/app.css', ['app.css', 'text/css; charset=utf-8']], ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']]]);
 const WEB_HEADERS = { 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" };
