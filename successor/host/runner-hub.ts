@@ -13,9 +13,12 @@ import { chooseRunner, type RunPins, type RunnerPool } from './runner-pool.ts';
 // the hub streams lease, cancel and ping frames down it as NDJSON. The runner returns executor
 // evidence for a lease as separate authenticated POSTs to /v1/runner/frames.
 // nodeOf names the node a runner serves (its own ID unless it is in a pool); onOnline hears each connect.
-type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number; nodeOf?(runnerId: string): string; onOnline?(runnerId: string): void };
-type Connection = { runnerId: string; response: ServerResponse; leases: Set<string>; timer: ReturnType<typeof setInterval> };
-type Lease = { runnerId: string; connection: Connection; receive(frame: unknown): void; ended(): void; lost(): void };
+type HubOptions = { authenticate(token: string): string | undefined; pingMs?: number; nodeOf?(runnerId: string): string; onOnline?(runnerId: string): void; now?(): number };
+type Connection = { runnerId: string; response: ServerResponse; leases: Set<string>; timer: ReturnType<typeof setInterval>; connectedAt: number };
+type Lease = { runnerId: string; connection: Connection; turn: boolean; receive(frame: unknown): void; ended(): void; lost(): void };
+// What the hub knows of one Mac since it last started: turns counts dispatched turns still waiting
+// for evidence, and lastSeen is the latest connect, frame or disconnect.
+export type RunnerStatus = { online: boolean; turns: number; connectedAt?: string; lastSeen?: string };
 // One request leased to a runner: the executor wire request, its cancel frame, and how its evidence settles.
 type Exchange<T> = { request: object; cancel: object; deadline: number; receive(frame: unknown, settle: (value: T) => void): void; unknown(message: string): T };
 
@@ -30,10 +33,20 @@ export class RunnerHub {
   private readonly connections = new Map<string, Connection>();
   private readonly leases = new Map<string, Lease>();
   private readonly waiters = new Map<string, Set<() => void>>();
+  private readonly seen = new Map<string, number>();
   private closed = false;
   constructor(options: HubOptions) { this.options = options; }
 
   online(runnerId: string): boolean { return this.connections.has(runnerId); }
+
+  status(runnerId: string): RunnerStatus {
+    const connection = this.connections.get(runnerId), seen = this.seen.get(runnerId);
+    const turns = connection ? [...connection.leases].filter(id => this.leases.get(id)?.turn).length : 0;
+    return { online: !!connection, turns, ...(connection ? { connectedAt: new Date(connection.connectedAt).toISOString() } : {}),
+      ...(seen === undefined ? {} : { lastSeen: new Date(seen).toISOString() }) };
+  }
+
+  private now(): number { return this.options.now?.() ?? Date.now(); }
 
   // Resolves true once the runner is connected, or false when the wait or the signal ends first.
   async whenOnline(runnerId: string, waitMs: number, signal: AbortSignal): Promise<boolean> {
@@ -86,9 +99,10 @@ export class RunnerHub {
     if (previous) this.drop(previous);
     response.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
     response.flushHeaders();
-    const connection: Connection = { runnerId, response, leases: new Set(),
+    const connection: Connection = { runnerId, response, leases: new Set(), connectedAt: this.now(),
       timer: setInterval(() => { response.write('{"kind":"ping"}\n'); }, this.options.pingMs ?? 15_000) };
     this.connections.set(runnerId, connection);
+    this.seen.set(runnerId, connection.connectedAt);
     response.once('close', () => this.drop(connection));
     request.resume();
     for (const arrived of [...this.waiters.get(runnerId) ?? []]) arrived();
@@ -97,7 +111,7 @@ export class RunnerHub {
 
   private drop(connection: Connection) {
     clearInterval(connection.timer);
-    if (this.connections.get(connection.runnerId) === connection) this.connections.delete(connection.runnerId);
+    if (this.connections.get(connection.runnerId) === connection) { this.connections.delete(connection.runnerId); this.seen.set(connection.runnerId, this.now()); }
     for (const id of [...connection.leases]) this.leases.get(id)?.lost();
     if (!connection.response.writableEnded) connection.response.end();
   }
@@ -106,6 +120,7 @@ export class RunnerHub {
     if (request.method !== 'POST') { response.writeHead(405).end(); return; }
     const runnerId = this.runner(request);
     if (!runnerId) { response.writeHead(401).end(); request.resume(); return; }
+    this.seen.set(runnerId, this.now());
     if (Number(request.headers['content-length'] ?? 0) > FRAMES_BYTES) { response.writeHead(413, { connection: 'close' }).end(); request.resume(); return; }
     const chunks: Buffer[] = [];
     let size = 0;
@@ -176,7 +191,7 @@ export class RunnerHub {
     if (!connection) return exchange.unknown(OFFLINE);
     const leaseId = randomUUID(), outcome = Promise.withResolvers<T>();
     const unknown = (message: string) => outcome.resolve(exchange.unknown(message));
-    this.leases.set(leaseId, { runnerId, connection,
+    this.leases.set(leaseId, { runnerId, connection, turn: (exchange.request as { kind?: unknown }).kind === 'dispatch',
       receive: frame => { try { exchange.receive(frame, outcome.resolve); } catch { unknown('The Mac returned evidence that could not be confirmed. Earlier effects remain unknown.'); } },
       ended: () => unknown('The Mac ended this turn without a confirmed reply. Earlier effects remain unknown.'),
       lost: () => unknown('The Mac disconnected before a reply was confirmed. Earlier effects remain unknown.') });

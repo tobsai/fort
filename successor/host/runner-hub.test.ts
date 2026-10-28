@@ -196,3 +196,29 @@ test('a Mac that refuses a lease ends the turn promptly instead of at the deadli
   assert.ok(Date.now() - started < 10_000);
   assert.deepEqual(seen, []);
 });
+
+test('status shows each Mac as unseen, connected, running a turn, then offline with when it was last seen', async t => {
+  const h = await hub(t);
+  assert.deepEqual(h.runners.status('mac-mini'), { online: false, turns: 0 });
+  const held = Promise.withResolvers<void>(), started = Promise.withResolvers<void>();
+  const { stop } = runner(t, h.url, () => ({
+    async execute(input) { started.resolve(); await held.promise; return { kind: 'completed', text: input.text, effectiveModel: null }; },
+    async dispose() {},
+  }));
+  await online(h.runners, 'mac-mini');
+  const connected = h.runners.status('mac-mini');
+  assert.equal(connected.online, true); assert.equal(connected.turns, 0);
+  assert.ok(connected.connectedAt && connected.lastSeen);
+  const { input, dispatch } = turn();
+  const reply = h.runners.executor('mac-mini').execute(input, new AbortController().signal, dispatch);
+  await started.promise;
+  assert.equal(h.runners.status('mac-mini').turns, 1);
+  held.resolve();
+  assert.equal((await reply).kind, 'completed');
+  assert.equal(h.runners.status('mac-mini').turns, 0);
+  stop.abort();
+  await online(h.runners, 'mac-mini', false);
+  const gone = h.runners.status('mac-mini');
+  assert.equal(gone.online, false); assert.equal(gone.turns, 0); assert.equal(gone.connectedAt, undefined);
+  assert.ok(Date.parse(gone.lastSeen!) >= Date.parse(connected.lastSeen!));
+});

@@ -105,7 +105,7 @@ test('runner management is owner-only and never shows a token', async t => {
   await h.setup();
   const token = await h.enroll();
   const listed = await h.call<{ runners: unknown[] }>('/v1/runners');
-  assert.deepEqual(listed.body.runners, [{ runnerId: 'mac-mini', runnerName: 'Mac mini', enrolledAt: (listed.body.runners[0] as { enrolledAt: string }).enrolledAt, online: false }]);
+  assert.deepEqual(listed.body.runners, [{ runnerId: 'mac-mini', runnerName: 'Mac mini', enrolledAt: (listed.body.runners[0] as { enrolledAt: string }).enrolledAt, online: false, turns: 0 }]);
   assert.ok(!JSON.stringify(listed.body).includes(token));
   assert.equal((await h.call('/v1/runners', undefined, secret())).status, 401);
   assert.equal((await h.call('/v1/runners', undefined, token)).status, 401);
