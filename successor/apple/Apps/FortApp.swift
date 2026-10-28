@@ -24,7 +24,9 @@ import FortKit
                     MessengerView(model:model)
                     #endif
                 }
-                else { ContentUnavailableView("Fort could not open local storage",systemImage:"externaldrive.badge.exclamationmark",description:Text(startupError ?? "Opening Fort…")) }
+                // Opening is not a failure: only show the storage error once there is one.
+                else if let startupError { ContentUnavailableView("Fort could not open local storage",systemImage:"externaldrive.badge.exclamationmark",description:Text(startupError)) }
+                else { ProgressView("Opening Fort…") }
             }
             .task {
                 guard model == nil else { return }

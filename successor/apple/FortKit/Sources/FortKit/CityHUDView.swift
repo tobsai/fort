@@ -107,8 +107,12 @@ struct CityHUDView: View {
                         Text(order.detail).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer(minLength:0)
+                    // The same two choices, words and colours as the decision card in the chat.
                     if case .decision(let approval) = order.kind, approval.canDecide {
-                        Button("Approve") { Task { await model.decide(approval,approve:true) } }.buttonStyle(.borderedProminent).controlSize(.small)
+                        HStack(spacing:6) {
+                            Button(approval.kind == "routineGate" ? "Continue routine" : "Approve") { Task { await model.decide(approval,approve:true) } }.modifier(GoldButton(on:true))
+                            Button("Reject",role:.destructive) { Task { await model.decide(approval,approve:false) } }.buttonStyle(.bordered)
+                        }.controlSize(.small).disabled(model.isBusy || !model.supportsCommands).accessibilityIdentifier("hud-decision-\(approval.approvalId)")
                     }
                 }
             }
