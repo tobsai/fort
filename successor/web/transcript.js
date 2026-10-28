@@ -64,3 +64,10 @@ export function resolution(approval, approve) {
   return { recoveryEpoch: approval.recoveryEpoch, runId: approval.runId, attemptId: approval.attemptId, bindingRevisionId: approval.bindingRevisionId,
     actionDigest: approval.actionDigest, resourceScope: approval.resourceScope, decision: approve ? 'approve' : 'reject' };
 }
+
+/** An Agent's crew colour slot (0-5, the --crew-N tokens): FNV-1a over its id, the same as FortTheme.crewSlot in the apps. */
+export function crewSlot(agentId, count = 6) {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(agentId)) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  return hash % count;
+}
