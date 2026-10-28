@@ -58,7 +58,8 @@ function claimView() {
 // ---------- Main ----------
 async function refresh() {
   const [agents, conversations, runners] = await Promise.all([api('/v1/agents'), api('/v1/conversations'), api('/v1/runners').catch(() => ({ runners: [] }))]);
-  state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners; state.pool = runners.pool ?? null;
+  state.pool = runners.pool ?? null;
+  state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners;
 }
 async function openConversation(conversationId) {
   state.current = conversationId;
