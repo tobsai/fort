@@ -1,11 +1,14 @@
 #!/bin/bash
 # Archive Fort and upload it to TestFlight. Run on a Mac with Xcode.
 #   make -C successor beta            # iPhone
-#   make -C successor beta PLATFORM=mac
+#   make -C successor beta PLATFORM=mac   # hands off to release/mac-testflight.sh
 # Needs an App Store Connect API key and the real App Store bundle IDs.
 set -euo pipefail
 
 platform="${PLATFORM:-ios}"
+# The Mac build carries the FortHost helper (Node, Codex, guardian), which an Xcode archive can't
+# assemble or sign, so it has its own script.
+if [ "$platform" = mac ]; then exec "$(dirname "$0")/mac-testflight.sh"; fi
 : "${FORT_TEAM_ID:?Set FORT_TEAM_ID to the Apple developer team ID}"
 : "${ASC_KEY_ID:?Set ASC_KEY_ID to the App Store Connect API key ID}"
 : "${ASC_ISSUER_ID:?Set ASC_ISSUER_ID to the App Store Connect issuer ID}"
@@ -13,7 +16,6 @@ platform="${PLATFORM:-ios}"
 
 case "$platform" in
   ios) scheme=FortiOS; destination='generic/platform=iOS'; bundle="${FORT_BUNDLE_ID_IOS:?Set FORT_BUNDLE_ID_IOS to the App Store bundle ID}" ;;
-  mac) scheme=FortMac; destination='generic/platform=macOS'; bundle="${FORT_BUNDLE_ID_MAC:?Set FORT_BUNDLE_ID_MAC to the App Store bundle ID}" ;;
   *) echo "PLATFORM must be ios or mac" >&2; exit 2 ;;
 esac
 

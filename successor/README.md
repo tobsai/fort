@@ -26,20 +26,42 @@ break timing checks.
 
 ## Ship a beta
 
+From GitHub: Actions, **TestFlight**, Run workflow, pick iPhone, Mac or both. Builds show up in
+TestFlight once Apple processes them. A beta counts as accepted when Toby has used it, not when
+the upload succeeds.
+
+From a Mac with Xcode, the same scripts run locally:
+
 ```sh
-export FORT_TEAM_ID=… FORT_BUNDLE_ID_IOS=… ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=…
+export FORT_TEAM_ID=T3JB5MYZ93 FORT_BUNDLE_ID_IOS=io.mtree.fort ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=…
 make -C successor beta                 # iPhone
-make -C successor beta PLATFORM=mac    # Mac (needs FORT_BUNDLE_ID_MAC)
+make -C successor beta PLATFORM=mac    # Mac, with the local runner inside
 ```
 
-This archives, signs and uploads to App Store Connect. The build shows up in
-TestFlight once Apple processes it. A beta counts as accepted when Toby has
-used it, not when the upload succeeds.
+The iPhone build is an Xcode archive with automatic signing. The Mac build carries the FortHost
+helper (Node 26.5.0, Codex 0.163.0, the process guardian), which an archive can't assemble, so
+`PLATFORM=mac` runs `release/mac-testflight.sh`: build both apps unsigned, assemble with
+`packaging/mac-application.ts`, fetch or create Mac App Store profiles with the API key
+(`release/asc-profile.ts`), sign inside out with `packaging/mac-sign.ts` (each executable in its App
+Sandbox, the runtimes inheriting the helper's), check every signature against
+`packaging/mac-signing-plan.ts`, build `Fort.pkg` and upload it. `make -C successor mac-package` does
+it ad hoc with no upload; CI runs that on every PR.
 
-The project's default bundle IDs are fixture IDs (`io.fort.spec058.*`) with
-signing turned off, so the script needs the real App Store IDs passed in. Creating
-App Store records, API keys or profiles needs Toby's approval. The Mac archive
-doesn't embed the host resources yet, so Mac betas run without a local host for now.
+### One-time setup (Toby)
+
+1. Developer account, Identifiers: register `io.mtree.fort.host`; create the App Group
+   `group.io.mtree.fort`; turn on App Groups for `io.mtree.fort` and `io.mtree.fort.host` and pick that group.
+2. Developer account, Certificates: an Apple Distribution and a Mac Installer Distribution certificate
+   (plus the Apple Development one Xcode already uses). Export all three from Keychain Access as one .p12.
+3. App Store Connect, the Fort app: add the macOS platform (same bundle ID, one app on both).
+4. App Store Connect, Users and Access, Integrations: an API key with the Admin role.
+5. GitHub secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 contents),
+   `APPLE_SIGNING_P12_BASE64` (`base64 -i Fort.p12 | pbcopy`), `APPLE_SIGNING_P12_PASSWORD`.
+
+Other IDs: `FORT_BUNDLE_ID_MAC`, `FORT_HOST_BUNDLE_ID_MAC`, `FORT_APP_GROUP_MAC`. Profiles from files
+instead of the API: `FORT_MAC_PROFILE_APP`, `FORT_MAC_PROFILE_HOST`. `FORT_SKIP_UPLOAD=1` stops after
+`Fort.pkg`. The helper reads the owner's Claude Code through a temporary sandbox exception, which
+internal TestFlight accepts but public App Review may question.
 
 ## Deploy the hub
 
