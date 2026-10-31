@@ -52,6 +52,8 @@ label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); 
 .shell { display: flex; flex-direction: column; height: 100dvh; background-color: var(--paper); background-image: var(--halftone); background-size: 7px 7px; }
 .top { display: flex; align-items: center; gap: 12px; padding: 8px 16px; padding-top: calc(8px + env(safe-area-inset-top)); min-height: 60px; border-bottom: 3px solid var(--line); background: var(--sky); color: #1B1A24; flex: none; }
 .top .caption { background: #FFF8EA; color: #1B1A24; border-color: #1B1A24; }
+/* The sky never changes with the mode, so what sits on it keeps the light fill and ink in noir too. */
+.top button { background: #FFF8EA; color: #1B1A24; border-color: #1B1A24; box-shadow: 2px 2px 0 #1B1A24; }
 .grow { flex: 1; }
 .status { display: flex; align-items: center; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: 3px solid var(--line); font-size: 13px; font-weight: 700; color: var(--muted); background: var(--bar); flex: none; }
 
@@ -83,8 +85,9 @@ label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); 
 .panels { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .chatpanel { display: flex; flex-direction: column; padding: 0; text-align: left; overflow: hidden; font-weight: 600; }
 .chatpanel:hover { box-shadow: 0 0 0 3px var(--glow), var(--shadow) var(--shadow) 0 var(--line); }
-.strip { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border-bottom: var(--stroke) solid var(--line); background-color: var(--bar); background-size: 6px 6px; color: #1B1A24; }
-.strip.needsYou { background-color: var(--needs-you); } .strip.failed { background-color: #F3A49C; } .strip.working { background-color: #BDF2F7; }
+.strip { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border-bottom: var(--stroke) solid var(--line); background-color: var(--bar); background-size: 6px 6px; color: var(--ink); }
+/* Status fills are the same in both modes, so their text is always caption ink. */
+.strip.needsYou { background-color: var(--needs-you); color: var(--caption-ink); } .strip.failed { background-color: #F3A49C; color: var(--caption-ink); } .strip.working { background-color: #BDF2F7; color: var(--caption-ink); }
 .strip .line { font-size: 12px; font-weight: 800; }
 .crew { display: flex; gap: 4px; padding: 10px 12px 2px; min-height: 40px; }
 .runs { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 12px; width: 100%; font-size: 12px; font-weight: 700; }
