@@ -36,7 +36,7 @@ public struct MessengerView: View {
                             AgentPortraitView(model:model,agent:agent,size:36)
                             VStack(alignment:.leading,spacing:2) {
                                 Text(agent.name.uppercased()).font(.system(.callout,design:.rounded).weight(.black)).lineLimit(1)
-                                Text(PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes)).font(.caption2.weight(.heavy)).foregroundStyle(HUDStyle.gold)
+                                Text(agent.isOnHub ? "ON THE HUB · READ-ONLY" : PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes)).font(.caption2.weight(.heavy)).foregroundStyle(HUDStyle.gold)
                             }
                             }
                         }.tag(model.hasWorkspace ? agent.homeConversationId : agent.agentId)
@@ -292,6 +292,9 @@ public struct MessengerView: View {
                     }
                 }
             }
+                if model.recipient?.isOnHub == true {
+                    Text("This Agent now runs on your cloud hub. Switch to Hub to talk to it; its history here is read-only.").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("moved-to-hub-hint")
+                }
                 if model.imagePrompt != nil {
                     Text("Sending draws one image on your ChatGPT plan.").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("image-hint")
                 }

@@ -48,6 +48,9 @@ public struct Agent: Codable, Equatable, Sendable, Identifiable {
     public var avatar: AgentAvatar? = nil
     public var portrait: AgentPortrait? = nil
     public var portraitDraw: PortraitDraw? = nil
+    /// Spec 063 (revision 2026-10-31): this Mac handed the Agent to its cloud hub. The copy here is read-only history.
+    public var movedToHub: Bool? = nil
+    public var isOnHub: Bool { movedToHub == true }
 }
 /// Spec 065: a portrait Fort drew on the ChatGPT plan. The PNG is fetched separately by revision.
 public struct AgentPortrait: Codable, Equatable, Sendable { public let revision: String; public let createdAt: String; public let size: Int }
@@ -373,6 +376,7 @@ public struct RequestCancellation: Codable, Sendable {
 public struct HubRunnerStatus: Codable, Equatable, Sendable {
     public let state: String
     public var hubURL: String? = nil; public var runnerId: String? = nil; public var retryMs: Int? = nil; public var detail: String? = nil
+    public var handoff: HubHandoffStatus? = nil
     public var enrolled: Bool { state != "notEnrolled" }
     public var summary: String {
         switch state {
@@ -385,6 +389,27 @@ public struct HubRunnerStatus: Codable, Equatable, Sendable {
         default: "Stopped"
         }
     }
+}
+
+/// Where this Mac's Agents stand with the hub (Spec 063, revision 2026-10-31): handed over ("synced"), or why not yet.
+public struct HubHandoffStatus: Codable, Equatable, Sendable {
+    public struct Staying: Codable, Equatable, Sendable { public let agentId: String; public let name: String; public let reason: String }
+    public let state: String
+    public var at: String? = nil; public var agentIds: [String]? = nil; public var staying: [Staying]? = nil; public var detail: String? = nil
+    public var summary: String {
+        switch state {
+        case "synced":
+            let moved = agentIds?.count ?? 0, kept = staying?.count ?? 0
+            return (moved == 1 ? "1 Agent runs on the hub" : "\(moved) Agents run on the hub") + (kept == 0 ? "" : kept == 1 ? ", 1 stays on this Mac" : ", \(kept) stay on this Mac")
+        case "unsupported", "failed": return detail ?? "Agents keep running on this Mac."
+        default: return "Not handed over yet"
+        }
+    }
+}
+/// The client credential an enrolled Mac holds for its hub, so the Mac app can show the hub's Agents (Spec 063).
+public struct HubClientGrant: Codable, Equatable, Sendable {
+    public let state: String
+    public var hubURL: String? = nil; public var installationId: String? = nil; public var deviceId: String? = nil; public var token: String? = nil
 }
 
 public struct RuntimeReadiness: Codable, Equatable, Sendable {
