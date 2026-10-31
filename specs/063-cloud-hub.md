@@ -208,3 +208,50 @@ Risk:
 Tests: `host/runner-pool.test.ts` (choice, pinning, waiting, a Mac outside the pool) and
 `host/cloud-hub-pool.test.ts` (join names the node, mini then laptop, queued until a Mac connects, one
 alert), plus the pooled credential case in `runner/hub-credential.test.ts`.
+
+## Revision, 2026-10-31: the hub owns Agents once a Mac syncs
+
+The owner's ask: once a Mac is synced, its Agents move to the hub, and the Mac is just hands and a screen.
+
+Before this revision every Mac ran a full core of its own (its ledger, scheduler and coordination), and the
+hub had a separate core. An Agent made on the laptop lived only on the laptop; the hub only borrowed the
+Mac to run turns for Agents the hub already had.
+
+What moves, and how:
+
+- **Handoff.** When an enrolled Mac's runner connects (and every 10 minutes after), its helper asks the
+  hub which runtimes it serves (`GET /v1/runners/agents`), then sends the definitions of every Agent the
+  hub can run (`POST /v1/runners/agents`): the Agent and its binding revisions, the whole skills library,
+  its routines and schedules, its portrait, and the empty shells of the chats it needs with their memory.
+  Never messages or runs. The hub rebinds each Agent to `FORT_NODE`, adds what it lacks, keeps what it
+  already has, and confirms which Agents it now holds. Repeating a handoff adds nothing.
+- **What stays.** An Agent stays on the Mac when the hub doesn't serve its runtime, or when it shares a
+  chat with an Agent that stays (a chat moves only with all of its Agents).
+- **The Mac's copies.** Only Agents the hub confirmed are marked moved (`hubHandoff` in the Mac ledger's
+  metadata). Their enabled schedules are paused on the Mac, and saving, sending, scheduling or redrawing
+  them there is refused with `movedToHub`. Their history stays on the Mac, read-only, until the owner's
+  separate history upload, which fills in around the handed-off records without duplicates. Nothing is
+  deleted.
+- **Schedules.** An enabled schedule continues on the hub from the moment of the handoff, so an
+  occurrence the Mac already ran or skipped never runs twice.
+- **Context.** The hub now compiles skills and chat memory into turns, as a Mac does, so Agents that use
+  them work there.
+- **The Mac app.** After a handoff the hub issues the Mac a client credential (`POST /v1/runners/client`),
+  kept as `hub-client.json` beside the runner token. The Mac app reads it through its own host
+  (`GET /v1/hub/client`) and opens the hub's workspace as a companion; "This Mac" still shows the Mac's
+  host and the read-only history.
+
+Risk:
+
+- **Persistent access.** The client credential lets the Mac app talk to the hub's Agents without its own
+  Google sign-in. It is accepted only without browser state (no `Origin`, `Sec-Fetch-Site` or cookie),
+  can't act as owner, and is revoked with the Mac's enrollment.
+- **Order.** Deploy the hub first. A Mac on the new build talking to an older hub gets a 404 and keeps
+  its Agents.
+- **Undo.** Remove the Mac from the hub: its client credential goes, and on the Mac, `hub-client.json`.
+  The Mac's moved Agents stay read-only; clearing `hubHandoff` in its ledger's metadata makes them
+  editable again.
+
+Tests: `service/hub-handoff.test.ts` (what moves and why), `host/cloud-hub-handoff.test.ts` (handoff,
+idempotence, refusal, the client credential, the Google gate, a later history upload), and the sync case
+in `runner/mac-hub-runner.test.ts`.

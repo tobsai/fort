@@ -66,6 +66,12 @@ public final class DeviceStorage {
         try protectedWrite(record,to:directory.appendingPathComponent("connection.json"))
     }
     public func token(for connection: DeviceConnection) throws -> String { try connection.validate(); return try credentials.token(for:connection) }
+    /// Drops a connection this device holds only on another's behalf (the Mac app's view of its hub): its credential and every saved record.
+    func forget(_ expected: DeviceConnection) throws {
+        guard try connection() == expected else { return }
+        try credentials.remove(expected)
+        try FileManager.default.removeItem(at:directory)
+    }
     func ownerSetupCredential(for connection: DeviceConnection) throws -> String? {
         do { return try token(for:connection) }
         catch DeviceStorageError.keychain(errSecItemNotFound) { return nil }
