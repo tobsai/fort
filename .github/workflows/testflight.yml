@@ -1,0 +1,100 @@
+name: TestFlight
+
+# Run by hand from the Actions tab: builds, signs and uploads Fort to TestFlight. Nothing runs on push.
+# Secrets (Settings > Secrets and variables > Actions):
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8   App Store Connect API key (Admin role), .p8 contents in ASC_KEY_P8
+#   APPLE_SIGNING_P12_BASE64                base64 of one .p12 with Apple Development, Apple Distribution
+#                                           and Mac Installer Distribution identities
+#   APPLE_SIGNING_P12_PASSWORD              that .p12's export password
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which app to upload
+        type: choice
+        options: [both, iphone, mac]
+        default: both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+  FORT_TEAM_ID: T3JB5MYZ93
+  FORT_BUNDLE_ID_IOS: io.mtree.fort
+  FORT_BUNDLE_ID_MAC: io.mtree.fort
+
+jobs:
+  iphone:
+    if: inputs.platform != 'mac'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install signing identities
+        env:
+          APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
+          APPLE_SIGNING_P12_PASSWORD: ${{ secrets.APPLE_SIGNING_P12_PASSWORD }}
+        run: successor/release/ci-keychain.sh
+      - name: Write the App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        shell: bash
+        run: |
+          umask 077
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Archive and upload the iPhone app
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          PLATFORM: ios
+        run: successor/release/beta.sh
+      - if: always()
+        shell: bash
+        run: |
+          successor/release/ci-keychain.sh remove
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+  mac:
+    if: inputs.platform != 'iphone'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26.5.0
+          package-manager-cache: false
+      - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
+      - name: Install signing identities
+        env:
+          APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
+          APPLE_SIGNING_P12_PASSWORD: ${{ secrets.APPLE_SIGNING_P12_PASSWORD }}
+        run: successor/release/ci-keychain.sh
+      - name: Write the App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        shell: bash
+        run: |
+          umask 077
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Build, sign and upload the Mac app with its runner
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: successor/release/mac-testflight.sh
+      - if: always()
+        shell: bash
+        run: |
+          successor/release/ci-keychain.sh remove
+          rm -f "$RUNNER_TEMP/AuthKey.p8"

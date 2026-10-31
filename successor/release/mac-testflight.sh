@@ -8,9 +8,11 @@
 #
 # Distribution needs, already in place on the Mac (this script never creates, exports or stores keys):
 #   FORT_TEAM_ID              Apple developer team ID
-#   FORT_MAC_PROFILE_APP      Mac App Store provisioning profile for the app's bundle ID, with the App Group
-#   FORT_MAC_PROFILE_HOST     the same for the helper's bundle ID
-#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH   App Store Connect API key, for the upload
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH   App Store Connect API key, for profiles and the upload
+#   Apple Distribution and Mac Installer Distribution identities in the keychain
+#   App IDs for the app and helper registered with the App Group
+# Mac App Store profiles are fetched (or created) with the API key unless FORT_MAC_PROFILE_APP and
+# FORT_MAC_PROFILE_HOST point at profile files.
 # Optional: FORT_BUNDLE_ID_MAC (default io.mtree.fort), FORT_HOST_BUNDLE_ID_MAC (default <app>.host),
 #   FORT_APP_GROUP_MAC (default group.<app>), FORT_MAC_APP_IDENTITY (default "Apple Distribution"),
 #   FORT_MAC_INSTALLER_IDENTITY (default "3rd Party Mac Developer Installer"), FORT_MARKETING_VERSION,
@@ -31,9 +33,7 @@ codex_sha256=8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31  #
 
 if [ "$mode" = distribution ]; then
   team="${FORT_TEAM_ID:?Set FORT_TEAM_ID to the Apple developer team ID}"
-  : "${FORT_MAC_PROFILE_APP:?Set FORT_MAC_PROFILE_APP to the app's Mac App Store provisioning profile}"
-  : "${FORT_MAC_PROFILE_HOST:?Set FORT_MAC_PROFILE_HOST to the helper's Mac App Store provisioning profile}"
-  if [ "${FORT_SKIP_UPLOAD:-}" != 1 ]; then
+  if [ "${FORT_SKIP_UPLOAD:-}" != 1 ] || [ -z "${FORT_MAC_PROFILE_APP:-}" ] || [ -z "${FORT_MAC_PROFILE_HOST:-}" ]; then
     : "${ASC_KEY_ID:?Set ASC_KEY_ID to the App Store Connect API key ID}"
     : "${ASC_ISSUER_ID:?Set ASC_ISSUER_ID to the App Store Connect issuer ID}"
     : "${ASC_KEY_PATH:?Set ASC_KEY_PATH to the .p8 key file}"
@@ -103,6 +103,17 @@ node "$here/packaging/mac-application.ts" \
   --host-resources "$work/host-resources" --node-runtime "$work/node-runtime" \
   --codex "$work/codex" --guardian "$work/FortProcessGuardian" \
   --configuration "$work/fort-host.json" --destination "$out/assembled"
+
+if [ "$mode" = distribution ]; then
+  if [ -z "${FORT_MAC_PROFILE_APP:-}" ]; then
+    node "$here/release/asc-profile.ts" --bundle-id "$client" --type MAC_APP_STORE --output "$work/Fort.provisionprofile"
+    FORT_MAC_PROFILE_APP="$work/Fort.provisionprofile"
+  fi
+  if [ -z "${FORT_MAC_PROFILE_HOST:-}" ]; then
+    node "$here/release/asc-profile.ts" --bundle-id "$service" --type MAC_APP_STORE --output "$work/FortHost.provisionprofile"
+    FORT_MAC_PROFILE_HOST="$work/FortHost.provisionprofile"
+  fi
+fi
 
 echo "7/7 Signing ($mode) and packaging"
 sign=(--app "$out/assembled/Fort.app" --mode "$mode" --helper-entitlements "$here/apple/Host/FortHost.entitlements"

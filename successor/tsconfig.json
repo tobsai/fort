@@ -20,6 +20,7 @@
     "apple/*.ts",
     "prototype/**/*.ts",
     "packaging/**/*.ts",
-    "setup/**/*.ts"
+    "setup/**/*.ts",
+    "release/**/*.ts"
   ]
 }
