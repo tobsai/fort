@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { HANDOFF_KINDS } from './hub-handoff.ts';
 
 // Copies a Mac's agents and chat history into the hub's ledger (Spec 063, step 4). The source is a
 // snapshot taken with migrate-ledger while the Mac's core was stopped; the Mac keeps its own copy.
@@ -54,19 +55,23 @@ export function importLedger(options: { source: string; ledger: string; hostId: 
         db.exec('ROLLBACK');
         return report;
       }
-      if (db.prepare('SELECT 1 FROM main.entities m JOIN source.entities s USING (kind, id)').get()) refuse('The hub already has some of these records.');
+      // Records this Mac already handed to the hub (its Agents' definitions) stay as the hub has them; history fills in around them.
+      const source = (JSON.parse(String(db.prepare("SELECT data FROM source.metadata WHERE key='installation'").get()?.data ?? '{}')) as { installationId?: unknown }).installationId;
+      const handedOff = typeof source === 'string' && db.prepare('SELECT 1 FROM main.metadata WHERE key=?').get('agentHandoff:' + source) !== undefined;
+      const kinds = handedOff ? HANDOFF_KINDS.map(kind => `'${kind}'`).join(',') : "''";
+      if (db.prepare(`SELECT 1 FROM main.entities m JOIN source.entities s USING (kind, id) WHERE m.kind NOT IN (${kinds})`).get()) refuse('The hub already has some of these records.');
       if (db.prepare("SELECT 1 FROM main.entities WHERE kind='weeks'").get() && db.prepare("SELECT 1 FROM source.entities WHERE kind='weeks'").get()) refuse('Both ledgers have weeks; close the hub’s weeks first.');
       let rebound = 0;
-      const insert = db.prepare('INSERT INTO main.entities(kind, id, data) VALUES (?, ?, ?)');
+      const insert = db.prepare('INSERT INTO main.entities(kind, id, data) VALUES (?, ?, ?) ON CONFLICT(kind, id) DO NOTHING');
       for (const row of db.prepare('SELECT kind, id, data FROM source.entities ORDER BY rowid').iterate()) {
-        let data = String(row.data);
+        let data = String(row.data), moved = false;
         if (BOUND.includes(String(row.kind))) {
           const value = JSON.parse(data) as { binding?: { hostId?: unknown } };
           if (!value.binding || typeof value.binding.hostId !== 'string') refuse('An agent in the snapshot has no binding.');
-          if (value.binding.hostId !== options.hostId) { value.binding.hostId = options.hostId; if (row.kind === 'agents') rebound++; }
+          if (value.binding.hostId !== options.hostId) { value.binding.hostId = options.hostId; if (row.kind === 'agents') moved = true; }
           data = JSON.stringify(value);
         }
-        insert.run(String(row.kind), String(row.id), data);
+        if (insert.run(String(row.kind), String(row.id), data).changes && moved) rebound++;
       }
       const report: LedgerImportReport = { version: 1, sourceSHA256, entities, rebound };
       db.prepare('INSERT INTO main.metadata(key, data) VALUES (?, ?)').run(IMPORT_RECORD, JSON.stringify(report));

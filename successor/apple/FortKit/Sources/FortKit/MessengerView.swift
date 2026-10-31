@@ -299,6 +299,9 @@ public struct MessengerView: View {
                     }
                 }.font(.callout.weight(.bold))
             }
+            if model.recipient?.isOnHub == true {
+                Text("This Agent now runs on your cloud hub. Switch to Hub to talk to it; its history here is read-only.").font(.caption).foregroundStyle(FortTheme.muted).accessibilityIdentifier("moved-to-hub-hint")
+            }
             if model.imagePrompt != nil {
                 Text("Sending draws one image on your ChatGPT plan.").font(.caption).foregroundStyle(FortTheme.muted).accessibilityIdentifier("image-hint")
             }

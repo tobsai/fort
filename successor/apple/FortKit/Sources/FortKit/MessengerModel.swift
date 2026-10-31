@@ -403,7 +403,13 @@ import Observation
     public internal(set) var hubRunner: HubRunnerStatus?
     public internal(set) var hubRunnerBusy = false
     public internal(set) var hubRunnerMessage = ""
+    /// Spec 063 (revision 2026-10-31): once this Mac hands its Agents to the hub, the window shows the hub's workspace here.
+    public internal(set) var hubWorkspace: MessengerModel?
+    @ObservationIgnored var hubConnection: DeviceConnection?
+    @ObservationIgnored var hubStorage: (URL) throws -> DeviceStorage = { try DeviceStorage(directory:$0) }
     #endif
+    /// This model shows a cloud hub's workspace inside the Mac app. Its pairing belongs to the Mac's runner enrollment, so it has no pairing controls.
+    public internal(set) var isHubWorkspace = false
     public var pairingMessage = "Owner setup has not been activated."
     public var lifecycleBusy = false
     private var pairingRemoved = false
@@ -450,7 +456,7 @@ import Observation
     public var canManagePairing: Bool { !isOfflinePreview && !pairingRemoved && client != nil && installation?.supports("ownerPairing") == true }
     public var canEditPairingExpiry: Bool { canManagePairing && connected && pairingStatus != nil && !lifecycleBusy && !isBusy }
     public var canDisconnectPairing: Bool {
-        !isOfflinePreview && !pairingRemoved && client != nil &&
+        !isHubWorkspace && !isOfflinePreview && !pairingRemoved && client != nil &&
         (isCompanionPairing || canManagePairing && (installation?.supports("companionPairing") != true || pairingStatus != nil))
     }
     public var canControlHost: Bool { canDisconnectPairing && !isCompanionPairing }
@@ -703,7 +709,7 @@ import Observation
     public var supportsMemory: Bool { installation?.supports("conversationMemory") == true }
     public var conversationMemory: ConversationMemory? { snapshot?.conversationId == activeConversationID ? snapshot?.memory : nil }
     public var canEditMemory: Bool { supportsMemory && snapshot?.conversationId == activeConversationID && snapshot?.recoveryEpoch == installation?.recoveryEpoch }
-    public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
+    public var canSend: Bool { (!supportsMemory || canEditMemory) && !draft.isEmpty && draft.utf8.count <= 65_536 && recipient?.binding.enabled == true && recipient?.isOnHub != true && supportsCommands && selectedSkillIDs.count <= 8 && selectedSkillIDs.isSubset(of:Set(skills.filter(\.canInvoke).map(\.id))) }
     #if DEBUG
     public convenience init(fixtureDirectory: URL) throws {
         guard fixtureDirectory.deletingLastPathComponent().lastPathComponent == "UITests",
@@ -1393,6 +1399,38 @@ extension MessengerModel {
         hubRunnerBusy = true; defer { hubRunnerBusy = false }
         do { hubRunner = try await client.removeHubRunner(); hubRunnerMessage = "This Mac no longer takes the hub's turns. Remove it in the hub's Setup too." }
         catch { hubRunnerMessage = "Disconnecting from the hub couldn't be confirmed." }
+        await refreshHubWorkspace()
+    }
+    /// The hub connection a grant describes, if it is complete and points at an HTTPS hub. Pure, so tests can check it.
+    static func issuedHubConnection(_ grant: HubClientGrant) -> (connection: DeviceConnection, token: String)? {
+        guard grant.state == "ready", let text = grant.hubURL, let url = URL(string:text), url.scheme == "https", url.host != nil,
+              let installationID = grant.installationId, let deviceID = grant.deviceId, let token = grant.token, token.utf8.count == 43,
+              let connection = try? DeviceConnection(endpoint:.network(baseURL:url,fixtureLoopback:false),installationID:installationID,deviceID:deviceID,role:.companion) else { return nil }
+        return (connection, token)
+    }
+    /// Opens the hub's workspace once this Mac's host holds a client credential for it, and closes it when the Mac leaves the hub.
+    /// An older host has no credential to offer, so the window keeps showing this Mac.
+    public func refreshHubWorkspace() async {
+        guard canManagePhoneAccess, let client else { return }
+        guard let grant = try? await client.hubClient() else { return }
+        guard let issued = Self.issuedHubConnection(grant) else { if grant.state == "none" { closeHubWorkspace() }; return }
+        let connection = issued.connection
+        if hubWorkspace != nil, hubConnection == connection { return }
+        closeHubWorkspace()
+        do {
+            let saved = try hubStorage(storage.directory.appendingPathComponent("Hub",isDirectory:true))
+            try saved.save(connection,token:issued.token)
+            // No cookies or cache: the hub accepts this credential without a Google sign-in only from a plain native client.
+            let hub = MessengerModel(storage:saved,session:URLSession(configuration:.ephemeral))
+            hub.isHubWorkspace = true
+            hubConnection = connection; hubWorkspace = hub
+            await hub.restore()
+        } catch { hubRunnerMessage = "The hub's Agents couldn't be opened on this Mac. They still run on the hub." }
+    }
+    private func closeHubWorkspace() {
+        guard let connection = hubConnection else { return }
+        hubWorkspace = nil; hubConnection = nil
+        if let saved = try? hubStorage(storage.directory.appendingPathComponent("Hub",isDirectory:true)) { try? saved.forget(connection) }
     }
     public var canManagePhoneAccess: Bool { canControlHost && !isOfflinePreview && !isInteractiveFixture && client != nil }
     public var phoneListenerActive: Bool { if case .active = phoneListener { true } else { false } }

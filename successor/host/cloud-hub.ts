@@ -11,6 +11,7 @@ import { RunnerHub, routeByNode, routePool } from './runner-hub.ts';
 import { parseRunnerPool, runPins, type RunnerPool } from './runner-pool.ts';
 import { importLedger, inspectLedgerSnapshot } from '../service/import-ledger.ts';
 import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
+import { LOCAL_CONTEXT } from '../modules/local-context.ts';
 
 // Headless hub entry point (Spec 063, step 3). One process serves plain HTTP on $PORT behind the
 // host's TLS proxy: the runner channel, runner enrollment, a one-time owner setup, and every other
@@ -41,7 +42,7 @@ export type CloudHubOptions = {
 
 export type QueueAlert = { waiting: number; waitingSince: string; runners: readonly string[] };
 
-const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024;
+const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024, HANDOFF_BYTES = 32 * 1024 * 1024;
 const PENDING = 'ledger-import.sqlite', RESULT = 'ledger-import.json';
 // The web client: a few static files, served with a policy that allows only this origin's own scripts.
 const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/transcript.js', ['transcript.js', 'text/javascript; charset=utf-8']],
@@ -55,7 +56,7 @@ const GOOGLE_WEB_HEADERS = { ...WEB_HEADERS, 'referrer-policy': 'strict-origin-w
 // Without a Google session only these pages load: enough to show the sign-in button, nothing of Fort's.
 const PUBLIC_PAGES = new Set(['/', '/signin.js', '/app.css', '/icon.svg', '/manifest.webmanifest']);
 // Machine paths keep their own credentials (runner token, one-time invitation codes) and never see a browser.
-const MACHINE_PATHS = new Set(['/v1/runners/join', '/v1/runners/import', '/v1/devices/join', '/v1/pairing/leave']);
+const MACHINE_PATHS = new Set(['/v1/runners/join', '/v1/runners/import', '/v1/runners/agents', '/v1/runners/client', '/v1/devices/join', '/v1/pairing/leave']);
 const PASSED = ['authorization', 'content-type', 'content-length', 'x-fort-installation-id'];
 
 class HubError extends Error {
@@ -64,11 +65,11 @@ class HubError extends Error {
 }
 function fail(status: number, code: string, message: string): never { throw new HubError(status, code, message); }
 
-async function body(request: IncomingMessage): Promise<unknown> {
+async function body(request: IncomingMessage, limit = BODY_BYTES): Promise<unknown> {
   if (request.headers['content-type'] !== 'application/json') fail(415, 'invalidBody', 'Send JSON.');
   const chunks: Buffer[] = [];
   let size = 0;
-  for await (const chunk of request as AsyncIterable<Buffer>) { size += chunk.length; if (size > BODY_BYTES) fail(413, 'bodyTooLarge', 'The request is too large.'); chunks.push(chunk); }
+  for await (const chunk of request as AsyncIterable<Buffer>) { size += chunk.length; if (size > limit) fail(413, 'bodyTooLarge', 'The request is too large.'); chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return fail(400, 'invalidBody', 'Send valid JSON.'); }
 }
 
@@ -112,7 +113,8 @@ export async function startCloudHub(options: CloudHubOptions) {
     db.exec('PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
   } catch (error) { db?.close(); throw error; }
   const ledger = db;
-  const enrollment = runnerEnrollment(ledger, { revoked: runnerId => runners.disconnect(runnerId) });
+  // Removing a Mac also ends its client access to this hub.
+  const enrollment = runnerEnrollment(ledger, { revoked: runnerId => { runners.disconnect(runnerId); app.removeRunnerClient(runnerId); } });
   const pins = pool ? runPins(ledger) : undefined;
   const nodeOf = (runnerId: string) => pool?.runners.includes(runnerId) ? pool.node : runnerId;
   // A Mac connecting may unblock queued work, so the core looks again.
@@ -135,7 +137,8 @@ export async function startCloudHub(options: CloudHubOptions) {
     : routeByNode(runners, { waitMs: () => offlineWaitMs, binding: descriptor });
   let app: ReturnType<typeof createApplication>;
   try {
-    app = createApplication({ dataDirectory, provider, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
+    // Agents keep their skills and memory on the hub: the context compiler reads only the ledger, never a Mac's files.
+    app = createApplication({ dataDirectory, provider, context: LOCAL_CONTEXT, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
       autoRun: true, ownerPairingPolicy: { expiresAfterDays: null } });
   } catch (error) { ledger.close(); throw error; }
   const watch = pool ? setInterval(() => {
@@ -157,7 +160,18 @@ export async function startCloudHub(options: CloudHubOptions) {
     const runnerId = token ? enrollment.authenticate(token) : undefined;
     if (!runnerId) fail(401, 'unauthorized', 'Use this Mac’s runner token.');
     if (nodeOf(runnerId) !== provider.hostId) fail(403, 'wrongMac', 'Only the Mac this hub runs on can import its ledger.');
+    return runnerId;
   };
+  // Spec 063, revision 2026-10-31: a synced Mac hands its Agents to the hub, which owns them from then on.
+  const runtimesServed = () => [provider, ...(options.runtimes ?? [])].map(descriptor => ({ provider: descriptor.provider, runtimeVersion: descriptor.runtimeVersion }));
+  async function handoff(request: IncomingMessage) {
+    thisMac(request);
+    try { return app.adoptHandoff(await body(request, HANDOFF_BYTES)); }
+    catch (error) {
+      if (error instanceof HubError || (error && typeof error === 'object' && 'status' in error)) throw error;
+      fail(422, 'handoffRefused', error instanceof Error ? error.message.slice(0, 300) : 'The handoff was refused.');
+    }
+  }
   async function stageImport(request: IncomingMessage) {
     thisMac(request);
     if (request.headers['content-type'] !== 'application/vnd.sqlite3') fail(415, 'invalidBody', 'Send the ledger snapshot as application/vnd.sqlite3.');
@@ -240,6 +254,14 @@ export async function startCloudHub(options: CloudHubOptions) {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
     return !token || app.ownerDevice(token) !== undefined;
   };
+  // An enrolled Mac's own client credential stands in for Google: the owner signed in to invite that Mac, and removing
+  // the Mac ends it. Browsers never get one.
+  const runnerClient = (request: IncomingMessage): boolean => {
+    if (request.headers.origin !== undefined || request.headers['sec-fetch-site'] !== undefined || request.headers.cookie !== undefined) return false;
+    const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
+    const runnerId = token ? app.runnerClientOf(token) : undefined;
+    return runnerId !== undefined && enrollment.list().some(runner => runner.runnerId === runnerId);
+  };
 
   const server = createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
     const path = new URL(request.url ?? '/', 'http://hub').pathname;
@@ -255,7 +277,7 @@ export async function startCloudHub(options: CloudHubOptions) {
     if (page && (!google || PUBLIC_PAGES.has(path) || signedIn(request))) {
       response.writeHead(200, { ...pageHeaders, 'content-type': page.type, 'content-length': page.data.length }).end(request.method === 'HEAD' ? undefined : page.data); return;
     }
-    if (page || needsGoogle(request, path)) {
+    if (page || (needsGoogle(request, path) && !runnerClient(request))) {
       answer(response, 401, { error: { code: 'signInRequired', message: 'Sign in with Google first.' } }, { connection: 'close' });
       request.resume(); return;
     }
@@ -277,6 +299,9 @@ export async function startCloudHub(options: CloudHubOptions) {
       if (request.method === 'POST' && path === '/v1/runners/join') { const joined = enrollment.join(await body(request)); return [201, { ...joined, node: nodeOf(joined.runnerId) }]; }
       if (request.method === 'POST' && path === '/v1/runners/import') { const staged = await stageImport(request); response.once('finish', () => options.onImportStaged?.()); return [202, staged]; }
       if (request.method === 'GET' && path === '/v1/runners/import') return [200, importStatus(request)];
+      if (request.method === 'GET' && path === '/v1/runners/agents') { thisMac(request); return [200, { node: provider.hostId, runtimes: runtimesServed() }]; }
+      if (request.method === 'POST' && path === '/v1/runners/agents') return [200, await handoff(request)];
+      if (request.method === 'POST' && path === '/v1/runners/client') { const runnerId = thisMac(request); request.resume(); return [201, app.issueRunnerClient(runnerId)]; }
       if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, ...runners.status(runner.runnerId) })),
         ...(pool ? { pool: { node: pool.node, runners: pool.runners, queue: queue() } } : {}) }]; }
       if (request.method === 'POST' && path === '/v1/runners/invitation') { owner(request); return [201, enrollment.invite(await body(request))]; }

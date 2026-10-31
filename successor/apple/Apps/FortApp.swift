@@ -20,6 +20,8 @@ import FortKit
                     if ProcessInfo.processInfo.arguments.contains("--qa-phone") { CompanionSetupFixtureView(model:model) }
                     else if ProcessInfo.processInfo.arguments.contains("--qa-account") { AccountSignInFixtureView(model:model) }
                     else { MessengerView(model:model) }
+                    #elseif os(macOS)
+                    MacWorkspaceView(model:model)
                     #else
                     MessengerView(model:model)
                     #endif

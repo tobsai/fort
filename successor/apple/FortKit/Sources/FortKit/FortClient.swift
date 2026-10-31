@@ -195,6 +195,7 @@ public struct FortClient: Sendable {
     }
     public func runtimeReadiness() async throws -> RuntimeReadiness { try await get("v1/runtime") }
     public func hubRunnerStatus() async throws -> HubRunnerStatus { try await get("v1/hub/runner") }
+    public func hubClient() async throws -> HubClientGrant { try await get("v1/hub/client") }
     /// Enrolls this Mac with a cloud hub using the hub's one-time "fort-runner:" invitation.
     public func enrollHubRunner(invitation: String) async throws -> HubRunnerStatus {
         struct Body: Encodable { let invitation: String }

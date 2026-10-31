@@ -19,6 +19,8 @@ import { companionPairing, CompanionPairingError } from './companion-pairing.ts'
 import { parseAccountIdentity, sameAccount } from '../contracts/account.ts';
 import { accountSignIn, AccountSignInError } from './account-sign-in.ts';
 import { validImagePrompt } from '../contracts/portrait.ts';
+import type { HubHandoff, HubLedger } from '../runner/handoff-contract.ts';
+import { HANDOFF_KINDS, parseHandoffPayload, rebaseRow, selectHandoff, type HandoffReport, type HandoffRuntime, type HandoffSelection } from './hub-handoff.ts';
 
 const unresolved = new Set<Run['state']>(['queued','running','cancelRequested','waitingForApproval','outcomeUnknown']);
 export type ServiceListener = { kind: 'loopback'; port?: number } | { kind: 'privateSocket'; name: string };
@@ -153,9 +155,12 @@ function json(row: Record<string, unknown> | undefined): unknown {
 }
 
 export type SubmissionAdmission = { text:string; conversation:Conversation; configuration:TurnConfiguration };
+// A Mac's handoff of its Agents to its hub (Spec 063, revision 2026-10-31). Once recorded, the moved Agents are read-only
+// here: no new turns, no edits, and their schedules are paused, because the hub now runs them.
+export type { HubHandoff, HubLedger };
 export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean;
   // The Mac's connection to a cloud hub (Spec 063), managed by the owner from the Mac app.
-  hubRunner?: { status(): unknown; enroll(invitation: string): Promise<unknown>; remove(): Promise<unknown> } }) {
+  hubRunner?: { status(): unknown; enroll(invitation: string): Promise<unknown>; remove(): Promise<unknown>; attach?(ledger: HubLedger): void; client?(): unknown } }) {
   const ownerAccessChanged=options.ownerAccessChanged;
   if(ownerAccessChanged!==undefined && typeof ownerAccessChanged!=='function')throw new Error('Select an explicit owner access notification');
   let ownerAccessWake=()=>{},ownerWakeQueued=false;
@@ -306,17 +311,27 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   };
   const list = <T>(kind: Entity, decode: (value: unknown) => T): T[] => db.prepare('SELECT data FROM entities WHERE kind=? ORDER BY rowid').all(kind).map(row => decode(json(row)));
   const load = <T>(kind: Entity, entityId: string, decode: (value: unknown) => T): T => decode(json(db.prepare('SELECT data FROM entities WHERE kind=? AND id=?').get(kind, entityId)));
+  // Client credentials of the Macs enrolled with this hub, by runner ID (Spec 063, revision 2026-10-31). Only a hub has any.
+  const runnerClients = (): Record<string, { deviceId: string; hash: string }> => {
+    const row = db.prepare("SELECT data FROM metadata WHERE key='runnerClients'").get();
+    return row ? JSON.parse(String(row.data)) as Record<string, { deviceId: string; hash: string }> : {};
+  };
+  const saveRunnerClients = (clients: Record<string, { deviceId: string; hash: string }>) => db.prepare("INSERT OR REPLACE INTO metadata VALUES ('runnerClients',?)").run(JSON.stringify(clients));
   const authenticate = (request: IncomingMessage) => {
     if (closed) fail(503,'closed','This session has stopped.');
     if (request.headers.origin !== undefined) fail(403, 'originDenied', 'Browser origins are not enabled.');
     if (request.headers['x-fort-installation-id'] !== installation.installationId) fail(401, 'unauthorized', 'Use this installation’s device credential.');
     const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(request.headers.authorization ?? '')?.[1];
     const device = token && db.prepare('SELECT id,expires FROM devices WHERE hash=?').get(digest(token));
+    // A Mac enrolled with this hub may also use it as a client (Spec 063, revision 2026-10-31): its own credential, revoked with the Mac.
+    const client = !device && token ? Object.values(runnerClients()).find(entry => entry.hash === digest(token)) : undefined;
+    if (client) return id(client.deviceId);
     if (!device || (!(ownerPairingPolicy && device.expires===0) && Number(device.expires) <= now())) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
     if(ownerPairingPolicy && ownerControl?.deviceId!==device.id && !companions.isCompanion(id(device.id)))fail(401,'unauthorized','This device has no current membership.');
     return id(device.id);
   };
   const pairingStatus=(deviceId:string):PairingStatus=>{
+    if(Object.values(runnerClients()).some(entry=>entry.deviceId===deviceId))return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:null,role:'companion'};
     const device=db.prepare('SELECT expires FROM devices WHERE id=?').get(deviceId);
     if(!device)fail(401,'unauthorized','This pairing has been removed.');
     return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString(),...(ownerPairingPolicy && ownerControl?.deviceId!==deviceId && companions.isCompanion(deviceId)?{role:'companion' as const}:{})};
@@ -397,9 +412,14 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return binding?laneFor(binding):undefined;
   };
   const bindingDisabled=(bindingRevisionId:string)=>Boolean(db.prepare("SELECT 1 FROM entities WHERE kind='disabledBindings' AND id=?").get(bindingRevisionId));
+  const readHandoff=():HubHandoff|undefined=>{const row=db.prepare("SELECT data FROM metadata WHERE key='hubHandoff'").get();return row?JSON.parse(String(row.data)) as HubHandoff:undefined;};
+  const movedAgents=():ReadonlySet<string>=>new Set(readHandoff()?.agentIds??[]);
+  const MOVED='This Agent now lives on your hub. Talk to it there; this Mac keeps its earlier chats to read.';
+  const refuseMoved=(agentId:string)=>{if(movedAgents().has(agentId))fail(409,'movedToHub',MOVED);};
   const saveRoutine=(request:IncomingMessage,body:Record<string,unknown>,routineId?:string):RoutineRevision=>{
     const definition=parseRoutineDefinition(body.definition);
     return owner(request,()=>{
+      refuseMoved(definition.agentId);
       if(routineId&&load('routines',routineId,decodeRoutine).revisionId!==body.expectedRevisionId)fail(409,'routineChanged','Reload the routine before saving a revision.');
       const current=load('agents',definition.agentId,decodeAgent),agentSnapshot=definition.bindingRevisionId===current.binding.bindingRevisionId?current:load('agentBindings',definition.bindingRevisionId,decodeAgent);
       if(agentSnapshot.agentId!==definition.agentId||definition.conversationId!==agentSnapshot.homeConversationId||!agentSnapshot.binding.enabled||bindingDisabled(definition.bindingRevisionId))fail(409,'bindingChanged','Select an enabled binding of this Agent and its exact Home.');
@@ -468,6 +488,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return owner(request, () => {
       if (recoveryEpoch !== installation.recoveryEpoch) fail(409, 'recoveryEpochChanged', 'Review this pending message after recovery.');
       const prior=priorAcceptance(requestId,fingerprint);if(prior)return prior;
+      refuseMoved(recipientAgentId);
       const conversation = load('conversations', conversationId, decodeConversation), agent = load('agents', recipientAgentId, decodeAgent);
       if (!conversation.participantAgentIds.includes(recipientAgentId)) fail(409, 'recipientMismatch', 'Select a participant in this conversation.');
       if (agent.binding.bindingRevisionId !== bindingRevisionId || !agent.binding.enabled) fail(409, 'bindingChanged', 'Review the changed Agent before submitting.');
@@ -483,6 +504,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     const requestId=id(body.requestId),revisionId=id(body.routineRevisionId);
     if(body.recoveryEpoch!==installation.recoveryEpoch)fail(409,'recoveryEpochChanged','Review this routine after installation recovery.');
     const saved=load('routineRevisions',revisionId,decodeRoutine);if(saved.routineId!==routineId)fail(409,'routineChanged','Select the exact saved routine revision.');
+    refuseMoved(saved.agentSnapshot.agentId);
     const inputs=parseRoutineInputs(saved.definition,body.inputs),fingerprint=digest(JSON.stringify({command:'routine',routineId,revisionId,recoveryEpoch:body.recoveryEpoch,inputs}));
     const prior=priorAcceptance(requestId,fingerprint);if(prior)return prior;
     if (saved.skills.length && !saved.contextModule) fail(409, 'contextChanged', 'This routine has no context compiler pin. Review and save a new revision before running it.');
@@ -946,7 +968,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           catch{result={provider:laneProvider.provider,state:'error',models:[],detail:'Model discovery failed. Your selected model has not changed.'};}
           finally { runtimeOperations--; queueMicrotask(wake); }
         }
-        else if (request.method === 'GET' && url.pathname === '/v1/agents') result = { agents: list('agents', decodeAgent) };
+        else if (request.method === 'GET' && url.pathname === '/v1/agents') { const moved = movedAgents(); result = { agents: list('agents', decodeAgent).map(agent => moved.has(agent.agentId) ? { ...agent, movedToHub: true } : agent) }; }
+        else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+(\/portrait(\/remove)?)?$/.test(url.pathname) && movedAgents().has(url.pathname.split('/')[3]!)) { request.resume(); fail(409, 'movedToHub', MOVED); }
         else if(request.method==='POST'&&/^\/v1\/approvals\/[^/]+\/resolve$/.test(url.pathname)){
           const body=await readBody(request),approvalId=id(url.pathname.split('/')[3]);
           result=owner(request,deviceId=>{
@@ -984,6 +1007,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             const schedule=load('schedules',scheduleId,decodeSchedule);
             if(body.recoveryEpoch!==installation.recoveryEpoch||body.revisionId!==schedule.revisionId||typeof body.enable!=='boolean')fail(409,'scheduleChanged','Review the current schedule before changing its state.');
             if(!body.enable){const paused={...schedule,state:'paused' as const};put('schedules',scheduleId,paused);return paused;}
+            refuseMoved(load('routineRevisions',schedule.definition.routineRevisionId,decodeRoutine).agentSnapshot.agentId);
             if(schedule.state==='enabled')return schedule;
             const preview=schedule.preview;
             if(!preview||preview.revisionId!==schedule.revisionId||preview.digest!==body.previewDigest||Date.parse(preview.expiresAt)<=now()||!preview.occurrences.length||Date.parse(preview.occurrences[0]!.decisionAt)<=now())fail(409,'previewChanged','Preview the next occurrences before enabling this schedule.');
@@ -1063,6 +1087,11 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         }
         else if(request.method==='GET'&&url.pathname==='/v1/scheduler')result=scheduleStatus;
         else if(request.method==='GET'&&url.pathname==='/v1/runtime')result=owner(request,()=>runtimeReadiness());
+        else if(options.hubRunner?.client&&request.method==='GET'&&url.pathname==='/v1/hub/client'){
+          const deviceId=owner(request,id=>id);
+          if(ownerPairingPolicy&&ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to open its hub.');
+          result=options.hubRunner.client();
+        }
         else if(options.hubRunner&&/^\/v1\/hub\/runner(\/enroll|\/remove)?$/.test(url.pathname)){
           const deviceId=owner(request,id=>id),hub=options.hubRunner;
           if(ownerPairingPolicy&&ownerControl?.deviceId!==deviceId)fail(403,'hostOnly','Use the owning Mac to manage its cloud hub connection.');
@@ -1385,7 +1414,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     try {
       await stopRuntime();
       if (closed) fail(503, 'closed', 'This session has stopped. Retry recovery with the local host.');
-      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices').run(); db.prepare('DELETE FROM enrollment').run(); companions.clear(); });
+      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key='runnerClients'").run(); db.prepare('DELETE FROM enrollment').run(); companions.clear(); });
     } catch {
       fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
     } finally { stopCommandActive = false; }
@@ -1441,7 +1470,71 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     const device = db.prepare('SELECT id,expires FROM devices WHERE id=? AND hash=?').get(ownerControl.deviceId, digest(token));
     return device && (device.expires === 0 || Number(device.expires) > now()) ? ownerControl.deviceId : undefined;
   };
+  // Spec 063, revision 2026-10-31: the hub owns Agents once a Mac syncs. These run on the Mac's ledger (export, record) or the hub's (adopt).
+  const hubLedger: HubLedger = {
+    handoff: readHandoff,
+    exportHandoff(runtimes) {
+      const rows = db.prepare(`SELECT kind,id,data FROM entities WHERE kind IN (${HANDOFF_KINDS.map(() => '?').join(',')}) ORDER BY rowid`).all(...HANDOFF_KINDS)
+        .map(row => ({ kind: String(row.kind), id: String(row.id), data: String(row.data) }));
+      return selectHandoff(rows, { sourceInstallationId: installation.installationId, runtimes });
+    },
+    // Records the Agents the hub now holds, and pauses their schedules here so nothing runs twice. Idempotent.
+    recordHandoff({ hubURL, agentIds }) {
+      return transaction(() => {
+        const moved = new Set([...(readHandoff()?.agentIds ?? []), ...agentIds.map(id)]);
+        for (const agentId of moved) load('agents', agentId, decodeAgent);
+        const record: HubHandoff = { hubURL, agentIds: [...moved].sort(), at: readHandoff()?.at ?? new Date(now()).toISOString() };
+        db.prepare("INSERT OR REPLACE INTO metadata VALUES ('hubHandoff',?)").run(JSON.stringify(record));
+        for (const schedule of list('schedules', decodeSchedule)) {
+          if (schedule.state === 'enabled' && moved.has(load('routineRevisions', schedule.definition.routineRevisionId, decodeRoutine).agentSnapshot.agentId)) put('schedules', schedule.scheduleId, { ...schedule, state: 'paused' });
+        }
+        append('_workspace', 'workspaceChanged', installation.installationId);
+        return record;
+      });
+    },
+  };
+  options.hubRunner?.attach?.(hubLedger);
+  // The hub adds what it doesn't have and keeps what it has; bindings point at this hub's node. All or nothing.
+  const adoptHandoff = (input: unknown): HandoffReport => {
+    const payload = parseHandoffPayload(input), node = provider.hostId, at = now();
+    const decoders: Record<string, (value: unknown) => unknown> = { agents: decodeAgent, agentBindings: decodeAgent, skills: decodeSkill, skillRevisions: decodeSkill, routines: decodeRoutine, routineRevisions: decodeRoutine,
+      schedules: decodeSchedule, scheduleRevisions: decodeSchedule, conversations: decodeConversation, conversationMemory: decodeMemory,
+      disabledBindings: value => { const v = record(value); return { agentId: id(v.agentId), bindingRevisionId: id(v.bindingRevisionId) }; },
+      portraits: value => { const v = record(value); if (typeof v.revision !== 'string' || typeof v.png !== 'string') throw new Error('Invalid portrait'); return v; } };
+    const rows = payload.rows.map(row => {
+      const rebased = rebaseRow(row, { node, now: at });
+      try { decoders[row.kind]!(JSON.parse(rebased.data)); } catch { fail(422, 'handoffRefused', 'A record in the handoff is not one this hub understands.'); }
+      if ((row.kind === 'agents' || row.kind === 'agentBindings') && !laneFor(decodeAgent(JSON.parse(rebased.data)).binding)) fail(422, 'handoffRefused', 'The handoff has an Agent whose runtime this hub does not serve.');
+      return { ...row, data: rebased.data, rebound: rebased.rebound };
+    });
+    const report = transaction(() => {
+      const added: Record<string, number> = {}, kept: Record<string, number> = {};
+      let rebound = 0;
+      for (const row of rows) {
+        if (db.prepare('SELECT 1 FROM entities WHERE kind=? AND id=?').get(row.kind, row.id)) { kept[row.kind] = (kept[row.kind] ?? 0) + 1; continue; }
+        put(row.kind as Entity, row.id, JSON.parse(row.data));
+        added[row.kind] = (added[row.kind] ?? 0) + 1;
+        if (row.rebound) rebound++;
+      }
+      const key = 'agentHandoff:' + payload.sourceInstallationId, prior = db.prepare('SELECT data FROM metadata WHERE key=?').get(key);
+      const agentIds = [...new Set([...(prior ? (JSON.parse(String(prior.data)) as { agentIds: string[] }).agentIds : []), ...payload.agentIds])].sort();
+      db.prepare('INSERT OR REPLACE INTO metadata VALUES (?,?)').run(key, JSON.stringify({ agentIds, at: new Date(at).toISOString() }));
+      return { version: 1 as const, agentIds: payload.agentIds, added, kept, rebound };
+    });
+    armScheduleClock();
+    return report;
+  };
+  // One client credential per enrolled Mac. Issuing again replaces the old one, so a Mac that lost it can ask again.
+  const issueRunnerClient = (runnerId: string) => transaction(() => {
+    const deviceId = randomUUID(), token = randomBytes(32).toString('base64url');
+    saveRunnerClients({ ...runnerClients(), [id(runnerId)]: { deviceId, hash: digest(token) } });
+    return { installationId: installation.installationId, deviceId, token };
+  });
   const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess, ownerDevice,
+    hubLedger, adoptHandoff, issueRunnerClient,
+    removeRunnerClient: (runnerId: string): boolean => transaction(() => { const clients = runnerClients(); if (!(runnerId in clients)) return false; delete clients[runnerId]; saveRunnerClients(clients); return true; }),
+    // The enrolled Mac whose client credential this is, if it is one.
+    runnerClientOf: (token: string): string | undefined => /^[A-Za-z0-9_-]{43}$/.test(token) ? Object.entries(runnerClients()).find(([, entry]) => entry.hash === digest(token))?.[0] : undefined,
     // Runs accepted but not yet started, for a hub that waits for a Mac to connect (Spec 063).
     queuedRuns: (): number => Number(db.prepare("SELECT count(*) AS waiting FROM dispatch_outbox WHERE state='queued' AND held=0").get()?.waiting ?? 0),
     async recoverOwnerPairing(identity: { installationId: string; deviceId: string }) {
@@ -1519,7 +1612,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (closing) return closing;
     closed = true; clearTimeout(scheduleTimer); active?.abort(); ownerAccessWake();
     if (credentialDeadline!==undefined && !preserveSessionCredential) transaction(()=>{
-      db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run();
+      db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key='runnerClients'").run();
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
     });
     closing = (async () => {

@@ -119,3 +119,29 @@ test('the Mac holds itself awake only while its runner is up', async t => {
   await h.runner.remove();
   assert.deepEqual(h.awake, ['held', 'released', 'held', 'released']);
 });
+
+test('once connected, the Mac hands its Agents to the hub and keeps a client credential; removing the Mac forgets it', async t => {
+  const h = await fixture(t);
+  const handed: string[][] = [];
+  // A stand-in for the local core's ledger: one Agent the hub can run.
+  h.runner.attach({
+    handoff: () => handed.length ? { hubURL: h.hub.url, agentIds: handed.at(-1)!, at: '2026-10-31T00:00:00.000Z' } : undefined,
+    exportHandoff: () => ({ payload: { version: 1, sourceInstallationId: 'mac-ledger', agentIds: [], rows: [] }, staying: [] }),
+    recordHandoff: ({ agentIds }) => { handed.push([...agentIds]); return { hubURL: h.hub.url, agentIds: [...agentIds], at: '2026-10-31T00:00:00.000Z' }; },
+  });
+  assert.deepEqual(h.runner.client(), { state: 'none' });
+  await h.runner.enroll(await h.invitation());
+  await h.until('connected');
+  for (let index = 0; index < 300 && h.runner.client().state !== 'ready'; index++) await delay(10);
+  const client = h.runner.client();
+  assert.equal(client.state, 'ready');
+  const status = h.runner.status();
+  assert.equal(status.state !== 'notEnrolled' && status.handoff?.state, 'synced');
+  assert.equal((await stat(join(h.state, 'hub-client.json'))).mode & 0o777, 0o600);
+  if (client.state !== 'ready') return;
+  const agents = await fetch(h.hub.url + '/v1/agents', { headers: { authorization: 'Bearer ' + client.token, 'x-fort-installation-id': client.installationId } });
+  assert.equal(agents.status, 200);
+  await h.runner.remove();
+  assert.deepEqual(h.runner.client(), { state: 'none' });
+  await assert.rejects(stat(join(h.state, 'hub-client.json')));
+});

@@ -165,7 +165,7 @@ struct CrewRow: View {
             CrewBadge(model:model,agent:agent,size:badge)
             VStack(alignment:.leading,spacing:2) {
                 Text(agent.name).font(.system(.body,design:.rounded).weight(.heavy)).foregroundStyle(FortTheme.ink).lineLimit(1)
-                Text(CrewRow.line(provider:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes),model:agent.binding.selectedModel))
+                Text(agent.isOnHub ? "On the hub · read-only" : CrewRow.line(provider:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes),model:agent.binding.selectedModel))
                     .font(.caption.weight(.bold)).foregroundStyle(FortTheme.muted).lineLimit(1)
             }
         }
