@@ -49,7 +49,7 @@ struct CityHUDView: View {
             Button("Plan Week \((model.weeks.first?.number ?? 0) + 1)",systemImage:"map") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands).accessibilityIdentifier("hud-plan")
             Button("Messages",systemImage:"bubble.left.and.bubble.right",action:showMessages).buttonStyle(.bordered).accessibilityIdentifier("hud-messages")
             // Esc pauses, like a game, unless a conversation is open: then Esc closes the conversation first.
-            Button("Menu",systemImage:"line.3.horizontal",action:openMenu).buttonStyle(.bordered).tint(HUDStyle.gold)
+            Button("Setup",systemImage:"slider.horizontal.3",action:openMenu).buttonStyle(.bordered).tint(HUDStyle.gold)
                 .keyboardShortcut(talkingTo == nil ? .cancelAction : KeyboardShortcut(",",modifiers:.command)).accessibilityIdentifier("pause-menu-open")
         }
         .padding(.horizontal,16).padding(.vertical,10)
@@ -162,9 +162,14 @@ enum HUDStyle {
 }
 struct HUDFrame: ViewModifier {
     let highlight: Bool
+    @Environment(\.fortSurface) private var surface
     func body(content: Content) -> some View {
-        content.background(HUDStyle.panel,in:RoundedRectangle(cornerRadius:10))
-            .overlay(RoundedRectangle(cornerRadius:10).stroke(highlight ? HUDStyle.gold : HUDStyle.gold.opacity(0.45),lineWidth:highlight ? 2 : 1))
+        // On the comic page (Quest log, chat, Setup) a framed box is a comic panel, the same as the web's .panel.
+        if surface == .comic { content.comicPanel(live:highlight) }
+        else {
+            content.background(HUDStyle.panel,in:RoundedRectangle(cornerRadius:10))
+                .overlay(RoundedRectangle(cornerRadius:10).stroke(highlight ? HUDStyle.gold : HUDStyle.gold.opacity(0.45),lineWidth:highlight ? 2 : 1))
+        }
     }
 }
 extension View { func hudFrame(highlight: Bool = false) -> some View { modifier(HUDFrame(highlight:highlight)) } }

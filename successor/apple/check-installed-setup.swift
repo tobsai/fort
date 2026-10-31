@@ -84,16 +84,16 @@ func control(_ root: AXUIElement, identifier: String, label: String) throws -> A
     }
     // After first-run setup closes, connection controls live under Devices in the pause menu.
     func openConnection(_ app: NSRunningApplication) throws {
-        try press(control(root(app),identifier:"pause-menu-open",label:"Menu"))
+        try press(control(root(app),identifier:"pause-menu-open",label:"Setup"))
         try wait("Pause menu did not open") { sheet(app) }
-        try press(control(root(app),identifier:"pause-tab-devices",label:"DEVICES"))
+        try press(control(root(app),identifier:"pause-tab-devices",label:"Devices"))
     }
     // Devices opens on its summary rows; the setup controls checked by setup() sit in its Workshop.
     func devices(_ app: NSRunningApplication) throws {
         try wait("Devices did not show this Mac") { descendants(root(app)).contains { text($0,kAXIdentifierAttribute) == "devices-row-mac" } }
     }
     func closeConnection(_ app: NSRunningApplication) throws {
-        if let resume = try? control(root(app),identifier:"pause-resume",label:"RESUME") { try press(resume) }
+        if let resume = try? control(root(app),identifier:"pause-resume",label:"Done") { try press(resume) }
         else { try press(control(root(app),identifier:"setup-close",label:"Close setup")) }
     }
     func quit(_ app: NSRunningApplication, cycle: Int, phase: String) throws {

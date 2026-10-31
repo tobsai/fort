@@ -109,6 +109,13 @@ label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); 
 .msg.user::before { left: auto; right: 22px; border-right: 0; border-left: 14px solid transparent; }
 .msg.user::after { left: auto; right: 25.5px; border-right: 0; border-left: 8px solid transparent; border-top-color: var(--mine); }
 .msg .who { display: block; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+/* A bubble sits in a row with its speaker's badge at the tail's tip, the same as the apps. */
+.msgrow { display: flex; align-items: flex-end; gap: 8px; align-self: flex-start; max-width: min(760px, 92%); }
+.msgrow.user { align-self: flex-end; }
+.msgrow .msg { align-self: auto; max-width: none; margin-bottom: 15px; }
+.lamp { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); background: var(--off); flex: none; }
+.lamp.done { background: var(--done); } .lamp.failed { background: var(--failed); } .lamp.working { background: var(--working); } .lamp.needsYou { background: var(--needs-you); }
+.chat header .headline { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 /* A run is narration: a caption box, not a bubble. */
 .run { align-self: flex-start; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; background: var(--caption); color: var(--caption-ink); border: 2px solid var(--line); padding: 4px 10px; }
 .run .lamp { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); background: var(--off); flex: none; }
@@ -138,6 +145,12 @@ label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); 
 .sheet header h2 { flex: 1; }
 .sheet section { padding: 14px 0; border-bottom: 2px dashed var(--line); }
 .sheet section h3 { margin: 0 0 6px; font-size: 15px; font-weight: 900; }
+.sheet section h4 { margin: 14px 0 4px; font-size: 14px; font-weight: 900; }
+.sheet .sub:first-of-type h4 { margin-top: 6px; }
+.crewline { display: flex; align-items: center; gap: 10px; }
+.crewline .portrait { width: 36px; height: 36px; font-size: 15px; }
+.crewline strong { display: block; }
+.small { font-size: 12px; font-weight: 700; }
 .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .row > :first-child { flex: 1; }
 .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: var(--panel); border: var(--stroke) solid var(--line); border-radius: var(--radius); padding: 10px; overflow-wrap: anywhere; user-select: all; margin: 8px 0; }

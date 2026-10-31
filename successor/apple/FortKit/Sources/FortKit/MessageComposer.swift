@@ -73,7 +73,7 @@ final class MessageTextView: NSTextView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         if string.isEmpty {
-            ("Message your Agent" as NSString).draw(at:NSPoint(x:0,y:3),withAttributes:[.font:font ?? NSFont.systemFont(ofSize:NSFont.systemFontSize),.foregroundColor:NSColor.placeholderTextColor])
+            ("Message" as NSString).draw(at:NSPoint(x:0,y:3),withAttributes:[.font:font ?? NSFont.systemFont(ofSize:NSFont.systemFontSize),.foregroundColor:NSColor.placeholderTextColor])
         }
     }
 }

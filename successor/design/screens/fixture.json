@@ -1,0 +1,310 @@
+{
+ "_about": "Shared sample data for the side-by-side screenshots: the web mock hub serves it, and FortKit's ScreenshotTests load it into the Mac app. Same records, both clients.",
+ "installation": {
+  "contractVersion": "1.0",
+  "installationId": "inst-screens",
+  "recoveryEpoch": "epoch-1",
+  "mode": "local",
+  "serviceName": "Fort",
+  "capabilities": [
+   "eventReplay",
+   "requestCancellation"
+  ],
+  "runtimes": [
+   {
+    "provider": "claude",
+    "name": "Claude",
+    "runtimeVersion": "1",
+    "hostId": "toby-mini",
+    "session": "s",
+    "capabilities": []
+   },
+   {
+    "provider": "codex",
+    "name": "ChatGPT",
+    "runtimeVersion": "1",
+    "hostId": "toby-mini",
+    "session": "s",
+    "capabilities": []
+   }
+  ],
+  "eventCursor": 0
+ },
+ "agents": [
+  {
+   "agentId": "lewis",
+   "name": "Lewis",
+   "homeConversationId": "home-lewis",
+   "binding": {
+    "bindingRevisionId": "b-lewis",
+    "provider": "claude",
+    "runtimeVersion": "1",
+    "selectedModel": "claude-opus-5-5",
+    "hostId": "toby-mini",
+    "enabled": true
+   },
+   "readiness": "ready"
+  },
+  {
+   "agentId": "marty",
+   "name": "Marty",
+   "homeConversationId": "home-marty",
+   "binding": {
+    "bindingRevisionId": "b-marty",
+    "provider": "codex",
+    "runtimeVersion": "1",
+    "selectedModel": "gpt-6",
+    "hostId": "toby-mini",
+    "enabled": true
+   },
+   "readiness": "ready"
+  },
+  {
+   "agentId": "pascal",
+   "name": "Pascal",
+   "homeConversationId": "home-pascal",
+   "binding": {
+    "bindingRevisionId": "b-pascal",
+    "provider": "claude",
+    "runtimeVersion": "1",
+    "selectedModel": "claude-sonnet-5-5",
+    "hostId": "toby-mini",
+    "enabled": true
+   },
+   "readiness": "ready"
+  }
+ ],
+ "conversations": [
+  {
+   "conversationId": "home-lewis",
+   "name": "Lewis",
+   "kind": "home",
+   "participantAgentIds": [
+    "lewis"
+   ]
+  },
+  {
+   "conversationId": "home-marty",
+   "name": "Marty",
+   "kind": "home",
+   "participantAgentIds": [
+    "marty"
+   ]
+  },
+  {
+   "conversationId": "home-pascal",
+   "name": "Pascal",
+   "kind": "home",
+   "participantAgentIds": [
+    "pascal"
+   ]
+  },
+  {
+   "conversationId": "launch",
+   "name": "Launch room",
+   "kind": "shared",
+   "participantAgentIds": [
+    "lewis",
+    "marty"
+   ]
+  }
+ ],
+ "snapshots": {
+  "home-lewis": {
+   "installationId": "inst-screens",
+   "recoveryEpoch": "epoch-1",
+   "conversationId": "home-lewis",
+   "cursor": 3,
+   "messages": [
+    {
+     "messageId": "home-lewis-1",
+     "conversationId": "home-lewis",
+     "requestId": "q1",
+     "role": "user",
+     "text": "Draft the launch note for Friday. Keep it short.",
+     "sequence": 1,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "recipientAgentId": "lewis",
+     "recipientAgentName": "Lewis"
+    },
+    {
+     "messageId": "home-lewis-2",
+     "conversationId": "home-lewis",
+     "requestId": "q1",
+     "role": "assistant",
+     "text": "Here's a first pass:\n\nFort 1.0 ships Friday. One hub, your Macs do the work, and nothing runs on API billing.",
+     "sequence": 2,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "agentId": "lewis",
+     "agentName": "Lewis"
+    },
+    {
+     "messageId": "home-lewis-3",
+     "conversationId": "home-lewis",
+     "requestId": "q2",
+     "role": "user",
+     "text": "Good. Post it to the crew channel.",
+     "sequence": 3,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "recipientAgentId": "lewis",
+     "recipientAgentName": "Lewis"
+    }
+   ],
+   "runs": [
+    {
+     "runId": "r1",
+     "requestId": "q1",
+     "conversationId": "home-lewis",
+     "bindingRevisionId": "b",
+     "state": "completed",
+     "selectedModel": "claude-opus-5-5",
+     "effectiveModel": null,
+     "modelEvidence": "reported",
+     "attemptId": "att-r1"
+    },
+    {
+     "runId": "r2",
+     "requestId": "q2",
+     "conversationId": "home-lewis",
+     "bindingRevisionId": "b",
+     "state": "waitingForApproval",
+     "selectedModel": "claude-opus-5-5",
+     "effectiveModel": null,
+     "modelEvidence": "reported",
+     "attemptId": "att-r2",
+     "statusDetail": "Lewis paused before posting anywhere."
+    }
+   ],
+   "lastReadMessageSequence": 3,
+   "approvals": [
+    {
+     "approvalId": "ap1",
+     "installationId": "inst-screens",
+     "recoveryEpoch": "epoch-1",
+     "runId": "r2",
+     "attemptId": "att-r2",
+     "bindingRevisionId": "b",
+     "actionDigest": "d",
+     "resourceScope": [
+      "fixture:reply"
+     ],
+     "actionDescription": "Post the launch note to the crew channel",
+     "expiresAt": "2099-01-01T00:00:00.000Z",
+     "state": "pending",
+     "decidedByDeviceId": null,
+     "decidedAt": null
+    }
+   ]
+  },
+  "home-marty": {
+   "installationId": "inst-screens",
+   "recoveryEpoch": "epoch-1",
+   "conversationId": "home-marty",
+   "cursor": 4,
+   "messages": [
+    {
+     "messageId": "home-marty-4",
+     "conversationId": "home-marty",
+     "requestId": "q3",
+     "role": "user",
+     "text": "Check the Mini's backups and tell me what's stale.",
+     "sequence": 4,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "recipientAgentId": "marty",
+     "recipientAgentName": "Marty"
+    }
+   ],
+   "runs": [
+    {
+     "runId": "r3",
+     "requestId": "q3",
+     "conversationId": "home-marty",
+     "bindingRevisionId": "b",
+     "state": "running",
+     "selectedModel": "gpt-6",
+     "effectiveModel": null,
+     "modelEvidence": "reported",
+     "attemptId": "att-r3"
+    }
+   ],
+   "lastReadMessageSequence": 4,
+   "approvals": []
+  },
+  "home-pascal": {
+   "installationId": "inst-screens",
+   "recoveryEpoch": "epoch-1",
+   "conversationId": "home-pascal",
+   "cursor": 5,
+   "messages": [
+    {
+     "messageId": "home-pascal-5",
+     "conversationId": "home-pascal",
+     "requestId": "q4",
+     "role": "assistant",
+     "text": "Sunday's slides are in. Nothing needs you.",
+     "sequence": 5,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "agentId": "pascal",
+     "agentName": "Pascal"
+    }
+   ],
+   "runs": [],
+   "lastReadMessageSequence": 5,
+   "approvals": []
+  },
+  "launch": {
+   "installationId": "inst-screens",
+   "recoveryEpoch": "epoch-1",
+   "conversationId": "launch",
+   "cursor": 7,
+   "messages": [
+    {
+     "messageId": "launch-6",
+     "conversationId": "launch",
+     "requestId": "q5",
+     "role": "user",
+     "text": "Marty, what did we decide on the hub plan?",
+     "sequence": 6,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "recipientAgentId": "marty",
+     "recipientAgentName": "Marty"
+    },
+    {
+     "messageId": "launch-7",
+     "conversationId": "launch",
+     "requestId": "q5",
+     "role": "assistant",
+     "text": "Hobby plan for now, Mini as the main runner.",
+     "sequence": 7,
+     "createdAt": "2026-10-31T16:00:00.000Z",
+     "agentId": "marty",
+     "agentName": "Marty"
+    }
+   ],
+   "runs": [
+    {
+     "runId": "r5",
+     "requestId": "q5",
+     "conversationId": "launch",
+     "bindingRevisionId": "b",
+     "state": "completed",
+     "selectedModel": "gpt-6",
+     "effectiveModel": null,
+     "modelEvidence": "reported",
+     "attemptId": "att-r5"
+    }
+   ],
+   "lastReadMessageSequence": 7,
+   "approvals": []
+  }
+ },
+ "runners": [
+  {
+   "runnerId": "toby-mini",
+   "runnerName": "toby-mini",
+   "online": true,
+   "turns": 1
+  }
+ ],
+ "open": "home-lewis"
+}

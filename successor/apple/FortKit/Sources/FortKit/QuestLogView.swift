@@ -20,7 +20,7 @@ struct QuestLogView: View {
     var body: some View {
         let log = model.questLog
         VStack(spacing:0) {
-            topBar(log)
+            ComicTopBar(summary:log.summary,showCity:showCity,openSetup:openMenu,compact:compact)
             ScrollView {
                 if compact {
                     VStack(alignment:.leading,spacing:24) { questColumn(log); chatColumn(log) }.padding(16)
@@ -32,23 +32,7 @@ struct QuestLogView: View {
         }
         .background(FortTheme.paper.ignoresSafeArea())
         .foregroundStyle(FortTheme.ink)
-    }
-
-    private func topBar(_ log: QuestLog) -> some View {
-        HStack(spacing:12) {
-            Text("FORT").font(FortTheme.display(28)).tracking(1.5).foregroundStyle(Color(hex:0xE4FDFF))
-                .shadow(color:Color(hex:0x1B1A24),radius:0,x:2,y:2).shadow(color:FortTheme.glow,radius:8)
-                .accessibilityLabel("Fort")
-            if !compact { CaptionBox(text:log.summary,fill:Color(hex:0xFFF8EA)) }
-            Spacer(minLength:8)
-            if let showCity, !compact { Button("City",systemImage:"building.2",action:showCity).buttonStyle(ComicButtonStyle()).accessibilityIdentifier("show-city") }
-            Button("Menu",systemImage:"line.3.horizontal",action:openMenu).buttonStyle(ComicButtonStyle())
-                .keyboardShortcut(",",modifiers:.command).accessibilityIdentifier("pause-menu-open")
-        }
-        .padding(.horizontal,16).padding(.vertical,10)
-        .background(LinearGradient(colors:FortTheme.sky,startPoint:.leading,endPoint:.trailing).ignoresSafeArea(edges:.top))
-        .overlay(alignment:.bottom) { FortTheme.line.frame(height:3) }
-        .environment(\.colorScheme,.light)
+        .environment(\.fortSurface,.comic)
     }
 
     private func questColumn(_ log: QuestLog) -> some View {
@@ -115,7 +99,7 @@ struct QuestLogView: View {
         VStack(alignment:.leading,spacing:14) {
             Text("Chats").font(FortTheme.display(26)).accessibilityAddTraits(.isHeader)
             if log.panels.isEmpty {
-                Text("No agents yet. Open the menu to add one.").font(.system(.body,design:.rounded).weight(.bold)).foregroundStyle(FortTheme.muted)
+                Text("No agents yet. Open Setup to add one.").font(.system(.body,design:.rounded).weight(.bold)).foregroundStyle(FortTheme.muted)
                     .padding(14).frame(maxWidth:.infinity,alignment:.leading).comicPanel()
             }
             LazyVGrid(columns:[GridItem(.adaptive(minimum:240),spacing:18)],alignment:.leading,spacing:18) {
