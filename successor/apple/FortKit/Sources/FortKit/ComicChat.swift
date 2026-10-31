@@ -172,5 +172,5 @@ struct CrewRow: View {
         .accessibilityElement(children:.combine)
     }
     /// "Claude · claude-opus-5-5", the same line as the web's crew list.
-    static func line(provider: String, model: String) -> String { [provider,model].filter { !$0.isEmpty }.joined(separator:" · ") }
+    nonisolated static func line(provider: String, model: String) -> String { [provider,model].filter { !$0.isEmpty }.joined(separator:" · ") }
 }
