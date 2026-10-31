@@ -6,7 +6,7 @@ import AppKit
 #endif
 
 // What draws with FortTheme: colours from hex, the crew colour for an Agent, the display face and the
-// comic panel (ink outline plus a hard offset shadow, with the holographic glow when it is live).
+// panel (a hairline edge, with the holographic glow when it is live).
 extension Color {
     init(hex: UInt32) { self.init(.sRGB,red:Double((hex >> 16) & 0xFF)/255,green:Double((hex >> 8) & 0xFF)/255,blue:Double(hex & 0xFF)/255,opacity:1) }
     init(light: UInt32, dark: UInt32) {
@@ -46,23 +46,25 @@ struct ComicPanel: ViewModifier {
         let shape = RoundedRectangle(cornerRadius:FortTheme.radius)
         content.background(shape.fill(fill))
             .overlay(shape.stroke(FortTheme.line,lineWidth:FortTheme.stroke))
-            .background(shape.fill(FortTheme.line).offset(x:FortTheme.shadow,y:FortTheme.shadow))
-            .overlay(shape.stroke(FortTheme.glow,lineWidth:live ? 3 : 0).padding(-3).shadow(color:FortTheme.glow.opacity(live ? 0.7 : 0),radius:8))
+            .overlay(shape.stroke(FortTheme.glow,lineWidth:live ? 1 : 0))
+            .shadow(color:FortTheme.glow.opacity(live ? 0.3 : 0),radius:9)
     }
 }
 extension View {
-    /// An ink-outlined comic panel; `live` adds the cyan holographic glow for the thing in play.
+    /// A hairline panel; `live` adds the cyan holographic glow for the thing in play.
     func comicPanel(fill: Color = FortTheme.panel, live: Bool = false) -> some View { modifier(ComicPanel(fill:fill,live:live)) }
 }
 
-/// A comic caption box: the label for a section or a status line.
+/// A tag: the label for a section or a status line, quiet on its own fill and dark on gold or cyan.
 struct CaptionBox: View {
     let text: String
     var fill: Color = FortTheme.caption
     var body: some View {
-        Text(text.uppercased()).font(.system(size:11,weight:.black,design:.rounded)).tracking(0.6)
-            .foregroundStyle(fill == FortTheme.failed ? Color.white : FortTheme.captionInk)
+        let quiet = fill == FortTheme.caption
+        let shape = RoundedRectangle(cornerRadius:2)
+        Text(text.uppercased()).font(.system(size:10.5,weight:.bold)).tracking(1.3)
+            .foregroundStyle(fill == FortTheme.failed ? Color.white : quiet ? FortTheme.ink : FortTheme.captionInk)
             .padding(.horizontal,8).padding(.vertical,2)
-            .background(fill).overlay(Rectangle().stroke(FortTheme.line,lineWidth:2))
+            .background(shape.fill(fill)).overlay(shape.stroke(quiet ? FortTheme.line : Color.clear,lineWidth:FortTheme.stroke))
     }
 }

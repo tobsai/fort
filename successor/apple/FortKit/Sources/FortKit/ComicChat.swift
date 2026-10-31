@@ -1,8 +1,8 @@
 import SwiftUI
 
 // The chat and Setup pieces the Mac and iPhone apps share with the web client (web/app.js and
-// web/app.css), so a chat looks and reads the same everywhere: the comic top bar, speech bubbles
-// with tails, run captions, the approval panel and the composer pill.
+// web/app.css), so a chat looks and reads the same everywhere: the night top bar, flat message
+// panels, run tags, the approval panel and the composer.
 
 /// Which skin a shared control draws in: the dark game HUD of the city, or the comic page used by
 /// the Quest log, the chat and Setup (the same look as the web client).
@@ -47,7 +47,7 @@ struct RunCaptionLine: Equatable, Sendable {
     }
 }
 
-/// The comic top bar of every Fort screen: the wordmark, one caption of what's going on, and Setup.
+/// The night top bar of every Fort screen: the wordmark, one tag of what's going on, and Setup.
 struct ComicTopBar: View {
     let summary: String
     var showCity: (() -> Void)? = nil
@@ -55,10 +55,10 @@ struct ComicTopBar: View {
     var compact = false
     var body: some View {
         HStack(spacing:12) {
-            Text("FORT").font(FortTheme.display(28)).tracking(1.5).foregroundStyle(Color(hex:0xE4FDFF))
-                .shadow(color:Color(hex:0x1B1A24),radius:0,x:2,y:2).shadow(color:FortTheme.glow,radius:8)
+            Text("FORT").font(FortTheme.display(22)).tracking(4.8).foregroundStyle(Color(hex:0xE8ECF1))
+                .shadow(color:FortTheme.glow.opacity(0.55),radius:10)
                 .accessibilityLabel("Fort")
-            if !compact { CaptionBox(text:summary,fill:Color(hex:0xFFF8EA)) }
+            if !compact { CaptionBox(text:summary) }
             Spacer(minLength:8)
             if let showCity, !compact { Button("City",action:showCity).buttonStyle(ComicButtonStyle()).accessibilityIdentifier("show-city") }
             Button("Setup",action:openSetup).buttonStyle(ComicButtonStyle())
@@ -66,13 +66,13 @@ struct ComicTopBar: View {
         }
         .padding(.horizontal,16).padding(.vertical,10)
         .background(LinearGradient(colors:FortTheme.sky,startPoint:.leading,endPoint:.trailing).ignoresSafeArea(edges:.top))
-        .overlay(alignment:.bottom) { FortTheme.line.frame(height:3) }
-        // The sky is the same in light and noir, so what sits on it keeps light ink.
-        .environment(\.colorScheme,.light)
+        .overlay(alignment:.bottom) { Color(hex:0x283039).frame(height:1) }
+        // The bar is night in both modes, so what sits on it draws in dark.
+        .environment(\.colorScheme,.dark)
     }
 }
 
-/// A speech bubble: ink outline, round corners and a tail at the speaker's side, like .msg on the web.
+/// A message: a flat hairline panel, yours tinted, like .msg on the web.
 struct SpeechBubble: ViewModifier {
     let mine: Bool
     func body(content: Content) -> some View {
@@ -81,32 +81,7 @@ struct SpeechBubble: ViewModifier {
         content
             .padding(.horizontal,14).padding(.vertical,10)
             .background(shape.fill(fill))
-            .overlay(shape.strokeBorder(FortTheme.line,lineWidth:FortTheme.stroke))
-            .overlay(alignment:mine ? .bottomTrailing : .bottomLeading) {
-                ZStack(alignment:mine ? .topTrailing : .topLeading) {
-                    BubbleTail(mirrored:mine).fill(FortTheme.line).frame(width:14,height:15)
-                    BubbleTail(mirrored:mine).fill(fill).frame(width:8,height:9).offset(x:mine ? -3.5 : 3.5,y:-FortTheme.stroke)
-                }
-                .frame(width:14,height:15,alignment:mine ? .topTrailing : .topLeading)
-                .offset(x:mine ? -22 : 22,y:15)
-                .accessibilityHidden(true)
-            }
-            // Room for the tail, so the speaker's badge lines up with its tip.
-            .padding(.bottom,15)
-    }
-}
-/// The right-angled tail under a bubble, its straight edge on the speaker's side.
-struct BubbleTail: Shape {
-    let mirrored: Bool
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        if mirrored {
-            path.move(to:CGPoint(x:rect.maxX,y:rect.minY)); path.addLine(to:CGPoint(x:rect.maxX,y:rect.maxY)); path.addLine(to:CGPoint(x:rect.minX,y:rect.minY))
-        } else {
-            path.move(to:CGPoint(x:rect.minX,y:rect.minY)); path.addLine(to:CGPoint(x:rect.minX,y:rect.maxY)); path.addLine(to:CGPoint(x:rect.maxX,y:rect.minY))
-        }
-        path.closeSubpath()
-        return path
+            .overlay(shape.strokeBorder(mine ? FortTheme.glow.opacity(0.3) : FortTheme.line,lineWidth:FortTheme.stroke))
     }
 }
 extension View { func speechBubble(mine: Bool) -> some View { modifier(SpeechBubble(mine:mine)) } }
@@ -115,43 +90,41 @@ extension View { func speechBubble(mine: Bool) -> some View { modifier(SpeechBub
 struct SpeakerCaption: View {
     let text: String
     var body: some View {
-        Text(text.uppercased()).font(.system(size:11,weight:.black,design:.rounded)).tracking(0.66).foregroundStyle(FortTheme.muted)
+        Text(text.uppercased()).font(.system(size:10.5,weight:.bold)).tracking(1.3).foregroundStyle(FortTheme.muted)
     }
 }
 
-/// A run as a caption box with its lamp, like .run on the web: cyan glow working, gold needs you, red failed.
+/// A run as a tag with its lamp, like .run on the web: cyan glow working, gold needs you, red failed.
 struct RunCaption: View {
     let line: RunCaptionLine
     var body: some View {
         let failed = line.tone == .failed
         HStack(spacing:8) {
-            Circle().fill(lamp).frame(width:10,height:10)
-                .overlay(Circle().stroke(FortTheme.line,lineWidth:2))
+            Circle().fill(lamp).frame(width:8,height:8)
                 .shadow(color:line.tone == .working ? FortTheme.glow : .clear,radius:3)
-            Text(line.text).font(.system(size:12,weight:.heavy,design:.rounded))
-            if let detail = line.detail { Text("· " + detail).font(.system(size:12,weight:.bold,design:.rounded)).opacity(0.75) }
+            Text(line.text).font(.system(size:12,weight:.semibold))
+            if let detail = line.detail { Text("· " + detail).font(.system(size:12,weight:.medium)).opacity(0.7) }
         }
-        .foregroundStyle(failed ? Color.white : FortTheme.captionInk)
+        .foregroundStyle(failed ? Color.white : FortTheme.ink)
         .padding(.horizontal,10).padding(.vertical,4)
-        .background(failed ? FortTheme.failed : FortTheme.caption)
-        .overlay(Rectangle().stroke(FortTheme.line,lineWidth:2))
+        .background(RoundedRectangle(cornerRadius:2).fill(failed ? FortTheme.failed : FortTheme.caption))
+        .overlay(RoundedRectangle(cornerRadius:2).stroke(failed ? Color.clear : FortTheme.line,lineWidth:FortTheme.stroke))
     }
     private var lamp: Color {
         switch line.tone { case .working: FortTheme.working; case .needsYou: FortTheme.needsYou; case .done: FortTheme.done; case .failed: .white; default: FortTheme.off }
     }
 }
 
-/// The approval panel's caption: gold "Needs you" while open, grey once decided, like .approval .label.
+/// The approval panel's tag: gold "Needs you" while open, quiet once decided, like .approval .label.
 struct ApprovalLabel: View {
     let text: String
     let open: Bool
     var body: some View {
-        Text(text.uppercased()).font(.system(size:11,weight:.black,design:.rounded)).tracking(0.66)
+        Text(text.uppercased()).font(.system(size:10.5,weight:.bold)).tracking(1.3)
             .accessibilityLabel(text)
-            .foregroundStyle(FortTheme.captionInk)
+            .foregroundStyle(open ? FortTheme.captionInk : FortTheme.muted)
             .padding(.horizontal,8).padding(.vertical,1)
-            .background(open ? FortTheme.needsYou : FortTheme.off)
-            .overlay(Rectangle().stroke(FortTheme.line,lineWidth:2))
+            .background(RoundedRectangle(cornerRadius:2).fill(open ? FortTheme.needsYou : FortTheme.caption))
     }
 }
 
@@ -164,9 +137,9 @@ struct CrewRow: View {
         HStack(spacing:10) {
             CrewBadge(model:model,agent:agent,size:badge)
             VStack(alignment:.leading,spacing:2) {
-                Text(agent.name).font(.system(.body,design:.rounded).weight(.heavy)).foregroundStyle(FortTheme.ink).lineLimit(1)
+                Text(agent.name).font(.body.weight(.semibold)).foregroundStyle(FortTheme.ink).lineLimit(1)
                 Text(agent.isOnHub ? "On the hub · read-only" : CrewRow.line(provider:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes),model:agent.binding.selectedModel))
-                    .font(.caption.weight(.bold)).foregroundStyle(FortTheme.muted).lineLimit(1)
+                    .font(.caption.weight(.medium)).foregroundStyle(FortTheme.muted).lineLimit(1)
             }
         }
         .accessibilityElement(children:.combine)

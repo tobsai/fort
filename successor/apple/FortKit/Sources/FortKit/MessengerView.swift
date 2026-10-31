@@ -115,12 +115,12 @@ public struct MessengerView: View {
             }
             HStack(spacing:10) {
                 if let back { Button("‹ Quest log",action:back).buttonStyle(ComicButtonStyle()).accessibilityIdentifier("show-quest-log") }
-                Text(model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Chat").font(FortTheme.display(22)).tracking(0.9).lineLimit(1)
+                Text(model.selectedConversation?.name ?? model.selectedAgent?.name ?? "Chat").font(FortTheme.display(19)).tracking(1.9).textCase(.uppercase).lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength:8)
                 HStack(spacing:6) {
                     LampView(lamp:header.lamp)
-                    Text(header.line).font(.caption.weight(.bold)).foregroundStyle(FortTheme.muted).lineLimit(1)
+                    Text(header.line.uppercased()).font(.system(size:11,weight:.semibold)).tracking(0.9).foregroundStyle(FortTheme.muted).lineLimit(1)
                 }.accessibilityElement(children:.combine)
                 if model.canEditMemory, let conversationID = model.activeConversationID {
                     Button("Notebook") { memoryForm = ConversationMemoryForm(conversationID:conversationID,memory:model.conversationMemory) }
@@ -147,7 +147,7 @@ public struct MessengerView: View {
         }
         .padding(.horizontal,14).padding(.vertical,8).frame(maxWidth:.infinity,minHeight:54,alignment:.leading)
         .background(FortTheme.bar)
-        .overlay(alignment:.bottom) { FortTheme.line.frame(height:3) }
+        .overlay(alignment:.bottom) { FortTheme.line.frame(height:FortTheme.stroke) }
     }
     private var conversationHistory: some View {
         ScrollViewReader { position in
@@ -249,7 +249,7 @@ public struct MessengerView: View {
         let detail = model.displaySnapshot?.runs.first(where:{ $0.runId == approval.runId })?.statusDetail
         return VStack(alignment:.leading,spacing:6) {
             ApprovalLabel(text:copy.label,open:open)
-            Text(approval.actionDescription).font(.system(.body,design:.rounded).weight(.heavy)).fixedSize(horizontal:false,vertical:true)
+            Text(approval.actionDescription).font(.body.weight(.semibold)).fixedSize(horizontal:false,vertical:true)
             if let detail, detail != approval.actionDescription { Text(detail).font(.callout).foregroundStyle(FortTheme.muted) }
             if open {
                 HStack(spacing:8) {
@@ -273,10 +273,10 @@ public struct MessengerView: View {
             }
         }
         .padding(.horizontal,14).padding(.vertical,10)
-        .overlay(RoundedRectangle(cornerRadius:FortTheme.bubbleRadius).strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:2,dash:[5,4])))
+        .overlay(RoundedRectangle(cornerRadius:FortTheme.bubbleRadius).strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:1,dash:[5,4])))
         .frame(maxWidth:.infinity,alignment:.trailing)
     }
-    /// The composer, like .composer on the web: an ink-outlined pill and the gold Send button.
+    /// The composer, like .composer on the web: a hairline field and the gold Send button.
     private var messageComposer: some View {
         VStack(alignment:.leading,spacing:8) {
             #if !os(macOS)
@@ -306,7 +306,7 @@ public struct MessengerView: View {
                 Text("Sending draws one image on your ChatGPT plan.").font(.caption).foregroundStyle(FortTheme.muted).accessibilityIdentifier("image-hint")
             }
             HStack(alignment:.bottom,spacing:8) {
-                let pill = RoundedRectangle(cornerRadius:22)
+                let pill = RoundedRectangle(cornerRadius:FortTheme.radius)
                 Group {
                     #if os(macOS)
                     MessageComposer(text:$model.draft,editable:!model.isOfflinePreview,canSend:model.canSend) { Task { await model.send() } }
@@ -322,7 +322,7 @@ public struct MessengerView: View {
         }
         .padding(.horizontal,12).padding(.vertical,10)
         .background(FortTheme.bar.ignoresSafeArea(edges:.bottom))
-        .overlay(alignment:.top) { FortTheme.line.frame(height:3) }
+        .overlay(alignment:.top) { FortTheme.line.frame(height:FortTheme.stroke) }
     }
     private var connectionForm: some View {
         NavigationStack {

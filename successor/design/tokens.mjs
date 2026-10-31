@@ -1,4 +1,4 @@
-// Builds Fort's comic skin from tokens.json into the two places that use it: the :root block of the
+// Builds Fort's skin from tokens.json into the two places that use it: the :root block of the
 // web client's app.css and FortKit's FortTheme.swift. `--write` regenerates both; tokens.test.mjs
 // fails when either has drifted from the JSON.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -51,12 +51,12 @@ export function swift(tokens) {
     '// Generated from successor/design/tokens.json by `node successor/design/tokens.mjs --write`. Edit the JSON, not this file.',
     'import SwiftUI',
     '',
-    "/// Fort's comic skin. The helpers that draw with it are in FortThemeSupport.swift.",
+    "/// Fort's skin. The helpers that draw with it are in FortThemeSupport.swift.",
     'public enum FortTheme {',
     ...colors,
     '    /// Portrait colours for the crew; FortTheme.crewColor(for:) picks one per Agent.',
     `    public static let crew: [Color] = [${tokens.crew.map(value => `Color(hex:${hex(value)})`).join(',')}]`,
-    '    /// The golden-hour sky behind the top bar, left to right.',
+    '    /// The night behind the top bar, left to right. The same in light and dark.',
     `    public static let sky: [Color] = [${tokens.sky.map(value => `Color(hex:${hex(value)})`).join(',')}]`,
     `    public static let stroke: CGFloat = ${size.stroke}`,
     `    public static let radius: CGFloat = ${size.radius}`,

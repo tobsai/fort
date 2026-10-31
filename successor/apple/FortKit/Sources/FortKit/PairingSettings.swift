@@ -166,7 +166,7 @@ struct DevicesBoardSection: View {
                     HStack(alignment:.top,spacing:12) {
                         LampView(lamp:row.lamp).padding(.top,5)
                         VStack(alignment:.leading,spacing:3) {
-                            Text(row.title.uppercased()).font(.system(.headline,design:.rounded).weight(.black))
+                            Text(row.title.uppercased()).font(.system(.headline).weight(.black))
                             Text(row.line).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                         }
                         Spacer(minLength:8)

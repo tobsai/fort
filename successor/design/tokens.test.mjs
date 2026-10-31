@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { crewSlot, loadTokens, paths, swift, withTokens } from './tokens.mjs';
 import { crewSlot as webCrewSlot } from '../web/transcript.js';
 
-// tokens.json is the one source for the comic skin; the web stylesheet and FortTheme.swift are built from it.
+// tokens.json is the one source for the skin; the web stylesheet and FortTheme.swift are built from it.
 const tokens = loadTokens();
 
 test('the web stylesheet carries the current tokens', () => {
@@ -25,7 +25,7 @@ test('every colour has a light and a dark value and says what it is for', () => 
   assert.equal(tokens.color.needsYou.light, tokens.color.accent.light, 'what needs you is quest gold');
 });
 
-test('text on the comic fills is readable (WCAG AA for body text)', () => {
+test('text on every fill is readable (WCAG AA for body text)', () => {
   const luminance = hex => {
     const [r, g, b] = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255).map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -33,11 +33,11 @@ test('text on the comic fills is readable (WCAG AA for body text)', () => {
   const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   const { color } = tokens;
   for (const mode of ['light', 'dark']) {
-    for (const ground of ['paper', 'panel', 'bar']) {
+    for (const ground of ['paper', 'panel', 'bar', 'caption', 'mine']) {
       assert.ok(contrast(color.ink[mode], color[ground][mode]) >= 4.5, `ink on ${ground} (${mode})`);
       assert.ok(contrast(color.muted[mode], color[ground][mode]) >= 4.5, `muted on ${ground} (${mode})`);
     }
-    for (const fill of ['caption', 'accent', 'working', 'done', 'needsYou']) assert.ok(contrast(color.captionInk[mode], color[fill][mode]) >= 4.5, `captionInk on ${fill} (${mode})`);
+    for (const fill of ['accent', 'working', 'done', 'needsYou']) assert.ok(contrast(color.captionInk[mode], color[fill][mode]) >= 4.5, `captionInk on ${fill} (${mode})`);
     assert.ok(contrast('#FFFFFF', color.failed[mode]) >= 3, `white on failed (${mode}, large bold text)`);
   }
 });

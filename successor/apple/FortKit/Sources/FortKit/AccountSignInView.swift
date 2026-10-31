@@ -45,7 +45,7 @@ struct AccountSignInPanel: View {
             HStack(alignment:.top,spacing:12) {
                 LampView(lamp:panel.lamp).padding(.top,5)
                 VStack(alignment:.leading,spacing:3) {
-                    Text(name.uppercased()).font(.system(.headline,design:.rounded).weight(.black))
+                    Text(name.uppercased()).font(.system(.headline).weight(.black))
                     Text(panel.line).font(.callout).foregroundStyle(.secondary)
                     if let account = model.accountSignInStatus?.reportedAccount {
                         Text(account.userLabel).font(.caption).textSelection(.enabled).accessibilityIdentifier("provider-account-label")
@@ -104,7 +104,7 @@ struct AccountSignInPanel: View {
         HStack(spacing:12) {
             LampView(lamp:.off)
             VStack(alignment:.leading,spacing:3) {
-                Text(runtime.name.uppercased()).font(.system(.headline,design:.rounded).weight(.black))
+                Text(runtime.name.uppercased()).font(.system(.headline).weight(.black))
                 Text("Show this plan to check or change its sign-in.").font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength:8)

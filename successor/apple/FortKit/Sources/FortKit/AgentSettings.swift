@@ -52,7 +52,7 @@ struct AgentSettingsEditor: View {
                     VStack(alignment:.leading,spacing:8) {
                         // A bordered field with its own prompt: inside a grouped Form row the plain style collapsed to an invisible, untappable field.
                         TextField("Name",text:$form.name,prompt:Text("Name your agent"))
-                            .labelsHidden().textFieldStyle(.roundedBorder).font(.system(.title3,design:.rounded).weight(.bold))
+                            .labelsHidden().textFieldStyle(.roundedBorder).font(.system(.title3).weight(.bold))
                             .frame(maxWidth:.infinity).accessibilityIdentifier("agent-name")
                         HStack(spacing:6) {
                             Text(className.uppercased()).font(.caption.weight(.heavy))

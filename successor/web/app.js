@@ -106,7 +106,7 @@ function desk() {
       h('div.sechead', {}, h('h2.title', { id: 'quest-title' }, 'Quest log'), quests.length ? h('span.caption.gold', {}, quests.length === 1 ? '1 needs you' : `${quests.length} need you`) : null),
       state.problem ? h('p.error', { role: 'alert' }, state.problem) : null,
       quests.length ? quests.map(questCard) : h('p.panel.calm', {}, 'Nothing needs you. Your crew is on it.'),
-      cleared.map(item => h('div.panel.cleared', {}, h('span.stamp' + (item.dropped ? '.dropped' : ''), {}, item.dropped ? 'Dropped' : 'Quest clear!'), h('span.muted', {}, item.title)))),
+      cleared.map(item => h('div.panel.cleared', {}, h('span.stamp' + (item.dropped ? '.dropped' : ''), {}, item.dropped ? 'Dropped' : 'Cleared'), h('span.muted', {}, item.title)))),
     h('section.col', { 'aria-labelledby': 'chats-title' },
       h('div.sechead', {}, h('h2.title', { id: 'chats-title' }, 'Chats')),
       panels.length ? h('div.panels', {}, panels.map(chatPanel)) : h('p.panel.calm', {}, 'No agents yet. Open Setup to add one.')));

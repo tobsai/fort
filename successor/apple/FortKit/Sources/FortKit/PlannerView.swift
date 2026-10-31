@@ -47,7 +47,7 @@ struct PlannerView: View {
         HStack {
             VStack(alignment:.leading,spacing:2) {
                 Text("SUNDAY PLANNING").font(.caption2.weight(.heavy)).foregroundStyle(HUDStyle.gold)
-                Text("Plan Week \((model.weeks.first?.number ?? 0) + 1)").font(.system(.title,design:.rounded).weight(.black))
+                Text("Plan Week \((model.weeks.first?.number ?? 0) + 1)").font(.system(.title).weight(.black))
             }
             Spacer()
             ForEach(Array(Self.steps.enumerated()),id:\.offset) { index, title in

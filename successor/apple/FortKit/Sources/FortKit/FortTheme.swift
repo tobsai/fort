@@ -1,50 +1,50 @@
 // Generated from successor/design/tokens.json by `node successor/design/tokens.mjs --write`. Edit the JSON, not this file.
 import SwiftUI
 
-/// Fort's comic skin. The helpers that draw with it are in FortThemeSupport.swift.
+/// Fort's skin. The helpers that draw with it are in FortThemeSupport.swift.
 public enum FortTheme {
     /// The page behind every panel.
-    public static let paper = Color(light:0xFFF8EA,dark:0x16151E)
+    public static let paper = Color(light:0xF2F4F7,dark:0x0B0E13)
     /// A panel, card or bubble.
-    public static let panel = Color(light:0xFFFDF6,dark:0x22202D)
+    public static let panel = Color(light:0xFFFFFF,dark:0x131820)
     /// Header, composer and sheet bars.
-    public static let bar = Color(light:0xFFF1D6,dark:0x2A2738)
+    public static let bar = Color(light:0xE8ECF1,dark:0x0F1319)
     /// Body text.
-    public static let ink = Color(light:0x1B1A24,dark:0xF7F0E1)
-    /// Panel outlines and their hard offset shadows.
-    public static let line = Color(light:0x1B1A24,dark:0x000000)
+    public static let ink = Color(light:0x0E1218,dark:0xE8ECF1)
+    /// Hairline edges of panels, bars and bubbles.
+    public static let line = Color(light:0xC6CDD7,dark:0x283039)
     /// Secondary text.
-    public static let muted = Color(light:0x5B5866,dark:0xB7B0C2)
+    public static let muted = Color(light:0x545E6C,dark:0x8C97A6)
     /// Links and quiet buttons.
-    public static let link = Color(light:0x0B6E7A,dark:0x7FE7F2)
+    public static let link = Color(light:0x0A6874,dark:0x5FD4E0)
     /// Your own speech bubbles.
-    public static let mine = Color(light:0xDDF7FA,dark:0x1F3A40)
-    /// Caption boxes: section labels and status lines. Text on it is always captionInk.
-    public static let caption = Color(hex:0xFFE7A0)
-    /// Text on caption boxes, gold and status fills.
-    public static let captionInk = Color(hex:0x1B1A24)
+    public static let mine = Color(light:0xDDF0F4,dark:0x132C34)
+    /// Tags: section labels and status lines. Text on it is ink.
+    public static let caption = Color(light:0xE3E8EE,dark:0x1A212B)
+    /// Text on gold, cyan and green fills.
+    public static let captionInk = Color(hex:0x0B0E13)
     /// Quest gold: the one primary action and what needs you.
     public static let accent = Color(hex:0xF6C25B)
     /// Status: an agent is working. Holographic cyan.
-    public static let working = Color(light:0x7FE7F2,dark:0x3FE0F0)
+    public static let working = Color(light:0x6FDDEA,dark:0x3FE0F0)
     /// The holographic glow around live or selected things.
     public static let glow = Color(hex:0x3FE0F0)
     /// Status: waiting on you. Same gold as the accent.
     public static let needsYou = Color(hex:0xF6C25B)
-    /// Status: finished. The Quest clear stamp.
-    public static let done = Color(hex:0x8FD47E)
+    /// Status: finished.
+    public static let done = Color(hex:0x7CD3A0)
     /// Status: failed. White text on it.
     public static let failed = Color(hex:0xE2574C)
     /// Status: stopped, canceled or offline.
-    public static let off = Color(light:0xB9B3A6,dark:0x56617A)
+    public static let off = Color(light:0xA3ACB8,dark:0x4A5462)
     /// Portrait colours for the crew; FortTheme.crewColor(for:) picks one per Agent.
-    public static let crew: [Color] = [Color(hex:0xA9DCEF),Color(hex:0xF9C79A),Color(hex:0xB9E3A6),Color(hex:0xF6B8C8),Color(hex:0xD9C2F0),Color(hex:0xF6D57A)]
-    /// The golden-hour sky behind the top bar, left to right.
-    public static let sky: [Color] = [Color(hex:0xF6B8C8),Color(hex:0xF9C79A),Color(hex:0xF6D57A),Color(hex:0xA9DCEF)]
-    public static let stroke: CGFloat = 2.5
-    public static let radius: CGFloat = 8
-    public static let bubbleRadius: CGFloat = 18
-    public static let shadow: CGFloat = 4
+    public static let crew: [Color] = [Color(hex:0x7FB6D3),Color(hex:0xD8A27C),Color(hex:0x8DC4A0),Color(hex:0xD493A9),Color(hex:0xA79BD6),Color(hex:0xD3BE7E)]
+    /// The night behind the top bar, left to right. The same in light and dark.
+    public static let sky: [Color] = [Color(hex:0x0B0E13),Color(hex:0x141B25),Color(hex:0x0B0E13)]
+    public static let stroke: CGFloat = 1
+    public static let radius: CGFloat = 4
+    public static let bubbleRadius: CGFloat = 6
+    public static let shadow: CGFloat = 0
     public static let touch: CGFloat = 44
     public static let displayFont = "AvenirNextCondensed-Heavy"
 }

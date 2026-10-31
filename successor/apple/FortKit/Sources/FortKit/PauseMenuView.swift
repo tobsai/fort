@@ -47,21 +47,21 @@ struct PauseMenuView: View {
 
     private func nav(_ menu: PauseMenu) -> some View {
         VStack(alignment:.leading,spacing:6) {
-            Text("Setup").font(FortTheme.display(30)).tracking(1).foregroundStyle(FortTheme.ink).padding(.bottom,10).accessibilityAddTraits(.isHeader)
+            Text("Setup").font(FortTheme.display(22)).tracking(2.2).textCase(.uppercase).foregroundStyle(FortTheme.ink).padding(.bottom,10).accessibilityAddTraits(.isHeader)
             ForEach(menu.entries) { entry in
                 let selected = tab == entry.tab
                 let shape = RoundedRectangle(cornerRadius:FortTheme.radius)
                 Button { tab = entry.tab } label: {
                     HStack(spacing:10) {
                         Image(systemName:entry.tab.symbol).frame(width:20)
-                        Text(entry.tab.title).font(.system(.callout,design:.rounded).weight(.heavy))
+                        Text(entry.tab.title).font(.callout.weight(.semibold))
                         Spacer(minLength:0)
                         if entry.badge > 0 { CaptionBox(text:"\(entry.badge)",fill:FortTheme.needsYou) }
                     }
                     .padding(.horizontal,10).padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
-                    .background(shape.fill(selected ? FortTheme.accent : Color.clear))
-                    .overlay(shape.stroke(selected ? FortTheme.line : Color.clear,lineWidth:FortTheme.stroke))
-                    .foregroundStyle(selected ? FortTheme.captionInk : FortTheme.ink)
+                    .background(shape.fill(selected ? FortTheme.caption : Color.clear))
+                    .overlay(alignment:.leading) { FortTheme.accent.frame(width:selected ? 2 : 0).padding(.vertical,6) }
+                    .foregroundStyle(selected ? FortTheme.ink : FortTheme.muted)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -100,15 +100,15 @@ struct PauseMenuView: View {
                 }
                 NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: {
                     HStack(spacing:10) {
-                        Text("+").font(.system(size:24,weight:.black,design:.rounded)).frame(width:44,height:44)
-                            .overlay(Circle().strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:2,dash:[4,3])))
+                        Text("+").font(.system(size:22,weight:.light)).frame(width:44,height:44)
+                            .overlay(Circle().strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:1,dash:[4,3])))
                         VStack(alignment:.leading,spacing:2) {
-                            Text("New agent").font(.system(.body,design:.rounded).weight(.heavy))
-                            Text("Pick art, a name and a model").font(.caption.weight(.bold)).foregroundStyle(FortTheme.muted)
+                            Text("New agent").font(.body.weight(.semibold))
+                            Text("Pick art, a name and a model").font(.caption.weight(.medium)).foregroundStyle(FortTheme.muted)
                         }
                     }
                     .padding(12).frame(maxWidth:.infinity,alignment:.leading)
-                    .overlay(RoundedRectangle(cornerRadius:FortTheme.radius).strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:2,dash:[6,4])))
+                    .overlay(RoundedRectangle(cornerRadius:FortTheme.radius).strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:1,dash:[6,4])))
                     .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("crew-recruit")
             }.padding(18)
@@ -158,7 +158,7 @@ struct PauseRow<Action: View>: View {
     var body: some View {
         HStack(spacing:12) {
             VStack(alignment:.leading,spacing:3) {
-                Text(title).font(.system(.headline,design:.rounded).weight(.black))
+                Text(title).font(.headline.weight(.semibold))
                 Text(detail).font(.callout).foregroundStyle(FortTheme.muted)
             }
             Spacer(minLength:8)
@@ -171,8 +171,8 @@ struct PauseRow<Action: View>: View {
 struct LampView: View {
     let lamp: StatusLamp
     var body: some View {
-        Circle().fill(color).frame(width:11,height:11).overlay(Circle().stroke(FortTheme.line,lineWidth:2))
-            .shadow(color:lamp == .waiting ? FortTheme.glow : .clear,radius:4)
+        Circle().fill(color).frame(width:8,height:8)
+            .shadow(color:lamp == .off ? .clear : lamp == .waiting ? FortTheme.glow : color,radius:lamp == .waiting ? 4 : 3)
             .accessibilityLabel(label)
     }
     private var color: Color { lamp.color }
