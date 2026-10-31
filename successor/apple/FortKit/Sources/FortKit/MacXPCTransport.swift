@@ -4,7 +4,12 @@ func macPeerRequirement(identifier: String, signingTeam: String) throws -> Strin
     guard identifier.utf8.count <= 255,
           identifier.range(of:"^[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$",options:.regularExpression) != nil,
           signingTeam.range(of:"^[A-Z0-9]{10}$",options:.regularExpression) != nil else { throw ClientError.invalidResponse }
-    return "anchor apple generic and identifier \"\(identifier)\" and certificate leaf[subject.OU] = \"\(signingTeam)\""
+    // Mac App Store and TestFlight copies are re-signed by Apple, whose leaf certificate (marked by
+    // 1.2.840.113635.100.6.1.9) doesn't carry the team in its OU. Apple only signs those for the team that
+    // owns the bundle ID, so accept that marker as well as the team's own certificate, the same pair
+    // Xcode writes into a distribution build's designated requirement. Callers that read signing
+    // information still compare the team identifier exactly.
+    return "anchor apple generic and identifier \"\(identifier)\" and (certificate leaf[field.1.2.840.113635.100.6.1.9] exists or certificate leaf[subject.OU] = \"\(signingTeam)\")"
 }
 
 #if os(macOS)

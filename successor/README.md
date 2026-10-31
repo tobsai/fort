@@ -38,8 +38,37 @@ used it, not when the upload succeeds.
 
 The project's default bundle IDs are fixture IDs (`io.fort.spec058.*`) with
 signing turned off, so the script needs the real App Store IDs passed in. Creating
-App Store records, API keys or profiles needs Toby's approval. The Mac archive
-doesn't embed the host resources yet, so Mac betas run without a local host for now.
+App Store records, API keys or profiles needs Toby's approval.
+
+### Mac beta (with the local runner)
+
+The Mac build carries the FortHost helper (Node 26.5.0, Codex 0.163.0, the process
+guardian), so `PLATFORM=mac` runs `release/mac-testflight.sh` instead of an Xcode
+archive. It builds both apps unsigned, assembles them with `packaging/mac-application.ts`,
+signs inside out for the Mac App Store with `packaging/mac-sign.ts` (each executable
+in its App Sandbox, the runtimes inheriting the helper's), checks every signature
+against `packaging/mac-signing-plan.ts`, builds `Fort.pkg` and uploads it.
+`make -C successor mac-package` does the same with ad-hoc signing and no upload; CI runs it.
+
+One-time setup in the Apple developer account and App Store Connect:
+
+- App IDs `io.mtree.fort` (already the iPhone app) and `io.mtree.fort.host`, both with
+  the App Groups capability and the group `group.io.mtree.fort`.
+- Add macOS to the existing Fort app record (same bundle ID, so it's one app on both).
+- An Apple Distribution certificate and a Mac Installer Distribution certificate in the
+  login keychain of the Mac that runs the script.
+- Two Mac App Store provisioning profiles, one per App ID.
+
+```sh
+export FORT_TEAM_ID=… FORT_MAC_PROFILE_APP=…/Fort.provisionprofile FORT_MAC_PROFILE_HOST=…/FortHost.provisionprofile
+export ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=…
+make -C successor beta PLATFORM=mac
+```
+
+Other bundle IDs or group: `FORT_BUNDLE_ID_MAC`, `FORT_HOST_BUNDLE_ID_MAC`, `FORT_APP_GROUP_MAC`.
+`FORT_SKIP_UPLOAD=1` stops after `Fort.pkg`. The helper reads the owner's Claude Code
+through a temporary sandbox exception, which internal TestFlight accepts but public
+App Review may question.
 
 ## Deploy the hub
 

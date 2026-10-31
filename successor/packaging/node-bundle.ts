@@ -14,14 +14,17 @@ function rpaths(source: string): string[] {
   return [...command('/usr/bin/otool', ['-l', source]).matchAll(/cmd LC_RPATH\n\s+cmdsize \d+\n\s+path (.+) \(offset \d+\)/g)].map(match => match[1]);
 }
 
-function closure(runtime: string): Image[] {
+// Homebrew's Node links Homebrew libraries, so its closure is copied from the Cellar. The official
+// nodejs.org build links only system libraries; --official accepts one extracted release whose root
+// holds bin/node and LICENSE, so the exact pinned version can ship (Homebrew can't pin a patch release).
+function closure(runtime: string, official?: string): Image[] {
   const images = new Map<string, Image>();
   const names = new Map<string, string>();
   const rootRpaths = rpaths(runtime).map(path => path.replace('@loader_path', dirname(runtime)).replace('@executable_path', dirname(runtime)));
   function visit(source: string, kind: Image['kind']): void {
     source = realpathSync(source);
     if (images.has(source)) return;
-    if (!source.startsWith('/opt/homebrew/Cellar/')) throw new Error(`Unreviewed runtime dependency origin: ${source}`);
+    if (official ? !source.startsWith(official + '/') : !source.startsWith('/opt/homebrew/Cellar/')) throw new Error(`Unreviewed runtime dependency origin: ${source}`);
     const name = kind === 'executable' ? 'node' : basename(source);
     if (names.has(name) && names.get(name) !== source) throw new Error(`Conflicting library filename: ${name}`);
     names.set(name, source);
@@ -47,18 +50,29 @@ function closure(runtime: string): Image[] {
   return [...images.values()];
 }
 
-function packageRoot(source: string): string {
+function packageRoot(source: string, official?: string): string {
+  if (official) {
+    if (!source.startsWith(official + '/')) throw new Error(`Missing package provenance: ${source}`);
+    return official;
+  }
   const match = source.match(/^(\/opt\/homebrew\/Cellar\/[^/]+\/[^/]+)\//);
   if (!match) throw new Error(`Missing package provenance: ${source}`);
   return match[1];
 }
 
-function bundle(runtime: string, destination: string, identity: string): void {
-  const images = closure(runtime);
+function officialRoot(runtime: string): string {
+  const root = dirname(dirname(runtime));
+  if (basename(dirname(runtime)) !== 'bin' || basename(runtime) !== 'node' || !/^node-v\d+\.\d+\.\d+-darwin-arm64$/.test(basename(root)) || !existsSync(join(root, 'LICENSE'))) throw new Error('Use bin/node inside an extracted official node-vX.Y.Z-darwin-arm64 release');
+  return root;
+}
+
+function bundle(runtime: string, destination: string, identity: string, official: boolean): void {
+  const officialDirectory = official ? officialRoot(runtime) : undefined;
+  const images = closure(runtime, officialDirectory);
   mkdirSync(destination);
   for (const directory of ['bin', 'lib', 'licenses']) mkdirSync(join(destination, directory));
   const notices: { source: string; file: string; sha256: string }[] = [];
-  for (const root of new Set(images.map(image => packageRoot(image.source)))) {
+  for (const root of new Set(images.map(image => packageRoot(image.source, officialDirectory)))) {
     const licenses = readdirSync(root).filter(name => /^(license|copying|notice|authors)([._-]|$)/i.test(name));
     const sqliteHeader = join(root, 'include/sqlite3.h');
     const sqliteDedication = basename(dirname(root)) === 'sqlite' && existsSync(sqliteHeader) && readFileSync(sqliteHeader, 'utf8').slice(0, 1000).includes('The author disclaims copyright');
@@ -94,9 +108,9 @@ function bundle(runtime: string, destination: string, identity: string): void {
 
 try {
   if (process.platform !== 'darwin') throw new Error('macOS packaging tool');
-  const { values } = parseArgs({ options: { runtime: { type: 'string' }, destination: { type: 'string' }, identity: { type: 'string', default: '-' } }, strict: true });
+  const { values } = parseArgs({ options: { runtime: { type: 'string' }, destination: { type: 'string' }, identity: { type: 'string', default: '-' }, official: { type: 'boolean', default: false } }, strict: true });
   if (!values.runtime || !values.destination) throw new Error('Required: --runtime <installed Node> --destination <new directory>');
-  bundle(realpathSync(values.runtime), resolve(values.destination), values.identity);
+  bundle(realpathSync(values.runtime), resolve(values.destination), values.identity, values.official);
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : 'Node bundle failed') + '\n');
   process.exitCode = 1;

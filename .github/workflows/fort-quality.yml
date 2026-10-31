@@ -113,3 +113,29 @@ jobs:
           swift_bin="$(xcrun swift build --package-path successor/apple/FortKit --scratch-path "$RUNNER_TEMP/fort-swift" --show-bin-path)"
           node successor/apple/native-http-check.ts "$swift_bin/FortNativeCheck"
           node successor/apple/openai-http-check.ts "$swift_bin/FortNativeCheck"
+
+  # Builds Fort.app with the FortHost runner inside, signs it ad hoc the way the TestFlight build is
+  # signed and checks every signature (identifiers, entitlements, sandbox inheritance). No secrets, no upload.
+  mac-package:
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26.5.0
+          package-manager-cache: false
+      - run: npm --prefix successor ci --ignore-scripts --no-audit --no-fund
+      - run: make -C successor mac-package
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+      - name: Show the signing report
+        if: always()
+        shell: bash
+        run: cat successor/release/build/mac-*/signing-report.json 2>/dev/null || echo "No signing report"
