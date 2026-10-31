@@ -70,13 +70,17 @@ jobs:
         with:
           node-version: 26.5.0
           package-manager-cache: false
+      # Playwright drives the Google Chrome the runner image already has, so no browser download.
+      - name: Install Playwright
+        timeout-minutes: 3
+        run: npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-audit --no-fund playwright@1.55.0
       - name: Draw the web screenshots
+        timeout-minutes: 4
         shell: bash
         run: |
-          npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-audit --no-fund playwright@1.55.0
-          "$RUNNER_TEMP/playwright/node_modules/.bin/playwright" install --with-deps chromium
+          google-chrome --version
           ln -s "$RUNNER_TEMP/playwright/node_modules" successor/design/screens/node_modules
-          node successor/design/screens/web-screens.mjs "$RUNNER_TEMP/fort-screens"
+          FORT_CHROME_CHANNEL=chrome node successor/design/screens/web-screens.mjs "$RUNNER_TEMP/fort-screens"
           node successor/design/screens/print-screens.mjs "$RUNNER_TEMP/fort-screens"
 
   # Builds the image Railway deploys and checks that the hub starts and answers, so a file the

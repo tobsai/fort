@@ -45,7 +45,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const { chromium } = await import('playwright');
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.FORT_CHROME_CHANNEL ? { channel: process.env.FORT_CHROME_CHANNEL } : {});
 const open = fixture.conversations.find(conversation => conversation.conversationId === fixture.open);
 try {
   for (const colorScheme of ['light', 'dark']) {
