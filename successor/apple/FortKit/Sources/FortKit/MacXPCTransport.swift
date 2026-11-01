@@ -1,15 +1,18 @@
 import Foundation
 
+/// Leaf markers Apple puts on the certificates it re-signs Mac App Store (6.1.9) and TestFlight (6.1.25.1) apps with.
+let appleStoreLeaf = "certificate leaf[field.1.2.840.113635.100.6.1.9] exists or certificate leaf[field.1.2.840.113635.100.6.1.25.1] exists"
+
 func macPeerRequirement(identifier: String, signingTeam: String) throws -> String {
     guard identifier.utf8.count <= 255,
           identifier.range(of:"^[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$",options:.regularExpression) != nil,
           signingTeam.range(of:"^[A-Z0-9]{10}$",options:.regularExpression) != nil else { throw ClientError.invalidResponse }
-    // Mac App Store and TestFlight copies are re-signed by Apple, whose leaf certificate (marked by
-    // 1.2.840.113635.100.6.1.9) doesn't carry the team in its OU. Apple only signs those for the team that
-    // owns the bundle ID, so accept that marker as well as the team's own certificate, the same pair
-    // Xcode writes into a distribution build's designated requirement. Callers that read signing
-    // information still compare the team identifier exactly.
-    return "anchor apple generic and identifier \"\(identifier)\" and (certificate leaf[field.1.2.840.113635.100.6.1.9] exists or certificate leaf[subject.OU] = \"\(signingTeam)\")"
+    // Mac App Store and TestFlight copies are re-signed by Apple, and Apple's leaf certificate doesn't carry
+    // the team in its OU. The Mac App Store leaf is marked by 1.2.840.113635.100.6.1.9 and the TestFlight
+    // leaf by 1.2.840.113635.100.6.1.25.1. Apple only signs those for the team that owns the bundle ID, so
+    // accept either marker as well as the team's own certificate (the shape Xcode writes into a
+    // distribution build's designated requirement, plus TestFlight's).
+    return "anchor apple generic and identifier \"\(identifier)\" and (" + appleStoreLeaf + " or certificate leaf[subject.OU] = \"\(signingTeam)\")"
 }
 
 #if os(macOS)
