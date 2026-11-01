@@ -103,7 +103,7 @@ final class NativeJourneyTests: XCTestCase {
         app.launch(); defer { app.terminate() }
         let enroll = app.buttons["Enroll this device"]; XCTAssertTrue(enroll.waitForExistence(timeout:15)); activate(enroll)
         try send("Native approval fixture request",in:app)
-        let approve = app.buttons["Approve fixture reply"]
+        let approve = app.buttons["Approve"]
         XCTAssertTrue(approve.waitForExistence(timeout:15))
         XCTAssertFalse(app.staticTexts["Fixture reply saved"].exists)
         reveal(approve,in:app)
@@ -174,12 +174,12 @@ final class NativeJourneyTests: XCTestCase {
         app.launch(); defer { app.terminate() }
         let enroll = app.buttons["Enroll this device"]; XCTAssertTrue(enroll.waitForExistence(timeout:15)); activate(enroll)
         if role == "A" { try send("Native two-device race",in:app) }
-        let action = app.buttons[role == "A" ? "Approve fixture reply" : "Reject"]
+        let action = app.buttons[role == "A" ? "Approve" : "Reject"]
         XCTAssertTrue(action.waitForExistence(timeout:100)); reveal(action,in:app)
         try await control("ready/" + role,environment)
         activate(action)
-        let approved = app.staticTexts["Approval: approved"]
-        let rejected = app.staticTexts["Approval: rejected"]
+        let approved = app.staticTexts["Approved"]
+        let rejected = app.staticTexts["Rejected"]
         let settled = XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in approved.exists || rejected.exists },object:nil)
         await fulfillment(of:[settled],timeout:30)
         let decision = approved.exists ? "approved" : "rejected"
@@ -187,7 +187,7 @@ final class NativeJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts[state].waitForExistence(timeout:15))
         XCTAssertFalse(action.exists)
         app.terminate(); app.launch()
-        XCTAssertTrue(app.staticTexts["Approval: " + decision].waitForExistence(timeout:15))
+        XCTAssertTrue(app.staticTexts[decision == "approved" ? "Approved" : "Rejected"].waitForExistence(timeout:15))
         XCTAssertTrue(app.staticTexts[state].exists)
         try await control("observed/" + role + "/" + decision,environment)
         let proof = XCTAttachment(screenshot:capture(app)); proof.name = "Device " + role + " sees one durable race winner"; proof.lifetime = .keepAlways; add(proof)

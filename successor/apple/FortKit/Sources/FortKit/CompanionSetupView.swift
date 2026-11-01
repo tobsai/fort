@@ -94,7 +94,10 @@ struct CompanionSetupView: View {
 /// The one gold button on a panel; everything else stays plain.
 struct GoldButton: ViewModifier {
     let on: Bool
+    @Environment(\.fortSurface) private var surface
     func body(content: Content) -> some View {
-        if on { content.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black) } else { content.buttonStyle(.bordered) }
+        // On the comic page the main action is the web's gold .primary button, the rest plain comic buttons.
+        if surface == .comic { content.buttonStyle(ComicButtonStyle(fill:on ? FortTheme.accent : FortTheme.panel)) }
+        else if on { content.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black) } else { content.buttonStyle(.bordered) }
     }
 }

@@ -50,7 +50,7 @@ struct TroubleCard: Equatable, Sendable, Identifiable {
         default: break
         }
         if facts.accountNeedsYou { cards.append(TroubleCard(kind:.signedOut,title:"Sign-in needed",line:"Agents on this plan wait until you sign in.",button:"Open Accounts",tab:.accounts)) }
-        if let fault = facts.scheduleFault { cards.append(TroubleCard(kind:.scheduleFault,title:"Schedule trouble",line:fault,button:"Open Playbook",tab:.playbook)) }
+        if let fault = facts.scheduleFault { cards.append(TroubleCard(kind:.scheduleFault,title:"Schedule trouble",line:fault,button:"Open Routines",tab:.playbook)) }
         return cards
     }
 }

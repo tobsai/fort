@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The one menu for everything off the map: Crew, Playbook, Accounts and Devices.
+/// Setup, the one place for everything off the map: Crew, Routines, Accounts and Devices, the same
+/// sections in the same order as the web's Setup sheet, drawn on the same comic page.
 /// Each tab hosts the existing screens, so their checks, confirmations and recovery steps are unchanged.
 struct PauseMenuView: View {
     @Bindable var model: MessengerModel
@@ -19,22 +20,24 @@ struct PauseMenuView: View {
             #if os(macOS)
             HStack(spacing:0) {
                 nav(menu).frame(width:190)
-                HUDStyle.gold.frame(width:2)
-                NavigationStack { content(tab) }.frame(maxWidth:.infinity,maxHeight:.infinity)
+                FortTheme.line.frame(width:3)
+                NavigationStack { content(tab).background(FortTheme.paper) }.frame(maxWidth:.infinity,maxHeight:.infinity)
             }.frame(minWidth:760,minHeight:540)
             #else
             TabView(selection:$tab) {
                 ForEach(menu.entries) { entry in
                     NavigationStack {
-                        content(entry.tab).toolbar { ToolbarItem(placement:.cancellationAction) { Button("Resume") { dismiss() }.accessibilityIdentifier("pause-resume") } }
+                        content(entry.tab).background(FortTheme.paper).toolbar { ToolbarItem(placement:.cancellationAction) { Button("Done") { dismiss() }.accessibilityIdentifier("pause-resume") } }
                     }
                     .tabItem { Label(entry.tab.title,systemImage:entry.tab.symbol) }.badge(entry.badge).tag(entry.tab)
                 }
             }
             #endif
         }
-        .tint(HUDStyle.gold)
-        .environment(\.colorScheme,.dark)
+        // The comic page in light and noir, following the system like the web does.
+        .tint(FortTheme.accent)
+        .foregroundStyle(FortTheme.ink)
+        .environment(\.fortSurface,.comic)
         .sheet(isPresented:$showRoutines) { RoutineLibrary(model:model) }
         .sheet(isPresented:$showLibrary) { WorkspaceEditor(model:model) }
         #if os(macOS)
@@ -44,19 +47,21 @@ struct PauseMenuView: View {
 
     private func nav(_ menu: PauseMenu) -> some View {
         VStack(alignment:.leading,spacing:6) {
-            Text("PAUSED").font(.system(size:30,weight:.black,design:.rounded)).foregroundStyle(HUDStyle.gold).padding(.bottom,10)
+            Text("Setup").font(FortTheme.display(22)).tracking(2.2).textCase(.uppercase).foregroundStyle(FortTheme.ink).padding(.bottom,10).accessibilityAddTraits(.isHeader)
             ForEach(menu.entries) { entry in
                 let selected = tab == entry.tab
+                let shape = RoundedRectangle(cornerRadius:FortTheme.radius)
                 Button { tab = entry.tab } label: {
                     HStack(spacing:10) {
                         Image(systemName:entry.tab.symbol).frame(width:20)
-                        Text(entry.tab.title.uppercased()).font(.system(.callout,design:.rounded).weight(.heavy))
+                        Text(entry.tab.title).font(.callout.weight(.semibold))
                         Spacer(minLength:0)
-                        if entry.badge > 0 { Text("\(entry.badge)").font(.caption.weight(.black)).padding(.horizontal,5).background(.red,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black) }
+                        if entry.badge > 0 { CaptionBox(text:"\(entry.badge)",fill:FortTheme.needsYou) }
                     }
                     .padding(.horizontal,10).padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
-                    .background(selected ? HUDStyle.gold : .clear,in:RoundedRectangle(cornerRadius:5))
-                    .foregroundStyle(selected ? Color.black : Color.primary)
+                    .background(shape.fill(selected ? FortTheme.caption : Color.clear))
+                    .overlay(alignment:.leading) { FortTheme.accent.frame(width:selected ? 2 : 0).padding(.vertical,6) }
+                    .foregroundStyle(selected ? FortTheme.ink : FortTheme.muted)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -65,10 +70,10 @@ struct PauseMenuView: View {
                 .accessibilityValue(entry.badge > 0 ? "\(entry.badge) need you" : "")
             }
             Spacer(minLength:0)
-            Button { dismiss() } label: { Text("RESUME").font(.system(.callout,design:.rounded).weight(.heavy)).frame(maxWidth:.infinity) }
-                .buttonStyle(.bordered).keyboardShortcut(.cancelAction).accessibilityIdentifier("pause-resume")
+            Button { dismiss() } label: { Text("Done").frame(maxWidth:.infinity) }
+                .buttonStyle(ComicButtonStyle(fill:FortTheme.accent)).keyboardShortcut(.cancelAction).accessibilityIdentifier("pause-resume")
         }
-        .padding(14).frame(maxHeight:.infinity,alignment:.top).background(HUDStyle.panel)
+        .padding(14).frame(maxHeight:.infinity,alignment:.top).background(FortTheme.bar)
     }
 
     @ViewBuilder private func content(_ tab: PauseTab) -> some View {
@@ -80,25 +85,30 @@ struct PauseMenuView: View {
         }
     }
 
+    /// The crew, listed like the web's Setup: each Agent's badge, name and "provider · model", then New agent.
     private var crew: some View {
         ScrollView {
             #if DEBUG
             if model.isInteractiveFixture { Form { InteractiveFixtureControls(model:model) }.formStyle(.grouped).frame(minHeight:150) }
             #endif
-            LazyVGrid(columns:[GridItem(.adaptive(minimum:160),spacing:12)],spacing:12) {
+            VStack(alignment:.leading,spacing:12) {
                 ForEach(model.agents) { agent in
                     NavigationLink { AgentSettingsEditor(model:model,agent:agent) } label: {
-                        CrewCard(model:model,agent:agent,className:PauseMenu.className(provider:agent.binding.provider,runtimes:model.runtimes))
+                        HStack { CrewRow(model:model,agent:agent,badge:44); Spacer(minLength:8); Image(systemName:"chevron.right").foregroundStyle(FortTheme.muted) }
+                            .padding(12).frame(maxWidth:.infinity,alignment:.leading).comicPanel().contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("crew-\(agent.agentId)")
                 }
                 NavigationLink { AgentSettingsEditor(model:model,agent:nil) } label: {
-                    VStack(spacing:6) {
-                        Text("+").font(.system(size:44,weight:.black,design:.rounded)).foregroundStyle(HUDStyle.gold)
-                        Text("RECRUIT").font(.system(.title3,design:.rounded).weight(.black))
-                        Text("Pick art, a name and a class").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing:10) {
+                        Text("+").font(.system(size:22,weight:.light)).frame(width:44,height:44)
+                            .overlay(Circle().strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:1,dash:[4,3])))
+                        VStack(alignment:.leading,spacing:2) {
+                            Text("New agent").font(.body.weight(.semibold))
+                            Text("Pick art, a name and a model").font(.caption.weight(.medium)).foregroundStyle(FortTheme.muted)
+                        }
                     }
-                    .frame(maxWidth:.infinity,minHeight:170).padding(12)
-                    .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(style:StrokeStyle(lineWidth:1.5,dash:[6,4])).foregroundStyle(.secondary))
+                    .padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                    .overlay(RoundedRectangle(cornerRadius:FortTheme.radius).strokeBorder(FortTheme.line,style:StrokeStyle(lineWidth:1,dash:[6,4])))
                     .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("crew-recruit")
             }.padding(18)
@@ -110,53 +120,33 @@ struct PauseMenuView: View {
         ScrollView {
             VStack(spacing:10) {
                 if model.supportsRoutines {
-                    PauseRow(title:"Routines",detail:"Plays your crew runs start to finish, and when they repeat.") {
-                        Button("Open") { showRoutines = true }.buttonStyle(.borderedProminent).foregroundStyle(.black).accessibilityIdentifier("playbook-routines")
+                    PauseRow(title:"Your routines",detail:"Plays your crew runs start to finish, and when they repeat.") {
+                        Button("Open") { showRoutines = true }.modifier(GoldButton(on:true)).accessibilityIdentifier("playbook-routines")
                     }
                 }
                 if model.hasWorkspace && !model.isInteractiveFixture {
                     PauseRow(title:"Skills and conversations",detail:"Teach skills and set up shared conversations.") {
-                        Button("Open") { showLibrary = true }.buttonStyle(.bordered).accessibilityIdentifier("playbook-library")
+                        Button("Open") { showLibrary = true }.modifier(GoldButton(on:false)).accessibilityIdentifier("playbook-library")
                     }
                 }
                 if !model.supportsRoutines && (!model.hasWorkspace || model.isInteractiveFixture) {
-                    Text("Nothing to set up here yet. Plays appear once this Fort supports routines.").font(.callout).foregroundStyle(.secondary).frame(maxWidth:.infinity,alignment:.leading)
+                    Text("Nothing to set up here yet. Routines appear once this Fort supports them.").font(.callout).foregroundStyle(.secondary).frame(maxWidth:.infinity,alignment:.leading)
                 }
             }.padding(18)
         }
-        .navigationTitle("Playbook")
+        .navigationTitle("Routines")
     }
 
     private var accounts: some View {
         ScrollView {
             VStack(alignment:.leading,spacing:12) {
-                Text("Fort only uses your own Claude and ChatGPT plans. It never falls back to API billing.").font(.callout).foregroundStyle(.secondary)
+                Text("Fort only uses your own Claude and ChatGPT plans. It never falls back to API billing.").font(.callout).foregroundStyle(FortTheme.muted)
                 #if os(macOS)
                 AccountSignInPanel(model:model)
                 #endif
             }.padding(18)
         }
         .navigationTitle("Accounts")
-    }
-}
-
-private struct CrewCard: View {
-    let model: MessengerModel
-    let agent: Agent
-    let className: String
-    var body: some View {
-        VStack(alignment:.leading,spacing:8) {
-            AgentPortraitView(model:model,agent:agent,size:72)
-            HStack(spacing:6) {
-                Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black)).lineLimit(1)
-                Spacer(minLength:4)
-                Text(className.uppercased()).font(.caption2.weight(.heavy)).lineLimit(1)
-                    .padding(.horizontal,5).padding(.vertical,2).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(.black)
-            }
-            Text(agent.binding.selectedModel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-        }
-        .padding(12).frame(maxWidth:.infinity,alignment:.leading).hudFrame().contentShape(Rectangle())
-        .accessibilityElement(children:.combine)
     }
 }
 
@@ -168,8 +158,8 @@ struct PauseRow<Action: View>: View {
     var body: some View {
         HStack(spacing:12) {
             VStack(alignment:.leading,spacing:3) {
-                Text(title.uppercased()).font(.system(.headline,design:.rounded).weight(.black))
-                Text(detail).font(.callout).foregroundStyle(.secondary)
+                Text(title).font(.headline.weight(.semibold))
+                Text(detail).font(.callout).foregroundStyle(FortTheme.muted)
             }
             Spacer(minLength:8)
             action()
@@ -181,16 +171,17 @@ struct PauseRow<Action: View>: View {
 struct LampView: View {
     let lamp: StatusLamp
     var body: some View {
-        Circle().fill(color).frame(width:11,height:11).shadow(color:color.opacity(lamp == .off ? 0 : 0.8),radius:4)
+        Circle().fill(color).frame(width:8,height:8)
+            .shadow(color:lamp == .off ? .clear : lamp == .waiting ? FortTheme.glow : color,radius:lamp == .waiting ? 4 : 3)
             .accessibilityLabel(label)
     }
     private var color: Color { lamp.color }
     private var label: String { switch lamp { case .ready: "Ready"; case .waiting: "In progress"; case .attention: "Needs you"; case .failed: "Failed"; case .off: "Not available" } }
 }
 
-/// One colour per state on every surface: blue working, amber needs you, green done, red failed.
+/// One colour per state on every surface, the web's tokens: cyan working, gold needs you, green done, red failed.
 extension StatusLamp {
-    var color: Color { switch self { case .ready: .green; case .waiting: .blue; case .attention: .orange; case .failed: .red; case .off: .gray } }
+    var color: Color { switch self { case .ready: FortTheme.done; case .waiting: FortTheme.working; case .attention: FortTheme.needsYou; case .failed: FortTheme.failed; case .off: FortTheme.off } }
 }
 
 /// Recovery and rarely used controls, tucked under a dashed drawer at the bottom of a tab. Nothing in it is removed, only moved.

@@ -1,10 +1,10 @@
 import Foundation
 
-/// The tabs of the pause menu, the one place for everything off the map.
+/// The sections of Setup, the one place for everything off the map, in the same order as the web: Crew, Routines, Accounts, Devices.
 enum PauseTab: String, CaseIterable, Identifiable, Sendable {
     case crew, playbook, accounts, devices
     var id: String { rawValue }
-    var title: String { switch self { case .crew: "Crew"; case .playbook: "Playbook"; case .accounts: "Accounts"; case .devices: "Devices" } }
+    var title: String { switch self { case .crew: "Crew"; case .playbook: "Routines"; case .accounts: "Accounts"; case .devices: "Devices" } }
     var symbol: String { switch self { case .crew: "person.3.fill"; case .playbook: "play.rectangle.on.rectangle"; case .accounts: "bolt.fill"; case .devices: "desktopcomputer" } }
 }
 

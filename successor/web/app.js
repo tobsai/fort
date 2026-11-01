@@ -106,7 +106,7 @@ function desk() {
       h('div.sechead', {}, h('h2.title', { id: 'quest-title' }, 'Quest log'), quests.length ? h('span.caption.gold', {}, quests.length === 1 ? '1 needs you' : `${quests.length} need you`) : null),
       state.problem ? h('p.error', { role: 'alert' }, state.problem) : null,
       quests.length ? quests.map(questCard) : h('p.panel.calm', {}, 'Nothing needs you. Your crew is on it.'),
-      cleared.map(item => h('div.panel.cleared', {}, h('span.stamp' + (item.dropped ? '.dropped' : ''), {}, item.dropped ? 'Dropped' : 'Quest clear!'), h('span.muted', {}, item.title)))),
+      cleared.map(item => h('div.panel.cleared', {}, h('span.stamp' + (item.dropped ? '.dropped' : ''), {}, item.dropped ? 'Dropped' : 'Cleared'), h('span.muted', {}, item.title)))),
     h('section.col', { 'aria-labelledby': 'chats-title' },
       h('div.sechead', {}, h('h2.title', { id: 'chats-title' }, 'Chats')),
       panels.length ? h('div.panels', {}, panels.map(chatPanel)) : h('p.panel.calm', {}, 'No agents yet. Open Setup to add one.')));
@@ -150,6 +150,14 @@ function chatPanel(panel) {
       h('span', {}, (run.agentName ? run.agentName + ': ' : '') + run.text))) : h('span.muted', {}, 'Nothing running')));
 }
 const providerName = provider => state.installation?.runtimes?.find(runtime => runtime.provider === provider)?.name ?? provider;
+// An Agent's badge: its initial on its crew colour, the same slot as FortTheme.crewSlot in the apps.
+const portrait = agent => h('span.portrait.crew-' + crewSlot(agent.agentId), { 'aria-hidden': 'true', title: agent.name }, [...agent.name.trim()][0]?.toUpperCase() ?? '?');
+// The chat header's one light and sentence, like ChatQuiet.header in the apps.
+function headerLine() {
+  const online = state.runners.some(runner => runner.online);
+  const [tone, text] = online ? ['done', 'Ready'] : state.runners.length ? ['failed', 'Your Mac is offline'] : ['off', 'No Mac connected'];
+  return h('span.headline', {}, h('span.lamp.' + tone, { 'aria-hidden': 'true' }), text);
+}
 async function select(conversationId) { state.problem = null; try { await openConversation(conversationId); } catch (error) { state.problem = error.message; } render(); }
 
 function chat() {
@@ -158,8 +166,11 @@ function chat() {
   const participants = state.agents.filter(agent => conversation?.participantAgentIds.includes(agent.agentId));
   const rows = transcriptRows(state.snapshot).map(row => {
     if (row.kind === 'message') {
-      const message = row.message;
-      return h('div.msg.' + message.role, {}, message.role === 'assistant' || participants.length > 1 ? h('span.who', {}, message.role === 'user' ? 'You' + (message.recipientAgentName ? ' → ' + message.recipientAgentName : '') : message.agentName ?? 'Agent') : null, message.text);
+      // A speech bubble, the same as the apps: an Agent on the left beside its badge, you on the right.
+      const message = row.message, mine = message.role === 'user';
+      const author = mine ? null : state.agents.find(agent => agent.agentId === message.agentId) ?? state.agents.find(agent => agent.name === message.agentName);
+      const bubble = h('div.msg.' + message.role, {}, !mine || participants.length > 1 ? h('span.who', {}, mine ? 'You' + (message.recipientAgentName ? ' → ' + message.recipientAgentName : '') : message.agentName ?? 'Agent') : null, message.text);
+      return h('div.msgrow.' + message.role, {}, mine ? null : portrait(author ?? { agentId: message.agentName ?? '', name: message.agentName ?? 'Agent' }), bubble);
     }
     if (row.kind === 'run') {
       const status = runStatus(row.run);
@@ -181,7 +192,7 @@ function chat() {
     } catch (error) { state.problem = error.message; render(); }
   };
   return h('section.chat', {},
-    h('header', {}, h('button.back', { onclick: () => { state.current = null; state.problem = null; render(); } }, '‹ Quest log'), h('h2', {}, conversation?.name ?? 'Chat')),
+    h('header', {}, h('button.back', { onclick: () => { state.current = null; state.problem = null; render(); } }, '‹ Quest log'), h('h2', {}, conversation?.name ?? 'Chat'), headerLine()),
     h('div.messages', {}, rows.length ? rows : h('p.empty', {}, 'No messages yet.')),
     state.problem ? h('p.error.problem', { role: 'alert' }, state.problem) : null,
     h('form.composer', { onsubmit: event => { event.preventDefault(); send(); } }, participants.length > 1 ? recipient : null, input, h('button.primary', { type: 'submit' }, 'Send')));
@@ -207,8 +218,9 @@ function approvalCard(approval) {
 
 // ---------- Setup sheet ----------
 function setupSheet() {
-  const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.link', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
-  body.append(macSection(), accountSection(), agentSection(), phoneSection(), browserSection());
+  // The same sections, in the same order, as Setup in the Mac and iPhone apps: Crew, Accounts, Devices.
+  const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
+  body.append(crewSection(), accountSection(), h('section', {}, h('h3', {}, 'Devices'), macSection(), phoneSection(), browserSection()));
   return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) { state.sheet = false; render(); } } }, body);
 }
 
@@ -226,7 +238,7 @@ function macSection() {
   } }, 'Add a Mac');
   const node = state.installation?.runtimes?.[0]?.hostId;
   const where = state.pool ? `This hub sends each run to the first connected Mac of ${state.pool.runners.map(id => `“${id}”`).join(', then ')}.` : `This hub sends turns to the Mac named “${node ?? '?'}”.`;
-  return h('section', {}, h('h3', {}, 'Macs'), h('p.muted', {}, `Your Macs run the turns; the hub only routes them. ${where}`), list, add, out, error);
+  return h('div.sub', {}, h('h4', {}, 'Macs'), h('p.muted', {}, `Your Macs run the turns; the hub only routes them. ${where}`), list, add, out, error);
 }
 // A pooled hub names its Macs; an invitation is for the first one not enrolled yet.
 function nextRunnerId() {
@@ -276,7 +288,8 @@ async function confirmAccount(runtime, line, button, error) {
   button.disabled = false;
 }
 
-function agentSection() {
+// Every Agent the way the apps list it (badge, name, "provider · model"), then the form for a new one.
+function crewSection() {
   const error = h('p.error'), runtimes = state.installation?.runtimes ?? [];
   const name = h('input', { id: 'agent-name', maxlength: 128, required: true });
   const provider = h('select', { id: 'agent-provider' }, runtimes.map(runtime => h('option', { value: runtime.provider }, runtime.name)));
@@ -301,7 +314,8 @@ function agentSection() {
   } }, h('label', { for: 'agent-name' }, 'Name'), name, h('label', { for: 'agent-provider' }, 'Provider'), provider,
     h('label', { for: 'agent-model' }, 'Model'), model, models, h('label', { for: 'agent-instructions' }, 'Instructions'), instructions,
     h('div.row', {}, h('span'), h('button.primary', { type: 'submit' }, 'Add agent')), error);
-  return h('section', {}, h('h3', {}, 'New agent'), form);
+  const crew = state.agents.map(agent => h('div.row.crewrow', {}, h('span.crewline', {}, portrait(agent), h('span', {}, h('strong', {}, agent.name), h('span.muted.small', {}, [providerName(agent.binding.provider), agent.binding.selectedModel].filter(Boolean).join(' · '))))));
+  return h('section', {}, h('h3', {}, 'Crew'), crew.length ? crew : h('p.muted', {}, 'No agents yet.'), h('h4', {}, 'New agent'), form);
 }
 
 function phoneSection() {
@@ -320,11 +334,11 @@ function phoneSection() {
         h('div.code', {}, 'fort-invite:' + encode({ v: 1, address: location.origin, installationId: state.device.installationId, invitationId: invitation.invitationId, code: invitation.code })));
     } catch (problem) { say(error, problem); }
   }
-  return h('section', {}, h('h3', {}, 'iPhone'), h('p.muted', {}, 'The Fort iPhone app talks to this hub directly, from anywhere.'), out, error);
+  return h('div.sub', {}, h('h4', {}, 'iPhone'), h('p.muted', {}, 'The Fort iPhone app talks to this hub directly, from anywhere.'), out, error);
 }
 
 function browserSection() {
-  return h('section', {}, h('h3', {}, 'This browser'), h('p.muted', {}, 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.'),
+  return h('div.sub', {}, h('h4', {}, 'This browser'), h('p.muted', {}, 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.'),
     h('button.link', { onclick: () => signOut().then(() => location.reload()) }, 'Sign out of Google'), ' ',
     h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); signOut().finally(() => location.reload()); } } }, 'Forget this browser'));
 }

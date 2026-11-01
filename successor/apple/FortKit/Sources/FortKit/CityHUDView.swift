@@ -38,18 +38,18 @@ struct CityHUDView: View {
 
     private func topBar(_ hud: CityHUD) -> some View {
         HStack(spacing:16) {
-            Text("FORT").font(.system(size:22,weight:.black,design:.rounded)).foregroundStyle(HUDStyle.gold)
+            Text("FORT").font(.system(size:22,weight:.black)).foregroundStyle(HUDStyle.gold)
             VStack(alignment:.leading,spacing:2) {
-                Text(hud.title).font(.system(.headline,design:.rounded).weight(.heavy))
+                Text(hud.title).font(.system(.headline).weight(.heavy))
                 if let day = hud.dayLabel, let left = hud.daysLeft { Text("\(day) · \(left == 1 ? "1 day" : "\(left) days") left").font(.caption).foregroundStyle(.secondary) }
             }
             Spacer()
-            Label("\(hud.points) pts",systemImage:"diamond.fill").font(.system(.headline,design:.rounded).weight(.bold)).foregroundStyle(HUDStyle.gold)
-            if let grade = hud.grade { Text(grade).font(.system(.title3,design:.rounded).weight(.black)).padding(.horizontal,8).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:6)).foregroundStyle(.black).accessibilityLabel("Grade \(grade)") }
+            Label("\(hud.points) pts",systemImage:"diamond.fill").font(.system(.headline).weight(.bold)).foregroundStyle(HUDStyle.gold)
+            if let grade = hud.grade { Text(grade).font(.system(.title3).weight(.black)).padding(.horizontal,8).background(HUDStyle.gold,in:RoundedRectangle(cornerRadius:6)).foregroundStyle(.black).accessibilityLabel("Grade \(grade)") }
             Button("Plan Week \((model.weeks.first?.number ?? 0) + 1)",systemImage:"map") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands).accessibilityIdentifier("hud-plan")
             Button("Messages",systemImage:"bubble.left.and.bubble.right",action:showMessages).buttonStyle(.bordered).accessibilityIdentifier("hud-messages")
             // Esc pauses, like a game, unless a conversation is open: then Esc closes the conversation first.
-            Button("Menu",systemImage:"line.3.horizontal",action:openMenu).buttonStyle(.bordered).tint(HUDStyle.gold)
+            Button("Setup",systemImage:"slider.horizontal.3",action:openMenu).buttonStyle(.bordered).tint(HUDStyle.gold)
                 .keyboardShortcut(talkingTo == nil ? .cancelAction : KeyboardShortcut(",",modifiers:.command)).accessibilityIdentifier("pause-menu-open")
         }
         .padding(.horizontal,16).padding(.vertical,10)
@@ -63,7 +63,7 @@ struct CityHUDView: View {
                     HStack(spacing:10) {
                         if let agent = model.agents.first(where:{ $0.agentId == member.id }) { AgentPortraitView(model:model,agent:agent,size:44) } else { AgentAvatarView(avatar:member.avatar,size:44) }
                         VStack(alignment:.leading,spacing:3) {
-                            HStack { Text(member.name).font(.system(.headline,design:.rounded).weight(.heavy)); Spacer(); if index < 9 { Text("⌘\(index + 1)").font(.caption2.monospaced()).padding(.horizontal,4).overlay(RoundedRectangle(cornerRadius:3).stroke(.secondary)) } }
+                            HStack { Text(member.name).font(.system(.headline).weight(.heavy)); Spacer(); if index < 9 { Text("⌘\(index + 1)").font(.caption2.monospaced()).padding(.horizontal,4).overlay(RoundedRectangle(cornerRadius:3).stroke(.secondary)) } }
                             Text(stateLabel(member.state)).font(.caption2.weight(.bold)).foregroundStyle(stateColor(member.state))
                             if let next = member.nextTask { Text(next).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                         }
@@ -123,7 +123,7 @@ struct CityHUDView: View {
         return HStack(alignment:.top,spacing:14) {
             AgentPortraitView(model:model,agent:agent,size:88)
             VStack(alignment:.leading,spacing:8) {
-                HStack { Text(agent.name.uppercased()).font(.system(.title3,design:.rounded).weight(.black)).foregroundStyle(HUDStyle.gold); Spacer(); Button("Close",systemImage:"xmark") { talkingTo = nil }.labelStyle(.iconOnly).keyboardShortcut(.cancelAction) }
+                HStack { Text(agent.name.uppercased()).font(.system(.title3).weight(.black)).foregroundStyle(HUDStyle.gold); Spacer(); Button("Close",systemImage:"xmark") { talkingTo = nil }.labelStyle(.iconOnly).keyboardShortcut(.cancelAction) }
                 if messages.isEmpty { Text("Say something to \(agent.name).").foregroundStyle(.secondary) }
                 ForEach(messages) { message in
                     Text(message.text).font(.callout).foregroundStyle(message.role == "user" ? .secondary : .primary).lineLimit(4).frame(maxWidth:.infinity,alignment:message.role == "user" ? .trailing : .leading)
@@ -137,7 +137,7 @@ struct CityHUDView: View {
     }
     private var emptyWeek: some View {
         VStack(spacing:8) {
-            Text("No week planned yet").font(.system(.title2,design:.rounded).weight(.black))
+            Text("No week planned yet").font(.system(.title2).weight(.black))
             Text("Pick this week's goals and lay out the blueprint. The city builds itself from what gets done.").font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Plan a week") { planning = true }.buttonStyle(.borderedProminent).tint(HUDStyle.gold).foregroundStyle(.black).disabled(!model.supportsCommands)
         }.padding(20).frame(maxWidth:360).hudFrame()
@@ -162,9 +162,14 @@ enum HUDStyle {
 }
 struct HUDFrame: ViewModifier {
     let highlight: Bool
+    @Environment(\.fortSurface) private var surface
     func body(content: Content) -> some View {
-        content.background(HUDStyle.panel,in:RoundedRectangle(cornerRadius:10))
-            .overlay(RoundedRectangle(cornerRadius:10).stroke(highlight ? HUDStyle.gold : HUDStyle.gold.opacity(0.45),lineWidth:highlight ? 2 : 1))
+        // On the comic page (Quest log, chat, Setup) a framed box is a comic panel, the same as the web's .panel.
+        if surface == .comic { content.comicPanel(live:highlight) }
+        else {
+            content.background(HUDStyle.panel,in:RoundedRectangle(cornerRadius:10))
+                .overlay(RoundedRectangle(cornerRadius:10).stroke(highlight ? HUDStyle.gold : HUDStyle.gold.opacity(0.45),lineWidth:highlight ? 2 : 1))
+        }
     }
 }
 extension View { func hudFrame(highlight: Bool = false) -> some View { modifier(HUDFrame(highlight:highlight)) } }
