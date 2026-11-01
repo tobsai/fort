@@ -10,7 +10,7 @@
 // but the result can't be uploaded or run as the owner's host. Uses identities already in the keychain;
 // it never reads, exports or stores a key or certificate.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,24 @@ function signStep(app: string, step: SigningStep, identity: string, scratch: str
   run('/usr/bin/codesign', [...args, target]);
 }
 
+// The installer package installs Fort.app owned by root, so every file must be readable by everyone else, or macOS
+// can't check the app's signature when Toby runs it and App Store Connect refuses the upload (ITMS-90255).
+// Assembly writes private 0600/0700 files, so this opens them before signing: directories and executables 0755,
+// everything else 0644. Symbolic links are left alone. Returns how many entries changed.
+export function makeReadable(root: string): number {
+  let changed = 0;
+  const visit = (path: string) => {
+    const info = lstatSync(path);
+    if (info.isSymbolicLink()) return;
+    const mode = info.isDirectory() || info.mode & 0o111 ? 0o755 : 0o644;
+    if (!info.isDirectory() && !info.isFile()) throw new Error('Unexpected file type in Fort.app: ' + path);
+    if ((info.mode & 0o7777) !== mode) { chmodSync(path, mode); changed++; }
+    if (info.isDirectory()) for (const name of readdirSync(path)) visit(join(path, name));
+  };
+  visit(root);
+  return changed;
+}
+
 export function signApplication(options: { app: string; mode: SigningMode; appIdentity: string; installerIdentity?: string; clientProfile?: string; helperProfile?: string; helperEntitlements?: string; packagePath: string; reportPath: string }) {
   if (process.platform !== 'darwin') throw new Error('Signing runs on macOS');
   const { app, mode } = options;
@@ -70,6 +88,7 @@ export function signApplication(options: { app: string; mode: SigningMode; appId
   if (!configBytes.equals(readFileSync(join(helper, 'Contents/Resources/fort-host.json')))) throw new Error('Client and helper host configurations differ');
   const config: HostConfiguration = hostConfiguration(JSON.parse(configBytes.toString('utf8')));
   for (const name of readdirSync(app, { recursive: true, encoding: 'utf8' })) if (name.endsWith('/_CodeSignature') || name === 'Contents/_CodeSignature') throw new Error('Sign a freshly assembled Fort.app: found ' + name);
+  makeReadable(app);
   const exceptions: Entitlements = options.helperEntitlements ? helperExceptions(json(options.helperEntitlements)) : {};
   const frameworks = join(helper, 'Contents/Frameworks');
   const libraries = existsSync(frameworks) ? readdirSync(frameworks) : [];
