@@ -37,6 +37,7 @@ class APIError extends Error {
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
 }
 function fail(status: number, code: string, message: string): never { throw new APIError(status, code, message); }
+const MAX_BROWSERS = 10;
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 function record(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) fail(400, 'invalidCommand', 'Expected an object.');
@@ -317,6 +318,13 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     return row ? JSON.parse(String(row.data)) as Record<string, { deviceId: string; hash: string }> : {};
   };
   const saveRunnerClients = (clients: Record<string, { deviceId: string; hash: string }>) => db.prepare("INSERT OR REPLACE INTO metadata VALUES ('runnerClients',?)").run(JSON.stringify(clients));
+  // Browsers added on a hub by Google sign-in, by device ID (Spec 066, revision 2026-11-02). Each has its own key, removable on its own.
+  type BrowserClient = { hash: string; name: string; email: string; addedAt: string };
+  const browserClients = (): Record<string, BrowserClient> => {
+    const row = db.prepare("SELECT data FROM metadata WHERE key='browserClients'").get();
+    return row ? JSON.parse(String(row.data)) as Record<string, BrowserClient> : {};
+  };
+  const saveBrowserClients = (clients: Record<string, BrowserClient>) => db.prepare("INSERT OR REPLACE INTO metadata VALUES ('browserClients',?)").run(JSON.stringify(clients));
   const authenticate = (request: IncomingMessage) => {
     if (closed) fail(503,'closed','This session has stopped.');
     if (request.headers.origin !== undefined) fail(403, 'originDenied', 'Browser origins are not enabled.');
@@ -326,12 +334,14 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     // A Mac enrolled with this hub may also use it as a client (Spec 063, revision 2026-10-31): its own credential, revoked with the Mac.
     const client = !device && token ? Object.values(runnerClients()).find(entry => entry.hash === digest(token)) : undefined;
     if (client) return id(client.deviceId);
+    const browser = !device && !client && token ? Object.entries(browserClients()).find(([, entry]) => entry.hash === digest(token)) : undefined;
+    if (browser) return id(browser[0]);
     if (!device || (!(ownerPairingPolicy && device.expires===0) && Number(device.expires) <= now())) fail(401, 'unauthorized', 'Device authorization is missing or expired.');
     if(ownerPairingPolicy && ownerControl?.deviceId!==device.id && !companions.isCompanion(id(device.id)))fail(401,'unauthorized','This device has no current membership.');
     return id(device.id);
   };
   const pairingStatus=(deviceId:string):PairingStatus=>{
-    if(Object.values(runnerClients()).some(entry=>entry.deviceId===deviceId))return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:null,role:'companion'};
+    if(Object.values(runnerClients()).some(entry=>entry.deviceId===deviceId) || Object.hasOwn(browserClients(),deviceId))return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:null,role:'companion'};
     const device=db.prepare('SELECT expires FROM devices WHERE id=?').get(deviceId);
     if(!device)fail(401,'unauthorized','This pairing has been removed.');
     return {deviceId,mode:ownerPairingPolicy?'owner-local':'temporary',expiresAt:ownerPairingPolicy&&device.expires===0?null:new Date(Number(device.expires)).toISOString(),...(ownerPairingPolicy && ownerControl?.deviceId!==deviceId && companions.isCompanion(deviceId)?{role:'companion' as const}:{})};
@@ -820,6 +830,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const expires = policy.expiresAfterDays === null ? 0 : now() + policy.expiresAfterDays * 86_400_000;
       db.prepare('DELETE FROM devices WHERE expires>0 AND expires<=?').run(now());
       db.prepare('DELETE FROM enrollment').run();
+      db.prepare("DELETE FROM metadata WHERE key='browserClients'").run();
       companions.clear();
       db.prepare('INSERT INTO devices VALUES (?,?,?)').run(deviceId, digest(token), expires);
       saveOwnerSetup({ ...setup, state: 'completed', deviceId });
@@ -1414,7 +1425,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     try {
       await stopRuntime();
       if (closed) fail(503, 'closed', 'This session has stopped. Retry recovery with the local host.');
-      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key='runnerClients'").run(); db.prepare('DELETE FROM enrollment').run(); companions.clear(); });
+      if (disconnect) transaction(() => { db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key IN ('runnerClients','browserClients')").run(); db.prepare('DELETE FROM enrollment').run(); companions.clear(); });
     } catch {
       fail(503, 'stopUnconfirmed', 'Runtime shutdown was not confirmed. Pairing is retained for recovery.');
     } finally { stopCommandActive = false; }
@@ -1530,8 +1541,32 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     saveRunnerClients({ ...runnerClients(), [id(runnerId)]: { deviceId, hash: digest(token) } });
     return { installationId: installation.installationId, deviceId, token };
   });
+  // A new key for a browser that signed in to the hub with Google. Only an owned hub adds browsers, and only a few.
+  // signedInAt is when that browser signed in with Google: a sign-in older than the last removal adds nothing, so a removed browser needs a new one.
+  const browsersRemovedAt = () => Number(db.prepare("SELECT data FROM metadata WHERE key='browsersRemovedAt'").get()?.data ?? 0);
+  const issueBrowserClient = (input: { name: string; email: string; signedInAt: number }) => transaction(() => {
+    if (closed) fail(503, 'closed', 'This session has stopped.');
+    if (!(input.signedInAt > browsersRemovedAt())) fail(403, 'signInAgain', 'Sign in with Google again to add this browser.');
+    if (!ownerControl || !db.prepare('SELECT 1 FROM devices WHERE id=? AND (expires=0 OR expires>?)').get(ownerControl.deviceId, now())) fail(409, 'notClaimed', 'Claim this hub with its setup code first.');
+    const clients = browserClients();
+    if (Object.keys(clients).length >= MAX_BROWSERS) fail(409, 'tooManyBrowsers', `This hub already has ${MAX_BROWSERS} browsers. Remove one in Setup first.`);
+    const deviceId = randomUUID(), token = randomBytes(32).toString('base64url');
+    saveBrowserClients({ ...clients, [deviceId]: { hash: digest(token), name: input.name, email: input.email, addedAt: new Date(now()).toISOString() } });
+    append('_workspace', 'pairingChanged', installation.installationId);
+    return { installationId: installation.installationId, deviceId, token };
+  });
   const api = { installation, issueEnrollment, beginOwnerSetup, completeOwnerSetup, cancelOwnerSetup, dispatchNext, tickSchedules, localOwnerAccess, ownerDevice,
     hubLedger, adoptHandoff, issueRunnerClient,
+    issueBrowserClient,
+    // The added browsers, without their keys.
+    browserClients: () => Object.entries(browserClients()).map(([deviceId, entry]) => ({ deviceId, name: entry.name, email: entry.email, addedAt: entry.addedAt })),
+    // The added browser whose key this is, if it is one.
+    browserClientOf: (token: string): string | undefined => /^[A-Za-z0-9_-]{43}$/.test(token) ? Object.entries(browserClients()).find(([, entry]) => entry.hash === digest(token))?.[0] : undefined,
+    removeBrowserClient: (deviceId: string): boolean => transaction(() => {
+      const clients = browserClients(); if (!Object.hasOwn(clients, deviceId)) return false;
+      delete clients[deviceId]; saveBrowserClients(clients);
+      db.prepare("INSERT OR REPLACE INTO metadata VALUES ('browsersRemovedAt',?)").run(String(now())); append('_workspace', 'pairingChanged', installation.installationId); return true;
+    }),
     removeRunnerClient: (runnerId: string): boolean => transaction(() => { const clients = runnerClients(); if (!(runnerId in clients)) return false; delete clients[runnerId]; saveRunnerClients(clients); return true; }),
     // The enrolled Mac whose client credential this is, if it is one.
     runnerClientOf: (token: string): string | undefined => /^[A-Za-z0-9_-]{43}$/.test(token) ? Object.entries(runnerClients()).find(([, entry]) => entry.hash === digest(token))?.[0] : undefined,
@@ -1612,7 +1647,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     if (closing) return closing;
     closed = true; clearTimeout(scheduleTimer); active?.abort(); ownerAccessWake();
     if (credentialDeadline!==undefined && !preserveSessionCredential) transaction(()=>{
-      db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key='runnerClients'").run();
+      db.prepare('DELETE FROM enrollment').run(); db.prepare('DELETE FROM devices').run(); db.prepare("DELETE FROM metadata WHERE key IN ('runnerClients','browserClients')").run();
       db.prepare("INSERT OR REPLACE INTO metadata VALUES ('credentialClosed','true')").run();
     });
     closing = (async () => {

@@ -43,6 +43,8 @@ export type CloudHubOptions = {
 export type QueueAlert = { waiting: number; waitingSince: string; runners: readonly string[] };
 
 const BODY_BYTES = 64 * 1024, PROXY_BYTES = 1024 * 1024, SNAPSHOT_BYTES = 256 * 1024 * 1024, HANDOFF_BYTES = 32 * 1024 * 1024;
+// How recent a Google sign-in must be to add a browser.
+const ADD_BROWSER_MS = 10 * 60_000;
 const PENDING = 'ledger-import.sqlite', RESULT = 'ledger-import.json';
 // The web client: a few static files, served with a policy that allows only this origin's own scripts.
 const WEB = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/signin.js', ['signin.js', 'text/javascript; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/transcript.js', ['transcript.js', 'text/javascript; charset=utf-8']],
@@ -150,10 +152,35 @@ export async function startCloudHub(options: CloudHubOptions) {
   catch (error) { clearInterval(watch); ledger.close(); await app.close().catch(() => {}); throw error; }
   const core = new URL(app.baseURL);
 
-  const owner = (request: IncomingMessage) => {
+  // The owner's credential, or (on a hub with the Google gate) the key of a browser added by Google sign-in.
+  const member = (request: IncomingMessage): { deviceId: string; role: 'owner' | 'browser' } => {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
-    if (request.headers['x-fort-installation-id'] !== app.installation.installationId || !token || !app.ownerDevice(token)) fail(401, 'unauthorized', 'Use the owning Mac’s credential.');
+    if (request.headers['x-fort-installation-id'] === app.installation.installationId && token) {
+      const ownerId = app.ownerDevice(token);
+      if (ownerId) return { deviceId: ownerId, role: 'owner' };
+      const browserId = google ? app.browserClientOf(token) : undefined;
+      if (browserId) return { deviceId: browserId, role: 'browser' };
+    }
+    return fail(401, 'unauthorized', 'Use the owning Mac’s credential.');
   };
+  const owner = (request: IncomingMessage) => { member(request); };
+  // Spec 066, revision 2026-11-02: any browser signed in with Google as the owner gets its own key. No setup code, nothing
+  // copied from another browser. The hub must already be claimed, and the request must come from the hub's own page.
+  async function addBrowser(request: IncomingMessage, fromPage: boolean) {
+    if (!google) fail(404, 'notFound', 'Adding browsers needs Google sign-in on this hub.');
+    const session = google.session(request.headers.cookie, undefined);
+    if (!fromPage || !session) fail(403, 'originDenied', 'Sign in with Google on this hub’s own page.');
+    // A key comes only from a recent Google sign-in, so a long-lived session cookie alone never mints one.
+    if (session.issuedAt === undefined || Date.now() - session.issuedAt > ADD_BROWSER_MS) fail(403, 'signInAgain', 'Sign in with Google again to add this browser.');
+    const value = await body(request) as { name?: unknown };
+    if (!value || typeof value !== 'object' || Object.keys(value).some(key => key !== 'name')) fail(400, 'invalidBrowser', 'Send only the browser’s name.');
+    const name = typeof value.name === 'string' ? value.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60) : '';
+    return app.issueBrowserClient({ name: name || 'Browser', email: session.email, signedInAt: session.issuedAt });
+  }
+  function browsers(request: IncomingMessage) {
+    const you = member(request);
+    return { google: !!google, you: you.role, ...(you.role === 'browser' ? { deviceId: you.deviceId } : {}), browsers: app.browserClients().map(entry => ({ ...entry, current: entry.deviceId === you.deviceId })) };
+  }
   // The enrolled Mac this hub serves sends its ledger snapshot with its runner token.
   const thisMac = (request: IncomingMessage) => {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
@@ -252,7 +279,8 @@ export async function startCloudHub(options: CloudHubOptions) {
     if (google.iosClientId) return true;
     if (request.headers.origin !== undefined || request.headers['sec-fetch-site'] !== undefined || request.headers.cookie !== undefined) return true;
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
-    return !token || app.ownerDevice(token) !== undefined;
+    // The owner's key and an added browser's key are browser credentials: neither works without the session.
+    return !token || app.ownerDevice(token) !== undefined || app.browserClientOf(token) !== undefined;
   };
   // An enrolled Mac's own client credential stands in for Google: the owner signed in to invite that Mac, and removing
   // the Mac ends it. Browsers never get one.
@@ -284,6 +312,7 @@ export async function startCloudHub(options: CloudHubOptions) {
     // A browser names its page's origin. Only the hub's own web client may call the API, and the
     // origin is removed before the core sees the request, so the core's own browser refusal still
     // holds for every other origin.
+    const fromPage = publicOrigin !== undefined && request.headers.origin === publicOrigin;
     if (request.headers.origin !== undefined) {
       if (publicOrigin === undefined || request.headers.origin !== publicOrigin || path.startsWith('/v1/runner/')) {
         response.writeHead(403, { 'content-type': 'application/json', 'cache-control': 'no-store', connection: 'close' })
@@ -295,6 +324,14 @@ export async function startCloudHub(options: CloudHubOptions) {
     if (runners.handle(request, response)) return;
     const local = async (): Promise<[number, unknown] | undefined> => {
       if (request.method === 'POST' && path === '/v1/hub/setup') return [201, await setup(request)];
+      if (request.method === 'POST' && path === '/v1/hub/browsers') return [201, await addBrowser(request, fromPage)];
+      if (request.method === 'GET' && path === '/v1/hub/browsers') return [200, browsers(request)];
+      if (request.method === 'POST' && path === '/v1/hub/browsers/remove') {
+        member(request);
+        const value = await body(request) as { deviceId?: unknown };
+        if (typeof value?.deviceId !== 'string' || !app.removeBrowserClient(value.deviceId)) fail(404, 'notFound', 'No added browser has this ID.');
+        return [200, { deviceId: value.deviceId, removed: true }];
+      }
       // The reply names the node the Mac serves, so a pooled Mac offers its lanes under the pool's ID.
       if (request.method === 'POST' && path === '/v1/runners/join') { const joined = enrollment.join(await body(request)); return [201, { ...joined, node: nodeOf(joined.runnerId) }]; }
       if (request.method === 'POST' && path === '/v1/runners/import') { const staged = await stageImport(request); response.once('finish', () => options.onImportStaged?.()); return [202, staged]; }

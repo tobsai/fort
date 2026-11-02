@@ -1,10 +1,11 @@
 // Fort web client (Spec 063). Served by the hub itself, so every call is same-origin. The browser
 // holds one device credential in localStorage; all text is rendered with textContent, never as HTML.
+// With Google sign-in on, each browser gets its own credential by signing in (Spec 066, revision 2026-11-02).
 import { approvalCopy, canDecide, chatPanels, crewSlot, deskSummary, questLog, resolution, runStatus, transcriptRows } from '/transcript.js';
 
 const STORE = 'fort.device.v1';
 const app = document.getElementById('app');
-const state = { device: load(), installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null, snapshots: new Map(), cleared: [] };
+const state = { device: load(), browsers: null, installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null, snapshots: new Map(), cleared: [] };
 
 function load() { try { return JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { return null; } }
 function save(device) { state.device = device; if (device) localStorage.setItem(STORE, JSON.stringify(device)); else localStorage.removeItem(STORE); }
@@ -39,6 +40,34 @@ function h(tag, attrs = {}, ...children) {
   return node;
 }
 const say = (node, error) => { node.textContent = error ? (error.message || 'Something went wrong.') : ''; };
+
+// ---------- Join ----------
+// What this browser calls itself in Setup, from what it says it is.
+function browserName() {
+  const agent = navigator.userAgent;
+  const browser = /Edg\//.test(agent) ? 'Edge' : /Firefox\/|FxiOS/.test(agent) ? 'Firefox' : /Chrome\/|CriOS/.test(agent) ? 'Chrome' : /Safari\//.test(agent) ? 'Safari' : 'Browser';
+  const device = /iPhone/.test(agent) ? 'iPhone' : /iPad/.test(agent) ? 'iPad' : /Android/.test(agent) ? 'Android' : /Macintosh/.test(agent) ? 'Mac' : /Windows/.test(agent) ? 'Windows' : /Linux/.test(agent) ? 'Linux' : '';
+  return device ? `${browser} on ${device}` : browser;
+}
+const AGAIN = 'fort.signin-again';
+// A browser signed in with Google gets its own key from the hub. A hub without Google, or not claimed yet, takes the setup code.
+async function join() {
+  try {
+    const reply = await api('/v1/hub/browsers', { name: browserName() });
+    try { sessionStorage.removeItem(AGAIN); } catch { /* private mode */ }
+    save({ installationId: reply.installationId, deviceId: reply.deviceId, deviceToken: reply.token });
+    return true;
+  } catch (problem) {
+    if (problem.status === 404 || problem.code === 'notClaimed') { claimView(); return false; }
+    // The Google sign-in is too old to add a browser: sign in again, once, without asking.
+    let tried = false; try { tried = sessionStorage.getItem(AGAIN) === '1'; sessionStorage.setItem(AGAIN, '1'); } catch { tried = true; }
+    if (problem.code === 'signInAgain' && !tried) { await signOut(); location.reload(); return false; }
+    app.replaceChildren(h('div.card', {}, h('h1', {}, 'Fort'), h('p.error', {}, problem.message),
+      h('button.primary', { onclick: async () => { await signOut(); location.reload(); } }, 'Sign in again'), ' ', h('button', { onclick: () => start() }, 'Try again')));
+    return false;
+  }
+}
+const signInAgain = () => { save(null); signOut().finally(() => location.reload()); };
 
 // ---------- Claim ----------
 function claimView() {
@@ -220,7 +249,10 @@ function approvalCard(approval) {
 function setupSheet() {
   // The same sections, in the same order, as Setup in the Mac and iPhone apps: Crew, Accounts, Devices.
   const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
-  body.append(crewSection(), accountSection(), h('section', {}, h('h3', {}, 'Devices'), macSection(), phoneSection(), browserSection()));
+  // Provider accounts and iPhone pairing belong to the owner browser; an added browser says so instead.
+  const added = state.browsers?.you === 'browser';
+  body.append(crewSection(), added ? h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.')) : accountSection(),
+    h('section', {}, h('h3', {}, 'Devices'), macSection(), added ? null : phoneSection(), browserSection()));
   return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) { state.sheet = false; render(); } } }, body);
 }
 
@@ -338,9 +370,24 @@ function phoneSection() {
 }
 
 function browserSection() {
-  return h('div.sub', {}, h('h4', {}, 'This browser'), h('p.muted', {}, 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.'),
+  const error = h('p.error'), info = state.browsers, added = info?.you === 'browser';
+  const remove = entry => async () => {
+    if (!confirm(entry.current ? 'Forget this browser? Sign in with Google again to get back in.' : `Remove ${entry.name}? It loses access until you sign in with Google there again.`)) return;
+    try {
+      await api('/v1/hub/browsers/remove', { deviceId: entry.deviceId });
+      if (entry.current) return signInAgain();
+      state.browsers = await api('/v1/hub/browsers').catch(() => state.browsers); state.sheetNode = null; render();
+    } catch (problem) { say(error, problem); }
+  };
+  const rows = (info?.browsers ?? []).map(entry => h('div.row', {}, h('span', {}, entry.name, h('span.muted', {}, entry.current ? ' · this browser' : ' · added ' + new Date(entry.addedAt).toLocaleDateString())),
+    h('button.link', { onclick: remove(entry) }, entry.current ? 'Forget' : 'Remove')));
+  const about = added ? 'This browser got its own key when you signed in with Google. The owner browser handles provider accounts and iPhone pairing.'
+    : info?.google ? 'This browser is the hub’s owner. Any other browser gets its own key when you sign in with Google there. Forgetting this one cannot be undone without a fresh setup code.'
+    : 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.';
+  return h('div.sub', {}, h('h4', {}, 'Browsers'), h('p.muted', {}, about),
+    added ? null : h('div.row', {}, h('span', {}, 'This browser', h('span.muted', {}, ' · owner'))), rows, error,
     h('button.link', { onclick: () => signOut().then(() => location.reload()) }, 'Sign out of Google'), ' ',
-    h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); signOut().finally(() => location.reload()); } } }, 'Forget this browser'));
+    added ? null : h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); signOut().finally(() => location.reload()); } } }, 'Forget this browser'));
 }
 
 // Ends this browser's Google session on the hub, if the hub has the Google gate on.
@@ -360,7 +407,8 @@ async function poll() {
       }
     } catch (error) {
       if (error.status === 409) { state.installation = await api('/v1/installation').catch(() => state.installation); state.cursor = state.installation.eventCursor ?? 0; }
-      else if (error.status === 401) { app.replaceChildren(h('div.card', {}, h('h1', {}, 'Fort'), h('p.error', {}, 'This browser is no longer paired with the hub.'))); break; }
+      else if (error.status === 401) { app.replaceChildren(h('div.card', {}, h('h1', {}, 'Fort'), h('p.error', {}, 'This browser is no longer paired with the hub.'),
+        state.browsers?.you === 'browser' ? h('button.primary', { onclick: signInAgain }, 'Sign in again') : null)); break; }
       else await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
@@ -368,16 +416,17 @@ async function poll() {
 }
 
 async function start() {
-  if (!state.device) return render();
+  if (!state.device && !(await join())) return;
   try {
     state.installation = await api('/v1/installation');
+    state.browsers = await api('/v1/hub/browsers').catch(() => null);
     state.cursor = state.installation.eventCursor ?? 0;
     await refresh();
     if (state.current) await openConversation(state.current);
     render(); void poll();
   } catch (error) {
     app.replaceChildren(h('div.card', {}, h('h1', {}, 'Fort'), h('p.error', {}, error.message),
-      h('button', { onclick: () => start() }, 'Try again'), ' ', error.status === 401 ? h('button.link', { onclick: () => { save(null); render(); } }, 'Forget this browser') : null));
+      h('button', { onclick: () => start() }, 'Try again'), ' ', error.status === 401 ? h('button.link', { onclick: () => { save(null); start(); } }, 'Forget this browser') : null));
   }
 }
 start();
