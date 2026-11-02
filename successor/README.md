@@ -26,7 +26,9 @@ break timing checks.
 
 ## Ship a beta
 
-From GitHub: Actions, **TestFlight**, Run workflow, pick iPhone, Mac or both. Builds show up in
+Merging a change to the apps into `main` builds and uploads both the iPhone and Mac apps to TestFlight
+(docs-only changes don't). To build one platform by hand: Actions, **TestFlight**, Run workflow, pick
+iPhone, Mac or both. Builds show up in
 TestFlight once Apple processes them. A beta counts as accepted when Toby has used it, not when
 the upload succeeds.
 
