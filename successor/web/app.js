@@ -249,10 +249,7 @@ function approvalCard(approval) {
 function setupSheet() {
   // The same sections, in the same order, as Setup in the Mac and iPhone apps: Crew, Accounts, Devices.
   const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
-  // Provider accounts and iPhone pairing belong to the owner browser; an added browser says so instead.
-  const added = state.browsers?.you === 'browser';
-  body.append(crewSection(), added ? h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.')) : accountSection(),
-    h('section', {}, h('h3', {}, 'Devices'), macSection(), added ? null : phoneSection(), browserSection()));
+  body.append(crewSection(), accountSection(), h('section', {}, h('h3', {}, 'Devices'), macSection(), phoneSection(), browserSection()));
   return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) { state.sheet = false; render(); } } }, body);
 }
 
@@ -285,6 +282,8 @@ function macState(runner) {
 }
 
 function accountSection() {
+  // Provider accounts and iPhone pairing belong to the owner browser; an added browser says so instead.
+  if (state.browsers?.you === 'browser') return h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.'));
   const section = h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Confirm which subscription each provider on your Mac is signed in to. Sign-ins happen on the Mac; nothing is stored here.'));
   for (const runtime of state.installation?.runtimes ?? []) {
     const line = h('span', {}, runtime.name, h('span.muted', {}, ' · checking…')), error = h('p.error');
@@ -351,6 +350,7 @@ function crewSection() {
 }
 
 function phoneSection() {
+  if (state.browsers?.you === 'browser') return h('div.sub', {}, h('h4', {}, 'iPhone'), h('p.muted', {}, 'Pair the Fort iPhone app from the owner browser.'));
   const out = h('div'), error = h('p.error');
   api('/v1/pairing/companion').then(overview => {
     const pairing = overview.pairing;
