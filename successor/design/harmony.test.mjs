@@ -16,7 +16,7 @@ test('Setup has the same sections in the same order on the web and in the apps',
   const sheet = web.match(/body\.append\(([^\n]*)\);/)[1];
   assert.deepEqual([...sheet.matchAll(/(crew|account|mac|phone|browser)Section/g)].map(match => match[1]), ['crew', 'account', 'mac', 'phone', 'browser']);
   for (const heading of ['Crew', 'Accounts', 'Devices']) assert.ok(web.includes(`h('h3', {}, '${heading}')`), `web Setup has a ${heading} section`);
-  for (const sub of ['Macs', 'iPhone', 'This browser', 'New agent']) assert.ok(web.includes(`h('h4', {}, '${sub}')`), `web Setup has ${sub}`);
+  for (const sub of ['Macs', 'iPhone', 'Browsers', 'New agent']) assert.ok(web.includes(`h('h4', {}, '${sub}')`), `web Setup has ${sub}`);
   // Routines live in the apps only until the hub serves them; they sit between Crew and Accounts there.
   assert.ok(!/Playbook|PAUSED|RESUME|RECRUIT/.test(kit('PauseMenuView')), 'the apps say Setup, Done and New agent, like the web');
 });

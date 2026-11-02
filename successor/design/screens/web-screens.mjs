@@ -29,6 +29,7 @@ function mock(url) {
   if (path === '/v1/account/sign-in') return { state: 'finished', selected: true, revision: 1, result: { kind: 'signedIn', account: { userLabel: 'Your plan' } } };
   if (path === '/v1/models') return { state: 'ready', models: [] };
   if (path === '/v1/pairing/companion') return { pairing: { state: 'none' } };
+  if (path === '/v1/hub/browsers') return { google: true, you: 'owner', browsers: [{ deviceId: 'safari', name: 'Safari on iPhone', email: 'owner@example.com', addedAt: '2026-11-01T18:00:00.000Z', current: false }] };
   return {};
 }
 const server = createServer((req, res) => {

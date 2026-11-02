@@ -45,3 +45,27 @@ in, claims and uses the hub; a copied credential or tampered cookie gets nothing
 unverified emails, foreign audiences or issuers, expired, forged, replayed and foreign-origin
 sign-ins are refused; the pinned account wins over the same email; the Mac and iPhone paths keep
 working without Google.
+
+## Revision 2026-11-02: more than one browser
+
+Before: the hub had one browser key, made by the one-time setup code. Any other browser signed in
+with Google still hit the setup code screen and could not get in.
+
+Now any browser that signs in with Google as the owner asks `POST /v1/hub/browsers` for its own key.
+The hub mints a fresh 32-byte key, keeps only its SHA-256, and lists the browser by name in Setup.
+Nothing is copied from the owner browser, and the owner key is untouched.
+
+Risk and limits:
+- A key comes only from the hub's own page (its origin and its session cookie), from a Google
+  sign-in made in the last ten minutes, and only once the hub is claimed. A hub without the Google
+  gate adds no browsers; its setup code stays the only way in.
+- An added browser's key, like the owner's, does nothing without the Google session.
+- Removing a browser ends its key at once and refuses any key request from a sign-in made before the
+  removal, so getting back in takes a new Google sign-in. At most ten added browsers.
+- Added browsers chat, approve and manage Macs. Provider account sign-in, iPhone pairing and host
+  stop or restart stay with the owner key. A fresh owner setup or disconnect drops every added browser.
+
+Tests (`host/cloud-hub-browsers.test.ts`): a second and third browser get their own keys while the
+owner keeps working; the owner-only routes refuse them; no key without a fresh sign-in, the page's
+origin or the gate, or before the hub is claimed; a copied key alone gets nothing; removal ends one
+key, leaves the rest, and needs a new sign-in to come back; the cap holds.

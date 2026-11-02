@@ -17,7 +17,8 @@ export type GoogleSignInOptions = {
   keys?: () => Promise<JsonWebKey[]>;
   sessionHours?: number;
 };
-export type GoogleSession = { sub: string; email: string; expiresAt: number };
+// issuedAt is when Google sign-in made the session; sessions made before it was recorded lack it.
+export type GoogleSession = { sub: string; email: string; expiresAt: number; issuedAt?: number };
 
 export const SESSION_COOKIE = '__Host-fort_session';
 const ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
@@ -100,7 +101,7 @@ export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions
   }
 
   const mint = (who: { sub: string; email: string }) => {
-    const session = { ...who, expiresAt: Date.now() + sessionMs };
+    const at = Date.now(), session = { ...who, issuedAt: at, expiresAt: at + sessionMs };
     return { session, value: signed(b64(JSON.stringify(session))) };
   };
   const read = (raw: string | undefined): GoogleSession | undefined => {
