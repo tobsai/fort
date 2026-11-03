@@ -105,6 +105,22 @@ test('other accounts, forged, stale, replayed or foreign sign-ins are refused', 
   assert.equal((await h.signIn({ sub: '2002' })).status, 401);
 });
 
+test('a sign-in page left open too long gets its own answer, and a fresh nonce works right after', async t => {
+  const h = await fixture(t);
+  // Toby's case (2026-11-03): a tab whose nonce was hours old. The page needs to tell this apart and draw a new button.
+  const old = await h.nonce();
+  const real = Date.now;
+  Date.now = () => real() + 11 * 60_000;
+  let stale;
+  try { stale = await h.call('/auth/google', { body: { credential: h.idToken({ nonce: old }) }, headers: { origin } }); } finally { Date.now = real; }
+  assert.deepEqual([stale.status, stale.body.error.code], [401, 'signInStale']);
+  const reused = { credential: h.idToken({ nonce: await h.nonce() }) };
+  assert.equal((await h.call('/auth/google', { body: reused, headers: { origin } })).status, 200);
+  assert.equal((await h.call('/auth/google', { body: reused, headers: { origin } })).body.error.code, 'signInStale', 'a second post of the same sign-in');
+  assert.equal((await h.signIn()).status, 200, 'a new nonce signs in at once');
+  assert.equal((await h.signIn({ email: 'someone@example.com' })).body.error.code, 'signInDenied', 'a wrong account is still a plain refusal');
+});
+
 test('paired machines keep their own credentials and never meet the Google gate', async t => {
   const h = await fixture(t);
   await h.signIn();
