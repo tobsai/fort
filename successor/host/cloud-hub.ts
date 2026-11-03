@@ -12,6 +12,9 @@ import { parseRunnerPool, runPins, type RunnerPool } from './runner-pool.ts';
 import { importLedger, inspectLedgerSnapshot } from '../service/import-ledger.ts';
 import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
 import { LOCAL_CONTEXT } from '../modules/local-context.ts';
+import { CLOUD_RUNNER_ID, routeCloudFirst, type CloudLane } from './cloud-runner.ts';
+import { cloudCodexSignedIn, createCloudCodexExecutorProcess } from '../runner/cloud-codex-executor.ts';
+import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
 
 // Headless hub entry point (Spec 063, step 3). One process serves plain HTTP on $PORT behind the
 // host's TLS proxy: the runner channel, runner enrollment, a one-time owner setup, and every other
@@ -38,6 +41,9 @@ export type CloudHubOptions = {
   // Called once a Mac's ledger snapshot is staged. The hub applies it the next time it starts, so the
   // container entry restarts the hub in place.
   onImportStaged?: () => void;
+  // Spec 063, revision 2026-11-03: the hub runs Agents itself. Returns the hub's own lane for a runtime it can serve, or
+  // undefined to leave that runtime on the Macs. Turns go to the hub first; Macs take what the hub can't.
+  cloud?: (descriptor: RuntimeDescriptor) => CloudLane | undefined;
 };
 
 export type QueueAlert = { waiting: number; waitingSince: string; runners: readonly string[] };
@@ -117,7 +123,11 @@ export async function startCloudHub(options: CloudHubOptions) {
   const ledger = db;
   // Removing a Mac also ends its client access to this hub.
   const enrollment = runnerEnrollment(ledger, { revoked: runnerId => { runners.disconnect(runnerId); app.removeRunnerClient(runnerId); } });
-  const pins = pool ? runPins(ledger) : undefined;
+  const pins = pool || options.cloud ? runPins(ledger) : undefined;
+  // The hub's own lanes, by runtime, for the runtimes it serves.
+  const cloudLanes = new Map<RuntimeDescriptor, CloudLane>();
+  for (const descriptor of [provider, ...(options.runtimes ?? [])]) { const own = options.cloud?.(descriptor); if (own) cloudLanes.set(descriptor, own); }
+  const cloudReady = () => [...cloudLanes.values()].some(own => own.signedIn());
   const nodeOf = (runnerId: string) => pool?.runners.includes(runnerId) ? pool.node : runnerId;
   // A Mac connecting may unblock queued work, so the core looks again.
   const pump = () => { void (async () => { while (await app.dispatchNext()) { /* one turn at a time */ } })().catch(() => {}); };
@@ -128,15 +138,19 @@ export async function startCloudHub(options: CloudHubOptions) {
   const queue = () => {
     let waiting = 0;
     try { waiting = app.queuedRuns(); } catch { /* the core is closing */ }
-    const stranded = pool !== undefined && waiting > 0 && !pool.runners.some(id => runners.online(id));
+    const stranded = pool !== undefined && waiting > 0 && !cloudReady() && !pool.runners.some(id => runners.online(id));
     if (!stranded) { waitingSince = undefined; alerted = false; }
     else waitingSince ??= Date.now();
     return { waiting, ...(waitingSince === undefined ? {} : { waitingSince: new Date(waitingSince).toISOString() }), alert: waitingSince !== undefined && Date.now() - waitingSince >= queueAlertMs };
   };
   const waited = () => { const state = queue(); return state.alert && state.waitingSince ? `${state.waiting === 1 ? 'One run has' : state.waiting + ' runs have'} waited since ${state.waitingSince}.` : undefined; };
-  const lane = (descriptor: RuntimeDescriptor) => pool && pins
+  const macLane = (descriptor: RuntimeDescriptor) => pool && pins
     ? routePool(runners, pool, { binding: descriptor, pins, waitMs: () => offlineWaitMs, names, detail: waited })
     : routeByNode(runners, { waitMs: () => offlineWaitMs, binding: descriptor });
+  const lane = (descriptor: RuntimeDescriptor) => {
+    const own = cloudLanes.get(descriptor);
+    return own && pins ? routeCloudFirst({ cloud: own, macs: macLane(descriptor), pins }) : macLane(descriptor);
+  };
   let app: ReturnType<typeof createApplication>;
   try {
     // Agents keep their skills and memory on the hub: the context compiler reads only the ledger, never a Mac's files.
@@ -340,6 +354,7 @@ export async function startCloudHub(options: CloudHubOptions) {
       if (request.method === 'POST' && path === '/v1/runners/agents') return [200, await handoff(request)];
       if (request.method === 'POST' && path === '/v1/runners/client') { const runnerId = thisMac(request); request.resume(); return [201, app.issueRunnerClient(runnerId)]; }
       if (request.method === 'GET' && path === '/v1/runners') { owner(request); return [200, { runners: enrollment.list().map(runner => ({ ...runner, ...runners.status(runner.runnerId) })),
+        ...(cloudLanes.size ? { cloud: { runnerId: CLOUD_RUNNER_ID, lanes: [...cloudLanes].map(([descriptor, own]) => ({ provider: descriptor.provider, name: descriptor.name, runtimeVersion: descriptor.runtimeVersion, signedIn: own.signedIn() })) } } : {}),
         ...(pool ? { pool: { node: pool.node, runners: pool.runners, queue: queue() } } : {}) }]; }
       if (request.method === 'POST' && path === '/v1/runners/invitation') { owner(request); return [201, enrollment.invite(await body(request))]; }
       if (request.method === 'POST' && path === '/v1/runners/revoke') {
@@ -399,7 +414,15 @@ if (import.meta.main) {
     if (typeof row?.provider !== 'string' || typeof row.runtimeVersion !== 'string' || (row.name !== undefined && typeof row.name !== 'string') || !Array.isArray(row.capabilities)) throw new Error('Set each runtime’s provider, runtimeVersion and capabilities');
     return { provider: row.provider, name: (row.name as string | undefined) ?? row.provider, runtimeVersion: row.runtimeVersion, hostId: node, session: 'stateless', capabilities: row.capabilities as RuntimeDescriptor['capabilities'] };
   });
+  // The image ships Codex for Linux (Dockerfile). With it present the hub runs ChatGPT Agents itself; FORT_CLOUD_RUNNER=off
+  // sends everything to the Macs as before. Claude stays on the Macs until the hub can sign in to it.
+  const codex = env.FORT_CLOUD_CODEX ?? '/opt/fort/codex/codex';
+  const cloudOn = env.FORT_CLOUD_RUNNER !== 'off' && process.platform === 'linux' && existsSync(codex);
+  const cloudDirectory = join(required('FORT_DATA'), 'cloud-runner', 'codex');
+  const cloud = (descriptor: RuntimeDescriptor): CloudLane | undefined => descriptor.provider !== CODEX_RUNTIME.provider || descriptor.runtimeVersion !== CODEX_RUNTIME.runtimeVersion ? undefined
+    : { runtime: createCloudCodexExecutorProcess({ executable: codex, directory: cloudDirectory, hostId: descriptor.hostId }), signedIn: () => cloudCodexSignedIn(cloudDirectory) };
   const start = () => startCloudHub({ dataDirectory: required('FORT_DATA'), port, provider: provider!, runtimes, onImportStaged: () => { void restart(); },
+    ...(cloudOn ? { cloud } : {}),
     ...(env.FORT_PUBLIC_ORIGIN ? { publicOrigin: env.FORT_PUBLIC_ORIGIN } : {}),
     ...(env.FORT_SETUP_CODE_SHA256 ? { setupCodeDigest: env.FORT_SETUP_CODE_SHA256 } : {}),
     // FORT_GOOGLE_CLIENT_ID (a public web client ID) and FORT_OWNER_EMAIL (comma-separated) turn on the Google gate.

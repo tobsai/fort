@@ -850,7 +850,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     ...(index === 0 ? {} : { keys: { attempt: 'accountSignIn:' + lane.provider.provider, choice: 'accountChoice:' + lane.provider.provider } }),
     scope: () => ownerPairingPolicy && ownerControl ? { deviceId: ownerControl.deviceId, recoveryEpoch: installation.recoveryEpoch,
       running: !closed && !dispatchStopped && !stopCommandActive && !starting && !dispatching && runtimeOperations === 0
-        && (!lane.runtime?.readiness || lane.runtime.readiness().state === 'ready') } : undefined,
+        && (lane.runtime?.canSignIn ? lane.runtime.canSignIn() : !lane.runtime?.readiness || lane.runtime.readiness().state === 'ready') } : undefined,
     commit: transaction, changed: () => append('_workspace', 'accountChanged', installation.installationId), settled: () => queueMicrotask(wake) })); } catch (error) { db.close(); throw error; }
   const laneAccounts = (lane: Lane) => laneAccountList[lanes.indexOf(lane)]!;
   const accountsBusy = () => laneAccountList.some(item => item.busy);
