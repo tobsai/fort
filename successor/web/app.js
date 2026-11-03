@@ -307,12 +307,29 @@ function describeAccount(line, runtime, status, challenge) {
   const onHub = (state.cloud?.lanes ?? []).some(lane => lane.provider === runtime.provider);
   const detail = status.state === 'unavailable' ? 'not available on this hub'
     : result?.kind === 'signedIn' && result.account ? `${result.account.userLabel}${status.selected ? '' : ' (not selected)'}${onHub ? ' · runs on the hub' : ''}`
-    : status.state === 'challenge' ? (onHub ? 'enter the code below' : 'finish signing in on your Mac') : status.state === 'starting' ? (onHub ? 'starting…' : 'asking your Mac…')
+    : status.state === 'challenge' ? (onHub ? (status.challenge?.kind === 'browserCode' ? 'paste the code below' : 'enter the code below') : 'finish signing in on your Mac') : status.state === 'starting' ? (onHub ? 'starting…' : 'asking your Mac…')
     : result ? `last check: ${result.kind}` : onHub ? 'not signed in' : 'not confirmed yet';
   line.replaceChildren(runtime.name, h('span.muted', {}, ' · ' + detail));
   // A device code from the hub: open the provider's own page and type the code there. Only the provider's https page is linked.
   const code = status.state === 'challenge' ? status.challenge : undefined;
   if (!challenge) return;
+  // Claude on the hub: open Claude's own sign-in page, then paste the code it shows. The form is drawn once per sign-in, so
+  // polling never clears what is being typed. The code goes to the hub once and is never kept in the page.
+  if (onHub && code?.kind === 'browserCode' && /^https:\/\/(claude\.com|claude\.ai)\//.test(code.authorizationURL ?? '')) {
+    if (challenge.dataset.operation === status.operationId) return;
+    challenge.dataset.operation = status.operationId;
+    const input = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: 'Paste the code', 'aria-label': 'Sign-in code' }), sent = h('p.error');
+    const send = h('button.primary', { type: 'submit' }, 'Finish sign-in');
+    challenge.replaceChildren(h('p.muted', {}, 'Open ', h('a', { href: code.authorizationURL, target: '_blank', rel: 'noopener noreferrer' }, new URL(code.authorizationURL).host),
+      ', sign in with your Claude subscription, then copy the code it shows and paste it here:'),
+      h('form.row', { onsubmit: async event => {
+        event.preventDefault(); say(sent); send.disabled = true;
+        try { await api('/v1/account/sign-in/code?provider=' + encodeURIComponent(runtime.provider), { operationId: status.operationId, revision: status.revision, recoveryEpoch: state.installation.recoveryEpoch, code: input.value.trim() }); input.value = ''; input.disabled = true; }
+        catch (problem) { say(sent, problem); send.disabled = false; }
+      } }, input, send), sent);
+    return;
+  }
+  delete challenge.dataset.operation;
   if (!code || !/^https:\/\/[a-z0-9.-]+\//.test(code.verificationURL ?? '')) { challenge.replaceChildren(); return; }
   challenge.replaceChildren(h('p.muted', {}, 'Open ', h('a', { href: code.verificationURL, target: '_blank', rel: 'noopener noreferrer' }, new URL(code.verificationURL).host),
     ', sign in with your subscription and enter this code:'), h('div.code', {}, code.userCode));

@@ -897,6 +897,8 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
           result=laneAccounts(requestedLane(url)).status(authenticate(request));
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/start'){
           const lane=requestedLane(url),body=await readBody(request); result=laneAccounts(lane).start(authenticate(request),body);
+        } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/code'){
+          const lane = requestedLane(url), body = await readBody(request); result = laneAccounts(lane).code(authenticate(request), body);
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/select'){
           const lane = requestedLane(url), body = await readBody(request); result = laneAccounts(lane).select(authenticate(request), body);
         } else if(request.method==='POST' && url.pathname==='/v1/account/sign-in/cancel'){

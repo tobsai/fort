@@ -18,8 +18,19 @@ const claude: RuntimeDescriptor = { provider: 'claude-fixture', name: 'Claude fi
 const setupCode = secret(), setupCodeDigest = createHash('sha256').update(setupCode).digest('hex');
 const account = { accountId: 'account', userLabel: 'owner@example.com' };
 
-async function fixture(t: TestContext, pool: string[] | undefined = ['mini']) {
-  const dataDirectory = await mkdtemp(join(tmpdir(), 'fort-cloud-runner-')), seen: string[] = [], hubState = { signedIn: false, signIns: 0 };
+async function fixture(t: TestContext, pool: string[] | undefined = ['mini'], claudeOnHub = false) {
+  const dataDirectory = await mkdtemp(join(tmpdir(), 'fort-cloud-runner-')), seen: string[] = [], hubState = { signedIn: false, signIns: 0, claudeSignedIn: false, pasted: [] as string[] };
+  // Claude on the hub signs in on Claude's manual page and waits for the code the owner pastes.
+  const hubClaude: ChatRuntime = {
+    async execute(input) { seen.push('hub-claude:' + input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; },
+    readiness: () => ({ state: 'ready', canRestart: false, detail: 'ready' }),
+    signIn: async (options, signal) => {
+      options.onChallenge({ kind: 'browserCode', authorizationURL: 'https://claude.com/cai/oauth/authorize?state=fixture' });
+      const code = await options.code!(signal); hubState.pasted.push(code); hubState.claudeSignedIn = true;
+      return { kind: 'signedIn', account };
+    },
+    async dispose() {},
+  };
   const hubRuntime: ChatRuntime = {
     async execute(input) { seen.push('hub:' + input.text); return { kind: 'completed', text: input.text, effectiveModel: null }; },
     readiness: () => ({ state: 'ready', canRestart: false, detail: 'ready' }),
@@ -27,7 +38,8 @@ async function fixture(t: TestContext, pool: string[] | undefined = ['mini']) {
     async dispose() {},
   };
   const hub = await startCloudHub({ dataDirectory, host: '127.0.0.1', port: 0, provider: chatgpt, runtimes: [claude], setupCodeDigest, ...(pool ? { pool } : {}),
-    cloud: descriptor => descriptor === chatgpt ? { runtime: hubRuntime, signedIn: () => hubState.signedIn } : undefined });
+    cloud: descriptor => descriptor === chatgpt ? { runtime: hubRuntime, signedIn: () => hubState.signedIn }
+      : claudeOnHub && descriptor === claude ? { runtime: hubClaude, signedIn: () => hubState.claudeSignedIn } : undefined });
   t.after(async () => { await hub.close(); await rm(dataDirectory, { recursive: true, force: true }); });
   const owner = { deviceId: randomUUID(), deviceToken: secret() };
   let installationId = '';
@@ -54,12 +66,18 @@ async function fixture(t: TestContext, pool: string[] | undefined = ['mini']) {
     for (let index = 0; index < 200 && !(await call<{ runners: { runnerId: string; online: boolean }[] }>('/v1/runners')).body.runners.find(entry => entry.runnerId === runnerId)?.online; index++) await delay(10);
     return stop;
   }
-  async function confirmAccount(provider: string) {
+  async function confirmAccount(provider: string, paste?: string) {
     const query = '?provider=' + provider;
     const idle = (await call<AccountSignInStatus>('/v1/account/sign-in' + query)).body;
     assert.equal((await call('/v1/account/sign-in/start' + query, { operationId: randomUUID(), expectedRevision: idle.revision, recoveryEpoch: hub.installation.recoveryEpoch, expiresAt: Date.now() + 60_000 })).status, 200);
     let status = (await call<AccountSignInStatus>('/v1/account/sign-in' + query)).body;
-    for (let index = 0; index < 200 && status.state !== 'finished'; index++) { await delay(10); status = (await call<AccountSignInStatus>('/v1/account/sign-in' + query)).body; }
+    for (let index = 0; index < 200 && status.state !== 'finished'; index++) {
+      if (paste !== undefined && status.state === 'challenge' && status.challenge.kind === 'browserCode') {
+        const sent = await call('/v1/account/sign-in/code' + query, { operationId: status.operationId, revision: status.revision, recoveryEpoch: hub.installation.recoveryEpoch, code: paste });
+        assert.equal(sent.status, 200, JSON.stringify(sent.body)); paste = undefined;
+      }
+      await delay(10); status = (await call<AccountSignInStatus>('/v1/account/sign-in' + query)).body;
+    }
     // A sign-in that reports an account the hub has not chosen yet is chosen, as the web page does.
     if (status.state === 'finished' && status.result.kind === 'signedIn' && status.result.account && !status.selected)
       assert.equal((await call('/v1/account/sign-in/select' + query, { operationId: status.operationId, revision: status.revision, recoveryEpoch: hub.installation.recoveryEpoch, account: status.result.account })).status, 200);
@@ -78,7 +96,7 @@ async function fixture(t: TestContext, pool: string[] | undefined = ['mini']) {
     for (let index = 0; index < 300; index++) { const current = await run(requestId); if (current && !['queued', 'running'].includes(current.state)) return current; await delay(20); }
     assert.fail('The run did not settle');
   }
-  return { call, connectMac, confirmAccount, send, run, settled, seen, hubState };
+  return { call, connectMac, confirmAccount, send, run, settled, seen, hubState, recoveryEpoch: hub.installation.recoveryEpoch };
 }
 
 test('signed in on the hub, Agents run with no Mac at all', async t => {
@@ -134,4 +152,30 @@ test('while the hub is signed out, work waits, and runs once it signs in again t
   assert.equal(h.hubState.signIns, 2, 'the second sign-in also ran on the hub');
   assert.equal((await h.settled(requestId)).state, 'completed');
   assert.deepEqual(h.seen, ['hub:waiting for sign-in']);
+});
+
+test('Claude runs on the hub after the owner pastes the code from Claude\'s sign-in page', async t => {
+  const h = await fixture(t, ['mini'], true);
+  await h.connectMac('mini');
+  await h.confirmAccount(claude.provider, 'pasted-code-123#fixture');
+  assert.deepEqual(h.hubState.pasted, ['pasted-code-123#fixture'], 'the code reached the hub\'s Claude once');
+  assert.equal((await h.settled(await h.send('claude on the hub', claude.provider))).state, 'completed');
+  assert.deepEqual(h.seen, ['hub-claude:claude on the hub'], 'the connected Mac got no Claude turn');
+});
+
+test('a pasted code is refused when no sign-in waits for one, or when it is not a code', async t => {
+  const h = await fixture(t, ['mini'], true);
+  const query = '?provider=' + claude.provider;
+  const idle = (await h.call<AccountSignInStatus>('/v1/account/sign-in' + query)).body;
+  assert.equal((await h.call('/v1/account/sign-in/code' + query, { operationId: randomUUID(), revision: 1, recoveryEpoch: h.recoveryEpoch, code: 'pasted-code-123#fixture' })).status, 409);
+  const operationId = randomUUID();
+  await h.call('/v1/account/sign-in/start' + query, { operationId, expectedRevision: idle.revision, recoveryEpoch: h.recoveryEpoch, expiresAt: Date.now() + 60_000 });
+  let status = (await h.call<AccountSignInStatus>('/v1/account/sign-in' + query)).body;
+  for (let index = 0; index < 200 && status.state !== 'challenge'; index++) { await delay(10); status = (await h.call<AccountSignInStatus>('/v1/account/sign-in' + query)).body; }
+  assert.equal(status.state, 'challenge');
+  const revision = status.revision;
+  for (const code of ['', 'short#x', 'has space in it#state', '<script>#x'.repeat(3), 42])
+    assert.equal((await h.call('/v1/account/sign-in/code' + query, { operationId, revision, recoveryEpoch: h.recoveryEpoch, code })).status, 400, String(code));
+  assert.deepEqual(h.hubState.pasted, []);
+  assert.equal((await h.call('/v1/account/sign-in/cancel' + query, { operationId, revision, recoveryEpoch: h.recoveryEpoch })).status, 200);
 });

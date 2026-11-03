@@ -13,6 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
  && install -m 0755 /tmp/codex/package/vendor/x86_64-unknown-linux-musl/bin/codex /opt/fort/codex/codex \
  && rm -rf /tmp/codex /tmp/codex.tgz \
  && /opt/fort/codex/codex --version
+# Claude on the hub (same revision): the official Claude Code CLI for Linux from Anthropic's npm package, at the version the
+# hub's Claude Agents are bound to. Railway passes FORT_RUNTIMES to the build, and the installer picks the Claude entry's
+# version from it; with none, its pinned default. The default's digest is pinned; any other version is checked against the
+# registry's own integrity value. Nothing here reads a secret.
+ARG FORT_RUNTIMES
+COPY host/install-claude.ts /tmp/install-claude.ts
+RUN FORT_RUNTIMES="$FORT_RUNTIMES" node --no-warnings /tmp/install-claude.ts /opt/fort/claude && rm /tmp/install-claude.ts \
+ && "/opt/fort/claude/$(cat /opt/fort/claude/version)" --version
 WORKDIR /app
 COPY package.json ./
 COPY contracts contracts

@@ -1,11 +1,12 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatRuntime } from '../runner/chat-runtime.ts';
 import type { AccountChallenge, AccountIdentity, AccountSignInResult, AccountSignInStatus } from '../contracts/v1.ts';
-import { parseAccountChallenge, parseAccountSignInResult, parseAccountIdentity, sameAccount } from '../contracts/account.ts';
+import { parseAccountChallenge, parseAccountSignInResult, parseAccountIdentity, parseSignInCode, sameAccount } from '../contracts/account.ts';
 
 type Attempt = { revision: number; operationId: string; deviceId: string; recoveryEpoch: string; expiresAt: number }
   & ({ state: 'active' | 'canceling' } | { state: 'finished'; result: AccountSignInResult; selected?: boolean });
-type AccountWork = { controller: AbortController; task: Promise<void>; challenge?: AccountChallenge };
+// pasted: the one code the owner may paste for a browserCode challenge. It lives only in memory, for this operation.
+type AccountWork = { controller: AbortController; task: Promise<void>; challenge?: AccountChallenge; pasted?: (code: string) => void };
 type Scope = { deviceId: string; recoveryEpoch: string; running: boolean };
 type Choice = { installationId: string; recoveryEpoch: string; provider: string; hostId: string; account: AccountIdentity };
 type Options = { identity: Pick<Choice, 'installationId' | 'provider' | 'hostId'>; runtime: ChatRuntime | undefined; now(): number; scope(): Scope | undefined;
@@ -101,10 +102,16 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
           const selected = options.scope();
           if (active !== operation || operation.controller.signal.aborted || operation.challenge || selected?.deviceId !== deviceId || selected.recoveryEpoch !== recoveryEpoch || options.now() >= expiresAt) reject();
           operation.challenge = parseAccountChallenge(value); options.commit(options.changed);
-        } }, operation.controller.signal));
+        }, code: signal => new Promise<string>((resolve, reject) => {
+          if (active !== operation || operation.pasted || operation.challenge?.kind !== 'browserCode') return reject(new Error('No code is expected'));
+          const stop = () => { operation.pasted = undefined; reject(new Error('Sign-in ended')); };
+          if (signal.aborted) return stop();
+          signal.addEventListener('abort', stop, { once: true });
+          operation.pasted = code => { signal.removeEventListener('abort', stop); operation.pasted = undefined; resolve(code); };
+        }) }, operation.controller.signal));
       } catch { result = { kind: 'unconfirmed' }; }
       finally {
-        clearTimeout(timer); operation.challenge = undefined;
+        clearTimeout(timer); operation.challenge = undefined; operation.pasted = undefined;
         if (active === operation) {
           const scope = options.scope();
           const account = result.kind === 'signedIn' ? result.account : undefined;
@@ -132,6 +139,18 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
     if (current.operationId !== row.operationId || current.revision !== row.revision) reject();
     return status(deviceId);
   }
+  // The owner pastes the code the sign-in page showed. It goes to the waiting runtime once, and is never saved.
+  function code(deviceId: string, value: unknown): AccountSignInStatus {
+    const scope = authorize(deviceId), row = fields(value, ['operationId', 'revision', 'recoveryEpoch', 'code']);
+    const operation = active;
+    if (!current || current.state !== 'active' || !operation || operation.challenge?.kind !== 'browserCode' || !operation.pasted
+        || id(row.operationId) !== current.operationId || integer(row.revision, 1) !== current.revision || id(row.recoveryEpoch) !== scope.recoveryEpoch
+        || current.recoveryEpoch !== scope.recoveryEpoch || current.deviceId !== deviceId || options.now() >= current.expiresAt) reject();
+    let pasted: string;
+    try { pasted = parseSignInCode(row.code); } catch { throw new AccountSignInError(400, 'invalidSignInCode', 'Paste the whole code the sign-in page showed.'); }
+    operation.pasted(pasted);
+    return status(deviceId);
+  }
   function selected() {
     const scope = options.scope();
     return scope && current?.deviceId === scope.deviceId && current.recoveryEpoch === scope.recoveryEpoch
@@ -149,6 +168,6 @@ export function accountSignIn(db: DatabaseSync, options: Options) {
       save({ ...current, selected: true }, { ...options.identity, recoveryEpoch: scope.recoveryEpoch, account });
     return status(deviceId);
   }
-  return { status, start, cancel, select, selected, get busy() { return active !== undefined; },
+  return { status, start, cancel, select, code, selected, get busy() { return active !== undefined; },
     async stop() { const operation = active; if (operation) { operation.controller.abort(); await operation.task; } } };
 }
