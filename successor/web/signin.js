@@ -29,23 +29,50 @@ function loadGoogle() {
 }
 
 async function signIn(state) {
-  const error = line('error', ''), button = document.createElement('div');
-  card(line('muted', 'Sign in with the Google account that owns this hub.'), button, error);
+  const error = line('error', ''), holder = document.createElement('div');
+  card(line('muted', 'Sign in with the Google account that owns this hub.'), holder, error);
   const id = await loadGoogle();
-  // Each attempt needs a fresh one-time nonce from the hub.
-  const arm = ({ clientId, nonce }) => id.initialize({ client_id: clientId, nonce, auto_select: true, ux_mode: 'popup', use_fedcm_for_prompt: true, callback: answered });
-  async function answered({ credential }) {
-    error.textContent = '';
-    const response = await fetch('/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential }), cache: 'no-store' });
-    const value = await response.json().catch(() => ({}));
-    if (response.ok) { await import('/app.js'); return; }
-    error.textContent = value?.error?.message ?? `The hub answered ${response.status}.`;
+  let armedAt = 0, busy = false, done = false;
+  // Each attempt needs a fresh one-time nonce from the hub, and Google's button keeps the nonce it was
+  // drawn with, so arming again always draws a new button.
+  const arm = ({ clientId, nonce }) => {
+    id.cancel?.();
+    id.initialize({ client_id: clientId, nonce, auto_select: true, ux_mode: 'popup', use_fedcm_for_prompt: true, callback: answered });
+    const button = document.createElement('div');
+    holder.replaceChildren(button);
+    id.renderButton(button, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
+    armedAt = Date.now();
+  };
+  const rearm = async () => {
+    if (done) return;
     const next = await session().catch(() => null);
+    if (next?.signedIn) return enter();
     if (next?.nonce) arm(next);
+  };
+  async function enter() {
+    if (done) return;
+    done = true; clearInterval(timer);
+    await import('/app.js');
+  }
+  async function answered({ credential }) {
+    if (busy || done) return;
+    busy = true; error.textContent = '';
+    try {
+      const response = await fetch('/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential }), cache: 'no-store' });
+      const value = await response.json().catch(() => ({}));
+      if (response.ok) return void await enter();
+      // A stale or reused sign-in is the page's fault, not the person's: get a new nonce and say only that.
+      error.textContent = value?.error?.code === 'signInStale' ? 'That sign-in took too long. Sign in again.' : value?.error?.message ?? `The hub answered ${response.status}.`;
+      await rearm();
+    } finally { busy = false; }
   }
   arm(state);
-  id.renderButton(button, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
   id.prompt();
+  // The hub takes a nonce for ten minutes. A page left open, or brought back from the background, gets a new one before it is used.
+  const STALE = 8 * 60_000;
+  const timer = setInterval(() => { if (Date.now() - armedAt > STALE) void rearm(); }, 60_000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - armedAt > STALE) void rearm(); });
+  window.addEventListener('pageshow', event => { if (event.persisted) void rearm(); });
 }
 
 // The hub has one public address. A browser that claimed it on an older address carries its

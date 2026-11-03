@@ -91,7 +91,8 @@ export function googleSignIn(dataDirectory: string, options: GoogleSignInOptions
     if (typeof claims.exp !== 'number' || claims.exp + SKEW_S < now || typeof claims.iat !== 'number' || claims.iat - SKEW_S > now) return deny('That Google sign-in has expired. Sign in again.');
     const issued = typeof claims.nonce === 'string' ? opened(claims.nonce) : undefined;
     const at = issued ? parseInt(issued.split('~')[0]!, 36) : NaN;
-    if (!issued || !(Date.now() - at < NONCE_MS) || used.has(claims.nonce as string)) return deny('That Google sign-in was already used or has expired. Sign in again.');
+    // Its own code, so the page knows to fetch a fresh nonce and draw Google's button again.
+    if (!issued || !(Date.now() - at < NONCE_MS) || used.has(claims.nonce as string)) throw new SignInError(401, 'signInStale', 'That Google sign-in was already used or has expired. Sign in again.');
     if (claims.email_verified !== true || typeof claims.email !== 'string' || typeof claims.sub !== 'string' || !emails.includes(claims.email.toLowerCase())) return deny('This Google account is not allowed on this hub.');
     const owner = pinned();
     if (owner !== undefined && owner !== claims.sub) return deny('This Google account is not allowed on this hub.');
