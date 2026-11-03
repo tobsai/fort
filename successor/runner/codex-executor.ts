@@ -18,6 +18,8 @@ type CodexExecutorOptions = {
   runtime: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs'>;
   // Spec 065: the same private directories, launched with image generation on for one portrait.
   portraitRuntime?: Omit<Parameters<typeof launchGuardedCodexProcess>[0], 'deadlineMs' | 'frameLimit'>;
+  // How Codex is started. The Mac uses its guardian; the cloud hub passes its Linux launch (Spec 063, revision 2026-11-03).
+  launch?: (options: Parameters<typeof launchGuardedCodexProcess>[0]) => ReturnType<typeof launchGuardedCodexProcess>;
 };
 type CodexProcessOptions = Omit<ConstructorParameters<typeof ExecutorProcess>[0], 'lifecycle' | 'cooperativeCancellationMs' | 'discovery' | 'signIn'> & { guardian: string; hostId: string };
 type PrivateCodexOptions = Parameters<typeof privateCodexLaunchPlan>[0] & { hostId: string };
@@ -56,13 +58,14 @@ export function createCodexExecutorProcess({ guardian, hostId, ...process }: Cod
 export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void> {
   const runtime = { ...options.runtime, args: [...options.runtime.args], env: { ...options.runtime.env } };
   const portraitRuntime = options.portraitRuntime && { ...options.portraitRuntime, args: [...options.portraitRuntime.args], env: { ...options.portraitRuntime.env } };
+  const launch = options.launch ?? launchGuardedCodexProcess;
   function emptyWorkspace(cwd: string) {
     if (!isAbsolute(cwd) || cwd === '/' || normalize(cwd) !== cwd || !cwd.isWellFormed() || cwd.includes('\0')) throw new Error('Select an exact empty runtime workspace');
     if (readdirSync(cwd).length !== 0) throw new Error('Codex executor workspace must be empty');
   }
   function create(deadline: number): CodexChat {
     emptyWorkspace(runtime.cwd);
-    const owned = launchGuardedCodexProcess({ ...runtime, deadlineMs: deadline - Date.now() });
+    const owned = launch({ ...runtime, deadlineMs: deadline - Date.now() });
     return new CodexChat({ connection: owned.connection, workspace: runtime.cwd, runtimeVersion: '0.163.0' });
   }
   return serveExecutorWorker({ input: options.input, output: options.output,
@@ -72,7 +75,7 @@ export function serveCodexExecutor(options: CodexExecutorOptions): Promise<void>
     createSignIn: ({ deadline }) => create(deadline),
     ...(portraitRuntime ? { createPortrait: ({ deadline }: { deadline: number }) => {
       emptyWorkspace(portraitRuntime.cwd);
-      const owned = launchGuardedCodexProcess({ ...portraitRuntime, deadlineMs: deadline - Date.now(), frameLimit: PORTRAIT_FRAME_LIMIT });
+      const owned = launch({ ...portraitRuntime, deadlineMs: deadline - Date.now(), frameLimit: PORTRAIT_FRAME_LIMIT });
       return new CodexPortraitRuntime({ connection: owned.connection, workspace: portraitRuntime.cwd });
     } } : {}),
   });

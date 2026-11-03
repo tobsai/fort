@@ -89,7 +89,7 @@ function claimView() {
 // ---------- Main ----------
 async function refresh() {
   const [agents, conversations, runners] = await Promise.all([api('/v1/agents'), api('/v1/conversations'), api('/v1/runners').catch(() => ({ runners: [] }))]);
-  state.pool = runners.pool ?? null;
+  state.pool = runners.pool ?? null; state.cloud = runners.cloud ?? null;
   state.agents = agents.agents; state.conversations = conversations.conversations; state.runners = runners.runners;
   // The Quest log reads every chat; a chat that can't be read is left out until the next update.
   const snapshots = await Promise.all(state.conversations.map(conversation => api(`/v1/conversations/${encodeURIComponent(conversation.conversationId)}/snapshot`).catch(() => null)));
@@ -266,8 +266,13 @@ function macSection() {
     } catch (problem) { say(error, problem); }
   } }, 'Add a Mac');
   const node = state.installation?.runtimes?.[0]?.hostId;
-  const where = state.pool ? `This hub sends each run to the first connected Mac of ${state.pool.runners.map(id => `“${id}”`).join(', then ')}.` : `This hub sends turns to the Mac named “${node ?? '?'}”.`;
-  return h('div.sub', {}, h('h4', {}, 'Macs'), h('p.muted', {}, `Your Macs run the turns; the hub only routes them. ${where}`), list, add, out, error);
+  const where = state.pool ? `the first connected Mac of ${state.pool.runners.map(id => `“${id}”`).join(', then ')}` : `the Mac named “${node ?? '?'}”`;
+  // Spec 063, revision 2026-11-03: the hub runs Agents itself; a Mac is an extension for what the hub can't do.
+  const lanes = state.cloud?.lanes ?? [], own = lanes.filter(lane => lane.signedIn).map(lane => lane.name);
+  const story = !lanes.length ? `Your Macs run the turns; the hub only routes them to ${where}.`
+    : own.length ? `The hub runs ${own.join(' and ')} Agents itself, no Mac needed. Macs are optional: they take what the hub can't run, sent to ${where}.`
+    : `The hub can run ${lanes.map(lane => lane.name).join(' and ')} Agents itself once you sign in under Accounts. Until then, turns go to ${where}.`;
+  return h('div.sub', {}, h('h4', {}, 'Macs'), h('p.muted', {}, story), list, add, out, error);
 }
 // A pooled hub names its Macs; an invitation is for the first one not enrolled yet.
 function nextRunnerId() {
@@ -284,37 +289,50 @@ function macState(runner) {
 function accountSection() {
   // Provider accounts and iPhone pairing belong to the owner browser; an added browser says so instead.
   if (state.browsers?.you === 'browser') return h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.'));
-  const section = h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Confirm which subscription each provider on your Mac is signed in to. Sign-ins happen on the Mac; nothing is stored here.'));
+  const cloud = new Set((state.cloud?.lanes ?? []).map(lane => lane.provider));
+  const intro = cloud.size ? 'Sign in to your subscriptions here and the hub runs those Agents itself. A provider the hub can’t run yet is confirmed on your Mac.'
+    : 'Confirm which subscription each provider on your Mac is signed in to. Sign-ins happen on the Mac; nothing is stored here.';
+  const section = h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, intro));
   for (const runtime of state.installation?.runtimes ?? []) {
     const line = h('span', {}, runtime.name, h('span.muted', {}, ' · checking…')), error = h('p.error');
-    const button = h('button', { onclick: () => confirmAccount(runtime, line, button, error) }, 'Confirm');
-    section.append(h('div.row', {}, line, button), error);
+    const challenge = h('div');
+    const button = h('button', { onclick: () => confirmAccount(runtime, line, button, error, challenge) }, cloud.has(runtime.provider) ? 'Sign in' : 'Confirm');
+    section.append(h('div.row', {}, line, button), challenge, error);
     api('/v1/account/sign-in?provider=' + encodeURIComponent(runtime.provider)).then(status => describeAccount(line, runtime, status)).catch(problem => say(error, problem));
   }
   return section;
 }
-function describeAccount(line, runtime, status) {
+function describeAccount(line, runtime, status, challenge) {
   const result = status.state === 'finished' ? status.result : undefined;
+  const onHub = (state.cloud?.lanes ?? []).some(lane => lane.provider === runtime.provider);
   const detail = status.state === 'unavailable' ? 'not available on this hub'
-    : result?.kind === 'signedIn' && result.account ? `${result.account.userLabel}${status.selected ? '' : ' (not selected)'}`
-    : status.state === 'challenge' ? 'finish signing in on your Mac' : status.state === 'starting' ? 'asking your Mac…'
-    : result ? `last check: ${result.kind}` : 'not confirmed yet';
+    : result?.kind === 'signedIn' && result.account ? `${result.account.userLabel}${status.selected ? '' : ' (not selected)'}${onHub ? ' · runs on the hub' : ''}`
+    : status.state === 'challenge' ? (onHub ? 'enter the code below' : 'finish signing in on your Mac') : status.state === 'starting' ? (onHub ? 'starting…' : 'asking your Mac…')
+    : result ? `last check: ${result.kind}` : onHub ? 'not signed in' : 'not confirmed yet';
   line.replaceChildren(runtime.name, h('span.muted', {}, ' · ' + detail));
+  // A device code from the hub: open the provider's own page and type the code there. Only the provider's https page is linked.
+  const code = status.state === 'challenge' ? status.challenge : undefined;
+  if (!challenge) return;
+  if (!code || !/^https:\/\/[a-z0-9.-]+\//.test(code.verificationURL ?? '')) { challenge.replaceChildren(); return; }
+  challenge.replaceChildren(h('p.muted', {}, 'Open ', h('a', { href: code.verificationURL, target: '_blank', rel: 'noopener noreferrer' }, new URL(code.verificationURL).host),
+    ', sign in with your subscription and enter this code:'), h('div.code', {}, code.userCode));
 }
-async function confirmAccount(runtime, line, button, error) {
+async function confirmAccount(runtime, line, button, error, challenge) {
   say(error); button.disabled = true;
   const query = '?provider=' + encodeURIComponent(runtime.provider);
   try {
     let status = await api('/v1/account/sign-in' + query);
     status = await api('/v1/account/sign-in/start' + query, { operationId: crypto.randomUUID(), expectedRevision: status.revision, recoveryEpoch: state.installation.recoveryEpoch, expiresAt: Date.now() + 110_000 });
     while (['starting', 'challenge', 'canceling'].includes(status.state)) {
-      describeAccount(line, runtime, status);
+      describeAccount(line, runtime, status, challenge);
       await new Promise(resolve => setTimeout(resolve, 1500));
       status = await api('/v1/account/sign-in' + query);
     }
     if (status.state === 'finished' && status.result.kind === 'signedIn' && status.result.account && !status.selected)
       status = await api('/v1/account/sign-in/select' + query, { operationId: status.operationId, revision: status.revision, recoveryEpoch: state.installation.recoveryEpoch, account: status.result.account });
-    describeAccount(line, runtime, status);
+    describeAccount(line, runtime, status, challenge);
+    // The hub now runs this provider itself: show the Macs as optional.
+    if (status.state === 'finished' && status.result.kind === 'signedIn') { await refresh(); state.sheetNode = null; render(); }
   } catch (problem) { say(error, problem); }
   button.disabled = false;
 }

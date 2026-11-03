@@ -13,4 +13,6 @@ export type ChatInput = {
 export type ChatResult =
   | { kind: 'completed'; text: string; effectiveModel: null }
   | { kind: 'notStarted' | 'failed' | 'outcomeUnknown' | 'canceled'; message: string };
-export type ChatRuntime = { execute(input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult>; dispose(): Promise<void>; models?(signal:AbortSignal, account?: AccountIdentity):Promise<ModelCatalog>; readiness?(): RuntimeReadiness; restart?(signal: AbortSignal): Promise<void>; signIn?(options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult>; portrait?(request: PortraitRequest, signal: AbortSignal): Promise<PortraitResult> };
+export type ChatRuntime = { execute(input: ChatInput, signal: AbortSignal, dispatch: ExecutionDispatch): Promise<ChatResult>; dispose(): Promise<void>; models?(signal:AbortSignal, account?: AccountIdentity):Promise<ModelCatalog>; readiness?(): RuntimeReadiness; restart?(signal: AbortSignal): Promise<void>; signIn?(options: AccountSignInOptions, signal: AbortSignal): Promise<AccountSignInResult>;
+  // Whether a sign-in can start now, when that differs from turns being ready: a hub that is not signed in yet can't take turns, but can sign in (Spec 063, revision 2026-11-03).
+  canSignIn?(): boolean; portrait?(request: PortraitRequest, signal: AbortSignal): Promise<PortraitResult> };

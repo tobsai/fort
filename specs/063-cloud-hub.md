@@ -255,3 +255,47 @@ Risk:
 Tests: `service/hub-handoff.test.ts` (what moves and why), `host/cloud-hub-handoff.test.ts` (handoff,
 idempotence, refusal, the client credential, the Google gate, a later history upload), and the sync case
 in `runner/mac-hub-runner.test.ts`.
+
+## Revision, 2026-11-03: the hub runs Agents itself; Macs are extensions
+
+Toby: "I need to be able to use Fort just by logging onto my Google account and running my agents over the
+VM (similar to Grokbot) personal machines should be seen as extensions for advanced capabilities".
+
+This reverses "the hub and its ledger never hold a provider credential" (What and why). The 2026-10-25
+revision held that storing provider credentials in the cloud needs its own approval: merging this revision
+is that approval, and nothing is stored until Toby signs in on the hub's page. The hub now runs ChatGPT
+turns itself, on the same subscription and through the same official route the Mac uses: Codex 0.163.0
+with its ChatGPT device-code sign-in. No API key, no API billing, no new provider path.
+
+- **What runs where.** One deterministic rule per turn (`host/cloud-runner.ts`): a run that already
+  started somewhere stays there; otherwise the hub takes it when it serves the runtime and is signed in;
+  otherwise it goes to the Macs exactly as before (the pool, or the one enrolled Mac). The hub serves
+  ChatGPT (Codex 0.163.0). Claude stays on the Macs until the hub can sign in to it from the web page.
+  Nothing in today's Agents needs a Mac (Codex runs with shell, files and network tools off; Claude with
+  no tools). A Mac stays useful for runtimes the hub doesn't serve and, later, for capabilities that need
+  the machine itself (local files, Mac apps, the owner's browser).
+- **The runtime.** The image downloads the Linux build of the same Codex release from npm and checks its
+  SHA-256 before unpacking. Codex starts with the Mac's exact controls (`privateCodexLaunchPlan`) in
+  private directories under `/data/cloud-runner/codex`, behind the same executor worker, as its own
+  process group. Linux has no Fort guardian, so `setpriv --pdeathsig KILL` ends Codex if its executor
+  dies. CI starts the shipped Codex inside the image and confirms the controls (`runner/cloud-codex-check.ts`).
+- **Sign-in.** Settings, Accounts, Sign in on the hub's page starts the device-code sign-in on the hub and
+  shows the code and the link to `auth.openai.com`; the owner finishes it there. Sign-in is gated on the
+  hub's executor being free (`canSignIn`), not on turns being ready, so a hub with no Mac can sign in.
+  Codex keeps the sign-in in its own state directory as a private file. Fort reads only whether the file
+  exists and is private, never its contents.
+- **On by default.** The hub uses its own runtime when the image ships it. `FORT_CLOUD_RUNNER=off` sends
+  everything to the Macs as before; nothing else changes in the hub's configuration.
+
+Risk:
+
+- **Credential on the server.** The ChatGPT sign-in now lives on the hub's volume, behind the Google gate
+  and the hub's owner checks. Anyone who can read the volume can use the subscription. Undo: sign out on
+  ChatGPT's own account page, or delete `/data/cloud-runner/codex/state/auth.json`.
+- **Usage.** Each turn starts one Codex process for at most two minutes; the hub was near idle, so
+  Railway usage is expected to stay within the Hobby plan's included amount.
+- **Queued work.** A run accepted before a new sign-in to a different account is not sent; it ends with
+  "Nothing was sent" (the core's existing rule). The same account carries on.
+
+Tests: `host/cloud-runner.test.ts` (the rule), `host/cloud-hub-cloud.test.ts` (no Mac at all, Mac
+connected, Claude on the Mac, no pool, signed out and back), `runner/linux-codex-process.test.ts`.

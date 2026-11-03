@@ -104,6 +104,8 @@ jobs:
           done
           docker logs fort-hub
           exit 1
+      - name: Check the hub's own ChatGPT runtime starts with Fort's controls
+        run: docker exec fort-hub node --no-warnings runner/cloud-codex-check.ts
       - if: always()
         run: docker rm --force fort-hub || true
 
