@@ -15,6 +15,8 @@ import { LOCAL_CONTEXT } from '../modules/local-context.ts';
 import { CLOUD_RUNNER_ID, routeCloudFirst, type CloudLane } from './cloud-runner.ts';
 import { cloudCodexSignedIn, createCloudCodexExecutorProcess } from '../runner/cloud-codex-executor.ts';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
+import { createCloudClaude, installedCloudClaude } from '../runner/cloud-claude.ts';
+import { claudeCodeRuntime } from '../runner/claude-code-chat.ts';
 
 // Headless hub entry point (Spec 063, step 3). One process serves plain HTTP on $PORT behind the
 // host's TLS proxy: the runner channel, runner enrollment, a one-time owner setup, and every other
@@ -410,17 +412,37 @@ if (import.meta.main) {
   const node = required('FORT_NODE');
   const listed = env.FORT_RUNTIMES ? JSON.parse(env.FORT_RUNTIMES) as unknown : [{ provider: required('FORT_PROVIDER'), name: env.FORT_PROVIDER_NAME, runtimeVersion: required('FORT_RUNTIME_VERSION'), capabilities: ['plainText', 'cancel'] }];
   if (!Array.isArray(listed) || listed.length === 0) throw new Error('Set FORT_RUNTIMES to a list of runtimes');
-  const [provider, ...runtimes] = listed.map((row: { provider?: unknown; name?: unknown; runtimeVersion?: unknown; capabilities?: unknown }): RuntimeDescriptor => {
+  const [provider, ...listedRuntimes] = listed.map((row: { provider?: unknown; name?: unknown; runtimeVersion?: unknown; capabilities?: unknown }): RuntimeDescriptor => {
     if (typeof row?.provider !== 'string' || typeof row.runtimeVersion !== 'string' || (row.name !== undefined && typeof row.name !== 'string') || !Array.isArray(row.capabilities)) throw new Error('Set each runtime’s provider, runtimeVersion and capabilities');
     return { provider: row.provider, name: (row.name as string | undefined) ?? row.provider, runtimeVersion: row.runtimeVersion, hostId: node, session: 'stateless', capabilities: row.capabilities as RuntimeDescriptor['capabilities'] };
   });
-  // The image ships Codex for Linux (Dockerfile). With it present the hub runs ChatGPT Agents itself; FORT_CLOUD_RUNNER=off
-  // sends everything to the Macs as before. Claude stays on the Macs until the hub can sign in to it.
+  // The image ships Codex and Claude Code for Linux (Dockerfile). With them present the hub runs Agents itself;
+  // FORT_CLOUD_RUNNER=off sends everything to the Macs as before.
   const codex = env.FORT_CLOUD_CODEX ?? '/opt/fort/codex/codex';
   const cloudOn = env.FORT_CLOUD_RUNNER !== 'off' && process.platform === 'linux' && existsSync(codex);
-  const cloudDirectory = join(required('FORT_DATA'), 'cloud-runner', 'codex');
-  const cloud = (descriptor: RuntimeDescriptor): CloudLane | undefined => descriptor.provider !== CODEX_RUNTIME.provider || descriptor.runtimeVersion !== CODEX_RUNTIME.runtimeVersion ? undefined
-    : { runtime: createCloudCodexExecutorProcess({ executable: codex, directory: cloudDirectory, hostId: descriptor.hostId }), signedIn: () => cloudCodexSignedIn(cloudDirectory) };
+  const cloudDirectory = join(required('FORT_DATA'), 'cloud-runner', 'codex'), claudeDirectory = join(required('FORT_DATA'), 'cloud-runner', 'claude');
+  // Claude on the hub runs the exact version its Agents are bound to. The image installs the version FORT_RUNTIMES names
+  // for Claude; with no Claude listed, the hub adds Claude at the image's version so new Claude Agents can run with no Mac.
+  let claude: ReturnType<typeof installedCloudClaude>;
+  try { claude = cloudOn ? installedCloudClaude() : undefined; } catch (error) { process.stdout.write('Fort hub: Claude stays on the Macs: ' + (error instanceof Error ? error.message : 'no usable Claude Code') + '\n'); }
+  const listedClaude = listedRuntimes.find(descriptor => descriptor.provider === 'claude-code');
+  const runtimes = claude && !listedClaude && provider!.provider !== 'claude-code'
+    ? [...listedRuntimes, { ...claudeCodeRuntime(claude.version), hostId: node }] : listedRuntimes;
+  if (claude && listedClaude && listedClaude.runtimeVersion !== claude.version)
+    process.stdout.write(`Fort hub: Claude Agents here use Claude Code ${listedClaude.runtimeVersion}, the image has ${claude.version}; Claude stays on the Macs until they match\n`);
+  const cloud = (descriptor: RuntimeDescriptor): CloudLane | undefined => {
+    if (descriptor.provider === CODEX_RUNTIME.provider && descriptor.runtimeVersion === CODEX_RUNTIME.runtimeVersion)
+      return { runtime: createCloudCodexExecutorProcess({ executable: codex, directory: cloudDirectory, hostId: descriptor.hostId }), signedIn: () => cloudCodexSignedIn(cloudDirectory) };
+    if (claude && descriptor.provider === 'claude-code' && descriptor.runtimeVersion === claude.version) {
+      // A Claude that can't start here never stops the hub: Claude Agents keep going to the Macs, and the log says why.
+      try {
+        const own = createCloudClaude({ executable: claude.executable, version: claude.version, directory: claudeDirectory, hostId: descriptor.hostId,
+          report: line => process.stdout.write('Fort hub: ' + line + '\n') });
+        return { runtime: own.runtime, signedIn: own.signedIn };
+      } catch (error) { process.stdout.write('Fort hub: Claude stays on the Macs: ' + (error instanceof Error ? error.message : 'it could not start') + '\n'); }
+    }
+    return undefined;
+  };
   const start = () => startCloudHub({ dataDirectory: required('FORT_DATA'), port, provider: provider!, runtimes, onImportStaged: () => { void restart(); },
     ...(cloudOn ? { cloud } : {}),
     ...(env.FORT_PUBLIC_ORIGIN ? { publicOrigin: env.FORT_PUBLIC_ORIGIN } : {}),

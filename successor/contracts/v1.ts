@@ -1,8 +1,11 @@
 export type RuntimeReadiness = { state: 'ready' | 'busy' | 'restartRequired' | 'stopped' | 'unavailable'; canRestart: boolean; detail: string; connectionsUsed?: number; maximumConnections?: number };
-export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string } | { kind: 'browserAuthorization'; authorizationURL: string };
+// browserCode: open the page, sign in, and paste the code that page shows back into Fort (a host with no browser of its own).
+export type AccountChallenge = { kind: 'deviceCode'; verificationURL: string; userCode: string } | { kind: 'browserAuthorization'; authorizationURL: string } | { kind: 'browserCode'; authorizationURL: string };
 export type AccountIdentity = { accountId: string; userLabel: string };
 export type AccountSignInResult = { kind: 'signedIn'; account?: AccountIdentity } | { kind: 'canceled' | 'failed' | 'unconfirmed' };
-export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void };
+// code: for a browserCode challenge, resolves with the code the owner pasted. Fort hands it straight to the runtime and never keeps it.
+export type AccountSignInOptions = { durationMs: number; onChallenge: (challenge: AccountChallenge) => void; code?: (signal: AbortSignal) => Promise<string> };
+export type AccountSignInCode = { operationId: string; revision: number; recoveryEpoch: string; code: string };
 export type AccountSignInRequest = { operationId: string; expectedRevision: number; recoveryEpoch: string; expiresAt: number };
 export type AccountSignInCancellation = { operationId: string; revision: number; recoveryEpoch: string };
 export type AccountSignInStatus = { revision: number } & (

@@ -13,9 +13,10 @@ function httpsURL(value: unknown, limit: number, query: boolean): string {
   return value;
 }
 export function parseAccountChallenge(value: unknown): AccountChallenge {
-  if (value && typeof value === 'object' && (value as Record<string, unknown>).kind === 'browserAuthorization') {
+  const kind = value && typeof value === 'object' ? (value as Record<string, unknown>).kind : undefined;
+  if (kind === 'browserAuthorization' || kind === 'browserCode') {
     const row = object(value, ['kind', 'authorizationURL']);
-    return { kind: 'browserAuthorization', authorizationURL: httpsURL(row.authorizationURL, 2048, true) };
+    return { kind, authorizationURL: httpsURL(row.authorizationURL, 2048, true) };
   }
   const row = object(value, ['kind', 'verificationURL', 'userCode']);
   if (row.kind !== 'deviceCode' || typeof row.userCode !== 'string' || row.userCode.length < 4 || row.userCode.length > 32
@@ -39,4 +40,13 @@ export function parseAccountSignInResult(value: unknown): AccountSignInResult {
   if (row.kind === 'signedIn') return { kind: row.kind, ...(row.account === undefined ? {} : { account: parseAccountIdentity(row.account) }) };
   if (row.account === undefined && (row.kind === 'canceled' || row.kind === 'failed' || row.kind === 'unconfirmed')) return { kind: row.kind };
   return reject();
+}
+
+// The code a claude.ai sign-in page shows for a host with no browser: the authorization code and the state, joined by '#'.
+// Only its shape is checked; it is passed on once and never stored or logged.
+export function parseSignInCode(value: unknown): string {
+  if (typeof value !== 'string') reject();
+  const code = value.trim();
+  if (code.length < 16 || code.length > 2048 || !/^[A-Za-z0-9._~-]+#[A-Za-z0-9._~-]+$/.test(code)) reject();
+  return code;
 }

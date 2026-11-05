@@ -42,6 +42,8 @@ type ChatOptions = Omit<LaunchOptions, 'model'> & {
   // Receives one line naming the step that failed and Fort's own reason, for the host's diagnostic log. Never a
   // message body, model output or credential.
   report?: (line: string) => void;
+  // A host with no browser of its own (the cloud hub): sign in on Claude's manual page, whose code the owner pastes back.
+  pasteCode?: boolean;
 };
 
 // Error text from Fort's checks and from process launch only; parse errors could quote runtime output, so they aren't.
@@ -127,7 +129,7 @@ export function initializeProblems(value: unknown, runtimeVersion: string, accou
   return problems;
 }
 // The runtime and ambient-feature checks, which hold whether or not anyone is signed in.
-function controlProblems(row: Record<string, unknown>, runtimeVersion: string): string[] {
+export function controlProblems(row: Record<string, unknown>, runtimeVersion: string): string[] {
   const checks: [string, boolean][] = [
     ['claude_code_version', row.claude_code_version === runtimeVersion], ['commands', empty(row.commands)], ['current_permission_mode', row.current_permission_mode === 'default'],
     ['analytics_disabled', row.analytics_disabled === true], ['remote_control_auto_enable', row.remote_control_auto_enable === false],
@@ -143,6 +145,13 @@ function loginPage(value: unknown): string {
   const url = new URL(challenge.authorizationURL);
   if (!['claude.com', 'claude.ai'].includes(url.hostname) || !/^\/(?:cai\/)?oauth\/authorize$/.test(url.pathname)) throw new Error('Unexpected Claude login page');
   return challenge.authorizationURL;
+}
+// The manual page sends the browser to Claude's own page that shows a code, never to a listener on this host.
+const CODE_PAGES = new Set(['https://platform.claude.com/oauth/code/callback', 'https://console.anthropic.com/oauth/code/callback']);
+function manualPage(value: unknown): { page: string; state: string } {
+  const page = loginPage(value), url = new URL(page), state = url.searchParams.get('state');
+  if (!CODE_PAGES.has(url.searchParams.get('redirect_uri') ?? '') || !state || !/^[A-Za-z0-9._~-]{8,512}$/.test(state)) throw new Error('Unexpected Claude login page');
+  return { page, state };
 }
 function checkInitialize(value: unknown, runtimeVersion: string, account: AccountIdentity): ModelOption[] {
   if (initializeProblems(value, runtimeVersion, account).length) throw new Error('Claude Code controls were not confirmed');
@@ -374,10 +383,24 @@ export class ClaudeCodeChat implements ChatRuntime {
       const problems = controlProblems(record(await session.control({ subtype: 'initialize' }, bounded)), this.options.runtimeVersion);
       if (problems.length) throw new Error('Claude Code controls were not confirmed: ' + problems.join(', '));
       step = 'sign-in page';
-      const page = loginPage(record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded)).automaticUrl);
-      options.onChallenge({ kind: 'browserAuthorization', authorizationURL: page });
-      try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
-      catch (error) { if (bounded.aborted) return { kind: 'canceled' }; void this.failed('sign-in completion', error); }
+      const pages = record(await session.control({ subtype: 'claude_authenticate', loginWithClaudeAi: true }, bounded));
+      if (this.options.pasteCode) {
+        // The pasted code is the authorization code and the state, joined by '#'. Its state must be this sign-in's.
+        if (!options.code) throw new Error('No way to receive the sign-in code');
+        const { page, state } = manualPage(pages.manualUrl);
+        options.onChallenge({ kind: 'browserCode', authorizationURL: page });
+        step = 'sign-in code';
+        const [authorizationCode, pastedState] = (await options.code(bounded)).split('#') as [string, string];
+        if (pastedState !== state) { this.options.report?.('Claude sign-in code was for a different sign-in'); return { kind: 'failed' }; }
+        // Claude Code answers this request once its sign-in has finished, so no separate wait follows.
+        step = 'sign-in code exchange';
+        try { await session.control({ subtype: 'claude_oauth_callback', authorizationCode, state }, bounded, 30_000); }
+        catch (error) { if (bounded.aborted) return { kind: 'canceled' }; void this.failed('sign-in code exchange', error); }
+      } else {
+        options.onChallenge({ kind: 'browserAuthorization', authorizationURL: loginPage(pages.automaticUrl) });
+        try { await session.control({ subtype: 'claude_oauth_wait_for_completion' }, bounded, options.durationMs); }
+        catch (error) { if (bounded.aborted) return { kind: 'canceled' }; void this.failed('sign-in completion', error); }
+      }
       session.close();
       step = 'sign-in account read-back';
       const account = await this.account(AbortSignal.timeout(CONTROL_MS));

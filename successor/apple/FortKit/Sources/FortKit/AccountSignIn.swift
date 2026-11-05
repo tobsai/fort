@@ -20,7 +20,8 @@ public struct AccountChallenge: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case kind, verificationURL, userCode, authorizationURL }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self), kind = try values.decode(String.self,forKey:.kind)
-        if kind == "browserAuthorization" {
+        // browserCode: the cloud hub's Claude sign-in, finished by pasting a code on the hub's web page. The apps show its link.
+        if kind == "browserAuthorization" || kind == "browserCode" {
             try accountKeys(decoder,["kind","authorizationURL"])
             verificationURL = try Self.link(values.decode(String.self,forKey:.authorizationURL),query:true); userCode = nil; return
         }

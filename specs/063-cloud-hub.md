@@ -299,3 +299,42 @@ Risk:
 
 Tests: `host/cloud-runner.test.ts` (the rule), `host/cloud-hub-cloud.test.ts` (no Mac at all, Mac
 connected, Claude on the Mac, no pool, signed out and back), `runner/linux-codex-process.test.ts`.
+
+## Revision, 2026-11-03 (second): Claude on the hub too
+
+Toby: "Can't I run Claude on the cloud hub?" The hub now runs Claude Agents itself, on his Claude
+subscription through the official Claude Code CLI, the same route the Mac uses (Spec 062). No API key, no
+API billing, no Railway variable. As with ChatGPT above, merging this revision approves keeping the Claude
+sign-in on the hub's volume, and nothing is stored until Toby signs in on the hub's page.
+
+- **What runs where.** The same rule as above: a Claude run goes to the hub once Claude is signed in there,
+  otherwise to the Macs. A run that started on a Mac finishes there.
+- **The runtime.** The image installs `@anthropic-ai/claude-code-linux-x64` from npm at the exact version
+  the hub's Claude Agents are bound to, read from the Claude entry in `FORT_RUNTIMES` (Railway passes it to
+  the build). With no entry, the pinned default 2.1.311, whose tarball SHA-256 is pinned in
+  `host/install-claude.ts`; any other version is checked against the registry's own sha512 integrity, the
+  check `npm install` makes. A version the registry can't give falls back to the default, and the hub then
+  keeps Claude on the Macs because the versions differ (Agents pin their runtime version). Claude Code runs
+  with the Mac's exact switches and environment (no tools, settings, MCP or session files) in private
+  directories under `/data/cloud-runner/claude`, with an empty workspace, as its own process group under
+  `setpriv --pdeathsig KILL`. CI starts the shipped binary inside the image, confirms the controls and that
+  the hub is signed out, and checks the sign-in page it offers (`runner/cloud-claude-check.ts`).
+- **Sign-in.** The hub has no browser, so it uses Claude Code's manual sign-in: Settings, Accounts, Sign in
+  shows a link to Claude's own sign-in page, and that page shows a code that the owner pastes into Fort's
+  page (`POST /v1/account/sign-in/code`). Fort accepts only `code#state` with the state it started, sends it
+  to Claude Code once, and the sign-in ends after about two minutes like every other. Fort only checks that
+  Claude Code's sign-in file exists and is private. It never reads the file, and each turn still asks Claude
+  Code which account it is.
+- **Off.** `FORT_CLOUD_RUNNER=off` sends Claude to the Macs too.
+
+Risk:
+
+- **Credential on the server.** Same as ChatGPT. Undo: sign out of the session on claude.ai, or delete
+  `/data/cloud-runner/claude/home/.claude/.credentials.json`.
+- **Image size and build time.** Claude Code adds about 290 MB to the image and its download to each build.
+- **A pasted code.** It reaches only the operation that is waiting for one, from the owner's signed-in
+  session; a wrong or stale code is refused and nothing is stored.
+
+Tests: `runner/claude-code-chat.test.ts` (the paste flow and its refusals), `host/cloud-hub-cloud.test.ts`
+(Claude runs on the hub after the paste; codes refused when none is waiting or malformed),
+`host/install-claude.test.ts`, `runner/cloud-claude.test.ts`.

@@ -34,7 +34,7 @@ const reply = (text: string) => [init(), { type: 'stream_event', event: { type: 
 
 type Script = { initialize?: unknown; onUser?: () => unknown[]; onInterrupt?: () => unknown[]; exitAfterUser?: boolean;
   authenticate?: unknown; completion?: 'success' | 'error' | 'never'; onCompletion?: () => void; beforeInitialize?: unknown[]; initializeError?: string };
-function fixture(script: Script = {}, accountStatus: unknown = status) {
+function fixture(script: Script = {}, accountStatus: unknown = status, extra: { pasteCode?: boolean } = {}) {
   const readStatus = typeof accountStatus === 'function' ? accountStatus as () => unknown : () => accountStatus;
   const launches: ClaudeCodeLaunch[] = [], writes: Record<string, unknown>[] = [], statusCalls: number[] = [];
   let killed = 0;
@@ -53,7 +53,7 @@ function fixture(script: Script = {}, accountStatus: unknown = status) {
               : { subtype: 'success', request_id: frame.request_id, response: script.initialize ?? initialize() } }]);
           else if (frame.type === 'control_request' && frame.request.subtype === 'claude_authenticate')
             emit([{ type: 'control_response', response: { subtype: 'success', request_id: frame.request_id, response: script.authenticate ?? { manualUrl: LOGIN.replace('code=true', 'code=manual'), automaticUrl: LOGIN } } }]);
-          else if (frame.type === 'control_request' && frame.request.subtype === 'claude_oauth_wait_for_completion') {
+          else if (frame.type === 'control_request' && (frame.request.subtype === 'claude_oauth_wait_for_completion' || frame.request.subtype === 'claude_oauth_callback')) {
             if (script.completion === 'never') return;
             script.onCompletion?.();
             emit([{ type: 'control_response', response: script.completion === 'error' ? { subtype: 'error', request_id: frame.request_id, error: 'denied' }
@@ -67,7 +67,7 @@ function fixture(script: Script = {}, accountStatus: unknown = status) {
     });
     return { stdin, stdout, kill: () => { killed++; stdout.end(); } };
   };
-  const runtime = new ClaudeCodeChat({ executable: '/synthetic/bin/claude', workspace: WORKSPACE, home: '/synthetic/home', runtimeDirectory: RUNTIME_DIR, runtimeVersion: VERSION, launch,
+  const runtime = new ClaudeCodeChat({ executable: '/synthetic/bin/claude', workspace: WORKSPACE, home: '/synthetic/home', runtimeDirectory: RUNTIME_DIR, runtimeVersion: VERSION, launch, ...extra,
     authStatus: async () => { statusCalls.push(1); return readStatus(); } });
   return { runtime, launches, writes, statusCalls, get killed() { return killed; } };
 }
@@ -325,4 +325,31 @@ test('canceling or timing out a pending sign-in stops Claude Code and reports ca
   const slow = fixture({ completion: 'never' }, () => signedOutStatus);
   assert.deepEqual(await slow.runtime.signIn({ durationMs: 50, onChallenge: () => {} }, new AbortController().signal), { kind: 'canceled' });
   assert.equal(slow.killed, 1);
+});
+
+// The cloud hub has no browser of its own (Spec 063, revision 2026-11-03): Claude's manual page, then the code the owner pastes.
+const MANUAL = 'https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&response_type=code&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback&state=fixture-state-1';
+test('on the hub, sign-in shows Claude\'s manual page and hands the pasted code to Claude Code once', async () => {
+  let signedIn = false;
+  const f = fixture({ authenticate: { manualUrl: MANUAL, automaticUrl: LOGIN }, onCompletion: () => { signedIn = true; } }, () => signedIn ? status : signedOutStatus, { pasteCode: true });
+  const shown: unknown[] = [];
+  const outcome = await f.runtime.signIn({ durationMs: 60_000, onChallenge: challenge => { shown.push(challenge); }, code: async () => 'pasted-code-123#fixture-state-1' }, new AbortController().signal);
+  assert.deepEqual(outcome, { kind: 'signedIn', account });
+  assert.deepEqual(shown, [{ kind: 'browserCode', authorizationURL: MANUAL }]);
+  assert.deepEqual(f.writes.map((frame: any) => frame.request?.subtype), ['initialize', 'claude_authenticate', 'claude_oauth_callback']);
+  assert.deepEqual((f.writes[2] as any).request, { subtype: 'claude_oauth_callback', authorizationCode: 'pasted-code-123', state: 'fixture-state-1' });
+});
+
+test('on the hub, a code for another sign-in, a local-listener page or a missing code sends nothing to Claude', async () => {
+  for (const [name, authenticate, code] of [
+    ['other state', { manualUrl: MANUAL, automaticUrl: LOGIN }, async () => 'pasted-code-123#another-state'],
+    ['listener page', { manualUrl: LOGIN, automaticUrl: LOGIN }, async () => 'pasted-code-123#fixture'],
+    ['foreign page', { manualUrl: MANUAL.replace('claude.com', 'example.com'), automaticUrl: LOGIN }, async () => 'pasted-code-123#fixture-state-1'],
+    ['no code', { manualUrl: MANUAL, automaticUrl: LOGIN }, undefined],
+  ] as const) {
+    const f = fixture({ authenticate }, () => signedOutStatus, { pasteCode: true });
+    const outcome = await f.runtime.signIn({ durationMs: 60_000, onChallenge() {}, ...(code ? { code } : {}) }, new AbortController().signal);
+    assert.notEqual(outcome.kind, 'signedIn', name);
+    assert.ok(!f.writes.some((frame: any) => frame.request?.subtype === 'claude_oauth_callback'), name);
+  }
 });

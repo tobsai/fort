@@ -298,7 +298,7 @@ import Observation
         return (try? DeviceEndpoint.network(baseURL:url,fixtureLoopback:false).validate()) != nil
     }
     public private(set) var companionSetupBusy = false
-    public private(set) var companionSetupMessage = "Use an invitation from your exact Fort Mac host."
+    public private(set) var companionSetupMessage = "Pair from your Fort hub’s page: Settings, iPhone."
     public var canPrepareCompanion: Bool { companionSetup != nil && !isOfflinePreview && !isInteractiveFixture }
     private func loadCompanionSetup() throws {
         companionSetupReady = false
