@@ -23,6 +23,6 @@ import Testing
     #expect(started.steps.map(\.done) == [true,false])
     #expect(started.steps.last?.action == .connect)
     let connected = MacConnectSteps.make(DevicesBoard.Facts(hostSetup:.enabled,connected:true))
-    #expect(connected.steps.allSatisfy(\.done))
+    #expect(connected.steps.allSatisfy { $0.done })
     #expect(connected.steps.allSatisfy { $0.action == nil })
 }
