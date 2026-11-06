@@ -1,5 +1,6 @@
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, type ExecutionDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef } from '../contracts/context.ts';
+import { parseAgentMemoryContext } from '../contracts/memory.ts';
 import { parseSkillBundle } from '../contracts/skill-bundle.ts';
 import { parseAccountIdentity } from '../contracts/account.ts';
 import type { Binding, ModelCatalog, ModelOption, AccountIdentity } from '../contracts/v1.ts';
@@ -101,8 +102,9 @@ function context(value: unknown, config: Record<string, unknown>, conversationId
   }
 }
 function inputShape(value: unknown) {
-  const v = object(value, ['context', 'attempt', 'runId', 'requestId', 'conversationId', 'configuration', 'history', 'text']);
+  const v = object(value, ['context', 'attempt', 'runId', 'requestId', 'conversationId', 'configuration', 'history', 'text', 'agentMemory']);
   strings(v, ['runId', 'requestId', 'conversationId']); text(v.text, 65_536);
+  if (v.agentMemory !== undefined) { try { parseAgentMemoryContext(v.agentMemory); } catch { reject(); } }
   const a = attempt(v.attempt), config = configuration(v.configuration, v.conversationId);
   if (a.runId !== v.runId || a.bindingRevisionId !== config.bindingRevisionId || a.selectedModel !== config.selectedModel) reject();
   context(v.context, config, v.conversationId);

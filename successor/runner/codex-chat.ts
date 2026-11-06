@@ -1,4 +1,5 @@
 import type { RuntimeReadiness, ModelCatalog, ModelOption, AccountSignInOptions, AccountSignInResult, AccountIdentity } from '../contracts/v1.ts';
+import { memoryInstructions } from '../contracts/memory.ts';
 import { randomUUID } from 'node:crypto';
 import { executionDigest } from '../contracts/executor.ts';
 import { isAbsolute, normalize } from 'node:path';
@@ -139,8 +140,8 @@ export class CodexChat implements ChatRuntime {
     const memory=prepared.kind === 'prepared' ? prepared.content.memory : undefined;
     if(memory&&(memory.conversationId!==input.conversationId||!memory.revisionId||typeof memory.text!=='string'||!memory.text.isWellFormed()||Buffer.byteLength(memory.text)>8192))return {kind:'notStarted',message:'Conversation memory identity or size was not confirmed. Nothing was sent.'};
     const skills = prepared.kind === 'prepared' ? prepared.content : { instructions: '', bundles: [] };
-    const developerInstructions = input.configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '');
-    const text = JSON.stringify({ conversationId:input.conversationId,conversationMemory:memory, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles });
+    const developerInstructions = input.configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '') + (input.agentMemory ? '\n\n' + memoryInstructions(input.agentMemory) : '');
+    const text = JSON.stringify({ conversationId:input.conversationId,conversationMemory:memory, history:input.history.map(message => ({ role:message.role, text:message.text, agentId:message.agentId, agentName:message.agentName, recipientAgentId:message.recipientAgentId, recipientAgentName:message.recipientAgentName })), currentMessage:{ recipientAgentId:input.configuration.agentId, text:input.text },selectedSkillBundles:skills.bundles,...(input.agentMemory?.entries.length ? { agentMemory: input.agentMemory.entries } : {}) });
     if (input.history.length > 256 || input.history.some(m => m.conversationId !== input.conversationId) || !text.isWellFormed() || Buffer.byteLength(text)+Buffer.byteLength(developerInstructions) > 65_536) return { kind:'failed', message:'Conversation context exceeds this candidate’s limit or identity. Nothing was sent.' };
     if (signal.aborted) return { kind:'notStarted', message:'Canceled before runtime dispatch.' };
     this.busy = true;
