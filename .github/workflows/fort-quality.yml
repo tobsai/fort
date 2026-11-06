@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       native: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.native == 'true' }}
+      package: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.package == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -33,11 +34,24 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
-          # One process, so pipefail can't turn an early grep -q exit into "no changes".
-          if awk '/^(successor\/|\.github\/workflows\/)/ && !/\.md$/ { found = 1 } END { exit !found }' "$RUNNER_TEMP/changed.txt"; then
+          # macOS minutes bill at ten times Linux minutes on a private repo, so the macOS jobs run only for
+          # files the apps are built from. The web client, design checks, docs and evidence stay on Linux.
+          # native: anything the Mac and iPhone apps or their bundled runner are built or tested from.
+          # package: the same minus FortKit's own sources and tests, which native already compiles and tests;
+          # it covers the app targets, the bundled runner and signing.
+          # Neither runs for host/cloud-* or runner/cloud-*: those are the hub's own code, which Linux tests and
+          # no app bundles.
+          # One awk process each, so pipefail can't turn an early grep -q exit into "no changes".
+          app='^successor/(apple|service|host|runner|modules|contracts|packaging|release)/|^successor/(package(-lock)?\.json|Makefile|tsconfig[^/]*\.json)$|^\.github/workflows/fort-quality\.yml$'
+          if APP="$app" awk '$0 ~ ENVIRON["APP"] && !/\.md$/ && !/^successor\/(host|runner)\/cloud-/ { found = 1 } END { exit !found }' "$RUNNER_TEMP/changed.txt"; then
             echo native=true >> "$GITHUB_OUTPUT"
           else
             echo native=false >> "$GITHUB_OUTPUT"
+          fi
+          if APP="$app" awk '$0 ~ ENVIRON["APP"] && !/\.md$/ && !/^successor\/(host|runner)\/cloud-/ && !/^successor\/apple\/(FortKit|UITests)\// { found = 1 } END { exit !found }' "$RUNNER_TEMP/changed.txt"; then
+            echo package=true >> "$GITHUB_OUTPUT"
+          else
+            echo package=false >> "$GITHUB_OUTPUT"
           fi
 
   portable:
@@ -160,7 +174,7 @@ jobs:
   # signed and checks every signature (identifiers, entitlements, sandbox inheritance). No secrets, no upload.
   mac-package:
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.package == 'true'
     runs-on: xcode-27
     timeout-minutes: 30
     env:

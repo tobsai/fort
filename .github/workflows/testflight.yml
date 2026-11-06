@@ -1,8 +1,10 @@
 name: TestFlight
 
 # Builds, signs and uploads Fort to TestFlight for iPhone and Mac every time a change to the apps lands on
-# main (merging is the owner's yes), and by hand from the Actions tab for one platform. Docs-only changes
-# don't build. Runs queue one at a time; a newer merge replaces a queued one.
+# main (merging is the owner's yes), and by hand from the Actions tab for one platform. Only files the apps are
+# built from count: changes to the web client, the hub's own cloud code, design checks, tests, docs and evidence
+# don't build, since a build costs about 120 macOS minutes (billed at ten times Linux on a private repo).
+# Runs queue one at a time; a newer merge replaces a queued one.
 # Secrets (Settings > Secrets and variables > Actions):
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8   App Store Connect API key (Admin role), .p8 contents in ASC_KEY_P8
 #   APPLE_SIGNING_P12_BASE64                base64 of one .p12 with Apple Development, Apple Distribution
@@ -12,8 +14,28 @@ on:
   push:
     branches: [main]
     paths:
-      - 'successor/**'
+      - 'successor/apple/**'
+      - 'successor/service/**'
+      - 'successor/host/**'
+      - 'successor/runner/**'
+      - 'successor/modules/**'
+      - 'successor/contracts/**'
+      - 'successor/packaging/**'
+      - 'successor/release/**'
+      - 'successor/package.json'
+      - 'successor/package-lock.json'
+      - 'successor/Makefile'
+      - 'successor/tsconfig*.json'
       - '.github/workflows/testflight.yml'
+      - '!successor/host/cloud-*'
+      - '!successor/runner/cloud-*'
+      - '!successor/apple/FortKit/Tests/**'
+      - '!successor/apple/UITests/**'
+      - '!successor/apple/*.ts'
+      - '!successor/apple/*.swift'
+      - '!successor/apple/probes/**'
+      - '!**/*.test.ts'
+      - '!**/*.test.mjs'
       - '!**/*.md'
   workflow_dispatch:
     inputs:
