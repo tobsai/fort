@@ -91,11 +91,27 @@ private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENS
         try await capture(NavigationStack { MacConnectView(model:model,facts:DevicesBoard.Facts(hostSetup:.needsEnable)) },name:"mac-connect",size:CGSize(width:560,height:520))
     }
 
+    /// The Connect to Fort sheet as it stood before the guided steps: every host and owner control at once.
+    /// Kept as a screenshot so the before and after can be compared; the same controls now sit under More options.
+    @Test func macConnectAllOptions() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let model = try MessengerModel(directory:root,localHost:MacHostControl())
+        try await capture(NavigationStack { Form { ConnectionSections(model:model) }.formStyle(.grouped) },name:"mac-connect-all-options",size:CGSize(width:560,height:800))
+    }
+
     @Test func setup() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at:root) }
         let model = try fixtureModel(root)
         try await capture(PauseMenuView(model:model,tab:.crew),name:"setup",size:CGSize(width:900,height:600))
+    }
+
+    @Test func setupDevices() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let model = try fixtureModel(root)
+        try await capture(PauseMenuView(model:model,tab:.devices),name:"setup-devices",size:CGSize(width:900,height:600))
     }
 }
 #endif
