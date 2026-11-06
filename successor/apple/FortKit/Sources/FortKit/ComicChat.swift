@@ -49,7 +49,6 @@ struct RunCaptionLine: Equatable, Sendable {
 
 /// The night top bar of every Fort screen: the wordmark, one tag of what's going on, and Setup.
 struct ComicTopBar: View {
-    let summary: String
     var showCity: (() -> Void)? = nil
     let openSetup: () -> Void
     var compact = false
@@ -58,7 +57,6 @@ struct ComicTopBar: View {
             Text("FORT").font(FortTheme.display(22)).tracking(4.8).foregroundStyle(Color(hex:0xE8ECF1))
                 .shadow(color:FortTheme.glow.opacity(0.55),radius:10)
                 .accessibilityLabel("Fort")
-            if !compact { CaptionBox(text:summary) }
             Spacer(minLength:8)
             if let showCity, !compact { Button("City",action:showCity).buttonStyle(ComicButtonStyle()).accessibilityIdentifier("show-city") }
             Button("Setup",action:openSetup).buttonStyle(ComicButtonStyle())

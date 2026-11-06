@@ -5,7 +5,7 @@ import SwiftUI
 import Testing
 @testable import FortKit
 
-// Side-by-side screenshots, Mac half: the Quest log, a chat and Setup drawn from design/screens/fixture.json,
+// Side-by-side screenshots, Mac half: the first run, the Quest log, a chat and Setup drawn from design/screens/fixture.json,
 // the same records the web half (design/screens/web-screens.mjs) serves to the web client. Runs only when
 // FORT_SCREENSHOTS names a folder, as the native CI job does, and writes one PNG per screen and mode.
 
@@ -62,7 +62,7 @@ private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENS
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at:root) }
         let model = try fixtureModel(root)
-        try await capture(QuestLogView(model:model,openChat:{ _ in },showCity:nil,openMenu:{}),name:"quest-log",size:CGSize(width:1280,height:800))
+        try await capture(QuestLogView(model:model,openChat:{ _ in },showCity:nil,openMenu:{ _ in }),name:"quest-log",size:CGSize(width:1280,height:800))
     }
 
     @Test func chat() async throws {
@@ -73,6 +73,22 @@ private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENS
         defaults.set(false,forKey:"fort.showDesk"); defaults.set(false,forKey:"fort.showCity")
         defer { if let saved { defaults.set(saved,forKey:"fort.showDesk") } else { defaults.removeObject(forKey:"fort.showDesk") } }
         try await capture(MessengerView(model:model),name:"chat",size:CGSize(width:1280,height:800))
+    }
+
+    @Test func firstRun() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let model = try fixtureModel(root)
+        model.agents = []; model.conversations = []; model.deskSnapshots = [:]
+        try await capture(QuestLogView(model:model,openChat:{ _ in },showCity:nil,openMenu:{ _ in }),name:"first-run",size:CGSize(width:1280,height:800))
+    }
+
+    @Test func macConnect() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let model = try fixtureModel(root)
+        model.status = ""
+        try await capture(NavigationStack { MacConnectView(model:model,facts:DevicesBoard.Facts(hostSetup:.needsEnable)) },name:"mac-connect",size:CGSize(width:560,height:520))
     }
 
     @Test func setup() async throws {

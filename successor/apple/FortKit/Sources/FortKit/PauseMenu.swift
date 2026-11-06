@@ -1,10 +1,11 @@
 import Foundation
 
-/// The sections of Setup, the one place for everything off the map, in the same order as the web: Crew, Routines, Accounts, Devices.
+/// The pages of Setup, the one place for everything off the main screen, in the same order as the web's Setup menu:
+/// Agents, Routines (apps only), Accounts, Devices. Devices are optional: the hub runs Agents itself.
 enum PauseTab: String, CaseIterable, Identifiable, Sendable {
     case crew, playbook, accounts, devices
     var id: String { rawValue }
-    var title: String { switch self { case .crew: "Crew"; case .playbook: "Routines"; case .accounts: "Accounts"; case .devices: "Devices" } }
+    var title: String { switch self { case .crew: "Agents"; case .playbook: "Routines"; case .accounts: "Accounts"; case .devices: "Devices" } }
     var symbol: String { switch self { case .crew: "person.3.fill"; case .playbook: "play.rectangle.on.rectangle"; case .accounts: "bolt.fill"; case .devices: "desktopcomputer" } }
 }
 

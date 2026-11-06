@@ -58,7 +58,6 @@ label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .06em
 .top .caption { background: #1A212B; color: #E8ECF1; border-color: #283039; }
 .top button { background: #131820; color: #E8ECF1; border-color: #283039; }
 .grow { flex: 1; }
-.status { display: flex; align-items: center; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: var(--stroke) solid var(--line); font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--muted); background: var(--bar); flex: none; }
 
 /* The desk: Quest log beside the chat panels */
 .desk { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 28px; padding: 22px; align-items: start; }
@@ -139,11 +138,39 @@ label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .06em
 .composer textarea { min-height: 44px; max-height: 40vh; padding: 11px 14px; }
 .composer button { align-self: flex-end; min-height: 44px; }
 
-/* Setup panel */
+/* First run: the steps between signing in and using Fort, then "You're set" */
+.welcome { flex: 1; min-height: 0; overflow-y: auto; display: flex; justify-content: center; padding: 8vh 22px 32px; }
+.welcomebox { width: min(560px, 100%); display: flex; flex-direction: column; gap: 14px; }
+.title.big { font-size: 30px; letter-spacing: .12em; }
+.lede { margin: 0; color: var(--muted); font-size: 16px; }
+.steps { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.step { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--panel); border: var(--stroke) solid var(--line); border-radius: var(--radius); }
+.step > div { flex: 1; min-width: 0; }
+.step strong { display: block; font-weight: 600; }
+.step p { margin: 2px 0 0; }
+.step.current { border-color: var(--glow); box-shadow: 0 0 18px color-mix(in srgb, var(--glow) 22%, transparent); }
+.step.done { opacity: .7; }
+.num { width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: var(--stroke) solid var(--line); font-weight: 700; font-size: 13px; color: var(--muted); }
+.step.current .num { border-color: var(--accent); color: var(--accent); }
+.step.done .num { background: var(--done); border-color: var(--done); color: var(--caption-ink); }
+.later { margin: 6px 0 0; }
+.welcomebox .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.caption.done { align-self: flex-start; background: var(--done); color: var(--caption-ink); border-color: var(--done); }
+
+/* Setup panel: a menu, then one page at a time */
 .sheet { position: fixed; inset: 0; background: color-mix(in srgb, #05070A 60%, transparent); display: flex; justify-content: flex-end; z-index: 10; }
 .sheet > div { width: min(480px, 100%); height: 100%; overflow-y: auto; background: var(--paper); border-left: var(--stroke) solid var(--line); padding: 0 18px 32px; }
 .sheet header { display: flex; align-items: center; position: sticky; top: 0; background: var(--paper); padding: 14px 0; border-bottom: var(--stroke) solid var(--line); z-index: 1; }
+.sheet header { gap: 10px; }
 .sheet header h2 { flex: 1; }
+.menu { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; }
+.menurow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; min-height: 64px; font-weight: 500; }
+.menurow:hover:not(:disabled) { border-color: var(--glow); }
+.menutext { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.menutext strong { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border: var(--stroke) solid var(--line); border-radius: 2px; padding: 0 6px; }
+.chev { font-size: 22px; color: var(--muted); line-height: 1; }
+.menufoot { padding-top: 6px; }
 .sheet section { padding: 16px 0; border-bottom: var(--stroke) solid var(--line); }
 .sheet section h3 { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .sheet section h4 { margin: 14px 0 4px; font-size: 14px; font-weight: 600; }

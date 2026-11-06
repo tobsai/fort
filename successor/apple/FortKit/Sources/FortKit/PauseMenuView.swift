@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Setup, the one place for everything off the map: Crew, Routines, Accounts and Devices, the same
-/// sections in the same order as the web's Setup sheet, drawn on the same comic page.
+/// Setup, the one place for everything off the main screen: Agents, Routines, Accounts and Devices, one page at a time,
+/// the same pages in the same order as the web's Setup menu. Devices carry an Optional tag.
 /// Each tab hosts the existing screens, so their checks, confirmations and recovery steps are unchanged.
 struct PauseMenuView: View {
     @Bindable var model: MessengerModel
@@ -55,6 +55,7 @@ struct PauseMenuView: View {
                     HStack(spacing:10) {
                         Image(systemName:entry.tab.symbol).frame(width:20)
                         Text(entry.tab.title).font(.callout.weight(.semibold))
+                        if entry.tab == .devices { Text("Optional").font(.system(size:9.5,weight:.bold)).tracking(1.1).textCase(.uppercase).foregroundStyle(FortTheme.muted) }
                         Spacer(minLength:0)
                         if entry.badge > 0 { CaptionBox(text:"\(entry.badge)",fill:FortTheme.needsYou) }
                     }
@@ -85,7 +86,7 @@ struct PauseMenuView: View {
         }
     }
 
-    /// The crew, listed like the web's Setup: each Agent's badge, name and "provider · model", then New agent.
+    /// The Agents, listed like the web's Setup: each Agent's badge, name and "provider · model", then New agent.
     private var crew: some View {
         ScrollView {
             #if DEBUG
@@ -113,7 +114,7 @@ struct PauseMenuView: View {
                 }.buttonStyle(.plain).accessibilityIdentifier("crew-recruit")
             }.padding(18)
         }
-        .navigationTitle("Crew")
+        .navigationTitle("Agents")
     }
 
     private var playbook: some View {
