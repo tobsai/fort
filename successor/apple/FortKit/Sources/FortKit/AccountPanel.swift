@@ -4,7 +4,7 @@ import Foundation
 enum StatusLamp: Equatable, Sendable { case ready, waiting, attention, failed, off }
 
 /// What the Accounts tab says about the focused plan: one light, one sentence, and at most one main action.
-/// Recovery steps (check status, retry, discard, change account) stay available in the Workshop drawer.
+/// Recovery steps (check status, retry, discard, change account) stay available under More options drawer.
 struct AccountPanel: Equatable, Sendable {
     enum Action: Equatable, Sendable { case signIn, useAccount, cancel }
     let lamp: StatusLamp
@@ -15,7 +15,7 @@ struct AccountPanel: Equatable, Sendable {
 
     static func make(status: AccountSignInStatus?, hasPendingRequest: Bool, now: Int64) -> AccountPanel {
         guard let status else {
-            if hasPendingRequest { return AccountPanel(lamp:.attention,line:"A saved sign-in request is waiting. Retry or discard it in the Workshop.",action:nil,keepsChecking:false) }
+            if hasPendingRequest { return AccountPanel(lamp:.attention,line:"A saved sign-in request is waiting. Retry or discard it under More options.",action:nil,keepsChecking:false) }
             return AccountPanel(lamp:.off,line:"Checking with Fort…",action:nil,keepsChecking:false)
         }
         switch status {

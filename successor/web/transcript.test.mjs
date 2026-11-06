@@ -93,3 +93,15 @@ test('run meters fill in the same three steps as the apps', () => {
   assert.deepEqual(['queued', 'running', 'waitingForApproval', 'completed', 'failed', 'canceled'].map(state => runMeter(run('r', 'q', state))),
     [{ filled: 1, tone: 'working' }, { filled: 2, tone: 'working' }, { filled: 2, tone: 'needsYou' }, { filled: 3, tone: 'done' }, { filled: 3, tone: 'failed' }, { filled: 3, tone: 'off' }]);
 });
+
+test('first run asks for an account, then a first agent, and never for a device', async () => {
+  const { setupSteps } = await import('./transcript.js');
+  const fresh = setupSteps({ account: false, agents: 0 });
+  assert.deepEqual(fresh.steps.map(step => [step.id, step.done, step.current]), [['account', false, true], ['agent', false, false]]);
+  assert.equal(fresh.done, false);
+  assert.deepEqual(setupSteps({ account: true, agents: 0 }).steps.map(step => step.current), [false, true]);
+  // An agent made before an account (a Mac runs it) still counts; the account step stays open and current.
+  assert.deepEqual(setupSteps({ account: false, agents: 1 }).steps.map(step => step.current), [true, false]);
+  assert.equal(setupSteps({ account: true, agents: 2 }).done, true);
+  assert.ok(!fresh.steps.some(step => /device|mac|iphone/i.test(step.id)), 'devices are optional');
+});

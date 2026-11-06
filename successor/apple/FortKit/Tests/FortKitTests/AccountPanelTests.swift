@@ -34,7 +34,7 @@ private func browser() throws -> AccountChallenge { try JSONDecoder().decode(Acc
 
 @Test func accountPanelSendsASavedRequestToTheWorkshopInsteadOfGuessing() {
     let saved = AccountPanel.make(status:nil,hasPendingRequest:true,now:1)
-    #expect(saved.lamp == .attention && saved.action == nil && saved.line.contains("Workshop"))
+    #expect(saved.lamp == .attention && saved.action == nil && saved.line.contains("More options"))
     let unknown = AccountPanel.make(status:nil,hasPendingRequest:false,now:1)
     #expect(unknown.lamp == .off && unknown.action == nil && !unknown.keepsChecking)
 }

@@ -60,7 +60,7 @@ struct PairingSettingsView: View {
             #endif
             Section {
                 Button { showWorkshop.toggle() } label: {
-                    Label("WORKSHOP",systemImage:showWorkshop ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)
+                    Label("MORE OPTIONS",systemImage:showWorkshop ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)
                 }.buttonStyle(.plain).accessibilityValue(showWorkshop ? "Expanded" : "Collapsed").accessibilityIdentifier("devices-workshop")
             } footer: { Text("Setup, pairing, certificates, stopping, disconnecting and removal.").font(.caption) }
             if showWorkshop {

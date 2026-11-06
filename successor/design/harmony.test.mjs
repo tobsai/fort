@@ -10,15 +10,27 @@ const web = read('../web/app.js');
 const kit = name => read(`../apple/FortKit/Sources/FortKit/${name}.swift`);
 const fixture = JSON.parse(read('./screens/fixture.json'));
 
-test('Setup has the same sections in the same order on the web and in the apps', () => {
+test('Setup has the same pages in the same order on the web and in the apps', () => {
   const apps = [...kit('PauseMenu').match(/var title: String \{ switch self \{([^}]*)\}/)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(apps, ['Crew', 'Routines', 'Accounts', 'Devices']);
-  const sheet = web.match(/body\.append\(([^\n]*)\);/)[1];
-  assert.deepEqual([...sheet.matchAll(/(crew|account|mac|phone|browser)Section/g)].map(match => match[1]), ['crew', 'account', 'mac', 'phone', 'browser']);
-  for (const heading of ['Crew', 'Accounts', 'Devices']) assert.ok(web.includes(`h('h3', {}, '${heading}')`), `web Setup has a ${heading} section`);
+  assert.deepEqual(apps, ['Agents', 'Routines', 'Accounts', 'Devices']);
+  // Setup opens on a menu; each entry is its own page. Routines live in the apps only until the hub serves them.
+  const pages = [...web.match(/const SETUP = \[([\s\S]*?)\];/)[1].matchAll(/title: '([^']+)'/g)].map(match => match[1]);
+  assert.deepEqual(pages, apps.filter(title => title !== 'Routines'));
+  assert.ok(/page: 'devices', title: 'Devices', optional: true/.test(web) && kit('PauseMenuView').includes('"Optional"'), 'Devices is marked optional on both');
   for (const sub of ['Macs', 'iPhone', 'Browsers', 'New agent']) assert.ok(web.includes(`h('h4', {}, '${sub}')`), `web Setup has ${sub}`);
-  // Routines live in the apps only until the hub serves them; they sit between Crew and Accounts there.
   assert.ok(!/Playbook|PAUSED|RESUME|RECRUIT/.test(kit('PauseMenuView')), 'the apps say Setup, Done and New agent, like the web');
+});
+
+test('the main screen is the Quest log and the Chats, with the first run in front of it until there is an Agent', async () => {
+  const quest = kit('QuestLogView');
+  assert.ok(!/statusBar/.test(quest) && !/statusBar|footer\.status/.test(web), 'no status bar under the main screen');
+  assert.ok(!/deskSummary/.test(web) && !/summary:/.test(kit('ComicChat')), 'no summary caption in the top bar');
+  const { setupSteps } = await import('../web/transcript.js');
+  const titles = setupSteps({ account: false, agents: 0 }).steps.map(step => step.title);
+  const swift = kit('SetupSteps');
+  for (const title of titles) assert.ok(swift.includes(`"${title}"`), `the apps' first run says ${title}`);
+  for (const words of ['Set up Fort', 'You’re set', 'Start chatting', 'Go to the Quest log'])
+    assert.ok(web.includes(`'${words}'`) && kit('GetStartedView').includes(`"${words}"`), `both say ${words}`);
 });
 
 test('the chrome uses the same words everywhere', () => {

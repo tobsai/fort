@@ -1,11 +1,11 @@
 // Fort web client (Spec 063). Served by the hub itself, so every call is same-origin. The browser
 // holds one device credential in localStorage; all text is rendered with textContent, never as HTML.
 // With Google sign-in on, each browser gets its own credential by signing in (Spec 066, revision 2026-11-02).
-import { approvalCopy, canDecide, chatPanels, crewSlot, deskSummary, questLog, resolution, runStatus, transcriptRows } from '/transcript.js';
+import { approvalCopy, canDecide, chatPanels, crewSlot, questLog, resolution, runStatus, setupSteps, transcriptRows } from '/transcript.js';
 
 const STORE = 'fort.device.v1';
 const app = document.getElementById('app');
-const state = { device: load(), browsers: null, installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, problem: null, snapshots: new Map(), cleared: [] };
+const state = { device: load(), browsers: null, installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, page: null, from: null, adding: false, skipped: false, ready: null, problem: null, snapshots: new Map(), cleared: [] };
 
 function load() { try { return JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { return null; } }
 function save(device) { state.device = device; if (device) localStorage.setItem(STORE, JSON.stringify(device)); else localStorage.removeItem(STORE); }
@@ -102,7 +102,8 @@ async function openConversation(conversationId) {
 
 function render() {
   if (!state.device) return claimView();
-  const shell = h('div.shell', {}, topBar(), state.current ? chat() : desk(), state.current ? null : statusBar());
+  // The main screen is the Quest log and the Chats, nothing else. Until there is an Agent, the first run stands in for it.
+  const shell = h('div.shell', {}, topBar(), state.current ? chat() : firstRun() ? welcome() : desk());
   const scroller = app.querySelector('.messages'), atBottom = !scroller || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
   const draft = app.querySelector('.composer textarea')?.value;
   // The sheet keeps its own state (an invitation on screen, a half-filled form) across live updates.
@@ -115,14 +116,35 @@ function render() {
 }
 
 function topBar() {
-  const quests = questLog(state.conversations, state.snapshots, state.agents);
-  const panels = chatPanels(state.conversations, state.snapshots, state.agents, quests);
-  return h('header.top', {}, h('h1.wordmark', { 'aria-label': 'Fort' }, 'FORT'), h('span.caption.topline', {}, deskSummary(quests, panels)), h('span.grow'),
-    h('button', { onclick: () => { state.sheet = true; render(); } }, 'Setup'));
+  return h('header.top', {}, h('h1.wordmark', { 'aria-label': 'Fort' }, 'FORT'), h('span.grow'),
+    h('button', { onclick: () => openSetup(null) }, 'Setup'));
 }
-function statusBar() {
-  const online = state.runners.filter(runner => runner.online);
-  return h('footer.status', {}, h('span.dot' + (online.length ? '.on' : '')), online.length ? `${online.map(runner => runner.runnerName).join(', ')} connected` : (state.runners.length ? 'Your Mac is offline. Replies wait for it.' : 'No Mac connected yet.'));
+
+// ---------- First run ----------
+// Signed in, nothing set up yet: the two steps that make Fort usable, then a clear hand-off to the Quest log.
+// Devices are optional (Spec 063, revision 2026-11-03: the hub runs Agents itself), so they are mentioned, never asked for.
+const accountReady = () => (state.cloud?.lanes ?? []).some(lane => lane.signedIn) || state.runners.some(runner => runner.online);
+const firstRun = () => state.ready !== null || (!state.agents.length && !state.skipped);
+function welcome() {
+  const plan = setupSteps({ account: accountReady(), agents: state.agents.length });
+  if (state.ready !== null && plan.done) {
+    const finish = conversationId => { state.ready = null; if (conversationId) select(conversationId); else render(); };
+    return h('main.welcome', {}, h('div.welcomebox', {},
+      h('span.caption.done', {}, 'Setup done'),
+      h('h2.title.big', {}, 'You’re set'),
+      h('p.lede', {}, 'From here on Fort opens on two things: the Quest log, for anything that needs you, and your Chats.'),
+      h('div.actions', {}, h('button.primary', { onclick: () => finish(state.ready) }, 'Start chatting'), h('button.link', { onclick: () => finish(null) }, 'Go to the Quest log'))));
+  }
+  const step = (item, index) => h('li.step' + (item.done ? '.done' : item.current ? '.current' : ''), {},
+    h('span.num', { 'aria-hidden': 'true' }, item.done ? '✓' : String(index + 1)),
+    h('div', {}, h('strong', {}, item.title), h('p.muted', {}, item.done ? 'Done.' : item.line)),
+    item.done ? null : h('button' + (item.current ? '.primary' : ''), { onclick: () => openSetup(item.page, 'welcome') }, item.action));
+  return h('main.welcome', {}, h('div.welcomebox', {},
+    h('h2.title.big', {}, 'Set up Fort'),
+    h('p.lede', {}, 'Two steps and you’re in. Fort runs your agents in the cloud, so there’s nothing to install.'),
+    h('ol.steps', {}, plan.steps.map(step)),
+    h('p.muted.later', {}, 'Optional, any time: connect a Mac or pair the iPhone app from Setup, Devices.'),
+    state.agents.length ? h('button.link', { onclick: () => { state.ready = null; state.skipped = true; render(); } }, 'Skip to the Quest log') : null));
 }
 
 // The home screen: the Quest log of everything waiting on you, beside a panel for every chat.
@@ -183,8 +205,9 @@ const providerName = provider => state.installation?.runtimes?.find(runtime => r
 const portrait = agent => h('span.portrait.crew-' + crewSlot(agent.agentId), { 'aria-hidden': 'true', title: agent.name }, [...agent.name.trim()][0]?.toUpperCase() ?? '?');
 // The chat header's one light and sentence, like ChatQuiet.header in the apps.
 function headerLine() {
-  const online = state.runners.some(runner => runner.online);
-  const [tone, text] = online ? ['done', 'Ready'] : state.runners.length ? ['failed', 'Your Mac is offline'] : ['off', 'No Mac connected'];
+  // The hub runs Agents itself once an account is signed in there, so a missing Mac is only news when nothing else can run.
+  const ready = accountReady();
+  const [tone, text] = ready ? ['done', 'Ready'] : state.runners.length ? ['failed', 'Your Mac is offline'] : ['off', 'No account signed in'];
   return h('span.headline', {}, h('span.lamp.' + tone, { 'aria-hidden': 'true' }), text);
 }
 async function select(conversationId) { state.problem = null; try { await openConversation(conversationId); } catch (error) { state.problem = error.message; } render(); }
@@ -245,12 +268,49 @@ function approvalCard(approval) {
     open ? h('div.actions', {}, h('button.primary', { onclick: decide(true) }, copy.approve), h('button', { onclick: decide(false) }, copy.reject)) : null);
 }
 
-// ---------- Setup sheet ----------
+// ---------- Setup ----------
+// Setup is a short menu; each entry opens its own page (Revision 2026-11-06). The pages are the same, in the same order,
+// as the tabs of Setup in the Mac and iPhone apps: Agents, Accounts, Devices (Routines sit between Agents and Accounts there).
+const SETUP = [
+  { page: 'agents', title: 'Agents' },
+  { page: 'accounts', title: 'Accounts' },
+  { page: 'devices', title: 'Devices', optional: true },
+];
+// `from` is where Setup was opened: from the first run, the back button returns there instead of to the menu.
+function openSetup(page, from = null) { state.sheet = true; state.page = page; state.from = from; state.adding = page === 'agents' && !state.agents.length; state.sheetNode = null; render(); }
+function closeSetup() { state.sheet = false; state.page = null; state.from = null; state.adding = false; state.sheetNode = null; render(); }
+
 function setupSheet() {
-  // The same sections, in the same order, as Setup in the Mac and iPhone apps: Crew, Accounts, Devices.
-  const body = h('div', {}, h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: () => { state.sheet = false; render(); } }, 'Done')));
-  body.append(crewSection(), accountSection(), h('section', {}, h('h3', {}, 'Devices'), macSection(), phoneSection(), browserSection()));
-  return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) { state.sheet = false; render(); } } }, body);
+  const entry = SETUP.find(item => item.page === state.page);
+  const back = () => { if (state.from === 'welcome') return closeSetup(); openSetup(null); };
+  const head = entry
+    ? h('header', {}, h('button.back', { onclick: back }, state.from === 'welcome' ? '‹ Back' : '‹ Setup'), h('h2.title', {}, entry.title), h('button.primary', { onclick: closeSetup }, 'Done'))
+    : h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: closeSetup }, 'Done'));
+  const page = !entry ? setupMenu() : entry.page === 'agents' ? crewSection() : entry.page === 'accounts' ? accountSection() : devicesSection();
+  const body = h('div', {}, head, page);
+  return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) closeSetup(); } }, body);
+}
+
+// One row per page: its name, one line on where it stands, and an Optional tag on Devices.
+function setupMenu() {
+  const lanes = (state.cloud?.lanes ?? []).filter(lane => lane.signedIn).map(lane => lane.name);
+  const online = state.runners.filter(runner => runner.online).length;
+  const lines = {
+    agents: state.agents.length ? state.agents.map(agent => agent.name).join(', ') : 'None yet. Create your first one.',
+    accounts: state.browsers?.you === 'browser' ? 'Managed from the owner browser' : lanes.length ? `${lanes.join(' and ')} signed in on the hub` : 'Sign in so the hub can run your agents',
+    devices: online ? `${online === 1 ? '1 Mac' : online + ' Macs'} connected` : 'Macs, iPhone and browsers',
+  };
+  return h('nav.menu', { 'aria-label': 'Setup' },
+    SETUP.map(item => h('button.menurow', { onclick: () => openSetup(item.page) },
+      h('span.menutext', {}, h('strong', {}, item.title, item.optional ? h('span.tag', {}, 'Optional') : null), h('span.muted', {}, lines[item.page])),
+      h('span.chev', { 'aria-hidden': 'true' }, '›'))),
+    h('div.menufoot', {}, h('button.link', { onclick: () => signOut().then(() => location.reload()) }, 'Sign out of Google')));
+}
+
+// Devices extend the hub; none is needed to use Fort.
+function devicesSection() {
+  return h('section', {}, h('p.muted', {}, 'Optional. The hub runs your agents on its own. Connect a Mac for what the hub can’t do, or pair the iPhone app.'),
+    macSection(), phoneSection(), browserSection());
 }
 
 function macSection() {
@@ -288,11 +348,11 @@ function macState(runner) {
 
 function accountSection() {
   // Provider accounts and iPhone pairing belong to the owner browser; an added browser says so instead.
-  if (state.browsers?.you === 'browser') return h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.'));
+  if (state.browsers?.you === 'browser') return h('section', {}, h('p.muted', {}, 'Sign in to ChatGPT and Claude from the owner browser.'));
   const cloud = new Set((state.cloud?.lanes ?? []).map(lane => lane.provider));
   const intro = cloud.size ? 'Sign in to your subscriptions here and the hub runs those Agents itself. A provider the hub can’t run yet is confirmed on your Mac.'
     : 'Confirm which subscription each provider on your Mac is signed in to. Sign-ins happen on the Mac; nothing is stored here.';
-  const section = h('section', {}, h('h3', {}, 'Accounts'), h('p.muted', {}, intro));
+  const section = h('section', {}, h('p.muted', {}, intro));
   for (const runtime of state.installation?.runtimes ?? []) {
     const line = h('span', {}, runtime.name, h('span.muted', {}, ' · checking…')), error = h('p.error');
     const challenge = h('div');
@@ -349,7 +409,8 @@ async function confirmAccount(runtime, line, button, error, challenge) {
       status = await api('/v1/account/sign-in/select' + query, { operationId: status.operationId, revision: status.revision, recoveryEpoch: state.installation.recoveryEpoch, account: status.result.account });
     describeAccount(line, runtime, status, challenge);
     // The hub now runs this provider itself: show the Macs as optional.
-    if (status.state === 'finished' && status.result.kind === 'signedIn') { await refresh(); state.sheetNode = null; render(); }
+    // From the first run, a finished sign-in goes straight back to the next step.
+    if (status.state === 'finished' && status.result.kind === 'signedIn') { await refresh(); if (state.from === 'welcome') return closeSetup(); state.sheetNode = null; render(); }
   } catch (problem) { say(error, problem); }
   button.disabled = false;
 }
@@ -374,14 +435,20 @@ function crewSection() {
   const form = h('form', { onsubmit: async event => {
     event.preventDefault(); say(error);
     try {
+      const first = !state.agents.length;
       const agent = await api('/v1/agents', { name: name.value.trim(), provider: provider.value, model: model.value.trim(), instructions: instructions.value });
-      await refresh(); await openConversation(agent.homeConversationId); state.sheet = false; render();
+      await refresh();
+      // The first Agent ends setup: show "You're set" before Fort opens on its chat. Later ones open their chat at once.
+      if (first) { state.ready = agent.homeConversationId; closeSetup(); return; }
+      await openConversation(agent.homeConversationId); closeSetup();
     } catch (problem) { say(error, problem); }
   } }, h('label', { for: 'agent-name' }, 'Name'), name, h('label', { for: 'agent-provider' }, 'Provider'), provider,
     h('label', { for: 'agent-model' }, 'Model'), model, models, h('label', { for: 'agent-instructions' }, 'Instructions'), instructions,
     h('div.row', {}, h('span'), h('button.primary', { type: 'submit' }, 'Add agent')), error);
   const crew = state.agents.map(agent => h('div.row.crewrow', {}, h('span.crewline', {}, portrait(agent), h('span', {}, h('strong', {}, agent.name), h('span.muted.small', {}, [providerName(agent.binding.provider), agent.binding.selectedModel].filter(Boolean).join(' · '))))));
-  return h('section', {}, h('h3', {}, 'Crew'), crew.length ? crew : h('p.muted', {}, 'No agents yet.'), h('h4', {}, 'New agent'), form);
+  // The list first; the form for a new Agent opens on request, or at once when there are none.
+  const add = state.adding ? [h('h4', {}, 'New agent'), form] : [h('button', { onclick: () => { state.adding = true; state.sheetNode = null; render(); } }, 'New agent')];
+  return h('section', {}, crew.length ? crew : h('p.muted', {}, 'No agents yet.'), ...add);
 }
 
 function phoneSection() {
@@ -421,7 +488,6 @@ function browserSection() {
     : 'This browser is the hub’s owner. Forgetting it here cannot be undone without a fresh setup code.';
   return h('div.sub', {}, h('h4', {}, 'Browsers'), h('p.muted', {}, about),
     added ? null : h('div.row', {}, h('span', {}, 'This browser', h('span.muted', {}, ' · owner'))), rows, error,
-    h('button.link', { onclick: () => signOut().then(() => location.reload()) }, 'Sign out of Google'), ' ',
     added ? null : h('button.link', { onclick: () => { if (confirm('Forget this browser’s owner credential? You will need a new setup to get back in.')) { save(null); signOut().finally(() => location.reload()); } } }, 'Forget this browser'));
 }
 

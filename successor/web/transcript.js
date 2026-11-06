@@ -141,3 +141,15 @@ export function deskSummary(quests, panels) {
   if (running) parts.push(`${running} running`);
   return parts.join(' · ');
 }
+
+// First run (revision 2026-11-06): the steps between signing in and using Fort, the same as FortKit SetupSteps.
+// Two are needed (an account the hub can run, then a first Agent); devices are optional and never block.
+// `account` is true once any provider is signed in on the hub, or a Mac is online to run turns for it.
+export function setupSteps({ account, agents }) {
+  const steps = [
+    { id: 'account', title: 'Sign in to ChatGPT or Claude', line: 'Fort uses your own plan. Nothing is billed to an API key.', done: account, action: 'Sign in', page: 'accounts' },
+    { id: 'agent', title: 'Create your first agent', line: 'Give it a name, a model and a few lines on how to answer.', done: agents > 0, action: 'Create agent', page: 'agents' },
+  ];
+  const next = steps.find(step => !step.done)?.id ?? null;
+  return { steps: steps.map(step => ({ ...step, current: step.id === next })), done: next === null };
+}

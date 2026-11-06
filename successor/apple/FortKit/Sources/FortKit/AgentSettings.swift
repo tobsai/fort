@@ -89,7 +89,7 @@ struct AgentSettingsEditor: View {
             } header: { Text("Class") }
             Section {
                 let gear = AgentSheet.gear(model.modelCatalog.options(preserving:form.exactModel))
-                if gear.isEmpty { CopyableText(model.modelCatalog.detail ?? "No models listed yet. Refresh them in the Workshop.").font(.callout).foregroundStyle(.secondary) }
+                if gear.isEmpty { CopyableText(model.modelCatalog.detail ?? "No models listed yet. Refresh them under More options.").font(.callout).foregroundStyle(.secondary) }
                 ForEach(gear) { item in
                     Button { form.exactModel = item.id } label: {
                         HStack(spacing:10) {
