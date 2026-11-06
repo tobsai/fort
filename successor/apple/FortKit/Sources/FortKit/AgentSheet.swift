@@ -48,7 +48,7 @@ enum AgentSheet {
     }
 }
 
-/// The phone's join card: paste the invitation, then join. The individual fields stay reachable in the Workshop.
+/// The phone's join card: paste the invitation, then join. The individual fields stay reachable under More options.
 enum JoinPanel: Equatable, Sendable {
     case paste
     case ready(host: String)

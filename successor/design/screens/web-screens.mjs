@@ -1,6 +1,6 @@
 // Side-by-side screenshots, web half: serves the real web client from successor/web with a mock hub
 // that answers from fixture.json (the same records FortKit's ScreenshotTests load into the Mac app),
-// then captures the Quest log, a chat and Setup in light and noir with Playwright.
+// then captures the first run, the Quest log, a chat, the Setup menu and its Agents page in light and noir with Playwright.
 //
 //   node design/screens/web-screens.mjs <output-directory>
 //
@@ -18,11 +18,13 @@ mkdirSync(out, { recursive: true });
 
 const types = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const send = (res, status, value) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(value)); };
+// A fresh hub (no Agents, no chats) for the first-run screens.
+let fresh = false;
 function mock(url) {
   const path = url.pathname;
   if (path === '/v1/installation') return fixture.installation;
-  if (path === '/v1/agents') return { agents: fixture.agents };
-  if (path === '/v1/conversations') return { conversations: fixture.conversations };
+  if (path === '/v1/agents') return { agents: fresh ? [] : fixture.agents };
+  if (path === '/v1/conversations') return { conversations: fresh ? [] : fixture.conversations };
   if (path === '/v1/runners') return { runners: fixture.runners, pool: { runners: fixture.runners.map(runner => runner.runnerId) } };
   const snapshot = path.match(/^\/v1\/conversations\/([^/]+)\/snapshot$/);
   if (snapshot) return fixture.snapshots[decodeURIComponent(snapshot[1])];
@@ -52,6 +54,11 @@ try {
   for (const colorScheme of ['light', 'dark']) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, colorScheme });
     await page.addInitScript(device => localStorage.setItem('fort.device.v1', JSON.stringify(device)), { installationId: fixture.installation.installationId, deviceId: 'screens', deviceToken: 'screens' });
+    fresh = true;
+    await page.goto(origin + '/');
+    await page.getByRole('heading', { name: 'Set up Fort' }).waitFor();
+    await page.screenshot({ path: join(out, `web-first-run-${colorScheme}.jpg`), quality: 80 });
+    fresh = false;
     await page.goto(origin + '/');
     await page.getByRole('heading', { name: 'Quest log' }).waitFor();
     await page.screenshot({ path: join(out, `web-quest-log-${colorScheme}.jpg`), quality: 80 });
@@ -59,9 +66,15 @@ try {
     await page.locator('.chat header h2', { hasText: open.name }).waitFor();
     await page.screenshot({ path: join(out, `web-chat-${colorScheme}.jpg`), quality: 80 });
     await page.getByRole('button', { name: 'Setup' }).click();
-    await page.locator('.sheet h3', { hasText: 'Crew' }).waitFor();
+    // The Agents entry by its own name; the Accounts line also says "agents".
+    const agentsRow = page.locator('.sheet .menurow').filter({ has: page.locator('strong', { hasText: /^Agents/ }) });
+    await agentsRow.waitFor();
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(out, `web-setup-${colorScheme}.jpg`), quality: 80 });
+    await agentsRow.click();
+    await page.locator('.sheet h2', { hasText: 'Agents' }).waitFor();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(out, `web-setup-agents-${colorScheme}.jpg`), quality: 80 });
     await page.close();
   }
 } finally {

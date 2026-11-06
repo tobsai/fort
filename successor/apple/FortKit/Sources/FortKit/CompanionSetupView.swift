@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Joining from a phone: paste the invitation, then join. The exact fields and recovery steps stay in the Workshop.
+/// Joining from a phone: paste the invitation, then join. The exact fields and recovery steps stay under More options.
 struct CompanionSetupView: View {
     @Bindable var model: MessengerModel
     @State private var forgetTarget: PendingCompanionSetup?

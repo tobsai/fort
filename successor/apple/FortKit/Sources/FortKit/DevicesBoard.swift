@@ -1,7 +1,7 @@
 import Foundation
 
 /// The top of the Devices tab: one row per device with a light, a sentence and the next step.
-/// Every other control (cancel setup, revoke, certificates, removal) stays in the Workshop below it.
+/// Every other control (cancel setup, revoke, certificates, removal) stays under More options below it.
 struct DevicesBoard: Equatable, Sendable {
     /// Where this Mac's helper stands with macOS startup, from `MacHostControl`.
     enum HostSetup: Equatable, Sendable { case unknown, needsEnable, needsApproval, enabled, unsupported }
@@ -36,7 +36,7 @@ struct DevicesBoard: Equatable, Sendable {
         if facts.connected && facts.hostSetup != nil {
             rows.append(facts.claudeServing
                 ? Row(id:"claude",title:"Claude on this Mac",lamp:.ready,line:"Claude agents can work here.",action:nil)
-                : Row(id:"claude",title:"Claude on this Mac",lamp:.off,line:"Off. Turn it on in the Workshop to add Claude agents.",action:.openWorkshop))
+                : Row(id:"claude",title:"Claude on this Mac",lamp:.off,line:"Off. Turn it on under More options to add Claude agents.",action:.openWorkshop))
         }
         if facts.managesPhone { rows.append(phoneRow(facts)) }
         return DevicesBoard(rows:rows)
@@ -46,13 +46,13 @@ struct DevicesBoard: Equatable, Sendable {
         let title = "This Mac"
         switch facts.hostSetup {
         case .needsEnable?: return Row(id:"mac",title:title,lamp:.attention,line:"Fort's helper isn't set to start with this Mac yet.",action:.enableHost)
-        case .needsApproval?: return Row(id:"mac",title:title,lamp:.attention,line:"macOS needs your OK. Allow Fort in System Settings, Login Items, then check again in the Workshop.",action:.openWorkshop)
-        case .unsupported?: return Row(id:"mac",title:title,lamp:.attention,line:"macOS reported a startup state Fort doesn't know. Details are in the Workshop.",action:.openWorkshop)
+        case .needsApproval?: return Row(id:"mac",title:title,lamp:.attention,line:"macOS needs your OK. Allow Fort in System Settings, Login Items, then check again under More options.",action:.openWorkshop)
+        case .unsupported?: return Row(id:"mac",title:title,lamp:.attention,line:"macOS reported a startup state Fort doesn't know. Details are under More options.",action:.openWorkshop)
         case .unknown?: return Row(id:"mac",title:title,lamp:.off,line:"Checking this Mac…",action:nil)
         case .enabled?, nil:
             if !facts.connected {
                 return facts.hostSetup == nil
-                    ? Row(id:"mac",title:"This device",lamp:.attention,line:"Not connected to Fort. Connection details are in the Workshop.",action:.openWorkshop)
+                    ? Row(id:"mac",title:"This device",lamp:.attention,line:"Not connected to Fort. Connection details are under More options.",action:.openWorkshop)
                     : Row(id:"mac",title:title,lamp:.attention,line:"The helper is ready. Connect this Mac to start your crew.",action:.connect)
             }
             switch facts.runtimeState {
@@ -70,7 +70,7 @@ struct DevicesBoard: Equatable, Sendable {
         case .paired(_,let name,_,false)?: return Row(id:"phone",title:title,lamp:.attention,line:"\(name)'s access expired. Invite it again.",action:facts.listenerActive ? .invite : .startListener)
         case .invited?: return Row(id:"phone",title:title,lamp:.waiting,line:"An invitation is waiting to be pasted on your iPhone.",action:facts.listenerActive ? .invite : .startListener)
         case .available?, nil:
-            guard facts.phoneAddress != nil else { return Row(id:"phone",title:title,lamp:.off,line:"First give this Mac its phone address with a Tailscale certificate. Steps are in the Workshop.",action:.openWorkshop) }
+            guard facts.phoneAddress != nil else { return Row(id:"phone",title:title,lamp:.off,line:"First give this Mac its phone address with a Tailscale certificate. Steps are under More options.",action:.openWorkshop) }
             guard facts.listenerActive else { return Row(id:"phone",title:title,lamp:.off,line:"The phone listener is off.",action:.startListener) }
             return Row(id:"phone",title:title,lamp:.off,line:"Ready to invite your iPhone.",action:.invite)
         }

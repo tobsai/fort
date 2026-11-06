@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// The home screen: the Quest log of what needs you beside a panel for every chat. The look is cool and
-/// quiet (hairline panels, tags); the game is the loop (quest marks, the crew, run meters and a
-/// cleared stamp). Every element reads real records through QuestLog.
+/// The home screen: the Quest log of what needs you beside a panel for every chat, and nothing else. The look is
+/// cool and quiet (hairline panels, tags); the game is the loop (quest marks, run meters and a cleared stamp).
+/// Every element reads real records through QuestLog. Until there is an Agent, the first run stands in for it.
 struct QuestLogView: View {
     @Bindable var model: MessengerModel
     let openChat: (String) -> Void
     let showCity: (() -> Void)?
-    let openMenu: () -> Void
+    let openMenu: (PauseTab?) -> Void
     private struct Cleared: Identifiable, Equatable { let id: String; let title: String; let dropped: Bool }
     @State private var cleared: [Cleared] = []
+    /// The home chat of the first Agent, while "You're set" is on screen; skipping hides the first run for this window.
+    @State private var readyChat: String?
+    @State private var skipped = false
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
@@ -20,15 +23,25 @@ struct QuestLogView: View {
     var body: some View {
         let log = model.questLog
         VStack(spacing:0) {
-            ComicTopBar(summary:log.summary,showCity:showCity,openSetup:openMenu,compact:compact)
-            ScrollView {
-                if compact {
-                    VStack(alignment:.leading,spacing:24) { questColumn(log); chatColumn(log) }.padding(16)
-                } else {
-                    HStack(alignment:.top,spacing:28) { questColumn(log).frame(width:400); chatColumn(log) }.padding(22)
+            ComicTopBar(showCity:showCity,openSetup:{ openMenu(nil) },compact:compact)
+            if readyChat != nil || (model.agents.isEmpty && !skipped) {
+                GetStartedView(model:model,readyChat:readyChat,openSetup:{ openMenu($0) }) { chat in
+                    readyChat = nil; skipped = true
+                    if let chat { openChat(chat) }
+                }
+            } else {
+                ScrollView {
+                    if compact {
+                        VStack(alignment:.leading,spacing:24) { questColumn(log); chatColumn(log) }.padding(16)
+                    } else {
+                        HStack(alignment:.top,spacing:28) { questColumn(log).frame(width:400); chatColumn(log) }.padding(22)
+                    }
                 }
             }
-            statusBar
+        }
+        // The first Agent ends setup: show "You're set" before Fort opens on its chat.
+        .onChange(of:model.agents.count) { before,after in
+            if before == 0 && after > 0 && !skipped, let agent = model.agents.first { readyChat = agent.homeConversationId }
         }
         .background(FortTheme.paper.ignoresSafeArea())
         .foregroundStyle(FortTheme.ink)
@@ -142,18 +155,6 @@ struct QuestLogView: View {
         switch tone { case .failed: Color(hex:0xF2B8B2); case .needsYou: FortTheme.needsYou; case .working: FortTheme.working; default: FortTheme.bar }
     }
 
-    private var statusBar: some View {
-        let header = ChatQuiet.header(connected:model.connected,preview:model.isOfflinePreview || model.isInteractiveFixture,runtimeState:model.runtimeReadiness?.state,status:model.status)
-        return HStack(spacing:8) {
-            LampView(lamp:header.lamp)
-            Text(header.line).font(.caption.weight(.medium)).foregroundStyle(FortTheme.muted).lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal,16).padding(.vertical,8)
-        .background(FortTheme.bar.ignoresSafeArea(edges:.bottom))
-        .overlay(alignment:.top) { FortTheme.line.frame(height:FortTheme.stroke) }
-        .accessibilityElement(children:.combine)
-    }
 }
 
 /// A quest mark: a gold diamond with a bang, red when the turn failed, hollow while it waits on the chat.

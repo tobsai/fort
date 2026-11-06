@@ -33,7 +33,7 @@ import Testing
 }
 
 @Test func setupHasTheWebsSectionsInTheWebsOrder() {
-    #expect(PauseTab.allCases.map(\.title) == ["Crew","Routines","Accounts","Devices"])
+    #expect(PauseTab.allCases.map(\.title) == ["Agents","Routines","Accounts","Devices"])
     let schedule = TroubleCard.make(.init(scheduleFault:"A schedule could not be checked."))
     #expect(schedule.first?.button == "Open Routines")
 }

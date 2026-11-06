@@ -8,7 +8,7 @@ struct AccountSignInView: View {
     }
 }
 
-/// One row per plan with a light, a sentence and one main action. Recovery steps live in the Workshop drawer.
+/// One row per plan with a light, a sentence and one main action. Recovery steps live under More options drawer.
 struct AccountSignInPanel: View {
     @Bindable var model: MessengerModel
     var framed = true

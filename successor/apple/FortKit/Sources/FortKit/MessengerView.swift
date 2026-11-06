@@ -25,12 +25,12 @@ public struct MessengerView: View {
         // Home is the Quest log; the city is the Week view behind it, and a chat opens from either.
         if showDesk && model.hasWorkspace {
             QuestLogView(model:model,openChat:{ id in showDesk = false; showCity = false; Task { await model.selectConversation(id) } },
-                         showCity:model.supportsWeeks ? { showDesk = false; showCity = true } : nil,openMenu:{ openMenu(nil) })
+                         showCity:model.supportsWeeks ? { showDesk = false; showCity = true } : nil,openMenu:{ openMenu($0) })
         } else if showCity && model.supportsWeeks && !compactWidth { CityHUDView(model:model,showMessages:{ showCity = false; showDesk = model.hasWorkspace },openMenu:{ openMenu(nil) }) }
         else if model.hasWorkspace {
             // A chat is the web's chat screen: the comic top bar, then "‹ Quest log", the chat and the composer.
             VStack(spacing:0) {
-                ComicTopBar(summary:model.questLog.summary,showCity:model.supportsWeeks && !compactWidth ? { showCity = true } : nil,openSetup:{ openMenu(nil) },compact:compactWidth)
+                ComicTopBar(showCity:model.supportsWeeks && !compactWidth ? { showCity = true } : nil,openSetup:{ openMenu(nil) },compact:compactWidth)
                 chatColumn(back:{ showDesk = true })
             }
             .background(FortTheme.paper.ignoresSafeArea())
@@ -38,7 +38,7 @@ public struct MessengerView: View {
         // Without a workspace (the development fixture and the offline preview) Agents are picked from a sidebar.
         NavigationSplitView {
             List(selection:$model.selectedAgentID) {
-                Section("Crew") {
+                Section("Agents") {
                     ForEach(model.agents) { agent in
                         NavigationLink(value:agent.agentId) { CrewRow(model:model,agent:agent) }.tag(agent.agentId)
                     }
@@ -326,7 +326,15 @@ public struct MessengerView: View {
     }
     private var connectionForm: some View {
         NavigationStack {
-            Form { ConnectionSections(model:model) }.formStyle(.grouped).navigationTitle("Connect to Fort")
+            Group {
+                #if os(macOS)
+                // This Mac's own host: the guided two steps, with the full controls under More options.
+                if model.localHost != nil { MacConnectView(model:model) }
+                else { Form { ConnectionSections(model:model) }.formStyle(.grouped) }
+                #else
+                Form { ConnectionSections(model:model) }.formStyle(.grouped)
+                #endif
+            }.navigationTitle("Connect to Fort")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction) {
                     Button("Close setup") { model.showConnection = false }
