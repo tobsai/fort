@@ -54,8 +54,11 @@ struct PauseMenuView: View {
                 Button { tab = entry.tab } label: {
                     HStack(spacing:10) {
                         Image(systemName:entry.tab.symbol).frame(width:20)
-                        Text(entry.tab.title).font(.callout.weight(.semibold))
-                        if entry.tab == .devices { Text("Optional").font(.system(size:9.5,weight:.bold)).tracking(1.1).textCase(.uppercase).foregroundStyle(FortTheme.muted) }
+                        // Optional sits under the title so a narrow sidebar never breaks the word Devices.
+                        VStack(alignment:.leading,spacing:1) {
+                            Text(entry.tab.title).font(.callout.weight(.semibold)).lineLimit(1).fixedSize()
+                            if entry.tab == .devices { Text("Optional").font(.system(size:9.5,weight:.bold)).tracking(1.1).textCase(.uppercase).foregroundStyle(FortTheme.muted) }
+                        }
                         Spacer(minLength:0)
                         if entry.badge > 0 { CaptionBox(text:"\(entry.badge)",fill:FortTheme.needsYou) }
                     }
@@ -195,7 +198,7 @@ struct WorkshopDrawer<Content: View>: View {
         let open = isExpanded || forceOpen
         VStack(alignment:.leading,spacing:8) {
             Button { isExpanded.toggle() } label: {
-                Label("WORKSHOP",systemImage:open ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)
+                Label("MORE OPTIONS",systemImage:open ? "chevron.down" : "chevron.right").font(.caption.weight(.heavy)).foregroundStyle(.secondary)
             }
             .buttonStyle(.plain).disabled(forceOpen)
             .accessibilityValue(open ? "Expanded" : "Collapsed").accessibilityIdentifier(identifier)
