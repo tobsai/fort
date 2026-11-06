@@ -66,10 +66,12 @@ try {
     await page.locator('.chat header h2', { hasText: open.name }).waitFor();
     await page.screenshot({ path: join(out, `web-chat-${colorScheme}.jpg`), quality: 80 });
     await page.getByRole('button', { name: 'Setup' }).click();
-    await page.locator('.sheet .menurow', { hasText: 'Agents' }).waitFor();
+    // The Agents entry by its own name; the Accounts line also says "agents".
+    const agentsRow = page.locator('.sheet .menurow').filter({ has: page.locator('strong', { hasText: /^Agents/ }) });
+    await agentsRow.waitFor();
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(out, `web-setup-${colorScheme}.jpg`), quality: 80 });
-    await page.locator('.sheet .menurow', { hasText: 'Agents' }).click();
+    await agentsRow.click();
     await page.locator('.sheet h2', { hasText: 'Agents' }).waitFor();
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(out, `web-setup-agents-${colorScheme}.jpg`), quality: 80 });
