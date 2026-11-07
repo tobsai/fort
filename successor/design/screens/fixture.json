@@ -8,7 +8,8 @@
   "serviceName": "Fort",
   "capabilities": [
    "eventReplay",
-   "requestCancellation"
+   "requestCancellation",
+   "agentMemory"
   ],
   "runtimes": [
    {
@@ -306,5 +307,147 @@
    "turns": 1
   }
  ],
- "open": "home-lewis"
+ "open": "home-lewis",
+ "memory": {
+  "_about": "Agent memory (Spec 068): what GET /v1/memory and GET /v1/agents/{id}/memory answer for these Agents.",
+  "providers": [
+   {
+    "id": "none",
+    "version": "1",
+    "name": "No memory",
+    "summary": "Starts every conversation fresh. Nothing is kept.",
+    "storage": "Nothing is stored.",
+    "capabilities": []
+   },
+   {
+    "id": "fort-notes",
+    "version": "1",
+    "name": "Fort Notes",
+    "summary": "Short notes kept on the hub, recalled by matching words.",
+    "storage": "One file on the hub, beside Fort's history.",
+    "capabilities": [
+     "remember",
+     "recall",
+     "search",
+     "forget",
+     "export",
+     "import"
+    ]
+   }
+  ],
+  "defaultProviderId": "fort-notes",
+  "agents": [
+   {
+    "agentId": "lewis",
+    "agentName": "Lewis",
+    "choice": {
+     "agentId": "lewis",
+     "providerId": "fort-notes",
+     "revisionId": "rev-lewis",
+     "changedAt": "2026-11-06T05:00:00.000Z"
+    },
+    "provider": {
+     "id": "fort-notes",
+     "version": "1",
+     "name": "Fort Notes",
+     "summary": "Short notes kept on the hub, recalled by matching words.",
+     "storage": "One file on the hub, beside Fort's history.",
+     "capabilities": [
+      "remember",
+      "recall",
+      "search",
+      "forget",
+      "export",
+      "import"
+     ]
+    },
+    "state": "ready",
+    "detail": "Short notes kept on the hub, recalled by matching words.",
+    "total": 4
+   },
+   {
+    "agentId": "marty",
+    "agentName": "Marty",
+    "choice": {
+     "agentId": "marty",
+     "providerId": "fort-notes",
+     "revisionId": "rev-marty",
+     "changedAt": "2026-11-06T05:00:00.000Z"
+    },
+    "provider": {
+     "id": "fort-notes",
+     "version": "1",
+     "name": "Fort Notes",
+     "summary": "Short notes kept on the hub, recalled by matching words.",
+     "storage": "One file on the hub, beside Fort's history.",
+     "capabilities": [
+      "remember",
+      "recall",
+      "search",
+      "forget",
+      "export",
+      "import"
+     ]
+    },
+    "state": "ready",
+    "detail": "Short notes kept on the hub, recalled by matching words.",
+    "total": 0
+   },
+   {
+    "agentId": "pascal",
+    "agentName": "Pascal",
+    "choice": {
+     "agentId": "pascal",
+     "providerId": "none",
+     "revisionId": "rev-pascal",
+     "changedAt": "2026-11-06T05:00:00.000Z"
+    },
+    "provider": {
+     "id": "none",
+     "version": "1",
+     "name": "No memory",
+     "summary": "Starts every conversation fresh. Nothing is kept.",
+     "storage": "Nothing is stored.",
+     "capabilities": []
+    },
+    "state": "off",
+    "detail": "Starts every conversation fresh. Nothing is kept.",
+    "total": 0
+   }
+  ],
+  "entries": {
+   "lewis": [
+    {
+     "entryId": "n1",
+     "agentId": "lewis",
+     "kind": "fact",
+     "text": "Toby wants Fort to feel cool and sharp, not whimsical.",
+     "createdAt": "2026-11-06T18:20:00.000Z"
+    },
+    {
+     "entryId": "n2",
+     "agentId": "lewis",
+     "kind": "fact",
+     "text": "Merges are Toby's call; every merge builds the iPhone and Mac apps for TestFlight.",
+     "createdAt": "2026-11-06T16:05:00.000Z"
+    },
+    {
+     "entryId": "n3",
+     "agentId": "lewis",
+     "kind": "event",
+     "text": "Simplified Setup to Agents, Accounts and Devices on Nov 6.",
+     "createdAt": "2026-11-06T23:58:00.000Z"
+    },
+    {
+     "entryId": "n4",
+     "agentId": "lewis",
+     "kind": "fact",
+     "text": "Prefers short answers that lead with the decision.",
+     "createdAt": "2026-11-05T14:00:00.000Z"
+    }
+   ],
+   "marty": [],
+   "pascal": []
+  }
+ }
 }

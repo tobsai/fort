@@ -15,6 +15,12 @@ private struct ScreenFixture: Decodable {
     let conversations: [Conversation]
     let snapshots: [String: Snapshot]
     let open: String
+    let memory: MemoryFixture
+}
+private struct MemoryFixture: Decodable {
+    let providers: [MemorySystem]
+    let agents: [AgentMemoryStatus]
+    let entries: [String: [MemoryNote]]
 }
 
 private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENSHOTS"]
@@ -31,6 +37,12 @@ private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENS
     model.snapshot = fixture.snapshots[fixture.open]
     model.connected = true
     model.status = "Connected to the hub"
+    // Spec 068: what the hub answers for each Agent's memory, so Setup draws it without a hub.
+    model.memoryStatuses = Dictionary(uniqueKeysWithValues:fixture.memory.agents.map { ($0.agentId,$0) })
+    for status in fixture.memory.agents {
+        model.memoryPages[status.agentId] = AgentMemoryPage(agentId:status.agentId,agentName:status.agentName,choice:status.choice,provider:status.provider,state:status.state,
+            detail:status.detail,total:status.total,providers:fixture.memory.providers,entries:fixture.memory.entries[status.agentId] ?? [])
+    }
     return model
 }
 
@@ -105,6 +117,14 @@ private let screenshotFolder = ProcessInfo.processInfo.environment["FORT_SCREENS
         defer { try? FileManager.default.removeItem(at:root) }
         let model = try fixtureModel(root)
         try await capture(PauseMenuView(model:model,tab:.crew),name:"setup",size:CGSize(width:900,height:600))
+    }
+
+    @Test func agentMemory() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let model = try fixtureModel(root)
+        let agent = try #require(model.agents.first)
+        try await capture(NavigationStack { AgentMemoryView(model:model,agentID:agent.agentId) }.tint(FortTheme.accent),name:"agent-memory",size:CGSize(width:640,height:720))
     }
 
     @Test func setupDevices() async throws {

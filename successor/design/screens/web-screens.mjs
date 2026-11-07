@@ -1,6 +1,6 @@
 // Side-by-side screenshots, web half: serves the real web client from successor/web with a mock hub
 // that answers from fixture.json (the same records FortKit's ScreenshotTests load into the Mac app),
-// then captures the first run, the Quest log, a chat, the Setup menu and its Agents page in light and noir with Playwright.
+// then captures the first run, the Quest log, a chat, the Setup menu, its Agents page and an Agent's memory in light and noir with Playwright.
 //
 //   node design/screens/web-screens.mjs <output-directory>
 //
@@ -31,6 +31,13 @@ function mock(url) {
   if (path === '/v1/account/sign-in') return { state: 'finished', selected: true, revision: 1, result: { kind: 'signedIn', account: { userLabel: 'Your plan' } } };
   if (path === '/v1/models') return { state: 'ready', models: [] };
   if (path === '/v1/pairing/companion') return { pairing: { state: 'none' } };
+  // Spec 068: each Agent's memory system and the notes it holds.
+  if (path === '/v1/memory') return { providers: fixture.memory.providers, defaultProviderId: fixture.memory.defaultProviderId, agents: fixture.memory.agents };
+  const memory = path.match(/^\/v1\/agents\/([^/]+)\/memory$/);
+  if (memory) {
+    const status = fixture.memory.agents.find(item => item.agentId === decodeURIComponent(memory[1]));
+    return { ...status, providers: fixture.memory.providers, entries: fixture.memory.entries[status.agentId] ?? [] };
+  }
   if (path === '/v1/hub/browsers') return { google: true, you: 'owner', browsers: [{ deviceId: 'safari', name: 'Safari on iPhone', email: 'owner@example.com', addedAt: '2026-11-01T18:00:00.000Z', current: false }] };
   return {};
 }
@@ -75,6 +82,14 @@ try {
     await page.locator('.sheet h2', { hasText: 'Agents' }).waitFor();
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(out, `web-setup-agents-${colorScheme}.jpg`), quality: 80 });
+    // One Agent's page with its memory, then the same page with another memory system picked, before switching.
+    await page.locator('.sheet .crewrow', { hasText: 'Lewis' }).click();
+    await page.locator('.sheet .note').first().waitFor();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(out, `web-agent-memory-${colorScheme}.jpg`), quality: 80 });
+    await page.locator('#memory-system').selectOption('none');
+    await page.locator('.switch button').waitFor();
+    await page.screenshot({ path: join(out, `web-agent-memory-switch-${colorScheme}.jpg`), quality: 80 });
     await page.close();
   }
 } finally {

@@ -72,3 +72,15 @@ test('the screenshot fixture is one consistent hub', () => {
   }
   assert.ok(fixture.snapshots[fixture.open], 'the chat to open exists');
 });
+
+test('an Agent’s memory reads the same on the web and in the apps (Spec 068)', async () => {
+  const { memoryLine } = await import('../web/transcript.js');
+  const copy = kit('AgentMemory'), view = kit('AgentMemoryView');
+  const status = fixture.memory.agents[0];
+  assert.equal(memoryLine(status), `${status.provider.name} · ${status.total} notes`);
+  for (const words of ['No memory', 'Memory system missing', 'isn’t answering', 'Memory: checking…', 'keeps its notes, so switching back finds them.'])
+    assert.ok(read('../web/transcript.js').concat(web).includes(words) && copy.includes(words), `both say ${words}`);
+  for (const words of ['Bring the notes along', 'Search notes', 'Add note', 'Forget this note?', 'This agent starts every conversation fresh.', 'No note matches.'])
+    assert.ok(web.includes(words) && view.includes(words), `both say ${words}`);
+  assert.ok(web.includes("'Memory system'") && view.includes('"Memory system"'), 'both label the picker Memory system');
+});

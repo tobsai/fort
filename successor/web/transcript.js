@@ -153,3 +153,22 @@ export function setupSteps({ account, agents }) {
   const next = steps.find(step => !step.done)?.id ?? null;
   return { steps: steps.map(step => ({ ...step, current: step.id === next })), done: next === null };
 }
+
+// Agent memory (Spec 068): the one line an Agent's row shows, the same as FortKit AgentMemoryCopy.
+export function memoryLine(status) {
+  if (!status) return 'Memory: checking…';
+  if (status.state === 'off') return 'No memory';
+  if (status.state === 'missing') return status.provider ? `${status.provider.name} isn’t answering` : 'Memory system missing';
+  return `${status.provider.name} · ${status.total === 1 ? '1 note' : `${status.total} notes`}`;
+}
+// Notes can come along on a switch only when the old system can hand them over and the new one can take them.
+export function canCarryMemory(fromId, to, providers) {
+  const from = providers.find(item => item.id === fromId);
+  return Boolean(from && to && from.id !== to.id && from.capabilities.includes('export') && to.capabilities.includes('import'));
+}
+// The next and previous Agent, so the memory page can step through every Agent without going back to the list.
+export function neighbours(agents, agentId) {
+  const index = agents.findIndex(agent => agent.agentId === agentId);
+  if (index < 0 || agents.length < 2) return { previous: null, next: null };
+  return { previous: agents[(index - 1 + agents.length) % agents.length], next: agents[(index + 1) % agents.length] };
+}

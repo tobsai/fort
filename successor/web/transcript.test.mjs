@@ -105,3 +105,20 @@ test('first run asks for an account, then a first agent, and never for a device'
   assert.equal(setupSteps({ account: true, agents: 2 }).done, true);
   assert.ok(!fresh.steps.some(step => /device|mac|iphone/i.test(step.id)), 'devices are optional');
 });
+
+test('an Agent row names its memory system and note count, and says when the system is missing', async () => {
+  const { memoryLine, canCarryMemory, neighbours } = await import('./transcript.js');
+  const notes = { id: 'fort-notes', name: 'Fort Notes', capabilities: ['recall', 'export', 'import'] }, pad = { id: 'pad', name: 'Pad', capabilities: ['recall'] };
+  assert.equal(memoryLine({ state: 'ready', provider: notes, total: 1 }), 'Fort Notes · 1 note');
+  assert.equal(memoryLine({ state: 'ready', provider: notes, total: 12 }), 'Fort Notes · 12 notes');
+  assert.equal(memoryLine({ state: 'off', provider: { name: 'No memory' }, total: 0 }), 'No memory');
+  assert.equal(memoryLine({ state: 'missing', provider: null, total: 0 }), 'Memory system missing');
+  const providers = [{ id: 'none', capabilities: [] }, notes, pad, { id: 'other', capabilities: ['import'] }];
+  assert.equal(canCarryMemory('fort-notes', providers[3], providers), true);
+  assert.equal(canCarryMemory('fort-notes', pad, providers), false);
+  assert.equal(canCarryMemory('none', notes, providers), false);
+  assert.equal(canCarryMemory('fort-notes', notes, providers), false);
+  const agents = [{ agentId: 'a' }, { agentId: 'b' }, { agentId: 'c' }];
+  assert.deepEqual(neighbours(agents, 'a'), { previous: agents[2], next: agents[1] });
+  assert.deepEqual(neighbours([agents[0]], 'a'), { previous: null, next: null });
+});

@@ -190,3 +190,21 @@ label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .06em
   button { min-height: var(--touch); }
 }
 .pad { padding: 0 10px; }
+/* Agent memory (Spec 068): each Agent's page under Setup, Agents. */
+.crewrow { margin: 8px 0; }
+.crewrow .crewline { flex-direction: row; }
+.memoryline { display: block; }
+.stepper { display: flex; justify-content: space-between; margin-top: 10px; }
+.sheet .memory select { margin-bottom: 4px; }
+.switch { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+.switch[hidden], .check[hidden] { display: none; }
+label.check { display: inline-flex; align-items: center; gap: 8px; margin: 0; text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--ink); }
+label.check input { width: auto; }
+.notes { display: flex; flex-direction: column; border: var(--stroke) solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.note { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-bottom: var(--stroke) solid var(--line); }
+.note:last-child { border-bottom: none; }
+.note .tag { margin-top: 2px; }
+.notetext { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+.addnote { margin-top: 12px; }
+.addnote .row select { flex: 0 0 auto; width: auto; }
+.addnote .row > :first-child { flex: 0 0 auto; }
