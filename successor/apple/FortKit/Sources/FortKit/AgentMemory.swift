@@ -83,7 +83,7 @@ enum AgentMemoryCopy {
     static func about(selected: MemorySystem?, page: AgentMemoryPage) -> String {
         guard let selected else { return page.detail }
         if selected.id == page.choice.providerId && page.state == "missing" { return page.detail }
-        var text = [selected.summary,selected.storage].filter { !$0.isEmpty }.joined(separator:" ")
+        var text = selected.summary
         if selected.id != page.choice.providerId, let current = page.provider, current.id != MemorySystem.noMemoryID {
             text += " \(current.name) keeps its notes, so switching back finds them."
         }

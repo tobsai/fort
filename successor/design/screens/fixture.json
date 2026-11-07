@@ -323,8 +323,8 @@
     "id": "fort-notes",
     "version": "1",
     "name": "Fort Notes",
-    "summary": "Short notes kept on the hub, recalled by matching words.",
-    "storage": "One file on the hub, beside Fort's history.",
+    "summary": "Short notes the agent writes for itself, recalled by matching words. Kept on your hub.",
+    "storage": "One file on the host that runs the agent: memory/fort-notes.sqlite.",
     "capabilities": [
      "remember",
      "recall",
@@ -350,8 +350,8 @@
      "id": "fort-notes",
      "version": "1",
      "name": "Fort Notes",
-     "summary": "Short notes kept on the hub, recalled by matching words.",
-     "storage": "One file on the hub, beside Fort's history.",
+     "summary": "Short notes the agent writes for itself, recalled by matching words. Kept on your hub.",
+     "storage": "One file on the host that runs the agent: memory/fort-notes.sqlite.",
      "capabilities": [
       "remember",
       "recall",
@@ -362,7 +362,7 @@
      ]
     },
     "state": "ready",
-    "detail": "Short notes kept on the hub, recalled by matching words.",
+    "detail": "Short notes the agent writes for itself, recalled by matching words. Kept on your hub.",
     "total": 4
    },
    {
@@ -378,8 +378,8 @@
      "id": "fort-notes",
      "version": "1",
      "name": "Fort Notes",
-     "summary": "Short notes kept on the hub, recalled by matching words.",
-     "storage": "One file on the hub, beside Fort's history.",
+     "summary": "Short notes the agent writes for itself, recalled by matching words. Kept on your hub.",
+     "storage": "One file on the host that runs the agent: memory/fort-notes.sqlite.",
      "capabilities": [
       "remember",
       "recall",
@@ -390,7 +390,7 @@
      ]
     },
     "state": "ready",
-    "detail": "Short notes kept on the hub, recalled by matching words.",
+    "detail": "Short notes the agent writes for itself, recalled by matching words. Kept on your hub.",
     "total": 0
    },
    {

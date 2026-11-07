@@ -40,6 +40,6 @@ struct AgentMemoryTests {
     @Test func aboutSaysTheOldSystemKeepsItsNotes() throws {
         let page = AgentMemoryPage(agentId:"a",agentName:"Ada",choice:MemoryChoice(agentId:"a",providerId:"fort-notes",revisionId:"r",changedAt:""),provider:notes,state:"ready",detail:"",total:2,providers:[none,notes],entries:[])
         #expect(AgentMemoryCopy.about(selected:none,page:page).hasSuffix("Fort Notes keeps its notes, so switching back finds them."))
-        #expect(AgentMemoryCopy.about(selected:notes,page:page) == "Short notes. On the hub.")
+        #expect(AgentMemoryCopy.about(selected:notes,page:page) == "Short notes.")
     }
 }

@@ -57,13 +57,13 @@ struct AgentMemoryView: View {
                 Button("Switch to \(chosen.name)") { Task { await model.switchMemory(agentID:agentID,to:chosen.id,carry:carryable ? carry : nil) } }
                     .modifier(GoldButton(on:true)).disabled(model.memoryBusy).accessibilityIdentifier("memory-switch")
             }
-        } header: { Text("Memory system") }
+        }
     }
 
     @ViewBuilder private func notesSections(_ page: AgentMemoryPage, provider: MemorySystem) -> some View {
         Section {
             if provider.can("search") {
-                TextField("Search notes",text:$query).onSubmit { Task { await model.loadMemory(agentID:agentID,query:query.trimmingCharacters(in:.whitespacesAndNewlines)) } }
+                TextField("Search notes",text:$query,prompt:Text("Search notes")).labelsHidden().onSubmit { Task { await model.loadMemory(agentID:agentID,query:query.trimmingCharacters(in:.whitespacesAndNewlines)) } }
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("memory-search")
             }
             if page.entries.isEmpty {
@@ -86,7 +86,8 @@ struct AgentMemoryView: View {
         } header: { Text(query.isEmpty ? "Notes · \(AgentMemoryCopy.notes(page.total))" : "Notes matching “\(query)”") }
         if provider.can("remember") {
             Section {
-                TextField("Something this agent should remember",text:$note,axis:.vertical).lineLimit(1...4).accessibilityIdentifier("memory-note")
+                TextField("New note",text:$note,prompt:Text("Something this agent should remember"),axis:.vertical).lineLimit(1...4)
+                    .labelsHidden().textFieldStyle(.roundedBorder).accessibilityIdentifier("memory-note")
                 HStack {
                     Picker("Kind",selection:$kind) { Text("Fact").tag("fact"); Text("Event").tag("event") }.pickerStyle(.segmented).labelsHidden().frame(maxWidth:180)
                     Spacer()

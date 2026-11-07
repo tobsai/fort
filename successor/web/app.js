@@ -494,7 +494,7 @@ async function memoryPanel(agent, node, query = '') {
     const to = view.providers.find(item => item.id === select.value);
     if (!to) { about.textContent = view.detail; switcher.hidden = true; return; }
     const changed = to.id !== view.choice.providerId, carryable = canCarryMemory(view.choice.providerId, to, view.providers);
-    about.textContent = !changed && view.state === 'missing' ? view.detail : `${to.summary} ${to.storage}`.trim();
+    about.textContent = !changed && view.state === 'missing' ? view.detail : to.summary;
     if (changed && current && current.id !== 'none') about.textContent += ` ${current.name} keeps its notes, so switching back finds them.`;
     switcher.hidden = !changed; carryLine.hidden = !carryable; carry.checked = carryable; go.textContent = `Switch to ${to.name}`;
   };
