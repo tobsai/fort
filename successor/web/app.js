@@ -1,11 +1,11 @@
 // Fort web client (Spec 063). Served by the hub itself, so every call is same-origin. The browser
 // holds one device credential in localStorage; all text is rendered with textContent, never as HTML.
 // With Google sign-in on, each browser gets its own credential by signing in (Spec 066, revision 2026-11-02).
-import { approvalCopy, canDecide, chatPanels, crewSlot, questLog, resolution, runStatus, setupSteps, transcriptRows } from '/transcript.js';
+import { approvalCopy, canCarryMemory, canDecide, chatPanels, crewSlot, memoryLine, neighbours, questLog, resolution, runStatus, setupSteps, transcriptRows } from '/transcript.js';
 
 const STORE = 'fort.device.v1';
 const app = document.getElementById('app');
-const state = { device: load(), browsers: null, installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, page: null, from: null, adding: false, skipped: false, ready: null, problem: null, snapshots: new Map(), cleared: [] };
+const state = { device: load(), browsers: null, installation: null, agents: [], conversations: [], runners: [], current: null, snapshot: null, cursor: 0, polling: false, sheet: false, page: null, agent: null, from: null, adding: false, skipped: false, ready: null, problem: null, snapshots: new Map(), memory: new Map(), cleared: [] };
 
 function load() { try { return JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { return null; } }
 function save(device) { state.device = device; if (device) localStorage.setItem(STORE, JSON.stringify(device)); else localStorage.removeItem(STORE); }
@@ -277,16 +277,20 @@ const SETUP = [
   { page: 'devices', title: 'Devices', optional: true },
 ];
 // `from` is where Setup was opened: from the first run, the back button returns there instead of to the menu.
-function openSetup(page, from = null) { state.sheet = true; state.page = page; state.from = from; state.adding = page === 'agents' && !state.agents.length; state.sheetNode = null; render(); }
-function closeSetup() { state.sheet = false; state.page = null; state.from = null; state.adding = false; state.sheetNode = null; render(); }
+function openSetup(page, from = null) { state.sheet = true; state.page = page; state.agent = null; state.from = from; state.adding = page === 'agents' && !state.agents.length; state.sheetNode = null; render(); }
+function closeSetup() { state.sheet = false; state.page = null; state.agent = null; state.from = null; state.adding = false; state.sheetNode = null; render(); }
 
 function setupSheet() {
   const entry = SETUP.find(item => item.page === state.page);
   const back = () => { if (state.from === 'welcome') return closeSetup(); openSetup(null); };
-  const head = entry
+  // An Agent's own page sits under Agents: back returns to the list.
+  const agent = entry?.page === 'agents' && state.agent ? state.agents.find(item => item.agentId === state.agent) : null;
+  const head = agent
+    ? h('header', {}, h('button.back', { onclick: () => openSetup('agents', state.from) }, '‹ Agents'), h('h2.title', {}, agent.name), h('button.primary', { onclick: closeSetup }, 'Done'))
+    : entry
     ? h('header', {}, h('button.back', { onclick: back }, state.from === 'welcome' ? '‹ Back' : '‹ Setup'), h('h2.title', {}, entry.title), h('button.primary', { onclick: closeSetup }, 'Done'))
     : h('header', {}, h('h2.title', {}, 'Setup'), h('button.primary', { onclick: closeSetup }, 'Done'));
-  const page = !entry ? setupMenu() : entry.page === 'agents' ? crewSection() : entry.page === 'accounts' ? accountSection() : devicesSection();
+  const page = !entry ? setupMenu() : agent ? agentPage(agent) : entry.page === 'agents' ? crewSection() : entry.page === 'accounts' ? accountSection() : devicesSection();
   const body = h('div', {}, head, page);
   return h('div.sheet', { onclick: event => { if (event.target.classList.contains('sheet')) closeSetup(); } }, body);
 }
@@ -445,10 +449,96 @@ function crewSection() {
   } }, h('label', { for: 'agent-name' }, 'Name'), name, h('label', { for: 'agent-provider' }, 'Provider'), provider,
     h('label', { for: 'agent-model' }, 'Model'), model, models, h('label', { for: 'agent-instructions' }, 'Instructions'), instructions,
     h('div.row', {}, h('span'), h('button.primary', { type: 'submit' }, 'Add agent')), error);
-  const crew = state.agents.map(agent => h('div.row.crewrow', {}, h('span.crewline', {}, portrait(agent), h('span', {}, h('strong', {}, agent.name), h('span.muted.small', {}, [providerName(agent.binding.provider), agent.binding.selectedModel].filter(Boolean).join(' · '))))));
+  // Each row opens the Agent's page; its last line names the memory system it uses (Spec 068).
+  const lines = new Map(state.agents.map(agent => [agent.agentId, h('span.muted.small.memoryline', {}, memoryLine(state.memory?.get(agent.agentId)))]));
+  const crew = state.agents.map(agent => h('button.menurow.crewrow', { onclick: () => openAgent(agent.agentId), 'aria-label': `${agent.name}, open settings and memory` },
+    h('span.crewline.menutext', {}, portrait(agent), h('span', {}, h('strong', {}, agent.name), h('span.muted.small', {}, [providerName(agent.binding.provider), agent.binding.selectedModel].filter(Boolean).join(' · ')), lines.get(agent.agentId))),
+    h('span.chev', { 'aria-hidden': 'true' }, '›')));
+  if (state.agents.length) api('/v1/memory').then(overview => {
+    state.memory = new Map(overview.agents.map(status => [status.agentId, status]));
+    for (const [agentId, line] of lines) line.textContent = memoryLine(state.memory.get(agentId));
+  }).catch(() => { for (const line of lines.values()) line.textContent = 'Memory: couldn’t check'; });
   // The list first; the form for a new Agent opens on request, or at once when there are none.
   const add = state.adding ? [h('h4', {}, 'New agent'), form] : [h('button', { onclick: () => { state.adding = true; state.sheetNode = null; render(); } }, 'New agent')];
   return h('section', {}, crew.length ? crew : h('p.muted', {}, 'No agents yet.'), ...add);
+}
+
+function openAgent(agentId) { state.agent = agentId; state.sheetNode = null; render(); }
+
+// One Agent's page: who it is, a step to the next and previous Agent, and its memory (Spec 068).
+function agentPage(agent) {
+  const { previous, next } = neighbours(state.agents, agent.agentId);
+  const step = previous ? h('div.stepper', {}, h('button.link', { onclick: () => openAgent(previous.agentId) }, '‹ ' + previous.name),
+    h('button.link', { onclick: () => openAgent(next.agentId) }, next.name + ' ›')) : null;
+  const memory = h('section.memory', {}, h('h3', {}, 'Memory'), h('p.muted', {}, 'Checking…'));
+  memoryPanel(agent, memory);
+  return h('div', {}, h('section', {}, h('div.crewline', {}, portrait(agent), h('span', {}, h('strong', {}, agent.name),
+    h('span.muted.small', {}, [providerName(agent.binding.provider), agent.binding.selectedModel].filter(Boolean).join(' · ')))), step), memory);
+}
+
+// The memory system this Agent uses, switching it, and the notes it holds. Drawn into `node`, which stays put across live updates.
+async function memoryPanel(agent, node, query = '') {
+  const path = `/v1/agents/${encodeURIComponent(agent.agentId)}/memory`, error = h('p.error');
+  let view;
+  try { view = await api(path + (query ? '?query=' + encodeURIComponent(query) : '')); }
+  catch (problem) { node.replaceChildren(h('h3', {}, 'Memory'), error); say(error, problem); return; }
+  state.memory?.set(agent.agentId, view);
+  const again = (nextQuery = query) => memoryPanel(agent, node, nextQuery);
+  const current = view.providers.find(item => item.id === view.choice.providerId) ?? null;
+  const select = h('select', { id: 'memory-system' }, view.providers.map(item => h('option', { value: item.id, selected: item.id === view.choice.providerId }, item.name)),
+    current ? null : h('option', { value: view.choice.providerId, selected: true, disabled: true }, 'Missing: ' + view.choice.providerId));
+  const about = h('p.muted');
+  const carry = h('input', { type: 'checkbox', id: 'memory-carry' }), carryLine = h('label.check', { for: 'memory-carry' }, carry, h('span', {}, 'Bring the notes along'));
+  const go = h('button.primary', { type: 'button' }), switcher = h('div.switch', { hidden: true }, carryLine, go);
+  const describe = () => {
+    const to = view.providers.find(item => item.id === select.value);
+    if (!to) { about.textContent = view.detail; switcher.hidden = true; return; }
+    const changed = to.id !== view.choice.providerId, carryable = canCarryMemory(view.choice.providerId, to, view.providers);
+    about.textContent = !changed && view.state === 'missing' ? view.detail : to.summary;
+    if (changed && current && current.id !== 'none') about.textContent += ` ${current.name} keeps its notes, so switching back finds them.`;
+    switcher.hidden = !changed; carryLine.hidden = !carryable; carry.checked = carryable; go.textContent = `Switch to ${to.name}`;
+  };
+  select.addEventListener('change', describe); describe();
+  go.addEventListener('click', async () => {
+    say(error); go.disabled = true;
+    try {
+      const reply = await api(path + '/select', { expectedRevisionId: view.choice.revisionId, providerId: select.value, ...(carryLine.hidden ? {} : { carry: carry.checked }) });
+      await again('');
+      if (reply.carryDetail) node.append(h('p.error', {}, reply.carryDetail));
+      else if (reply.carried) node.append(h('p.muted', {}, `Brought ${reply.carried === 1 ? '1 note' : reply.carried + ' notes'} along.`));
+    } catch (problem) { say(error, problem); go.disabled = false; }
+  });
+  const parts = [h('h3', {}, 'Memory'), h('label', { for: 'memory-system' }, 'Memory system'), select, about, switcher, error];
+  if (view.state === 'ready') parts.push(...notesList(agent, view, current, query, again, error));
+  else if (view.state === 'off') parts.push(h('p.muted', {}, 'This agent starts every conversation fresh.'));
+  node.replaceChildren(...parts);
+}
+
+function notesList(agent, view, provider, query, again, error) {
+  const path = `/v1/agents/${encodeURIComponent(agent.agentId)}/memory`, can = capability => provider?.capabilities.includes(capability);
+  const count = view.total === 1 ? '1 note' : `${view.total} notes`;
+  const out = [h('h4', {}, query ? `Notes matching “${query}”` : `Notes · ${count}`)];
+  if (can('search')) {
+    const box = h('input', { type: 'search', placeholder: 'Search notes', value: query, 'aria-label': 'Search notes', maxlength: 256 });
+    out.push(h('form.row', { onsubmit: event => { event.preventDefault(); again(box.value.trim()); } }, box, h('button', { type: 'submit' }, 'Search'),
+      query ? h('button.link', { type: 'button', onclick: () => again('') }, 'Clear') : null));
+  }
+  const rows = view.entries.map(entry => h('div.note', {}, h('span.tag', {}, entry.kind === 'event' ? 'Event' : 'Fact'),
+    h('span.notetext', {}, entry.text, h('span.muted.small', {}, new Date(entry.createdAt).toLocaleDateString())),
+    can('forget') ? h('button.link', { onclick: async () => {
+      if (!confirm('Forget this note? The agent won’t recall it again.')) return;
+      try { await api(path + '/forget', { entryIds: [entry.entryId] }); again(); } catch (problem) { say(error, problem); }
+    } }, 'Forget') : null));
+  out.push(rows.length ? h('div.notes', {}, rows) : h('p.muted', {}, query ? 'No note matches.' : 'Nothing kept yet. The agent adds notes as you talk, or add one here.'));
+  if (can('remember')) {
+    const text = h('textarea', { rows: 2, maxlength: 600, placeholder: 'Something this agent should remember', 'aria-label': 'New note' });
+    const kind = h('select', { 'aria-label': 'Kind of note' }, h('option', { value: 'fact' }, 'Fact'), h('option', { value: 'event' }, 'Event'));
+    out.push(h('form.addnote', { onsubmit: async event => {
+      event.preventDefault(); say(error);
+      try { await api(path + '/remember', { text: text.value.trim(), kind: kind.value }); again(''); } catch (problem) { say(error, problem); }
+    } }, text, h('div.row', {}, kind, h('button', { type: 'submit' }, 'Add note'))));
+  }
+  return out;
 }
 
 function phoneSection() {

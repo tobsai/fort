@@ -1145,6 +1145,49 @@ import Observation
         do { _ = try await client.drawPortrait(agentID:agent.agentId,note:trimmed.isEmpty ? nil : trimmed); await refresh() }
         catch { status = error.localizedDescription }
     }
+    // Spec 068: each Agent's memory system. Pages are cached by Agent so Setup shows them at once, and so screenshots can set them.
+    public var supportsAgentMemory: Bool { installation?.supports("agentMemory") == true }
+    public var memoryStatuses: [String:AgentMemoryStatus] = [:]
+    public var memoryPages: [String:AgentMemoryPage] = [:]
+    public private(set) var memoryBusy = false
+    public var memoryMessage: String?
+    public func refreshMemoryOverview() async {
+        guard supportsAgentMemory, let client, let overview = try? await client.memoryOverview() else { return }
+        memoryStatuses = Dictionary(overview.agents.map { ($0.agentId,$0) },uniquingKeysWith:{ _, last in last })
+    }
+    public func loadMemory(agentID: String, query: String = "") async {
+        guard supportsAgentMemory, let client else { return }
+        do {
+            let page = try await client.agentMemory(agentID:agentID,query:query)
+            memoryPages[agentID] = page; memoryStatuses[agentID] = page.status
+        } catch { memoryMessage = error.localizedDescription }
+    }
+    /// Switches one Agent to another memory system. The old system keeps its notes; carry copies them when both sides can.
+    public func switchMemory(agentID: String, to providerID: String, carry: Bool?) async {
+        guard let page = memoryPages[agentID], !memoryBusy, let client else { return }
+        memoryBusy = true; defer { memoryBusy = false }
+        do {
+            let receipt = try await client.selectMemory(agentID:agentID,expectedRevisionID:page.choice.revisionId,providerID:providerID,carry:carry)
+            memoryMessage = receipt.carryDetail ?? (receipt.carried > 0 ? "Brought \(AgentMemoryCopy.notes(receipt.carried)) along." : nil)
+        } catch { memoryMessage = error.localizedDescription }
+        await loadMemory(agentID:agentID)
+    }
+    public func rememberNote(agentID: String, text: String, kind: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.utf8.count <= 600, !memoryBusy, let client else { return false }
+        memoryBusy = true; defer { memoryBusy = false }
+        do { try await client.rememberNote(agentID:agentID,text:trimmed,kind:kind); memoryMessage = nil }
+        catch { memoryMessage = error.localizedDescription; return false }
+        await loadMemory(agentID:agentID)
+        return true
+    }
+    public func forgetNote(agentID: String, entryID: String) async {
+        guard !memoryBusy, let client else { return }
+        memoryBusy = true; defer { memoryBusy = false }
+        do { _ = try await client.forgetNotes(agentID:agentID,entryIDs:[entryID]); memoryMessage = nil }
+        catch { memoryMessage = error.localizedDescription }
+        await loadMemory(agentID:agentID)
+    }
     // Spec 067: "/image <description>" asks the recipient Agent for one image on the ChatGPT plan.
     public var supportsImages: Bool { installation?.supports("conversationImages") == true }
     public var imagePrompt: String? {

@@ -12,6 +12,7 @@ import { parseRunnerPool, runPins, type RunnerPool } from './runner-pool.ts';
 import { importLedger, inspectLedgerSnapshot } from '../service/import-ledger.ts';
 import { SignInError, googleSignIn, type GoogleSignInOptions } from './google-sign-in.ts';
 import { LOCAL_CONTEXT } from '../modules/local-context.ts';
+import { createNotesMemory } from '../modules/memory/notes.ts';
 import { CLOUD_RUNNER_ID, routeCloudFirst, type CloudLane } from './cloud-runner.ts';
 import { cloudCodexSignedIn, createCloudCodexExecutorProcess } from '../runner/cloud-codex-executor.ts';
 import { CODEX_RUNTIME } from '../runner/codex-descriptor.ts';
@@ -154,18 +155,20 @@ export async function startCloudHub(options: CloudHubOptions) {
     return own && pins ? routeCloudFirst({ cloud: own, macs: macLane(descriptor), pins }) : macLane(descriptor);
   };
   let app: ReturnType<typeof createApplication>;
+  // Spec 068: Agents' memory lives on the hub too, in Fort Notes' own file beside the ledger. It is every new Agent's default.
+  const notes = createNotesMemory({ directory: join(dataDirectory, 'memory') });
   try {
     // Agents keep their skills and memory on the hub: the context compiler reads only the ledger, never a Mac's files.
     app = createApplication({ dataDirectory, provider, context: LOCAL_CONTEXT, runtime: lane(provider), runtimes: (options.runtimes ?? []).map(descriptor => ({ provider: descriptor, runtime: lane(descriptor) })),
-      autoRun: true, ownerPairingPolicy: { expiresAfterDays: null } });
-  } catch (error) { ledger.close(); throw error; }
+      memory: { providers: [notes], defaultProviderId: notes.id }, autoRun: true, ownerPairingPolicy: { expiresAfterDays: null } });
+  } catch (error) { notes.close?.(); ledger.close(); throw error; }
   const watch = pool ? setInterval(() => {
     const state = queue();
     if (state.alert && !alerted && state.waitingSince) { alerted = true; options.onQueueAlert?.({ waiting: state.waiting, waitingSince: state.waitingSince, runners: pool.runners }); }
   }, Math.min(30_000, queueAlertMs)) : undefined;
   watch?.unref();
   try { await app.start({ listener: { kind: 'loopback' } }); }
-  catch (error) { clearInterval(watch); ledger.close(); await app.close().catch(() => {}); throw error; }
+  catch (error) { clearInterval(watch); ledger.close(); await app.close().catch(() => {}); notes.close?.(); throw error; }
   const core = new URL(app.baseURL);
 
   // The owner's credential, or (on a hub with the Google gate) the key of a browser added by Google sign-in.
@@ -383,7 +386,7 @@ export async function startCloudHub(options: CloudHubOptions) {
   server.headersTimeout = 10_000;
   server.requestTimeout = 0; // The runner channel and event replay are long-lived; pings keep them honest.
   try { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port, options.host ?? '0.0.0.0', () => { server.off('error', reject); resolve(); }); }); }
-  catch (error) { clearInterval(watch); runners.close(); await app.close().catch(() => {}); ledger.close(); throw error; }
+  catch (error) { clearInterval(watch); runners.close(); await app.close().catch(() => {}); ledger.close(); notes.close?.(); throw error; }
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Missing listener');
   let closing: Promise<void> | undefined;
@@ -396,7 +399,7 @@ export async function startCloudHub(options: CloudHubOptions) {
         runners.close();
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
-        try { await app.close(); } finally { ledger.close(); }
+        try { await app.close(); } finally { ledger.close(); notes.close?.(); }
       })();
       return closing;
     },

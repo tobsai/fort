@@ -98,7 +98,17 @@ struct PauseMenuView: View {
             VStack(alignment:.leading,spacing:12) {
                 ForEach(model.agents) { agent in
                     NavigationLink { AgentSettingsEditor(model:model,agent:agent) } label: {
-                        HStack { CrewRow(model:model,agent:agent,badge:44); Spacer(minLength:8); Image(systemName:"chevron.right").foregroundStyle(FortTheme.muted) }
+                        HStack {
+                            VStack(alignment:.leading,spacing:4) {
+                                CrewRow(model:model,agent:agent,badge:44)
+                                // Spec 068: the memory system each Agent uses, the same line as the web's Agents page.
+                                if model.supportsAgentMemory && !agent.isOnHub {
+                                    Text(AgentMemoryCopy.line(model.memoryStatuses[agent.agentId])).font(.caption.weight(.medium)).foregroundStyle(FortTheme.muted)
+                                        .padding(.leading,54).accessibilityIdentifier("crew-memory-\(agent.agentId)")
+                                }
+                            }
+                            Spacer(minLength:8); Image(systemName:"chevron.right").foregroundStyle(FortTheme.muted)
+                        }
                             .padding(12).frame(maxWidth:.infinity,alignment:.leading).comicPanel().contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("crew-\(agent.agentId)")
                 }
@@ -117,6 +127,7 @@ struct PauseMenuView: View {
                 }.buttonStyle(.plain).accessibilityIdentifier("crew-recruit")
             }.padding(18)
         }
+        .task { await model.refreshMemoryOverview() }
         .navigationTitle("Agents")
     }
 

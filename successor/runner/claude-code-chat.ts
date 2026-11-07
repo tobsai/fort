@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { memoryInstructions } from '../contracts/memory.ts';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, normalize } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
@@ -422,10 +423,10 @@ export class ClaudeCodeChat implements ChatRuntime {
     if (prepared.kind === 'prepared' && (prepared.configurationDigest !== executionDigest(configuration) || prepared.module.id !== configuration.contextModule?.id || prepared.module.version !== configuration.contextModule?.version)) return { kind: 'notStarted', message: 'Prepared context does not match the pinned configuration. Nothing was sent.' };
     const memory = prepared.kind === 'prepared' ? prepared.content.memory : undefined;
     const skills = prepared.kind === 'prepared' ? prepared.content : { instructions: '', bundles: [] };
-    const systemPrompt = configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '');
+    const systemPrompt = configuration.instructions + (skills.instructions ? '\n\n' + skills.instructions : '') + (input.agentMemory ? '\n\n' + memoryInstructions(input.agentMemory) : '');
     const text = JSON.stringify({ conversationId: input.conversationId, conversationMemory: memory,
       history: input.history.map(message => ({ role: message.role, text: message.text, agentId: message.agentId, agentName: message.agentName, recipientAgentId: message.recipientAgentId, recipientAgentName: message.recipientAgentName })),
-      currentMessage: { recipientAgentId: configuration.agentId, text: input.text }, selectedSkillBundles: skills.bundles });
+      currentMessage: { recipientAgentId: configuration.agentId, text: input.text }, selectedSkillBundles: skills.bundles, ...(input.agentMemory?.entries.length ? { agentMemory: input.agentMemory.entries } : {}) });
     if (input.history.length > 256 || input.history.some(message => message.conversationId !== input.conversationId) || !text.isWellFormed() || !systemPrompt.isWellFormed()
       || Buffer.byteLength(text) + Buffer.byteLength(systemPrompt) > MAX_TEXT) return { kind: 'failed', message: 'Conversation context exceeds this runtime’s limit or identity. Nothing was sent.' };
     if (signal.aborted) return { kind: 'notStarted', message: 'Canceled before runtime dispatch.' };

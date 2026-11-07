@@ -8,6 +8,7 @@ import type { Week, Acceptance, Receipt, RuntimeDescriptor, Agent, Conversation,
 import type { ChatInput, ChatRuntime } from '../runner/chat-runtime.ts';
 import { EXECUTION_LIMITS, TEXT_POLICY, executionDigest, immutable, sealDispatch } from '../contracts/executor.ts';
 import { parseContextModuleRef, type ContextCompiler, type ContextModuleStatus, type PreparedContext } from '../contracts/context.ts';
+import { MEMORY_LIMITS, NO_MEMORY, memoryText as memoryNote, parseMemoryProviderInfo, readMemoryDirectives, type AgentMemoryContext, type AgentMemoryStatus, type MemoryChoice, type MemoryProvider, type MemoryProviderInfo } from '../contracts/memory.ts';
 import { parseSchedule, calendarBetween, previewCalendar } from './schedule.ts';
 import { InvalidWeek, WeekConflict, addPlanItem, closeWeek, decodeWeek, foundWeek, placeBuild, viewWeek } from './week.ts';
 import { InvalidRoutine, parseRoutineDefinition, parseRoutineInputs, parseRoutineExecution, startRoutine, stopRoutine, taskInput, routineDigest, outputDigest } from './routine.ts';
@@ -31,7 +32,7 @@ type OwnerSetup = { version: 1; setupId: string; expires: number } & (
   | { state: 'completed' | 'canceling'; deviceId: string }
   | { state: 'canceled'; deviceId: string; outcome: 'notPaired' | 'revoked' }
 );
-type Entity = 'portraits' | 'images' | 'imageDraws' | 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
+type Entity = 'memoryChoices' | 'portraits' | 'images' | 'imageDraws' | 'weeks' | 'conversationMemory' | 'requestCancellations' | 'schedules' | 'scheduleRevisions' | 'scheduleOccurrences' | 'agentBindings' | 'disabledBindings' | 'routineApprovals' | 'routines' | 'routineRevisions' | 'agents' | 'skillRevisions' | 'skills' | 'conversations' | 'messages' | 'runs' | 'requests' | 'contexts' | 'reads';
 class APIError extends Error {
   readonly status: number; readonly code: string;
   constructor(status: number, code: string, message: string) { super(message); this.status = status; this.code = code; }
@@ -78,6 +79,11 @@ function decodeAgent(value: unknown): Agent {
   if (typeof b.provider !== 'string' || typeof b.enabled !== 'boolean' || v.readiness !== 'requiresLiveReview') throw new Error('Invalid stored Agent');
   return { ...avatar(v.avatar),...decodePortrait(v.portrait),...decodePortraitDraw(v.portraitDraw),agentId: id(v.agentId), name: text(v.name, 'name'), homeConversationId: id(v.homeConversationId), instructions: text(v.instructions, 'instructions'), readiness: v.readiness,
     binding: { bindingRevisionId: id(b.bindingRevisionId), provider: b.provider, runtimeVersion: text(b.runtimeVersion, 'runtime'), selectedModel: text(b.selectedModel, 'model'), hostId: id(b.hostId), enabled: b.enabled } };
+}
+function decodeMemoryChoice(value: unknown): MemoryChoice {
+  const v = record(value);
+  if (typeof v.providerId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v.providerId) || typeof v.changedAt !== 'string') throw new Error('Invalid stored memory choice');
+  return { agentId: id(v.agentId), providerId: v.providerId, revisionId: id(v.revisionId), changedAt: v.changedAt };
 }
 function decodeSkill(value: unknown): InstructionSkill {
   const v = record(value);
@@ -159,7 +165,9 @@ export type SubmissionAdmission = { text:string; conversation:Conversation; conf
 // A Mac's handoff of its Agents to its hub (Spec 063, revision 2026-10-31). Once recorded, the moved Agents are read-only
 // here: no new turns, no edits, and their schedules are paused, because the hub now runs them.
 export type { HubHandoff, HubLedger };
-export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean;
+export function createApplication(options: { dataDirectory: string; provider: RuntimeDescriptor; runtime?: ChatRuntime; runtimes?: readonly { provider: RuntimeDescriptor; runtime?: ChatRuntime }[]; context?: ContextCompiler | null;
+  // Spec 068: the memory modules this host offers Agents, and the one a new Agent starts with. No modules: every Agent has no memory.
+  memory?: { providers: readonly MemoryProvider[]; defaultProviderId?: string }; autoRun?: boolean; attemptTimeoutMs?: number; credentialDeadline?: number; ownerPairingPolicy?: OwnerPairingPolicy; now?: () => number; ownerAccessChanged?: () => void; admitSubmission?: (submission:SubmissionAdmission,priorRuns:readonly Run[]) => boolean;
   // The Mac's connection to a cloud hub (Spec 063), managed by the owner from the Mac app.
   hubRunner?: { status(): unknown; enroll(invitation: string): Promise<unknown>; remove(): Promise<unknown>; attach?(ledger: HubLedger): void; client?(): unknown } }) {
   const ownerAccessChanged=options.ownerAccessChanged;
@@ -187,6 +195,16 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   if (context && (context.protocolVersion !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(context.id) || !context.version || context.version.length > 128 || typeof context.compile !== 'function')) throw new Error('Select a versioned context compiler');
   const contextRef = context ? immutable(parseContextModuleRef(context)) : undefined;
   let contextFailed = false;
+  // Spec 068: memory modules, by id. The composition owns them (opens and closes them); the service only calls them.
+  const memoryModules = new Map<string, { info: MemoryProviderInfo; module: MemoryProvider }>();
+  for (const module of options.memory?.providers ?? []) {
+    if (module.protocolVersion !== 1 || ['recall', 'remember', 'forget', 'list'].some(key => typeof (module as Record<string, unknown>)[key] !== 'function')) throw new Error('Select a versioned memory module');
+    const info = immutable(parseMemoryProviderInfo(module));
+    if (memoryModules.has(info.id)) throw new Error('Use distinct memory modules');
+    memoryModules.set(info.id, { info, module });
+  }
+  const defaultMemoryId = options.memory?.defaultProviderId ?? [...memoryModules.keys()][0] ?? NO_MEMORY.id;
+  if (defaultMemoryId !== NO_MEMORY.id && !memoryModules.has(defaultMemoryId)) throw new Error('The default memory module is not offered');
   const contextStatus = (): ContextModuleStatus => contextRef ? { state: contextFailed ? 'failed' : 'ready', module: contextRef } : { state: context === null ? 'disabled' : 'missing' };
   const now=options.now ?? Date.now;
   const expiryDays = (value:unknown):number|null => {
@@ -298,7 +316,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     installation = { contractVersion: '1.0', mode: 'local', serviceName: 'Fort', installationId: randomUUID(), recoveryEpoch: randomUUID() };
     db.prepare('INSERT INTO metadata VALUES (?,?)').run('installation', JSON.stringify(installation));
   }
-  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(lanes.some(lane=>lane.runtime?.portrait)?['agentPortraits','conversationImages']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
+  installation = {...installation,runtime:provider,runtimes:lanes.map(lane=>lane.provider),capabilities:[...(ownerPairingPolicy?['ownerPairing','companionPairing']:[]),...(ownerPairingPolicy&&lanes.some(lane=>lane.runtime?.signIn)?['accountSignIn']:[]),...(lanes.length>1?['multipleRuntimes']:[]),...(lanes.some(lane=>lane.runtime?.portrait)?['agentPortraits','conversationImages']:[]),...(options.runtime?.readiness&&options.runtime.restart?['runtimeRecovery']:[]),'eventReplay','schedulerStatus','agentSettings','modelCatalog','conversationMemory','agentMemory','requestCancellation','skillBundles','routines','routineGates','schedules','weeks']};
   const put = (kind: Entity, entityId: string, data: unknown) => {
     const result = db.prepare('INSERT INTO entities VALUES (?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data').run(kind, entityId, JSON.stringify(data));
     if (kind === 'runs') {
@@ -392,6 +410,28 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
   const conversationMemory=(conversationId:string):ConversationMemory|undefined=>{
     const row=db.prepare("SELECT data FROM entities WHERE kind='conversationMemory' AND id=?").get(conversationId);return row?decodeMemory(json(row)):undefined;
   };
+  // Spec 068: each Agent's memory system. An Agent with no saved choice uses this host's default; the default is saved
+  // for every Agent at start and at creation, so removing a module later shows as missing instead of quietly turning memory off.
+  const memoryChoice = (agentId: string): MemoryChoice => {
+    const row = db.prepare("SELECT data FROM entities WHERE kind='memoryChoices' AND id=?").get(agentId);
+    return row ? decodeMemoryChoice(json(row)) : { agentId, providerId: defaultMemoryId, revisionId: 'default', changedAt: '' };
+  };
+  const saveMemoryChoice = (agentId: string, providerId: string): MemoryChoice => {
+    const choice: MemoryChoice = { agentId, providerId, revisionId: randomUUID(), changedAt: new Date(now()).toISOString() };
+    put('memoryChoices', agentId, choice); append('_workspace', 'agentMemoryChanged', agentId); return choice;
+  };
+  transaction(() => { if (defaultMemoryId !== NO_MEMORY.id) for (const agent of list('agents', decodeAgent)) if (!db.prepare("SELECT 1 FROM entities WHERE kind='memoryChoices' AND id=?").get(agent.agentId)) saveMemoryChoice(agent.agentId, defaultMemoryId); });
+  const memoryInfo = (providerId: string): MemoryProviderInfo | null => providerId === NO_MEMORY.id ? NO_MEMORY : memoryModules.get(providerId)?.info ?? null;
+  const MEMORY_MISSING = (providerId: string) => `This Agent\u2019s memory system (${providerId}) isn\u2019t installed on this host. Pick another memory system in the Agent\u2019s settings, then send again. Nothing was sent.`;
+  const memoryStatus = async (agent: Agent): Promise<AgentMemoryStatus> => {
+    const choice = memoryChoice(agent.agentId), info = memoryInfo(choice.providerId);
+    if (choice.providerId === NO_MEMORY.id) return { agentId: agent.agentId, agentName: agent.name, choice, provider: NO_MEMORY, state: 'off', detail: NO_MEMORY.summary, total: 0 };
+    if (!info) return { agentId: agent.agentId, agentName: agent.name, choice, provider: null, state: 'missing', detail: MEMORY_MISSING(choice.providerId).replace(' Nothing was sent.', '').replace(', then send again', ''), total: 0 };
+    let total = 0;
+    try { total = (await memoryModules.get(info.id)!.module.list({ agentId: agent.agentId, limit: 1 })).total; } catch { return { agentId: agent.agentId, agentName: agent.name, choice, provider: info, state: 'missing', detail: `${info.name} didn\u2019t answer. Its notes are untouched.`, total: 0 }; }
+    return { agentId: agent.agentId, agentName: agent.name, choice, provider: info, state: 'ready', detail: info.summary, total };
+  };
+  const memoryProviders = (): MemoryProviderInfo[] => [NO_MEMORY, ...[...memoryModules.values()].map(entry => entry.info)];
   const snapshot = (conversationId: string, before: number | null = null): Snapshot => {
     load('conversations', conversationId, decodeConversation);
     const read = db.prepare("SELECT data FROM entities WHERE kind='reads' AND id=?").get(conversationId);
@@ -683,6 +723,37 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         return true;
       }
     }
+    // Spec 068: recall from the Agent's memory system before the turn. Its choice is read now, so a switch applies to queued work.
+    let agentMemory: AgentMemoryContext | undefined, memoryModule: MemoryProvider | undefined;
+    const memoryAgentId = queued.configuration?.agentId, choice = memoryAgentId ? memoryChoice(memoryAgentId) : undefined;
+    if (memoryAgentId && choice && choice.providerId !== NO_MEMORY.id && lane.provider.capabilities.includes('memory')) {
+      const entry = memoryModules.get(choice.providerId);
+      let failure: string | undefined;
+      if (!entry) failure = MEMORY_MISSING(choice.providerId);
+      else {
+        memoryModule = entry.module;
+        const caps = entry.info.capabilities;
+        try {
+          const queryRow = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(queued.requestId);
+          const query = queued.routine && stepIndex >= 0 ? taskInput(queued.routine, queued.routine.steps[stepIndex]!.stepId) : queryRow ? decodeMessage(json(queryRow)).text : '';
+          const recalled = caps.includes('recall') ? await entry.module.recall({ agentId: memoryAgentId, query, limit: MEMORY_LIMITS.recallEntries, budgetBytes: MEMORY_LIMITS.recallBytes }) : [];
+          let bytes = 0;
+          const entries = recalled.filter(item => item.agentId === memoryAgentId).flatMap(item => {
+            const text = memoryNote(item.text);
+            if (!text || !/^[A-Za-z0-9_-]{1,128}$/.test(item.entryId) || (bytes += Buffer.byteLength(text)) > MEMORY_LIMITS.recallBytes) return [];
+            return [{ entryId: item.entryId, kind: item.kind === 'event' ? 'event' as const : 'fact' as const, text, createdAt: String(item.createdAt).slice(0, 64) }];
+          }).slice(0, MEMORY_LIMITS.recallEntries);
+          agentMemory = immutable({ provider: { id: entry.info.id, version: entry.info.version, name: entry.info.name }, canRemember: caps.includes('remember'), canForget: caps.includes('forget') && entries.length > 0, entries });
+        } catch { failure = `${entry.info.name} couldn\u2019t recall this Agent\u2019s memory. Nothing was sent. Try again, or pick another memory system in the Agent\u2019s settings.`; }
+      }
+      // Recall awaited the module: if the owner canceled or changed this work meanwhile, start over from the ledger.
+      if (JSON.stringify(load('runs', queued.runId, decodeRun)) !== JSON.stringify(queued)) return true;
+      if (failure) {
+        const detail = failure;
+        transaction(() => { put('runs', queued.runId, { ...queued, state: 'failed', statusDetail: detail, ...(queued.routine ? { routine: stopRoutine(queued.routine, 'failed', detail) } : {}) }); append(queued.conversationId, 'runStopped', queued.runId); });
+        return true;
+      }
+    }
     const { input, dispatch } = transaction(() => {
       const inputRow = db.prepare("SELECT data FROM entities WHERE kind='messages' AND json_extract(data,'$.requestId')=? AND json_extract(data,'$.role')='user'").get(queued.requestId);
       const current = inputRow ? decodeMessage(json(inputRow)) : undefined;
@@ -696,7 +767,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       const repliesByRequest = new Map<string,Message[]>();
       for (const reply of replies) { const group=repliesByRequest.get(reply.requestId) ?? []; group.push(reply); repliesByRequest.set(reply.requestId,group); }
       const history = users.flatMap(message=>[message,...(repliesByRequest.get(message.requestId) ?? [])]);
-      const next: ChatInput = { context: preparedContext, attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history };
+      const next: ChatInput = { context: preparedContext, attempt: { runId: queued.runId, attemptId, generation: attemptGeneration, bindingRevisionId: queued.bindingRevisionId, runtimeVersion: binding.runtimeVersion, selectedModel: queued.selectedModel }, runId: queued.runId, requestId: queued.requestId, conversationId: queued.conversationId, configuration: queued.configuration, text: routine?taskInput(routine,routine.steps[stepIndex]!.stepId):current.text, history, ...(agentMemory ? { agentMemory } : {}) };
       const dispatch = sealDispatch({ protocolVersion: 1, installationId: installation.installationId, recoveryEpoch: installation.recoveryEpoch,
         binding, attempt: next.attempt, inputDigest: executionDigest(next), configurationDigest: executionDigest(next.configuration),
         historyDigest: executionDigest(history), policy: TEXT_POLICY, policyDigest: executionDigest(TEXT_POLICY),
@@ -710,6 +781,7 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
       return { input: immutable(next), dispatch };
     });
     active = new AbortController(); activeRunId=queued.runId;
+    let memoryWork: { module: MemoryProvider; agentId: string; conversationId: string; writes: { kind: 'fact' | 'event'; text: string; source: { conversationId: string; messageId: string } }[]; forgets: string[] } | undefined;
     try {
       const result = Buffer.byteLength(JSON.stringify(input)) > EXECUTION_LIMITS.inputBytes
         ? { kind: 'notStarted' as const, message: 'Conversation context exceeds the execution limit. Nothing was sent.' }
@@ -719,7 +791,12 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
         if (run.attemptId !== dispatch.attempt.attemptId || run.attemptGeneration !== dispatch.attempt.generation || (run.state !== 'running' && run.state !== 'cancelRequested')) return;
         if (result.kind === 'completed') {
           const messageId = randomUUID(), sequence = append(run.conversationId, 'messageCompleted', messageId);
-          const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
+          // Spec 068: the Agent's memory tags come out of the reply; what they ask is done once the reply is saved.
+          const directives = agentMemory && (agentMemory.canRemember || agentMemory.canForget) ? readMemoryDirectives(result.text) : undefined;
+          if (directives && memoryModule) memoryWork = { module: memoryModule, agentId: input.configuration.agentId, conversationId: run.conversationId,
+            writes: agentMemory!.canRemember ? directives.writes.map(write => ({ ...write, source: { conversationId: run.conversationId, messageId } })) : [],
+            forgets: agentMemory!.canForget ? directives.forgets.filter(entryId => agentMemory!.entries.some(item => item.entryId === entryId)) : [] };
+          const reply: Message = { messageId, conversationId: run.conversationId, requestId: run.requestId, role: 'assistant', text: messageText(directives ? directives.text : result.text), sequence, createdAt: new Date().toISOString(), agentId: input.configuration.agentId, agentName: input.configuration.agentName };
           const routine=run.routine?{...run.routine,steps:run.routine.steps.map(step=>step.state==='running'?{stepId:step.stepId,stepRevisionId:step.stepRevisionId,state:'completed' as const,attemptId:step.attemptId,output:{messageId,text:reply.text,digest:outputDigest(reply.text)}}:step)}:undefined;
           const remaining=routine?.steps.some(step=>step.state==='pending')??false;
           const canceled=remaining&&run.state==='cancelRequested';
@@ -732,6 +809,15 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
     } catch {
       transaction(() => { const run = load('runs', queued.runId, decodeRun); if (run.attemptId !== dispatch.attempt.attemptId || run.attemptGeneration !== dispatch.attempt.generation || (run.state !== 'running' && run.state !== 'cancelRequested')) return; put('runs', run.runId, { ...run, state: 'outcomeUnknown', statusDetail: 'The runtime ended without a confirmed result.',...(run.routine?{routine:stopRoutine(run.routine,'outcomeUnknown','The runtime ended without a confirmed result.')}: {}) }); append(run.conversationId, 'runStopped', run.runId); });
     } finally { active = undefined; activeRunId=undefined; }
+    // The reply is saved before memory changes, so a slow or failing module never loses or holds up the answer.
+    if (memoryWork && (memoryWork.writes.length || memoryWork.forgets.length)) {
+      const work = memoryWork;
+      try {
+        if (work.forgets.length) await work.module.forget({ agentId: work.agentId, entryIds: work.forgets });
+        if (work.writes.length) await work.module.remember({ agentId: work.agentId, writes: work.writes });
+      } catch { /* The reply stands; the Agent's memory is unchanged where the module failed. */ }
+      if (!closed) transaction(() => { append('_workspace', 'agentMemoryChanged', work.agentId); });
+    }
     return true;
   };
   const dispatchNext = (): Promise<boolean> => {
@@ -1304,6 +1390,59 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             result = started.agent; status = 202;
           }
         }
+        // Spec 068: agent memory. Which memory system each Agent uses, what it holds, and switching it.
+        else if (request.method === 'GET' && url.pathname === '/v1/memory') {
+          const agents = list('agents', decodeAgent);
+          result = { providers: memoryProviders(), defaultProviderId: defaultMemoryId, agents: await Promise.all(agents.map(memoryStatus)) };
+        }
+        else if (request.method === 'GET' && /^\/v1\/agents\/[^/]+\/memory$/.test(url.pathname)) {
+          const agent = load('agents', id(url.pathname.split('/')[3]), decodeAgent), status = await memoryStatus(agent);
+          const query = url.searchParams.get('query') ?? undefined;
+          if (query !== undefined && (!query.isWellFormed() || query.length > 256)) fail(400, 'invalidQuery', 'Search with up to 256 characters.');
+          let entries: unknown[] = [];
+          if (status.state === 'ready') try { entries = (await memoryModules.get(status.choice.providerId)!.module.list({ agentId: agent.agentId, limit: MEMORY_LIMITS.listEntries, query })).entries; } catch { fail(503, 'memoryUnavailable', `${status.provider?.name ?? 'This memory system'} didn\u2019t answer. Its notes are untouched.`); }
+          result = { ...status, providers: memoryProviders(), entries };
+        }
+        else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+\/memory\/(select|remember|forget)$/.test(url.pathname)) {
+          const body = await readBody(request), [, , , rawAgentId, , action] = url.pathname.split('/'), agentId = id(rawAgentId);
+          if (action === 'select') {
+            const allowed = ['expectedRevisionId', 'providerId', 'carry'];
+            if (Object.keys(body).some(key => !allowed.includes(key)) || typeof body.providerId !== 'string' || (body.carry !== undefined && typeof body.carry !== 'boolean')) fail(400, 'invalidMemory', 'Name a memory system, and whether to bring the notes along.');
+            // A switch keeps the old system's notes where they are: switching back finds them again.
+            const switched = owner(request, () => {
+              refuseMoved(agentId); load('agents', agentId, decodeAgent);
+              const current = memoryChoice(agentId);
+              if (body.expectedRevisionId !== current.revisionId) fail(409, 'memoryChanged', 'This Agent\u2019s memory changed. Reload before switching.');
+              if (!memoryInfo(body.providerId as string)) fail(400, 'memoryUnavailable', 'That memory system is not installed on this host.');
+              return { from: current.providerId, choice: current.providerId === body.providerId ? current : saveMemoryChoice(agentId, body.providerId as string) };
+            });
+            let carried = 0, carryDetail: string | undefined;
+            const from = memoryModules.get(switched.from), to = memoryModules.get(switched.choice.providerId);
+            if (body.carry === true && switched.from !== switched.choice.providerId) {
+              if (!from?.module.export || !to?.module.import || !from.info.capabilities.includes('export') || !to.info.capabilities.includes('import')) carryDetail = 'These two memory systems can\u2019t copy notes between them. The old notes stay where they were.';
+              else try { carried = await to.module.import({ agentId, entries: (await from.module.export({ agentId })).filter(entry => entry.agentId === agentId) }); }
+              catch { carryDetail = 'Copying the notes failed. The switch stands, and the old notes stay where they were.'; }
+              if (carried) transaction(() => { append('_workspace', 'agentMemoryChanged', agentId); });
+            }
+            result = { ...(await memoryStatus(load('agents', agentId, decodeAgent))), carried, ...(carryDetail ? { carryDetail } : {}) };
+          } else {
+            const choice = owner(request, () => { refuseMoved(agentId); load('agents', agentId, decodeAgent); return memoryChoice(agentId); });
+            const entry = memoryModules.get(choice.providerId);
+            if (!entry) fail(409, 'memoryUnavailable', choice.providerId === NO_MEMORY.id ? 'This Agent has no memory. Pick a memory system first.' : MEMORY_MISSING(choice.providerId).replace(', then send again. Nothing was sent.', '.'));
+            if (action === 'remember') {
+              const text = memoryNote(body.text);
+              if (!text || (body.kind !== undefined && body.kind !== 'fact' && body.kind !== 'event') || Object.keys(body).some(key => !['text', 'kind'].includes(key))) fail(400, 'invalidMemory', `Write one note of up to ${MEMORY_LIMITS.entryBytes} bytes.`);
+              if (!entry.info.capabilities.includes('remember')) fail(409, 'memoryUnsupported', `${entry.info.name} doesn\u2019t take new notes.`);
+              const [saved] = await entry.module.remember({ agentId, writes: [{ kind: body.kind === 'event' ? 'event' : 'fact', text }] });
+              result = { entry: saved ?? null }; status = saved ? 201 : 200;
+            } else {
+              if (!Array.isArray(body.entryIds) || !body.entryIds.length || body.entryIds.length > 100 || Object.keys(body).some(key => key !== 'entryIds')) fail(400, 'invalidMemory', 'Name up to 100 notes to forget.');
+              if (!entry.info.capabilities.includes('forget')) fail(409, 'memoryUnsupported', `${entry.info.name} can\u2019t forget single notes.`);
+              result = { forgotten: await entry.module.forget({ agentId, entryIds: body.entryIds.map(id) }) };
+            }
+            transaction(() => { append('_workspace', 'agentMemoryChanged', agentId); });
+          }
+        }
         else if (request.method === 'POST' && /^\/v1\/agents\/[^/]+$/.test(url.pathname)) {
           const body = await readBody(request), agentId = id(url.pathname.split('/')[3]);
           result = owner(request, () => {
@@ -1325,7 +1464,10 @@ export function createApplication(options: { dataDirectory: string; provider: Ru
             if (!chosen) fail(400, 'runtimeUnavailable', 'That provider is not available on this host.');
             const agent: Agent = { ...avatar(body.avatar),agentId: randomUUID(), name: text(body.name, 'name', 128), instructions: text(body.instructions, 'instructions'), homeConversationId: randomUUID(), readiness: 'requiresLiveReview',
               binding: { bindingRevisionId: randomUUID(), provider: chosen.provider, runtimeVersion: chosen.runtimeVersion, selectedModel: text(body.model, 'exact model', 128), hostId: chosen.hostId, enabled: true } };
+            // Spec 068: a new Agent starts with the memory system named here, or this host's default.
+            const memoryId = body.memoryProviderId === undefined ? defaultMemoryId : typeof body.memoryProviderId === 'string' && memoryInfo(body.memoryProviderId) ? body.memoryProviderId : fail(400, 'memoryUnavailable', 'That memory system is not installed on this host.');
             put('agents', agent.agentId, agent);put('agentBindings',agent.binding.bindingRevisionId,agent);
+            if (memoryId !== NO_MEMORY.id || body.memoryProviderId !== undefined) saveMemoryChoice(agent.agentId, memoryId);
             const home: Conversation = { conversationId: agent.homeConversationId, name: agent.name, kind: 'home', participantAgentIds: [agent.agentId] };
             put('conversations', home.conversationId, home); return agent;
           }); status = 201;

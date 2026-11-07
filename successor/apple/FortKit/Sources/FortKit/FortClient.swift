@@ -119,6 +119,29 @@ public struct FortClient: Sendable {
         guard agent.agentId == agentID, agent.portrait == nil else { throw ClientError.invalidResponse }
         return agent
     }
+    // Spec 068: agent memory on this host.
+    public func memoryOverview() async throws -> MemoryOverview { try await get("v1/memory") }
+    public func agentMemory(agentID: String, query: String? = nil) async throws -> AgentMemoryPage {
+        let items = query.flatMap { $0.isEmpty ? nil : [URLQueryItem(name:"query",value:$0)] }
+        let page: AgentMemoryPage = try await request(path:"v1/agents/\(try segment(agentID))/memory",query:items,method:.get,data:nil)
+        guard page.agentId == agentID else { throw ClientError.invalidResponse }
+        return page
+    }
+    public func selectMemory(agentID: String, expectedRevisionID: String, providerID: String, carry: Bool?) async throws -> MemorySwitchReceipt {
+        struct Body: Encodable { let expectedRevisionId: String; let providerId: String; let carry: Bool? }
+        let receipt: MemorySwitchReceipt = try await send("v1/agents/\(try segment(agentID))/memory/select",method:.post,body:Body(expectedRevisionId:expectedRevisionID,providerId:providerID,carry:carry))
+        guard receipt.choice.agentId == agentID, receipt.choice.providerId == providerID else { throw ClientError.invalidResponse }
+        return receipt
+    }
+    public func rememberNote(agentID: String, text: String, kind: String) async throws {
+        struct Reply: Decodable { let entry: MemoryNote? }
+        let _: Reply = try await send("v1/agents/\(try segment(agentID))/memory/remember",method:.post,body:["text":text,"kind":kind])
+    }
+    public func forgetNotes(agentID: String, entryIDs: [String]) async throws -> Int {
+        struct Reply: Decodable { let forgotten: Int }
+        let reply: Reply = try await send("v1/agents/\(try segment(agentID))/memory/forget",method:.post,body:["entryIds":try entryIDs.map { try segment($0) }])
+        return reply.forgotten
+    }
     public func saveSkill(_ skill: InstructionSkill?, name: String, instructions: String) async throws -> InstructionSkill {
         struct Body: Encodable { let name: String; let instructions: String; let expectedRevisionId: String? }
         return try await send(skill.map { "v1/skills/\($0.skillId)" } ?? "v1/skills", method:.post, body:Body(name:name, instructions:instructions, expectedRevisionId:skill?.revisionId))

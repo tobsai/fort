@@ -124,6 +124,8 @@ struct AgentSettingsEditor: View {
             } header: { Text(AgentSheet.instructionsTitle(name:form.name)) } footer: {
                 Text("Role, tone and preferences, in Markdown. Applies to future messages; permissions and earlier turns stay unchanged.")
             }
+            // Spec 068: which memory system this agent uses, opening its notes.
+            if let liveAgent, model.supportsAgentMemory, !liveAgent.isOnHub { AgentMemoryRow(model:model,agent:liveAgent) }
             Section {
                 WorkshopDrawer(isExpanded:$showWorkshop,identifier:"agent-workshop") {
                     Text(model.isInteractiveFixture ? "Simulated catalog · no provider account" : "Runtime: " + model.focusedRuntimeName).font(.caption)
