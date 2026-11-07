@@ -110,6 +110,43 @@ test('guardian preserves the exact child exit status and rejects an unavailable 
   }
 });
 
+test('guardian removes its remaining group when the runtime exits first, keeping the exact status', { skip: process.platform !== 'darwin', timeout: 10_000 }, async t => {
+  const directory = mkdtempSync('/tmp/fort059-guardian-leftover-'), record = join(directory, 'descendant.json');
+  const script = `const {spawn}=require('node:child_process'),{writeFileSync}=require('node:fs');
+const d=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});
+writeFileSync(${JSON.stringify(record)},JSON.stringify(d.pid));setTimeout(()=>process.exit(7),200);`;
+  const child = spawn(guardian, [String(process.pid), process.execPath, '-e', script], { detached: true, env: {}, stdio: 'ignore' });
+  let descendant = 0;
+  t.after(() => {
+    if (descendant && !absent(descendant)) { try { process.kill(descendant, 'SIGKILL'); } catch {} }
+    rmSync(directory, { recursive: true, force: true });
+  });
+  const status = await new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
+  assert.equal(status, 7);
+  descendant = readPid(record);
+  assert.ok(await until(() => absent(descendant), 2000), 'A descendant outlived its guardian after the runtime exited');
+});
+
+test('a group SIGTERM leaves the guardian to clear a descendant that ignores it', { skip: process.platform !== 'darwin', timeout: 10_000 }, async t => {
+  const directory = mkdtempSync('/tmp/fort059-guardian-term-'), record = join(directory, 'descendant.json');
+  const script = `const {spawn}=require('node:child_process'),{writeFileSync}=require('node:fs');
+const d=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});
+writeFileSync(${JSON.stringify(record)},JSON.stringify(d.pid));setInterval(()=>{},1000);`;
+  const child = spawn(guardian, [String(process.pid), process.execPath, '-e', script], { detached: true, env: {}, stdio: 'ignore' });
+  let descendant = 0;
+  t.after(() => {
+    if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
+    if (descendant && !absent(descendant)) { try { process.kill(descendant, 'SIGKILL'); } catch {} }
+    rmSync(directory, { recursive: true, force: true });
+  });
+  assert.ok(await until(() => existsSync(record), 5000));
+  descendant = readPid(record);
+  const exited = new Promise<number | null>(resolve => child.once('exit', code => resolve(code)));
+  process.kill(-child.pid!, 'SIGTERM');
+  assert.equal(await exited, 128 + 15);
+  assert.ok(await until(() => absent(descendant), 2000), 'A SIGTERM-ignoring descendant outlived its guardian');
+});
+
 // Spec 059 measures warm budgets as a p95 after warmups. Three warmup pairs are discarded, then the p95 of 20 pairs
 // (the 19th smallest added time) must fit, so one slow launch on a shared CI runner is not read as the p95.
 const WARMUP_PAIRS = 3, MEASURED_PAIRS = 20;
